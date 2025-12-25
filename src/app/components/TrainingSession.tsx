@@ -73,7 +73,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
       <div className="min-h-screen flex flex-col bg-background">
         {/* Header */}
         <div className="bg-card border-b border-border">
-          <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="max-w-4xl mx-auto px-4 py-4 pt-22 md:pt-0">
             <div className="flex items-center justify-between">
               <h2>Выберите режим тренировки</h2>
               <Button variant="ghost" size="sm" onClick={onExit}>
