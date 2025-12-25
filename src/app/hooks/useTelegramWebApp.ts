@@ -144,7 +144,7 @@ export function showTelegramPopup(params: {
   title?: string;
   message: string;
   buttons?: Array<{ id?: string; type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'; text: string }>;
-}, callback?: (buttonId: string) => void) {
+}, callback?: (buttonId?: string) => void) {
   if (WebApp && WebApp.showPopup) {
     WebApp.showPopup(params as any, callback);
   } else {
