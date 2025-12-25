@@ -5,7 +5,10 @@ import { Plus, Play, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import { Badge } from './ui/badge';
 import { Verse } from '../data/mockData';
+import { useTelegram } from '../contexts/TelegramContext';
 
 interface DashboardProps {
   todayVerses: Verse[];
@@ -15,6 +18,8 @@ interface DashboardProps {
 }
 
 export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll }: DashboardProps) {
+  const { user, isReady, platform } = useTelegram();
+
   const formatDate = (date: Date) => {
     const now = new Date();
     const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -27,12 +32,42 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      {/* Welcome Section */}
+      {/* Welcome Section with Telegram User */}
       <div className="mb-8">
-        <h1 className="mb-2">С возвращением!</h1>
+        {user ? (
+          <div className="flex items-center gap-4 mb-4">
+            <Avatar className="h-16 w-16">
+              {user.photoUrl ? (
+                <AvatarImage src={user.photoUrl} alt={user.firstName} />
+              ) : (
+                <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                  {user.firstName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div>
+              <h1 className="mb-1">С возвращением, {user.firstName}! 👋</h1>
+              {user.username && (
+                <p className="text-sm text-muted-foreground">@{user.username}</p>
+              )}
+              {user.isPremium && (
+                <Badge variant="secondary" className="mt-1">
+                  ⭐ Premium
+                </Badge>
+              )}
+            </div>
+          </div>
+        ) : (
+          <h1 className="mb-2">С возвращением! 👋</h1>
+        )}
         <p className="text-muted-foreground">
           У вас {todayVerses.length} {todayVerses.length === 1 ? 'стих' : todayVerses.length < 5 ? 'стиха' : 'стихов'} для повторения сегодня.
         </p>
+        {platform && platform !== 'unknown' && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Платформа: {platform}
+          </p>
+        )}
       </div>
 
       {/* Action Buttons */}

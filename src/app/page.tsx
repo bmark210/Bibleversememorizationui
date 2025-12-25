@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import App from './App'
+import { TelegramProvider } from './contexts/TelegramContext'
 
 export default function Page() {
   const [mounted, setMounted] = useState(false)
@@ -14,7 +15,11 @@ export default function Page() {
   // выводим одно и то же (пустой контейнер), а приложение монтируем только после useEffect.
   if (!mounted) return <div className="min-h-screen" />
 
-  return <App />
+  return (
+    <TelegramProvider>
+      <App />
+    </TelegramProvider>
+  )
 }
 
 
