@@ -17,19 +17,19 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
     const now = new Date();
     const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays > 1) return `In ${diffDays} days`;
-    return 'Overdue';
+    if (diffDays === 0) return 'Сегодня';
+    if (diffDays === 1) return 'Завтра';
+    if (diffDays > 1) return `Через ${diffDays} дней`;
+    return 'Просрочено';
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       {/* Welcome Section */}
       <div className="mb-8">
-        <h1 className="mb-2">Welcome back!</h1>
+        <h1 className="mb-2">С возвращением!</h1>
         <p className="text-muted-foreground">
-          You have {todayVerses.length} verse{todayVerses.length !== 1 ? 's' : ''} to review today.
+          У вас {todayVerses.length} {todayVerses.length === 1 ? 'стих' : todayVerses.length < 5 ? 'стиха' : 'стихов'} для повторения сегодня.
         </p>
       </div>
 
@@ -42,7 +42,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           className="flex-1 py-3 sm:flex-initial"
         >
           <Play className="w-4 h-4 mr-2" />
-          Start Training
+          Начать тренировку
         </Button>
         <Button
           onClick={onAddVerse}
@@ -50,20 +50,20 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           size="lg"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Add Verse
+          Добавить стих
         </Button>
       </div>
 
       {/* Today's Verses Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2>Today's Verses</h2>
+          <h2>Стихи на сегодня</h2>
           <Button
             variant="ghost"
             onClick={onViewAll}
             className="text-primary hover:text-primary"
           >
-            View All
+            Показать все
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -71,7 +71,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
         {todayVerses.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              No verses scheduled for today. Great job staying on track!
+              На сегодня стихов не запланировано. Отлично, что вы в графике!
             </p>
           </Card>
         ) : (
@@ -88,13 +88,13 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>{verse.translation}</span>
                       <span>•</span>
-                      <span>{verse.totalReviews} reviews</span>
+                      <span>{verse.totalReviews} {verse.totalReviews === 1 ? 'повторение' : verse.totalReviews < 5 ? 'повторения' : 'повторений'}</span>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-end gap-2 min-w-[120px]">
                     <div className="text-right">
-                      <div className="text-xs text-muted-foreground mb-1">Mastery</div>
+                      <div className="text-xs text-muted-foreground mb-1">Освоение</div>
                       <div className="text-sm font-medium">{verse.masteryLevel}%</div>
                     </div>
                     <Progress value={verse.masteryLevel} className="w-full h-2" />
@@ -112,16 +112,16 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-5">
-          <div className="text-sm text-muted-foreground mb-1">Current Streak</div>
-          <div className="text-2xl font-semibold text-primary">12 days</div>
+          <div className="text-sm text-muted-foreground mb-1">Текущая серия</div>
+          <div className="text-2xl font-semibold text-primary">12 дней</div>
         </Card>
         <Card className="p-5">
-          <div className="text-sm text-muted-foreground mb-1">Verses Mastered</div>
+          <div className="text-sm text-muted-foreground mb-1">Освоено стихов</div>
           <div className="text-2xl font-semibold">24</div>
         </Card>
         <Card className="p-5">
-          <div className="text-sm text-muted-foreground mb-1">This Week</div>
-          <div className="text-2xl font-semibold">42 reviews</div>
+          <div className="text-sm text-muted-foreground mb-1">На этой неделе</div>
+          <div className="text-2xl font-semibold">42 повторения</div>
         </Card>
       </div>
     </div>

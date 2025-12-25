@@ -72,7 +72,7 @@ export function GradualHideMode({ verse, onRate }: GradualHideModeProps) {
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
             <p className="text-sm text-muted-foreground mt-2">
-              Words will gradually fade out. Try to remember them!
+              Слова будут постепенно исчезать. Попробуйте их запомнить!
             </p>
           </div>
 
@@ -121,12 +121,12 @@ export function GradualHideMode({ verse, onRate }: GradualHideModeProps) {
                 {isPlaying ? (
                   <>
                     <Pause className="w-4 h-4" />
-                    Pause
+                    Пауза
                   </>
                 ) : (
                   <>
                     <Play className="w-4 h-4" />
-                    {currentStep >= totalSteps ? 'Restart' : currentStep > 0 ? 'Continue' : 'Start'}
+                    {currentStep >= totalSteps ? 'Перезапустить' : currentStep > 0 ? 'Продолжить' : 'Начать'}
                   </>
                 )}
               </Button>
@@ -139,7 +139,7 @@ export function GradualHideMode({ verse, onRate }: GradualHideModeProps) {
                   className="gap-2"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Reset
+                  Сбросить
                 </Button>
               )}
             </div>
@@ -153,7 +153,7 @@ export function GradualHideMode({ verse, onRate }: GradualHideModeProps) {
               className="space-y-3"
             >
               <p className="text-sm text-muted-foreground text-center">
-                How well could you remember the verse?
+                Насколько хорошо вы смогли вспомнить стих?
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Button
@@ -161,28 +161,28 @@ export function GradualHideMode({ verse, onRate }: GradualHideModeProps) {
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   size="lg"
                 >
-                  Forgot
+                  Забыл
                 </Button>
                 <Button
                   onClick={() => onRate(1)}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                   size="lg"
                 >
-                  Hard
+                  Сложно
                 </Button>
                 <Button
                   onClick={() => onRate(2)}
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   size="lg"
                 >
-                  Good
+                  Хорошо
                 </Button>
                 <Button
                   onClick={() => onRate(3)}
                   className="bg-[#059669] hover:bg-[#047857] text-white"
                   size="lg"
                 >
-                  Easy
+                  Легко
                 </Button>
               </div>
             </motion.div>

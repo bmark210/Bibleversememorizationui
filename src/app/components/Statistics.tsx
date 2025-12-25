@@ -20,9 +20,9 @@ export function Statistics({ stats }: StatsProps) {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="mb-1">Statistics</h1>
+        <h1 className="mb-1">Статистика</h1>
         <p className="text-muted-foreground">
-          Track your progress and learning patterns
+          Отслеживайте свой прогресс и паттерны обучения
         </p>
       </div>
 
@@ -36,7 +36,7 @@ export function Statistics({ stats }: StatsProps) {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-semibold">{stats.streak}</div>
-            <div className="text-sm text-muted-foreground">Day Streak</div>
+            <div className="text-sm text-muted-foreground">Дней подряд</div>
           </div>
         </Card>
 
@@ -48,7 +48,7 @@ export function Statistics({ stats }: StatsProps) {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-semibold">{stats.versesMastered}</div>
-            <div className="text-sm text-muted-foreground">Verses Mastered</div>
+            <div className="text-sm text-muted-foreground">Освоено стихов</div>
           </div>
         </Card>
 
@@ -60,7 +60,7 @@ export function Statistics({ stats }: StatsProps) {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-semibold">{masteryPercentage}%</div>
-            <div className="text-sm text-muted-foreground">Mastery Rate</div>
+            <div className="text-sm text-muted-foreground">Уровень освоения</div>
           </div>
         </Card>
 
@@ -72,7 +72,7 @@ export function Statistics({ stats }: StatsProps) {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-semibold">{stats.reviewsThisWeek}</div>
-            <div className="text-sm text-muted-foreground">Reviews This Week</div>
+            <div className="text-sm text-muted-foreground">Повторений на этой неделе</div>
           </div>
         </Card>
       </div>
@@ -81,7 +81,7 @@ export function Statistics({ stats }: StatsProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Reviews Chart */}
         <Card className="p-6">
-          <h3 className="mb-6">Reviews This Week</h3>
+          <h3 className="mb-6">Повторения на этой неделе</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stats.weeklyReviews}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -116,7 +116,7 @@ export function Statistics({ stats }: StatsProps) {
 
         {/* Mastery Distribution Chart */}
         <Card className="p-6">
-          <h3 className="mb-6">Mastery Distribution</h3>
+          <h3 className="mb-6">Распределение по уровню освоения</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stats.masteryDistribution}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -153,14 +153,14 @@ export function Statistics({ stats }: StatsProps) {
 
       {/* Learning Insights */}
       <Card className="p-6 mt-6">
-        <h3 className="mb-4">Learning Insights</h3>
+        <h3 className="mb-4">Инсайты обучения</h3>
         <div className="space-y-4">
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
             <div>
               <p className="text-sm">
-                You're on a <span className="font-medium text-primary">{stats.streak}-day streak</span>! 
-                Keep it up by reviewing at least one verse daily.
+                У вас <span className="font-medium text-primary">серия из {stats.streak} дней</span>! 
+                Продолжайте, повторяя хотя бы один стих ежедневно.
               </p>
             </div>
           </div>
@@ -168,8 +168,8 @@ export function Statistics({ stats }: StatsProps) {
             <div className="w-2 h-2 bg-[#059669] rounded-full mt-2"></div>
             <div>
               <p className="text-sm">
-                You've mastered <span className="font-medium text-[#059669]">{stats.versesMastered} verses</span> out of {stats.totalVerses}. 
-                That's {masteryPercentage}% of your collection!
+                Вы освоили <span className="font-medium text-[#059669]">{stats.versesMastered} стихов</span> из {stats.totalVerses}. 
+                Это {masteryPercentage}% вашей коллекции!
               </p>
             </div>
           </div>
@@ -177,9 +177,9 @@ export function Statistics({ stats }: StatsProps) {
             <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
             <div>
               <p className="text-sm">
-                Your most productive day this week was with{' '}
+                Ваш самый продуктивный день на этой неделе —{' '}
                 <span className="font-medium">
-                  {Math.max(...stats.weeklyReviews.map(d => d.reviews))} reviews
+                  {Math.max(...stats.weeklyReviews.map(d => d.reviews))} повторений
                 </span>.
               </p>
             </div>

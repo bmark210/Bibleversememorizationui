@@ -32,8 +32,8 @@ export default function App() {
 
   const handleStartTraining = () => {
     if (todayVerses.length === 0) {
-      toast.info('No verses scheduled for today', {
-        description: 'Great job! You\'re all caught up.',
+      toast.info('На сегодня стихов не запланировано', {
+        description: 'Отлично! Вы всё успели.',
       });
       return;
     }
@@ -43,8 +43,8 @@ export default function App() {
   const handleCompleteTraining = () => {
     setIsTraining(false);
     setCurrentPage('dashboard');
-    toast.success('Training complete!', {
-      description: 'Great work! Your progress has been saved.',
+    toast.success('Тренировка завершена!', {
+      description: 'Отличная работа! Ваш прогресс сохранён.',
     });
   };
 
@@ -58,8 +58,8 @@ export default function App() {
   };
 
   const handleVerseAdded = (verse: any) => {
-    toast.success('Verse added successfully', {
-      description: `${verse.reference} has been added to your collection.`,
+    toast.success('Стих успешно добавлен', {
+      description: `${verse.reference} добавлен в вашу коллекцию.`,
     });
   };
 
@@ -71,14 +71,14 @@ export default function App() {
   };
 
   const handleSelectCollection = (collectionId: string) => {
-    toast.info('Collection selected', {
-      description: 'This would show verses in the selected collection.',
+    toast.info('Коллекция выбрана', {
+      description: 'Здесь будут показаны стихи из выбранной коллекции.',
     });
   };
 
   const handleCreateCollection = () => {
-    toast.info('Create collection', {
-      description: 'This would open a dialog to create a new collection.',
+    toast.info('Создать коллекцию', {
+      description: 'Здесь откроется диалог для создания новой коллекции.',
     });
   };
 

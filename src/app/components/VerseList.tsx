@@ -49,9 +49,9 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
   };
 
   const getMasteryLabel = (level: number) => {
-    if (level < 40) return 'Learning';
-    if (level < 75) return 'Practicing';
-    return 'Mastered';
+    if (level < 40) return 'Изучение';
+    if (level < 75) return 'Практика';
+    return 'Освоено';
   };
 
   return (
@@ -59,14 +59,14 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="mb-1">My Verses</h1>
+          <h1 className="mb-1">Мои стихи</h1>
           <p className="text-muted-foreground">
-            {filteredVerses.length} verse{filteredVerses.length !== 1 ? 's' : ''}
+            {filteredVerses.length} {filteredVerses.length === 1 ? 'стих' : filteredVerses.length < 5 ? 'стиха' : 'стихов'}
           </p>
         </div>
         <Button onClick={onAddVerse}>
           <Plus className="w-4 h-4 mr-2" />
-          Add Verse
+          Добавить стих
         </Button>
       </div>
 
@@ -75,7 +75,7 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
         <div className="relative sm:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search verses..."
+            placeholder="Поиск стихов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -84,24 +84,24 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
         
         <Select value={testamentFilter} onValueChange={(value: any) => setTestamentFilter(value)}>
           <SelectTrigger>
-            <SelectValue placeholder="Testament" />
+            <SelectValue placeholder="Завет" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Testament</SelectItem>
-            <SelectItem value="OT">Old Testament</SelectItem>
-            <SelectItem value="NT">New Testament</SelectItem>
+            <SelectItem value="all">Все заветы</SelectItem>
+            <SelectItem value="OT">Ветхий Завет</SelectItem>
+            <SelectItem value="NT">Новый Завет</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={masteryFilter} onValueChange={(value: any) => setMasteryFilter(value)}>
           <SelectTrigger>
-            <SelectValue placeholder="Mastery" />
+            <SelectValue placeholder="Освоение" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Mastery</SelectItem>
-            <SelectItem value="low">Learning (0-39%)</SelectItem>
-            <SelectItem value="medium">Practicing (40-74%)</SelectItem>
-            <SelectItem value="high">Mastered (75-100%)</SelectItem>
+            <SelectItem value="all">Все уровни</SelectItem>
+            <SelectItem value="low">Изучение (0-39%)</SelectItem>
+            <SelectItem value="medium">Практика (40-74%)</SelectItem>
+            <SelectItem value="high">Освоено (75-100%)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -110,7 +110,7 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
       {filteredVerses.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">
-            No verses found matching your filters.
+            Стихи, соответствующие вашим фильтрам, не найдены.
           </p>
         </Card>
       ) : (
@@ -151,12 +151,12 @@ export function VerseList({ verses, onAddVerse, onStartTraining }: VerseListProp
 
                 <div className="flex flex-col gap-2 min-w-[140px] w-full sm:w-auto">
                   <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
-                    <span className="text-xs text-muted-foreground">Mastery</span>
+                    <span className="text-xs text-muted-foreground">Освоение</span>
                     <span className="text-sm font-medium">{verse.masteryLevel}%</span>
                   </div>
                   <Progress value={verse.masteryLevel} className="h-2" />
                   <div className="text-xs text-muted-foreground text-right">
-                    {verse.totalReviews} review{verse.totalReviews !== 1 ? 's' : ''}
+                    {verse.totalReviews} {verse.totalReviews === 1 ? 'повторение' : verse.totalReviews < 5 ? 'повторения' : 'повторений'}
                   </div>
                 </div>
               </div>

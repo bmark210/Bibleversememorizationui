@@ -67,7 +67,7 @@ export function QuizMode({ verse, allVerses, onRate }: QuizModeProps) {
           <div className="text-center space-y-2">
             <h3 className="text-primary">{verse.reference}</h3>
             <p className="text-sm text-muted-foreground">
-              Select the correct verse text:
+              Выберите правильный текст стиха:
             </p>
           </div>
 
@@ -138,12 +138,12 @@ export function QuizMode({ verse, allVerses, onRate }: QuizModeProps) {
                 {isCorrect ? (
                   <div className="flex items-center justify-center gap-2">
                     <Check className="w-5 h-5" />
-                    <span className="font-medium">Correct!</span>
+                    <span className="font-medium">Правильно!</span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
                     <X className="w-5 h-5" />
-                    <span className="font-medium">Not quite right</span>
+                    <span className="font-medium">Не совсем правильно</span>
                   </div>
                 )}
               </div>
@@ -153,7 +153,7 @@ export function QuizMode({ verse, allVerses, onRate }: QuizModeProps) {
                 size="lg"
                 className="w-full"
               >
-                Continue
+                Продолжить
               </Button>
             </motion.div>
           )}

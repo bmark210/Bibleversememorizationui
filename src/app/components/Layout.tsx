@@ -32,11 +32,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'verses', label: 'Verses', icon: BookOpen },
-    { id: 'collections', label: 'Collections', icon: Library },
-    { id: 'stats', label: 'Statistics', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
+    { id: 'verses', label: 'Стихи', icon: BookOpen },
+    { id: 'collections', label: 'Коллекции', icon: Library },
+    { id: 'stats', label: 'Статистика', icon: BarChart3 },
+    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   return (
@@ -55,7 +55,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-lg">
                 <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium">12 day streak</span>
+                <span className="text-sm font-medium">12 дней подряд</span>
               </div>
               <Button
                 type="button"
@@ -63,12 +63,12 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 size="sm"
                 onClick={toggleTheme}
                 className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
-                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
               >
                 <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
                 <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
                 <span className="text-xs font-medium">
-                  {theme === 'light' ? 'Light' : 'Dark'}
+                  {theme === 'light' ? 'Светлая' : 'Тёмная'}
                 </span>
               </Button>
               <Avatar>
@@ -106,7 +106,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto pb-[80px]">
+        <main className="flex-1 overflow-auto pb-[82px]">
           {children}
         </main>
       </div>

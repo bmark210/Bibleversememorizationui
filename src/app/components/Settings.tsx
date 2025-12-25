@@ -19,41 +19,41 @@ export function Settings() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="mb-1">Settings</h1>
+        <h1 className="mb-1">Настройки</h1>
         <p className="text-muted-foreground">
-          Customize your learning experience
+          Настройте свой опыт обучения
         </p>
       </div>
 
       <div className="space-y-6">
         {/* Learning Preferences */}
         <Card className="p-6">
-          <h3 className="mb-6">Learning Preferences</h3>
+          <h3 className="mb-6">Предпочтения обучения</h3>
           
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="translation">Default Translation</Label>
+              <Label htmlFor="translation">Перевод по умолчанию</Label>
               <Select defaultValue="niv">
                 <SelectTrigger id="translation">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="niv">NIV - New International Version</SelectItem>
-                  <SelectItem value="esv">ESV - English Standard Version</SelectItem>
-                  <SelectItem value="kjv">KJV - King James Version</SelectItem>
-                  <SelectItem value="nlt">NLT - New Living Translation</SelectItem>
-                  <SelectItem value="nasb">NASB - New American Standard Bible</SelectItem>
+                  <SelectItem value="niv">СП - Синодальный перевод</SelectItem>
+                  <SelectItem value="esv">РБО - Российское Библейское Общество</SelectItem>
+                  <SelectItem value="kjv">ЦСЯ - Церковнославянский</SelectItem>
+                  <SelectItem value="nlt">НРП - Новый русский перевод</SelectItem>
+                  <SelectItem value="nasb">НМП - Новый международный перевод</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Choose your preferred Bible translation for new verses
+                Выберите предпочитаемый перевод Библии для новых стихов
               </p>
             </div>
 
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="daily-goal">Daily Verse Goal</Label>
+              <Label htmlFor="daily-goal">Цель на день</Label>
               <Input
                 id="daily-goal"
                 type="number"
@@ -62,27 +62,27 @@ export function Settings() {
                 max="50"
               />
               <p className="text-sm text-muted-foreground">
-                Number of verses to review each day
+                Количество стихов для повторения каждый день
               </p>
             </div>
 
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="training-mode">Default Training Mode</Label>
+              <Label htmlFor="training-mode">Режим тренировки по умолчанию</Label>
               <Select defaultValue="flashcard">
                 <SelectTrigger id="training-mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="flashcard">Flashcard</SelectItem>
-                  <SelectItem value="fill-blanks">Fill in the Blanks</SelectItem>
-                  <SelectItem value="first-letters">First Letters</SelectItem>
-                  <SelectItem value="typing">Full Typing</SelectItem>
+                  <SelectItem value="flashcard">Карточки</SelectItem>
+                  <SelectItem value="fill-blanks">Заполнить пробелы</SelectItem>
+                  <SelectItem value="first-letters">Первые буквы</SelectItem>
+                  <SelectItem value="typing">Полная печать</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Your preferred method for verse memorization
+                Ваш предпочитаемый метод заучивания стихов
               </p>
             </div>
           </div>
@@ -90,14 +90,14 @@ export function Settings() {
 
         {/* Notifications */}
         <Card className="p-6">
-          <h3 className="mb-6">Notifications</h3>
+          <h3 className="mb-6">Уведомления</h3>
           
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Daily Reminders</Label>
+                <Label>Ежедневные напоминания</Label>
                 <p className="text-sm text-muted-foreground">
-                  Get reminded to review your verses
+                  Получать напоминания о повторении стихов
                 </p>
               </div>
               <Switch defaultChecked />
@@ -107,9 +107,9 @@ export function Settings() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Weekly Progress Summary</Label>
+                <Label>Еженедельная сводка прогресса</Label>
                 <p className="text-sm text-muted-foreground">
-                  Receive weekly stats via email
+                  Получать еженедельную статистику по email
                 </p>
               </div>
               <Switch defaultChecked />
@@ -119,9 +119,9 @@ export function Settings() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Streak Alerts</Label>
+                <Label>Предупреждения о серии</Label>
                 <p className="text-sm text-muted-foreground">
-                  Get notified when your streak is at risk
+                  Получать уведомления, когда серия под угрозой
                 </p>
               </div>
               <Switch defaultChecked />
@@ -131,46 +131,46 @@ export function Settings() {
 
         {/* Account Settings */}
         <Card className="p-6">
-          <h3 className="mb-6">Account</h3>
+          <h3 className="mb-6">Аккаунт</h3>
           
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Полное имя</Label>
               <Input
                 id="name"
-                defaultValue="John Doe"
+                defaultValue="Иван Иванов"
               />
             </div>
 
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Email адрес</Label>
               <Input
                 id="email"
                 type="email"
-                defaultValue="john.doe@example.com"
+                defaultValue="ivan.ivanov@example.com"
               />
             </div>
 
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select defaultValue="america-new-york">
+              <Label htmlFor="timezone">Часовой пояс</Label>
+              <Select defaultValue="europe-moscow">
                 <SelectTrigger id="timezone">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="america-new-york">Eastern Time (ET)</SelectItem>
-                  <SelectItem value="america-chicago">Central Time (CT)</SelectItem>
-                  <SelectItem value="america-denver">Mountain Time (MT)</SelectItem>
-                  <SelectItem value="america-los-angeles">Pacific Time (PT)</SelectItem>
-                  <SelectItem value="europe-london">London (GMT)</SelectItem>
+                  <SelectItem value="europe-moscow">Москва (MSK)</SelectItem>
+                  <SelectItem value="europe-kiev">Киев (EET)</SelectItem>
+                  <SelectItem value="europe-minsk">Минск (MSK)</SelectItem>
+                  <SelectItem value="asia-yekaterinburg">Екатеринбург (YEKT)</SelectItem>
+                  <SelectItem value="asia-novosibirsk">Новосибирск (NOVT)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Used for daily reminders and streak tracking
+                Используется для ежедневных напоминаний и отслеживания серии
               </p>
             </div>
           </div>
@@ -178,30 +178,30 @@ export function Settings() {
 
         {/* Data Management */}
         <Card className="p-6">
-          <h3 className="mb-6">Data Management</h3>
+          <h3 className="mb-6">Управление данными</h3>
           
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div className="space-y-0.5">
-                <Label>Export Data</Label>
+                <Label>Экспорт данных</Label>
                 <p className="text-sm text-muted-foreground">
-                  Download all your verses and progress
+                  Скачать все ваши стихи и прогресс
                 </p>
               </div>
-              <Button variant="outline">Export</Button>
+              <Button variant="outline">Экспорт</Button>
             </div>
 
             <Separator />
 
             <div className="flex items-start justify-between">
               <div className="space-y-0.5">
-                <Label>Reset Progress</Label>
+                <Label>Сбросить прогресс</Label>
                 <p className="text-sm text-muted-foreground">
-                  Clear all review history and start fresh
+                  Очистить всю историю повторений и начать заново
                 </p>
               </div>
               <Button variant="outline" className="text-destructive hover:text-destructive">
-                Reset
+                Сбросить
               </Button>
             </div>
 
@@ -209,13 +209,13 @@ export function Settings() {
 
             <div className="flex items-start justify-between">
               <div className="space-y-0.5">
-                <Label>Delete Account</Label>
+                <Label>Удалить аккаунт</Label>
                 <p className="text-sm text-muted-foreground">
-                  Permanently delete your account and data
+                  Навсегда удалить ваш аккаунт и данные
                 </p>
               </div>
               <Button variant="outline" className="text-destructive hover:text-destructive">
-                Delete
+                Удалить
               </Button>
             </div>
           </div>
@@ -225,7 +225,7 @@ export function Settings() {
         <div className="flex justify-end">
           <Button size="lg">
             <Save className="w-4 h-4 mr-2" />
-            Save Changes
+            Сохранить изменения
           </Button>
         </div>
       </div>

@@ -42,7 +42,7 @@ export function FlashcardMode({ verse, onRate }: FlashcardModeProps) {
                   transition={{ duration: 0.2 }}
                   className="text-muted-foreground"
                 >
-                  <p className="mb-6">Try to recall the verse...</p>
+                  <p className="mb-6">Попробуйте вспомнить стих...</p>
                   <Button
                     onClick={handleReveal}
                     size="lg"
@@ -50,7 +50,7 @@ export function FlashcardMode({ verse, onRate }: FlashcardModeProps) {
                     className="gap-2"
                   >
                     <Eye className="w-4 h-4" />
-                    Reveal Verse
+                    Показать стих
                   </Button>
                 </motion.div>
               ) : (
@@ -75,35 +75,35 @@ export function FlashcardMode({ verse, onRate }: FlashcardModeProps) {
                 transition={{ delay: 0.2 }}
                 className="space-y-3 pt-4"
               >
-                <p className="text-sm text-muted-foreground mb-4">How well did you know it?</p>
+                <p className="text-sm text-muted-foreground mb-4">Насколько хорошо вы его знали?</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Button
                     onClick={() => onRate(0)}
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     size="lg"
                   >
-                    Forgot
+                    Забыл
                   </Button>
                   <Button
                     onClick={() => onRate(1)}
                     className="bg-orange-500 hover:bg-orange-600 text-white"
                     size="lg"
                   >
-                    Hard
+                    Сложно
                   </Button>
                   <Button
                     onClick={() => onRate(2)}
                     className="bg-blue-500 hover:bg-blue-600 text-white"
                     size="lg"
                   >
-                    Good
+                    Хорошо
                   </Button>
                   <Button
                     onClick={() => onRate(3)}
                     className="bg-[#059669] hover:bg-[#047857] text-white"
                     size="lg"
                   >
-                    Easy
+                    Легко
                   </Button>
                 </div>
               </motion.div>

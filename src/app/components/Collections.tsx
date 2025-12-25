@@ -12,7 +12,7 @@ interface CollectionsProps {
 
 export function Collections({ collections, onCreateCollection, onSelectCollection }: CollectionsProps) {
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('ru-RU', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -24,14 +24,14 @@ export function Collections({ collections, onCreateCollection, onSelectCollectio
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="mb-1">Collections</h1>
+          <h1 className="mb-1">Коллекции</h1>
           <p className="text-muted-foreground">
-            Organize verses by theme or topic
+            Организуйте стихи по темам
           </p>
         </div>
         <Button onClick={onCreateCollection}>
           <Plus className="w-4 h-4 mr-2" />
-          Create Collection
+          Создать коллекцию
         </Button>
       </div>
 
@@ -63,7 +63,7 @@ export function Collections({ collections, onCreateCollection, onSelectCollectio
               <div className="flex items-center justify-between pt-4 border-t border-border">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <BookOpen className="w-4 h-4" />
-                  <span>{collection.verseCount} verse{collection.verseCount !== 1 ? 's' : ''}</span>
+                  <span>{collection.verseCount} {collection.verseCount === 1 ? 'стих' : collection.verseCount < 5 ? 'стиха' : 'стихов'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
@@ -84,9 +84,9 @@ export function Collections({ collections, onCreateCollection, onSelectCollectio
               <Plus className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h3 className="mb-2">Create Collection</h3>
+              <h3 className="mb-2">Создать коллекцию</h3>
               <p className="text-sm text-muted-foreground">
-                Group verses by theme
+                Группируйте стихи по темам
               </p>
             </div>
           </div>
@@ -101,13 +101,13 @@ export function Collections({ collections, onCreateCollection, onSelectCollectio
               <BookOpen className="w-8 h-8 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="mb-2">No collections yet</h3>
+              <h3 className="mb-2">Пока нет коллекций</h3>
               <p className="text-muted-foreground mb-6">
-                Create your first collection to organize verses by theme or topic.
+                Создайте свою первую коллекцию, чтобы организовать стихи по темам.
               </p>
               <Button onClick={onCreateCollection}>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Your First Collection
+                Создать первую коллекцию
               </Button>
             </div>
           </div>

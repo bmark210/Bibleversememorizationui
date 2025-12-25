@@ -39,13 +39,13 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
   const progress = ((currentIndex + 1) / verses.length) * 100;
 
   const modes: { id: TrainingMode; label: string; description: string }[] = [
-    { id: 'flashcard', label: 'Flashcard', description: 'See reference, recall verse' },
-    { id: 'typing', label: 'Typing', description: 'Type the full verse' },
-    { id: 'fill-blanks', label: 'Fill Blanks', description: 'Complete missing words' },
-    { id: 'first-letters', label: 'First Letters', description: 'Recall from first letters' },
-    { id: 'quiz', label: 'Quiz', description: 'Multiple choice questions' },
-    { id: 'gradual-hide', label: 'Gradual Hide', description: 'Words fade progressively' },
-    { id: 'verse-order', label: 'Verse Order', description: 'Arrange phrases correctly' },
+    { id: 'flashcard', label: 'Карточки', description: 'Увидеть ссылку, вспомнить стих' },
+    { id: 'typing', label: 'Печать', description: 'Напечатать весь стих' },
+    { id: 'fill-blanks', label: 'Заполнить пробелы', description: 'Заполнить пропущенные слова' },
+    { id: 'first-letters', label: 'Первые буквы', description: 'Вспомнить по первым буквам' },
+    { id: 'quiz', label: 'Викторина', description: 'Вопросы с выбором ответа' },
+    { id: 'gradual-hide', label: 'Постепенное скрытие', description: 'Слова постепенно исчезают' },
+    { id: 'verse-order', label: 'Порядок стиха', description: 'Расставить фразы правильно' },
   ];
 
   const handleModeSelect = (mode: TrainingMode) => {
@@ -73,7 +73,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
         <div className="bg-card border-b border-border">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="pt-21 md:pt-0 flex items-center justify-between">
-              <h2>Choose Training Mode</h2>
+              <h2>Выберите режим тренировки</h2>
               <Button variant="ghost" size="sm" onClick={onExit}>
                 <X className="w-4 h-4" />
               </Button>
@@ -121,7 +121,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
                 className="gap-1"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Mode
+                Режим
               </Button>
               <Badge variant="secondary">
                 {modes.find(m => m.id === selectedMode)?.label}
@@ -173,7 +173,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
       {/* Helper Text */}
       <div className="text-center py-4 text-sm text-muted-foreground bg-card border-t border-border">
         <p className="hidden sm:block">
-          Complete the exercise and rate your recall to continue
+          Выполните упражнение и оцените своё запоминание, чтобы продолжить
         </p>
       </div>
     </div>

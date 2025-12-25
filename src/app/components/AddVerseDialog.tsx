@@ -61,19 +61,19 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add New Verse</DialogTitle>
+          <DialogTitle>Добавить новый стих</DialogTitle>
           <DialogDescription>
-            Add a verse to your memorization collection
+            Добавьте стих в вашу коллекцию для заучивания
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="reference">Reference</Label>
+              <Label htmlFor="reference">Ссылка</Label>
               <Input
                 id="reference"
-                placeholder="e.g., John 3:16"
+                placeholder="например, Иоанн 3:16"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
                 required
@@ -81,10 +81,10 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="text">Verse Text</Label>
+              <Label htmlFor="text">Текст стиха</Label>
               <Textarea
                 id="text"
-                placeholder="Enter the verse text..."
+                placeholder="Введите текст стиха..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={5}
@@ -93,26 +93,26 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="translation-select">Translation</Label>
+              <Label htmlFor="translation-select">Перевод</Label>
               <Select value={translation} onValueChange={setTranslation}>
                 <SelectTrigger id="translation-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="niv">NIV</SelectItem>
-                  <SelectItem value="esv">ESV</SelectItem>
-                  <SelectItem value="kjv">KJV</SelectItem>
-                  <SelectItem value="nlt">NLT</SelectItem>
-                  <SelectItem value="nasb">NASB</SelectItem>
+                  <SelectItem value="niv">СП</SelectItem>
+                  <SelectItem value="esv">РБО</SelectItem>
+                  <SelectItem value="kjv">ЦСЯ</SelectItem>
+                  <SelectItem value="nlt">НРП</SelectItem>
+                  <SelectItem value="nasb">НМП</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
+              <Label htmlFor="tags">Теги (через запятую)</Label>
               <Input
                 id="tags"
-                placeholder="e.g., Gospel, Salvation, Love"
+                placeholder="например, Евангелие, Спасение, Любовь"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
               />
@@ -121,9 +121,9 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              Отмена
             </Button>
-            <Button type="submit">Add Verse</Button>
+            <Button type="submit">Добавить стих</Button>
           </DialogFooter>
         </form>
       </DialogContent>

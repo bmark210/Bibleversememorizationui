@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lightbulb, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
@@ -82,11 +82,11 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
 
           {/* Input Area */}
           <div className="space-y-3">
-            <label className="text-sm text-muted-foreground">Type the verse from memory:</label>
+            <label className="text-sm text-muted-foreground">Напечатайте стих по памяти:</label>
             <Textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Start typing..."
+              placeholder="Начните печатать..."
               rows={6}
               className="resize-none text-base"
               disabled={isChecked}
@@ -103,7 +103,7 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
                 className="gap-2 text-muted-foreground"
               >
                 <Lightbulb className="w-4 h-4" />
-                {showHint ? 'Hide Hint' : 'Show Hint'}
+                {showHint ? 'Скрыть подсказку' : 'Показать подсказку'}
               </Button>
             </div>
           )}
@@ -115,7 +115,7 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
               animate={{ opacity: 1, height: 'auto' }}
               className="bg-accent/50 rounded-lg p-4 text-sm text-muted-foreground"
             >
-              First words: {verse.text.split(' ').slice(0, 5).join(' ')}...
+              Первые слова: {verse.text.split(' ').slice(0, 5).join(' ')}...
             </motion.div>
           )}
 
@@ -127,14 +127,14 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
               className="space-y-4"
             >
               <div className="bg-muted/50 rounded-lg p-4">
-                <div className="text-sm text-muted-foreground mb-2">Correct verse:</div>
+                <div className="text-sm text-muted-foreground mb-2">Правильный стих:</div>
                 <p className="leading-relaxed">{getHighlightedText()}</p>
               </div>
 
               <div className="text-center">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent rounded-lg">
                   <Check className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Accuracy: {accuracy}%</span>
+                  <span className="text-sm font-medium">Точность: {accuracy}%</span>
                 </div>
               </div>
             </motion.div>
@@ -148,7 +148,7 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
               className="w-full"
               disabled={userInput.trim().length === 0}
             >
-              Check Answer
+              Проверить ответ
             </Button>
           ) : (
             <motion.div
@@ -156,35 +156,35 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-3"
             >
-              <p className="text-sm text-muted-foreground text-center">Rate your recall:</p>
+              <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Button
                   onClick={() => onRate(0)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   size="lg"
                 >
-                  Forgot
+                  Забыл
                 </Button>
                 <Button
                   onClick={() => onRate(1)}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                   size="lg"
                 >
-                  Hard
+                  Сложно
                 </Button>
                 <Button
                   onClick={() => onRate(2)}
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   size="lg"
                 >
-                  Good
+                  Хорошо
                 </Button>
                 <Button
                   onClick={() => onRate(3)}
                   className="bg-[#059669] hover:bg-[#047857] text-white"
                   size="lg"
                 >
-                  Easy
+                  Легко
                 </Button>
               </div>
             </motion.div>

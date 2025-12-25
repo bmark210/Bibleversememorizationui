@@ -121,7 +121,7 @@ function VerseOrderModeContent({ verse, onRate }: VerseOrderModeProps) {
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
             <p className="text-sm text-muted-foreground mt-2">
-              Drag to arrange the phrases in the correct order
+              Перетащите фразы, чтобы расставить их в правильном порядке
             </p>
           </div>
 
@@ -148,7 +148,7 @@ function VerseOrderModeContent({ verse, onRate }: VerseOrderModeProps) {
             >
               <div className="flex items-center justify-center gap-2 text-[#059669]">
                 <Check className="w-5 h-5" />
-                <span className="font-medium">Perfect! Correct order!</span>
+                <span className="font-medium">Отлично! Правильный порядок!</span>
               </div>
             </motion.div>
           )}
@@ -160,7 +160,7 @@ function VerseOrderModeContent({ verse, onRate }: VerseOrderModeProps) {
               animate={{ opacity: 1 }}
               className="bg-muted/50 rounded-lg p-4"
             >
-              <div className="text-sm text-muted-foreground mb-2">Correct order:</div>
+              <div className="text-sm text-muted-foreground mb-2">Правильный порядок:</div>
               <p className="leading-relaxed">{verse.text}</p>
             </motion.div>
           )}
@@ -172,7 +172,7 @@ function VerseOrderModeContent({ verse, onRate }: VerseOrderModeProps) {
               size="lg"
               className="w-full"
             >
-              Check Order
+              Проверить порядок
             </Button>
           ) : (
             <motion.div
@@ -180,35 +180,35 @@ function VerseOrderModeContent({ verse, onRate }: VerseOrderModeProps) {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-3"
             >
-              <p className="text-sm text-muted-foreground text-center">Rate your recall:</p>
+              <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Button
                   onClick={() => onRate(0)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   size="lg"
                 >
-                  Forgot
+                  Забыл
                 </Button>
                 <Button
                   onClick={() => onRate(1)}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                   size="lg"
                 >
-                  Hard
+                  Сложно
                 </Button>
                 <Button
                   onClick={() => onRate(2)}
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   size="lg"
                 >
-                  Good
+                  Хорошо
                 </Button>
                 <Button
                   onClick={() => onRate(3)}
                   className="bg-[#059669] hover:bg-[#047857] text-white"
                   size="lg"
                 >
-                  Easy
+                  Легко
                 </Button>
               </div>
             </motion.div>
