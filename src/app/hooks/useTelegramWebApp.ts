@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import WebApp from '@twa-dev/sdk';
+
+// Динамический импорт SDK только на клиенте
+let WebApp: any = null;
+if (typeof window !== 'undefined') {
+  WebApp = require('@twa-dev/sdk').default;
+}
 
 /**
  * Информация о пользователе Telegram
@@ -58,6 +63,16 @@ export function useTelegramWebApp() {
         // Расширяем WebApp на весь экран
         WebApp.expand();
 
+        // Запускаем полноэкранный режим
+        if (WebApp.requestFullscreen) {
+          WebApp.requestFullscreen();
+        }
+
+        // Отключаем вертикальные свайпы
+        if (WebApp.disableVerticalSwipes) {
+          WebApp.disableVerticalSwipes();
+        }
+
         // Получаем данные пользователя
         const tgUser = WebApp.initDataUnsafe?.user;
         
@@ -91,6 +106,8 @@ export function useTelegramWebApp() {
           platform: WebApp.platform,
           version: WebApp.version,
           user: user,
+          fullscreen: WebApp.isFullscreen,
+          verticalSwipes: WebApp.isVerticalSwipesEnabled,
         });
 
       } catch (error) {

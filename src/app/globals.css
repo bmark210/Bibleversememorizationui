@@ -4,13 +4,13 @@
 
 /* Telegram WebApp Safe Area */
 body {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), 22px);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Дополнительный отступ для Telegram header */
 .telegram-safe-area {
-  padding-top: max(env(safe-area-inset-top), 20px);
+  padding-top: max(env(safe-area-inset-top), 22px);
 }
 
 
