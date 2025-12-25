@@ -1,3 +1,5 @@
+'use client'
+
 import { Flame, Target, TrendingUp, Calendar } from 'lucide-react';
 import { Card } from './ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';

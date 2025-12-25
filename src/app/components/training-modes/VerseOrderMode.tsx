@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect } from 'react';
 import { GripVertical, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';

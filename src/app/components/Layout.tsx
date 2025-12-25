@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useEffect, useState } from 'react';
 import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
