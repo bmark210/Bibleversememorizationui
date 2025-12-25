@@ -1,4 +1,5 @@
-import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
 
@@ -8,7 +9,28 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
 }
 
+type Theme = 'light' | 'dark';
+
+const getPreferredTheme = (): Theme => {
+  if (typeof window === 'undefined') return 'light';
+  const stored = window.localStorage.getItem('theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
+  const [theme, setTheme] = useState<Theme>(getPreferredTheme);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    root.style.colorScheme = theme;
+    window.localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'verses', label: 'Verses', icon: BookOpen },
@@ -35,6 +57,20 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 <Flame className="w-4 h-4 text-orange-500" />
                 <span className="text-sm font-medium">12 day streak</span>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggleTheme}
+                className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
+                <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
+                <span className="text-xs font-medium">
+                  {theme === 'light' ? 'Light' : 'Dark'}
+                </span>
+              </Button>
               <Avatar>
                 <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
               </Avatar>
@@ -70,7 +106,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-[72px]">
           {children}
         </main>
       </div>

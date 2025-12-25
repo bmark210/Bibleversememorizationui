@@ -1,3 +1,4 @@
+import React from 'react';
 import { Plus, Play, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -36,8 +37,9 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
         <Button
           onClick={onStartTraining}
+          variant="default"
           size="lg"
-          className="flex-1 sm:flex-initial"
+          className="flex-1 py-3 sm:flex-initial"
         >
           <Play className="w-4 h-4 mr-2" />
           Start Training

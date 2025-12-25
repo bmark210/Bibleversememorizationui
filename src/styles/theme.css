@@ -2,82 +2,86 @@
 
 :root {
   --font-size: 16px;
-  --background: #F8F9FA;
-  --foreground: #1F2937;
-  --card: #FFFFFF;
-  --card-foreground: #1F2937;
-  --popover: #FFFFFF;
-  --popover-foreground: #1F2937;
-  --primary: #1E40AF;
-  --primary-foreground: #FFFFFF;
-  --secondary: #E5E7EB;
-  --secondary-foreground: #1F2937;
-  --muted: #F3F4F6;
-  --muted-foreground: #6B7280;
-  --accent: #DBEAFE;
-  --accent-foreground: #1E40AF;
-  --destructive: #DC2626;
-  --destructive-foreground: #FFFFFF;
-  --success: #059669;
-  --success-foreground: #FFFFFF;
-  --border: #E5E7EB;
-  --input: transparent;
-  --input-background: #FFFFFF;
-  --switch-background: #D1D5DB;
+  --background: #f7f1e3;
+  --foreground: #2f2924;
+  --card: #fffaf1;
+  --card-foreground: #2f2924;
+  --popover: #fffdf7;
+  --popover-foreground: #2f2924;
+  --primary: #2f4f4f;
+  --primary-foreground: #f7f1e3;
+  --secondary: #e6dcc5;
+  --secondary-foreground: #2f2924;
+  --muted: #ede4d3;
+  --muted-foreground: #6f665a;
+  --accent: #c2a45f;
+  --accent-foreground: #2f2415;
+  --destructive: #b64b3c;
+  --destructive-foreground: #fff7ec;
+  --success: #3f7d63;
+  --success-foreground: #f6f1e6;
+  --border: #e1d6bf;
+  --input: #e1d6bf;
+  --input-background: #fffaf1;
+  --switch-background: #d8ccb4;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #93C5FD;
-  --chart-1: #3B82F6;
-  --chart-2: #10B981;
-  --chart-3: #8B5CF6;
-  --chart-4: #F59E0B;
-  --chart-5: #EF4444;
+  --ring: #c2a45f;
+  --chart-1: #2f4f4f;
+  --chart-2: #7e5a3a;
+  --chart-3: #c2a45f;
+  --chart-4: #5b8f78;
+  --chart-5: #b64b3c;
   --radius: 0.5rem;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1F2937;
-  --sidebar-primary: #1E40AF;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F3F4F6;
-  --sidebar-accent-foreground: #1F2937;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #93C5FD;
+  --sidebar: #fffaf1;
+  --sidebar-foreground: #2f2924;
+  --sidebar-primary: #2f4f4f;
+  --sidebar-primary-foreground: #f7f1e3;
+  --sidebar-accent: #ede4d3;
+  --sidebar-accent-foreground: #2f2924;
+  --sidebar-border: #e1d6bf;
+  --sidebar-ring: #c2a45f;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: #0f0e0b;
+  --foreground: #f5eddc;
+  --card: #15120f;
+  --card-foreground: #f5eddc;
+  --popover: #15120f;
+  --popover-foreground: #f5eddc;
+  --primary: #8db6ae;
+  --primary-foreground: #0f0e0b;
+  --secondary: #1f1b16;
+  --secondary-foreground: #f5eddc;
+  --muted: #1c1914;
+  --muted-foreground: #b3a593;
+  --accent: #c2a45f;
+  --accent-foreground: #0f0e0b;
+  --destructive: #da6b5f;
+  --destructive-foreground: #0f0e0b;
+  --success: #5da07a;
+  --success-foreground: #0f0e0b;
+  --border: #2b261f;
+  --input: #2b261f;
+  --input-background: #1c1914;
+  --switch-background: #2f2a24;
+  --ring: #c2a45f;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --chart-1: #8db6ae;
+  --chart-2: #c2a45f;
+  --chart-3: #b46b52;
+  --chart-4: #6f8f5b;
+  --chart-5: #d0b78f;
+  --sidebar: #15120f;
+  --sidebar-foreground: #f5eddc;
+  --sidebar-primary: #8db6ae;
+  --sidebar-primary-foreground: #0f0e0b;
+  --sidebar-accent: #1c1914;
+  --sidebar-accent-foreground: #f5eddc;
+  --sidebar-border: #2b261f;
+  --sidebar-ring: #c2a45f;
 }
 
 @theme inline {
@@ -128,10 +132,6 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
-    @apply bg-background text-foreground;
-  }
-
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
@@ -141,45 +141,66 @@
     font-size: var(--font-size);
   }
 
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
+    background-image:
+      radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%),
+      radial-gradient(circle at 82% 6%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 36%),
+      linear-gradient(180deg, color-mix(in srgb, var(--background) 94%, #ffffff 6%), color-mix(in srgb, var(--background) 98%, #000000 2%));
+    background-attachment: fixed;
+  }
+
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-heading, 'Playfair Display', Georgia, serif);
     line-height: 1.5;
+    letter-spacing: 0.01em;
   }
 
   h2 {
     font-size: var(--text-xl);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-heading, 'Playfair Display', Georgia, serif);
     line-height: 1.5;
+    letter-spacing: 0.01em;
   }
 
   h3 {
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-heading, 'Playfair Display', Georgia, serif);
     line-height: 1.5;
+    letter-spacing: 0.01em;
   }
 
   h4 {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-heading, 'Playfair Display', Georgia, serif);
     line-height: 1.5;
+    letter-spacing: 0.01em;
   }
 
   label {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
   }
 
   button {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
+    font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
   }
 
   input {
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
+    font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
   }
 }
