@@ -143,10 +143,10 @@ export function showTelegramConfirm(message: string, callback: (confirmed: boole
 export function showTelegramPopup(params: {
   title?: string;
   message: string;
-  buttons?: Array<{ id?: string; type?: string; text: string }>;
+  buttons?: Array<{ id?: string; type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'; text: string }>;
 }, callback?: (buttonId: string) => void) {
   if (WebApp && WebApp.showPopup) {
-    WebApp.showPopup(params, callback);
+    WebApp.showPopup(params as any, callback);
   } else {
     alert(params.message);
     callback?.('ok');
