@@ -69,9 +69,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
               >
                 <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
                 <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
-                <span className="text-xs font-medium">
-                  {theme === 'light' ? 'Светлая' : 'Тёмная'}
-                </span>
               </Button>
               <Avatar>
                 <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
@@ -83,7 +80,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
         {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-64 border-r border-border bg-card">
+        <aside className="hidden md:block w-64 my-4 border-r rounded-lg border-border bg-card">
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
