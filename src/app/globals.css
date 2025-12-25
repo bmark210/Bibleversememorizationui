@@ -2,4 +2,15 @@
 @import "../styles/tailwind.css";
 @import "../styles/theme.css";
 
+/* Telegram WebApp Safe Area */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Дополнительный отступ для Telegram header */
+.telegram-safe-area {
+  padding-top: max(env(safe-area-inset-top), 20px);
+}
+
 
