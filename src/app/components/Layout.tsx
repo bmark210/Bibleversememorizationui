@@ -42,7 +42,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10 pt-20 md:pt-0">
+      <header className="bg-card border-b border-border sticky top-0 z-10 pt-21 md:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
@@ -112,7 +112,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card pb-2.5 border-t border-border">
         <nav className="flex justify-around p-2">
           {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;

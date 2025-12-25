@@ -72,7 +72,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
         {/* Header */}
         <div className="bg-card border-b border-border">
           <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="pt-20 md:pt-0 flex items-center justify-between">
+            <div className="pt-21 md:pt-0 flex items-center justify-between">
               <h2>Choose Training Mode</h2>
               <Button variant="ghost" size="sm" onClick={onExit}>
                 <X className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
       <div className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="pt-20 md:pt-0 flex items-center gap-3">
+            <div className="pt-21 md:pt-0 flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
