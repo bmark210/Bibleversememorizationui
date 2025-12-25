@@ -1,0 +1,127 @@
+import { Plus, Play, ChevronRight } from 'lucide-react';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Progress } from './ui/progress';
+import { Verse } from '../data/mockData';
+
+interface DashboardProps {
+  todayVerses: Verse[];
+  onStartTraining: () => void;
+  onAddVerse: () => void;
+  onViewAll: () => void;
+}
+
+export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll }: DashboardProps) {
+  const formatDate = (date: Date) => {
+    const now = new Date();
+    const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1) return `In ${diffDays} days`;
+    return 'Overdue';
+  };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      {/* Welcome Section */}
+      <div className="mb-8">
+        <h1 className="mb-2">Welcome back!</h1>
+        <p className="text-muted-foreground">
+          You have {todayVerses.length} verse{todayVerses.length !== 1 ? 's' : ''} to review today.
+        </p>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-8">
+        <Button
+          onClick={onStartTraining}
+          size="lg"
+          className="flex-1 sm:flex-initial"
+        >
+          <Play className="w-4 h-4 mr-2" />
+          Start Training
+        </Button>
+        <Button
+          onClick={onAddVerse}
+          variant="outline"
+          size="lg"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Verse
+        </Button>
+      </div>
+
+      {/* Today's Verses Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2>Today's Verses</h2>
+          <Button
+            variant="ghost"
+            onClick={onViewAll}
+            className="text-primary hover:text-primary"
+          >
+            View All
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+
+        {todayVerses.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">
+              No verses scheduled for today. Great job staying on track!
+            </p>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {todayVerses.map((verse) => (
+              <Card key={verse.id} className="p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="mb-2">{verse.reference}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {verse.text}
+                    </p>
+                    
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>{verse.translation}</span>
+                      <span>•</span>
+                      <span>{verse.totalReviews} reviews</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground mb-1">Mastery</div>
+                      <div className="text-sm font-medium">{verse.masteryLevel}%</div>
+                    </div>
+                    <Progress value={verse.masteryLevel} className="w-full h-2" />
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(verse.nextReview)}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground mb-1">Current Streak</div>
+          <div className="text-2xl font-semibold text-primary">12 days</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground mb-1">Verses Mastered</div>
+          <div className="text-2xl font-semibold">24</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground mb-1">This Week</div>
+          <div className="text-2xl font-semibold">42 reviews</div>
+        </Card>
+      </div>
+    </div>
+  );
+}
