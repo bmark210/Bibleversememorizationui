@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GripVertical, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { motion } from 'motion/react';
@@ -41,6 +41,9 @@ const DraggableLine = ({ line, index, moveLine, isChecked, isCorrect }: Draggabl
     },
   });
 
+  const ref = useRef<HTMLDivElement>(null);
+  drag(drop(ref));
+
   let cardClass = 'bg-card border-2 border-border';
   if (isChecked) {
     cardClass = isCorrect
@@ -50,7 +53,7 @@ const DraggableLine = ({ line, index, moveLine, isChecked, isCorrect }: Draggabl
 
   return (
     <div
-      ref={(node) => drag(drop(node))}
+      ref={ref}
       className={`${cardClass} rounded-lg p-4 cursor-move transition-all ${
         isDragging ? 'opacity-50' : 'opacity-100'
       } ${!isChecked ? 'hover:shadow-md' : ''}`}
