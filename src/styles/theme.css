@@ -141,6 +141,16 @@
     font-size: var(--font-size);
   }
 
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  #root {
+    min-height: 100%;
+    background: transparent;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
@@ -202,5 +212,19 @@
     font-weight: var(--font-weight-normal);
     font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Прячем скроллбары на мобильных во всех основных движках */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* Safari/Chrome/Android */
   }
 }

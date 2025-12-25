@@ -106,7 +106,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto pb-[72px]">
+        <main className="flex-1 overflow-auto pb-[80px]">
           {children}
         </main>
       </div>
