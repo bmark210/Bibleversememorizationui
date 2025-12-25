@@ -73,6 +73,25 @@ export function useTelegramWebApp() {
           WebApp.disableVerticalSwipes();
         }
 
+        // Устанавливаем CSS переменные для contentSafeAreaInset
+        const updateSafeArea = () => {
+          if (WebApp.contentSafeAreaInset) {
+            const { top, bottom, left, right } = WebApp.contentSafeAreaInset;
+            document.documentElement.style.setProperty('--tg-content-safe-area-inset-top', `${top}px`);
+            document.documentElement.style.setProperty('--tg-content-safe-area-inset-bottom', `${bottom}px`);
+            document.documentElement.style.setProperty('--tg-content-safe-area-inset-left', `${left}px`);
+            document.documentElement.style.setProperty('--tg-content-safe-area-inset-right', `${right}px`);
+          }
+        };
+
+        // Обновляем при инициализации
+        updateSafeArea();
+
+        // Слушаем изменения contentSafeAreaInset
+        if (WebApp.onEvent) {
+          WebApp.onEvent('contentSafeAreaChanged', updateSafeArea);
+        }
+
         // Получаем данные пользователя
         const tgUser = WebApp.initDataUnsafe?.user;
         
