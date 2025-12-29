@@ -388,13 +388,14 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                   <div className="flex gap-2">
                     <Input
                       id="search-query"
-                      placeholder="например, возлюбил Бог мир"
+                      placeholder="Поиск"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
                           handleSearchByQuote();
+                          (e.target as HTMLElement).blur();
                         }
                       }}
                     />
