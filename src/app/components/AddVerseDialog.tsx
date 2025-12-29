@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { X, Download, Loader2 } from "lucide-react";
-import axios from "axios";
+import React, { useState, useRef, useEffect } from "react";
+import { X, Download, Loader2, Tag } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -28,7 +27,11 @@ import {
   getBibleBookNameRu,
   formatVerseReference,
 } from "../types/bible";
-import { DEFAULT_BOLLS_TRANSLATION, getBollsVerse } from "../services/bollsApi";
+import {
+  DEFAULT_BOLLS_TRANSLATION,
+  getBollsVerse,
+  searchBollsVerses,
+} from "../services/bollsApi";
 
 // Мини-санитайзер: экранируем HTML и оставляем только подсветку <mark>
 const renderMarkHtml = (text: string) => {
@@ -44,6 +47,14 @@ const renderMarkHtml = (text: string) => {
     )
     .replace(/&lt;\/mark&gt;/g, "</mark>");
 };
+
+// Удаляет все HTML-теги <mark> и </mark> из текста
+const removeMarkTags = (text: string) => {
+  // Убирает любые варианты <mark ...> и </mark> из HTML (не делает эскейп)
+  return text.replace(/<mark.*?>/g, "").replace(/<\/mark>/g, "");
+};
+
+const MODE_STORAGE_KEY = "addVerseDialogMode";
 
 interface AddVerseDialogProps {
   open: boolean;
@@ -63,6 +74,8 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     DEFAULT_BOLLS_TRANSLATION
   );
   const [tags, setTags] = useState("");
+  const [mode, setMode] = useState<"search" | "manual">("search");
+  const [showTags, setShowTags] = useState(false);
 
   // Поля для загрузки стиха
   const [selectedBook, setSelectedBook] = useState<string>("");
@@ -128,7 +141,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     } catch (err) {
       console.error("Ошибка при загрузке стиха:", err);
       setError(
-        axios.isAxiosError(err)
+        err instanceof Error
           ? `Ошибка загрузки: ${err.message}`
           : "Не удалось загрузить стих. Проверьте подключение к интернету."
       );
@@ -169,22 +182,18 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     try {
       const normalizedQuery = lastSearchQueryRef.current;
 
-      const response = await axios.get(
-        `https://bolls.life/v2/find/${translation}`,
-        {
-          params: {
-            search: normalizedQuery,
-            match_case: false,
-            match_whole: false,
-            limit: SEARCH_PAGE_SIZE,
-            page: 1,
-          },
-          signal: abortController.signal,
-        }
-      );
+      const response = await searchBollsVerses({
+        translation,
+        query: normalizedQuery,
+        matchCase: false,
+        matchWhole: false,
+        limit: SEARCH_PAGE_SIZE,
+        page: 1,
+        signal: abortController.signal,
+      });
 
       const results =
-        response.data?.results?.map((item: any) => ({
+        response.results?.map((item) => ({
           book: item.book as BibleBook,
           chapter: item.chapter as number,
           verse: item.verse as number,
@@ -199,7 +208,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
       // Проверка на отмену перед обновлением состояния
       if (!abortController.signal.aborted) {
-        const total = response.data?.total ?? results.length;
+        const total = response.total ?? results.length;
         if (!results.length) {
           setSearchError("Стихи не найдены. Попробуйте другой запрос.");
         } else {
@@ -208,10 +217,10 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
         }
       }
     } catch (err) {
-      if (!axios.isAxiosError(err) || err.code !== "ERR_CANCELED") {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
         console.error("Ошибка при поиске по цитате:", err);
         setSearchError(
-          axios.isAxiosError(err)
+          err instanceof Error
             ? `Ошибка поиска: ${err.message}`
             : "Не удалось выполнить поиск."
         );
@@ -231,22 +240,18 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     setLoadingMore(true);
 
     try {
-      const response = await axios.get(
-        `https://bolls.life/v2/find/${translation}`,
-        {
-          params: {
-            search: lastSearchQueryRef.current,
-            match_case: false,
-            match_whole: false,
-            limit: SEARCH_PAGE_SIZE,
-            page: nextPage,
-          },
-          signal: searchAbortControllerRef.current?.signal,
-        }
-      );
+      const response = await searchBollsVerses({
+        translation,
+        query: lastSearchQueryRef.current,
+        matchCase: false,
+        matchWhole: false,
+        limit: SEARCH_PAGE_SIZE,
+        page: nextPage,
+        signal: searchAbortControllerRef.current?.signal,
+      });
 
       const results =
-        response.data?.results?.map((item: any) => ({
+        response.results?.map((item) => ({
           book: item.book as BibleBook,
           chapter: item.chapter as number,
           verse: item.verse as number,
@@ -259,14 +264,14 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
           ),
         })) ?? [];
 
-      const total = response.data?.total ?? 0;
+      const total = response.total ?? 0;
       const merged = [...searchResults, ...results];
 
       setSearchResults(merged);
       setSearchPage(nextPage);
       setHasMoreSearch(merged.length < total && results.length > 0);
     } catch (err) {
-      if (!axios.isAxiosError(err) || err.code !== "ERR_CANCELED") {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
         console.warn("Ошибка при дозагрузке результатов поиска:", err);
       }
     } finally {
@@ -321,210 +326,216 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   const bibleBooks = getAllBibleBooks();
 
+  useEffect(() => {
+    const storedMode = typeof window !== "undefined" ? window.localStorage.getItem(MODE_STORAGE_KEY) : null;
+    if (storedMode === "search" || storedMode === "manual") {
+      setMode(storedMode);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(MODE_STORAGE_KEY, mode);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (selectedBook && chapter && verse && !loading) {
+      handleFetchVerse();
+    }
+  }, [selectedBook, chapter, verse, loading]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] w-screen h-screen sm:h-auto sm:max-h-[85vh] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0">
-        <DialogHeader className="sticky top-0 z-10 bg-background pt-22 md:pt-6">
+      <DialogContent className="w-screen h-screen max-w-full sm:max-w-[600px] sm:h-auto max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0">
+        <DialogHeader className="sticky top-0 z-10 bg-background pt-22 md:pt-6 !h-fit">
           <DialogTitle>Добавить новый стих</DialogTitle>
           <DialogDescription>
             Добавьте стих в вашу коллекцию для заучивания
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* Секция загрузки стиха */}
-            <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">
-                  Загрузить стих из Библии
-                </Label>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="book-select">Книга</Label>
-                <Select value={selectedBook} onValueChange={setSelectedBook}>
-                  <SelectTrigger id="book-select">
-                    <SelectValue placeholder="Выберите книгу" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {bibleBooks.map((book) => (
-                      <SelectItem key={book.id} value={book.id.toString()}>
-                        {book.nameRu}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="chapter">Глава</Label>
-                  <Input
-                    id="chapter"
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={chapter}
-                    onChange={(e) => setChapter(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="verse">Стих</Label>
-                  <Input
-                    id="verse"
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={verse}
-                    onChange={(e) => setVerse(e.target.value)}
-                  />
-                </div>
-              </div>
-
+        <form onSubmit={handleSubmit} className="flex flex-col justify-between h-full min-h-max">
+          <div className="space-y-4 py-4 flex-grow">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
-                onClick={handleFetchVerse}
-                disabled={loading || !selectedBook || !chapter || !verse}
-                className="w-full"
-                variant="secondary"
+                variant={mode === "search" ? "default" : "secondary"}
+                onClick={() => setMode("search")}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Загрузка...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Загрузить стих
-                  </>
-                )}
+                Поиск по цитате
               </Button>
-
-              {error && (
-                <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                  {error}
-                </div>
-              )}
+              <Button
+                type="button"
+                variant={mode === "manual" ? "default" : "secondary"}
+                onClick={() => setMode("manual")}
+              >
+                Ручной выбор
+              </Button>
             </div>
 
-            {/* Разделитель */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  или найдите по цитате
-                </span>
-              </div>
-            </div>
+            {mode === "search" && (
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                <Label className="text-base font-semibold">Поиск по цитате</Label>
 
-            {/* Секция поиска по цитате */}
-            <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-              <Label className="text-base font-semibold">Поиск по цитате</Label>
-
-              <div className="space-y-2">
-                <Label htmlFor="search-query">Введите часть текста стиха</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="search-query"
-                    placeholder="например, возлюбил Бог мир"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSearchByQuote();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleSearchByQuote}
-                    disabled={searching || searchQuery.length < 3}
-                    variant="secondary"
-                  >
-                    {searching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Найти"
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Поиск по популярным книгам Библии (Евангелия, Послания, Псалмы
-                  и др.)
-                </p>
-              </div>
-
-              {searching && (
-                <div className="text-sm text-muted-foreground flex items-center gap-2 p-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Идет поиск...
-                </div>
-              )}
-
-              {searchError && (
-                <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                  {searchError}
-                </div>
-              )}
-
-              {searchResults.length > 0 && (
-                <div
-                  ref={resultsContainerRef}
-                  onScroll={handleResultsScroll}
-                  className="space-y-2 max-h-[300px] overflow-y-auto"
-                >
-                  <Label className="text-sm">
-                    Результаты поиска ({searchResults.length}
-                    {hasMoreSearch ? "+" : ""}):
-                  </Label>
-                  {searchResults.map((result, index) => (
-                    <button
-                      key={`${result.reference}-${index}`}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      id="search-query"
+                      placeholder="например, возлюбил Бог мир"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearchByQuote();
+                        }
+                      }}
+                    />
+                    <Button
                       type="button"
-                      onClick={() => handleSelectSearchResult(result)}
-                      className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                      onClick={handleSearchByQuote}
+                      disabled={searching || searchQuery.length < 3}
+                      variant="secondary"
                     >
-                      <div className="font-medium text-sm text-primary mb-1">
-                        {result.reference}
-                      </div>
-                      <div
-                        className="text-sm text-foreground line-clamp-3"
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkHtml(result.text),
-                        }}
-                      />
-                    </button>
-                  ))}
-                  {loadingMore && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 pb-2">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Загружаем ещё...
-                    </div>
-                  )}
+                      {searching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Найти"
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Разделитель */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  результат
-                </span>
-              </div>
-            </div>
+                {searching && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2 p-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Идет поиск...
+                  </div>
+                )}
 
-            {/* Секция ручного ввода */}
-            <div className="space-y-2">
+                {searchError && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                    {searchError}
+                  </div>
+                )}
+
+                {searchResults.length > 0 && (
+                  <div
+                    ref={resultsContainerRef}
+                    onScroll={handleResultsScroll}
+                    className="space-y-2 max-h-[300px] overflow-y-auto"
+                  >
+                    <Label className="text-sm">
+                      Результаты поиска ({searchResults.length}
+                      {hasMoreSearch ? "+" : ""}):
+                    </Label>
+                    {searchResults.map((result, index) => (
+                      <button
+                        key={`${result.reference}-${index}`}
+                        type="button"
+                        onClick={() => handleSelectSearchResult(result)}
+                        className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="font-medium text-sm text-primary mb-1">
+                          {result.reference}
+                        </div>
+                        <div
+                          className="text-sm text-foreground line-clamp-3"
+                          dangerouslySetInnerHTML={{
+                            __html: renderMarkHtml(result.text),
+                          }}
+                        />
+                      </button>
+                    ))}
+                    {loadingMore && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 pb-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Загружаем ещё...
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {mode === "manual" && (
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="book-select">Книга</Label>
+                  <Select
+                    value={selectedBook}
+                    onValueChange={setSelectedBook}
+                  >
+                    <SelectTrigger id="book-select">
+                      <SelectValue placeholder="Выберите книгу" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {bibleBooks.map((book) => (
+                        <SelectItem key={book.id} value={book.id.toString()}>
+                          {book.nameRu}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="chapter">Глава</Label>
+                    <Input
+                      id="chapter"
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={chapter}
+                      onChange={(e) => setChapter(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="verse">Стих</Label>
+                    <Input
+                      id="verse"
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={verse}
+                      onChange={(e) => setVerse(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* <Button
+                  type="button"
+                  onClick={handleFetchVerse}
+                  disabled={loading || !selectedBook || !chapter || !verse}
+                  className="w-full"
+                  variant="secondary"
+                > */}
+                  {/* {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Загрузка...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Загрузить стих
+                    </>
+                  )} */}
+                {/* </Button> */}
+
+                {error && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                    {error}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Результат */}
+            {/* <div className="space-y-2">
               <Label htmlFor="reference">Ссылка</Label>
               <Input
                 readOnly={true}
@@ -534,39 +545,58 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                 onChange={(e) => setReference(e.target.value)}
                 required
               />
-            </div>
+            </div> */}
 
-            <div className="space-y-2">
-              <Label htmlFor="text">Текст стиха</Label>
-              <div
-                id="text"
-                className="min-h-[120px] p-3 border rounded bg-muted/50 text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: text
-                    ? renderMarkHtml(text)
-                    : "текст стиха будет загружен автоматически",
-                }}
-              />
-            </div>
+            {text && (
+              <div className="space-y-2 min-h-[120px] p-3 border rounded bg-muted/50 text-sm leading-relaxed">
+                <div
+                  id="text"
+                  className=""
+                  dangerouslySetInnerHTML={{
+                    __html: removeMarkTags(text),
+                  }}
+                />
+                {reference && (
+                  <p className="w-full flex justify-end text-muted-foreground">
+                    {reference}
+                  </p>
+                )}
+              </div>
+            )}
+            {text && (
+              <div className="flex flex-col justify-between gap-2 w-full py-2 bg-background space-y-2">
+                {!showTags && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="self-end flex items-center gap-2"
+                    onClick={() => setShowTags(true)}
+                  >
+                    <Tag className="h-4 w-4" />
+                    Добавить теги
+                  </Button>
+                )}
 
-            <div className="space-y-2">
-              <Label htmlFor="tags">Теги (через запятую)</Label>
-              <Input
-                id="tags"
-                placeholder="например, Евангелие, Спасение, Любовь"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-              />
-            </div>
+                {showTags && (
+                  <div className="space-y-2">
+                    <Label htmlFor="tags">Теги (через запятую)</Label>
+                    <Input
+                      id="tags"
+                      placeholder="например, Евангелие, Спасение, Любовь"
+                      value={tags}
+                      onChange={(e) => setTags(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex flex-col justify-between gap-2 w-full py-2 bg-background">
-            {/* <div className="flex flex-col justify-between gap-2 w-full py-2 bg-background"> */}
-              <Button type="button" variant="outline" onClick={onClose}>
-                Отмена
-              </Button>
-              <Button type="submit">Добавить стих</Button>
-            {/* </div> */}
+            <Button type="button" variant="outline" onClick={onClose}>
+              Отмена
+            </Button>
+            <Button type="submit">Добавить стих</Button>
           </DialogFooter>
         </form>
       </DialogContent>

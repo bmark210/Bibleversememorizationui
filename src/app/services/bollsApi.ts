@@ -48,6 +48,7 @@ export interface BollsSearchParams {
   limit?: number;
   /** Можно передать номер книги либо ot/nt для фильтрации по завету */
   book?: BibleBook | 'ot' | 'nt';
+  signal?: AbortSignal;
 }
 
 export interface BollsSearchResponse {
@@ -189,6 +190,7 @@ export async function searchBollsVerses(params: BollsSearchParams): Promise<Boll
     page = 1,
     limit = 20,
     book,
+    signal,
   } = params;
 
   try {
@@ -203,6 +205,7 @@ export async function searchBollsVerses(params: BollsSearchParams): Promise<Boll
           page,
           limit,
         },
+        signal,
       }
     );
     return data;
