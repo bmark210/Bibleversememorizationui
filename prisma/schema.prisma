@@ -1,0 +1,55 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+model User {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  username  String      @unique
+  avatar    String
+  email     String      @unique
+  translation String      @default("SYNOD")
+  createdAt DateTime    @default(now())
+
+  verses    UserVerse[]
+}
+
+model UserVerse {
+  id              String   @id @default(cuid())
+  userId          String
+  externalVerseId String   // ID стиха из внешнего API
+
+  masteryLevel    Int      @default(0) // 0–5, например
+  repetitions     Int      @default(0)
+  lastReviewedAt  DateTime?
+  nextReviewAt    DateTime?
+
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, externalVerseId])
+}
+
+model Tag {
+  id        String     @id @default(cuid())
+  slug      String     @unique   // faith, love, hope
+  title     String     @unique   // Вера, Любовь, Надежда
+  createdAt DateTime   @default(now())
+
+  verses    VerseTag[]
+}
+
+model VerseTag {
+  id              String   @id @default(cuid())
+  externalVerseId String
+  tagId           String
+
+  tag             Tag      @relation(fields: [tagId], references: [id])
+
+  @@unique([externalVerseId, tagId])
+}
+

@@ -72,8 +72,8 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
     return (
       <div className="min-h-screen flex flex-col bg-background">
         {/* Header */}
-        <div className="bg-card border-b border-border">
-          <div className="max-w-4xl mx-auto px-4 py-4 pt-22 md:pt-0">
+        <div className="bg-card sticky top-0 z-10 border-b border-border">
+          <div className="max-w-4xl mx-auto px-4 py-4 pt-22 md:pt-4">
             <div className="flex items-center justify-between">
               <h2>Выберите режим тренировки</h2>
               <Button variant="ghost" size="sm" onClick={onExit}>
@@ -114,7 +114,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
       {/* Header with Progress */}
       <div className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex pt-22 md:pt-0 items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"

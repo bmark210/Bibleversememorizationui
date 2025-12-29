@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import React, { useState, useRef } from 'react';
-import { X, Download, Loader2 } from 'lucide-react';
-import axios from 'axios';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
+import React, { useState, useRef } from "react";
+import { X, Download, Loader2 } from "lucide-react";
+import axios from "axios";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from "./ui/select";
 import {
   Dialog,
   DialogContent,
@@ -21,9 +21,29 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from './ui/dialog';
-import { BibleBook, getAllBibleBooks, getBibleBookNameRu, formatVerseReference } from '../types/bible';
-import { BibleTranslation, BIBLE_TRANSLATIONS } from '../services/bibleApi';
+} from "./ui/dialog";
+import {
+  BibleBook,
+  getAllBibleBooks,
+  getBibleBookNameRu,
+  formatVerseReference,
+} from "../types/bible";
+import { DEFAULT_BOLLS_TRANSLATION, getBollsVerse } from "../services/bollsApi";
+
+// Мини-санитайзер: экранируем HTML и оставляем только подсветку <mark>
+const renderMarkHtml = (text: string) => {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  return escaped
+    .replace(
+      /&lt;mark&gt;/g,
+      '<mark class="bg-amber-400/60 text-foreground px-0.5 rounded">'
+    )
+    .replace(/&lt;\/mark&gt;/g, "</mark>");
+};
 
 interface AddVerseDialogProps {
   open: boolean;
@@ -37,37 +57,48 @@ interface AddVerseDialogProps {
 }
 
 export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
-  const [reference, setReference] = useState('');
-  const [text, setText] = useState('');
-  const [translation, setTranslation] = useState('rst');
-  const [tags, setTags] = useState('');
-  
+  const [reference, setReference] = useState("");
+  const [text, setText] = useState("");
+  const [translation, setTranslation] = useState<string>(
+    DEFAULT_BOLLS_TRANSLATION
+  );
+  const [tags, setTags] = useState("");
+
   // Поля для загрузки стиха
-  const [selectedBook, setSelectedBook] = useState<string>('');
-  const [chapter, setChapter] = useState('');
-  const [verse, setVerse] = useState('');
+  const [selectedBook, setSelectedBook] = useState<string>("");
+  const [chapter, setChapter] = useState("");
+  const [verse, setVerse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Поля для поиска по цитате
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<Array<{
-    book: BibleBook;
-    chapter: number;
-    verse: number;
-    text: string;
-    reference: string;
-  }>>([]);
+  const [searchResults, setSearchResults] = useState<
+    Array<{
+      book: BibleBook;
+      chapter: number;
+      verse: number;
+      text: string;
+      reference: string;
+    }>
+  >([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  
+  const [searchPage, setSearchPage] = useState(1);
+  const [hasMoreSearch, setHasMoreSearch] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Ref для отслеживания текущего поиска
   const searchAbortControllerRef = useRef<AbortController | null>(null);
   const isSearchingRef = useRef(false);
+  const lastSearchQueryRef = useRef<string>("");
+  const resultsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const SEARCH_PAGE_SIZE = 20;
 
   const handleFetchVerse = async () => {
     if (!selectedBook || !chapter || !verse) {
-      setError('Пожалуйста, заполните все поля для загрузки стиха');
+      setError("Пожалуйста, заполните все поля для загрузки стиха");
       return;
     }
 
@@ -79,32 +110,27 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
       const chapterNum = parseInt(chapter);
       const verseNum = parseInt(verse);
 
-      // Запрос к API через axios
-      const response = await axios.get('https://justbible.ru/api/bible', {
-        params: {
-          translation: translation,
-          book: bookId,
-          chapter: chapterNum,
-          verse: verseNum,
-        },
+      // Запрос к Bolls API
+      const verseResult = await getBollsVerse({
+        translation,
+        book: bookId,
+        chapter: chapterNum,
+        verse: verseNum,
       });
 
-      const verseText = response.data[verseNum.toString()];
-
-      if (!verseText) {
-        throw new Error('Стих не найден');
+      if (!verseResult?.text) {
+        throw new Error("Стих не найден");
       }
 
       // Заполняем поля
-      setText(verseText);
-      setReference(formatVerseReference(bookId, chapterNum, verseNum, 'ru'));
-
+      setText(verseResult.text);
+      setReference(formatVerseReference(bookId, chapterNum, verseNum, "ru"));
     } catch (err) {
-      console.error('Ошибка при загрузке стиха:', err);
+      console.error("Ошибка при загрузке стиха:", err);
       setError(
         axios.isAxiosError(err)
           ? `Ошибка загрузки: ${err.message}`
-          : 'Не удалось загрузить стих. Проверьте подключение к интернету.'
+          : "Не удалось загрузить стих. Проверьте подключение к интернету."
       );
     } finally {
       setLoading(false);
@@ -114,12 +140,12 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const handleSearchByQuote = async () => {
     // Предотвращаем множественные одновременные вызовы
     if (isSearchingRef.current) {
-      console.log('Поиск уже выполняется, пропускаем');
+      console.log("Поиск уже выполняется, пропускаем");
       return;
     }
 
     if (!searchQuery || searchQuery.length < 3) {
-      setSearchError('Введите минимум 3 символа для поиска');
+      setSearchError("Введите минимум 3 символа для поиска");
       return;
     }
 
@@ -131,102 +157,63 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     // Создаем новый контроллер для отмены
     const abortController = new AbortController();
     searchAbortControllerRef.current = abortController;
-    
+
     isSearchingRef.current = true;
     setSearching(true);
     setSearchError(null);
     setSearchResults([]);
+    setSearchPage(1);
+    setHasMoreSearch(false);
+    lastSearchQueryRef.current = searchQuery.trim();
 
     try {
-      const results: Array<{
-        book: BibleBook;
-        chapter: number;
-        verse: number;
-        text: string;
-        reference: string;
-      }> = [];
+      const normalizedQuery = lastSearchQueryRef.current;
 
-      // Ограниченный список популярных книг (уменьшаем нагрузку)
-      const popularBooks = [
-        BibleBook.John,
-        BibleBook.Matthew,
-        BibleBook.Romans,
-        BibleBook.Psalms,
-        BibleBook.Genesis,
-      ];
-
-      const normalizedQuery = searchQuery.toLowerCase().trim();
-
-      // Поиск ТОЛЬКО в первых 3 главах каждой книги
-      for (const bookId of popularBooks) {
-        if (results.length >= 10) break;
-        if (abortController.signal.aborted) break;
-
-        // Ищем только в первых 3 главах
-        for (let chapterNum = 1; chapterNum <= 3; chapterNum++) {
-          if (results.length >= 10) break;
-          if (abortController.signal.aborted) break;
-
-          try {
-            const response = await axios.get('https://justbible.ru/api/bible', {
-              params: {
-                translation: translation,
-                book: bookId,
-                chapter: chapterNum,
-              },
-              timeout: 5000,
-              signal: abortController.signal,
-            });
-
-            // Проверка на отмену
-            if (abortController.signal.aborted) break;
-
-            // Проверяем каждый стих в главе
-            for (const [verseNum, verseText] of Object.entries(response.data)) {
-              if (verseNum === 'info' || typeof verseText !== 'string') continue;
-
-              if (verseText.toLowerCase().includes(normalizedQuery)) {
-                results.push({
-                  book: bookId,
-                  chapter: chapterNum,
-                  verse: parseInt(verseNum),
-                  text: verseText,
-                  reference: formatVerseReference(bookId, chapterNum, parseInt(verseNum), 'ru'),
-                });
-
-                if (results.length >= 10) break;
-              }
-            }
-
-            // Небольшая задержка между запросами (100мс)
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-          } catch (err) {
-            // Игнорируем ошибки отмены
-            if (axios.isAxiosError(err) && err.code === 'ERR_CANCELED') {
-              break;
-            }
-            console.warn(`Ошибка поиска в ${bookId}:${chapterNum}`, err);
-          }
+      const response = await axios.get(
+        `https://bolls.life/v2/find/${translation}`,
+        {
+          params: {
+            search: normalizedQuery,
+            match_case: false,
+            match_whole: false,
+            limit: SEARCH_PAGE_SIZE,
+            page: 1,
+          },
+          signal: abortController.signal,
         }
-      }
+      );
+
+      const results =
+        response.data?.results?.map((item: any) => ({
+          book: item.book as BibleBook,
+          chapter: item.chapter as number,
+          verse: item.verse as number,
+          text: item.text as string,
+          reference: formatVerseReference(
+            item.book as BibleBook,
+            item.chapter as number,
+            item.verse as number,
+            "ru"
+          ),
+        })) ?? [];
 
       // Проверка на отмену перед обновлением состояния
       if (!abortController.signal.aborted) {
-        if (results.length === 0) {
-          setSearchError('Стихи не найдены. Попробуйте другой запрос.');
+        const total = response.data?.total ?? results.length;
+        if (!results.length) {
+          setSearchError("Стихи не найдены. Попробуйте другой запрос.");
         } else {
           setSearchResults(results);
+          setHasMoreSearch(results.length < total);
         }
       }
-
     } catch (err) {
-      if (!axios.isAxiosError(err) || err.code !== 'ERR_CANCELED') {
-        console.error('Ошибка при поиске по цитате:', err);
+      if (!axios.isAxiosError(err) || err.code !== "ERR_CANCELED") {
+        console.error("Ошибка при поиске по цитате:", err);
         setSearchError(
           axios.isAxiosError(err)
             ? `Ошибка поиска: ${err.message}`
-            : 'Не удалось выполнить поиск.'
+            : "Не удалось выполнить поиск."
         );
       }
     } finally {
@@ -236,36 +223,97 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     }
   };
 
-  const handleSelectSearchResult = (result: typeof searchResults[0]) => {
+  const loadMoreSearchResults = async () => {
+    if (loadingMore || searching || !hasMoreSearch) return;
+    if (!lastSearchQueryRef.current) return;
+
+    const nextPage = searchPage + 1;
+    setLoadingMore(true);
+
+    try {
+      const response = await axios.get(
+        `https://bolls.life/v2/find/${translation}`,
+        {
+          params: {
+            search: lastSearchQueryRef.current,
+            match_case: false,
+            match_whole: false,
+            limit: SEARCH_PAGE_SIZE,
+            page: nextPage,
+          },
+          signal: searchAbortControllerRef.current?.signal,
+        }
+      );
+
+      const results =
+        response.data?.results?.map((item: any) => ({
+          book: item.book as BibleBook,
+          chapter: item.chapter as number,
+          verse: item.verse as number,
+          text: item.text as string,
+          reference: formatVerseReference(
+            item.book as BibleBook,
+            item.chapter as number,
+            item.verse as number,
+            "ru"
+          ),
+        })) ?? [];
+
+      const total = response.data?.total ?? 0;
+      const merged = [...searchResults, ...results];
+
+      setSearchResults(merged);
+      setSearchPage(nextPage);
+      setHasMoreSearch(merged.length < total && results.length > 0);
+    } catch (err) {
+      if (!axios.isAxiosError(err) || err.code !== "ERR_CANCELED") {
+        console.warn("Ошибка при дозагрузке результатов поиска:", err);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleResultsScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 80) {
+      loadMoreSearchResults();
+    }
+  };
+
+  const handleSelectSearchResult = (result: (typeof searchResults)[0]) => {
     setText(result.text);
     setReference(result.reference);
-    setSearchQuery('');
+    setSearchQuery("");
     setSearchResults([]);
     setSearchError(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!reference || !text) return;
 
     onAdd({
       reference,
       text,
       translation,
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
     });
 
     // Reset form
-    setReference('');
-    setText('');
-    setTranslation('rst');
-    setTags('');
-    setSelectedBook('');
-    setChapter('');
-    setVerse('');
+    setReference("");
+    setText("");
+    setTranslation(DEFAULT_BOLLS_TRANSLATION);
+    setTags("");
+    setSelectedBook("");
+    setChapter("");
+    setVerse("");
     setError(null);
-    setSearchQuery('');
+    setSearchQuery("");
     setSearchResults([]);
     setSearchError(null);
     onClose();
@@ -275,8 +323,8 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] w-screen h-screen sm:h-auto sm:max-h-[85vh] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0">
+        <DialogHeader className="sticky top-0 z-10 bg-background pt-22 md:pt-6">
           <DialogTitle>Добавить новый стих</DialogTitle>
           <DialogDescription>
             Добавьте стих в вашу коллекцию для заучивания
@@ -288,41 +336,25 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             {/* Секция загрузки стиха */}
             <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Загрузить стих из Библии</Label>
+                <Label className="text-base font-semibold">
+                  Загрузить стих из Библии
+                </Label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="translation-select">Перевод</Label>
-                  <Select value={translation} onValueChange={setTranslation}>
-                    <SelectTrigger id="translation-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(BIBLE_TRANSLATIONS).map((trans) => (
-                        <SelectItem key={trans.code} value={trans.code}>
-                          {trans.nameRu}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="book-select">Книга</Label>
-                  <Select value={selectedBook} onValueChange={setSelectedBook}>
-                    <SelectTrigger id="book-select">
-                      <SelectValue placeholder="Выберите книгу" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {bibleBooks.map((book) => (
-                        <SelectItem key={book.id} value={book.id.toString()}>
-                          {book.nameRu}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="book-select">Книга</Label>
+                <Select value={selectedBook} onValueChange={setSelectedBook}>
+                  <SelectTrigger id="book-select">
+                    <SelectValue placeholder="Выберите книгу" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {bibleBooks.map((book) => (
+                      <SelectItem key={book.id} value={book.id.toString()}>
+                        {book.nameRu}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -393,7 +425,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             {/* Секция поиска по цитате */}
             <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
               <Label className="text-base font-semibold">Поиск по цитате</Label>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="search-query">Введите часть текста стиха</Label>
                 <div className="flex gap-2">
@@ -403,7 +435,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         e.preventDefault();
                         handleSearchByQuote();
                       }
@@ -418,12 +450,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                     {searching ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      'Найти'
+                      "Найти"
                     )}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Поиск по популярным книгам Библии (Евангелия, Послания, Псалмы и др.)
+                  Поиск по популярным книгам Библии (Евангелия, Послания, Псалмы
+                  и др.)
                 </p>
               </div>
 
@@ -441,11 +474,18 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
               )}
 
               {searchResults.length > 0 && (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  <Label className="text-sm">Результаты поиска ({searchResults.length}):</Label>
+                <div
+                  ref={resultsContainerRef}
+                  onScroll={handleResultsScroll}
+                  className="space-y-2 max-h-[300px] overflow-y-auto"
+                >
+                  <Label className="text-sm">
+                    Результаты поиска ({searchResults.length}
+                    {hasMoreSearch ? "+" : ""}):
+                  </Label>
                   {searchResults.map((result, index) => (
                     <button
-                      key={index}
+                      key={`${result.reference}-${index}`}
                       type="button"
                       onClick={() => handleSelectSearchResult(result)}
                       className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
@@ -453,11 +493,20 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       <div className="font-medium text-sm text-primary mb-1">
                         {result.reference}
                       </div>
-                      <div className="text-sm text-foreground line-clamp-2">
-                        {result.text}
-                      </div>
+                      <div
+                        className="text-sm text-foreground line-clamp-3"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkHtml(result.text),
+                        }}
+                      />
                     </button>
                   ))}
+                  {loadingMore && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 pb-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Загружаем ещё...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -478,8 +527,9 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             <div className="space-y-2">
               <Label htmlFor="reference">Ссылка</Label>
               <Input
+                readOnly={true}
                 id="reference"
-                placeholder="например, Иоанн 3:16"
+                placeholder="ссылка на стих будет загружена автоматически"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
                 required
@@ -488,13 +538,14 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
             <div className="space-y-2">
               <Label htmlFor="text">Текст стиха</Label>
-              <Textarea
+              <div
                 id="text"
-                placeholder="Введите текст стиха..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={5}
-                required
+                className="min-h-[120px] p-3 border rounded bg-muted/50 text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: text
+                    ? renderMarkHtml(text)
+                    : "текст стиха будет загружен автоматически",
+                }}
               />
             </div>
 
@@ -509,11 +560,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Отмена
-            </Button>
-            <Button type="submit">Добавить стих</Button>
+          <DialogFooter className="flex flex-col justify-between gap-2 w-full py-2 bg-background">
+            {/* <div className="flex flex-col justify-between gap-2 w-full py-2 bg-background"> */}
+              <Button type="button" variant="outline" onClick={onClose}>
+                Отмена
+              </Button>
+              <Button type="submit">Добавить стих</Button>
+            {/* </div> */}
           </DialogFooter>
         </form>
       </DialogContent>

@@ -15,8 +15,11 @@ import {
   SelectValue,
 } from './ui/select';
 import { Separator } from './ui/separator';
+import { BollsTranslationInfo, DEFAULT_BOLLS_TRANSLATION, getBollsTranslations } from '../services/bollsApi';
 
 export function Settings() {
+  const translations = getBollsTranslations();
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       {/* Header */}
@@ -35,16 +38,16 @@ export function Settings() {
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="translation">Перевод по умолчанию</Label>
-              <Select defaultValue="niv">
+              <Select defaultValue={DEFAULT_BOLLS_TRANSLATION}>
                 <SelectTrigger id="translation">
-                  <SelectValue />
+                  <SelectValue placeholder="Выберите перевод" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="niv">СП - Синодальный перевод</SelectItem>
-                  <SelectItem value="esv">РБО - Российское Библейское Общество</SelectItem>
-                  <SelectItem value="kjv">ЦСЯ - Церковнославянский</SelectItem>
-                  <SelectItem value="nlt">НРП - Новый русский перевод</SelectItem>
-                  <SelectItem value="nasb">НМП - Новый международный перевод</SelectItem>
+                  {translations.then(translations => translations.map((translation: BollsTranslationInfo) => (
+                    <SelectItem key={translation.short_name} value={translation.short_name}>
+                      {translation.short_name} — {translation.full_name}
+                    </SelectItem>
+                  )))}
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">

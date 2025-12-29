@@ -2,15 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import { BibleBook } from '../types/bible';
-import { 
-  BibleTranslation, 
-  getVerse, 
-  getChapter, 
-  getVerseRange,
-  GetVerseParams,
-  GetChapterParams,
-  GetVerseRangeParams
-} from '../services/bibleApi';
+import {
+  DEFAULT_BOLLS_TRANSLATION,
+  BollsVerse,
+  getBollsVerse,
+  getBollsChapter,
+} from '../services/bollsApi';
+
+/**
+ * Параметры запроса стиха
+ */
+interface GetVerseParams {
+  book: BibleBook;
+  chapter: number;
+  verse: number;
+  translation?: string;
+}
+
+/**
+ * Параметры запроса главы
+ */
+interface GetChapterParams {
+  book: BibleBook;
+  chapter: number;
+  translation?: string;
+}
+
+/**
+ * Параметры запроса диапазона стихов
+ */
+interface GetVerseRangeParams {
+  book: BibleBook;
+  chapter: number;
+  verseStart: number;
+  verseEnd: number;
+  translation?: string;
+}
 
 /**
  * Состояние загрузки стиха
@@ -29,7 +56,7 @@ export interface BibleVerseState<T> {
  *   book: BibleBook.John,
  *   chapter: 3,
  *   verse: 16,
- *   translation: BibleTranslation.RST
+ *   translation: BibleTranslation.SYNOD
  * });
  */
 export function useBibleVerse(params: GetVerseParams | null) {
@@ -51,10 +78,15 @@ export function useBibleVerse(params: GetVerseParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const verse = await getVerse(params);
+        const verse = await getBollsVerse({
+          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+          book: params.book,
+          chapter: params.chapter,
+          verse: params.verse,
+        });
         
         if (!cancelled) {
-          setState({ data: verse, loading: false, error: null });
+          setState({ data: verse.text, loading: false, error: null });
         }
       } catch (error) {
         if (!cancelled) {
@@ -84,7 +116,7 @@ export function useBibleVerse(params: GetVerseParams | null) {
  * const { data, loading, error } = useBibleChapter({
  *   book: BibleBook.Psalms,
  *   chapter: 23,
- *   translation: BibleTranslation.RBO
+ *   translation: BibleTranslation.RBS2
  * });
  */
 export function useBibleChapter(params: GetChapterParams | null) {
@@ -106,7 +138,16 @@ export function useBibleChapter(params: GetChapterParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const chapter = await getChapter(params);
+        const chapterVerses = await getBollsChapter({
+          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+          book: params.book,
+          chapter: params.chapter,
+        });
+
+        const chapter: Record<number, string> = {};
+        chapterVerses.forEach((v: BollsVerse) => {
+          chapter[v.verse] = v.text;
+        });
         
         if (!cancelled) {
           setState({ data: chapter, loading: false, error: null });
@@ -163,7 +204,18 @@ export function useBibleVerseRange(params: GetVerseRangeParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const verses = await getVerseRange(params);
+        const chapterVerses = await getBollsChapter({
+          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+          book: params.book,
+          chapter: params.chapter,
+        });
+
+        const verses: Record<number, string> = {};
+        chapterVerses.forEach((v: BollsVerse) => {
+          if (v.verse >= params.verseStart && v.verse <= params.verseEnd) {
+            verses[v.verse] = v.text;
+          }
+        });
         
         if (!cancelled) {
           setState({ data: verses, loading: false, error: null });
