@@ -354,9 +354,6 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
         <DialogHeader className="sticky top-0 z-10 bg-background pt-28 md:pt-6 !max-h-fit">
           <DialogTitle className="text-center mb-4">Добавить новый стих</DialogTitle>
           <DialogDescription>
-            {/* {mode === "search"
-              ? "Найдите стих по цитате"
-              : "Выберите стих из списка"} */}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
@@ -495,6 +492,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       min="1"
                       placeholder="1"
                       value={chapter}
+                      onInput={(e) => setChapter(e.currentTarget.value)}
                       onChange={(e) => setChapter(e.target.value)}
                     />
                   </div>
@@ -507,31 +505,11 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       min="1"
                       placeholder="1"
                       value={verse}
+                      onInput={(e) => setVerse(e.currentTarget.value)}
                       onChange={(e) => setVerse(e.target.value)}
                     />
                   </div>
                 </div>
-
-                {/* <Button
-                  type="button"
-                  onClick={handleFetchVerse}
-                  disabled={loading || !selectedBook || !chapter || !verse}
-                  className="w-full"
-                  variant="secondary"
-                > */}
-                {/* {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Загрузка...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Загрузить стих
-                    </>
-                  )} */}
-                {/* </Button> */}
-
                 {error && (
                   <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
                     {error}
@@ -539,19 +517,6 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                 )}
               </div>
             )}
-
-            {/* Результат */}
-            {/* <div className="space-y-2">
-              <Label htmlFor="reference">Ссылка</Label>
-              <Input
-                readOnly={true}
-                id="reference"
-                placeholder="ссылка на стих будет загружена автоматически"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                required
-              />
-            </div> */}
 
             {text && (
               <div className="space-y-2 min-h-[120px] p-3 border rounded bg-muted/50 text-sm leading-relaxed">
