@@ -289,8 +289,11 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const handleSelectSearchResult = (result: (typeof searchResults)[0]) => {
     setText(result.text);
     setReference(result.reference);
-    setSearchQuery("");
-    setSearchResults([]);
+    setSelectedBook(result.book.toString());
+    setChapter(result.chapter.toString());
+    setVerse(result.verse.toString());
+    // setSearchQuery("");
+    // setSearchResults([]);
     setSearchError(null);
   };
 
@@ -343,10 +346,11 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   }, [mode]);
 
   useEffect(() => {
-    if (selectedBook && chapter && verse && !loading) {
+    if (selectedBook && chapter && verse) {
       handleFetchVerse();
     }
-  }, [selectedBook, chapter, verse, loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBook, chapter, verse]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -380,10 +384,6 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
           <div className="space-y-4 pb-4">
             {mode === "search" && (
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <Label className="text-base font-semibold">
-                  Поиск по цитате
-                </Label>
-
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input
@@ -403,7 +403,8 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       type="button"
                       onClick={handleSearchByQuote}
                       disabled={searching || searchQuery.length < 3}
-                      variant="secondary"
+                      variant="outline"
+                      className="flex items-center gap-2"
                     >
                       {searching ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -442,6 +443,9 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                         key={`${result.reference}-${index}`}
                         type="button"
                         onClick={() => handleSelectSearchResult(result)}
+                        style={{
+                          borderColor: result.reference === reference ? "var(--primary)" : "var(--border)",
+                        }}
                         className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
                       >
                         <div className="font-medium text-sm text-primary mb-1">
@@ -487,28 +491,40 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="chapter">Глава</Label>
-                    <Input
-                      id="chapter"
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={chapter}
-                      onInput={(e) => setChapter(e.currentTarget.value)}
-                      onChange={(e) => setChapter(e.target.value)}
-                    />
+                    <Select value={chapter} onValueChange={setChapter}>
+                      <SelectTrigger id="chapter">
+                        <SelectValue placeholder="1" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[240px]">
+                        {Array.from({ length: 200 }, (_, i) => {
+                          const val = (i + 1).toString();
+                          return (
+                            <SelectItem key={val} value={val}>
+                              {val}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="verse">Стих</Label>
-                    <Input
-                      id="verse"
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={verse}
-                      onInput={(e) => setVerse(e.currentTarget.value)}
-                      onChange={(e) => setVerse(e.target.value)}
-                    />
+                    <Select value={verse} onValueChange={setVerse}>
+                      <SelectTrigger id="verse">
+                        <SelectValue placeholder="1" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[240px]">
+                        {Array.from({ length: 200 }, (_, i) => {
+                          const val = (i + 1).toString();
+                          return (
+                            <SelectItem key={val} value={val}>
+                              {val}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 {error && (
@@ -520,7 +536,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             )}
 
             {text && (
-              <div className="space-y-2 min-h-[120px] p-3 border rounded bg-muted/50 text-sm leading-relaxed">
+              <div className="space-y-2 min-h-[120px] p-3 border border-secondary rounded bg-secondary/70 text-sm leading-relaxed">
                 <div
                   id="text"
                   className=""
