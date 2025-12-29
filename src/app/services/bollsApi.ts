@@ -5,6 +5,7 @@ import { BibleBook } from '../types/bible';
 
 const BOLLS_API_BASE_URL = 'https://bolls.life';
 const BOLLS_API_V2_URL = `${BOLLS_API_BASE_URL}/v2`;
+const BOLLS_TRANSLATIONS_PROXY = '/api/bolls/translations';
 
 /** Перевод по умолчанию (русский синодальный) */
 export const DEFAULT_BOLLS_TRANSLATION = 'SYNOD';
@@ -82,7 +83,7 @@ export type BollsParallelVersesResponse = BollsVerse[][];
 export async function getBollsTranslations(): Promise<BollsTranslationInfo[]> {
   try {
     const { data } = await axios.get<BollsTranslationInfo[]>(
-      `${BOLLS_API_BASE_URL}/static/bolls/app/views/languages.json`
+      BOLLS_TRANSLATIONS_PROXY
     );
     return data;
   } catch (error) {

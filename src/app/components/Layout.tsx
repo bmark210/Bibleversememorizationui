@@ -80,7 +80,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
         {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-64 my-4 border-r rounded-lg border-border bg-card">
+        <aside className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;

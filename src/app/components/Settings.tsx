@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -17,8 +17,62 @@ import {
 import { Separator } from './ui/separator';
 import { BollsTranslationInfo, DEFAULT_BOLLS_TRANSLATION, getBollsTranslations } from '../services/bollsApi';
 
+const MAIN_TRANSLATIONS: BollsTranslationInfo[] = [
+  { short_name: 'NRT', full_name: 'Новый русский Перевод (НРП)', updated: 1635446313426 },
+  { short_name: 'SYNOD', full_name: 'русский Синодальный Перевод', updated: 1591185595149 },
+  { short_name: 'RBS2', full_name: 'Современный русский перевод, 2015', updated: 1635446313426 },
+  { short_name: 'BTI', full_name: 'Библия под ред. М.П. Кулакова и М.М. Кулакова, 2015', updated: 1635446313426 },
+];
+
 export function Settings() {
-  const translations = getBollsTranslations();
+  const [translations, setTranslations] = useState<BollsTranslationInfo[]>([]);
+  const [loadingTranslations, setLoadingTranslations] = useState(true);
+  const [translationsError, setTranslationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTranslations = async () => {
+      try {
+        setTranslationsError(null);
+        const data = await getBollsTranslations();
+        if (!isMounted) return;
+
+        // Оставляем только основные переводы и упорядочиваем их как в MAIN_TRANSLATIONS
+        const mainShortNames = new Set(MAIN_TRANSLATIONS.map((t) => t.short_name));
+        const filtered = data.filter((t) => mainShortNames.has(t.short_name));
+
+        const ordered =
+          filtered.length > 0
+            ? MAIN_TRANSLATIONS.map(
+                (main) => filtered.find((t) => t.short_name === main.short_name) ?? main
+              )
+            : MAIN_TRANSLATIONS;
+
+        if (isMounted) {
+          setTranslations(ordered);
+        }
+      } catch (error) {
+        if (isMounted) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Не удалось загрузить список переводов';
+          setTranslationsError(message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingTranslations(false);
+        }
+      }
+    };
+
+    loadTranslations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
@@ -38,18 +92,41 @@ export function Settings() {
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="translation">Перевод по умолчанию</Label>
-              <Select defaultValue={DEFAULT_BOLLS_TRANSLATION}>
+              <Select
+                defaultValue={DEFAULT_BOLLS_TRANSLATION}
+                disabled={loadingTranslations || !!translationsError}
+              >
                 <SelectTrigger id="translation">
-                  <SelectValue placeholder="Выберите перевод" />
+                  <SelectValue
+                    placeholder={
+                      loadingTranslations ? 'Загрузка переводов...' : 'Выберите перевод'
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {translations.then(translations => translations.map((translation: BollsTranslationInfo) => (
-                    <SelectItem key={translation.short_name} value={translation.short_name}>
-                      {translation.short_name} — {translation.full_name}
+                  {loadingTranslations && (
+                    <SelectItem value="loading" disabled>
+                      Загрузка...
                     </SelectItem>
-                  )))}
+                  )}
+                  {!loadingTranslations &&
+                    translations.map((translation: BollsTranslationInfo) => (
+                      <SelectItem key={translation.short_name} value={translation.short_name}>
+                        {translation.short_name} — {translation.full_name}
+                      </SelectItem>
+                    ))}
+                  {!loadingTranslations && !translations.length && !translationsError && (
+                    <SelectItem value="none" disabled>
+                      Переводы недоступны
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {translationsError && (
+                <p className="text-sm text-destructive">
+                  {translationsError}
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 Выберите предпочитаемый перевод Библии для новых стихов
               </p>
