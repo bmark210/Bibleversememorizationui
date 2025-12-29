@@ -327,7 +327,10 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const bibleBooks = getAllBibleBooks();
 
   useEffect(() => {
-    const storedMode = typeof window !== "undefined" ? window.localStorage.getItem(MODE_STORAGE_KEY) : null;
+    const storedMode =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(MODE_STORAGE_KEY)
+        : null;
     if (storedMode === "search" || storedMode === "manual") {
       setMode(storedMode);
     }
@@ -347,16 +350,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-screen h-screen max-w-full sm:max-w-[600px] sm:h-auto max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0">
-        <DialogHeader className="sticky top-0 z-10 bg-background pt-22 md:pt-6 !h-fit">
-          <DialogTitle>Добавить новый стих</DialogTitle>
+      <DialogContent className="w-screen h-screen max-w-full sm:max-w-[600px] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0 flex flex-col justify-between">
+        <DialogHeader className="sticky top-0 z-10 bg-background pt-28 md:pt-6 !max-h-fit">
+          <DialogTitle className="text-center mb-4">Добавить новый стих</DialogTitle>
           <DialogDescription>
-            Добавьте стих в вашу коллекцию для заучивания
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="flex flex-col justify-between h-full min-h-max">
-          <div className="space-y-4 py-4 flex-grow">
+            {/* {mode === "search"
+              ? "Найдите стих по цитате"
+              : "Выберите стих из списка"} */}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
@@ -373,10 +373,19 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                 Ручной выбор
               </Button>
             </div>
+          </DialogDescription>
+        </DialogHeader>
 
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col justify-between h-full min-h-max"
+        >
+          <div className="space-y-4 pb-4">
             {mode === "search" && (
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <Label className="text-base font-semibold">Поиск по цитате</Label>
+                <Label className="text-base font-semibold">
+                  Поиск по цитате
+                </Label>
 
                 <div className="space-y-2">
                   <div className="flex gap-2">
@@ -463,10 +472,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="book-select">Книга</Label>
-                  <Select
-                    value={selectedBook}
-                    onValueChange={setSelectedBook}
-                  >
+                  <Select value={selectedBook} onValueChange={setSelectedBook}>
                     <SelectTrigger id="book-select">
                       <SelectValue placeholder="Выберите книгу" />
                     </SelectTrigger>
@@ -513,7 +519,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                   className="w-full"
                   variant="secondary"
                 > */}
-                  {/* {loading ? (
+                {/* {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Загрузка...
@@ -592,7 +598,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
             )}
           </div>
 
-          <DialogFooter className="flex flex-col justify-between gap-2 w-full py-2 bg-background">
+          <DialogFooter className="flex flex-row md:flex-col justify-between gap-2 w-full py-2 bg-background">
             <Button type="button" variant="outline" onClick={onClose}>
               Отмена
             </Button>
