@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { useTelegram } from '../contexts/TelegramContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ const getPreferredTheme = (): Theme => {
 
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(getPreferredTheme);
+  const { user, isReady, platform } = useTelegram();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -71,7 +73,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
               </Button>
               <Avatar>
-                <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
+                {user?.photoUrl ? (
+                  <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                ) : (
+                  <AvatarFallback className="bg-primary text-primary-foreground">{user?.firstName.charAt(0).toUpperCase()}</AvatarFallback>
+                )}
               </Avatar>
             </div>
           </div>

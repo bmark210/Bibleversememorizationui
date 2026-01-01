@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { TrainingSession } from './components/TrainingSession';
@@ -26,14 +26,19 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
+  const initUserRef = useRef(false);
 
   const todayVerses = getVersesForToday();
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
+    if (initUserRef.current) return; // guard от повторного вызова в StrictMode
+    initUserRef.current = true;
+
     const telegramId =
       typeof window !== 'undefined'
         ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+          process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
           localStorage.getItem('telegramId') ??
           undefined
         : undefined;
