@@ -829,6 +829,20 @@ export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
+ * Reference to a field of type 'Translation'
+ */
+export type EnumTranslationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Translation'>
+    
+
+
+/**
+ * Reference to a field of type 'Translation[]'
+ */
+export type ListEnumTranslationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Translation[]'>
+    
+
+
+/**
  * Reference to a field of type 'DateTime'
  */
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>

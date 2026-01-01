@@ -9,7 +9,11 @@
 * 🟢 You can import this file directly.
 */
 
+export const Translation = {
+  NRT: 'NRT',
+  SYNOD: 'SYNOD',
+  RBS2: 'RBS2',
+  BTI: 'BTI'
+} as const
 
-
-// This file is empty because there are no enums in the schema.
-export {}
+export type Translation = (typeof Translation)[keyof typeof Translation]

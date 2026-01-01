@@ -27,14 +27,14 @@ export type AggregateUser = {
 export type UserMinAggregateOutputType = {
   id: string | null
   telegramId: string | null
-  translation: string | null
+  translation: $Enums.Translation | null
   createdAt: Date | null
 }
 
 export type UserMaxAggregateOutputType = {
   id: string | null
   telegramId: string | null
-  translation: string | null
+  translation: $Enums.Translation | null
   createdAt: Date | null
 }
 
@@ -144,7 +144,7 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type UserGroupByOutputType = {
   id: string
   telegramId: string
-  translation: string
+  translation: $Enums.Translation
   createdAt: Date
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
@@ -172,7 +172,7 @@ export type UserWhereInput = {
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
   telegramId?: Prisma.StringFilter<"User"> | string
-  translation?: Prisma.StringFilter<"User"> | string
+  translation?: Prisma.EnumTranslationFilter<"User"> | $Enums.Translation
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   verses?: Prisma.UserVerseListRelationFilter
 }
@@ -191,7 +191,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
-  translation?: Prisma.StringFilter<"User"> | string
+  translation?: Prisma.EnumTranslationFilter<"User"> | $Enums.Translation
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   verses?: Prisma.UserVerseListRelationFilter
 }, "id" | "telegramId">
@@ -212,14 +212,14 @@ export type UserScalarWhereWithAggregatesInput = {
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
   telegramId?: Prisma.StringWithAggregatesFilter<"User"> | string
-  translation?: Prisma.StringWithAggregatesFilter<"User"> | string
+  translation?: Prisma.EnumTranslationWithAggregatesFilter<"User"> | $Enums.Translation
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
 
 export type UserCreateInput = {
   id?: string
   telegramId: string
-  translation?: string
+  translation?: $Enums.Translation
   createdAt?: Date | string
   verses?: Prisma.UserVerseCreateNestedManyWithoutUserInput
 }
@@ -227,7 +227,7 @@ export type UserCreateInput = {
 export type UserUncheckedCreateInput = {
   id?: string
   telegramId: string
-  translation?: string
+  translation?: $Enums.Translation
   createdAt?: Date | string
   verses?: Prisma.UserVerseUncheckedCreateNestedManyWithoutUserInput
 }
@@ -235,7 +235,7 @@ export type UserUncheckedCreateInput = {
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   verses?: Prisma.UserVerseUpdateManyWithoutUserNestedInput
 }
@@ -243,7 +243,7 @@ export type UserUpdateInput = {
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   verses?: Prisma.UserVerseUncheckedUpdateManyWithoutUserNestedInput
 }
@@ -251,21 +251,21 @@ export type UserUncheckedUpdateInput = {
 export type UserCreateManyInput = {
   id?: string
   telegramId: string
-  translation?: string
+  translation?: $Enums.Translation
   createdAt?: Date | string
 }
 
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -299,6 +299,10 @@ export type StringFieldUpdateOperationsInput = {
   set?: string
 }
 
+export type EnumTranslationFieldUpdateOperationsInput = {
+  set?: $Enums.Translation
+}
+
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
@@ -320,14 +324,14 @@ export type UserUpdateOneRequiredWithoutVersesNestedInput = {
 export type UserCreateWithoutVersesInput = {
   id?: string
   telegramId: string
-  translation?: string
+  translation?: $Enums.Translation
   createdAt?: Date | string
 }
 
 export type UserUncheckedCreateWithoutVersesInput = {
   id?: string
   telegramId: string
-  translation?: string
+  translation?: $Enums.Translation
   createdAt?: Date | string
 }
 
@@ -350,14 +354,14 @@ export type UserUpdateToOneWithWhereWithoutVersesInput = {
 export type UserUpdateWithoutVersesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type UserUncheckedUpdateWithoutVersesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   telegramId?: Prisma.StringFieldUpdateOperationsInput | string
-  translation?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.EnumTranslationFieldUpdateOperationsInput | $Enums.Translation
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -438,7 +442,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     telegramId: string
-    translation: string
+    translation: $Enums.Translation
     createdAt: Date
   }, ExtArgs["result"]["user"]>
   composites: {}
@@ -866,7 +870,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
   readonly telegramId: Prisma.FieldRef<"User", 'String'>
-  readonly translation: Prisma.FieldRef<"User", 'String'>
+  readonly translation: Prisma.FieldRef<"User", 'Translation'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }
     

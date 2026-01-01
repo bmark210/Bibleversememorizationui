@@ -7,10 +7,17 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
+enum Translation {
+  NRT
+  SYNOD
+  RBS2
+  BTI
+}
+
 model User {
   id        String      @id @default(cuid())
   telegramId String      @unique
-  translation String      @default("SYNOD")
+  translation Translation      @default(SYNOD)
   createdAt DateTime    @default(now())
 
   verses    UserVerse[]
