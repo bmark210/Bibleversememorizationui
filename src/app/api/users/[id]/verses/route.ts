@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 type UpsertVersePayload = {
   externalVerseId: string;
+  translation: string;
   masteryLevel?: number;
   repetitions?: number;
   lastReviewedAt?: string;
@@ -10,25 +11,23 @@ type UpsertVersePayload = {
 };
 
 // GET/POST прогресса по стихам. В этом маршруте params.id — это telegramId.
-async function getUserIdByTelegramId(telegramId: string) {
-  const user = await prisma.user.findUnique({
-    where: { telegramId },
-    select: { id: true },
-  });
-  return user?.id;
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const userId = await getUserIdByTelegramId(params.id);
-  if (!userId) {
+  const telegramId = params.id;
+
+  const user = await prisma.user.findUnique({
+    where: { telegramId },
+    select: { id: true },
+  });
+
+  if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const verses = await prisma.userVerse.findMany({
-    where: { userId },
+    where: { telegramId },
   });
 
   return NextResponse.json(verses);
@@ -38,10 +37,7 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const userId = await getUserIdByTelegramId(params.id);
-  if (!userId) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+  const telegramId = params.id;
 
   const body = (await request.json()) as UpsertVersePayload;
   const {
@@ -59,21 +55,35 @@ export async function POST(
     );
   }
 
-  const verse = await prisma.userVerse.upsert({
+  // Сначала убеждаемся, что пользователь существует
+  const user = await prisma.user.findUnique({
+    where: { telegramId },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Проверяем, есть ли уже такой стих У ЭТОГО пользователя
+  const existingVerse = await prisma.userVerse.findUnique({
     where: {
-      userId_externalVerseId: {
-        userId,
+      telegramId_externalVerseId: {
+        telegramId,
         externalVerseId,
       },
     },
-    update: {
-      masteryLevel,
-      repetitions,
-      lastReviewedAt: lastReviewedAt ? new Date(lastReviewedAt) : undefined,
-      nextReviewAt: nextReviewAt ? new Date(nextReviewAt) : undefined,
-    },
-    create: {
-      userId,
+  });
+
+  if (existingVerse) {
+    return NextResponse.json(
+      { error: "Стих уже добавлен в ваш список стихов" },
+      { status: 400 }
+    );
+  }
+
+  const verse = await prisma.userVerse.create({
+    data: {
+      telegramId,
       externalVerseId,
       masteryLevel,
       repetitions,

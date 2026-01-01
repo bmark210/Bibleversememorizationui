@@ -25,7 +25,7 @@ export class UserVersesService {
         });
     }
     /**
-     * Upsert прогресса по стиху
+     * Создать или обновить прогресс по стиху
      * @param telegramId
      * @param requestBody
      * @returns UserVerse Создан/обновлён

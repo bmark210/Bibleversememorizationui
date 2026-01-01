@@ -61,6 +61,7 @@ interface AddVerseDialogProps {
   onClose: () => void;
   onAdd: (verse: {
     externalVerseId: string;
+    reference: string;
     tags: string[];
   }) => void;
 }
@@ -294,13 +295,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedBook || !chapter || !verse) return;
+    if (!reference || !selectedBook || !chapter || !verse) return;
 
-    // Формируем ID из 4 частей: книга-глава-стих-перевод
-    const externalVerseId = `${selectedBook}-${chapter}-${verse}-${translation}`;
+    const externalVerseId = `${selectedBook}-${chapter}-${verse}`;
 
     onAdd({
       externalVerseId,
+      reference,
       tags: tags
         .split(",")
         .map((t) => t.trim())

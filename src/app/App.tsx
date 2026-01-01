@@ -111,6 +111,7 @@ export default function App() {
 
   const handleVerseAdded = async (verse: {
     externalVerseId: string;
+    reference: string;
     tags: string[];
   }) => {
     const telegramId = localStorage.getItem("telegramId") ?? "";
@@ -124,11 +125,13 @@ export default function App() {
         nextReviewAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
       });
       toast.success("Стих успешно добавлен", {
-        description: `${verse.externalVerseId} добавлен в вашу коллекцию.`,
+        description: `${verse.reference} добавлен в ваш список стихов.`,
       });
     } catch (err) {
-      console.error("Не удалось добавить стих:", err);
-      toast.error("Не удалось добавить стих: " + (err as Error).message);
+
+      const errorMessage = (err as ApiError)?.body?.error as string;
+      console.error("Не удалось добавить стих:", errorMessage);
+      toast.error(errorMessage ??"Не удалось добавить стих");
     }
 
     return verse;

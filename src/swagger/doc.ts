@@ -66,7 +66,7 @@ const swaggerDoc = {
       },
       post: {
         tags: ["User Verses"],
-        summary: "Upsert прогресса по стиху",
+        summary: "Создать или обновить прогресс по стиху",
         parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
           required: true,

@@ -134,7 +134,7 @@
         "tags": [
           "User Verses"
         ],
-        "summary": "Upsert прогресса по стиху",
+        "summary": "Создать или обновить прогресс по стиху",
         "parameters": [
           {
             "name": "telegramId",

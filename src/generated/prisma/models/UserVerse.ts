@@ -252,18 +252,18 @@ export type UserVerseOrderByWithRelationInput = {
 
 export type UserVerseWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  externalVerseId?: string
   telegramId_externalVerseId?: Prisma.UserVerseTelegramIdExternalVerseIdCompoundUniqueInput
   AND?: Prisma.UserVerseWhereInput | Prisma.UserVerseWhereInput[]
   OR?: Prisma.UserVerseWhereInput[]
   NOT?: Prisma.UserVerseWhereInput | Prisma.UserVerseWhereInput[]
   telegramId?: Prisma.StringFilter<"UserVerse"> | string
-  externalVerseId?: Prisma.StringFilter<"UserVerse"> | string
   masteryLevel?: Prisma.IntFilter<"UserVerse"> | number
   repetitions?: Prisma.IntFilter<"UserVerse"> | number
   lastReviewedAt?: Prisma.DateTimeNullableFilter<"UserVerse"> | Date | string | null
   nextReviewAt?: Prisma.DateTimeNullableFilter<"UserVerse"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-}, "id" | "telegramId_externalVerseId">
+}, "id" | "externalVerseId" | "telegramId_externalVerseId">
 
 export type UserVerseOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
