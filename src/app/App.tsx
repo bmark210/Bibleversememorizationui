@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
+import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import {
   mockVerses,
   mockCollections,
@@ -34,49 +35,59 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
+  const [user, setUser] = useState<UserWithVerses | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const initUserRef = useRef(false);
 
+  // Для демонстрации используем моки, пока не настроен маппинг UserVerse -> Verse
   const todayVerses = getVersesForToday();
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
-    if (initUserRef.current) return; // guard от повторного вызова в StrictMode
+    if (initUserRef.current) return;
     initUserRef.current = true;
 
     const telegramId =
       typeof window !== "undefined"
-        ? (
-            window as any
-          )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+        ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
           process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
           localStorage.getItem("telegramId") ??
           undefined
         : undefined;
-        
+
     console.log("telegramId", telegramId);
 
-    if (!telegramId) return;
+    if (!telegramId) {
+      setIsLoading(false);
+      return;
+    }
     localStorage.setItem("telegramId", telegramId);
 
-    (async () => {
+    const fetchUser = async () => {
       try {
-        await UsersService.getApiUsers(telegramId);
+        setIsLoading(true);
+        const userData = await UsersService.getApiUsers(telegramId);
+        setUser(userData);
       } catch (err) {
         const status = (err as ApiError)?.status;
         if (status === 404) {
           try {
-            await UsersService.postApiUsers({ telegramId });
+            const newUser = await UsersService.postApiUsers({ telegramId });
+            setUser({ ...newUser, verses: [] });
           } catch (createErr) {
-            console.error(
-              "Не удалось создать пользователя (telegramId):",
-              createErr
-            );
+            console.error("Не удалось создать пользователя:", createErr);
+            toast.error("Ошибка при создании профиля");
           }
         } else {
-          console.error("Не удалось получить пользователя (telegramId):", err);
+          console.error("Не удалось получить пользователя:", err);
+          toast.error("Ошибка при подключении к базе данных");
         }
+      } finally {
+        setIsLoading(false);
       }
-    })();
+    };
+
+    fetchUser();
   }, []);
 
   const handleNavigate = (page: string) => {
@@ -126,14 +137,18 @@ export default function App() {
         lastReviewedAt: new Date().toISOString(),
         nextReviewAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
       });
+      
+      // Обновляем данные пользователя после добавления стиха
+      const updatedUser = await UsersService.getApiUsers(telegramId);
+      setUser(updatedUser);
+
       toast.success("Стих успешно добавлен", {
         description: `${verse.reference} добавлен в ваш список стихов.`,
       });
     } catch (err) {
-
       const errorMessage = (err as ApiError)?.body?.error as string;
       console.error("Не удалось добавить стих:", errorMessage);
-      toast.error(errorMessage ??"Не удалось добавить стих");
+      toast.error(errorMessage ?? "Не удалось добавить стих");
     }
 
     return verse;
