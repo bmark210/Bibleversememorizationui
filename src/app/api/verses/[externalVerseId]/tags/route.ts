@@ -20,77 +20,104 @@ async function resolveTagId(payload: ModifyTagPayload) {
 
 export async function GET(
   _request: Request,
-  { params }: { params: { externalVerseId: string } }
+  { params }: { params: Promise<{ externalVerseId: string }> | { externalVerseId: string } }
 ) {
-  const tags = await prisma.verseTag.findMany({
-    where: { externalVerseId: params.externalVerseId },
-    include: { tag: true },
-  });
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    const tags = await prisma.verseTag.findMany({
+      where: { externalVerseId: resolvedParams.externalVerseId },
+      include: { tag: true },
+    });
 
-  return NextResponse.json(
-    tags.map((v) => ({
-      id: v.tag.id,
-      slug: v.tag.slug,
-      title: v.tag.title,
-      createdAt: v.tag.createdAt,
-    }))
-  );
+    return NextResponse.json(
+      tags.map((v) => ({
+        id: v.tag.id,
+        slug: v.tag.slug,
+        title: v.tag.title,
+        createdAt: v.tag.createdAt,
+      }))
+    );
+  } catch (error) {
+    console.error("Error fetching verse tags:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: { externalVerseId: string } }
+  { params }: { params: Promise<{ externalVerseId: string }> | { externalVerseId: string } }
 ) {
-  const body = (await request.json()) as ModifyTagPayload;
-  const tagId = await resolveTagId(body);
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    const body = (await request.json()) as ModifyTagPayload;
+    const tagId = await resolveTagId(body);
 
-  if (!tagId) {
-    return NextResponse.json(
-      { error: "tagId or tagSlug is required" },
-      { status: 400 }
-    );
-  }
+    if (!tagId) {
+      return NextResponse.json(
+        { error: "tagId or tagSlug is required" },
+        { status: 400 }
+      );
+    }
 
-  const link = await prisma.verseTag.upsert({
-    where: {
-      externalVerseId_tagId: {
-        externalVerseId: params.externalVerseId,
+    const link = await prisma.verseTag.upsert({
+      where: {
+        externalVerseId_tagId: {
+          externalVerseId: resolvedParams.externalVerseId,
+          tagId,
+        },
+      },
+      update: {},
+      create: {
+        externalVerseId: resolvedParams.externalVerseId,
         tagId,
       },
-    },
-    update: {},
-    create: {
-      externalVerseId: params.externalVerseId,
-      tagId,
-    },
-  });
+    });
 
-  return NextResponse.json(link, { status: 201 });
+    return NextResponse.json(link, { status: 201 });
+  } catch (error) {
+    console.error("Error creating verse tag:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { externalVerseId: string } }
+  { params }: { params: Promise<{ externalVerseId: string }> | { externalVerseId: string } }
 ) {
-  const body = (await request.json()) as ModifyTagPayload;
-  const tagId = await resolveTagId(body);
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    const body = (await request.json()) as ModifyTagPayload;
+    const tagId = await resolveTagId(body);
 
-  if (!tagId) {
+    if (!tagId) {
+      return NextResponse.json(
+        { error: "tagId or tagSlug is required" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.verseTag.delete({
+      where: {
+        externalVerseId_tagId: {
+          externalVerseId: resolvedParams.externalVerseId,
+          tagId,
+        },
+      },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Error deleting verse tag:", error);
     return NextResponse.json(
-      { error: "tagId or tagSlug is required" },
-      { status: 400 }
+      { error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
     );
   }
-
-  await prisma.verseTag.delete({
-    where: {
-      externalVerseId_tagId: {
-        externalVerseId: params.externalVerseId,
-        tagId,
-      },
-    },
-  });
-
-  return NextResponse.json({ ok: true });
 }
 
