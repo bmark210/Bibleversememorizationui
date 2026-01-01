@@ -754,7 +754,7 @@ export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof User
 
 export const UserVerseScalarFieldEnum = {
   id: 'id',
-  userId: 'userId',
+  telegramId: 'telegramId',
   externalVerseId: 'externalVerseId',
   masteryLevel: 'masteryLevel',
   repetitions: 'repetitions',

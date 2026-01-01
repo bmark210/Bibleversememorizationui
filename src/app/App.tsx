@@ -1,29 +1,37 @@
-'use client'
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
-import { TrainingSession } from './components/TrainingSession';
-import { VerseList } from './components/VerseList';
-import { Collections } from './components/Collections';
-import { Statistics } from './components/Statistics';
-import { Settings } from './components/Settings';
-import { AddVerseDialog } from './components/AddVerseDialog';
-import { toast } from 'sonner';
-import { Toaster } from './components/ui/sonner';
-import { UsersService } from '@/api/services/UsersService';
-import type { ApiError } from '@/api/core/ApiError';
+import React, { useEffect, useRef, useState } from "react";
+import { Layout } from "./components/Layout";
+import { Dashboard } from "./components/Dashboard";
+import { TrainingSession } from "./components/TrainingSession";
+import { VerseList } from "./components/VerseList";
+import { Collections } from "./components/Collections";
+import { Statistics } from "./components/Statistics";
+import { Settings } from "./components/Settings";
+import { AddVerseDialog } from "./components/AddVerseDialog";
+import { toast } from "sonner";
+import { Toaster } from "./components/ui/sonner";
+import { UsersService } from "@/api/services/UsersService";
+import type { ApiError } from "@/api/core/ApiError";
 import {
   mockVerses,
   mockCollections,
   mockStats,
   getVersesForToday,
-} from './data/mockData';
+} from "./data/mockData";
+import { UserVerse } from "@/generated/prisma/client";
+import { UserVersesService } from "@/api/services/UserVersesService";
 
-type Page = 'dashboard' | 'verses' | 'collections' | 'stats' | 'settings' | 'training';
+type Page =
+  | "dashboard"
+  | "verses"
+  | "collections"
+  | "stats"
+  | "settings"
+  | "training";
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const initUserRef = useRef(false);
@@ -36,15 +44,17 @@ export default function App() {
     initUserRef.current = true;
 
     const telegramId =
-      typeof window !== 'undefined'
-        ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+      typeof window !== "undefined"
+        ? (
+            window as any
+          )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
           process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
-          localStorage.getItem('telegramId') ??
+          localStorage.getItem("telegramId") ??
           undefined
         : undefined;
 
     if (!telegramId) return;
-    localStorage.setItem('telegramId', telegramId);
+    localStorage.setItem("telegramId", telegramId);
 
     (async () => {
       try {
@@ -55,10 +65,13 @@ export default function App() {
           try {
             await UsersService.postApiUsers({ telegramId });
           } catch (createErr) {
-            console.error('Не удалось создать пользователя (telegramId):', createErr);
+            console.error(
+              "Не удалось создать пользователя (telegramId):",
+              createErr
+            );
           }
         } else {
-          console.error('Не удалось получить пользователя (telegramId):', err);
+          console.error("Не удалось получить пользователя (telegramId):", err);
         }
       }
     })();
@@ -71,8 +84,8 @@ export default function App() {
 
   const handleStartTraining = () => {
     if (todayVerses.length === 0) {
-      toast.info('На сегодня стихов не запланировано', {
-        description: 'Отлично! Вы всё успели.',
+      toast.info("На сегодня стихов не запланировано", {
+        description: "Отлично! Вы всё успели.",
       });
       return;
     }
@@ -81,43 +94,62 @@ export default function App() {
 
   const handleCompleteTraining = () => {
     setIsTraining(false);
-    setCurrentPage('dashboard');
-    toast.success('Тренировка завершена!', {
-      description: 'Отличная работа! Ваш прогресс сохранён.',
+    setCurrentPage("dashboard");
+    toast.success("Тренировка завершена!", {
+      description: "Отличная работа! Ваш прогресс сохранён.",
     });
   };
 
   const handleExitTraining = () => {
     setIsTraining(false);
-    setCurrentPage('dashboard');
+    setCurrentPage("dashboard");
   };
 
   const handleAddVerse = () => {
     setShowAddVerseDialog(true);
   };
 
-  const handleVerseAdded = (verse: any) => {
-    toast.success('Стих успешно добавлен', {
-      description: `${verse.reference} добавлен в вашу коллекцию.`,
-    });
+  const handleVerseAdded = async (verse: {
+    externalVerseId: string;
+    tags: string[];
+  }) => {
+    const telegramId = localStorage.getItem("telegramId") ?? "";
+
+    try {
+      await UserVersesService.postApiUsersVerses(telegramId, {
+        externalVerseId: verse.externalVerseId,
+        masteryLevel: 0,
+        repetitions: 0,
+        lastReviewedAt: new Date().toISOString(),
+        nextReviewAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+      });
+      toast.success("Стих успешно добавлен", {
+        description: `${verse.externalVerseId} добавлен в вашу коллекцию.`,
+      });
+    } catch (err) {
+      console.error("Не удалось добавить стих:", err);
+      toast.error("Не удалось добавить стих: " + (err as Error).message);
+    }
+
+    return verse;
   };
 
   const handleStartTrainingFromVerse = (verseId: string) => {
-    const verse = mockVerses.find(v => v.id === verseId);
+    const verse = mockVerses.find((v) => v.id === verseId);
     if (verse) {
       setIsTraining(true);
     }
   };
 
   const handleSelectCollection = (collectionId: string) => {
-    toast.info('Коллекция выбрана', {
-      description: 'Здесь будут показаны стихи из выбранной коллекции.',
+    toast.info("Коллекция выбрана", {
+      description: "Здесь будут показаны стихи из выбранной коллекции.",
     });
   };
 
   const handleCreateCollection = () => {
-    toast.info('Создать коллекцию', {
-      description: 'Здесь откроется диалог для создания новой коллекции.',
+    toast.info("Создать коллекцию", {
+      description: "Здесь откроется диалог для создания новой коллекции.",
     });
   };
 
@@ -140,17 +172,20 @@ export default function App() {
   return (
     <>
       <Layout currentPage={currentPage} onNavigate={handleNavigate}>
-    <p className="text-sm text-muted-foreground">{"telegramId: " + (localStorage.getItem('telegramId') ?? 'No telegramId')}</p>
-        {currentPage === 'dashboard' && (
+        <p className="text-sm text-muted-foreground">
+          {"telegramId: " +
+            (localStorage.getItem("telegramId") ?? "No telegramId")}
+        </p>
+        {currentPage === "dashboard" && (
           <Dashboard
             todayVerses={todayVerses}
             onStartTraining={handleStartTraining}
             onAddVerse={handleAddVerse}
-            onViewAll={() => setCurrentPage('verses')}
+            onViewAll={() => setCurrentPage("verses")}
           />
         )}
 
-        {currentPage === 'verses' && (
+        {currentPage === "verses" && (
           <VerseList
             verses={mockVerses}
             onAddVerse={handleAddVerse}
@@ -158,7 +193,7 @@ export default function App() {
           />
         )}
 
-        {currentPage === 'collections' && (
+        {currentPage === "collections" && (
           <Collections
             collections={mockCollections}
             onCreateCollection={handleCreateCollection}
@@ -166,13 +201,9 @@ export default function App() {
           />
         )}
 
-        {currentPage === 'stats' && (
-          <Statistics stats={mockStats} />
-        )}
+        {currentPage === "stats" && <Statistics stats={mockStats} />}
 
-        {currentPage === 'settings' && (
-          <Settings />
-        )}
+        {currentPage === "settings" && <Settings />}
       </Layout>
 
       <AddVerseDialog

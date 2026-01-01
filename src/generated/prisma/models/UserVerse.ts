@@ -38,7 +38,7 @@ export type UserVerseSumAggregateOutputType = {
 
 export type UserVerseMinAggregateOutputType = {
   id: string | null
-  userId: string | null
+  telegramId: string | null
   externalVerseId: string | null
   masteryLevel: number | null
   repetitions: number | null
@@ -48,7 +48,7 @@ export type UserVerseMinAggregateOutputType = {
 
 export type UserVerseMaxAggregateOutputType = {
   id: string | null
-  userId: string | null
+  telegramId: string | null
   externalVerseId: string | null
   masteryLevel: number | null
   repetitions: number | null
@@ -58,7 +58,7 @@ export type UserVerseMaxAggregateOutputType = {
 
 export type UserVerseCountAggregateOutputType = {
   id: number
-  userId: number
+  telegramId: number
   externalVerseId: number
   masteryLevel: number
   repetitions: number
@@ -80,7 +80,7 @@ export type UserVerseSumAggregateInputType = {
 
 export type UserVerseMinAggregateInputType = {
   id?: true
-  userId?: true
+  telegramId?: true
   externalVerseId?: true
   masteryLevel?: true
   repetitions?: true
@@ -90,7 +90,7 @@ export type UserVerseMinAggregateInputType = {
 
 export type UserVerseMaxAggregateInputType = {
   id?: true
-  userId?: true
+  telegramId?: true
   externalVerseId?: true
   masteryLevel?: true
   repetitions?: true
@@ -100,7 +100,7 @@ export type UserVerseMaxAggregateInputType = {
 
 export type UserVerseCountAggregateInputType = {
   id?: true
-  userId?: true
+  telegramId?: true
   externalVerseId?: true
   masteryLevel?: true
   repetitions?: true
@@ -197,7 +197,7 @@ export type UserVerseGroupByArgs<ExtArgs extends runtime.Types.Extensions.Intern
 
 export type UserVerseGroupByOutputType = {
   id: string
-  userId: string
+  telegramId: string
   externalVerseId: string
   masteryLevel: number
   repetitions: number
@@ -230,7 +230,7 @@ export type UserVerseWhereInput = {
   OR?: Prisma.UserVerseWhereInput[]
   NOT?: Prisma.UserVerseWhereInput | Prisma.UserVerseWhereInput[]
   id?: Prisma.StringFilter<"UserVerse"> | string
-  userId?: Prisma.StringFilter<"UserVerse"> | string
+  telegramId?: Prisma.StringFilter<"UserVerse"> | string
   externalVerseId?: Prisma.StringFilter<"UserVerse"> | string
   masteryLevel?: Prisma.IntFilter<"UserVerse"> | number
   repetitions?: Prisma.IntFilter<"UserVerse"> | number
@@ -241,7 +241,7 @@ export type UserVerseWhereInput = {
 
 export type UserVerseOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
   externalVerseId?: Prisma.SortOrder
   masteryLevel?: Prisma.SortOrder
   repetitions?: Prisma.SortOrder
@@ -252,22 +252,22 @@ export type UserVerseOrderByWithRelationInput = {
 
 export type UserVerseWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  userId_externalVerseId?: Prisma.UserVerseUserIdExternalVerseIdCompoundUniqueInput
+  telegramId_externalVerseId?: Prisma.UserVerseTelegramIdExternalVerseIdCompoundUniqueInput
   AND?: Prisma.UserVerseWhereInput | Prisma.UserVerseWhereInput[]
   OR?: Prisma.UserVerseWhereInput[]
   NOT?: Prisma.UserVerseWhereInput | Prisma.UserVerseWhereInput[]
-  userId?: Prisma.StringFilter<"UserVerse"> | string
+  telegramId?: Prisma.StringFilter<"UserVerse"> | string
   externalVerseId?: Prisma.StringFilter<"UserVerse"> | string
   masteryLevel?: Prisma.IntFilter<"UserVerse"> | number
   repetitions?: Prisma.IntFilter<"UserVerse"> | number
   lastReviewedAt?: Prisma.DateTimeNullableFilter<"UserVerse"> | Date | string | null
   nextReviewAt?: Prisma.DateTimeNullableFilter<"UserVerse"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-}, "id" | "userId_externalVerseId">
+}, "id" | "telegramId_externalVerseId">
 
 export type UserVerseOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
   externalVerseId?: Prisma.SortOrder
   masteryLevel?: Prisma.SortOrder
   repetitions?: Prisma.SortOrder
@@ -285,7 +285,7 @@ export type UserVerseScalarWhereWithAggregatesInput = {
   OR?: Prisma.UserVerseScalarWhereWithAggregatesInput[]
   NOT?: Prisma.UserVerseScalarWhereWithAggregatesInput | Prisma.UserVerseScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"UserVerse"> | string
-  userId?: Prisma.StringWithAggregatesFilter<"UserVerse"> | string
+  telegramId?: Prisma.StringWithAggregatesFilter<"UserVerse"> | string
   externalVerseId?: Prisma.StringWithAggregatesFilter<"UserVerse"> | string
   masteryLevel?: Prisma.IntWithAggregatesFilter<"UserVerse"> | number
   repetitions?: Prisma.IntWithAggregatesFilter<"UserVerse"> | number
@@ -305,7 +305,7 @@ export type UserVerseCreateInput = {
 
 export type UserVerseUncheckedCreateInput = {
   id?: string
-  userId: string
+  telegramId: string
   externalVerseId: string
   masteryLevel?: number
   repetitions?: number
@@ -325,7 +325,7 @@ export type UserVerseUpdateInput = {
 
 export type UserVerseUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
   externalVerseId?: Prisma.StringFieldUpdateOperationsInput | string
   masteryLevel?: Prisma.IntFieldUpdateOperationsInput | number
   repetitions?: Prisma.IntFieldUpdateOperationsInput | number
@@ -335,7 +335,7 @@ export type UserVerseUncheckedUpdateInput = {
 
 export type UserVerseCreateManyInput = {
   id?: string
-  userId: string
+  telegramId: string
   externalVerseId: string
   masteryLevel?: number
   repetitions?: number
@@ -354,7 +354,7 @@ export type UserVerseUpdateManyMutationInput = {
 
 export type UserVerseUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
   externalVerseId?: Prisma.StringFieldUpdateOperationsInput | string
   masteryLevel?: Prisma.IntFieldUpdateOperationsInput | number
   repetitions?: Prisma.IntFieldUpdateOperationsInput | number
@@ -372,14 +372,14 @@ export type UserVerseOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type UserVerseUserIdExternalVerseIdCompoundUniqueInput = {
-  userId: string
+export type UserVerseTelegramIdExternalVerseIdCompoundUniqueInput = {
+  telegramId: string
   externalVerseId: string
 }
 
 export type UserVerseCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
   externalVerseId?: Prisma.SortOrder
   masteryLevel?: Prisma.SortOrder
   repetitions?: Prisma.SortOrder
@@ -394,7 +394,7 @@ export type UserVerseAvgOrderByAggregateInput = {
 
 export type UserVerseMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
   externalVerseId?: Prisma.SortOrder
   masteryLevel?: Prisma.SortOrder
   repetitions?: Prisma.SortOrder
@@ -404,7 +404,7 @@ export type UserVerseMaxOrderByAggregateInput = {
 
 export type UserVerseMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
   externalVerseId?: Prisma.SortOrder
   masteryLevel?: Prisma.SortOrder
   repetitions?: Prisma.SortOrder
@@ -520,7 +520,7 @@ export type UserVerseScalarWhereInput = {
   OR?: Prisma.UserVerseScalarWhereInput[]
   NOT?: Prisma.UserVerseScalarWhereInput | Prisma.UserVerseScalarWhereInput[]
   id?: Prisma.StringFilter<"UserVerse"> | string
-  userId?: Prisma.StringFilter<"UserVerse"> | string
+  telegramId?: Prisma.StringFilter<"UserVerse"> | string
   externalVerseId?: Prisma.StringFilter<"UserVerse"> | string
   masteryLevel?: Prisma.IntFilter<"UserVerse"> | number
   repetitions?: Prisma.IntFilter<"UserVerse"> | number
@@ -568,7 +568,7 @@ export type UserVerseUncheckedUpdateManyWithoutUserInput = {
 
 export type UserVerseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  userId?: boolean
+  telegramId?: boolean
   externalVerseId?: boolean
   masteryLevel?: boolean
   repetitions?: boolean
@@ -579,7 +579,7 @@ export type UserVerseSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
 
 export type UserVerseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  userId?: boolean
+  telegramId?: boolean
   externalVerseId?: boolean
   masteryLevel?: boolean
   repetitions?: boolean
@@ -590,7 +590,7 @@ export type UserVerseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
 
 export type UserVerseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  userId?: boolean
+  telegramId?: boolean
   externalVerseId?: boolean
   masteryLevel?: boolean
   repetitions?: boolean
@@ -601,7 +601,7 @@ export type UserVerseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
 
 export type UserVerseSelectScalar = {
   id?: boolean
-  userId?: boolean
+  telegramId?: boolean
   externalVerseId?: boolean
   masteryLevel?: boolean
   repetitions?: boolean
@@ -609,7 +609,7 @@ export type UserVerseSelectScalar = {
   nextReviewAt?: boolean
 }
 
-export type UserVerseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "externalVerseId" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt", ExtArgs["result"]["userVerse"]>
+export type UserVerseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "externalVerseId" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt", ExtArgs["result"]["userVerse"]>
 export type UserVerseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -627,7 +627,7 @@ export type $UserVersePayload<ExtArgs extends runtime.Types.Extensions.InternalA
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    userId: string
+    telegramId: string
     externalVerseId: string
     masteryLevel: number
     repetitions: number
@@ -1058,7 +1058,7 @@ export interface Prisma__UserVerseClient<T, Null = never, ExtArgs extends runtim
  */
 export interface UserVerseFieldRefs {
   readonly id: Prisma.FieldRef<"UserVerse", 'String'>
-  readonly userId: Prisma.FieldRef<"UserVerse", 'String'>
+  readonly telegramId: Prisma.FieldRef<"UserVerse", 'String'>
   readonly externalVerseId: Prisma.FieldRef<"UserVerse", 'String'>
   readonly masteryLevel: Prisma.FieldRef<"UserVerse", 'Int'>
   readonly repetitions: Prisma.FieldRef<"UserVerse", 'Int'>

@@ -253,7 +253,7 @@ const swaggerDoc = {
         type: "object",
         properties: {
           id: { type: "string" },
-          userId: { type: "string" },
+          telegramId: { type: "string" },
           externalVerseId: { type: "string" },
           masteryLevel: { type: "integer" },
           repetitions: { type: "integer" },

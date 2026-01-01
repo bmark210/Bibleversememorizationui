@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "${NEXT_PUBLIC_APP_URL}"
+      "url": "http://localhost:3000"
     }
   ],
   "tags": [
@@ -534,7 +534,7 @@
           "id": {
             "type": "string"
           },
-          "userId": {
+          "telegramId": {
             "type": "string"
           },
           "externalVerseId": {

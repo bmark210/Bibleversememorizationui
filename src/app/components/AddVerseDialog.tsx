@@ -21,12 +21,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog";
-import {
-  BibleBook,
-  getAllBibleBooks,
-  getBibleBookNameRu,
-  formatVerseReference,
-} from "../types/bible";
+  import {
+    BibleBook,
+    getAllBibleBooks,
+    getBibleBookNameRu,
+    formatVerseReference,
+  } from "@/app/types/bible";
 import {
   DEFAULT_BOLLS_TRANSLATION,
   getBollsVerse,
@@ -60,9 +60,7 @@ interface AddVerseDialogProps {
   open: boolean;
   onClose: () => void;
   onAdd: (verse: {
-    reference: string;
-    text: string;
-    translation: string;
+    externalVerseId: string;
     tags: string[];
   }) => void;
 }
@@ -137,7 +135,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
       // Заполняем поля
       setText(verseResult.text);
-      setReference(formatVerseReference(bookId, chapterNum, verseNum, "ru"));
+      setReference(formatVerseReference(bookId, chapterNum, verseNum));
     } catch (err) {
       console.error("Ошибка при загрузке стиха:", err);
       setError(
@@ -201,8 +199,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
           reference: formatVerseReference(
             item.book as BibleBook,
             item.chapter as number,
-            item.verse as number,
-            "ru"
+            item.verse as number
           ),
         })) ?? [];
 
@@ -259,8 +256,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
           reference: formatVerseReference(
             item.book as BibleBook,
             item.chapter as number,
-            item.verse as number,
-            "ru"
+            item.verse as number
           ),
         })) ?? [];
 
@@ -298,12 +294,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!reference || !text) return;
+    if (!selectedBook || !chapter || !verse) return;
+
+    // Формируем ID из 4 частей: книга-глава-стих-перевод
+    const externalVerseId = `${selectedBook}-${chapter}-${verse}-${translation}`;
 
     onAdd({
-      reference,
-      text,
-      translation,
+      externalVerseId,
       tags: tags
         .split(",")
         .map((t) => t.trim())

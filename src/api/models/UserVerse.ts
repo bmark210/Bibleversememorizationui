@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type UserVerse = {
     id?: string;
-    userId?: string;
+    telegramId?: string;
     externalVerseId?: string;
     masteryLevel?: number;
     repetitions?: number;
