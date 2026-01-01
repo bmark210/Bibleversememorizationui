@@ -4,10 +4,8 @@
 /* eslint-disable */
 export type User = {
     id?: string;
-    name?: string;
-    username?: string;
-    avatar?: string;
-    email?: string;
+    telegramId?: string;
+    translation?: string;
     createdAt?: string;
 };
 

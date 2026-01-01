@@ -14,50 +14,19 @@ const swaggerDoc = {
   ],
   paths: {
     "/api/users": {
-      get: {
-        tags: ["Users"],
-        summary: "Получить пользователя",
-        parameters: [
-          {
-            name: "id",
-            in: "query",
-            schema: { type: "string" },
-            required: false,
-          },
-          {
-            name: "email",
-            in: "query",
-            schema: { type: "string" },
-            required: false,
-          },
-          {
-            name: "username",
-            in: "query",
-            schema: { type: "string" },
-            required: false,
-          },
-        ],
-        responses: {
-          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserWithVerses" } } } },
-          400: { description: "Нужно передать id/email/username" },
-          404: { description: "Не найден" },
-        },
-      },
       post: {
         tags: ["Users"],
-        summary: "Создать/обновить пользователя по email",
+        summary: "Создать/обновить пользователя по telegramId",
         requestBody: {
           required: true,
           content: {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["name", "username", "avatar", "email"],
+                required: ["telegramId"],
                 properties: {
-                  name: { type: "string" },
-                  username: { type: "string" },
-                  avatar: { type: "string" },
-                  email: { type: "string", format: "email" },
+                  telegramId: { type: "string" },
+                  translation: { type: "string" },
                 },
               },
             },
@@ -68,45 +37,22 @@ const swaggerDoc = {
         },
       },
     },
-    "/api/users/{id}": {
+    "/api/users/{telegramId}": {
       get: {
         tags: ["Users"],
-        summary: "Получить пользователя по id",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        summary: "Получить пользователя по telegramId",
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserWithVerses" } } } },
           404: { description: "Не найден" },
         },
       },
-      patch: {
-        tags: ["Users"],
-        summary: "Обновить пользователя",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  username: { type: "string" },
-                  avatar: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } },
-        },
-      },
     },
-    "/api/users/{id}/verses": {
+    "/api/users/{telegramId}/verses": {
       get: {
         tags: ["User Verses"],
         summary: "Список стихов пользователя",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           200: {
             description: "OK",
@@ -121,7 +67,7 @@ const swaggerDoc = {
       post: {
         tags: ["User Verses"],
         summary: "Upsert прогресса по стиху",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
           required: true,
           content: {
@@ -146,12 +92,12 @@ const swaggerDoc = {
         },
       },
     },
-    "/api/users/{id}/verses/{externalVerseId}": {
+    "/api/users/{telegramId}/verses/{externalVerseId}": {
       patch: {
         tags: ["User Verses"],
         summary: "Обновить прогресс по стиху",
         parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
           { name: "externalVerseId", in: "path", required: true, schema: { type: "string" } },
         ],
         requestBody: {
@@ -178,7 +124,7 @@ const swaggerDoc = {
         tags: ["User Verses"],
         summary: "Удалить прогресс по стиху",
         parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
           { name: "externalVerseId", in: "path", required: true, schema: { type: "string" } },
         ],
         responses: { 200: { description: "Удалено" } },
@@ -298,10 +244,8 @@ const swaggerDoc = {
         type: "object",
         properties: {
           id: { type: "string" },
-          name: { type: "string" },
-          username: { type: "string" },
-          avatar: { type: "string" },
-          email: { type: "string" },
+          telegramId: { type: "string" },
+          translation: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
         },
       },

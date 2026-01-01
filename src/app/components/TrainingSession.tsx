@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState } from 'react';
-import { X, ChevronLeft } from 'lucide-react';
+import { X, ChevronLeft, BookOpen, Keyboard, HelpCircle, Shapes, Sparkles, EyeOff, ListOrdered, IdCard } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
@@ -40,14 +41,14 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
   const currentVerse = verses[currentIndex];
   const progress = ((currentIndex + 1) / verses.length) * 100;
 
-  const modes: { id: TrainingMode; label: string; description: string }[] = [
-    { id: 'flashcard', label: 'Карточки', description: 'Увидеть ссылку, вспомнить стих' },
-    { id: 'typing', label: 'Печать', description: 'Напечатать весь стих' },
-    { id: 'fill-blanks', label: 'Заполнить пробелы', description: 'Заполнить пропущенные слова' },
-    { id: 'first-letters', label: 'Первые буквы', description: 'Вспомнить по первым буквам' },
-    { id: 'quiz', label: 'Викторина', description: 'Вопросы с выбором ответа' },
-    { id: 'gradual-hide', label: 'Постепенное скрытие', description: 'Слова постепенно исчезают' },
-    { id: 'verse-order', label: 'Порядок стиха', description: 'Расставить фразы правильно' },
+  const modes: { id: TrainingMode; label: string; description: string; icon: LucideIcon }[] = [
+    { id: 'flashcard', label: 'Карточки', description: 'Увидеть ссылку, вспомнить стих', icon: IdCard },
+    { id: 'typing', label: 'Печать', description: 'Напечатать весь стих', icon: Keyboard },
+    { id: 'fill-blanks', label: 'Заполнить пробелы', description: 'Заполнить пропущенные слова', icon: Shapes },
+    { id: 'first-letters', label: 'Первые буквы', description: 'Вспомнить по первым буквам', icon: HelpCircle },
+    { id: 'quiz', label: 'Викторина', description: 'Вопросы с выбором ответа', icon: Sparkles },
+    { id: 'gradual-hide', label: 'Постепенное скрытие', description: 'Слова постепенно исчезают', icon: EyeOff },
+    { id: 'verse-order', label: 'Порядок стиха', description: 'Расставить фразы правильно', icon: ListOrdered },
   ];
 
   const handleModeSelect = (mode: TrainingMode) => {
@@ -69,6 +70,7 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
 
   // Mode Selection Screen
   if (showModeSelect) {
+    const ActiveIcon = modes.find(m => m.id === selectedMode)?.icon;
     return (
       <div className="min-h-screen flex flex-col bg-background">
         {/* Header */}
@@ -93,9 +95,12 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
                   onClick={() => handleModeSelect(mode.id)}
                   className="bg-card border-2 border-border hover:border-primary hover:shadow-md transition-all rounded-xl p-6 text-left group"
                 >
-                  <h3 className="mb-2 group-hover:text-primary transition-colors">
-                    {mode.label}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <mode.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <h3 className="group-hover:text-primary transition-colors">
+                      {mode.label}
+                    </h3>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {mode.description}
                   </p>
@@ -115,7 +120,12 @@ export function TrainingSession({ verses, allVerses = [], onComplete, onExit }: 
       <div className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex pt-28 md:pt-0 items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              {selectedMode && (
+                <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                  {React.createElement(modes.find(m => m.id === selectedMode)?.icon ?? BookOpen, { className: 'w-4 h-4' })}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

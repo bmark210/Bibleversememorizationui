@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { TrainingSession } from './components/TrainingSession';
@@ -11,6 +11,8 @@ import { Settings } from './components/Settings';
 import { AddVerseDialog } from './components/AddVerseDialog';
 import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
+import { UsersService } from '@/api/services/UsersService';
+import type { ApiError } from '@/api/core/ApiError';
 import {
   mockVerses,
   mockCollections,
@@ -26,6 +28,36 @@ export default function App() {
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
 
   const todayVerses = getVersesForToday();
+
+  // Инициализация пользователя в окружении Telegram (idempotent).
+  useEffect(() => {
+    const telegramId =
+      typeof window !== 'undefined'
+        ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+          localStorage.getItem('telegramId') ??
+          undefined
+        : undefined;
+
+    if (!telegramId) return;
+    localStorage.setItem('telegramId', telegramId);
+
+    (async () => {
+      try {
+        await UsersService.getApiUsers(telegramId);
+      } catch (err) {
+        const status = (err as ApiError)?.status;
+        if (status === 404) {
+          try {
+            await UsersService.postApiUsers({ telegramId });
+          } catch (createErr) {
+            console.error('Не удалось создать пользователя (telegramId):', createErr);
+          }
+        } else {
+          console.error('Не удалось получить пользователя (telegramId):', err);
+        }
+      }
+    })();
+  }, []);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
@@ -103,6 +135,7 @@ export default function App() {
   return (
     <>
       <Layout currentPage={currentPage} onNavigate={handleNavigate}>
+    <p className="text-sm text-muted-foreground">{"telegramId: " + (localStorage.getItem('telegramId') ?? 'No telegramId')}</p>
         {currentPage === 'dashboard' && (
           <Dashboard
             todayVerses={todayVerses}

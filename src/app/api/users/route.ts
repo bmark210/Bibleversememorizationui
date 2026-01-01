@@ -2,33 +2,25 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type CreateUserPayload = {
-  name?: string;
-  username?: string;
-  avatar?: string;
-  email?: string;
+  telegramId?: string;
+  translation?: string;
 };
 
+// Получить пользователя по telegramId.
 export async function GET(request: Request) {
+  // Работаем только через telegramId; id/username не используются.
   const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
-  const email = searchParams.get("email");
-  const username = searchParams.get("username");
+  const telegramId = searchParams.get("telegramId");
 
-  if (!id && !email && !username) {
+  if (!telegramId) {
     return NextResponse.json(
-      { error: "Provide id, email or username to fetch user" },
+      { error: "Provide telegramId to fetch user" },
       { status: 400 }
     );
   }
 
   const user = await prisma.user.findUnique({
-    where: id
-      ? { id }
-      : email
-      ? { email }
-      : {
-          username: username as string,
-        },
+    where: { telegramId },
     include: {
       verses: true,
     },
@@ -42,20 +34,26 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Создание/апдейт пользователя по telegramId (upsert).
   const body = (await request.json()) as CreateUserPayload;
-  const { name, username, avatar, email } = body;
+  const { telegramId, translation } = body;
 
-  if (!name || !username || !avatar || !email) {
+  if (!telegramId) {
     return NextResponse.json(
-      { error: "name, username, avatar, email are required" },
+      { error: "telegramId is required" },
       { status: 400 }
     );
   }
 
   const user = await prisma.user.upsert({
-    where: { email },
-    update: { name, username, avatar },
-    create: { name, username, avatar, email },
+    where: { telegramId },
+    update: {
+      ...(translation ? { translation } : {}),
+    },
+    create: {
+      telegramId,
+      ...(translation ? { translation } : {}),
+    },
   });
 
   return NextResponse.json(user, { status: 201 });

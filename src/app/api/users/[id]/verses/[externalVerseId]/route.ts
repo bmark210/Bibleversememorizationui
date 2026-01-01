@@ -8,16 +8,30 @@ type UpdateVersePayload = {
   nextReviewAt?: string;
 };
 
+// PATCH/DELETE прогресса по конкретному стиху. В этом маршруте params.id — это telegramId.
+async function getUserIdByTelegramId(telegramId: string) {
+  const user = await prisma.user.findUnique({
+    where: { telegramId },
+    select: { id: true },
+  });
+  return user?.id;
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string; externalVerseId: string } }
 ) {
+  const userId = await getUserIdByTelegramId(params.id);
+  if (!userId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const body = (await request.json()) as UpdateVersePayload;
 
   const verse = await prisma.userVerse.update({
     where: {
       userId_externalVerseId: {
-        userId: params.id,
+        userId,
         externalVerseId: params.externalVerseId,
       },
     },
@@ -44,10 +58,15 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string; externalVerseId: string } }
 ) {
+  const userId = await getUserIdByTelegramId(params.id);
+  if (!userId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   await prisma.userVerse.delete({
     where: {
       userId_externalVerseId: {
-        userId: params.id,
+        userId,
         externalVerseId: params.externalVerseId,
       },
     },

@@ -9,30 +9,30 @@ import { request as __request } from '../core/request';
 export class UserVersesService {
     /**
      * Список стихов пользователя
-     * @param id
+     * @param telegramId
      * @returns UserVerse OK
      * @throws ApiError
      */
     public static getApiUsersVerses(
-        id: string,
+        telegramId: string,
     ): CancelablePromise<Array<UserVerse>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/users/{id}/verses',
+            url: '/api/users/{telegramId}/verses',
             path: {
-                'id': id,
+                'telegramId': telegramId,
             },
         });
     }
     /**
      * Upsert прогресса по стиху
-     * @param id
+     * @param telegramId
      * @param requestBody
      * @returns UserVerse Создан/обновлён
      * @throws ApiError
      */
     public static postApiUsersVerses(
-        id: string,
+        telegramId: string,
         requestBody: {
             externalVerseId: string;
             masteryLevel?: number;
@@ -43,9 +43,9 @@ export class UserVersesService {
     ): CancelablePromise<UserVerse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/users/{id}/verses',
+            url: '/api/users/{telegramId}/verses',
             path: {
-                'id': id,
+                'telegramId': telegramId,
             },
             body: requestBody,
             mediaType: 'application/json',
@@ -56,14 +56,14 @@ export class UserVersesService {
     }
     /**
      * Обновить прогресс по стиху
-     * @param id
+     * @param telegramId
      * @param externalVerseId
      * @param requestBody
      * @returns UserVerse OK
      * @throws ApiError
      */
     public static patchApiUsersVerses(
-        id: string,
+        telegramId: string,
         externalVerseId: string,
         requestBody: {
             masteryLevel?: number;
@@ -74,9 +74,9 @@ export class UserVersesService {
     ): CancelablePromise<UserVerse> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/api/users/{id}/verses/{externalVerseId}',
+            url: '/api/users/{telegramId}/verses/{externalVerseId}',
             path: {
-                'id': id,
+                'telegramId': telegramId,
                 'externalVerseId': externalVerseId,
             },
             body: requestBody,
@@ -85,20 +85,20 @@ export class UserVersesService {
     }
     /**
      * Удалить прогресс по стиху
-     * @param id
+     * @param telegramId
      * @param externalVerseId
      * @returns any Удалено
      * @throws ApiError
      */
     public static deleteApiUsersVerses(
-        id: string,
+        telegramId: string,
         externalVerseId: string,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/api/users/{id}/verses/{externalVerseId}',
+            url: '/api/users/{telegramId}/verses/{externalVerseId}',
             path: {
-                'id': id,
+                'telegramId': telegramId,
                 'externalVerseId': externalVerseId,
             },
         });

@@ -26,28 +26,22 @@ export type AggregateUser = {
 
 export type UserMinAggregateOutputType = {
   id: string | null
-  name: string | null
-  username: string | null
-  avatar: string | null
-  email: string | null
+  telegramId: string | null
+  translation: string | null
   createdAt: Date | null
 }
 
 export type UserMaxAggregateOutputType = {
   id: string | null
-  name: string | null
-  username: string | null
-  avatar: string | null
-  email: string | null
+  telegramId: string | null
+  translation: string | null
   createdAt: Date | null
 }
 
 export type UserCountAggregateOutputType = {
   id: number
-  name: number
-  username: number
-  avatar: number
-  email: number
+  telegramId: number
+  translation: number
   createdAt: number
   _all: number
 }
@@ -55,28 +49,22 @@ export type UserCountAggregateOutputType = {
 
 export type UserMinAggregateInputType = {
   id?: true
-  name?: true
-  username?: true
-  avatar?: true
-  email?: true
+  telegramId?: true
+  translation?: true
   createdAt?: true
 }
 
 export type UserMaxAggregateInputType = {
   id?: true
-  name?: true
-  username?: true
-  avatar?: true
-  email?: true
+  telegramId?: true
+  translation?: true
   createdAt?: true
 }
 
 export type UserCountAggregateInputType = {
   id?: true
-  name?: true
-  username?: true
-  avatar?: true
-  email?: true
+  telegramId?: true
+  translation?: true
   createdAt?: true
   _all?: true
 }
@@ -155,10 +143,8 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 
 export type UserGroupByOutputType = {
   id: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation: string
   createdAt: Date
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
@@ -185,43 +171,35 @@ export type UserWhereInput = {
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
-  name?: Prisma.StringFilter<"User"> | string
-  username?: Prisma.StringFilter<"User"> | string
-  avatar?: Prisma.StringFilter<"User"> | string
-  email?: Prisma.StringFilter<"User"> | string
+  telegramId?: Prisma.StringFilter<"User"> | string
+  translation?: Prisma.StringFilter<"User"> | string
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   verses?: Prisma.UserVerseListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  name?: Prisma.SortOrder
-  username?: Prisma.SortOrder
-  avatar?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
+  translation?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   verses?: Prisma.UserVerseOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  name?: string
-  username?: string
-  email?: string
+  telegramId?: string
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
-  avatar?: Prisma.StringFilter<"User"> | string
+  translation?: Prisma.StringFilter<"User"> | string
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   verses?: Prisma.UserVerseListRelationFilter
-}, "id" | "name" | "username" | "email">
+}, "id" | "telegramId">
 
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  name?: Prisma.SortOrder
-  username?: Prisma.SortOrder
-  avatar?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
+  translation?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
@@ -233,104 +211,82 @@ export type UserScalarWhereWithAggregatesInput = {
   OR?: Prisma.UserScalarWhereWithAggregatesInput[]
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
-  name?: Prisma.StringWithAggregatesFilter<"User"> | string
-  username?: Prisma.StringWithAggregatesFilter<"User"> | string
-  avatar?: Prisma.StringWithAggregatesFilter<"User"> | string
-  email?: Prisma.StringWithAggregatesFilter<"User"> | string
+  telegramId?: Prisma.StringWithAggregatesFilter<"User"> | string
+  translation?: Prisma.StringWithAggregatesFilter<"User"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
 
 export type UserCreateInput = {
   id?: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation?: string
   createdAt?: Date | string
   verses?: Prisma.UserVerseCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
   id?: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation?: string
   createdAt?: Date | string
   verses?: Prisma.UserVerseUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   verses?: Prisma.UserVerseUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   verses?: Prisma.UserVerseUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
   id?: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation?: string
   createdAt?: Date | string
 }
 
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  name?: Prisma.SortOrder
-  username?: Prisma.SortOrder
-  avatar?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
+  translation?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  name?: Prisma.SortOrder
-  username?: Prisma.SortOrder
-  avatar?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
+  translation?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type UserMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
-  name?: Prisma.SortOrder
-  username?: Prisma.SortOrder
-  avatar?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  telegramId?: Prisma.SortOrder
+  translation?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -363,19 +319,15 @@ export type UserUpdateOneRequiredWithoutVersesNestedInput = {
 
 export type UserCreateWithoutVersesInput = {
   id?: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation?: string
   createdAt?: Date | string
 }
 
 export type UserUncheckedCreateWithoutVersesInput = {
   id?: string
-  name: string
-  username: string
-  avatar: string
-  email: string
+  telegramId: string
+  translation?: string
   createdAt?: Date | string
 }
 
@@ -397,19 +349,15 @@ export type UserUpdateToOneWithWhereWithoutVersesInput = {
 
 export type UserUpdateWithoutVersesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type UserUncheckedUpdateWithoutVersesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  avatar?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  translation?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -446,10 +394,8 @@ export type UserCountOutputTypeCountVersesArgs<ExtArgs extends runtime.Types.Ext
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  name?: boolean
-  username?: boolean
-  avatar?: boolean
-  email?: boolean
+  telegramId?: boolean
+  translation?: boolean
   createdAt?: boolean
   verses?: boolean | Prisma.User$versesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -457,32 +403,26 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  name?: boolean
-  username?: boolean
-  avatar?: boolean
-  email?: boolean
+  telegramId?: boolean
+  translation?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  name?: boolean
-  username?: boolean
-  avatar?: boolean
-  email?: boolean
+  telegramId?: boolean
+  translation?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectScalar = {
   id?: boolean
-  name?: boolean
-  username?: boolean
-  avatar?: boolean
-  email?: boolean
+  telegramId?: boolean
+  translation?: boolean
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "avatar" | "email" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "translation" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   verses?: boolean | Prisma.User$versesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -497,10 +437,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    name: string
-    username: string
-    avatar: string
-    email: string
+    telegramId: string
+    translation: string
     createdAt: Date
   }, ExtArgs["result"]["user"]>
   composites: {}
@@ -927,10 +865,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
  */
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
-  readonly name: Prisma.FieldRef<"User", 'String'>
-  readonly username: Prisma.FieldRef<"User", 'String'>
-  readonly avatar: Prisma.FieldRef<"User", 'String'>
-  readonly email: Prisma.FieldRef<"User", 'String'>
+  readonly telegramId: Prisma.FieldRef<"User", 'String'>
+  readonly translation: Prisma.FieldRef<"User", 'String'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }
     

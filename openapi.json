@@ -25,61 +25,11 @@
   ],
   "paths": {
     "/api/users": {
-      "get": {
-        "tags": [
-          "Users"
-        ],
-        "summary": "Получить пользователя",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "required": false
-          },
-          {
-            "name": "email",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "required": false
-          },
-          {
-            "name": "username",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserWithVerses"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Нужно передать id/email/username"
-          },
-          "404": {
-            "description": "Не найден"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Users"
         ],
-        "summary": "Создать/обновить пользователя по email",
+        "summary": "Создать/обновить пользователя по telegramId",
         "requestBody": {
           "required": true,
           "content": {
@@ -87,24 +37,14 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "name",
-                  "username",
-                  "avatar",
-                  "email"
+                  "telegramId"
                 ],
                 "properties": {
-                  "name": {
+                  "telegramId": {
                     "type": "string"
                   },
-                  "username": {
+                  "translation": {
                     "type": "string"
-                  },
-                  "avatar": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string",
-                    "format": "email"
                   }
                 }
               }
@@ -125,15 +65,15 @@
         }
       }
     },
-    "/api/users/{id}": {
+    "/api/users/{telegramId}": {
       "get": {
         "tags": [
           "Users"
         ],
-        "summary": "Получить пользователя по id",
+        "summary": "Получить пользователя по telegramId",
         "parameters": [
           {
-            "name": "id",
+            "name": "telegramId",
             "in": "path",
             "required": true,
             "schema": {
@@ -156,58 +96,9 @@
             "description": "Не найден"
           }
         }
-      },
-      "patch": {
-        "tags": [
-          "Users"
-        ],
-        "summary": "Обновить пользователя",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "username": {
-                    "type": "string"
-                  },
-                  "avatar": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/User"
-                }
-              }
-            }
-          }
-        }
       }
     },
-    "/api/users/{id}/verses": {
+    "/api/users/{telegramId}/verses": {
       "get": {
         "tags": [
           "User Verses"
@@ -215,7 +106,7 @@
         "summary": "Список стихов пользователя",
         "parameters": [
           {
-            "name": "id",
+            "name": "telegramId",
             "in": "path",
             "required": true,
             "schema": {
@@ -246,7 +137,7 @@
         "summary": "Upsert прогресса по стиху",
         "parameters": [
           {
-            "name": "id",
+            "name": "telegramId",
             "in": "path",
             "required": true,
             "schema": {
@@ -306,7 +197,7 @@
         }
       }
     },
-    "/api/users/{id}/verses/{externalVerseId}": {
+    "/api/users/{telegramId}/verses/{externalVerseId}": {
       "patch": {
         "tags": [
           "User Verses"
@@ -314,7 +205,7 @@
         "summary": "Обновить прогресс по стиху",
         "parameters": [
           {
-            "name": "id",
+            "name": "telegramId",
             "in": "path",
             "required": true,
             "schema": {
@@ -379,7 +270,7 @@
         "summary": "Удалить прогресс по стиху",
         "parameters": [
           {
-            "name": "id",
+            "name": "telegramId",
             "in": "path",
             "required": true,
             "schema": {
@@ -625,16 +516,10 @@
           "id": {
             "type": "string"
           },
-          "name": {
+          "telegramId": {
             "type": "string"
           },
-          "username": {
-            "type": "string"
-          },
-          "avatar": {
-            "type": "string"
-          },
-          "email": {
+          "translation": {
             "type": "string"
           },
           "createdAt": {

@@ -7,7 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "generate-api": "npx tsx -e \"import doc from './src/swagger/doc.ts'; import fs from 'fs'; fs.writeFileSync('openapi.json', JSON.stringify(doc, null, 2))\" src/swagger/doc.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios"
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio",
+    "generate-api": "npx tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

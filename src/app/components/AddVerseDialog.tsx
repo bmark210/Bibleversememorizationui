@@ -292,8 +292,6 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     setSelectedBook(result.book.toString());
     setChapter(result.chapter.toString());
     setVerse(result.verse.toString());
-    // setSearchQuery("");
-    // setSearchResults([]);
     setSearchError(null);
   };
 
@@ -354,9 +352,11 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-screen h-screen max-w-full sm:max-w-[600px] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0 flex flex-col justify-between">
+      <DialogContent className="w-screen h-screen max-w-full sm:h-[80vh] sm:max-w-[600px] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0 flex flex-col justify-between">
         <DialogHeader className="sticky top-0 z-10 bg-background pt-28 md:pt-6 !max-h-fit">
-          <DialogTitle className="text-center mb-4">Добавить новый стих</DialogTitle>
+          <DialogTitle className="text-center mb-4">
+            Добавить новый стих
+          </DialogTitle>
           <DialogDescription>
             <div className="grid grid-cols-2 gap-2">
               <Button
@@ -444,7 +444,10 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                         type="button"
                         onClick={() => handleSelectSearchResult(result)}
                         style={{
-                          borderColor: result.reference === reference ? "var(--primary)" : "var(--border)",
+                          borderColor:
+                            result.reference === reference
+                              ? "var(--primary)"
+                              : "var(--border)",
                         }}
                         className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
                       >

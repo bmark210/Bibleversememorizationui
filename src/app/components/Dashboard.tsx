@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { Plus, Play, ChevronRight } from 'lucide-react';
+import { Plus, Play, ChevronRight, Dumbbell } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
@@ -78,7 +78,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           size="lg"
           className="flex-1 py-3 sm:flex-initial"
         >
-          <Play className="w-4 h-4 mr-2" />
+          <Dumbbell className="w-4 h-4 mr-2" />
           Начать тренировку
         </Button>
         <Button
