@@ -34,6 +34,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   const initUserRef = useRef(false);
 
   const todayVerses = getVersesForToday();
@@ -58,9 +59,19 @@ export default function App() {
 
     (async () => {
       try {
+        if (apiUnavailable) return;
         await UsersService.getApiUsers(telegramId);
       } catch (err) {
         const status = (err as ApiError)?.status;
+        const code = (err as ApiError)?.body?.code as string | undefined;
+        if (status === 503 || code === "DB_UNAVAILABLE") {
+          setApiUnavailable(true);
+          toast.warning("База данных недоступна", {
+            description:
+              "Продолжаем в демо-режиме. Проверьте DATABASE_URL и права доступа в Postgres.",
+          });
+          return;
+        }
         if (status === 404) {
           try {
             await UsersService.postApiUsers({ telegramId });
@@ -75,7 +86,7 @@ export default function App() {
         }
       }
     })();
-  }, []);
+  }, [apiUnavailable]);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
@@ -117,6 +128,13 @@ export default function App() {
     const telegramId = localStorage.getItem("telegramId") ?? "";
 
     try {
+      if (apiUnavailable) {
+        toast.info("Демо-режим", {
+          description:
+            "Стих не сохранён в базе данных, потому что база недоступна.",
+        });
+        return verse;
+      }
       await UserVersesService.postApiUsersVerses(telegramId, {
         externalVerseId: verse.externalVerseId,
         masteryLevel: 0,

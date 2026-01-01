@@ -14,6 +14,20 @@ const VALID_TRANSLATIONS: Translation[] = [
   Translation.BTI,
 ];
 
+function isDbAccessError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes("prisma.") &&
+    (msg.includes("denied access") ||
+      msg.includes("password authentication failed") ||
+      msg.includes("does not exist") ||
+      msg.includes("not available") ||
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("ENOTFOUND") ||
+      msg.includes("timeout"))
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as TelegramInitPayload;
@@ -56,6 +70,16 @@ export async function POST(request: Request) {
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Error in telegram route:", error);
+    if (isDbAccessError(error)) {
+      return NextResponse.json(
+        {
+          error: "Database unavailable",
+          details: error instanceof Error ? error.message : String(error),
+          code: "DB_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
