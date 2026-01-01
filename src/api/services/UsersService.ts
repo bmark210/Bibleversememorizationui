@@ -47,4 +47,23 @@ export class UsersService {
             },
         });
     }
+    /**
+     * Инициализация пользователя через Telegram
+     * @param requestBody
+     * @returns User Пользователь уже существует
+     * @throws ApiError
+     */
+    public static postApiUsersTelegram(
+        requestBody: {
+            telegramId: string;
+            translation?: string;
+        },
+    ): CancelablePromise<User> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/telegram',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
 }

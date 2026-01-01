@@ -4,6 +4,10 @@ import pkg from "pg";
 const { Pool } = pkg;
 
 const connectionString = process.env.DATABASE_URL;
+const directUrl = process.env.DIRECT_URL;
+
+console.log("DATABASE_URL =", connectionString ?? "undefined");
+console.log("DIRECT_URL   =", directUrl ?? "undefined");
 
 if (!connectionString) {
   console.warn("DATABASE_URL is not set");

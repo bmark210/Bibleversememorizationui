@@ -11,6 +11,8 @@ const swaggerDoc = {
     { name: "Users", description: "Работа с пользователями" },
     { name: "User Verses", description: "Прогресс запоминания стихов" },
     { name: "Tags", description: "Теги и привязка к стихам" },
+    { name: "Docs", description: "Спецификация и служебные маршруты" },
+    { name: "Bolls", description: "Прокси для переводов Bolls" },
   ],
   paths: {
     "/api/users": {
@@ -45,6 +47,41 @@ const swaggerDoc = {
         responses: {
           200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserWithVerses" } } } },
           404: { description: "Не найден" },
+        },
+      },
+    },
+    "/api/users/telegram": {
+      post: {
+        tags: ["Users"],
+        summary: "Инициализация пользователя через Telegram",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["telegramId"],
+                properties: {
+                  telegramId: { type: "string" },
+                  translation: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Пользователь уже существует",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          201: {
+            description: "Создан новый пользователь",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
         },
       },
     },
@@ -169,6 +206,22 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/docs": {
+      get: {
+        tags: ["Docs"],
+        summary: "Получить открытый Swagger-документ",
+        responses: {
+          200: {
+            description: "Спецификация в JSON",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/OpenApiDoc" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/verses/{externalVerseId}/tags": {
       get: {
         tags: ["Tags"],
@@ -237,6 +290,25 @@ const swaggerDoc = {
         responses: { 200: { description: "Связь удалена" }, 400: { description: "Нужен tagId или tagSlug" } },
       },
     },
+    "/api/bolls/translations": {
+      get: {
+        tags: ["Bolls"],
+        summary: "Прокси к переводам Bolls",
+        responses: {
+          200: {
+            description: "Список переводов",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { type: "object" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -287,6 +359,19 @@ const swaggerDoc = {
           id: { type: "string" },
           externalVerseId: { type: "string" },
           tagId: { type: "string" },
+        },
+      },
+      OpenApiDoc: {
+        type: "object",
+        properties: {
+          openapi: { type: "string" },
+          info: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              version: { type: "string" },
+            },
+          },
         },
       },
     },
