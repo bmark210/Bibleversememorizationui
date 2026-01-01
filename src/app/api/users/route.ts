@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Translation } from "@/generated/prisma/enums";
 
 type CreateUserPayload = {
   telegramId?: string;
   translation?: string;
 };
+
+// Поддерживаемые коды переводов (enum из Prisma).
+const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
+function normalizeTranslation(val?: string): Translation | undefined {
+  if (!val) return undefined;
+  return ALLOWED_TRANSLATIONS.includes(val as Translation)
+    ? (val as Translation)
+    : undefined;
+}
 
 // Получить пользователя по telegramId.
 export async function GET(request: Request) {
@@ -37,6 +47,7 @@ export async function POST(request: Request) {
   // Создание/апдейт пользователя по telegramId (upsert).
   const body = (await request.json()) as CreateUserPayload;
   const { telegramId, translation } = body;
+  const translationValue = normalizeTranslation(translation);
 
   if (!telegramId) {
     return NextResponse.json(
@@ -48,11 +59,11 @@ export async function POST(request: Request) {
   const user = await prisma.user.upsert({
     where: { telegramId },
     update: {
-      ...(translation ? { translation } : {}),
+      ...(translationValue ? { translation: translationValue } : {}),
     },
     create: {
       telegramId,
-      ...(translation ? { translation } : {}),
+      ...(translationValue ? { translation: translationValue } : {}),
     },
   });
 
