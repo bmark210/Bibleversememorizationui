@@ -28,6 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "externalVerseId is required" });
   }
 
+  // Управляет привязками тегов к стихам (список, добавление, удаление).
   if (req.method === "GET") {
     return handleGet(res, externalVerseId);
   }
@@ -45,6 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGet(res: NextApiResponse, externalVerseId: string) {
+  // Возвращает список тегов, связанных с указанным стихом.
   try {
     const tags = await prisma.verseTag.findMany({
       where: { externalVerseId },
@@ -69,6 +71,7 @@ async function handleGet(res: NextApiResponse, externalVerseId: string) {
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse, externalVerseId: string) {
+  // Создаёт или подтверждает связь тега со стихом.
   try {
     const body = req.body as ModifyTagPayload;
     const tagId = await resolveTagId(body ?? {});
@@ -102,6 +105,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, externalVer
 }
 
 async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalVerseId: string) {
+  // Удаляет привязку тега к стиху.
   try {
     const body = req.body as ModifyTagPayload;
     const tagId = await resolveTagId(body ?? {});

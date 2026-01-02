@@ -1,11 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
+import { VerseStatus } from "@/generated/prisma";
 
 type UpdateVersePayload = {
   masteryLevel?: number;
   repetitions?: number;
   lastReviewedAt?: string;
   nextReviewAt?: string;
+  status?: VerseStatus;
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -14,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "telegramId and externalVerseId are required" });
   }
 
+  // Поддерживает обновление и удаление прогресса по конкретному стиху.
   if (req.method === "PATCH") {
     return handlePatch(req, res, telegramId, externalVerseId);
   }
@@ -32,6 +35,7 @@ async function handlePatch(
   telegramId: string,
   externalVerseId: string
 ) {
+  // Корректирует поля прогресса (мастерство, повторения, даты).
   try {
     const user = await prisma.user.findUnique({
       where: { telegramId },
@@ -56,6 +60,7 @@ async function handlePatch(
         ...(body.repetitions !== undefined ? { repetitions: body.repetitions } : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
         ...(body.nextReviewAt ? { nextReviewAt: new Date(body.nextReviewAt) } : {}),
+        ...(body.status ? { status: body.status } : {}),
       },
     });
 
@@ -70,6 +75,7 @@ async function handlePatch(
 }
 
 async function handleDelete(res: NextApiResponse, telegramId: string, externalVerseId: string) {
+  // Удаляет стих из списка пользователя.
   try {
     const user = await prisma.user.findUnique({
       where: { telegramId },

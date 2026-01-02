@@ -14,14 +14,16 @@ import { Toaster } from "./components/ui/sonner";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
-import {
-  mockVerses,
-  mockCollections,
-  mockStats,
-  getVersesForToday,
-} from "./data/mockData";
+import { mockVerses, mockCollections, mockStats } from "./data/mockData";
 import { UserVerse } from "@/generated/prisma/client";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import { VerseStatus } from "@/generated/prisma";
+
+export type Verse = UserVerse & {
+  status: VerseStatus;
+  text: string;
+  reference: string;
+};
 
 type Page =
   | "dashboard"
@@ -36,11 +38,9 @@ export default function App() {
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [user, setUser] = useState<UserWithVerses | null>(null);
+  const [verses, setVerses] = useState<Array<Verse>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const initUserRef = useRef(false);
-
-  // Для демонстрации используем моки, пока не настроен маппинг UserVerse -> Verse
-  const todayVerses = getVersesForToday();
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
@@ -49,13 +49,13 @@ export default function App() {
 
     const telegramId =
       typeof window !== "undefined"
-        ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+        ? (
+            window as any
+          )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
           process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
           localStorage.getItem("telegramId") ??
           undefined
         : undefined;
-
-    console.log("telegramId", telegramId);
 
     if (!telegramId) {
       setIsLoading(false);
@@ -87,6 +87,7 @@ export default function App() {
       }
     };
 
+    getVerces(telegramId);
     fetchUser();
   }, []);
 
@@ -95,8 +96,18 @@ export default function App() {
     setIsTraining(false);
   };
 
+  const getVerces = async (telegramId: string) => {
+    try {
+      const verses = await UserVersesService.getApiUsersVerses(telegramId);
+      setVerses(verses as Array<Verse>);
+    } catch (err) {
+      console.error("Не удалось получить стихи:", err);
+      setVerses([] as Array<Verse>);
+    }
+  };
+
   const handleStartTraining = () => {
-    if (todayVerses.length === 0) {
+    if (verses.length === 0) {
       toast.info("На сегодня стихов не запланировано", {
         description: "Отлично! Вы всё успели.",
       });
@@ -134,10 +145,10 @@ export default function App() {
         externalVerseId: verse.externalVerseId,
         masteryLevel: 0,
         repetitions: 0,
-        lastReviewedAt: new Date().toISOString(),
-        nextReviewAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+        lastReviewedAt: undefined,
+        nextReviewAt: undefined,
       });
-      
+
       // Обновляем данные пользователя после добавления стиха
       const updatedUser = await UsersService.getApiUsers(telegramId);
       setUser(updatedUser);
@@ -177,12 +188,12 @@ export default function App() {
   if (isTraining) {
     return (
       <>
-        <TrainingSession
-          verses={todayVerses.length > 0 ? todayVerses : mockVerses.slice(0, 3)}
-          allVerses={mockVerses}
+        {/* <TrainingSession
+          verses={verses.length > 0 ? verses as Array<UserVerse> : mockVerses.slice(0, 3)}
+          allVerses={verses as Array<UserVerse>}
           onComplete={handleCompleteTraining}
           onExit={handleExitTraining}
-        />
+        /> */}
         <Toaster />
       </>
     );
@@ -192,13 +203,9 @@ export default function App() {
   return (
     <>
       <Layout currentPage={currentPage} onNavigate={handleNavigate}>
-        <p className="text-sm text-muted-foreground">
-          {"telegramId: " +
-            (localStorage.getItem("telegramId") ?? "No telegramId")}
-        </p>
         {currentPage === "dashboard" && (
           <Dashboard
-            todayVerses={todayVerses}
+            todayVerses={verses}
             onStartTraining={handleStartTraining}
             onAddVerse={handleAddVerse}
             onViewAll={() => setCurrentPage("verses")}
@@ -207,7 +214,6 @@ export default function App() {
 
         {currentPage === "verses" && (
           <VerseList
-            verses={mockVerses}
             onAddVerse={handleAddVerse}
             onStartTraining={handleStartTrainingFromVerse}
           />

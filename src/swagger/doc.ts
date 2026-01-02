@@ -148,6 +148,10 @@ const swaggerDoc = {
                   repetitions: { type: "integer", minimum: 0 },
                   lastReviewedAt: { type: "string", format: "date-time" },
                   nextReviewAt: { type: "string", format: "date-time" },
+                  status: {
+                    type: "string",
+                    enum: ["NEW", "LEARNING", "MASTERED", "STOPPED"],
+                  },
                 },
               },
             },
@@ -309,6 +313,72 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/bolls/parallel": {
+      post: {
+        tags: ["Bolls"],
+        summary: "Сравнение стихов в разных переводах Bolls",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/BollsParallelVersesParams" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Список параллелей по переводам",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/BollsVerse" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Неверный запрос",
+          },
+        },
+      },
+    },
+    "/api/bolls/verses": {
+      post: {
+        tags: ["Bolls"],
+        summary: "Получить несколько стихов из разных мест",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/BollsVersesRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Список массивов стихов",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/BollsVerse" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Неверный запрос",
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -359,6 +429,42 @@ const swaggerDoc = {
           id: { type: "string" },
           externalVerseId: { type: "string" },
           tagId: { type: "string" },
+        },
+      },
+      BollsVerse: {
+        type: "object",
+        properties: {
+          pk: { type: "integer" },
+          translation: { type: "string" },
+          book: { type: "integer" },
+          chapter: { type: "integer" },
+          verse: { type: "integer" },
+          text: { type: "string" },
+          comment: { type: "string" },
+        },
+      },
+      BollsParallelVersesParams: {
+        type: "object",
+        required: ["translations", "book", "chapter", "verses"],
+        properties: {
+          translations: { type: "array", items: { type: "string" } },
+          book: { type: "integer" },
+          chapter: { type: "integer" },
+          verses: { type: "array", items: { type: "integer" } },
+        },
+      },
+      BollsVersesRequest: {
+        type: "array",
+        items: { $ref: "#/components/schemas/BollsVersesRequestItem" },
+      },
+      BollsVersesRequestItem: {
+        type: "object",
+        required: ["translation", "book", "chapter", "verses"],
+        properties: {
+          translation: { type: "string" },
+          book: { type: "integer" },
+          chapter: { type: "integer" },
+          verses: { type: "array", items: { type: "integer" } },
         },
       },
       OpenApiDoc: {

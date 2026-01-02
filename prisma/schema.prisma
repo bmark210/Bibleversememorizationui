@@ -4,9 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 enum Translation {
@@ -14,6 +12,13 @@ enum Translation {
   SYNOD
   RBS2
   BTI
+}
+
+enum VerseStatus {
+  NEW
+  LEARNING
+  MASTERED
+  STOPPED
 }
 
 model User {
@@ -26,9 +31,11 @@ model User {
 }
 
 model UserVerse {
-  id              String   @id @default(cuid())
+  id              Int      @id @default(autoincrement())
   telegramId      String   // Actual Telegram ID
   externalVerseId String   // ID стиха из внешнего API
+
+  status          VerseStatus @default(NEW)
 
   masteryLevel    Int      @default(0) // 0–5, например
   repetitions     Int      @default(0)

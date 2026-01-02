@@ -70,6 +70,7 @@ export class UserVersesService {
             repetitions?: number;
             lastReviewedAt?: string;
             nextReviewAt?: string;
+            status?: 'NEW' | 'LEARNING' | 'MASTERED' | 'STOPPED';
         },
     ): CancelablePromise<UserVerse> {
         return __request(OpenAPI, {

@@ -7,6 +7,10 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { BollsParallelVersesParams } from './models/BollsParallelVersesParams';
+export type { BollsVerse } from './models/BollsVerse';
+export type { BollsVersesRequest } from './models/BollsVersesRequest';
+export type { BollsVersesRequestItem } from './models/BollsVersesRequestItem';
 export type { OpenApiDoc } from './models/OpenApiDoc';
 export type { Tag } from './models/Tag';
 export type { User } from './models/User';

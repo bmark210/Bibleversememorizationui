@@ -7,6 +7,7 @@ type CreateTagPayload = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Поддерживаем получение списка и создание тегов.
   if (req.method === "GET") {
     return handleGet(res);
   }
@@ -20,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGet(res: NextApiResponse) {
+  // Находится и возвращает список всех тегов, отсортированных по дате.
   try {
     const tags = await prisma.tag.findMany({
       orderBy: { createdAt: "desc" },
@@ -35,6 +37,7 @@ async function handleGet(res: NextApiResponse) {
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
+  // Создаёт новый тег при наличии slug и title.
   try {
     const body = req.body as CreateTagPayload;
     const { slug, title } = body ?? {};

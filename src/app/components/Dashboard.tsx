@@ -7,11 +7,11 @@ import { Card } from './ui/card';
 import { Progress } from './ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { Verse } from '../data/mockData';
 import { useTelegram } from '../contexts/TelegramContext';
+import { Verse } from '@/app/App';
 
 interface DashboardProps {
-  todayVerses: Verse[];
+  todayVerses: Array<Verse>;
   onStartTraining: () => void;
   onAddVerse: () => void;
   onViewAll: () => void;
@@ -81,14 +81,14 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           <Dumbbell className="w-4 h-4 mr-2" />
           Начать тренировку
         </Button>
-        <Button
+        {/* <Button
           onClick={onAddVerse}
           variant="outline"
           size="lg"
         >
           <Plus className="w-4 h-4 mr-2" />
           Добавить стих
-        </Button>
+        </Button> */}
       </div>
 
       {/* Today's Verses Section */}
@@ -108,7 +108,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
         {todayVerses.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              На сегодня стихов не запланировано. Отлично, что вы в графике!
+              Нет запланированных стихов. Добавьте их, чтобы начать учить!
             </p>
           </Card>
         ) : (
@@ -123,9 +123,9 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                     </p>
                     
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{verse.translation}</span>
+                      <span>SYNOD</span>
                       <span>•</span>
-                      <span>{verse.totalReviews} {verse.totalReviews === 1 ? 'повторение' : verse.totalReviews < 5 ? 'повторения' : 'повторений'}</span>
+                      <span>{verse.repetitions} {verse.repetitions === 1 ? 'повторение' : verse.repetitions < 5 ? 'повторения' : 'повторений'}</span>
                     </div>
                   </div>
 
@@ -136,7 +136,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                     </div>
                     <Progress value={verse.masteryLevel} className="w-full h-2" />
                     <div className="text-xs text-muted-foreground">
-                      {formatDate(verse.nextReview)}
+                      {/* {formatDate(verse.nextReview)} */}
                     </div>
                   </div>
                 </div>

@@ -15,6 +15,7 @@ const VALID_TRANSLATIONS: Translation[] = [
 ];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Инициализирует пользователя при входе из Telegram, позволяет указать перевод.
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method Not Allowed" });

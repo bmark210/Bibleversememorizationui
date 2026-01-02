@@ -20,3 +20,5 @@ node_modules
 .next/cache/react-refresh-runtime
 .next/cache/react-refresh-runtime-server
 .next/cache/react-refresh-runtime-client
+
+src/generated/prisma

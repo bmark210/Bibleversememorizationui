@@ -7,5 +7,6 @@ export default function handler(_req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
+  // Возвращаем схему Swagger в ответ на GET-запрос.
   return res.status(200).json(swaggerDoc);
 }

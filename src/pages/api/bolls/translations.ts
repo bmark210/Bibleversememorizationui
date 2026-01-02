@@ -10,6 +10,7 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
   }
 
   try {
+    // Получаем список доступных переводов через прокси.
     const response = await fetch(BOLLS_TRANSLATIONS_URL, {
       next: { revalidate: 3600 },
     });
