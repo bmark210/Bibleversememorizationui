@@ -1,4 +1,4 @@
-const serverUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const serverUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 const swaggerDoc = {
   openapi: "3.0.3",
