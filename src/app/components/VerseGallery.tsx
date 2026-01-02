@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, PanInfo } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
-  Play,
-  Square,
-  Trash2,
-  X,
-} from "lucide-react";
+  AnimatePresence,
+  motion,
+  PanInfo,
+  animate,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from "motion/react";
+import { Play, Square, Trash2, X } from "lucide-react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,26 +36,31 @@ type VerseGalleryProps = {
   onStartTraining?: (verse: Verse) => void;
 };
 
-type Feedback = {
-  message: string;
-  tone: "success" | "warning" | "danger";
-};
-
+type Feedback = { message: string; tone: "success" | "warning" | "danger" };
 type SwipeAction = "learn" | "stop" | "delete" | null;
 
-const SWIPE_THRESHOLD = 50;
-const ACTION_THRESHOLD = 100;
+/** Настройки UX */
+const STEP = 580;                 // расстояние между центрами карточек (меньше высоты => видны края соседних)
+const AXIS_LOCK_PX = 12;          // сколько нужно сдвинуть, чтобы “зафиксировать” ось
+const AXIS_LOCK_RATIO = 1.35;     // “строгий” вертикальный/горизонтальный жест
+const H_ACTION_ARM_PX = 56;       // когда показывать action-фон
+const H_COMMIT_PX = 140;          // когда коммитить действие
+const INERTIA = 0.32;             // вклад скорости в пролистывание
+const MAX_JUMP = 5;               // макс. сколько карточек можно проскроллить за один жест
+const FOLLOW = 0.92;              // < 1 = мягкость (создаёт микро-отставание списка от пальца)
+const WINDOW = 4;                 // сколько карточек вокруг центра рендерим
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+const centerResistance = (y: number) => {
+  const distToCenter = Math.abs((-y / STEP) - Math.round(-y / STEP));
+  return 1 - Math.min(distToCenter * 0.25, 0.18);
+};
 
 const getRightAction = (status: VerseStatus) => {
-  if (status === VerseStatus.NEW) {
-    return { nextStatus: VerseStatus.LEARNING, label: "В изучение", action: "learn" as const };
-  }
-  if (status === VerseStatus.LEARNING) {
-    return { nextStatus: VerseStatus.STOPPED, label: "Остановить", action: "stop" as const };
-  }
-  if (status === VerseStatus.STOPPED) {
-    return { nextStatus: VerseStatus.LEARNING, label: "Вернуть в учебу", action: "learn" as const };
-  }
+  if (status === VerseStatus.NEW) return { next: VerseStatus.LEARNING, label: "В изучение", action: "learn" as const };
+  if (status === VerseStatus.LEARNING) return { next: VerseStatus.STOPPED, label: "Остановить", action: "stop" as const };
+  if (status === VerseStatus.STOPPED) return { next: VerseStatus.LEARNING, label: "Вернуть", action: "learn" as const };
   return null;
 };
 
@@ -64,7 +69,7 @@ const getActionColor = (action: SwipeAction) => {
     case "learn": return "bg-[#059669]";
     case "stop": return "bg-orange-500";
     case "delete": return "bg-destructive";
-    default: return "";
+    default: return "bg-transparent";
   }
 };
 
@@ -77,26 +82,6 @@ const getActionIcon = (action: SwipeAction) => {
   }
 };
 
-const variants = {
-  enter: (direction: number) => ({
-    y: direction > 0 ? 1000 : -1000,
-    opacity: 0,
-    scale: 0.9,
-  }),
-  center: {
-    zIndex: 1,
-    y: 0,
-    opacity: 1,
-    scale: 1,
-  },
-  exit: (direction: number) => ({
-    zIndex: 0,
-    y: direction < 0 ? 1000 : -1000,
-    opacity: 0,
-    scale: 0.9,
-  }),
-};
-
 export function VerseGallery({
   verses,
   initialIndex,
@@ -105,83 +90,203 @@ export function VerseGallery({
   onDelete,
   onStartTraining,
 }: VerseGalleryProps) {
-  const [[currentIndex, direction], setIndex] = useState([initialIndex, 0]);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [swipeAction, setSwipeAction] = useState<SwipeAction>(null);
-  const [swipeOffset, setSwipeOffset] = useState({ x: 0, y: 0 });
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  // axis lock
+  const axisRef = useRef<"x" | "y" | null>(null);
+
+  // Вертикальный scroll позиции стека (0 => индекс 0 по центру, -STEP => индекс 1 по центру, etc.)
+  const scrollY = useMotionValue(-initialIndex * STEP);
+  const springY = useSpring(scrollY, {
+    stiffness: 170,   // ↓ мягче
+    damping: 26,      // ↓ меньше сопротивление
+    mass: 1.2,        // ↑ больше инерция
+  });
+
+  // Горизонтальный свайп активной карточки
+  const cardX = useMotionValue(0);
+  const springX = useSpring(cardX, { stiffness: 420, damping: 44, mass: 0.7 });
+
+  // фон для экшена
+  const actionOpacity = useTransform(cardX, [-180, -80, 0, 80, 180], [0.95, 0.75, 0, 0.75, 0.95]);
+  const actionScale = useTransform(cardX, [-180, 0, 180], [1.15, 0.85, 1.15]);
+
+  const currentVerse = verses[activeIndex];
+  const rightAction = currentVerse ? getRightAction(currentVerse.status) : null;
+
+  // Для перфоманса: окно элементов вокруг центра
+  const visibleIndexes = useMemo(() => {
+    const from = clamp(activeIndex - WINDOW, 0, verses.length - 1);
+    const to = clamp(activeIndex + WINDOW, 0, verses.length - 1);
+    const arr: number[] = [];
+    for (let i = from; i <= to; i++) arr.push(i);
+    return arr;
+  }, [activeIndex, verses.length]);
+
   useEffect(() => {
-    setIndex([initialIndex, 0]);
-  }, [initialIndex]);
-
-  const currentVerse = verses[currentIndex];
-  const hasNext = currentIndex < verses.length - 1;
-  const hasPrev = currentIndex > 0;
-  const availableAction = currentVerse ? getRightAction(currentVerse.status) : null;
-
-  const paginate = (newDirection: number) => {
-    if (newDirection > 0 && !hasNext) return;
-    if (newDirection < 0 && !hasPrev) return;
-    setIndex([currentIndex + newDirection, newDirection]);
-  };
+    setActiveIndex(initialIndex);
+    scrollY.set(-initialIndex * STEP);
+    cardX.set(0);
+    setSwipeAction(null);
+    axisRef.current = null;
+  }, [initialIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showFeedback = (message: string, tone: Feedback["tone"]) => {
     setFeedback({ message, tone });
-    window.setTimeout(() => setFeedback(null), 1500);
+    window.setTimeout(() => setFeedback(null), 1400);
   };
 
-  const handleDrag = (_: any, info: PanInfo) => {
-    const { x, y } = info.offset;
-    setSwipeOffset({ x, y });
-
-    const absX = Math.abs(x);
-    const absY = Math.abs(y);
-
-    if (absX > absY && absX > SWIPE_THRESHOLD) {
-      if (x > 0 && availableAction) {
-        setSwipeAction(availableAction.action);
-      } else if (x < 0 && currentVerse?.status === VerseStatus.STOPPED) {
-        setSwipeAction("delete");
-      } else {
-        setSwipeAction(null);
-      }
-    } else {
-      setSwipeAction(null);
-    }
+  const setActiveFromScroll = (y: number) => {
+    const idx = clamp(Math.round(-y / STEP), 0, verses.length - 1);
+    // важно: не спамим setState на каждом px
+    if (idx !== activeIndex) setActiveIndex(idx);
   };
 
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    const { x, y } = info.offset;
-    const absX = Math.abs(x);
-    const absY = Math.abs(y);
+  const snapToIndex = (idx: number, velocityY = 0) => {
+    const target = -idx * STEP;
+    animate(scrollY, target, {
+      type: "spring",
+      stiffness: 180,
+      damping: 24,
+      mass: 1.25,
+      velocity: velocityY * 0.8,
+    });
+  };
 
-    if (absY > absX && absY > ACTION_THRESHOLD) {
-      // Swipe up (y < 0) -> direction 1 (next), Swipe down (y > 0) -> direction -1 (prev)
-      if (y < 0) paginate(1);
-      else paginate(-1);
-    } else if (absX > absY && absX > ACTION_THRESHOLD) {
-      if (x > 0 && availableAction) {
-        onStatusChange(currentVerse, availableAction.nextStatus);
-        showFeedback(`Статус: ${availableAction.label}`, "success");
-      } else if (x < 0 && currentVerse.status === VerseStatus.STOPPED) {
-        setDeleteConfirmOpen(true);
-      }
-    }
-
+  const onDragStart = () => {
+    axisRef.current = null;
     setSwipeAction(null);
-    setSwipeOffset({ x: 0, y: 0 });
+  };
+
+  const onDrag = (_: any, info: PanInfo) => {
+    const ox = info.offset.x;
+    const oy = info.offset.y;
+
+    // 1) axis lock
+    if (!axisRef.current) {
+      const ax = Math.abs(ox);
+      const ay = Math.abs(oy);
+      if (ax < AXIS_LOCK_PX && ay < AXIS_LOCK_PX) return;
+
+      // строгая фиксация оси
+      if (ay > ax * AXIS_LOCK_RATIO) axisRef.current = "y";
+      else if (ax > ay * AXIS_LOCK_RATIO) axisRef.current = "x";
+      else return; // диагональ — пока не определяем
+    }
+
+    // 2) применяем движение
+    if (axisRef.current === "y") {
+      // вертикальная "прокрутка" стека
+      const resistance = centerResistance(scrollY.get());
+      const next = scrollY.get() + info.delta.y * FOLLOW * resistance;
+      scrollY.set(next);
+      setActiveFromScroll(next);
+
+      // пока вертикаль — горизонтальные экшены скрываем
+      cardX.set(0);
+      setSwipeAction(null);
+      return;
+    }
+
+    if (axisRef.current === "x") {
+      // горизонтальный свайп ТОЛЬКО для центральной карточки
+      cardX.set(ox);
+
+      // показать action только когда "вооружили" жест
+      if (ox > H_ACTION_ARM_PX && rightAction) setSwipeAction(rightAction.action);
+      else if (ox < -H_ACTION_ARM_PX && currentVerse?.status === VerseStatus.STOPPED) setSwipeAction("delete");
+      else setSwipeAction(null);
+
+      return;
+    }
+  };
+
+  const onDragEnd = async (_: any, info: PanInfo) => {
+    const axis = axisRef.current;
+    axisRef.current = null;
+
+    if (axis === "y") {
+      // инерция: учитываем скорость, но ограничиваем MAX_JUMP
+      const v = info.velocity.y;
+      const current = scrollY.get();
+
+      const projected = current + v * INERTIA;
+      const rawIndex = Math.round(-projected / STEP);
+      const currentIndex = clamp(Math.round(-current / STEP), 0, verses.length - 1);
+
+      const clampedRaw = clamp(rawIndex, 0, verses.length - 1);
+      const jump = clamp(clampedRaw - currentIndex, -MAX_JUMP, MAX_JUMP);
+      const finalIndex = clamp(currentIndex + jump, 0, verses.length - 1);
+
+      setActiveIndex(finalIndex);
+      snapToIndex(finalIndex, v);
+      setSwipeAction(null);
+      return;
+    }
+
+    if (axis === "x") {
+      const x = info.offset.x;
+
+      if (Math.abs(x) >= H_COMMIT_PX && currentVerse) {
+        // commit
+        if (x > 0 && rightAction) {
+          try {
+            await onStatusChange(currentVerse, rightAction.next);
+            showFeedback(`Статус: ${rightAction.label}`, "success");
+          } catch {
+            showFeedback("Не удалось обновить статус", "danger");
+          }
+        } else if (x < 0 && currentVerse.status === VerseStatus.STOPPED) {
+          setDeleteConfirmOpen(true);
+        }
+      }
+
+      // вернуть карточку в центр
+      animate(cardX, 0, { type: "spring", stiffness: 420, damping: 44, mass: 0.7 });
+      setSwipeAction(null);
+      return;
+    }
+
+    // если ось так и не определилась — просто нормализуем
+    animate(cardX, 0, { type: "spring", stiffness: 420, damping: 44 });
+    snapToIndex(activeIndex, 0);
+    setSwipeAction(null);
   };
 
   if (!currentVerse) return null;
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col select-none touch-none">
+    <div className="fixed inset-0 bg-background z-50 flex flex-col select-none touch-none overflow-hidden">
+      {/* Horizontal action background (только когда есть swipeAction) */}
+      <AnimatePresence initial={false}>
+        {swipeAction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`absolute inset-0 z-0 flex items-center ${
+              cardX.get() > 0 ? "justify-start pl-20" : "justify-end pr-20"
+            } ${getActionColor(swipeAction)}`}
+            style={{ opacity: actionOpacity }}
+          >
+            <motion.div style={{ scale: actionScale }} className="flex flex-col items-center gap-3 text-white">
+              {getActionIcon(swipeAction)}
+              <span className="font-bold uppercase tracking-widest text-sm">
+                {swipeAction === "learn" ? "Учить" : swipeAction === "stop" ? "Остановить" : "Удалить"}
+              </span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border bg-card/50 backdrop-blur-md">
+      <div className="flex items-center justify-between p-6 border-b border-border bg-card/80 backdrop-blur-xl z-30">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground mb-1">
-            Стих {currentIndex + 1} из {verses.length}
+            {activeIndex + 1} / {verses.length}
           </span>
           <MasteryBadge status={currentVerse.status} />
         </div>
@@ -190,157 +295,146 @@ export function VerseGallery({
         </Button>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden flex items-center justify-center">
-        <AnimatePresence initial={false}>
-          {swipeAction && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: Math.min(Math.abs(swipeOffset.x) / 150, 0.9) }}
-              exit={{ opacity: 0 }}
-              className={`absolute inset-0 z-0 ${getActionColor(swipeAction)} flex items-center ${swipeOffset.x > 0 ? "justify-start pl-20" : "justify-end pr-20"}`}
-            >
-              <motion.div 
-                animate={{ scale: Math.abs(swipeOffset.x) > ACTION_THRESHOLD ? 1.2 : 1 }}
-                className="flex flex-col items-center gap-3 text-white"
-              >
-                {getActionIcon(swipeAction)}
-                <span className="font-bold uppercase tracking-widest text-sm">
-                  {swipeAction === 'learn' ? "В изучение" : swipeAction === 'stop' ? "Остановить" : "Удалить"}
-                </span>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Gesture + Stack */}
+      <div className="flex-1 relative flex items-center justify-center">
+        {/* Gesture capture layer */}
+        <motion.div
+          className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing"
+          drag
+          dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+          dragElastic={0.06}
+          dragMomentum={false}
+          onDragStart={onDragStart}
+          onDrag={onDrag}
+          onDragEnd={onDragEnd}
+        />
 
-        <AnimatePresence custom={direction} mode="popLayout">
-          <motion.div
-            key={currentVerse.id}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            drag
-            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-            dragElastic={0.8}
-            onDrag={handleDrag}
-            onDragEnd={handleDragEnd}
-            transition={{
-              y: { type: "spring", stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 }
-            }}
-            className="absolute inset-0 flex items-center justify-center p-6 z-10"
-          >
-            <div className="max-w-xl w-full bg-card p-10 sm:p-14 rounded-[3rem] border border-border shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)]">
-              <div className="text-center space-y-8">
-                <h2 className="text-3xl font-serif italic text-primary/90">{currentVerse.reference}</h2>
-                <p className="text-xl sm:text-2xl leading-relaxed font-light text-foreground/90">
-                  «{currentVerse.text}»
-                </p>
-                
-                <div className="pt-8 space-y-3">
-                  <div className="flex justify-between text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                    <span>Освоение</span>
-                    <span className="font-bold text-primary">{currentVerse.masteryLevel}%</span>
+        {/* Stack */}
+        <motion.div className="w-full h-full relative" style={{ y: springY }}>
+          {visibleIndexes.map((i) => {
+            const verse = verses[i];
+            const isCenter = i === activeIndex;
+            const rel = i - activeIndex;
+
+            // лёгкая перспектива/глубина, чтобы соседние ощущались “дальше”
+            const scale = isCenter ? 1 : 0.88;
+            const opacity = isCenter ? 1 : 0.40;
+            const blur = isCenter ? "blur(0px)" : "blur(1.2px)";
+
+            return (
+              <motion.div
+                key={verse.id}
+                className="absolute inset-0 flex items-center justify-center p-6"
+                style={{
+                  y: i * STEP,
+                  zIndex: 50 - Math.abs(rel),
+                  perspective: 1200,
+                }}
+              >
+                <motion.div
+                  style={{
+                    x: isCenter ? springX : 0,
+                    scale,
+                    opacity,
+                    filter: blur,
+                    rotateX: rel * 7,
+                  }}
+                  className="max-w-xl w-full bg-card p-10 sm:p-14 rounded-[3.5rem] border border-border shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)]"
+                >
+                  <div className="text-center space-y-10 pointer-events-none">
+                    <div>
+                      <h2 className="text-3xl font-serif italic text-primary/90">{verse.reference}</h2>
+                      {isCenter && (
+                        <div className="mt-3 text-[9px] uppercase tracking-[0.5em] text-muted-foreground opacity-60">
+                          Свайп ↑↓ листает, ←→ действия
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xl sm:text-2xl leading-relaxed font-light text-foreground/90 line-clamp-6">
+                      «{verse.text}»
+                    </p>
+
+                    <div className="pt-6 space-y-4">
+                      <div className="flex justify-between text-[10px] uppercase tracking-[0.4em] text-muted-foreground font-bold">
+                        <span>Освоение</span>
+                        <span className="text-primary">{verse.masteryLevel}%</span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-primary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${verse.masteryLevel}%` }}
+                          transition={{ duration: 1 }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-primary"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${currentVerse.masteryLevel}%` }}
-                      transition={{ duration: 1, ease: "circOut" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
+                </motion.div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
 
-      {/* Footer Navigation */}
-      <div className="p-8 border-t border-border bg-card/50 backdrop-blur-md">
-        <div className="max-w-xl mx-auto space-y-8">
-          <div className="flex items-center justify-around">
-            <button 
-              onClick={() => paginate(-1)} 
-              disabled={!hasPrev}
-              className="flex flex-col items-center gap-2 group disabled:opacity-20 transition-all"
-            >
-              <ChevronUp className="h-5 w-5 group-hover:-translate-y-1 transition-transform" />
-              <span className="text-[10px] uppercase tracking-widest">Назад</span>
-            </button>
-            <div className="h-10 w-px bg-border" />
-            <button 
-              onClick={() => paginate(1)} 
-              disabled={!hasNext}
-              className="flex flex-col items-center gap-2 group disabled:opacity-20 transition-all"
-            >
-              <ChevronDown className="h-5 w-5 group-hover:translate-y-1 transition-transform" />
-              <span className="text-[10px] uppercase tracking-widest">Далее</span>
-            </button>
-          </div>
-
-          <div className="flex justify-between items-center text-[9px] uppercase tracking-[0.4em] text-muted-foreground/60">
-            <div className="flex items-center gap-2">
-              <ArrowLeft className="h-3 w-3" />
-              {currentVerse.status === VerseStatus.STOPPED ? "Удалить" : "Нет действия"}
-            </div>
-            <div className="flex items-center gap-2">
-              {availableAction?.label ?? "Конец"}
-              <ArrowRight className="h-3 w-3" />
-            </div>
-          </div>
-
+      {/* Footer */}
+      <div className="p-8 border-t border-border bg-card/80 backdrop-blur-xl z-30">
+        <div className="max-w-xl mx-auto space-y-6">
           {onStartTraining && (
             <Button
               variant="outline"
-              className="w-full h-14 rounded-2xl text-[11px] uppercase tracking-[0.3em] hover:bg-primary hover:text-primary-foreground transition-all border-primary/20"
+              className="w-full h-14 rounded-2xl text-[11px] uppercase tracking-[0.4em] font-bold border-primary/20 bg-background/50 shadow-sm"
               onClick={() => onStartTraining(currentVerse)}
             >
-              Начать обучение
+              Начать тренировку
             </Button>
           )}
         </div>
       </div>
 
-      {/* Confirmation */}
+      {/* Delete confirm */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+        <AlertDialogContent className="rounded-[3rem] p-10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-serif">Удалить стих?</AlertDialogTitle>
-            <AlertDialogDescription className="text-base pt-2">
-              Это действие нельзя будет отменить. Стих исчезнет из вашего списка изучения.
+            <AlertDialogTitle className="text-2xl font-serif italic">Удалить стих?</AlertDialogTitle>
+            <AlertDialogDescription className="text-base pt-4">
+              Это действие полностью удалит стих из вашего списка изучения.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-2xl h-12">Отмена</AlertDialogCancel>
+          <AlertDialogFooter className="pt-10 gap-3">
+            <AlertDialogCancel className="rounded-2xl h-14">Отмена</AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-2xl h-12 bg-destructive hover:bg-destructive/90"
+              className="rounded-2xl h-14 bg-destructive"
               onClick={async () => {
-                await onDelete(currentVerse);
+                const verseToDelete = verses[activeIndex];
+                await onDelete(verseToDelete);
                 setDeleteConfirmOpen(false);
-                if (hasNext) paginate(1);
-                else if (hasPrev) paginate(-1);
-                else onClose();
+
+                // после удаления аккуратно центрируемся
+                const nextIndex = clamp(activeIndex, 0, Math.max(0, verses.length - 2));
+                setActiveIndex(nextIndex);
+                snapToIndex(nextIndex, 0);
               }}
             >
-              Да, удалить
+              Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Feedback Overlay */}
+      {/* Feedback */}
       <AnimatePresence>
         {feedback && (
           <motion.div
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 50, opacity: 0 }}
-            className={`fixed bottom-32 left-1/2 -translate-x-1/2 z-[60] rounded-2xl px-8 py-4 text-sm font-bold shadow-2xl backdrop-blur-lg ${
-              feedback.tone === "success" ? "bg-emerald-500 text-white" : feedback.tone === "danger" ? "bg-red-500 text-white" : "bg-orange-500 text-white"
+            className={`fixed bottom-36 left-1/2 -translate-x-1/2 z-[60] rounded-3xl px-10 py-5 text-sm font-bold shadow-2xl backdrop-blur-xl border border-white/10 ${
+              feedback.tone === "success"
+                ? "bg-emerald-500/90 text-white"
+                : feedback.tone === "danger"
+                ? "bg-red-500/90 text-white"
+                : "bg-orange-500/90 text-white"
             }`}
           >
             {feedback.message}
