@@ -97,6 +97,7 @@ export function VerseGallery({
 
   // axis lock
   const axisRef = useRef<"x" | "y" | null>(null);
+  const startYRef = useRef(0);
 
   // Вертикальный scroll позиции стека (0 => индекс 0 по центру, -STEP => индекс 1 по центру, etc.)
   const scrollY = useMotionValue(-initialIndex * STEP);
@@ -132,7 +133,7 @@ export function VerseGallery({
     cardX.set(0);
     setSwipeAction(null);
     axisRef.current = null;
-  }, [initialIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialIndex, scrollY, cardX]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showFeedback = (message: string, tone: Feedback["tone"]) => {
     setFeedback({ message, tone });
@@ -158,6 +159,7 @@ export function VerseGallery({
 
   const onDragStart = () => {
     axisRef.current = null;
+    startYRef.current = scrollY.get();
     setSwipeAction(null);
   };
 
@@ -181,7 +183,7 @@ export function VerseGallery({
     if (axisRef.current === "y") {
       // вертикальная "прокрутка" стека
       const resistance = centerResistance(scrollY.get());
-      const next = scrollY.get() + info.delta.y * FOLLOW * resistance;
+      const next = startYRef.current + info.offset.y * FOLLOW * resistance;
       scrollY.set(next);
       setActiveFromScroll(next);
 
@@ -283,7 +285,7 @@ export function VerseGallery({
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border bg-card/80 backdrop-blur-xl z-30">
+      <div className="flex items-center justify-between px-6 pb-6 pt-28 md:pt-6 border-b border-border bg-card/80 backdrop-blur-xl z-30">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground mb-1">
             {activeIndex + 1} / {verses.length}
@@ -299,7 +301,7 @@ export function VerseGallery({
       <div className="flex-1 relative flex items-center justify-center">
         {/* Gesture capture layer */}
         <motion.div
-          className="absolute inset-0 z-20 cursor-grab active:cursor-grabbing"
+          className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
           drag
           dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
           dragElastic={0.06}
