@@ -45,9 +45,9 @@ const AXIS_LOCK_PX = 12;          // сколько нужно сдвинуть,
 const AXIS_LOCK_RATIO = 1.35;     // “строгий” вертикальный/горизонтальный жест
 const H_ACTION_ARM_PX = 56;       // когда показывать action-фон
 const H_COMMIT_PX = 140;          // когда коммитить действие
-const INERTIA = 0.32;             // вклад скорости в пролистывание
-const MAX_JUMP = 5;               // макс. сколько карточек можно проскроллить за один жест
-const FOLLOW = 0.92;              // < 1 = мягкость (создаёт микро-отставание списка от пальца)
+const INERTIA = 0.25;             // ↓ вклад скорости (было 0.32)
+const MAX_JUMP = 3;               // ↓ макс. сколько карточек за раз (было 5)
+const FOLLOW = 0.88;              // ↓ мягкость следования (было 0.92)
 const WINDOW = 4;                 // сколько карточек вокруг центра рендерим
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -102,9 +102,9 @@ export function VerseGallery({
   // Вертикальный scroll позиции стека (0 => индекс 0 по центру, -STEP => индекс 1 по центру, etc.)
   const scrollY = useMotionValue(-initialIndex * STEP);
   const springY = useSpring(scrollY, {
-    stiffness: 170,   // ↓ мягче
-    damping: 26,      // ↓ меньше сопротивление
-    mass: 1.2,        // ↑ больше инерция
+    stiffness: 140,   // ↓ спокойнее (было 170)
+    damping: 30,      // ↑ больше вязкости (было 26)
+    mass: 1.4,        // ↑ тяжелее (было 1.2)
   });
 
   // Горизонтальный свайп активной карточки
@@ -150,10 +150,10 @@ export function VerseGallery({
     const target = -idx * STEP;
     animate(scrollY, target, {
       type: "spring",
-      stiffness: 180,
-      damping: 24,
-      mass: 1.25,
-      velocity: velocityY * 0.8,
+      stiffness: 150,   // ↓ мягче (было 180)
+      damping: 28,      // ↑ плавнее (было 24)
+      mass: 1.4,        // ↑ больше веса (было 1.25)
+      velocity: velocityY * 0.6, // ↓ меньше отдачи
     });
   };
 
