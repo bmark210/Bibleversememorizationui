@@ -290,8 +290,8 @@ export function VerseGallery({
           <span className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground mb-1">
             {activeIndex + 1} / {verses.length}
           </span>
-          <MasteryBadge status={currentVerse.status} />
         </div>
+          <MasteryBadge status={currentVerse.status} />
         <Button variant="ghost" size="icon" className="rounded-full" onClick={onClose}>
           <X className="h-6 w-6" />
         </Button>
