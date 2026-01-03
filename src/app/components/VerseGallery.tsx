@@ -76,8 +76,8 @@ export function VerseGallery({
   
   // Используем хук для получения safe area
   const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
-  const topInset = contentSafeAreaInset.top + (isMobile ? 0 : mobileTopButtonHeight);
-  const bottomInset = contentSafeAreaInset.bottom + (isMobile ? 0 : mobileBottomButtonHeight);
+  const topInset = contentSafeAreaInset.top;
+  const bottomInset = contentSafeAreaInset.bottom;
 
   // Отладка
   useEffect(() => {
