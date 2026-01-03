@@ -67,9 +67,9 @@ export function VerseGallery({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Используем хук для получения safe area
-  const { safeAreaInset, isInTelegram } = useTelegramSafeArea();
-  const topInset = safeAreaInset.top;
-  const bottomInset = safeAreaInset.bottom;
+  const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
+  const topInset = contentSafeAreaInset.top;
+  const bottomInset = contentSafeAreaInset.bottom;
 
   // Отладка
   useEffect(() => {
