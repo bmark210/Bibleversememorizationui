@@ -62,9 +62,19 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       return value || null;
     };
 
-    const safeAreaInsetTopCSS = getCSSVariable('--tg-safe-area-inset-top');
+    // Получаем значения Content Safe Area CSS переменных
+    const contentSafeAreaTop = getCSSVariable('--tg-content-safe-area-inset-top');
+    const contentSafeAreaBottom = getCSSVariable('--tg-content-safe-area-inset-bottom');
+    const contentSafeAreaLeft = getCSSVariable('--tg-content-safe-area-inset-left');
+    const contentSafeAreaRight = getCSSVariable('--tg-content-safe-area-inset-right');
     
     return {
+      // ⭐ Content Safe Area CSS переменные (главные значения)
+      '--tg-content-safe-area-inset-top': contentSafeAreaTop,
+      '--tg-content-safe-area-inset-bottom': contentSafeAreaBottom,
+      '--tg-content-safe-area-inset-left': contentSafeAreaLeft,
+      '--tg-content-safe-area-inset-right': contentSafeAreaRight,
+      
       // Основная информация
       platform: tg.platform,
       version: tg.version,
@@ -74,28 +84,14 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       viewportHeight: tg.viewportHeight,
       viewportStableHeight: tg.viewportStableHeight,
       
-      // ⭐ CSS переменная --tg-safe-area-inset-top (главное значение)
-      '--tg-safe-area-inset-top': safeAreaInsetTopCSS,
-      
-      // Safe Area (системные области - весь экран)
-      safeAreaInset: {
-        api: tg.safeAreaInset,
-        css: {
-          top: safeAreaInsetTopCSS,
-          bottom: getCSSVariable('--tg-safe-area-inset-bottom'),
-          left: getCSSVariable('--tg-safe-area-inset-left'),
-          right: getCSSVariable('--tg-safe-area-inset-right'),
-        }
-      },
-      
       // Content Safe Area (области контента - избегаемые зоны)
       contentSafeAreaInset: {
         api: tg.contentSafeAreaInset,
         css: {
-          top: getCSSVariable('--tg-content-safe-area-inset-top'),
-          bottom: getCSSVariable('--tg-content-safe-area-inset-bottom'),
-          left: getCSSVariable('--tg-content-safe-area-inset-left'),
-          right: getCSSVariable('--tg-content-safe-area-inset-right'),
+          top: contentSafeAreaTop,
+          bottom: contentSafeAreaBottom,
+          left: contentSafeAreaLeft,
+          right: contentSafeAreaRight,
         }
       },
       
