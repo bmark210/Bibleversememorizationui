@@ -48,6 +48,15 @@ export interface TelegramWebAppData {
 /**
  * Хук для работы с безопасными зонами Telegram Mini App
  * Автоматически расширяет приложение на весь экран и отслеживает изменения safe area
+ * 
+ * @returns Объект с данными о safe area и статусе Telegram окружения
+ * 
+ * @example
+ * const { safeAreaInset, isInTelegram } = useTelegramSafeArea();
+ * 
+ * <div style={{ paddingTop: `${safeAreaInset.top}px` }}>
+ *   Content
+ * </div>
  */
 export function useTelegramSafeArea(): TelegramWebAppData {
   const [isInTelegram, setIsInTelegram] = useState(false);
@@ -72,44 +81,55 @@ export function useTelegramSafeArea(): TelegramWebAppData {
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
+      console.log("🟢 Telegram WebApp detected");
       setIsInTelegram(true);
 
-      // Инициализация и расширение на весь экран
+      // Инициализация Telegram WebApp
       tg.ready();
       tg.expand();
 
-      // Получаем начальные значения
+      console.log("📊 Initial safe area:", tg.safeAreaInset);
+
+      // Функция обновления safe area
       const updateSafeAreas = () => {
-        setSafeAreaInset({
+        const newSafeArea = {
           top: tg.safeAreaInset?.top || 0,
           bottom: tg.safeAreaInset?.bottom || 0,
           left: tg.safeAreaInset?.left || 0,
           right: tg.safeAreaInset?.right || 0,
-        });
+        };
 
-        setContentSafeAreaInset({
+        const newContentSafeArea = {
           top: tg.contentSafeAreaInset?.top || 0,
           bottom: tg.contentSafeAreaInset?.bottom || 0,
           left: tg.contentSafeAreaInset?.left || 0,
           right: tg.contentSafeAreaInset?.right || 0,
-        });
+        };
 
+        console.log("📐 Safe area updated:", newSafeArea);
+
+        setSafeAreaInset(newSafeArea);
+        setContentSafeAreaInset(newContentSafeArea);
         setViewportHeight(tg.viewportHeight || window.innerHeight);
         setIsExpanded(tg.isExpanded || false);
       };
 
+      // Первоначальное обновление
       updateSafeAreas();
 
-      // Подписываемся на события изменения safe area
+      // Подписка на события
       const handleSafeAreaChanged = () => {
+        console.log("🔄 safeAreaChanged event");
         updateSafeAreas();
       };
 
       const handleContentSafeAreaChanged = () => {
+        console.log("🔄 contentSafeAreaChanged event");
         updateSafeAreas();
       };
 
       const handleViewportChanged = () => {
+        console.log("🔄 viewportChanged event");
         setViewportHeight(tg.viewportHeight || window.innerHeight);
         setIsExpanded(tg.isExpanded || false);
       };
@@ -124,39 +144,26 @@ export function useTelegramSafeArea(): TelegramWebAppData {
         tg.offEvent("viewportChanged", handleViewportChanged);
       };
     } else {
-      // Fallback для браузера (вне Telegram)
+      // Fallback для обычного браузера
+      console.log("🔴 Not in Telegram, using fallback");
       setIsInTelegram(false);
       
-      const isMobile = window.innerWidth < 768;
-      setSafeAreaInset({
-        top: isMobile ? 112 : 0, // 112px ≈ pt-28 для мобильных
-        bottom: 0,
-        left: 0,
-        right: 0,
-      });
-      
-      setContentSafeAreaInset({
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-      });
-      
-      setViewportHeight(window.innerHeight);
-      setIsExpanded(true);
-
-      // Обработка изменения размера окна
-      const handleResize = () => {
+      const updateFallback = () => {
         const isMobile = window.innerWidth < 768;
-        setSafeAreaInset(prev => ({
-          ...prev,
-          top: isMobile ? 112 : 0,
-        }));
+        setSafeAreaInset({
+          top: isMobile ? 64 : 0, // Уменьшаем с 112 до 64px для мобильных
+          bottom: 0,
+          left: 0,
+          right: 0,
+        });
         setViewportHeight(window.innerHeight);
+        setIsExpanded(true);
       };
 
-      window.addEventListener("resize", handleResize);
-      return () => window.removeEventListener("resize", handleResize);
+      updateFallback();
+
+      window.addEventListener("resize", updateFallback);
+      return () => window.removeEventListener("resize", updateFallback);
     }
   }, []);
 
@@ -166,17 +173,5 @@ export function useTelegramSafeArea(): TelegramWebAppData {
     contentSafeAreaInset,
     viewportHeight,
     isExpanded,
-  };
-}
-
-/**
- * Хелпер для создания CSS переменных из safe area
- */
-export function createSafeAreaCSSVars(insets: SafeAreaInsets): Record<string, string> {
-  return {
-    "--safe-area-inset-top": `${insets.top}px`,
-    "--safe-area-inset-bottom": `${insets.bottom}px`,
-    "--safe-area-inset-left": `${insets.left}px`,
-    "--safe-area-inset-right": `${insets.right}px`,
   };
 }

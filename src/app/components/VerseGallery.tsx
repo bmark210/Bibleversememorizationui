@@ -67,9 +67,14 @@ export function VerseGallery({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Используем хук для получения safe area
-  const { safeAreaInset } = useTelegramSafeArea();
+  const { safeAreaInset, isInTelegram } = useTelegramSafeArea();
   const topInset = safeAreaInset.top;
   const bottomInset = safeAreaInset.bottom;
+
+  // Отладка
+  useEffect(() => {
+    console.log('🎨 VerseGallery: Safe area insets:', { topInset, bottomInset, isInTelegram });
+  }, [topInset, bottomInset, isInTelegram]);
 
   // Центрирование активной карточки при открытии
   useEffect(() => {

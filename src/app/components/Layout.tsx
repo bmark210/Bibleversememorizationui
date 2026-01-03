@@ -5,7 +5,7 @@ import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Mo
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useTelegram } from '../contexts/TelegramContext';
-import { useTelegramSafeArea, createSafeAreaCSSVars } from '../hooks/useTelegramSafeArea';
+import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,13 +33,16 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     root.classList.add(theme);
     root.style.colorScheme = theme;
     window.localStorage.setItem('theme', theme);
-    
-    // Устанавливаем CSS переменные для safe area
-    const cssVars = createSafeAreaCSSVars(safeAreaInset);
-    Object.entries(cssVars).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
-    });
-  }, [theme, safeAreaInset]);
+  }, [theme]);
+
+  // Отладка safe area
+  useEffect(() => {
+    if (isInTelegram) {
+      console.log('📱 Layout: Telegram detected, safe area:', safeAreaInset);
+    } else {
+      console.log('🌐 Layout: Browser mode, safe area:', safeAreaInset);
+    }
+  }, [isInTelegram, safeAreaInset]);
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
