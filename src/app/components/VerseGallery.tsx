@@ -19,6 +19,7 @@ import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { VerseStatus } from "@/generated/prisma";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
+import { useIsMobile } from "./ui/use-mobile";
 
 /* ===================== TYPES & CONSTANTS ===================== */
 
@@ -61,6 +62,13 @@ export function VerseGallery({
   onDelete,
   onStartTraining,
 }: VerseGalleryProps) {
+
+
+  const isMobile = useIsMobile();
+
+  const mobileTopButtonHeight = 42;
+  const mobileBottomButtonHeight = 10;
+
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -68,8 +76,8 @@ export function VerseGallery({
   
   // Используем хук для получения safe area
   const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
-  const topInset = contentSafeAreaInset.top;
-  const bottomInset = contentSafeAreaInset.bottom;
+  const topInset = contentSafeAreaInset.top + (isMobile ? 0 : mobileTopButtonHeight);
+  const bottomInset = contentSafeAreaInset.bottom + (isMobile ? 0 : mobileBottomButtonHeight);
 
   // Отладка
   useEffect(() => {
