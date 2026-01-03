@@ -92,9 +92,7 @@ export function useTelegramSafeArea(): TelegramWebAppData {
       tg.ready();
       tg.expand();
 
-      console.log("📊 Telegram safe area API:", tg.safeAreaInset);
-
-      // Функция получения Content Safe Area из CSS переменных Telegram
+      // Функция получения Content Safe Area ТОЛЬКО из CSS переменных Telegram
       const getTelegramContentSafeAreaFromCSS = (): SafeAreaInsets => {
         if (typeof window === "undefined") {
           return { top: 0, bottom: 0, left: 0, right: 0 };
@@ -105,10 +103,16 @@ export function useTelegramSafeArea(): TelegramWebAppData {
         
         const getCSSVariable = (varName: string): number => {
           const value = computedStyle.getPropertyValue(varName).trim();
-          if (!value) return 0;
+          console.log(`🔍 Reading CSS variable ${varName}:`, value);
+          if (!value) {
+            console.log(`⚠️ CSS variable ${varName} is empty`);
+            return 0;
+          }
           // Убираем 'px' и парсим число
           const numValue = parseFloat(value.replace('px', ''));
-          return isNaN(numValue) ? 0 : numValue;
+          const result = isNaN(numValue) ? 0 : numValue;
+          console.log(`✅ Parsed ${varName}:`, result);
+          return result;
         };
 
         const top = getCSSVariable('--tg-content-safe-area-inset-top');
@@ -121,138 +125,15 @@ export function useTelegramSafeArea(): TelegramWebAppData {
         return { top, bottom, left, right };
       };
 
-      // Функция получения реальных safe area из CSS env() переменных
-      const getCSSEnvSafeArea = (): SafeAreaInsets => {
-        // Пробуем получить safe area из CSS environment variables (работает в iOS Safari/WebView)
-        const testDiv = document.createElement('div');
-        testDiv.style.position = 'fixed';
-        testDiv.style.top = '0';
-        testDiv.style.left = '0';
-        testDiv.style.width = '100vw';
-        testDiv.style.height = '100vh';
-        testDiv.style.pointerEvents = 'none';
-        testDiv.style.visibility = 'hidden';
-        document.body.appendChild(testDiv);
-
-        const computedStyle = window.getComputedStyle(testDiv);
-        
-        // Получаем значения safe area из CSS
-        const top = parseInt(computedStyle.getPropertyValue('env(safe-area-inset-top, 0px)')) || 
-                    parseInt(computedStyle.paddingTop) || 0;
-        const bottom = parseInt(computedStyle.getPropertyValue('env(safe-area-inset-bottom, 0px)')) || 
-                       parseInt(computedStyle.paddingBottom) || 0;
-        const left = parseInt(computedStyle.getPropertyValue('env(safe-area-inset-left, 0px)')) || 0;
-        const right = parseInt(computedStyle.getPropertyValue('env(safe-area-inset-right, 0px)')) || 0;
-
-        document.body.removeChild(testDiv);
-
-        console.log("🎨 CSS env() safe area:", { top, bottom, left, right });
-
-        return { top, bottom, left, right };
-      };
-
-      // Функция определения safe area на основе устройства
-      const getDeviceBasedSafeArea = (): SafeAreaInsets => {
-        const userAgent = navigator.userAgent || "";
-        const screenHeight = window.screen.height;
-        const screenWidth = window.screen.width;
-        const isIOS = /iPhone|iPad|iPod/.test(userAgent);
-        const isAndroid = /Android/.test(userAgent);
-
-        console.log("📱 Device info:", { 
-          userAgent: userAgent.substring(0, 100), 
-          screenHeight, 
-          screenWidth,
-          isIOS,
-          isAndroid
-        });
-
-        // iPhone с вырезом (X и новее) - высота >= 812
-        if (isIOS && screenHeight >= 812) {
-          console.log("📱 Detected: iPhone with notch");
-          return {
-            top: 59, // Status bar + notch
-            bottom: 34, // Home indicator
-            left: 0,
-            right: 0
-          };
-        }
-
-        // iPhone без выреза (8 и старше)
-        if (isIOS && screenHeight < 812) {
-          console.log("📱 Detected: iPhone without notch");
-          return {
-            top: 20, // Status bar
-            bottom: 0,
-            left: 0,
-            right: 0
-          };
-        }
-
-        // Android с вырезом
-        if (isAndroid) {
-          console.log("📱 Detected: Android device");
-          return {
-            top: 24, // Status bar (может быть больше с вырезом)
-            bottom: 0,
-            left: 0,
-            right: 0
-          };
-        }
-
-        // Desktop / неизвестное устройство
-        console.log("💻 Detected: Desktop or unknown device");
-        return { top: 0, bottom: 0, left: 0, right: 0 };
-      };
-
-      // Функция обновления safe area
+      // Функция обновления safe area - используем ТОЛЬКО CSS переменные
       const updateSafeAreas = () => {
-        // 1. Пробуем получить из Telegram API
-        const telegramSafeArea = {
-          top: tg.safeAreaInset?.top || 0,
-          bottom: tg.safeAreaInset?.bottom || 0,
-          left: tg.safeAreaInset?.left || 0,
-          right: tg.safeAreaInset?.right || 0,
-        };
+        // Получаем Content Safe Area ТОЛЬКО из CSS переменных Telegram
+        const contentSafeArea = getTelegramContentSafeAreaFromCSS();
 
-        // 2. Получаем из CSS env()
-        const cssSafeArea = getCSSEnvSafeArea();
+        console.log("🎯 Content Safe Area from CSS:", contentSafeArea);
 
-        // 3. Определяем на основе устройства
-        const deviceSafeArea = getDeviceBasedSafeArea();
-
-        // Выбираем наилучший источник (приоритет: Telegram API > CSS env > Device detection)
-        let finalSafeArea = { ...telegramSafeArea };
-
-        // Если Telegram вернул нули, пробуем CSS env()
-        if (finalSafeArea.top === 0 && finalSafeArea.bottom === 0) {
-          if (cssSafeArea.top > 0 || cssSafeArea.bottom > 0) {
-            console.log("✅ Using CSS env() safe area");
-            finalSafeArea = cssSafeArea;
-          } else {
-            // Если и CSS env() не помог, используем определение по устройству
-            console.log("✅ Using device-based safe area");
-            finalSafeArea = deviceSafeArea;
-          }
-        } else {
-          console.log("✅ Using Telegram API safe area");
-        }
-
-        // Получаем Content Safe Area из CSS переменных Telegram
-        const contentSafeAreaFromCSS = getTelegramContentSafeAreaFromCSS();
-        
-        // Используем CSS переменные, если они доступны, иначе fallback на API
-        const contentSafeArea = {
-          top: contentSafeAreaFromCSS.top || tg.contentSafeAreaInset?.top || 0,
-          bottom: contentSafeAreaFromCSS.bottom || tg.contentSafeAreaInset?.bottom || 0,
-          left: contentSafeAreaFromCSS.left || tg.contentSafeAreaInset?.left || 0,
-          right: contentSafeAreaFromCSS.right || tg.contentSafeAreaInset?.right || 0,
-        };
-
-        console.log("🎯 Final safe area:", finalSafeArea);
-        console.log("🎯 Final content safe area:", contentSafeArea);
-
-        setSafeAreaInset(finalSafeArea);
+        // Используем те же значения для safeAreaInset (для обратной совместимости)
+        setSafeAreaInset(contentSafeArea);
         setContentSafeAreaInset(contentSafeArea);
         setViewportHeight(tg.viewportHeight || window.innerHeight);
         setIsExpanded(tg.isExpanded || false);
@@ -261,12 +142,7 @@ export function useTelegramSafeArea(): TelegramWebAppData {
       // Первоначальное обновление
       updateSafeAreas();
 
-      // Подписка на события
-      const handleSafeAreaChanged = () => {
-        console.log("🔄 safeAreaChanged event");
-        updateSafeAreas();
-      };
-
+      // Подписка на события изменения content safe area
       const handleContentSafeAreaChanged = () => {
         console.log("🔄 contentSafeAreaChanged event");
         updateSafeAreas();
@@ -276,23 +152,42 @@ export function useTelegramSafeArea(): TelegramWebAppData {
         console.log("🔄 viewportChanged event");
         setViewportHeight(tg.viewportHeight || window.innerHeight);
         setIsExpanded(tg.isExpanded || false);
+        // Обновляем safe area при изменении viewport, так как CSS переменные могут измениться
+        updateSafeAreas();
       };
 
-      tg.onEvent("safeAreaChanged", handleSafeAreaChanged);
       tg.onEvent("contentSafeAreaChanged", handleContentSafeAreaChanged);
       tg.onEvent("viewportChanged", handleViewportChanged);
 
+      // Также проверяем CSS переменные периодически на случай, если они установятся позже
+      // Отслеживаем предыдущие значения для сравнения
+      let previousValues: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+      const intervalId = setInterval(() => {
+        const current = getTelegramContentSafeAreaFromCSS();
+        // Обновляем только если значения изменились
+        if (
+          current.top !== previousValues.top ||
+          current.bottom !== previousValues.bottom ||
+          current.left !== previousValues.left ||
+          current.right !== previousValues.right
+        ) {
+          console.log("🔄 CSS variables changed, updating state");
+          previousValues = current;
+          updateSafeAreas();
+        }
+      }, 200); // Проверяем каждые 200ms
+
       return () => {
-        tg.offEvent("safeAreaChanged", handleSafeAreaChanged);
         tg.offEvent("contentSafeAreaChanged", handleContentSafeAreaChanged);
         tg.offEvent("viewportChanged", handleViewportChanged);
+        clearInterval(intervalId);
       };
     } else {
-      // Fallback для обычного браузера
-      console.log("🔴 Not in Telegram, using fallback");
+      // Fallback для обычного браузера - используем ТОЛЬКО CSS переменные
+      console.log("🔴 Not in Telegram, using CSS variables only");
       setIsInTelegram(false);
       
-      // Функция получения Content Safe Area из CSS переменных (для браузера)
+      // Функция получения Content Safe Area ТОЛЬКО из CSS переменных
       const getContentSafeAreaFromCSS = (): SafeAreaInsets => {
         if (typeof window === "undefined") {
           return { top: 0, bottom: 0, left: 0, right: 0 };
@@ -317,15 +212,10 @@ export function useTelegramSafeArea(): TelegramWebAppData {
       };
       
       const updateFallback = () => {
-        const isMobile = window.innerWidth < 768;
         const contentSafeArea = getContentSafeAreaFromCSS();
         
-        setSafeAreaInset({
-          top: isMobile ? 64 : 0, // Уменьшаем с 112 до 64px для мобильных
-          bottom: 0,
-          left: 0,
-          right: 0,
-        });
+        // Используем те же значения для safeAreaInset (для обратной совместимости)
+        setSafeAreaInset(contentSafeArea);
         setContentSafeAreaInset(contentSafeArea);
         setViewportHeight(window.innerHeight);
         setIsExpanded(true);
