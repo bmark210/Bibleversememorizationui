@@ -4,7 +4,7 @@
 
 /* Telegram Safe Area Support */
 :root {
-  --safe-area-inset-top: 59px;
+  --safe-area-inset-top: 0px;
   --safe-area-inset-bottom: 0px;
   --safe-area-inset-left: 0px;
   --safe-area-inset-right: 0px;

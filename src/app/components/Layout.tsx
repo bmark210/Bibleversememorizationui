@@ -62,6 +62,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       return value || null;
     };
 
+    const safeAreaInsetTopCSS = getCSSVariable('--tg-safe-area-inset-top');
+    
     return {
       // Основная информация
       platform: tg.platform,
@@ -72,11 +74,14 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       viewportHeight: tg.viewportHeight,
       viewportStableHeight: tg.viewportStableHeight,
       
+      // ⭐ CSS переменная --tg-safe-area-inset-top (главное значение)
+      '--tg-safe-area-inset-top': safeAreaInsetTopCSS,
+      
       // Safe Area (системные области - весь экран)
       safeAreaInset: {
         api: tg.safeAreaInset,
         css: {
-          top: getCSSVariable('--tg-safe-area-inset-top'),
+          top: safeAreaInsetTopCSS,
           bottom: getCSSVariable('--tg-safe-area-inset-bottom'),
           left: getCSSVariable('--tg-safe-area-inset-left'),
           right: getCSSVariable('--tg-safe-area-inset-right'),
