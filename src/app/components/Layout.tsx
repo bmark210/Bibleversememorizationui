@@ -55,6 +55,13 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     const tg = window.Telegram?.WebApp;
     if (!tg) return null;
 
+    // Получаем CSS переменные
+    const getCSSVariable = (varName: string) => {
+      if (typeof window === 'undefined') return null;
+      const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      return value || null;
+    };
+
     return {
       // Основная информация
       platform: tg.platform,
@@ -65,13 +72,52 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       viewportHeight: tg.viewportHeight,
       viewportStableHeight: tg.viewportStableHeight,
       
-      // Safe Area
-      safeAreaInset: tg.safeAreaInset,
-      contentSafeAreaInset: tg.contentSafeAreaInset,
+      // Safe Area (системные области - весь экран)
+      safeAreaInset: {
+        api: tg.safeAreaInset,
+        css: {
+          top: getCSSVariable('--tg-safe-area-inset-top'),
+          bottom: getCSSVariable('--tg-safe-area-inset-bottom'),
+          left: getCSSVariable('--tg-safe-area-inset-left'),
+          right: getCSSVariable('--tg-safe-area-inset-right'),
+        }
+      },
+      
+      // Content Safe Area (области контента - избегаемые зоны)
+      contentSafeAreaInset: {
+        api: tg.contentSafeAreaInset,
+        css: {
+          top: getCSSVariable('--tg-content-safe-area-inset-top'),
+          bottom: getCSSVariable('--tg-content-safe-area-inset-bottom'),
+          left: getCSSVariable('--tg-content-safe-area-inset-left'),
+          right: getCSSVariable('--tg-content-safe-area-inset-right'),
+        }
+      },
+      
+      // Viewport padding
+      viewportPadding: {
+        top: getCSSVariable('--tg-viewport-height'),
+        stableHeight: getCSSVariable('--tg-viewport-stable-height'),
+      },
       
       // Тема
       colorScheme: (tg as any).colorScheme,
       themeParams: (tg as any).themeParams,
+      themeCSSVariables: {
+        bgColor: getCSSVariable('--tg-theme-bg-color'),
+        textColor: getCSSVariable('--tg-theme-text-color'),
+        hintColor: getCSSVariable('--tg-theme-hint-color'),
+        linkColor: getCSSVariable('--tg-theme-link-color'),
+        buttonColor: getCSSVariable('--tg-theme-button-color'),
+        buttonTextColor: getCSSVariable('--tg-theme-button-text-color'),
+        secondaryBgColor: getCSSVariable('--tg-theme-secondary-bg-color'),
+        headerBgColor: getCSSVariable('--tg-theme-header-bg-color'),
+        accentTextColor: getCSSVariable('--tg-theme-accent-text-color'),
+        sectionBgColor: getCSSVariable('--tg-theme-section-bg-color'),
+        sectionHeaderTextColor: getCSSVariable('--tg-theme-section-header-text-color'),
+        subtitleTextColor: getCSSVariable('--tg-theme-subtitle-text-color'),
+        destructiveTextColor: getCSSVariable('--tg-theme-destructive-text-color'),
+      },
       
       // Пользователь
       initData: (tg as any).initData,
@@ -100,6 +146,12 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       headerColor: (tg as any).headerColor,
       backgroundColor: (tg as any).backgroundColor,
       bottomBarColor: (tg as any).bottomBarColor,
+      
+      // Все CSS переменные viewport
+      allCSSVariables: {
+        '--tg-viewport-height': getCSSVariable('--tg-viewport-height'),
+        '--tg-viewport-stable-height': getCSSVariable('--tg-viewport-stable-height'),
+      },
       
       // Наши вычисленные значения
       _computed: {
