@@ -94,6 +94,33 @@ export function useTelegramSafeArea(): TelegramWebAppData {
 
       console.log("📊 Telegram safe area API:", tg.safeAreaInset);
 
+      // Функция получения Content Safe Area из CSS переменных Telegram
+      const getTelegramContentSafeAreaFromCSS = (): SafeAreaInsets => {
+        if (typeof window === "undefined") {
+          return { top: 0, bottom: 0, left: 0, right: 0 };
+        }
+
+        const root = document.documentElement;
+        const computedStyle = window.getComputedStyle(root);
+        
+        const getCSSVariable = (varName: string): number => {
+          const value = computedStyle.getPropertyValue(varName).trim();
+          if (!value) return 0;
+          // Убираем 'px' и парсим число
+          const numValue = parseFloat(value.replace('px', ''));
+          return isNaN(numValue) ? 0 : numValue;
+        };
+
+        const top = getCSSVariable('--tg-content-safe-area-inset-top');
+        const bottom = getCSSVariable('--tg-content-safe-area-inset-bottom');
+        const left = getCSSVariable('--tg-content-safe-area-inset-left');
+        const right = getCSSVariable('--tg-content-safe-area-inset-right');
+
+        console.log("🎨 Telegram Content Safe Area from CSS:", { top, bottom, left, right });
+
+        return { top, bottom, left, right };
+      };
+
       // Функция получения реальных safe area из CSS env() переменных
       const getCSSEnvSafeArea = (): SafeAreaInsets => {
         // Пробуем получить safe area из CSS environment variables (работает в iOS Safari/WebView)
@@ -211,14 +238,19 @@ export function useTelegramSafeArea(): TelegramWebAppData {
           console.log("✅ Using Telegram API safe area");
         }
 
+        // Получаем Content Safe Area из CSS переменных Telegram
+        const contentSafeAreaFromCSS = getTelegramContentSafeAreaFromCSS();
+        
+        // Используем CSS переменные, если они доступны, иначе fallback на API
         const contentSafeArea = {
-          top: tg.contentSafeAreaInset?.top || 0,
-          bottom: tg.contentSafeAreaInset?.bottom || 0,
-          left: tg.contentSafeAreaInset?.left || 0,
-          right: tg.contentSafeAreaInset?.right || 0,
+          top: contentSafeAreaFromCSS.top || tg.contentSafeAreaInset?.top || 0,
+          bottom: contentSafeAreaFromCSS.bottom || tg.contentSafeAreaInset?.bottom || 0,
+          left: contentSafeAreaFromCSS.left || tg.contentSafeAreaInset?.left || 0,
+          right: contentSafeAreaFromCSS.right || tg.contentSafeAreaInset?.right || 0,
         };
 
         console.log("🎯 Final safe area:", finalSafeArea);
+        console.log("🎯 Final content safe area:", contentSafeArea);
 
         setSafeAreaInset(finalSafeArea);
         setContentSafeAreaInset(contentSafeArea);
@@ -260,14 +292,41 @@ export function useTelegramSafeArea(): TelegramWebAppData {
       console.log("🔴 Not in Telegram, using fallback");
       setIsInTelegram(false);
       
+      // Функция получения Content Safe Area из CSS переменных (для браузера)
+      const getContentSafeAreaFromCSS = (): SafeAreaInsets => {
+        if (typeof window === "undefined") {
+          return { top: 0, bottom: 0, left: 0, right: 0 };
+        }
+
+        const root = document.documentElement;
+        const computedStyle = window.getComputedStyle(root);
+        
+        const getCSSVariable = (varName: string): number => {
+          const value = computedStyle.getPropertyValue(varName).trim();
+          if (!value) return 0;
+          const numValue = parseFloat(value.replace('px', ''));
+          return isNaN(numValue) ? 0 : numValue;
+        };
+
+        return {
+          top: getCSSVariable('--tg-content-safe-area-inset-top'),
+          bottom: getCSSVariable('--tg-content-safe-area-inset-bottom'),
+          left: getCSSVariable('--tg-content-safe-area-inset-left'),
+          right: getCSSVariable('--tg-content-safe-area-inset-right'),
+        };
+      };
+      
       const updateFallback = () => {
         const isMobile = window.innerWidth < 768;
+        const contentSafeArea = getContentSafeAreaFromCSS();
+        
         setSafeAreaInset({
           top: isMobile ? 64 : 0, // Уменьшаем с 112 до 64px для мобильных
           bottom: 0,
           left: 0,
           right: 0,
         });
+        setContentSafeAreaInset(contentSafeArea);
         setViewportHeight(window.innerHeight);
         setIsExpanded(true);
       };
