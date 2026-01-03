@@ -5,6 +5,7 @@ import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Mo
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useTelegram } from '../contexts/TelegramContext';
+import { useTelegramSafeArea, createSafeAreaCSSVars } from '../hooks/useTelegramSafeArea';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ const getPreferredTheme = (): Theme => {
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(getPreferredTheme);
   const { user, isReady, platform } = useTelegram();
+  const { safeAreaInset, isInTelegram } = useTelegramSafeArea();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -31,7 +33,13 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     root.classList.add(theme);
     root.style.colorScheme = theme;
     window.localStorage.setItem('theme', theme);
-  }, [theme]);
+    
+    // Устанавливаем CSS переменные для safe area
+    const cssVars = createSafeAreaCSSVars(safeAreaInset);
+    Object.entries(cssVars).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+    });
+  }, [theme, safeAreaInset]);
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
@@ -46,8 +54,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-22 md:pt-0">
+      <header 
+        className="bg-card border-b border-border sticky top-0 z-10"
+        style={{ paddingTop: `${safeAreaInset.top}px` }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -111,14 +122,22 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto pb-[82px]">
+        <main 
+          className="flex-1 overflow-auto"
+          style={{ 
+            paddingBottom: `calc(82px + ${safeAreaInset.bottom}px)` 
+          }}
+        >
           {children}
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card pb-2.5 border-t border-border">
-        <nav className="flex justify-around p-2">
+      <div 
+        className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90"
+        style={{ paddingBottom: `${safeAreaInset.bottom}px` }}
+      >
+        <nav className="flex justify-around p-2 pt-2.5">
           {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;

@@ -2,4 +2,52 @@
 @import "../styles/tailwind.css";
 @import "../styles/theme.css";
 
+/* Telegram Safe Area Support */
+:root {
+  --safe-area-inset-top: 0px;
+  --safe-area-inset-bottom: 0px;
+  --safe-area-inset-left: 0px;
+  --safe-area-inset-right: 0px;
+}
 
+/* Утилиты для работы с safe area */
+.pt-safe {
+  padding-top: var(--safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.pl-safe {
+  padding-left: var(--safe-area-inset-left);
+}
+
+.pr-safe {
+  padding-right: var(--safe-area-inset-right);
+}
+
+.mt-safe {
+  margin-top: var(--safe-area-inset-top);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-area-inset-bottom);
+}
+
+.ml-safe {
+  margin-left: var(--safe-area-inset-left);
+}
+
+.mr-safe {
+  margin-right: var(--safe-area-inset-right);
+}
+
+/* Высота с учетом safe area */
+.h-screen-safe {
+  height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+.min-h-screen-safe {
+  min-height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
