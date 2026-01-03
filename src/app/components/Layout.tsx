@@ -60,7 +60,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       platform: tg.platform,
       version: tg.version,
       isExpanded: tg.isExpanded,
-      isVerticalSwipesEnabled: tg.isVerticalSwipesEnabled,
       
       // Viewport
       viewportHeight: tg.viewportHeight,
@@ -71,36 +70,36 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       contentSafeAreaInset: tg.contentSafeAreaInset,
       
       // Тема
-      colorScheme: tg.colorScheme,
-      themeParams: tg.themeParams,
+      colorScheme: (tg as any).colorScheme,
+      themeParams: (tg as any).themeParams,
       
       // Пользователь
-      initData: tg.initData,
-      initDataUnsafe: tg.initDataUnsafe,
+      initData: (tg as any).initData,
+      initDataUnsafe: (tg as any).initDataUnsafe,
       
       // Кнопки
-      MainButton: tg.MainButton ? {
-        text: tg.MainButton.text,
-        color: tg.MainButton.color,
-        textColor: tg.MainButton.textColor,
-        isVisible: tg.MainButton.isVisible,
-        isActive: tg.MainButton.isActive,
-        isProgressVisible: tg.MainButton.isProgressVisible,
+      MainButton: (tg as any).MainButton ? {
+        text: (tg as any).MainButton.text,
+        color: (tg as any).MainButton.color,
+        textColor: (tg as any).MainButton.textColor,
+        isVisible: (tg as any).MainButton.isVisible,
+        isActive: (tg as any).MainButton.isActive,
+        isProgressVisible: (tg as any).MainButton.isProgressVisible,
       } : null,
-      BackButton: tg.BackButton ? {
-        isVisible: tg.BackButton.isVisible,
+      BackButton: (tg as any).BackButton ? {
+        isVisible: (tg as any).BackButton.isVisible,
       } : null,
-      SettingsButton: tg.SettingsButton ? {
-        isVisible: tg.SettingsButton.isVisible,
+      SettingsButton: (tg as any).SettingsButton ? {
+        isVisible: (tg as any).SettingsButton.isVisible,
       } : null,
       
       // Haptic Feedback
-      HapticFeedback: tg.HapticFeedback ? 'available' : 'not available',
+      HapticFeedback: (tg as any).HapticFeedback ? 'available' : 'not available',
       
       // Дополнительно
-      headerColor: tg.headerColor,
-      backgroundColor: tg.backgroundColor,
-      bottomBarColor: tg.bottomBarColor,
+      headerColor: (tg as any).headerColor,
+      backgroundColor: (tg as any).backgroundColor,
+      bottomBarColor: (tg as any).bottomBarColor,
       
       // Наши вычисленные значения
       _computed: {
