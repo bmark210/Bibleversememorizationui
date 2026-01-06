@@ -17,7 +17,6 @@ enum Translation {
 enum VerseStatus {
   NEW
   LEARNING
-  MASTERED
   STOPPED
 }
 
