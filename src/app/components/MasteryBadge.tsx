@@ -7,14 +7,12 @@ const getMasteryColor = (status: VerseStatus) => {
   if (status === VerseStatus.STOPPED) return "text-destructive";
   if (status === VerseStatus.NEW) return "text-destructive";
   if (status === VerseStatus.LEARNING) return "text-orange-500";
-  if (status === VerseStatus.MASTERED) return "text-[#059669]";
 };
 
 const getMasteryLabel = (status: VerseStatus) => {
   if (status === VerseStatus.STOPPED) return "Остановлено";
   if (status === VerseStatus.NEW) return "Новый";
   if (status === VerseStatus.LEARNING) return "Изучение";
-  if (status === VerseStatus.MASTERED) return "Освоено";
 
   return "Освоено";
 };

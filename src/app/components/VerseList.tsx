@@ -262,6 +262,15 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button onClick={onAddVerse} className="shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Добавить
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <div className="flex-1 sm:flex-none bg-muted/60 rounded-full p-1 flex items-center gap-1">
             <Button
               size="sm"
@@ -280,16 +289,7 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
               Изучаю
             </Button>
           </div>
-          <Button onClick={onAddVerse} className="shrink-0">
-            <Plus className="w-4 h-4 mr-2" />
-            Добавить
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <div className="relative sm:col-span-2">
+        {/* <div className="relative sm:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Поиск стихов..."
@@ -297,9 +297,9 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
-        </div>
+        </div> */}
         
-        <Select value={testamentFilter} onValueChange={(value: any) => setTestamentFilter(value)}>
+        {/* <Select value={testamentFilter} onValueChange={(value: any) => setTestamentFilter(value)}>
           <SelectTrigger>
             <SelectValue placeholder="Завет" />
           </SelectTrigger>
@@ -308,9 +308,9 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
             <SelectItem value="OT">Ветхий Завет</SelectItem>
             <SelectItem value="NT">Новый Завет</SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
 
-        <Select value={masteryFilter} onValueChange={(value: any) => setMasteryFilter(value)}>
+        {/* <Select value={masteryFilter} onValueChange={(value: any) => setMasteryFilter(value)}>
           <SelectTrigger>
             <SelectValue placeholder="Освоение" />
           </SelectTrigger>
@@ -320,7 +320,7 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
             <SelectItem value="medium">Практика (40-74%)</SelectItem>
             <SelectItem value="high">Освоено (75-100%)</SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
       </div>
 
       {/* Verse List */}

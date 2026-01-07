@@ -198,7 +198,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-primary-foreground" />
               </div>
-              <h1 className="text-xl font-semibold text-foreground">Scripture Memory</h1>
+              <h1 className="text-xl font-semibold text-foreground">Bible Memory</h1>
             </div>
             
             <div className="flex items-center gap-4">
@@ -207,7 +207,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 <span className="text-sm font-medium">12 дней подряд</span>
               </div>
               {/* Кнопка Debug (только в Telegram) */}
-              {isInTelegram && (
+              {/* {isInTelegram && (
                 <Button
                   type="button"
                   variant="outline"
@@ -218,7 +218,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 >
                   <span className="text-xs font-mono">DEBUG</span>
                 </Button>
-              )}
+              )} */}
               <Button
                 type="button"
                 variant="outline"
