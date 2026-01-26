@@ -8,18 +8,6 @@ export default function ScrollLock() {
     const body = document.body
     let touchStartY = 0
 
-    const prev = {
-      htmlOverflow: html.style.overflow,
-      bodyOverflow: body.style.overflow,
-      htmlHeight: html.style.height,
-      bodyHeight: body.style.height,
-    }
-
-    html.style.overflow = "hidden"
-    body.style.overflow = "hidden"
-    html.style.height = "100%"
-    body.style.height = "100%"
-
     const preventDefault = (event: Event) => {
       event.preventDefault()
     }
@@ -55,18 +43,7 @@ export default function ScrollLock() {
     const onTouchMove = (event: Event) => {
       if (event instanceof TouchEvent) {
         const scrollable = findScrollableParent(event.target)
-        if (!scrollable) {
-          event.preventDefault()
-          return
-        }
-
-        const currentY = event.touches[0]?.clientY ?? 0
-        const deltaY = touchStartY - currentY
-        const atTop = scrollable.scrollTop <= 0
-        const atBottom =
-          scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight
-
-        if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+        if (scrollable) {
           event.preventDefault()
         }
       }
@@ -75,34 +52,9 @@ export default function ScrollLock() {
     const onWheel = (event: Event) => {
       if (event instanceof WheelEvent) {
         const scrollable = findScrollableParent(event.target)
-        if (!scrollable) {
-          event.preventDefault()
-          return
-        }
-
-        const atTop = scrollable.scrollTop <= 0
-        const atBottom =
-          scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight
-        const deltaY = event.deltaY
-
-        if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+        if (scrollable) {
           event.preventDefault()
         }
-      }
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const blockedKeys = [
-        "ArrowUp",
-        "ArrowDown",
-        "PageUp",
-        "PageDown",
-        "Home",
-        "End",
-        " ",
-      ]
-      if (blockedKeys.includes(event.key)) {
-        event.preventDefault()
       }
     }
 
@@ -114,7 +66,6 @@ export default function ScrollLock() {
     document.addEventListener("gesturestart", preventDefault, options)
     document.addEventListener("gesturechange", preventDefault, options)
     document.addEventListener("gestureend", preventDefault, options)
-    document.addEventListener("keydown", onKeyDown, options)
 
     return () => {
       document.removeEventListener("touchstart", onTouchStart, options)
@@ -123,12 +74,6 @@ export default function ScrollLock() {
       document.removeEventListener("gesturestart", preventDefault, options)
       document.removeEventListener("gesturechange", preventDefault, options)
       document.removeEventListener("gestureend", preventDefault, options)
-      document.removeEventListener("keydown", onKeyDown, options)
-
-      html.style.overflow = prev.htmlOverflow
-      body.style.overflow = prev.bodyOverflow
-      html.style.height = prev.htmlHeight
-      body.style.height = prev.bodyHeight
     }
   }, [])
 
