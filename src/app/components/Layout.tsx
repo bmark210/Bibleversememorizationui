@@ -47,6 +47,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   }, [isInTelegram, safeAreaInset]);
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  const handleThemeClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    toggleTheme();
+    event.currentTarget.blur();
+  };
 
   // Собираем все Telegram переменные
   const getTelegramDebugInfo = () => {
@@ -223,7 +227,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={toggleTheme}
+                onClick={handleThemeClick}
                 className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
                 aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
               >
