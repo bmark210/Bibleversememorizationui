@@ -58,7 +58,7 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size, className }), "focus:outline-none focus:ring-0 focus:border-0 focus:shadow-none focus:ring-offset-0")}
       onClick={handleClick}
       {...props}
     />
