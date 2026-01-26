@@ -18,7 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ScrollLock />
-        {children}
+        <div className="app-scroll">
+          {children}
+        </div>
       </body>
     </html>
   )

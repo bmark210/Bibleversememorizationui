@@ -2,6 +2,18 @@
 @import "../styles/tailwind.css";
 @import "../styles/theme.css";
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-scroll {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Утилиты для работы с Telegram Content Safe Area */
 .pt-safe {
   padding-top: var(--tg-content-safe-area-inset-top);
