@@ -43,7 +43,16 @@ export default function ScrollLock() {
     const onTouchMove = (event: Event) => {
       if (event instanceof TouchEvent) {
         const scrollable = findScrollableParent(event.target)
-        if (scrollable) {
+        if (scrollable) return
+
+        const scrollElement = document.scrollingElement || document.documentElement
+        const currentY = event.touches[0]?.clientY ?? 0
+        const deltaY = touchStartY - currentY
+        const atTop = scrollElement.scrollTop <= 0
+        const atBottom =
+          scrollElement.scrollTop + scrollElement.clientHeight >= scrollElement.scrollHeight
+
+        if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
           event.preventDefault()
         }
       }
@@ -52,7 +61,15 @@ export default function ScrollLock() {
     const onWheel = (event: Event) => {
       if (event instanceof WheelEvent) {
         const scrollable = findScrollableParent(event.target)
-        if (scrollable) {
+        if (scrollable) return
+
+        const scrollElement = document.scrollingElement || document.documentElement
+        const atTop = scrollElement.scrollTop <= 0
+        const atBottom =
+          scrollElement.scrollTop + scrollElement.clientHeight >= scrollElement.scrollHeight
+        const deltaY = event.deltaY
+
+        if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
           event.preventDefault()
         }
       }
