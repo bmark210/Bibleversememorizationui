@@ -11,11 +11,6 @@ export default function ScrollLock() {
       webApp.disableVerticalSwipes()
     }
 
-    const preventDefault = (event: Event) => {
-      event.preventDefault()
-    }
-
-    
     const onTouchStart = (event: Event) => {
       if (event instanceof TouchEvent) {
         blockMultiTouch = event.touches.length > 1
@@ -47,10 +42,6 @@ export default function ScrollLock() {
     document.addEventListener("touchmove", onTouchMove, options)
     document.addEventListener("touchend", onTouchEnd, options)
     document.addEventListener("touchcancel", onTouchEnd, options)
-    document.addEventListener("gesturestart", preventDefault, options)
-    document.addEventListener("gesturechange", preventDefault, options)
-    document.addEventListener("gestureend", preventDefault, options)
-
     return () => {
       if (webApp?.enableVerticalSwipes) {
         webApp.enableVerticalSwipes()
@@ -59,9 +50,6 @@ export default function ScrollLock() {
       document.removeEventListener("touchmove", onTouchMove, options)
       document.removeEventListener("touchend", onTouchEnd, options)
       document.removeEventListener("touchcancel", onTouchEnd, options)
-      document.removeEventListener("gesturestart", preventDefault, options)
-      document.removeEventListener("gesturechange", preventDefault, options)
-      document.removeEventListener("gestureend", preventDefault, options)
     }
   }, [])
 
