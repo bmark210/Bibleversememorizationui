@@ -41,17 +41,25 @@ function Button({
   variant,
   size,
   asChild = false,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
   const Comp = asChild ? Slot : "button";
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    onClick?.(event as React.MouseEvent<HTMLButtonElement>);
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.blur();
+    }
+  };
 
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
       {...props}
     />
   );
