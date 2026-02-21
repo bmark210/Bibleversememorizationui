@@ -228,7 +228,7 @@ const SwipeableVerseCard = ({
   const accentRight = accent === 'green' ? 'text-emerald-600' : 'text-amber-500';
 
   return (
-    <motion.div layout className="relative">
+    <motion.div layout className="relative isolate">
       {/* ── left hint (drag left) ── */}
       {onSwipeLeft && (
         <motion.div
@@ -279,7 +279,7 @@ const SwipeableVerseCard = ({
 
       {/* ── card ── */}
       <motion.div
-        {...bind()}
+        {...(bind() as Record<string, unknown>)}
         layout
         role="button"
         tabIndex={0}

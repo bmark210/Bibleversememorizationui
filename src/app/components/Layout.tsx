@@ -281,7 +281,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
       {/* Mobile Bottom Navigation */}
       <div 
-        className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 z-50"
+        className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90"
         style={{ paddingBottom: `${safeAreaInset.bottom}px` }}
       >
         <nav className="flex justify-around p-2 pt-2.5">
