@@ -19,7 +19,6 @@ import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { VerseStatus } from "@/generated/prisma";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
-import { useIsMobile } from "./ui/use-mobile";
 import { VerseCard } from "./VerseCard";
 
 /* ===================== TYPES ===================== */
@@ -33,6 +32,97 @@ type VerseGalleryProps = {
   onStartTraining?: (verse: Verse) => void;
 };
 
+/* ===================== HAPTIC ===================== */
+
+type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
+
+function haptic(style: HapticStyle) {
+  try {
+    const tg = (window as any).Telegram?.WebApp?.HapticFeedback;
+    if (!tg) return;
+    if (style === "success" || style === "error" || style === "warning")
+      tg.notificationOccurred(style);
+    else
+      tg.impactOccurred(style);
+  } catch {}
+}
+
+/* ===================== FOCUS TRAP ===================== */
+
+const FOCUSABLE =
+  'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function trapFocus(container: HTMLElement, e: KeyboardEvent) {
+  const nodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => el.offsetParent !== null
+  );
+  if (!nodes.length) return;
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+  } else {
+    if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+
+/* ===================== DOT PROGRESS ===================== */
+
+const MAX_DOTS = 20;
+
+function DotProgress({ total, active }: { total: number; active: number }) {
+  if (total > MAX_DOTS) {
+    return (
+      <div
+        aria-label={`Стих ${active + 1} из ${total}`}
+        className="px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+      >
+        <span className="text-sm font-medium">{active + 1} / {total}</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      aria-label={`Стих ${active + 1} из ${total}`}
+      role="status"
+      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+    >
+      {Array.from({ length: total }).map((_, i) => (
+        <motion.div
+          key={i}
+          animate={{ width: i === active ? 20 : 6, opacity: i === active ? 1 : 0.35 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          className={`h-1.5 rounded-full ${i === active ? "bg-primary" : "bg-muted-foreground/50"}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ===================== SLIDE VARIANTS ===================== */
+
+// direction > 0  → going NEXT: new card rises from bottom, old slides up-out
+// direction < 0  → going PREV: new card drops from top, old slides down-out
+const slideVariants = {
+  enter: (dir: number) => ({
+    y: dir > 0 ? "100%" : "-100%",
+    opacity: 0,
+    scale: 0.88,
+  }),
+  center: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring", stiffness: 320, damping: 32 } as const,
+  },
+  exit: (dir: number) => ({
+    y: dir > 0 ? "-18%" : "18%",
+    opacity: 0,
+    scale: 0.86,
+    transition: { duration: 0.2, ease: "easeIn" } as const,
+  }),
+};
+
 /* ===================== COMPONENT ===================== */
 
 export function VerseGallery({
@@ -43,154 +133,77 @@ export function VerseGallery({
   onDelete,
   onStartTraining,
 }: VerseGalleryProps) {
-  const isMobile = useIsMobile();
-
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [direction, setDirection] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const [spacerHeight, setSpacerHeight] = useState(0);
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dialogRef    = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const { contentSafeAreaInset } = useTelegramSafeArea();
-  const topInset = contentSafeAreaInset.top;
+  const topInset    = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
 
-  /* ============================================================
-     IDEAL CENTER GEOMETRY — SPACER CALCULATION
-     ============================================================ */
+  /* ── initial focus ── */
+  useEffect(() => { closeButtonRef.current?.focus(); }, []);
 
-  useEffect(() => {
-    const updateSpacer = () => {
-      const container = scrollContainerRef.current;
-      if (!container) return;
-
-      const CARD_HEIGHT = 520; // строго как в VerseCard
-      const spacer = Math.max(0, container.clientHeight / 2 - CARD_HEIGHT / 2);
-
-      setSpacerHeight(spacer);
-    };
-
-    updateSpacer();
-    window.addEventListener("resize", updateSpacer);
-
-    return () => window.removeEventListener("resize", updateSpacer);
-  }, []);
-
-  /* ============================================================
-     ACTIVE INDEX BY CENTER (NO INTERSECTION OBSERVER)
-     ============================================================ */
-
-  const updateActiveIndexByScroll = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.top + containerRect.height / 2;
-
-    let closestIndex = activeIndex;
-    let minDistance = Infinity;
-
-    container.querySelectorAll<HTMLElement>("[data-index]").forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const cardCenter = rect.top + rect.height / 2;
-      const distance = Math.abs(cardCenter - containerCenter);
-      const index = Number(card.dataset.index);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
-      }
-    });
-
-    if (closestIndex !== activeIndex) {
-      setActiveIndex(closestIndex);
-    }
-  }, [activeIndex]);
-
-  /* ============================================================
-     SCROLL LISTENER
-     ============================================================ */
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    let ticking = false;
-
-    const onScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          updateActiveIndexByScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [updateActiveIndexByScroll]);
-
-  /* ============================================================
-     INITIAL CENTERING
-     ============================================================ */
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const targetCard = container.querySelector<HTMLElement>(`[data-index="${initialIndex}"]`);
-    if (!targetCard) return;
-
-    const scrollTop =
-      targetCard.offsetTop - (container.clientHeight - targetCard.clientHeight) / 2;
-
-    container.scrollTo({ top: scrollTop, behavior: "instant" });
-  }, [initialIndex, spacerHeight]);
-
-  /* ============================================================
-     HELPERS
-     ============================================================ */
-
+  /* ── helpers ── */
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
     setFeedback({ message, type });
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
   const navigateTo = useCallback(
-    (direction: "prev" | "next") => {
-      const container = scrollContainerRef.current;
-      if (!container) return;
-
+    (dir: "prev" | "next") => {
+      const newDir = dir === "next" ? 1 : -1;
       const newIndex =
-        direction === "prev"
-          ? Math.max(0, activeIndex - 1)
-          : Math.min(verses.length - 1, activeIndex + 1);
-
-      const targetCard = container.querySelector<HTMLElement>(`[data-index="${newIndex}"]`);
-      if (!targetCard) return;
-
-      const scrollTop =
-        targetCard.offsetTop - (container.clientHeight - targetCard.clientHeight) / 2;
-
-      container.scrollTo({ top: scrollTop, behavior: "smooth" });
+        dir === "next"
+          ? Math.min(verses.length - 1, activeIndex + 1)
+          : Math.max(0, activeIndex - 1);
+      if (newIndex === activeIndex) return;
+      haptic("light");
+      setDirection(newDir);
+      setActiveIndex(newIndex);
     },
     [activeIndex, verses.length]
   );
 
+  const onHaptic = useCallback((style: HapticStyle) => haptic(style), []);
+
+  /* ── keyboard ── */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (deleteDialogOpen) return;
+      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (e.key === "ArrowDown" || e.key === "PageDown") { e.preventDefault(); navigateTo("next"); return; }
+      if (e.key === "ArrowUp"   || e.key === "PageUp")   { e.preventDefault(); navigateTo("prev"); return; }
+      if (e.key === "Tab" && dialogRef.current) trapFocus(dialogRef.current, e);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, navigateTo, deleteDialogOpen]);
+
   const activeVerse = verses[activeIndex];
   if (!activeVerse) return null;
 
-  /* ============================================================
-     RENDER
-     ============================================================ */
-
+  /* ── render ── */
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-lg">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Просмотр стиха"
+      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+    >
+      {/* aria-live for feedback */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {feedback?.message ?? ""}
+      </div>
+
       {/* HEADER */}
       <div
-        className="fixed top-0 left-0 right-0 z-40 backdrop-blur-xl bg-background/80 border-b border-border/50"
+        className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40"
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="flex items-center justify-between p-4">
@@ -198,87 +211,125 @@ export function VerseGallery({
             Стих {activeIndex + 1} из {verses.length}
           </span>
           <MasteryBadge status={activeVerse.status} />
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button
+            ref={closeButtonRef}
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Закрыть галерею"
+          >
             <X className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
-      {/* SCROLL CONTAINER */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto snap-y snap-mandatory scroll-smooth pb-32"
-        style={{
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-          paddingTop: `${topInset + 96}px`,
-        }}
-      >
-        {/* TOP SPACER */}
-        <div style={{ height: spacerHeight }} />
-
-        {verses.map((verse, index) => (
-          <VerseCard
-            key={verse.id}
-            verse={verse}
-            index={index}
-            isActive={index === activeIndex}
-            onStatusChange={onStatusChange}
-            onRequestDelete={() => setDeleteDialogOpen(true)}
-            showFeedback={showFeedback}
-            topInset={topInset}
-          />
-        ))}
-
-        {/* BOTTOM SPACER */}
-        <div style={{ height: spacerHeight }} />
+      {/* CARD AREA — flex-1, overflow hidden so AnimatePresence clips cleanly */}
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4 sm:px-6">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={activeVerse.id}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="w-full max-w-2xl"
+          >
+            <VerseCard
+              verse={activeVerse}
+              isActive
+              isFirst={activeIndex === 0}
+              isLast={activeIndex === verses.length - 1}
+              onStatusChange={onStatusChange}
+              onRequestDelete={() => { haptic("warning"); setDeleteDialogOpen(true); }}
+              showFeedback={showFeedback}
+              onNavigate={navigateTo}
+              onHaptic={onHaptic}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* NAVIGATION */}
-      <div className="fixed left-1/2 bottom-32 -translate-x-1/2 flex items-center gap-3 z-40">
+      <div
+        className="shrink-0 flex items-center justify-center gap-3 pb-6 pt-3"
+        style={{ paddingBottom: `${Math.max(24, bottomInset + 16)}px` }}
+      >
         <Button
           variant="secondary"
           size="icon"
           onClick={() => navigateTo("prev")}
           disabled={activeIndex === 0}
+          aria-label="Предыдущий стих"
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <div className="px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg">
-          <span className="text-sm font-medium">
-            {activeIndex + 1} / {verses.length}
-          </span>
-        </div>
+        <DotProgress total={verses.length} active={activeIndex} />
 
         <Button
           variant="secondary"
           size="icon"
           onClick={() => navigateTo("next")}
           disabled={activeIndex === verses.length - 1}
+          aria-label="Следующий стих"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* FEEDBACK */}
+      {/* FEEDBACK TOAST */}
       <AnimatePresence>
         {feedback && (
           <motion.div
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            className={`fixed bottom-44 left-1/2 -translate-x-1/2 px-8 py-4 rounded-2xl shadow-2xl font-semibold text-sm ${
-              feedback.type === "success"
-                ? "bg-emerald-500 text-white"
-                : "bg-destructive text-white"
+            exit={{ opacity: 0, y: 30 }}
+            className={`fixed bottom-28 left-1/2 -translate-x-1/2 px-8 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm pointer-events-none ${
+              feedback.type === "success" ? "bg-emerald-500 text-white" : "bg-destructive text-white"
             }`}
           >
             {feedback.message}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* DELETE DIALOG */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Стих будет удалён из вашей коллекции.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={async () => {
+                try {
+                  await onDelete(activeVerse);
+                  haptic("success");
+                  showFeedback("Стих удалён", "success");
+                  // Navigate to adjacent verse if available
+                  if (verses.length > 1) {
+                    const newDir = activeIndex > 0 ? -1 : 1;
+                    setDirection(newDir);
+                    setActiveIndex(activeIndex > 0 ? activeIndex - 1 : 0);
+                  }
+                } catch {
+                  haptic("error");
+                  showFeedback("Ошибка удаления", "error");
+                }
+                setDeleteDialogOpen(false);
+              }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

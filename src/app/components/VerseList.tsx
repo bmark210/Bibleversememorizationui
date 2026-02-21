@@ -1,28 +1,53 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, MoveLeft, MoveRight, Pause, Play } from 'lucide-react';
-import { AnimatePresence, PanInfo, motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  MoveLeft,
+  MoveRight,
+  Pause,
+  Play,
+  Plus,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
+import {
+  AnimatePresence,
+  PanInfo,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  useReducedMotion,
+} from 'motion/react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Input } from './ui/input';
 import { Badge } from './ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { MasteryBadge } from './MasteryBadge';
 import { VerseGallery } from './VerseGallery';
 
-const SWIPE_TRIGGER = 80;
+/* ===================== CONSTANTS ===================== */
 
-type ColumnType = "backlog" | "learning";
+const SWIPE_TRIGGER = 80;
+const DRAG_CLICK_THRESHOLD = 8; // px — below this, treat pointer-up as a click
+
+/* ===================== TYPES ===================== */
+
+type ColumnType = 'backlog' | 'learning';
+
+type ToastEntry = {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+};
 
 type SwipeCardProps = {
   verse: Verse;
@@ -33,8 +58,62 @@ type SwipeCardProps = {
   rightLabel?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  accent?: "green" | "amber";
+  accent?: 'green' | 'amber';
+  onToast: (message: string, type: ToastEntry['type']) => void;
 };
+
+/* ===================== HAPTIC ===================== */
+
+type HapticStyle = 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning';
+
+function haptic(style: HapticStyle) {
+  try {
+    const tg = (window as any).Telegram?.WebApp?.HapticFeedback;
+    if (!tg) return;
+    if (style === 'success' || style === 'error' || style === 'warning')
+      tg.notificationOccurred(style);
+    else
+      tg.impactOccurred(style);
+  } catch {}
+}
+
+/* ===================== TOAST COMPONENT ===================== */
+
+function ToastLayer({ toasts }: { toasts: ToastEntry[] }) {
+  return (
+    <div
+      aria-live="assertive"
+      aria-atomic="true"
+      className="fixed bottom-0 left-0 right-0 z-[200] flex flex-col items-center gap-2 pointer-events-none"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+    >
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, y: 28, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 34 } as const}
+            className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold text-white backdrop-blur-sm ${
+              t.type === 'success'
+                ? 'bg-emerald-500/95'
+                : t.type === 'error'
+                ? 'bg-destructive/95'
+                : 'bg-primary/95'
+            }`}
+          >
+            {t.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+            {t.type === 'error' && <XCircle className="w-4 h-4 shrink-0" />}
+            {t.message}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ===================== SWIPEABLE CARD ===================== */
 
 const SwipeableVerseCard = ({
   verse,
@@ -45,42 +124,112 @@ const SwipeableVerseCard = ({
   rightLabel,
   leftIcon,
   rightIcon,
-  accent = "green",
+  accent = 'green',
+  onToast,
 }: SwipeCardProps) => {
-  const dragX = useMotionValue(0);
-  const springX = useSpring(dragX, { stiffness: 500, damping: 45 });
+  const reducedMotion = useReducedMotion();
 
+  const dragX = useMotionValue(0);
+  const springX = useSpring(dragX, {
+    stiffness: reducedMotion ? 1000 : 500,
+    damping: reducedMotion ? 60 : 45,
+  });
+
+  /* ── drag-vs-click guard ── */
+  const isDragging = useRef(false);
+  const maxDeltaX = useRef(0);
+
+  /* ── background tint ── */
   const bgColor = useTransform(
     dragX,
     [-SWIPE_TRIGGER * 1.4, 0, SWIPE_TRIGGER * 1.4],
     [
-      "rgba(239,68,68,0.08)",
-      "transparent",
-      accent === "green" ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.12)"
+      'rgba(239,68,68,0.10)',
+      'transparent',
+      accent === 'green' ? 'rgba(16,185,129,0.10)' : 'rgba(251,191,36,0.14)',
     ]
   );
 
-  const hintOpacity = useTransform(
+  /* ── hint overlays opacity ── */
+  const leftHintOpacity = useTransform(
     dragX,
-    [-SWIPE_TRIGGER, -30, 0, 30, SWIPE_TRIGGER],
-    [1, 0.6, 0, 0.6, 1]
+    [-SWIPE_TRIGGER, -24, 0],
+    [1, 0.5, 0]
   );
+  const rightHintOpacity = useTransform(
+    dragX,
+    [0, 24, SWIPE_TRIGGER],
+    [0, 0.5, 1]
+  );
+
+  /* ── drag strength bar (width 0→100%) ── */
+  const leftStrength = useTransform(
+    dragX,
+    [-SWIPE_TRIGGER, 0],
+    ['100%', '0%']
+  );
+  const rightStrength = useTransform(
+    dragX,
+    [0, SWIPE_TRIGGER],
+    ['0%', '100%']
+  );
+
+  /* ── haptic tick at threshold ── */
+  const didTickRef = useRef(false);
+  useEffect(() => {
+    const unsub = dragX.on('change', (v) => {
+      if (Math.abs(v) >= SWIPE_TRIGGER && !didTickRef.current) {
+        haptic('light');
+        didTickRef.current = true;
+      }
+      if (Math.abs(v) < SWIPE_TRIGGER) {
+        didTickRef.current = false;
+      }
+    });
+    return unsub;
+  }, [dragX]);
 
   const resetPosition = () => {
     dragX.set(0);
   };
 
-  const handleDragEnd = async (_: any, info: PanInfo) => {
+  const handleDragStart = () => {
+    isDragging.current = false;
+    maxDeltaX.current = 0;
+    didTickRef.current = false;
+  };
+
+  const handleDrag = (_: unknown, info: PanInfo) => {
+    const absX = Math.abs(info.offset.x);
+    if (absX > maxDeltaX.current) maxDeltaX.current = absX;
+    if (absX > DRAG_CLICK_THRESHOLD) isDragging.current = true;
+  };
+
+  const handleDragEnd = async (_: unknown, info: PanInfo) => {
     const offsetX = info.offset.x;
 
     if (offsetX > SWIPE_TRIGGER && onSwipeRight) {
-      await onSwipeRight();
+      try {
+        await onSwipeRight();
+        haptic('success');
+        onToast(`✓ ${rightLabel ?? 'Готово'}`, 'success');
+      } catch {
+        haptic('error');
+        onToast('Ошибка — попробуйте ещё раз', 'error');
+      }
       resetPosition();
       return;
     }
 
     if (offsetX < -SWIPE_TRIGGER && onSwipeLeft) {
-      await onSwipeLeft();
+      try {
+        await onSwipeLeft();
+        haptic('medium');
+        onToast(`↩ ${leftLabel ?? 'Перемещено'}`, 'success');
+      } catch {
+        haptic('error');
+        onToast('Ошибка — попробуйте ещё раз', 'error');
+      }
       resetPosition();
       return;
     }
@@ -88,33 +237,98 @@ const SwipeableVerseCard = ({
     resetPosition();
   };
 
+  const handleClick = () => {
+    if (isDragging.current) return;
+    haptic('light');
+    onOpen();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      haptic('light');
+      onOpen();
+    }
+  };
+
+  const accentLeft = 'text-destructive';
+  const accentRight = accent === 'green' ? 'text-emerald-600' : 'text-amber-500';
+
   return (
     <motion.div layout className="relative">
-      <motion.div
-        style={{ backgroundColor: bgColor, opacity: hintOpacity }}
-        className="absolute inset-0 rounded-2xl border border-dashed border-border/60 flex items-center justify-between px-4 pointer-events-none"
-      >
-        <div className="flex items-center gap-2 text-destructive">
-          {leftIcon}
-          <span className="text-xs font-medium">{leftLabel}</span>
-        </div>
-        <div className="flex items-center gap-2 text-emerald-600">
-          <span className="text-xs font-medium">{rightLabel}</span>
-          {rightIcon}
-        </div>
-      </motion.div>
+      {/* ── left hint (drag left) ── */}
+      {onSwipeLeft && (
+        <motion.div
+          style={{ opacity: reducedMotion ? undefined : leftHintOpacity }}
+          className="absolute inset-0 rounded-2xl flex items-center px-4 pointer-events-none"
+        >
+          <div className={`flex flex-col items-center gap-1 ${accentLeft}`}>
+            <div className={`flex items-center gap-1.5`}>
+              {leftIcon}
+              <span className="text-xs font-semibold">{leftLabel}</span>
+            </div>
+            <div className="h-0.5 w-16 rounded-full bg-destructive/30 overflow-hidden">
+              <motion.div
+                style={{ width: reducedMotion ? undefined : leftStrength }}
+                className="h-full bg-destructive rounded-full"
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
 
+      {/* ── right hint (drag right) ── */}
+      {onSwipeRight && (
+        <motion.div
+          style={{ opacity: reducedMotion ? undefined : rightHintOpacity }}
+          className="absolute inset-0 rounded-2xl flex items-center justify-end px-4 pointer-events-none"
+        >
+          <div className={`flex flex-col items-center gap-1 ${accentRight}`}>
+            <div className={`flex items-center gap-1.5`}>
+              <span className="text-xs font-semibold">{rightLabel}</span>
+              {rightIcon}
+            </div>
+            <div className={`h-0.5 w-16 rounded-full overflow-hidden ${accent === 'green' ? 'bg-emerald-500/30' : 'bg-amber-400/30'}`}>
+              <motion.div
+                style={{ width: reducedMotion ? undefined : rightStrength }}
+                className={`h-full rounded-full ${accent === 'green' ? 'bg-emerald-500' : 'bg-amber-400'}`}
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── background tint layer ── */}
+      <motion.div
+        style={{ backgroundColor: bgColor }}
+        className="absolute inset-0 rounded-2xl pointer-events-none"
+      />
+
+      {/* ── card ── */}
       <motion.div
         layout
+        role="button"
+        tabIndex={0}
+        aria-label={`${verse.reference} — нажмите чтобы открыть`}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={{ left: onSwipeLeft ? 0.25 : 0, right: onSwipeRight ? 0.25 : 0 }}
+        dragElastic={{
+          left: reducedMotion ? 0 : onSwipeLeft ? 0.25 : 0,
+          right: reducedMotion ? 0 : onSwipeRight ? 0.25 : 0,
+        }}
         dragMomentum={false}
         style={{ x: springX }}
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
         onDragEnd={handleDragEnd}
-        whileTap={{ scale: 0.98 }}
-        className="relative bg-card border border-border/70 rounded-2xl p-4 shadow-sm active:shadow-md transition-shadow"
-        onClick={onOpen}
+        whileTap={reducedMotion ? undefined : { scale: 0.99 }}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={`
+          relative z-10 bg-card border border-border/70 rounded-2xl p-4 shadow-sm
+          active:shadow-md transition-shadow cursor-pointer
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+        `}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2 min-w-0">
@@ -128,10 +342,14 @@ const SwipeableVerseCard = ({
               <span>{verse.masteryLevel}%</span>
               <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
                 <motion.div
-                  className={`h-full ${accent === "green" ? "bg-emerald-500" : "bg-amber-500"}`}
+                  className={`h-full ${accent === 'green' ? 'bg-emerald-500' : 'bg-amber-500'}`}
                   initial={{ width: 0 }}
                   animate={{ width: `${verse.masteryLevel}%` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  transition={
+                    reducedMotion
+                      ? { duration: 0 }
+                      : { duration: 0.6, ease: 'easeOut' }
+                  }
                 />
               </div>
               <span>{verse.repetitions} повт.</span>
@@ -143,204 +361,206 @@ const SwipeableVerseCard = ({
   );
 };
 
+/* ===================== VERSE LIST ===================== */
+
 interface VerseListProps {
   onAddVerse: () => void;
   onStartTraining: (verseId: string) => void;
 }
 
 export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [testamentFilter, setTestamentFilter] = useState<'all' | 'OT' | 'NT'>('all');
-  const [masteryFilter, setMasteryFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
-  const [activeColumn, setActiveColumn] = useState<ColumnType>("backlog");
+  const [searchQuery] = useState('');
+  const [testamentFilter] = useState<'all' | 'OT' | 'NT'>('all');
+  const [masteryFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const [activeColumn, setActiveColumn] = useState<ColumnType>('backlog');
 
   const [telegramId, setTelegramId] = useState<string | undefined>();
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
 
+  /* ── toasts ── */
+  const [toasts, setToasts] = useState<ToastEntry[]>([]);
+  const toastIdRef = useRef(0);
+
+  const pushToast = useCallback((message: string, type: ToastEntry['type']) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2200);
+  }, []);
+
+  /* ── aria-live announcement ── */
+  const [announcement, setAnnouncement] = useState('');
+
+  /* ── telegram id ── */
   const resolveTelegramId = (): string | undefined => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof window === 'undefined') return undefined;
     return (
       (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
       process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
-      localStorage.getItem("telegramId") ??
+      localStorage.getItem('telegramId') ??
       undefined
     );
   };
 
-  const fetchVerses = async (telegramId: string) => {
+  const fetchVerses = async (id: string) => {
     try {
-      const verses = await UserVersesService.getApiUsersVerses(telegramId);
-      setVerses(verses as Array<Verse>);
+      const data = await UserVersesService.getApiUsersVerses(id);
+      setVerses(data as Array<Verse>);
     } catch (err) {
-      console.error("Не удалось получить стихи:", err);
-      setVerses([] as Array<Verse>);
+      console.error('Не удалось получить стихи:', err);
+      setVerses([]);
     }
   };
 
   useEffect(() => {
     const id = resolveTelegramId();
-    if (!id) {
-      setVerses([]);
-      return;
-    }
+    if (!id) { setVerses([]); return; }
     setTelegramId(id);
-    localStorage.setItem("telegramId", id);
+    localStorage.setItem('telegramId', id);
     fetchVerses(id);
   }, []);
 
+  /* ── status change ── */
   const handleStatusChange = async (verse: Verse, status: VerseStatus) => {
     if (!telegramId) return;
-
-    try {
-      await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
-        status,
-      });
-      setVerses((previous) =>
-        previous.map((item) =>
-          item.id === verse.id ? { ...item, status } : item
-        )
-      );
-    } catch (error) {
-      console.error("Не удалось обновить статус стиха:", error);
-    }
+    await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, { status });
+    setVerses((prev) => prev.map((v) => v.id === verse.id ? { ...v, status } : v));
   };
 
+  /* ── delete ── */
   const handleDeleteVerse = async (verse: Verse) => {
     if (!telegramId) return;
-
-    try {
-      await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
-      setVerses((previous) => {
-        const updated = previous.filter((item) => item.id !== verse.id);
-        setGalleryIndex((current) => {
-          if (updated.length === 0) return null;
-          if (current === null) return null;
-          if (current >= updated.length) return updated.length - 1;
-          return current;
-        });
-        return updated;
+    await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
+    setVerses((prev) => {
+      const updated = prev.filter((v) => v.id !== verse.id);
+      setGalleryIndex((cur) => {
+        if (updated.length === 0 || cur === null) return null;
+        return cur >= updated.length ? updated.length - 1 : cur;
       });
-    } catch (error) {
-      console.error("Не удалось удалить стих:", error);
-    }
+      return updated;
+    });
   };
 
+  /* ── filters ── */
   const filteredVerses = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    const matchesSearch = (verse: Verse) =>
-      normalizedQuery.length === 0 ||
-      verse.reference.toLowerCase().includes(normalizedQuery) ||
-      verse.text.toLowerCase().includes(normalizedQuery);
-
-    const matchesTestament = (verse: Verse) =>
-      testamentFilter === "all" || (verse as any).testament === testamentFilter;
-
-    const matchesMastery = (verse: Verse) =>
-      masteryFilter === "all" ||
-      (masteryFilter === "low" && (verse as any).masteryLevel < 40) ||
-      (masteryFilter === "medium" && (verse as any).masteryLevel >= 40 && (verse as any).masteryLevel < 75) ||
-      (masteryFilter === "high" && (verse as any).masteryLevel >= 75);
-
-    return verses.filter((verse) => matchesSearch(verse) && matchesTestament(verse) && matchesMastery(verse));
+    const q = searchQuery.trim().toLowerCase();
+    return verses.filter((v) => {
+      const matchSearch = !q || v.reference.toLowerCase().includes(q) || v.text.toLowerCase().includes(q);
+      const matchTestament = testamentFilter === 'all' || (v as any).testament === testamentFilter;
+      const matchMastery =
+        masteryFilter === 'all' ||
+        (masteryFilter === 'low' && (v as any).masteryLevel < 40) ||
+        (masteryFilter === 'medium' && (v as any).masteryLevel >= 40 && (v as any).masteryLevel < 75) ||
+        (masteryFilter === 'high' && (v as any).masteryLevel >= 75);
+      return matchSearch && matchTestament && matchMastery;
+    });
   }, [verses, searchQuery, testamentFilter, masteryFilter]);
 
   const backlogVerses = filteredVerses.filter(
-    (verse) => verse.status === VerseStatus.NEW || verse.status === VerseStatus.STOPPED
+    (v) => v.status === VerseStatus.NEW || v.status === VerseStatus.STOPPED
   );
-  const learningVerses = filteredVerses.filter((verse) => verse.status === VerseStatus.LEARNING);
+  const learningVerses = filteredVerses.filter((v) => v.status === VerseStatus.LEARNING);
+
+  /* ── column switch with a11y announce ── */
+  const switchColumn = useCallback(
+    (col: ColumnType) => {
+      setActiveColumn(col);
+      haptic('light');
+      const count = col === 'backlog' ? backlogVerses.length : learningVerses.length;
+      const label = col === 'backlog' ? 'Ожидание' : 'Изучаю';
+      setAnnouncement(`${label}: ${count} стихов`);
+    },
+    [backlogVerses.length, learningVerses.length]
+  );
+
+  /* ── tab strip keyboard navigation ── */
+  const handleTabStripKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); switchColumn('backlog'); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); switchColumn('learning'); }
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+      {/* aria-live region */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="mb-1">Мои стихи</h1>
           <p className="text-muted-foreground text-sm">
-            Управляйте стихами свайпами: вправо — начать учить, влево — вернуть в ожидание.
+            Свайпайте карточки: вправо — начать учить, влево — изменить статус.
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button onClick={onAddVerse} className="shrink-0">
+          <Button
+            onClick={() => { haptic('medium'); onAddVerse(); }}
+            className="shrink-0"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Добавить
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-          <div className="flex-1 sm:flex-none bg-muted/60 rounded-full p-1 flex items-center gap-1">
-            <Button
-              size="sm"
-              variant={activeColumn === "backlog" ? "default" : "ghost"}
-              className="flex-1 rounded-full"
-              onClick={() => setActiveColumn("backlog")}
-            >
+      {/* Column Tab Strip */}
+      <div className="mb-6">
+        <div
+          role="tablist"
+          aria-label="Колонки стихов"
+          onKeyDown={handleTabStripKeyDown}
+          className="flex-1 sm:flex-none bg-muted/60 rounded-full p-1 flex items-center gap-1 w-full sm:w-auto"
+        >
+          <Button
+            role="tab"
+            aria-selected={activeColumn === 'backlog'}
+            size="sm"
+            variant={activeColumn === 'backlog' ? 'default' : 'ghost'}
+            className="flex-1 rounded-full"
+            onClick={() => switchColumn('backlog')}
+          >
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
               Ожидание
-            </Button>
-            <Button
-              size="sm"
-              variant={activeColumn === "learning" ? "default" : "ghost"}
-              className="flex-1 rounded-full"
-              onClick={() => setActiveColumn("learning")}
-            >
+              <span className="text-[11px] opacity-60 font-normal">({backlogVerses.length})</span>
+            </span>
+          </Button>
+          <Button
+            role="tab"
+            aria-selected={activeColumn === 'learning'}
+            size="sm"
+            variant={activeColumn === 'learning' ? 'default' : 'ghost'}
+            className="flex-1 rounded-full"
+            onClick={() => switchColumn('learning')}
+          >
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
               Изучаю
-            </Button>
-          </div>
-        {/* <div className="relative sm:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Поиск стихов..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div> */}
-        
-        {/* <Select value={testamentFilter} onValueChange={(value: any) => setTestamentFilter(value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Завет" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все заветы</SelectItem>
-            <SelectItem value="OT">Ветхий Завет</SelectItem>
-            <SelectItem value="NT">Новый Завет</SelectItem>
-          </SelectContent>
-        </Select> */}
-
-        {/* <Select value={masteryFilter} onValueChange={(value: any) => setMasteryFilter(value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Освоение" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все уровни</SelectItem>
-            <SelectItem value="low">Изучение (0-39%)</SelectItem>
-            <SelectItem value="medium">Практика (40-74%)</SelectItem>
-            <SelectItem value="high">Освоено (75-100%)</SelectItem>
-          </SelectContent>
-        </Select> */}
+              <span className="text-[11px] opacity-60 font-normal">({learningVerses.length})</span>
+            </span>
+          </Button>
+        </div>
       </div>
 
       {/* Verse List */}
       {filteredVerses.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">
-            Стихи, соответствующие вашим фильтрам, не найдены.
-          </p>
+          <p className="text-muted-foreground">Стихов пока нет. Добавьте первый!</p>
         </Card>
       ) : (
         <div className="grid lg:grid-cols-2 gap-6">
-          <div className={`${activeColumn === "backlog" ? "block" : "hidden"} lg:block space-y-3`}>
-            <div className="flex items-center justify-between">
+          {/* Backlog column */}
+          <div
+            className={`${activeColumn === 'backlog' ? 'block' : 'hidden'} lg:block space-y-3`}
+          >
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-amber-500" />
                 <span>Новые / Пауза</span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {backlogVerses.length} шт.
-              </span>
+              <span className="text-xs text-muted-foreground">{backlogVerses.length} шт.</span>
             </div>
             <AnimatePresence initial={false}>
               {backlogVerses.map((verse) => (
@@ -348,29 +568,31 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
                   key={verse.id}
                   verse={verse}
                   accent="amber"
-              leftLabel="Оставить здесь"
-              rightLabel="В изучение"
-              leftIcon={<Pause className="w-4 h-4" />}
-              rightIcon={<MoveRight className="w-4 h-4" />}
-              onOpen={() => {
-                const index = verses.findIndex((v) => v.id === verse.id);
-                if (index !== -1) setGalleryIndex(index);
-              }}
-              onSwipeRight={() => handleStatusChange(verse, VerseStatus.LEARNING)}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+                  leftLabel="Оставить здесь"
+                  rightLabel="В изучение"
+                  leftIcon={<Pause className="w-4 h-4" />}
+                  rightIcon={<MoveRight className="w-4 h-4" />}
+                  onOpen={() => {
+                    const index = verses.findIndex((v) => v.id === verse.id);
+                    if (index !== -1) { haptic('light'); setGalleryIndex(index); }
+                  }}
+                  onSwipeRight={() => handleStatusChange(verse, VerseStatus.LEARNING)}
+                  onToast={pushToast}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
 
-          <div className={`${activeColumn === "learning" ? "block" : "hidden"} lg:block space-y-3`}>
-            <div className="flex items-center justify-between">
+          {/* Learning column */}
+          <div
+            className={`${activeColumn === 'learning' ? 'block' : 'hidden'} lg:block space-y-3`}
+          >
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span>Изучаю</span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {learningVerses.length} шт.
-              </span>
+              <span className="text-xs text-muted-foreground">{learningVerses.length} шт.</span>
             </div>
             <AnimatePresence initial={false}>
               {learningVerses.map((verse) => (
@@ -378,21 +600,27 @@ export function VerseList({ onAddVerse, onStartTraining }: VerseListProps) {
                   key={verse.id}
                   verse={verse}
                   accent="green"
-              leftLabel="Поставить на паузу"
-              rightLabel="Оставить здесь"
-              leftIcon={<MoveLeft className="w-4 h-4" />}
-              rightIcon={<Play className="w-4 h-4" />}
-              onOpen={() => {
-                const index = verses.findIndex((v) => v.id === verse.id);
-                if (index !== -1) setGalleryIndex(index);
-              }}
-              onSwipeLeft={() => handleStatusChange(verse, VerseStatus.STOPPED)}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+                  leftLabel="Поставить на паузу"
+                  rightLabel="Оставить здесь"
+                  leftIcon={<MoveLeft className="w-4 h-4" />}
+                  rightIcon={<Play className="w-4 h-4" />}
+                  onOpen={() => {
+                    const index = verses.findIndex((v) => v.id === verse.id);
+                    if (index !== -1) { haptic('light'); setGalleryIndex(index); }
+                  }}
+                  onSwipeLeft={() => handleStatusChange(verse, VerseStatus.STOPPED)}
+                  onToast={pushToast}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
       )}
+
+      {/* Toast layer */}
+      <ToastLayer toasts={toasts} />
+
+      {/* Gallery overlay */}
       {galleryIndex !== null && verses[galleryIndex] && (
         <VerseGallery
           verses={verses}
