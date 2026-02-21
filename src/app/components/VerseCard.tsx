@@ -155,6 +155,7 @@ export function VerseCard({
       <motion.div
         drag={isActive}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+        dragDirectionLock
         dragElastic={{
           left:   canDelete   ? 0.22 : 0.03,
           right:  rightAction ? 0.22 : 0.03,
@@ -163,7 +164,7 @@ export function VerseCard({
         }}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
-        style={{ x, y }}
+        style={{ x, y, touchAction: 'none' }}
         whileTap={{ scale: 0.985 }}
         className={`
           relative z-10 w-full h-[520px]
