@@ -1,16 +1,21 @@
 "use client";
 
-import { animate, motion, PanInfo, useMotionValue, useTransform } from "motion/react";
+import { animate, motion, useMotionValue, useTransform } from "motion/react";
+import { useDrag } from "@use-gesture/react";
 import { Play, Square, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Verse } from "@/app/App";
 import { VerseStatus } from "@/generated/prisma";
 
 /* ===================== CONSTANTS ===================== */
 
-const SWIPE_X = 110; // px — trigger status/delete
-const HINT_X  = 50;  // px — show hint
-const SWIPE_Y = 80;  // px — trigger navigation
-const VEL_Y   = 600; // px/s — fast-flick threshold
+const SWIPE_X = 110;   // px — trigger status/delete
+const HINT_X  = 50;    // px — show hint
+const SWIPE_Y = 80;    // px — trigger navigation
+// @use-gesture/react reports velocity in px/ms → 0.6 px/ms = 600 px/s
+const VEL_Y   = 0.6;
+
+const AXIS_SWITCH_RATIO = 2;    // other axis must exceed current by this factor
+const AXIS_SWITCH_MIN   = 25;   // minimum px on the new axis before allowing switch
 
 /* ===================== HELPERS ===================== */
 
@@ -71,48 +76,107 @@ export function VerseCard({
     ]
   );
   const xHintOpacity  = useTransform(x, [-SWIPE_X, -HINT_X, 0, HINT_X, SWIPE_X], [1, 0.6, 0, 0.6, 1]);
-  const leftIconScale  = useTransform(x, [0, -HINT_X], [0.8, 1]);
-  const rightIconScale = useTransform(x, [HINT_X, 0], [1, 0.8]);
+  const leftIconScale  = useTransform(x, [0, -HINT_X, -SWIPE_X], [0.8, 1.1, 1.2]);
+  const rightIconScale = useTransform(x, [SWIPE_X, HINT_X, 0], [1.2, 1.1, 0.8]);
 
   /* ─── Y transforms (vertical — navigation hints) ─── */
-  const upHintOpacity   = useTransform(y, [0, -30, -SWIPE_Y], [0, 0.5, 1]);   // drag up → next
-  const downHintOpacity = useTransform(y, [0,  30,  SWIPE_Y], [0, 0.5, 1]);  // drag down → prev
+  const upHintOpacity   = useTransform(y, [0, -30, -SWIPE_Y], [0, 0.5, 1]);
+  const upHintScale     = useTransform(y, [0, -SWIPE_Y], [0.9, 1.1]);
+  const downHintOpacity = useTransform(y, [0,  30,  SWIPE_Y], [0, 0.5, 1]);
+  const downHintScale   = useTransform(y, [0, SWIPE_Y], [0.9, 1.1]);
 
-  /* ─── Drag end ─── */
-  const resetX = () => animate(x, 0, { type: "spring", stiffness: 500, damping: 50 });
-  const resetY = () => animate(y, 0, { type: "spring", stiffness: 400, damping: 38 });
+  /* ─── Snap back helpers ─── */
+  const resetX = () => animate(x, 0, { type: "spring", stiffness: 500, damping: 50 } as const);
+  const resetY = () => animate(y, 0, { type: "spring", stiffness: 400, damping: 38 } as const);
 
-  const handleDragEnd = async (_: unknown, info: PanInfo) => {
-    const { offset, velocity } = info;
-    const absX = Math.abs(offset.x);
-    const absY = Math.abs(offset.y);
+  /* ─── useDrag — dynamic axis with mid-gesture switching ─── */
+  const bind = useDrag(
+    ({ movement: [mx, my], last, velocity: [, vy], memo }) => {
+      if (!isActive) return memo;
 
-    if (absY > absX) {
-      /* ── VERTICAL ── navigate */
-      if (offset.y < -SWIPE_Y || velocity.y < -VEL_Y) {
-        if (!isLast) { onHaptic?.("light"); onNavigate("next"); }
-      } else if (offset.y > SWIPE_Y || velocity.y > VEL_Y) {
-        if (!isFirst) { onHaptic?.("light"); onNavigate("prev"); }
+      memo = memo ?? { axis: null as "x" | "y" | null, triggered: false, xOff: 0, yOff: 0 };
+
+      const dx = mx - memo.xOff;
+      const dy = my - memo.yOff;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      let currentAxis: "x" | "y";
+      if (!memo.axis) {
+        currentAxis = absDx >= absDy ? "x" : "y";
+      } else if (memo.axis === "x" && absDy > absDx * AXIS_SWITCH_RATIO && absDy > AXIS_SWITCH_MIN) {
+        currentAxis = "y";
+      } else if (memo.axis === "y" && absDx > absDy * AXIS_SWITCH_RATIO && absDx > AXIS_SWITCH_MIN) {
+        currentAxis = "x";
+      } else {
+        currentAxis = memo.axis;
       }
-      resetY();
-    } else {
-      /* ── HORIZONTAL ── action */
-      try {
-        if (offset.x > SWIPE_X && rightAction) {
-          await onStatusChange(verse, rightAction.next);
-          onHaptic?.("success");
-          showFeedback(rightAction.label, "success");
-        } else if (offset.x < -SWIPE_X && canDelete) {
-          onHaptic?.("warning");
-          onRequestDelete();
+
+      if (memo.axis && memo.axis !== currentAxis) {
+        if (memo.axis === "x") { resetX(); memo.yOff = my; }
+        else                   { resetY(); memo.xOff = mx; }
+        memo.triggered = false;
+      }
+
+      const ex = mx - memo.xOff;
+      const ey = my - memo.yOff;
+
+      if (!last) {
+        if (currentAxis === "x") {
+          x.set(ex);
+          if (!memo.triggered && Math.abs(ex) > SWIPE_X) {
+            onHaptic?.("light");
+            memo.triggered = true;
+          } else if (memo.triggered && Math.abs(ex) < SWIPE_X * 0.8) {
+            memo.triggered = false;
+          }
+        } else {
+          y.set(ey);
+          if (!memo.triggered && Math.abs(ey) > SWIPE_Y) {
+            onHaptic?.("light");
+            memo.triggered = true;
+          } else if (memo.triggered && Math.abs(ey) < SWIPE_Y * 0.8) {
+            memo.triggered = false;
+          }
         }
-      } catch {
-        onHaptic?.("error");
-        showFeedback("Произошла ошибка", "error");
+      } else {
+        if (currentAxis === "x") {
+          (async () => {
+            try {
+              if (ex > SWIPE_X && rightAction) {
+                onHaptic?.("success");
+                await onStatusChange(verse, rightAction.next);
+                showFeedback(rightAction.label, "success");
+              } else if (ex < -SWIPE_X && canDelete) {
+                onHaptic?.("warning");
+                onRequestDelete();
+              }
+            } catch {
+              onHaptic?.("error");
+              showFeedback("Произошла ошибка", "error");
+            }
+          })();
+          resetX();
+        } else {
+          if (ey < -SWIPE_Y || vy < -VEL_Y) {
+            if (!isLast) { onHaptic?.("medium"); onNavigate("next"); }
+          } else if (ey > SWIPE_Y || vy > VEL_Y) {
+            if (!isFirst) { onHaptic?.("medium"); onNavigate("prev"); }
+          }
+          resetY();
+        }
       }
-      resetX();
+
+      return { ...memo, axis: currentAxis };
+    },
+    {
+      enabled: isActive,
+      filterTaps: true,
+      threshold: 8,
+      from: () => [x.get(), y.get()],
+      pointer: { touch: true },
     }
-  };
+  );
 
   return (
     <div className="relative w-full max-w-2xl mx-auto select-none">
@@ -120,7 +184,7 @@ export function VerseCard({
       {/* ── NEXT hint (drag up) ── */}
       {!isLast && (
         <motion.div
-          style={{ opacity: upHintOpacity }}
+          style={{ opacity: upHintOpacity, scale: upHintScale }}
           className="absolute -top-9 left-0 right-0 flex justify-center pointer-events-none"
         >
           <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/70 px-3 py-1 rounded-full backdrop-blur-sm">
@@ -133,16 +197,27 @@ export function VerseCard({
       <motion.div
         style={{ backgroundColor: bgColor, opacity: xHintOpacity }}
         className="absolute inset-0 rounded-[3rem] flex items-center justify-between px-8 sm:px-14 pointer-events-none"
+        aria-hidden="true"
       >
         {canDelete && (
-          <motion.div style={{ scale: leftIconScale }} className="flex flex-col items-center gap-1.5 text-white">
+          <motion.div 
+            style={{ scale: leftIconScale }} 
+            className="flex flex-col items-center gap-1.5 text-white"
+            role="img" 
+            aria-label="Удалить стих"
+          >
             <Trash2 className="w-7 h-7" strokeWidth={2.5} />
             <span className="text-[10px] font-bold uppercase tracking-widest">Удалить</span>
           </motion.div>
         )}
         <div className="flex-1" />
         {rightAction && (
-          <motion.div style={{ scale: rightIconScale }} className="flex flex-col items-center gap-1.5 text-white">
+          <motion.div 
+            style={{ scale: rightIconScale }} 
+            className="flex flex-col items-center gap-1.5 text-white"
+            role="img"
+            aria-label={rightAction.label}
+          >
             <rightAction.icon className="w-7 h-7" strokeWidth={2.5} />
             <span className="text-[10px] font-bold uppercase tracking-widest text-center max-w-[90px]">
               {rightAction.label}
@@ -153,18 +228,8 @@ export function VerseCard({
 
       {/* ── CARD ── */}
       <motion.div
-        drag={isActive}
-        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        dragDirectionLock
-        dragElastic={{
-          left:   canDelete   ? 0.22 : 0.03,
-          right:  rightAction ? 0.22 : 0.03,
-          top:    !isLast  ? 0.28 : 0.04,
-          bottom: !isFirst ? 0.28 : 0.04,
-        }}
-        dragMomentum={false}
-        onDragEnd={handleDragEnd}
-        style={{ x, y, touchAction: 'none' }}
+        {...(bind() as Record<string, unknown>)}
+        style={{ x, y, touchAction: "none" }}
         whileTap={{ scale: 0.985 }}
         className={`
           relative z-10 w-full h-[520px]
@@ -222,7 +287,7 @@ export function VerseCard({
       {/* ── PREV hint (drag down) ── */}
       {!isFirst && (
         <motion.div
-          style={{ opacity: downHintOpacity }}
+          style={{ opacity: downHintOpacity, scale: downHintScale }}
           className="absolute -bottom-9 left-0 right-0 flex justify-center pointer-events-none"
         >
           <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/70 px-3 py-1 rounded-full backdrop-blur-sm">

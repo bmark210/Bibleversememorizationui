@@ -18,13 +18,13 @@ import {
 } from 'lucide-react';
 import {
   AnimatePresence,
-  PanInfo,
   motion,
   useMotionValue,
   useSpring,
   useTransform,
   useReducedMotion,
 } from 'motion/react';
+import { useDrag } from '@use-gesture/react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -37,7 +37,6 @@ import { VerseGallery } from './VerseGallery';
 /* ===================== CONSTANTS ===================== */
 
 const SWIPE_TRIGGER = 80;
-const DRAG_CLICK_THRESHOLD = 8; // px — below this, treat pointer-up as a click
 
 /* ===================== TYPES ===================== */
 
@@ -135,10 +134,6 @@ const SwipeableVerseCard = ({
     damping: reducedMotion ? 60 : 45,
   });
 
-  /* ── drag-vs-click guard ── */
-  const isDragging = useRef(false);
-  const maxDeltaX = useRef(0);
-
   /* ── background tint ── */
   const bgColor = useTransform(
     dragX,
@@ -151,28 +146,12 @@ const SwipeableVerseCard = ({
   );
 
   /* ── hint overlays opacity ── */
-  const leftHintOpacity = useTransform(
-    dragX,
-    [-SWIPE_TRIGGER, -24, 0],
-    [1, 0.5, 0]
-  );
-  const rightHintOpacity = useTransform(
-    dragX,
-    [0, 24, SWIPE_TRIGGER],
-    [0, 0.5, 1]
-  );
+  const leftHintOpacity = useTransform(dragX, [-SWIPE_TRIGGER, -24, 0], [1, 0.5, 0]);
+  const rightHintOpacity = useTransform(dragX, [0, 24, SWIPE_TRIGGER], [0, 0.5, 1]);
 
   /* ── drag strength bar (width 0→100%) ── */
-  const leftStrength = useTransform(
-    dragX,
-    [-SWIPE_TRIGGER, 0],
-    ['100%', '0%']
-  );
-  const rightStrength = useTransform(
-    dragX,
-    [0, SWIPE_TRIGGER],
-    ['0%', '100%']
-  );
+  const leftStrength = useTransform(dragX, [-SWIPE_TRIGGER, 0], ['100%', '0%']);
+  const rightStrength = useTransform(dragX, [0, SWIPE_TRIGGER], ['0%', '100%']);
 
   /* ── haptic tick at threshold ── */
   const didTickRef = useRef(false);
@@ -182,66 +161,60 @@ const SwipeableVerseCard = ({
         haptic('light');
         didTickRef.current = true;
       }
-      if (Math.abs(v) < SWIPE_TRIGGER) {
-        didTickRef.current = false;
-      }
+      if (Math.abs(v) < SWIPE_TRIGGER) didTickRef.current = false;
     });
     return unsub;
   }, [dragX]);
 
-  const resetPosition = () => {
-    dragX.set(0);
-  };
-
-  const handleDragStart = () => {
-    isDragging.current = false;
-    maxDeltaX.current = 0;
-    didTickRef.current = false;
-  };
-
-  const handleDrag = (_: unknown, info: PanInfo) => {
-    const absX = Math.abs(info.offset.x);
-    if (absX > maxDeltaX.current) maxDeltaX.current = absX;
-    if (absX > DRAG_CLICK_THRESHOLD) isDragging.current = true;
-  };
-
-  const handleDragEnd = async (_: unknown, info: PanInfo) => {
-    const offsetX = info.offset.x;
-
-    if (offsetX > SWIPE_TRIGGER && onSwipeRight) {
-      try {
-        await onSwipeRight();
-        haptic('success');
-        onToast(`✓ ${rightLabel ?? 'Готово'}`, 'success');
-      } catch {
-        haptic('error');
-        onToast('Ошибка — попробуйте ещё раз', 'error');
+  /* ── useDrag — replaces motion drag props for reliable mobile touch ── */
+  const bind = useDrag(
+    ({ movement: [mx], last, tap }) => {
+      // When filterTaps:true is set in options, `tap` is true for quick taps
+      if (tap) {
+        haptic('light');
+        onOpen();
+        return;
       }
-      resetPosition();
-      return;
-    }
 
-    if (offsetX < -SWIPE_TRIGGER && onSwipeLeft) {
-      try {
-        await onSwipeLeft();
-        haptic('medium');
-        onToast(`↩ ${leftLabel ?? 'Перемещено'}`, 'success');
-      } catch {
-        haptic('error');
-        onToast('Ошибка — попробуйте ещё раз', 'error');
+      if (!last) {
+        // Live drag — update spring source
+        dragX.set(reducedMotion ? 0 : mx);
+      } else {
+        // Gesture ended
+        if (mx > SWIPE_TRIGGER && onSwipeRight) {
+          (async () => {
+            try {
+              await onSwipeRight();
+              haptic('success');
+              onToast(`✓ ${rightLabel ?? 'Готово'}`, 'success');
+            } catch {
+              haptic('error');
+              onToast('Ошибка — попробуйте ещё раз', 'error');
+            }
+          })();
+        } else if (mx < -SWIPE_TRIGGER && onSwipeLeft) {
+          (async () => {
+            try {
+              await onSwipeLeft();
+              haptic('medium');
+              onToast(`↩ ${leftLabel ?? 'Перемещено'}`, 'success');
+            } catch {
+              haptic('error');
+              onToast('Ошибка — попробуйте ещё раз', 'error');
+            }
+          })();
+        }
+        dragX.set(0);
       }
-      resetPosition();
-      return;
+    },
+    {
+      axis: 'x',
+      filterTaps: true,
+      threshold: 8,
+      from: () => [dragX.get(), 0],
+      pointer: { touch: true },
     }
-
-    resetPosition();
-  };
-
-  const handleClick = () => {
-    if (isDragging.current) return;
-    haptic('light');
-    onOpen();
-  };
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -306,23 +279,13 @@ const SwipeableVerseCard = ({
 
       {/* ── card ── */}
       <motion.div
+        {...bind()}
         layout
         role="button"
         tabIndex={0}
         aria-label={`${verse.reference} — нажмите чтобы открыть`}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={{
-          left: reducedMotion ? 0 : onSwipeLeft ? 0.25 : 0,
-          right: reducedMotion ? 0 : onSwipeRight ? 0.25 : 0,
-        }}
-        dragMomentum={false}
-        style={{ x: springX }}
-        onDragStart={handleDragStart}
-        onDrag={handleDrag}
-        onDragEnd={handleDragEnd}
+        style={{ x: springX, touchAction: 'pan-y' }}
         whileTap={reducedMotion ? undefined : { scale: 0.99 }}
-        onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={`
           relative z-10 bg-card border border-border/70 rounded-2xl p-4 shadow-sm

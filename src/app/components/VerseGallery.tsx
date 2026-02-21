@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
 import {
   AlertDialog,
@@ -66,6 +66,52 @@ function trapFocus(container: HTMLElement, e: KeyboardEvent) {
   }
 }
 
+/* ===================== BODY SCROLL LOCK ===================== */
+
+function useBodyScrollLock() {
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = original; };
+  }, []);
+}
+
+/* ===================== SWIPE HINT ===================== */
+
+function SwipeHint() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(false), 3500);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.4 }}
+          className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+        >
+          <motion.div
+            animate={{ y: [0, -6, 0] }}
+            transition={{ repeat: 3, duration: 0.7, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-foreground/10 backdrop-blur-sm border border-border/30"
+          >
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+              Свайпните для навигации
+            </span>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* ===================== DOT PROGRESS ===================== */
 
 const MAX_DOTS = 20;
@@ -74,25 +120,32 @@ function DotProgress({ total, active }: { total: number; active: number }) {
   if (total > MAX_DOTS) {
     return (
       <div
+        role="status"
         aria-label={`Стих ${active + 1} из ${total}`}
-        className="px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+        className="px-4 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
       >
-        <span className="text-sm font-medium">{active + 1} / {total}</span>
+        <span className="text-sm font-semibold tabular-nums">{active + 1} / {total}</span>
       </div>
     );
   }
   return (
     <div
-      aria-label={`Стих ${active + 1} из ${total}`}
       role="status"
-      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+      aria-label={`Стих ${active + 1} из ${total}`}
+      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
     >
       {Array.from({ length: total }).map((_, i) => (
         <motion.div
           key={i}
-          animate={{ width: i === active ? 20 : 6, opacity: i === active ? 1 : 0.35 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className={`h-1.5 rounded-full ${i === active ? "bg-primary" : "bg-muted-foreground/50"}`}
+          layout
+          animate={{
+            width: i === active ? 28 : 8,
+            opacity: i === active ? 1 : 0.3,
+          }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className={`h-2 rounded-full transition-colors duration-300 ${
+            i === active ? "bg-primary" : "bg-muted-foreground/40"
+          }`}
         />
       ))}
     </div>
@@ -145,8 +198,18 @@ export function VerseGallery({
   const topInset    = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
 
+  const [slideAnnouncement, setSlideAnnouncement] = useState("");
+
+  useBodyScrollLock();
+
   /* ── initial focus ── */
   useEffect(() => { closeButtonRef.current?.focus(); }, []);
+
+  /* ── announce slide changes for screen readers ── */
+  useEffect(() => {
+    const v = verses[activeIndex];
+    if (v) setSlideAnnouncement(`Стих ${activeIndex + 1} из ${verses.length}: ${v.reference}`);
+  }, [activeIndex, verses]);
 
   /* ── helpers ── */
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
@@ -196,9 +259,12 @@ export function VerseGallery({
       aria-label="Просмотр стиха"
       className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
     >
-      {/* aria-live for feedback */}
+      {/* aria-live for screen readers */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {feedback?.message ?? ""}
+      </div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {slideAnnouncement}
       </div>
 
       {/* HEADER */}
@@ -224,7 +290,12 @@ export function VerseGallery({
       </div>
 
       {/* CARD AREA — flex-1, overflow hidden so AnimatePresence clips cleanly */}
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden px-4 sm:px-6">
+      <div 
+        className="flex-1 relative flex items-center justify-center overflow-hidden px-4 sm:px-6"
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Карточки со стихами"
+      >
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeVerse.id}
@@ -233,7 +304,8 @@ export function VerseGallery({
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full max-w-2xl"
+            className="w-full max-w-2xl focus-visible:outline-none"
+            tabIndex={-1}
           >
             <VerseCard
               verse={activeVerse}
@@ -278,6 +350,9 @@ export function VerseGallery({
         </Button>
       </div>
 
+      {/* SWIPE HINT */}
+      <SwipeHint />
+
       {/* FEEDBACK TOAST */}
       <AnimatePresence>
         {feedback && (
@@ -312,8 +387,9 @@ export function VerseGallery({
                   await onDelete(activeVerse);
                   haptic("success");
                   showFeedback("Стих удалён", "success");
-                  // Navigate to adjacent verse if available
-                  if (verses.length > 1) {
+                  if (verses.length <= 1) {
+                    onClose();
+                  } else {
                     const newDir = activeIndex > 0 ? -1 : 1;
                     setDirection(newDir);
                     setActiveIndex(activeIndex > 0 ? activeIndex - 1 : 0);
