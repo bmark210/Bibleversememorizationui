@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import {
   X,
   ChevronLeft,
@@ -515,6 +516,11 @@ export function VerseGallery({
 
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
     setFeedback({ message, type });
+    if (type === "success") {
+      toast.success(message);
+    } else {
+      toast.error(message);
+    }
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
@@ -794,7 +800,6 @@ export function VerseGallery({
                   <Button variant="ghost" size="sm" onClick={() => exitTrainingMode()} className="gap-1">
                     <ChevronLeft className="w-4 h-4" />К стиху
                   </Button>
-                  {trainingModeId && trainingModeMeta && <Badge className={MODE_PIPELINE[trainingModeId].badgeClass}>{MODE_PIPELINE[trainingModeId].label}</Badge>}
                   <Badge variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
                 </div>
                 {/* <div className="text-base sm:text-lg font-semibold truncate">{displayVerse.reference}</div>
@@ -845,6 +850,13 @@ export function VerseGallery({
                   renderer={MODE_PIPELINE[trainingModeId].renderer}
                   verse={asLegacyVerse(trainingActiveVerse)}
                   onRate={handleTrainingRate}
+                  topBadge={
+                    trainingModeMeta ? (
+                      <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
+                        {trainingModeMeta.label}
+                      </Badge>
+                    ) : null
+                  }
                 />
               </div>
             ) : null}
@@ -903,20 +915,6 @@ export function VerseGallery({
       </div>
 
       <SwipeHint panelMode={panelMode} />
-
-      <AnimatePresence>
-        {feedback && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            style={{ bottom: Math.max(112, bottomInset + 88) }}
-            className={`fixed left-1/2 -translate-x-1/2 px-8 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm pointer-events-none ${feedback.type === "success" ? "bg-emerald-500 text-white" : "bg-destructive text-white"}`}
-          >
-            {feedback.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -96,7 +96,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -106,7 +105,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     setMistakes(0);
     setIsCompleted(false);
     setErrorFlashTokenId(null);
-    setFeedback(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -142,17 +140,16 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     if (token.order === expectedOrder) {
       const nextIds = [...selectedTokenIds, token.id];
       setSelectedTokenIds(nextIds);
-      setFeedback(null);
 
       if (expectedOrder + 1 === totalWords) {
         setIsCompleted(true);
-        setFeedback('Отлично! Вы собрали стих в правильной последовательности.');
+        toast.success('Отлично! Вы собрали стих в правильной последовательности.');
       }
       return;
     }
 
     setMistakes((prev) => prev + 1);
-    setFeedback('Неверное слово. Последовательность сброшена, попробуйте снова.');
+    toast.error('Неверное слово. Последовательность сброшена, попробуйте снова.');
     setSelectedTokenIds([]);
     setErrorFlashTokenId(token.id);
 
@@ -168,13 +165,11 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   const handleUndo = () => {
     if (isCompleted || selectedTokenIds.length === 0) return;
     setSelectedTokenIds((prev) => prev.slice(0, -1));
-    setFeedback(null);
   };
 
   const handleReset = () => {
     if (isCompleted || selectedTokenIds.length === 0) return;
     setSelectedTokenIds([]);
-    setFeedback(null);
   };
 
   const nextWordNumber = Math.min(selectedCount + 1, totalWords);
@@ -190,9 +185,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Нажимайте слова в правильной последовательности
-            </p>
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -223,9 +215,9 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           </div> */}
 
           <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[92px]">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
+            {/* <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
               Собранная последовательность
-            </div>
+            </div> */}
 
             {selectedTokens.length > 0 ? (
               <div className="flex flex-wrap gap-2">
@@ -242,35 +234,12 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Начните с первого слова стиха. Ошибка сбрасывает текущую последовательность.
+                Начните с первого слова стиха.
               </p>
             )}
           </div>
 
-          {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border p-3 text-sm ${
-                isCompleted
-                  ? 'bg-[#059669]/10 border-[#059669]/30 text-[#047857]'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex items-start gap-2">
-                {isCompleted ? (
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                )}
-                <span>{feedback}</span>
-              </div>
-            </motion.div>
-          )}
-
-          <div className="space-y-3">
+          {!tokens.every((token) => selectedTokenIds.includes(token.id)) && (<div className="space-y-3">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Слова для выбора
             </div>
@@ -278,6 +247,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
               {tokens.map((token) => {
                 const isSelected = selectedTokenIds.includes(token.id);
                 const isError = errorFlashTokenId === token.id;
+
+                if (isSelected) {
+                  return null;
+                }
 
                 return (
                   <motion.div
@@ -301,39 +274,11 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                 );
               })}
             </div>
-          </div>
+          </div>)}
 
-          {!isCompleted ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedTokenIds.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button> */}
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleReset}
-                disabled={selectedTokenIds.length === 0}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Сбросить последовательность
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-lg bg-muted/40 p-4 text-sm">
-                <div className="text-muted-foreground mb-1">Полный стих</div>
-                <p className="leading-relaxed">{verse.text}</p>
-              </div>
+          {isCompleted && (
+
               <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
-            </>
           )}
         </div>
       </motion.div>

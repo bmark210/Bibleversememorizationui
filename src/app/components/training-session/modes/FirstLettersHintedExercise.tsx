@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -178,7 +178,6 @@ export function ModeFirstLettersHintedExercise({
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
@@ -189,7 +188,6 @@ export function ModeFirstLettersHintedExercise({
     setSelectedChoiceIds([]);
     setMistakes(0);
     setIsCompleted(false);
-    setFeedback(null);
     setErrorFlashChoiceId(null);
 
     return () => {
@@ -233,18 +231,17 @@ export function ModeFirstLettersHintedExercise({
     if (choice.letter === nextHiddenSlot.firstLetter) {
       const next = [...selectedChoiceIds, choice.id];
       setSelectedChoiceIds(next);
-      setFeedback(null);
 
       if (next.length === totalHidden) {
         setIsCompleted(true);
-        setFeedback('Отлично! Вы восстановили скрытые слова по первым буквам в правильной последовательности.');
+        toast.success('Отлично! Вы восстановили скрытые слова по первым буквам в правильной последовательности.');
       }
       return;
     }
 
     setMistakes((prev) => prev + 1);
     setSelectedChoiceIds([]);
-    setFeedback('Неверная буква. Последовательность скрытых слов сброшена, попробуйте снова.');
+    toast.error('Неверная буква. Последовательность скрытых слов сброшена, попробуйте снова.');
     setErrorFlashChoiceId(choice.id);
 
     if (clearFlashTimeoutRef.current) {
@@ -259,13 +256,11 @@ export function ModeFirstLettersHintedExercise({
   const handleUndo = () => {
     if (isCompleted || selectedChoiceIds.length === 0) return;
     setSelectedChoiceIds((prev) => prev.slice(0, -1));
-    setFeedback(null);
   };
 
   const handleReset = () => {
     if (isCompleted || selectedChoiceIds.length === 0) return;
     setSelectedChoiceIds([]);
-    setFeedback(null);
   };
 
   return (
@@ -279,9 +274,6 @@ export function ModeFirstLettersHintedExercise({
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Часть слов уже открыта. Нажимайте первые буквы скрытых слов по порядку
-            </p>
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -365,29 +357,6 @@ export function ModeFirstLettersHintedExercise({
             </div>
           </div>
 
-          {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border p-3 text-sm ${
-                isCompleted
-                  ? 'bg-[#059669]/10 border-[#059669]/30 text-[#047857]'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex items-start gap-2">
-                {isCompleted ? (
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                )}
-                <span>{feedback}</span>
-              </div>
-            </motion.div>
-          )}
-
           <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[78px]">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
               Собранные буквы
@@ -407,26 +376,30 @@ export function ModeFirstLettersHintedExercise({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Нажмите первую букву следующего скрытого слова. Ошибка сбросит последовательность.
+                Нажмите первую букву первого скрытого слова.
               </p>
             )}
           </div>
 
-          <div className="space-y-3">
+          {!choices.every((choice) => selectedChoiceIds.includes(choice.id)) && (<div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 Буквы для выбора
               </div>
-              {!isCompleted && nextHiddenSlot && (
+              {/* {!isCompleted && nextHiddenSlot && (
                 <div className="text-xs text-muted-foreground">
                   Следующая буква #{selectedCount + 1}
                 </div>
-              )}
+              )} */}
             </div>
-            <div className="flex flex-wrap gap-2">
+           <div className="flex flex-wrap gap-2">
               {choices.map((choice) => {
                 const isSelected = selectedChoiceIds.includes(choice.id);
                 const isError = errorFlashChoiceId === choice.id;
+
+                if (isSelected) {
+                  return null;
+                }
 
                 return (
                   <motion.div
@@ -450,37 +423,14 @@ export function ModeFirstLettersHintedExercise({
                 );
               })}
             </div>
-          </div>
+          </div>)}
 
-          {!isCompleted ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedChoiceIds.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button> */}
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleReset}
-                disabled={selectedChoiceIds.length === 0}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Сбросить последовательность
-              </Button>
-            </div>
-          ) : (
+          {isCompleted && (
             <>
-              <div className="rounded-lg bg-muted/40 p-4 text-sm">
+              {/* <div className="rounded-lg bg-muted/40 p-4 text-sm">
                 <div className="text-muted-foreground mb-1">Полный стих</div>
                 <p className="leading-relaxed">{verse.text}</p>
-              </div>
+              </div> */}
               <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
             </>
           )}

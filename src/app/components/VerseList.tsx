@@ -12,13 +12,12 @@ import {
   Play,
   Plus,
   Trash2,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react';
 import {
   AnimatePresence,
   motion,
 } from 'motion/react';
+import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -39,12 +38,6 @@ import { MasteryBadge } from './MasteryBadge';
 import { VerseGallery } from './VerseGallery';
 
 /* ===================== TYPES ===================== */
-
-type ToastEntry = {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
-};
 
 type VerseListStatusFilter = 'all' | 'learning' | 'stopped' | 'new';
 
@@ -71,42 +64,6 @@ function haptic(style: HapticStyle) {
     else
       tg.impactOccurred(style);
   } catch {}
-}
-
-/* ===================== TOAST COMPONENT ===================== */
-
-function ToastLayer({ toasts }: { toasts: ToastEntry[] }) {
-  return (
-    <div
-      aria-live="assertive"
-      aria-atomic="true"
-      className="fixed bottom-0 left-0 right-0 z-[200] flex flex-col items-center gap-2 pointer-events-none"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
-    >
-      <AnimatePresence>
-        {toasts.map((t) => (
-          <motion.div
-            key={t.id}
-            initial={{ opacity: 0, y: 28, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 34 } as const}
-            className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold text-white backdrop-blur-sm ${
-              t.type === 'success'
-                ? 'bg-emerald-500/95'
-                : t.type === 'error'
-                ? 'bg-destructive/95'
-                : 'bg-primary/95'
-            }`}
-          >
-            {t.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-            {t.type === 'error' && <XCircle className="w-4 h-4 shrink-0" />}
-            {t.message}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 /* ===================== SWIPEABLE CARD ===================== */
@@ -368,13 +325,16 @@ export function VerseList({
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   /* ── toasts ── */
-  const [toasts, setToasts] = useState<ToastEntry[]>([]);
-  const toastIdRef = useRef(0);
-
-  const pushToast = useCallback((message: string, type: ToastEntry['type']) => {
-    const id = ++toastIdRef.current;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2200);
+  const pushToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+    if (type === 'success') {
+      toast.success(message);
+      return;
+    }
+    if (type === 'error') {
+      toast.error(message);
+      return;
+    }
+    toast.info(message);
   }, []);
 
   /* ── aria-live announcement ── */
@@ -797,9 +757,6 @@ export function VerseList({
           )}
         </div>
       )}
-
-      {/* Toast layer */}
-      <ToastLayer toasts={toasts} />
 
       <ConfirmDeleteModal
         verse={deleteTargetVerse}

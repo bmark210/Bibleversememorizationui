@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -171,7 +172,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
       if (expectedOrder + 1 === totalChunks) {
         setIsCompleted(true);
-        setFeedback('Отлично! Вы собрали стих по кускам в правильной последовательности.');
+        toast.success('Отлично! Вы собрали стих по кускам в правильной последовательности.');
       }
       return;
     }
@@ -201,9 +202,6 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Нажимайте куски стиха в правильной последовательности
-            </p>
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -234,9 +232,9 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
           </div> */}
 
           <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[92px]">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
+            {/* <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
               Собранная последовательность
-            </div>
+            </div> */}
             {selectedTokens.length > 0 ? (
               <div className="space-y-2">
                 {selectedTokens.map((token) => (
@@ -250,44 +248,41 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                   </motion.div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Начните с первого куска стиха. Ошибка сбрасывает текущую последовательность.
-              </p>
-            )}
+            )
+             : (
+               <p className="text-sm text-muted-foreground">
+                 Нажмите с начальную часть стиха.
+               </p>
+             )}
           </div>
 
           {feedback && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border p-3 text-sm ${
-                isCompleted
-                  ? 'bg-[#059669]/10 border-[#059669]/30 text-[#047857]'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
-              }`}
+              className="rounded-lg border p-3 text-sm bg-destructive/10 border-destructive/30 text-destructive"
               role="status"
               aria-live="polite"
             >
               <div className="flex items-start gap-2">
-                {isCompleted ? (
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                )}
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{feedback}</span>
               </div>
             </motion.div>
           )}
-
+        {!tokens.every((token) => selectedIds.includes(token.id)) && (
           <div className="space-y-3">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Куски для выбора
+              Части стиха
             </div>
             <div className="space-y-2">
               {tokens.map((token) => {
                 const isSelected = selectedIds.includes(token.id);
                 const isError = errorFlashTokenId === token.id;
+
+                if (isSelected) {
+                  return null;
+                }
 
                 return (
                   <motion.div
@@ -297,13 +292,13 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                   >
                     <Button
                       type="button"
-                      variant={isSelected ? 'secondary' : 'outline'}
+                      variant="outline"
                       className={`w-full h-auto justify-start text-left whitespace-normal py-3 px-4 ${
-                        isSelected ? 'opacity-70 cursor-default' : ''
-                      } ${isError ? 'border-destructive text-destructive' : ''}`}
+                        isError ? 'border-destructive text-destructive' : ''
+                      }`}
                       onClick={() => handleChunkClick(token)}
-                      disabled={isSelected || isCompleted}
-                      aria-pressed={isSelected}
+                      disabled={isCompleted}
+                      aria-pressed={false}
                     >
                       {token.text}
                     </Button>
@@ -312,13 +307,14 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
               })}
             </div>
           </div>
+        )}
 
-          {isCompleted && (
+          {/* {isCompleted && (
             <div className="rounded-lg bg-muted/40 p-4 text-sm">
               <div className="text-muted-foreground mb-1">Полный стих</div>
               <p className="leading-relaxed">{verse.text}</p>
             </div>
-          )}
+          )} */}
         </div>
 
         {isCompleted && (

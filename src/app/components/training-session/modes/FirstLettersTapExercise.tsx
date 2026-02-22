@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -102,7 +102,6 @@ export function ModeFirstLettersTapExercise({
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
@@ -112,7 +111,6 @@ export function ModeFirstLettersTapExercise({
     setSelectedLetters([]);
     setMistakes(0);
     setIsCompleted(false);
-    setFeedback(null);
     setErrorFlashLetter(null);
 
     return () => {
@@ -169,18 +167,17 @@ export function ModeFirstLettersTapExercise({
     if (letter === expectedLetter) {
       const next = [...selectedLetters, letter];
       setSelectedLetters(next);
-      setFeedback(null);
 
       if (expectedOrder + 1 === total) {
         setIsCompleted(true);
-        setFeedback('Отлично! Последовательность первых букв собрана верно.');
+        toast.success('Отлично! Последовательность первых букв собрана верно.');
       }
       return;
     }
 
     setMistakes((prev) => prev + 1);
     setSelectedLetters([]);
-    setFeedback('Неверная буква. Последовательность сброшена, попробуйте ещё раз.');
+    toast.error('Неверная буква. Последовательность сброшена, попробуйте ещё раз.');
     setErrorFlashLetter(letter);
 
     if (clearFlashTimeoutRef.current) {
@@ -195,13 +192,11 @@ export function ModeFirstLettersTapExercise({
   const handleUndo = () => {
     if (isCompleted || selectedLetters.length === 0) return;
     setSelectedLetters((prev) => prev.slice(0, -1));
-    setFeedback(null);
   };
 
   const handleReset = () => {
     if (isCompleted || selectedLetters.length === 0) return;
     setSelectedLetters([]);
-    setFeedback(null);
   };
 
   const nextIndex = Math.min(selectedCount + 1, total);
@@ -217,9 +212,6 @@ export function ModeFirstLettersTapExercise({
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Нажимайте первые буквы слов в правильной последовательности
-            </p>
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -268,35 +260,12 @@ export function ModeFirstLettersTapExercise({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Выберите первую букву первого слова. Ошибка сбросит последовательность.
+                Выберите первую букву первого слова.
               </p>
             )}
           </div>
 
-          {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border p-3 text-sm ${
-                isCompleted
-                  ? 'bg-[#059669]/10 border-[#059669]/30 text-[#047857]'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex items-start gap-2">
-                {isCompleted ? (
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                )}
-                <span>{feedback}</span>
-              </div>
-            </motion.div>
-          )}
-
-          <div className="space-y-3">
+          {!availableLetters.every((letter) => selectedLetters.includes(letter)) && (<div className="space-y-3">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Варианты букв
             </div>
@@ -325,54 +294,14 @@ export function ModeFirstLettersTapExercise({
                 );
               })}
             </div>
-          </div>
+          </div>)}
 
-          {!isCompleted ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedLetters.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button> */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedLetters.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleReset}
-                disabled={selectedLetters.length === 0}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Сбросить последовательность
-              </Button>
-            </div>
-          ) : (
+          {isCompleted && (
             <>
               <div className="rounded-lg bg-muted/40 p-4 text-sm">
-                <div className="text-muted-foreground mb-1">Подсказка по стиху</div>
+                <div className="text-muted-foreground mb-1">Полный стих</div>
                 <p className="leading-relaxed">
-                  {verse.text
-                    .split(/\s+/)
-                    .map((word) => {
-                      const clean = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-                      const first = clean.charAt(0) || '';
-                      return first ? `${first.toUpperCase()}…` : word;
-                    })
-                    .join(' ')}
+                  {verse.text}
                 </p>
               </div>
               <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>

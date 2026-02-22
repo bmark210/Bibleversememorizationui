@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -175,7 +175,6 @@ export function ModeClickWordsHintedExercise({
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -186,7 +185,6 @@ export function ModeClickWordsHintedExercise({
     setMistakes(0);
     setIsCompleted(false);
     setErrorFlashChoiceId(null);
-    setFeedback(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -228,17 +226,16 @@ export function ModeClickWordsHintedExercise({
     if (choice.normalized === nextHiddenSlot.normalized) {
       const nextIds = [...selectedChoiceIds, choice.id];
       setSelectedChoiceIds(nextIds);
-      setFeedback(null);
 
       if (nextIds.length === totalHiddenWords) {
         setIsCompleted(true);
-        setFeedback('Отлично! Вы восстановили скрытые слова в правильной последовательности.');
+        toast.success('Отлично! Вы восстановили скрытые слова в правильной последовательности.');
       }
       return;
     }
 
     setMistakes((prev) => prev + 1);
-    setFeedback('Неверное слово. Скрытая последовательность сброшена, попробуйте снова.');
+    toast.error('Неверное слово. Скрытая последовательность сброшена, попробуйте снова.');
     setSelectedChoiceIds([]);
     setErrorFlashChoiceId(choice.id);
 
@@ -254,13 +251,11 @@ export function ModeClickWordsHintedExercise({
   const handleUndo = () => {
     if (isCompleted || selectedChoiceIds.length === 0) return;
     setSelectedChoiceIds((prev) => prev.slice(0, -1));
-    setFeedback(null);
   };
 
   const handleReset = () => {
     if (isCompleted || selectedChoiceIds.length === 0) return;
     setSelectedChoiceIds([]);
-    setFeedback(null);
   };
 
   return (
@@ -274,9 +269,9 @@ export function ModeClickWordsHintedExercise({
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
             <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            <p className="text-sm text-muted-foreground mt-2">
+            {/* <p className="text-sm text-muted-foreground mt-2">
               Часть слов уже открыта. Нажимайте скрытые слова в правильной последовательности
-            </p>
+            </p> */}
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -360,29 +355,6 @@ export function ModeClickWordsHintedExercise({
             </div>
           </div>
 
-          {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border p-3 text-sm ${
-                isCompleted
-                  ? 'bg-[#059669]/10 border-[#059669]/30 text-[#047857]'
-                  : 'bg-destructive/10 border-destructive/30 text-destructive'
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex items-start gap-2">
-                {isCompleted ? (
-                  <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                )}
-                <span>{feedback}</span>
-              </div>
-            </motion.div>
-          )}
-
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
@@ -424,8 +396,8 @@ export function ModeClickWordsHintedExercise({
             </div>
           </div>
 
-          {!isCompleted ? (
-            <div className="flex flex-col sm:flex-row gap-3">
+          {/* {!isCompleted ? ( */}
+            {/* <div className="flex flex-col sm:flex-row gap-3"> */}
               {/* <Button
                 type="button"
                 variant="outline"
@@ -436,7 +408,7 @@ export function ModeClickWordsHintedExercise({
                 <Undo2 className="w-4 h-4" />
                 Отменить ход
               </Button> */}
-              <Button
+              {/* <Button
                 type="button"
                 variant="ghost"
                 onClick={handleReset}
@@ -445,9 +417,9 @@ export function ModeClickWordsHintedExercise({
               >
                 <RotateCcw className="w-4 h-4" />
                 Сбросить последовательность
-              </Button>
-            </div>
-          ) : (
+              </Button> */}
+            {/* </div> */}
+          {isCompleted && (
             <>
               {/* <div className="rounded-lg bg-muted/40 p-4 text-sm">
                 <div className="text-muted-foreground mb-1">Полный стих</div>

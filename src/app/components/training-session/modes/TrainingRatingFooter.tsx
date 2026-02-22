@@ -14,7 +14,7 @@ export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
         {children}
       </div>
 
-      <div className="md:hidden h-36" aria-hidden="true" />
+      {/* <div className="md:hidden h-36" aria-hidden="true" /> */}
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
