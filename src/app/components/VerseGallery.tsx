@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Pause, Play, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -29,12 +29,19 @@ type VerseGalleryProps = {
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
   onDelete: (verse: Verse) => Promise<void>;
-  onStartTraining?: (verse: Verse) => void;
+  onStartTraining?: (verse: Verse) => void | Promise<void>;
 };
 
 /* ===================== HAPTIC ===================== */
 
 type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
+
+type GalleryStatusAction = {
+  nextStatus: VerseStatus;
+  label: string;
+  icon: typeof Plus;
+  successMessage: string;
+};
 
 function haptic(style: HapticStyle) {
   try {
@@ -45,6 +52,34 @@ function haptic(style: HapticStyle) {
     else
       tg.impactOccurred(style);
   } catch {}
+}
+
+function getGalleryStatusAction(status: VerseStatus): GalleryStatusAction | null {
+  if (status === VerseStatus.NEW) {
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      label: "Добавить в изучение",
+      icon: Plus,
+      successMessage: "Добавлено в изучение",
+    };
+  }
+  if (status === VerseStatus.LEARNING) {
+    return {
+      nextStatus: VerseStatus.STOPPED,
+      label: "Поставить на паузу",
+      icon: Pause,
+      successMessage: "Пауза включена",
+    };
+  }
+  if (status === VerseStatus.STOPPED) {
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      label: "Возобновить изучение",
+      icon: Play,
+      successMessage: "Возобновлено",
+    };
+  }
+  return null;
 }
 
 /* ===================== FOCUS TRAP ===================== */
@@ -120,7 +155,7 @@ function SwipeHint() {
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-              Свайп ↑↓ — листать · ←→ — действия
+              Свайп ↑↓ — листать · кнопки — действия
             </span>
           </motion.div>
         </motion.div>
@@ -221,6 +256,7 @@ export function VerseGallery({
   const [direction, setDirection] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [actionPending, setActionPending] = useState(false);
 
   const dialogRef    = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -280,6 +316,42 @@ export function VerseGallery({
 
   const activeVerse = verses[activeIndex];
   if (!activeVerse) return null;
+
+  const statusAction = getGalleryStatusAction(activeVerse.status);
+
+  const handleStatusAction = async () => {
+    if (!statusAction || actionPending) return;
+    try {
+      setActionPending(true);
+      await onStatusChange(activeVerse, statusAction.nextStatus);
+      haptic("success");
+      showFeedback(statusAction.successMessage, "success");
+    } catch {
+      haptic("error");
+      showFeedback("Ошибка — попробуйте ещё раз", "error");
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleStartTrainingClick = async () => {
+    if (!onStartTraining || actionPending) return;
+
+    try {
+      setActionPending(true);
+      if (activeVerse.status !== VerseStatus.LEARNING) {
+        await onStatusChange(activeVerse, VerseStatus.LEARNING);
+      }
+      haptic("medium");
+      await Promise.resolve(onStartTraining(activeVerse));
+      setActionPending(false);
+    } catch {
+      haptic("error");
+      showFeedback("Ошибка — попробуйте ещё раз", "error");
+      setActionPending(false);
+      return;
+    }
+  };
 
   /* ── render ── */
   return (
@@ -348,9 +420,55 @@ export function VerseGallery({
               showFeedback={showFeedback}
               onNavigate={navigateTo}
               onHaptic={onHaptic}
+              horizontalActionsEnabled={false}
             />
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* ACTIONS */}
+      <div className="shrink-0 px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-2xl flex items-center gap-3">
+          {onStartTraining && (
+            <Button
+              className="flex-1 gap-2"
+              onClick={() => void handleStartTrainingClick()}
+              disabled={actionPending}
+              aria-label="Учить этот стих"
+            >
+              <Play className="h-4 w-4" />
+              УЧИТЬ
+            </Button>
+          )}
+          {statusAction && (
+            <Button
+              variant="secondary"
+              className={`${onStartTraining ? "" : "flex-1"} gap-2`}
+              onClick={() => void handleStatusAction()}
+              disabled={actionPending}
+              aria-label={statusAction.label}
+            >
+              <statusAction.icon className="h-4 w-4" />
+              {statusAction.label}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className={`gap-2 text-destructive hover:text-destructive ${
+              statusAction || onStartTraining ? "" : "flex-1"
+            }`}
+            onClick={() => {
+              if (actionPending) return;
+              haptic("warning");
+              setDeleteDialogOpen(true);
+            }}
+            disabled={actionPending}
+            aria-label="Удалить стих"
+          >
+            <Trash2 className="h-4 w-4" />
+            Удалить
+          </Button>
+        </div>
       </div>
 
       {/* NAVIGATION */}
@@ -413,9 +531,11 @@ export function VerseGallery({
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction
+              disabled={actionPending}
               className="bg-destructive hover:bg-destructive/90 text-white"
               onClick={async () => {
                 try {
+                  setActionPending(true);
                   await onDelete(activeVerse);
                   haptic("success");
                   showFeedback("Стих удалён", "success");
@@ -429,6 +549,8 @@ export function VerseGallery({
                 } catch {
                   haptic("error");
                   showFeedback("Ошибка удаления", "error");
+                } finally {
+                  setActionPending(false);
                 }
                 setDeleteDialogOpen(false);
               }}

@@ -40,6 +40,7 @@ export interface VerseCardProps {
   showFeedback: (message: string, type: "success" | "error") => void;
   onNavigate: (dir: "prev" | "next") => void;
   onHaptic?: (style: "light" | "medium" | "heavy" | "success" | "error" | "warning") => void;
+  horizontalActionsEnabled?: boolean;
 }
 
 /* ===================== COMPONENT ===================== */
@@ -54,6 +55,7 @@ export function VerseCard({
   showFeedback,
   onNavigate,
   onHaptic,
+  horizontalActionsEnabled = true,
 }: VerseCardProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -95,6 +97,7 @@ export function VerseCard({
   const resetY = () => animate(y, 0, { type: "spring", stiffness: 400, damping: 38 } as const);
 
   const handleHorizontalSwipeProgress = (offsetX: number, triggered: boolean) => {
+    if (!horizontalActionsEnabled) return false;
     x.set(offsetX);
     if (!triggered && Math.abs(offsetX) > SWIPE_X) {
       onHaptic?.("light");
@@ -119,6 +122,10 @@ export function VerseCard({
   };
 
   const handleHorizontalSwipeEnd = (offsetX: number) => {
+    if (!horizontalActionsEnabled) {
+      resetX();
+      return;
+    }
     (async () => {
       try {
         if (offsetX > SWIPE_X && rightAction) {
@@ -158,7 +165,11 @@ export function VerseCard({
       if (!isActive) return memo;
 
       memo = memo ?? { axis: null as "x" | "y" | null, triggered: false };
-      const currentAxis = memo.axis ?? (Math.abs(mx) >= Math.abs(my) ? "x" : "y");
+      const currentAxis = memo.axis ?? (
+        horizontalActionsEnabled
+          ? (Math.abs(mx) >= Math.abs(my) ? "x" : "y")
+          : "y"
+      );
 
       if (!last) {
         if (currentAxis === "x") {
@@ -203,39 +214,41 @@ export function VerseCard({
       )}
 
       {/* ── SWIPE X background layer ── */}
-      <motion.div
-        style={{ backgroundColor: bgColor }}
-        className="absolute inset-0 rounded-[3rem] flex items-center justify-between px-8 sm:px-14 pointer-events-none"
-        aria-hidden="true"
-      >
-        {/* LEFT — revealed when card moves RIGHT → rightAction */}
-        {rightAction && (
-          <motion.div
-            style={{ scale: actionIconScale, opacity: actionIconOpacity }}
-            className="flex flex-col items-center gap-1.5 text-white"
-            role="img"
-            aria-label={rightAction.label}
-          >
-            <rightAction.icon className="w-7 h-7" strokeWidth={2.5} />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-center max-w-[90px]">
-              {rightAction.label}
-            </span>
-          </motion.div>
-        )}
-        <div className="flex-1" />
-        {/* RIGHT — revealed when card moves LEFT → delete */}
-        {canDelete && (
-          <motion.div
-            style={{ scale: deleteIconScale, opacity: deleteIconOpacity }}
-            className="flex flex-col items-center gap-1.5 text-white"
-            role="img"
-            aria-label="Удалить стих"
-          >
-            <Trash2 className="w-7 h-7" strokeWidth={2.5} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Удалить</span>
-          </motion.div>
-        )}
-      </motion.div>
+      {horizontalActionsEnabled && (
+        <motion.div
+          style={{ backgroundColor: bgColor }}
+          className="absolute inset-0 rounded-[3rem] flex items-center justify-between px-8 sm:px-14 pointer-events-none"
+          aria-hidden="true"
+        >
+          {/* LEFT — revealed when card moves RIGHT → rightAction */}
+          {rightAction && (
+            <motion.div
+              style={{ scale: actionIconScale, opacity: actionIconOpacity }}
+              className="flex flex-col items-center gap-1.5 text-white"
+              role="img"
+              aria-label={rightAction.label}
+            >
+              <rightAction.icon className="w-7 h-7" strokeWidth={2.5} />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-center max-w-[90px]">
+                {rightAction.label}
+              </span>
+            </motion.div>
+          )}
+          <div className="flex-1" />
+          {/* RIGHT — revealed when card moves LEFT → delete */}
+          {canDelete && (
+            <motion.div
+              style={{ scale: deleteIconScale, opacity: deleteIconOpacity }}
+              className="flex flex-col items-center gap-1.5 text-white"
+              role="img"
+              aria-label="Удалить стих"
+            >
+              <Trash2 className="w-7 h-7" strokeWidth={2.5} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Удалить</span>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* ── CARD ── */}
       <motion.div
@@ -288,7 +301,7 @@ export function VerseCard({
         </div>
 
         {/* Swipe hint */}
-        {isActive && (
+        {isActive && horizontalActionsEnabled && (
           <p className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/60 whitespace-nowrap">
             ← действия · листать ↕ →
           </p>

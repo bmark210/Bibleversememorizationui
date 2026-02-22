@@ -15,6 +15,11 @@ export class UserVersesService {
      */
     public static getApiUsersVerses(
         telegramId: string,
+        query?: {
+            status?: 'NEW' | 'LEARNING' | 'MASTERED' | 'STOPPED';
+            orderBy?: 'createdAt' | 'updatedAt';
+            order?: 'asc' | 'desc';
+        },
     ): CancelablePromise<Array<UserVerse>> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -22,6 +27,7 @@ export class UserVersesService {
             path: {
                 'telegramId': telegramId,
             },
+            query,
         });
     }
     /**

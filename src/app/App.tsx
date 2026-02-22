@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { TrainingSession } from "./components/TrainingSession";
@@ -14,7 +15,9 @@ import { Toaster } from "./components/ui/sonner";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
-import { mockVerses, mockCollections, mockStats } from "./data/mockData";
+import { OpenAPI } from "@/api/core/OpenAPI";
+import { request as apiRequest } from "@/api/core/request";
+import { mockCollections, mockStats } from "./data/mockData";
 import { UserVerse } from "@/generated/prisma/client";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { VerseStatus } from "@/generated/prisma";
@@ -23,6 +26,16 @@ export type Verse = UserVerse & {
   status: VerseStatus;
   text: string;
   reference: string;
+};
+
+type StartTrainingOptions = {
+  returnToGallery?: boolean;
+  returnToGalleryFilter?: "all" | "learning" | "stopped" | "new";
+};
+
+type ReturnToGalleryContext = {
+  verseId: string;
+  filter: "all" | "learning" | "stopped" | "new";
 };
 
 type Page =
@@ -39,6 +52,9 @@ export default function App() {
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [user, setUser] = useState<UserWithVerses | null>(null);
   const [verses, setVerses] = useState<Array<Verse>>([]);
+  const [trainingVerses, setTrainingVerses] = useState<Array<Verse>>([]);
+  const [trainingStartVerseId, setTrainingStartVerseId] = useState<string | null>(null);
+  const [returnToGalleryContext, setReturnToGalleryContext] = useState<ReturnToGalleryContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const initUserRef = useRef(false);
 
@@ -94,6 +110,8 @@ export default function App() {
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
     setIsTraining(false);
+    setTrainingStartVerseId(null);
+    setReturnToGalleryContext(null);
   };
 
   const getVerces = async (telegramId: string) => {
@@ -106,18 +124,56 @@ export default function App() {
     }
   };
 
-  const handleStartTraining = () => {
-    if (verses.length === 0) {
-      toast.info("На сегодня стихов не запланировано", {
-        description: "Отлично! Вы всё успели.",
+  const getLearningVerses = async (telegramId: string) => {
+    try {
+      const response = await apiRequest<Array<Verse>>(OpenAPI, {
+        method: "GET",
+        url: "/api/users/{telegramId}/verses",
+        path: { telegramId },
+        query: { status: VerseStatus.LEARNING },
       });
+
+      // Если backend ещё не применяет query-параметр, дополнительно фильтруем на клиенте.
+      const learningOnly = (response as Array<Verse>).filter(
+        (verse) => verse.status === VerseStatus.LEARNING
+      );
+      setTrainingVerses(learningOnly);
+      return learningOnly;
+    } catch (err) {
+      console.error("Не удалось получить стихи LEARNING:", err);
+      setTrainingVerses([]);
+      throw err;
+    }
+  };
+
+  const handleStartTraining = async () => {
+    const telegramId = localStorage.getItem("telegramId") ?? "";
+    if (!telegramId) {
+      toast.error("Не найден telegramId");
       return;
     }
-    setIsTraining(true);
+
+    try {
+      const learningVerses = await getLearningVerses(telegramId);
+      if (learningVerses.length === 0) {
+        toast.info("Нет стихов в изучении", {
+          description: "В тренировку попадают только стихи со статусом LEARNING.",
+        });
+        return;
+      }
+      setTrainingStartVerseId(null);
+      setReturnToGalleryContext(null);
+      setIsTraining(true);
+    } catch {
+      toast.error("Не удалось загрузить стихи для тренировки");
+    }
   };
 
   const handleCompleteTraining = () => {
     setIsTraining(false);
+    setTrainingVerses([]);
+    setTrainingStartVerseId(null);
+    setReturnToGalleryContext(null);
     setCurrentPage("dashboard");
     toast.success("Тренировка завершена!", {
       description: "Отличная работа! Ваш прогресс сохранён.",
@@ -126,6 +182,12 @@ export default function App() {
 
   const handleExitTraining = () => {
     setIsTraining(false);
+    setTrainingVerses([]);
+    setTrainingStartVerseId(null);
+    if (returnToGalleryContext) {
+      setCurrentPage("verses");
+      return;
+    }
     setCurrentPage("dashboard");
   };
 
@@ -165,10 +227,40 @@ export default function App() {
     return verse;
   };
 
-  const handleStartTrainingFromVerse = (verseId: string) => {
-    const verse = mockVerses.find((v) => v.id === verseId);
-    if (verse) {
-      setIsTraining(true);
+  const handleStartTrainingFromVerse = async (
+    verseId: string,
+    options?: StartTrainingOptions
+  ) => {
+    const telegramId = localStorage.getItem("telegramId") ?? "";
+    if (!telegramId) {
+      toast.error("Не найден telegramId");
+      return;
+    }
+
+    try {
+      const learningVerses = await getLearningVerses(telegramId);
+      const verse = learningVerses.find(
+        (v) => String(v.id) === String(verseId) || v.externalVerseId === verseId
+      );
+      if (verse) {
+        setTrainingStartVerseId(String(verse.externalVerseId ?? verse.id));
+        setReturnToGalleryContext(
+          options?.returnToGallery
+            ? {
+                verseId: String(verseId),
+                filter: options.returnToGalleryFilter ?? "all",
+              }
+            : null
+        );
+        setIsTraining(true);
+        return;
+      }
+
+      toast.info("Стих не в статусе LEARNING", {
+        description: "Тренировка запускается только по стихам в изучении.",
+      });
+    } catch {
+      toast.error("Не удалось загрузить стихи для тренировки");
     }
   };
 
@@ -184,59 +276,86 @@ export default function App() {
     });
   };
 
-  // Training mode - full screen
-  if (isTraining) {
-    return (
-      <>
-        {/* <TrainingSession
-          verses={verses.length > 0 ? verses as Array<UserVerse> : mockVerses.slice(0, 3)}
-          allVerses={verses as Array<UserVerse>}
-          onComplete={handleCompleteTraining}
-          onExit={handleExitTraining}
-        /> */}
-        <Toaster />
-      </>
-    );
-  }
-
-  // Regular app layout
   return (
     <>
-      <Layout currentPage={currentPage} onNavigate={handleNavigate}>
-        {currentPage === "dashboard" && (
-          <Dashboard
-            todayVerses={verses}
-            onStartTraining={handleStartTraining}
-            onAddVerse={handleAddVerse}
-            onViewAll={() => setCurrentPage("verses")}
-          />
-        )}
+      <div aria-hidden={isTraining}>
+        <Layout currentPage={currentPage} onNavigate={handleNavigate}>
+          {currentPage === "dashboard" && (
+            <Dashboard
+              todayVerses={verses}
+              onStartTraining={handleStartTraining}
+              onAddVerse={handleAddVerse}
+              onViewAll={() => setCurrentPage("verses")}
+            />
+          )}
 
-        {currentPage === "verses" && (
-          <VerseList
-            onAddVerse={handleAddVerse}
-            onStartTraining={handleStartTrainingFromVerse}
-          />
-        )}
+          {currentPage === "verses" && (
+            <VerseList
+              onAddVerse={handleAddVerse}
+              onStartTraining={handleStartTrainingFromVerse}
+              reopenGalleryVerseId={!isTraining ? returnToGalleryContext?.verseId ?? null : null}
+              reopenGalleryStatusFilter={!isTraining ? returnToGalleryContext?.filter ?? null : null}
+              onReopenGalleryHandled={() => setReturnToGalleryContext(null)}
+            />
+          )}
 
-        {currentPage === "collections" && (
-          <Collections
-            collections={mockCollections}
-            onCreateCollection={handleCreateCollection}
-            onSelectCollection={handleSelectCollection}
-          />
-        )}
+          {currentPage === "collections" && (
+            <Collections
+              collections={mockCollections}
+              onCreateCollection={handleCreateCollection}
+              onSelectCollection={handleSelectCollection}
+            />
+          )}
 
-        {currentPage === "stats" && <Statistics stats={mockStats} />}
+          {currentPage === "stats" && <Statistics stats={mockStats} />}
 
-        {currentPage === "settings" && <Settings />}
-      </Layout>
+          {currentPage === "settings" && <Settings />}
+        </Layout>
+      </div>
 
       <AddVerseDialog
         open={showAddVerseDialog}
         onClose={() => setShowAddVerseDialog(false)}
         onAdd={handleVerseAdded}
       />
+
+      <AnimatePresence mode="wait">
+        {isTraining && (
+          <motion.div
+            key="training-overlay"
+            className="fixed inset-0 z-[400]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <motion.div
+              aria-hidden="true"
+              className="absolute inset-0 bg-background/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+            />
+
+            <motion.div
+              className="relative h-full"
+              initial={{ opacity: 0, y: 28, scale: 0.995 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.995 }}
+              transition={{ type: "spring", stiffness: 260, damping: 28 }}
+            >
+              <TrainingSession
+                verses={trainingVerses as Array<UserVerse>}
+                allVerses={trainingVerses as Array<UserVerse>}
+                startFromVerseId={trainingStartVerseId}
+                onComplete={handleCompleteTraining}
+                onExit={handleExitTraining}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Toaster />
     </>

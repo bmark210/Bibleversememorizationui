@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, Check } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Textarea } from '../ui/textarea';
+import { Button } from '../../ui/button';
+import { Textarea } from '../../ui/textarea';
 import { motion } from 'motion/react';
-import { Verse } from '../../data/mockData';
+import { Verse } from '../../../data/mockData';
 
 interface TypingModeProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
-export function TypingMode({ verse, onRate }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
   const [userInput, setUserInput] = useState('');
   const [showHint, setShowHint] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -179,14 +179,14 @@ export function TypingMode({ verse, onRate }: TypingModeProps) {
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   size="lg"
                 >
-                  Хорошо
+                  Норм
                 </Button>
                 <Button
                   onClick={() => onRate(3)}
                   className="bg-[#059669] hover:bg-[#047857] text-white"
                   size="lg"
                 >
-                  Легко
+                  Отлично
                 </Button>
               </div>
             </motion.div>
