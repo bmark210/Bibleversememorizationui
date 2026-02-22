@@ -5,6 +5,7 @@ import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { Button } from '../../ui/button';
+import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from '../../ui/textarea';
 import type { Verse } from '../../../data/mockData';
 
@@ -369,7 +370,7 @@ export function ModeFirstLettersKeyboardExercise({
                     .join(' ')}
                 </p>
               </div>
-              <RatingButtons onRate={onRate} />
+              <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
             </>
           )}
         </div>
@@ -377,3 +378,4 @@ export function ModeFirstLettersKeyboardExercise({
     </div>
   );
 }
+

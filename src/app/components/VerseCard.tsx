@@ -65,23 +65,6 @@ export function VerseCard({
 
   const { rightAction, canDelete } = getSwipeActions(verse.status);
 
-  /* ─── X transforms (horizontal — action hints) ─── */
-  //
-  // Physics: background is absolute inset-0, card moves on top.
-  // Swipe RIGHT (x > 0) → card shifts right → LEFT side of bg revealed → rightAction icon
-  // Swipe LEFT  (x < 0) → card shifts left  → RIGHT side of bg revealed → delete icon
-  //
-  const bgColor = useTransform(
-    x,
-    [-SWIPE_X, -HINT_X, 0, HINT_X, SWIPE_X],
-    [
-      canDelete   ? "#dc2626"              : "rgba(0,0,0,0)",
-      canDelete   ? "rgba(220,38,38,0.12)" : "rgba(0,0,0,0)",
-      "rgba(0,0,0,0)",
-      rightAction ? "rgba(16,185,129,0.12)" : "rgba(0,0,0,0)",
-      rightAction ? "#10b981"              : "rgba(0,0,0,0)",
-    ]
-  );
   // Scale: each icon grows only in its own swipe direction
   const actionIconScale  = useTransform(x, [0,  HINT_X,  SWIPE_X], [0.8, 1.1, 1.2]);
   const deleteIconScale  = useTransform(x, [-SWIPE_X, -HINT_X, 0], [1.2, 1.1, 0.8]);
@@ -219,7 +202,6 @@ export function VerseCard({
       {/* ── SWIPE X background layer ── */}
       {horizontalActionsEnabled && (
         <motion.div
-          style={{ backgroundColor: bgColor }}
           className="absolute inset-0 rounded-[3rem] flex items-center justify-between px-8 sm:px-14 pointer-events-none"
           aria-hidden="true"
         >

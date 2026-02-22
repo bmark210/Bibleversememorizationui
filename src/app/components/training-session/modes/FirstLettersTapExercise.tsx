@@ -5,6 +5,7 @@ import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { Button } from '../../ui/button';
+import { TrainingRatingFooter } from './TrainingRatingFooter';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersTapExerciseProps {
@@ -374,7 +375,7 @@ export function ModeFirstLettersTapExercise({
                     .join(' ')}
                 </p>
               </div>
-              <RatingButtons onRate={onRate} />
+              <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
             </>
           )}
         </div>
@@ -382,3 +383,4 @@ export function ModeFirstLettersTapExercise({
     </div>
   );
 }
+

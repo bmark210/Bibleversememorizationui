@@ -5,6 +5,7 @@ import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { Button } from '../../ui/button';
+import { TrainingRatingFooter } from './TrainingRatingFooter';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersHintedExerciseProps {
@@ -480,7 +481,7 @@ export function ModeFirstLettersHintedExercise({
                 <div className="text-muted-foreground mb-1">Полный стих</div>
                 <p className="leading-relaxed">{verse.text}</p>
               </div>
-              <RatingButtons onRate={onRate} />
+              <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
             </>
           )}
         </div>
@@ -488,3 +489,4 @@ export function ModeFirstLettersHintedExercise({
     </div>
   );
 }
+
