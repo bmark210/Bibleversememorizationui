@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 
 import {
   AlertDialog,
@@ -78,32 +78,49 @@ function useBodyScrollLock() {
 
 /* ===================== SWIPE HINT ===================== */
 
+const SWIPE_HINT_KEY = "verse-swipe-hint-seen";
+
 function SwipeHint() {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      return isTouch && !sessionStorage.getItem(SWIPE_HINT_KEY);
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(false), 3500);
+    if (!visible) return;
+    const t = setTimeout(() => {
+      setVisible(false);
+      try { sessionStorage.setItem(SWIPE_HINT_KEY, "1"); } catch {}
+    }, 4000);
     return () => clearTimeout(t);
-  }, []);
+  }, [visible]);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.4 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.35 }}
           className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
         >
           <motion.div
-            animate={{ y: [0, -6, 0] }}
-            transition={{ repeat: 3, duration: 0.7, ease: "easeInOut" }}
-            className="flex flex-col items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-foreground/10 backdrop-blur-sm border border-border/30"
+            animate={{ y: [0, -5, 0] }}
+            transition={{ repeat: 2, duration: 0.8, ease: "easeInOut", delay: 0.3 }}
+            className="flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-foreground/10 backdrop-blur-sm border border-border/30"
           >
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-0">
+              <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
             <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-              Свайпните для навигации
+              Свайп ↑↓ — листать · ←→ — действия
             </span>
           </motion.div>
         </motion.div>
@@ -135,18 +152,32 @@ function DotProgress({ total, active }: { total: number; active: number }) {
       className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
     >
       {Array.from({ length: total }).map((_, i) => (
-        <motion.div
-          key={i}
-          layout
-          animate={{
-            width: i === active ? 28 : 8,
-            opacity: i === active ? 1 : 0.3,
-          }}
-          transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className={`h-2 rounded-full transition-colors duration-300 ${
-            i === active ? "bg-primary" : "bg-muted-foreground/40"
-          }`}
-        />
+        <div key={i} className="relative flex items-center justify-center">
+          <motion.div
+            layout
+            animate={{
+              width: i === active ? 28 : 8,
+              opacity: i === active ? 1 : 0.3,
+            }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
+            className={`h-2 rounded-full transition-colors duration-300 ${
+              i === active ? "bg-primary" : "bg-muted-foreground/40"
+            }`}
+          />
+          {i === active && (
+            <motion.span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-primary pointer-events-none"
+              animate={{ scaleX: [1, 2.4], scaleY: [1, 2], opacity: [0.45, 0] }}
+              transition={{
+                duration: 1.15,
+                repeat: Infinity,
+                ease: "easeOut",
+                repeatDelay: 0.55,
+              }}
+            />
+          )}
+        </div>
       ))}
     </div>
   );
@@ -360,7 +391,8 @@ export function VerseGallery({
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
-            className={`fixed bottom-28 left-1/2 -translate-x-1/2 px-8 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm pointer-events-none ${
+            style={{ bottom: Math.max(112, bottomInset + 88) }}
+          className={`fixed left-1/2 -translate-x-1/2 px-8 py-3.5 rounded-2xl shadow-2xl font-semibold text-sm pointer-events-none ${
               feedback.type === "success" ? "bg-emerald-500 text-white" : "bg-destructive text-white"
             }`}
           >

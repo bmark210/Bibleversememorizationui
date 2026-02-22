@@ -64,20 +64,28 @@ export function VerseCard({
   const { rightAction, canDelete } = getSwipeActions(verse.status);
 
   /* ─── X transforms (horizontal — action hints) ─── */
+  //
+  // Physics: background is absolute inset-0, card moves on top.
+  // Swipe RIGHT (x > 0) → card shifts right → LEFT side of bg revealed → rightAction icon
+  // Swipe LEFT  (x < 0) → card shifts left  → RIGHT side of bg revealed → delete icon
+  //
   const bgColor = useTransform(
     x,
     [-SWIPE_X, -HINT_X, 0, HINT_X, SWIPE_X],
     [
-      canDelete ? "#dc2626" : "rgba(0,0,0,0)",
-      canDelete ? "rgba(220,38,38,0.12)" : "rgba(0,0,0,0)",
+      canDelete   ? "#dc2626"              : "rgba(0,0,0,0)",
+      canDelete   ? "rgba(220,38,38,0.12)" : "rgba(0,0,0,0)",
       "rgba(0,0,0,0)",
       rightAction ? "rgba(16,185,129,0.12)" : "rgba(0,0,0,0)",
-      rightAction ? "#10b981" : "rgba(0,0,0,0)",
+      rightAction ? "#10b981"              : "rgba(0,0,0,0)",
     ]
   );
-  const xHintOpacity  = useTransform(x, [-SWIPE_X, -HINT_X, 0, HINT_X, SWIPE_X], [1, 0.6, 0, 0.6, 1]);
-  const leftIconScale  = useTransform(x, [0, -HINT_X, -SWIPE_X], [0.8, 1.1, 1.2]);
-  const rightIconScale = useTransform(x, [SWIPE_X, HINT_X, 0], [1.2, 1.1, 0.8]);
+  // Scale: each icon grows only in its own swipe direction
+  const actionIconScale  = useTransform(x, [0,  HINT_X,  SWIPE_X], [0.8, 1.1, 1.2]);
+  const deleteIconScale  = useTransform(x, [-SWIPE_X, -HINT_X, 0], [1.2, 1.1, 0.8]);
+  // Opacity: each icon is invisible in the wrong direction
+  const actionIconOpacity = useTransform(x, [0,  HINT_X,  SWIPE_X], [0, 0.7, 1]);
+  const deleteIconOpacity = useTransform(x, [-SWIPE_X, -HINT_X, 0], [1, 0.7, 0]);
 
   /* ─── Y transforms (vertical — navigation hints) ─── */
   const upHintOpacity   = useTransform(y, [0, -30, -SWIPE_Y], [0, 0.5, 1]);
@@ -195,25 +203,14 @@ export function VerseCard({
 
       {/* ── SWIPE X background layer ── */}
       <motion.div
-        style={{ backgroundColor: bgColor, opacity: xHintOpacity }}
+        style={{ backgroundColor: bgColor }}
         className="absolute inset-0 rounded-[3rem] flex items-center justify-between px-8 sm:px-14 pointer-events-none"
         aria-hidden="true"
       >
-        {canDelete && (
-          <motion.div 
-            style={{ scale: leftIconScale }} 
-            className="flex flex-col items-center gap-1.5 text-white"
-            role="img" 
-            aria-label="Удалить стих"
-          >
-            <Trash2 className="w-7 h-7" strokeWidth={2.5} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Удалить</span>
-          </motion.div>
-        )}
-        <div className="flex-1" />
+        {/* LEFT — revealed when card moves RIGHT → rightAction */}
         {rightAction && (
-          <motion.div 
-            style={{ scale: rightIconScale }} 
+          <motion.div
+            style={{ scale: actionIconScale, opacity: actionIconOpacity }}
             className="flex flex-col items-center gap-1.5 text-white"
             role="img"
             aria-label={rightAction.label}
@@ -222,6 +219,19 @@ export function VerseCard({
             <span className="text-[10px] font-bold uppercase tracking-widest text-center max-w-[90px]">
               {rightAction.label}
             </span>
+          </motion.div>
+        )}
+        <div className="flex-1" />
+        {/* RIGHT — revealed when card moves LEFT → delete */}
+        {canDelete && (
+          <motion.div
+            style={{ scale: deleteIconScale, opacity: deleteIconOpacity }}
+            className="flex flex-col items-center gap-1.5 text-white"
+            role="img"
+            aria-label="Удалить стих"
+          >
+            <Trash2 className="w-7 h-7" strokeWidth={2.5} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Удалить</span>
           </motion.div>
         )}
       </motion.div>
