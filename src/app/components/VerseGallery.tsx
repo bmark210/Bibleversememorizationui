@@ -786,21 +786,21 @@ export function VerseGallery({
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
           <div className="flex items-center justify-between p-4">
-            <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Стих {activeIndex + 1} из {verses.length}</span>
-            <MasteryBadge status={normalizeVerseStatus(displayVerse.status)} />
+            {/* <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Стих {activeIndex + 1} из {verses.length}</span> */}
+            <Badge className="absolute left-1/2 -translate-x-1/2" variant="outline">{activeIndex + 1} / {verses.length}</Badge>
             <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
               <X className="h-5 w-5" />
             </Button>
           </div>
         ) : (
           <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 relative">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => exitTrainingMode()} className="gap-1">
                     <ChevronLeft className="w-4 h-4" />К стиху
                   </Button>
-                  <Badge variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
+                  <Badge className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
                 </div>
                 {/* <div className="text-base sm:text-lg font-semibold truncate">{displayVerse.reference}</div>
                 {trainingModeMeta && (
@@ -832,12 +832,9 @@ export function VerseGallery({
                 isActive
                 isFirst={activeIndex === 0}
                 isLast={activeIndex === verses.length - 1}
-                onStatusChange={onStatusChange}
-                onRequestDelete={() => { haptic("warning"); setDeleteDialogOpen(true); }}
-                showFeedback={showFeedback}
                 onNavigate={navigatePreviewTo}
                 onHaptic={haptic}
-                horizontalActionsEnabled={false}
+                topBadge={<MasteryBadge status={normalizeVerseStatus(displayVerse.status)} />}
                 centerAction={
                   <Button className="gap-2 min-w-[180px] shadow-lg" onClick={() => void startTrainingFromActiveVerse()} disabled={actionPending} aria-label="Учить этот стих">
                     <Play className="h-4 w-4" />УЧИТЬ
