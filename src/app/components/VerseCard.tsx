@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import { useDrag } from "@use-gesture/react";
 import { Play, Square, Trash2, ChevronUp, ChevronDown } from "lucide-react";
@@ -41,6 +42,7 @@ export interface VerseCardProps {
   onNavigate: (dir: "prev" | "next") => void;
   onHaptic?: (style: "light" | "medium" | "heavy" | "success" | "error" | "warning") => void;
   horizontalActionsEnabled?: boolean;
+  centerAction?: ReactNode;
 }
 
 /* ===================== COMPONENT ===================== */
@@ -56,6 +58,7 @@ export function VerseCard({
   onNavigate,
   onHaptic,
   horizontalActionsEnabled = true,
+  centerAction,
 }: VerseCardProps) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -280,6 +283,13 @@ export function VerseCard({
             «{verse.text}»
           </p>
         </div>
+
+        {/* Center action (e.g. CTA button) */}
+        {centerAction && (
+          <div className="flex-shrink-0 mt-2 mb-2 flex justify-center">
+            {centerAction}
+          </div>
+        )}
 
         {/* Progress */}
         <div className="flex-shrink-0 mt-6 space-y-3">

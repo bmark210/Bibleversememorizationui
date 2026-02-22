@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, RotateCcw, Undo2 } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { Button } from '../../ui/button';
@@ -189,22 +189,8 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     }, 280);
   };
 
-  const handleUndo = () => {
-    if (isCompleted || selectedIds.length === 0) return;
-    setSelectedIds((prev) => prev.slice(0, -1));
-    setFeedback(null);
-  };
-
-  const handleReset = () => {
-    if (isCompleted || selectedIds.length === 0) return;
-    setSelectedIds([]);
-    setFeedback(null);
-  };
-
-  const nextChunkNumber = Math.min(selectedCount + 1, totalChunks);
-
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className={`w-full max-w-2xl mx-auto ${isCompleted ? 'pb-40 md:pb-0' : ''}`}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -219,7 +205,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Прогресс</div>
               <div className="text-sm font-semibold">{selectedCount} / {totalChunks}</div>
@@ -236,15 +222,15 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Готовность</div>
               <div className="text-sm font-semibold">{progress}%</div>
             </div>
-          </div>
+          </div> */}
 
-          <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
+          {/* <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70"
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.2 }}
             />
-          </div>
+          </div> */}
 
           <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[92px]">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
@@ -326,41 +312,33 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
             </div>
           </div>
 
-          {!isCompleted ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedIds.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleReset}
-                disabled={selectedIds.length === 0}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Сбросить последовательность
-              </Button>
+          {isCompleted && (
+            <div className="rounded-lg bg-muted/40 p-4 text-sm">
+              <div className="text-muted-foreground mb-1">Полный стих</div>
+              <p className="leading-relaxed">{verse.text}</p>
             </div>
-          ) : (
-            <>
-              <div className="rounded-lg bg-muted/40 p-4 text-sm">
-                <div className="text-muted-foreground mb-1">Полный стих</div>
-                <p className="leading-relaxed">{verse.text}</p>
-              </div>
-              <RatingButtons onRate={onRate} />
-            </>
           )}
         </div>
+
+        {isCompleted && (
+          <div className="hidden md:block mt-6 pt-6 border-t border-border/60">
+            <RatingButtons onRate={onRate} />
+          </div>
+        )}
       </motion.div>
+
+      {isCompleted && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-[70] border-t border-border backdrop-blur-xl bg-card/90"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
+        >
+          <div className="p-3 pt-2.5">
+            <RatingButtons onRate={onRate} />
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
-

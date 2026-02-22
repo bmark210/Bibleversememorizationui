@@ -186,7 +186,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       {/* Header */}
       <header 
         className="bg-card border-b border-border sticky top-0 z-10 overflow-hidden"
@@ -242,7 +242,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
       </header>
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 min-h-0 flex max-w-7xl w-full mx-auto">
         {/* Sidebar Navigation */}
         <aside className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
           <nav className="p-4 space-y-1">
@@ -270,7 +270,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
         {/* Main Content */}
         <main 
-          className="flex-1 overflow-auto"
+          className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
           style={{ 
             paddingBottom: `calc(82px + ${safeAreaInset.bottom}px)` 
           }}

@@ -421,6 +421,19 @@ export function VerseGallery({
               onNavigate={navigateTo}
               onHaptic={onHaptic}
               horizontalActionsEnabled={false}
+              centerAction={
+                onStartTraining ? (
+                  <Button
+                    className="gap-2 min-w-[180px] shadow-lg"
+                    onClick={() => void handleStartTrainingClick()}
+                    disabled={actionPending}
+                    aria-label="Учить этот стих"
+                  >
+                    <Play className="h-4 w-4" />
+                    УЧИТЬ
+                  </Button>
+                ) : null
+              }
             />
           </motion.div>
         </AnimatePresence>
@@ -429,21 +442,10 @@ export function VerseGallery({
       {/* ACTIONS */}
       <div className="shrink-0 px-4 sm:px-6">
         <div className="mx-auto w-full max-w-2xl flex items-center gap-3">
-          {onStartTraining && (
-            <Button
-              className="flex-1 gap-2"
-              onClick={() => void handleStartTrainingClick()}
-              disabled={actionPending}
-              aria-label="Учить этот стих"
-            >
-              <Play className="h-4 w-4" />
-              УЧИТЬ
-            </Button>
-          )}
           {statusAction && (
             <Button
               variant="secondary"
-              className={`${onStartTraining ? "" : "flex-1"} gap-2`}
+              className="flex-1 gap-2"
               onClick={() => void handleStatusAction()}
               disabled={actionPending}
               aria-label={statusAction.label}
@@ -455,7 +457,7 @@ export function VerseGallery({
           <Button
             variant="outline"
             className={`gap-2 text-destructive hover:text-destructive ${
-              statusAction || onStartTraining ? "" : "flex-1"
+              statusAction ? "" : "flex-1"
             }`}
             onClick={() => {
               if (actionPending) return;

@@ -226,7 +226,7 @@ export function ModeFirstLettersKeyboardExercise({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Прогресс</div>
               <div className="text-sm font-semibold">{typedCount} / {total}</div>
@@ -243,15 +243,15 @@ export function ModeFirstLettersKeyboardExercise({
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Готовность</div>
               <div className="text-sm font-semibold">{progress}%</div>
             </div>
-          </div>
+          </div> */}
 
-          <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
+          {/* <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70"
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.2 }}
             />
-          </div>
+          </div> */}
 
           <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[84px]">
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
@@ -333,7 +333,7 @@ export function ModeFirstLettersKeyboardExercise({
 
           {!isCompleted ? (
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button
+              {/* <Button
                 type="button"
                 variant="outline"
                 onClick={handleUndo}
@@ -342,7 +342,7 @@ export function ModeFirstLettersKeyboardExercise({
               >
                 <Undo2 className="w-4 h-4" />
                 Удалить последнюю
-              </Button>
+              </Button> */}
               <Button
                 type="button"
                 variant="ghost"

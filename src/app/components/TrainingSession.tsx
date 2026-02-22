@@ -841,11 +841,11 @@ export function TrainingSession({
                 </Button>
                 <Badge className={currentMode.badgeClass}>Режим {runtime.currentStep.modeId}</Badge>
               </div>
-              <div className="text-base sm:text-lg font-semibold truncate">{currentVerse.reference}</div>
+              {/* <div className="text-base sm:text-lg font-semibold truncate">{currentVerse.reference}</div>
               <div className="text-xs sm:text-sm text-muted-foreground mt-1">{currentMode.label}</div>
               <div className="text-[11px] text-muted-foreground/80 mt-1">
                 Свайп ↑↓: переключить стих · После завершения режима — следующий режим этого же стиха
-              </div>
+              </div> */}
             </div>
             <Button variant="ghost" size="icon" onClick={onExit} aria-label="Закрыть тренировку">
               <X className="w-4 h-4" />
@@ -853,9 +853,9 @@ export function TrainingSession({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-            <MetaPill label="Mastery" value={`${currentVerse.masteryLevel}/${MAX_MASTERY_LEVEL}`} />
+            <MetaPill label="Уровень" value={`${currentVerse.masteryLevel}/${MAX_MASTERY_LEVEL}`} />
             <MetaPill label="Повторы" value={`${currentVerse.repetitions}`} />
-          </div>
+            </div>
         </div>
       </div>
 
@@ -875,8 +875,7 @@ export function TrainingSession({
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
-      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-1">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
+      <span className="text-xl font-semibold">{'Уровень: '}{value}</span>
     </div>
   );
 }
@@ -884,8 +883,8 @@ function StatTile({ label, value }: { label: string; value: string }) {
 function MetaPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
-      <div className="text-sm font-medium truncate">{value}</div>
+      <span className="text-sm font-medium truncate">{'Повторы: '}{value}</span>
     </div>
   );
 }
+
