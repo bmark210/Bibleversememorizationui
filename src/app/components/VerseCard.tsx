@@ -14,9 +14,6 @@ const SWIPE_Y = 80;    // px — trigger navigation
 // @use-gesture/react reports velocity in px/ms → 0.6 px/ms = 600 px/s
 const VEL_Y   = 0.6;
 
-const AXIS_SWITCH_RATIO = 2;    // other axis must exceed current by this factor
-const AXIS_SWITCH_MIN   = 25;   // minimum px on the new axis before allowing switch
-
 /* ===================== HELPERS ===================== */
 
 const getSwipeActions = (status: VerseStatus) => {
@@ -97,81 +94,85 @@ export function VerseCard({
   const resetX = () => animate(x, 0, { type: "spring", stiffness: 500, damping: 50 } as const);
   const resetY = () => animate(y, 0, { type: "spring", stiffness: 400, damping: 38 } as const);
 
-  /* ─── useDrag — dynamic axis with mid-gesture switching ─── */
+  const handleHorizontalSwipeProgress = (offsetX: number, triggered: boolean) => {
+    x.set(offsetX);
+    if (!triggered && Math.abs(offsetX) > SWIPE_X) {
+      onHaptic?.("light");
+      return true;
+    }
+    if (triggered && Math.abs(offsetX) < SWIPE_X * 0.8) {
+      return false;
+    }
+    return triggered;
+  };
+
+  const handleVerticalSwipeProgress = (offsetY: number, triggered: boolean) => {
+    y.set(offsetY);
+    if (!triggered && Math.abs(offsetY) > SWIPE_Y) {
+      onHaptic?.("light");
+      return true;
+    }
+    if (triggered && Math.abs(offsetY) < SWIPE_Y * 0.8) {
+      return false;
+    }
+    return triggered;
+  };
+
+  const handleHorizontalSwipeEnd = (offsetX: number) => {
+    (async () => {
+      try {
+        if (offsetX > SWIPE_X && rightAction) {
+          onHaptic?.("success");
+          await onStatusChange(verse, rightAction.next);
+          showFeedback(rightAction.label, "success");
+        } else if (offsetX < -SWIPE_X && canDelete) {
+          onHaptic?.("warning");
+          onRequestDelete();
+        }
+      } catch {
+        onHaptic?.("error");
+        showFeedback("Произошла ошибка", "error");
+      }
+    })();
+    resetX();
+  };
+
+  const handleVerticalSwipeEnd = (offsetY: number, velocityY: number) => {
+    if (offsetY < -SWIPE_Y || velocityY < -VEL_Y) {
+      if (!isLast) {
+        onHaptic?.("medium");
+        onNavigate("next");
+      }
+    } else if (offsetY > SWIPE_Y || velocityY > VEL_Y) {
+      if (!isFirst) {
+        onHaptic?.("medium");
+        onNavigate("prev");
+      }
+    }
+    resetY();
+  };
+
+  /* ─── useDrag — separate horizontal/vertical logic with axis lock per gesture ─── */
   const bind = useDrag(
     ({ movement: [mx, my], last, velocity: [, vy], memo }) => {
       if (!isActive) return memo;
 
-      memo = memo ?? { axis: null as "x" | "y" | null, triggered: false, xOff: 0, yOff: 0 };
-
-      const dx = mx - memo.xOff;
-      const dy = my - memo.yOff;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-
-      let currentAxis: "x" | "y";
-      if (!memo.axis) {
-        currentAxis = absDx >= absDy ? "x" : "y";
-      } else if (memo.axis === "x" && absDy > absDx * AXIS_SWITCH_RATIO && absDy > AXIS_SWITCH_MIN) {
-        currentAxis = "y";
-      } else if (memo.axis === "y" && absDx > absDy * AXIS_SWITCH_RATIO && absDx > AXIS_SWITCH_MIN) {
-        currentAxis = "x";
-      } else {
-        currentAxis = memo.axis;
-      }
-
-      if (memo.axis && memo.axis !== currentAxis) {
-        if (memo.axis === "x") { resetX(); memo.yOff = my; }
-        else                   { resetY(); memo.xOff = mx; }
-        memo.triggered = false;
-      }
-
-      const ex = mx - memo.xOff;
-      const ey = my - memo.yOff;
+      memo = memo ?? { axis: null as "x" | "y" | null, triggered: false };
+      const currentAxis = memo.axis ?? (Math.abs(mx) >= Math.abs(my) ? "x" : "y");
 
       if (!last) {
         if (currentAxis === "x") {
-          x.set(ex);
-          if (!memo.triggered && Math.abs(ex) > SWIPE_X) {
-            onHaptic?.("light");
-            memo.triggered = true;
-          } else if (memo.triggered && Math.abs(ex) < SWIPE_X * 0.8) {
-            memo.triggered = false;
-          }
+          memo.triggered = handleHorizontalSwipeProgress(mx, memo.triggered);
+          y.set(0);
         } else {
-          y.set(ey);
-          if (!memo.triggered && Math.abs(ey) > SWIPE_Y) {
-            onHaptic?.("light");
-            memo.triggered = true;
-          } else if (memo.triggered && Math.abs(ey) < SWIPE_Y * 0.8) {
-            memo.triggered = false;
-          }
+          memo.triggered = handleVerticalSwipeProgress(my, memo.triggered);
+          x.set(0);
         }
       } else {
         if (currentAxis === "x") {
-          (async () => {
-            try {
-              if (ex > SWIPE_X && rightAction) {
-                onHaptic?.("success");
-                await onStatusChange(verse, rightAction.next);
-                showFeedback(rightAction.label, "success");
-              } else if (ex < -SWIPE_X && canDelete) {
-                onHaptic?.("warning");
-                onRequestDelete();
-              }
-            } catch {
-              onHaptic?.("error");
-              showFeedback("Произошла ошибка", "error");
-            }
-          })();
-          resetX();
+          handleHorizontalSwipeEnd(mx);
         } else {
-          if (ey < -SWIPE_Y || vy < -VEL_Y) {
-            if (!isLast) { onHaptic?.("medium"); onNavigate("next"); }
-          } else if (ey > SWIPE_Y || vy > VEL_Y) {
-            if (!isFirst) { onHaptic?.("medium"); onNavigate("prev"); }
-          }
-          resetY();
+          handleVerticalSwipeEnd(my, vy);
         }
       }
 
