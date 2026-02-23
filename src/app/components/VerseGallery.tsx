@@ -897,14 +897,15 @@ export function VerseGallery({
     step: 1 | -1,
   ) => {
     const delta = Math.max(96, Math.round(scrollEl.clientHeight * 0.72));
-    const top = step === 1 ? delta : -delta;
+    const offset = step === 1 ? delta : -delta;
+    const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    const nextTop = clamp(scrollEl.scrollTop + offset, 0, maxScrollTop);
 
     try {
-      scrollEl.scrollBy({ top, behavior: "smooth" });
+      scrollEl.scrollTo({ top: nextTop, behavior: "smooth" });
       return;
     } catch {
-      const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
-      scrollEl.scrollTop = clamp(scrollEl.scrollTop + top, 0, maxScrollTop);
+      scrollEl.scrollTop = nextTop;
     }
   };
 
@@ -935,9 +936,22 @@ export function VerseGallery({
     if (!step) return;
 
     if (touchContext?.startedInTrainingContent) {
-      if (touchContext.scrollEl && touchContext.scrollable) {
-        scrollTrainingContentBySwipeStep(touchContext.scrollEl, step);
+      if (!touchContext.scrollEl || !touchContext.scrollable) {
+        jumpToAdjacentTrainingVerse(step);
+        return;
       }
+
+      const atTop = touchContext.startScrollTop <= 1;
+      const atBottom = touchContext.startScrollTop >= touchContext.maxScrollTop - 1;
+
+      // Boundary handoff: if content is already at the edge in swipe direction,
+      // interpret the next swipe as verse navigation instead of content scroll.
+      if ((step === 1 && atBottom) || (step === -1 && atTop)) {
+        jumpToAdjacentTrainingVerse(step);
+        return;
+      }
+
+      scrollTrainingContentBySwipeStep(touchContext.scrollEl, step);
       return;
     }
 
