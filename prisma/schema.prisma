@@ -36,7 +36,7 @@ model UserVerse {
 
   status          VerseStatus @default(NEW)
 
-  masteryLevel    Int      @default(0) // 0–20, например
+  masteryLevel    Int      @default(0)
   repetitions     Int      @default(0)
   lastReviewedAt  DateTime?
   nextReviewAt    DateTime?

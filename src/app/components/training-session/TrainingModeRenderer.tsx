@@ -212,7 +212,7 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
         "
       >
         {topBadge && tutorial && (
-          <div className="z-10 absolute top-[-30px] left-1/2 -translate-x-1/2">
+          <div className="z-10 absolute top-[-30px] left-1/2 -translate-x-1/2 !h-fit">
             <button
               type="button"
               onClick={() => setTutorialOpen(true)}

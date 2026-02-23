@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   ChevronRight,
   Crown,
@@ -86,6 +87,7 @@ function getRankBadge(rank: number) {
 
 export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll }: DashboardProps) {
   const { user } = useTelegram();
+  const shouldReduceMotion = useReducedMotion();
   const now = Date.now();
 
   const newVersesCount = todayVerses.filter((verse) => verse.status === 'NEW').length;
@@ -146,10 +148,67 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
     },
   ] as const;
 
+  const dashboardVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.07,
+        delayChildren: shouldReduceMotion ? 0 : 0.03,
+      },
+    },
+  };
+
+  const sectionVariants = {
+    hidden: {
+      opacity: shouldReduceMotion ? 1 : 0,
+      y: shouldReduceMotion ? 0 : 12,
+    },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: shouldReduceMotion ? 0 : 0.26,
+        ease: 'easeOut' as const,
+      },
+    },
+  };
+
+  const groupStaggerVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.06,
+        delayChildren: shouldReduceMotion ? 0 : 0.02,
+      },
+    },
+  };
+
+  const cardItemVariants = {
+    hidden: {
+      opacity: shouldReduceMotion ? 1 : 0,
+      y: shouldReduceMotion ? 0 : 10,
+      scale: shouldReduceMotion ? 1 : 0.99,
+    },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: shouldReduceMotion ? 0 : 0.22,
+        ease: 'easeOut' as const,
+      },
+    },
+  };
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+    <motion.div
+      className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto"
+      initial="hidden"
+      animate="show"
+      variants={dashboardVariants}
+    >
       {/* Welcome Section with Telegram User */}
-      <div className="mb-8">
+      <motion.div className="mb-8" variants={sectionVariants}>
         {user ? (
           <div className="flex items-center gap-4 mb-4">
             <Avatar className="h-16 w-16">
@@ -171,32 +230,26 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
         <p className="text-muted-foreground">
           У вас {todayVerses.length} {todayVerses.length === 1 ? 'стих' : todayVerses.length < 5 ? 'стиха' : 'стихов'} для изучения сегодня.
         </p>
-      </div>
+      </motion.div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-8">
+      <motion.div className="flex flex-col sm:flex-row gap-3 mb-8" variants={sectionVariants}>
         <Button
           onClick={onStartTraining}
           variant="default"
           size="lg"
-          className="flex-1 py-3 sm:flex-initial"
+          className="flex-1 py-3 sm:flex-initial rounded-3xl"
         >
           <Dumbbell className="w-4 h-4 mr-2" />
           Начать тренировку
         </Button>
-        {/* <Button
-          onClick={onAddVerse}
-          variant="outline"
-          size="lg"
-          className="sm:flex-initial"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Добавить стих
-        </Button> */}
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8">
-        <Card className="relative overflow-hidden border-border/70 bg-gradient-to-br from-primary/10 via-background to-amber-500/5 p-5 sm:p-6 gap-0">
+      <motion.div
+        className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"
+        variants={groupStaggerVariants}
+      >
+        <motion.div variants={cardItemVariants}>
+          <Card className="relative overflow-hidden border-border/70 rounded-3xl bg-gradient-to-br from-primary/10 via-background to-amber-500/5 p-5 sm:p-6 gap-0">
           <div className="pointer-events-none absolute inset-0 opacity-60">
             <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-primary/15 blur-2xl" />
             <div className="absolute -bottom-20 left-0 h-40 w-40 rounded-full bg-amber-500/10 blur-2xl" />
@@ -224,12 +277,13 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={groupStaggerVariants}>
               {statsCards.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div
+                  <motion.div
                     key={item.key}
+                    variants={cardItemVariants}
                     className={`rounded-2xl border border-border/70 bg-gradient-to-br ${item.accent} p-4 backdrop-blur-sm`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -244,12 +298,12 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                       </div>
                     </div>
                     <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{item.hint}</p>
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
 
-            <div className="mt-5 rounded-2xl border border-border/70 bg-background/60 p-4">
+            <motion.div className="mt-5 rounded-2xl border border-border/70 bg-background/60 p-4" variants={cardItemVariants}>
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="text-sm font-medium">Подготовка к тренировке</div>
                 <div className="text-xs text-muted-foreground">
@@ -257,11 +311,13 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                 </div>
               </div>
               <Progress value={todayVerses.length === 0 ? 0 : Math.min(100, 25 + todayVerses.length * 8)} className="h-2.5" />
-            </div>
+            </motion.div>
           </div>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <Card className="border-border/70 p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-primary/5">
+        <motion.div variants={cardItemVariants}>
+          <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-primary/5">
           <div className="flex items-start justify-between gap-3 mb-5">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -280,15 +336,16 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
             </div>
           </div>
 
-          <div className="space-y-3">
+          <motion.div className="space-y-3" variants={groupStaggerVariants}>
             {MOCK_LEADERBOARD.map((entry, index) => {
               const rank = index + 1;
               const rankBadge = getRankBadge(rank);
               const RankIcon = rankBadge.icon;
 
               return (
-                <div
+                <motion.div
                   key={entry.id}
+                  variants={cardItemVariants}
                   className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 p-3 transition-colors hover:bg-accent/40"
                 >
                   <div
@@ -321,12 +378,12 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
                     <div className="text-lg font-semibold leading-none">{entry.score}%</div>
                     <div className="text-[11px] text-muted-foreground mt-1">точность</div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
-          <div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4">
+          <motion.div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4" variants={cardItemVariants}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">Ваш шанс подняться в топ</div>
@@ -336,12 +393,13 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
               </div>
               <Badge className="rounded-full px-3 py-1">{Math.max(55, avgMasteryPercent)} pts</Badge>
             </div>
-          </div>
-        </Card>
-      </div>
+          </motion.div>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Today's Verses Section */}
-      <div className="mb-8">
+      <motion.div className="mb-8" variants={sectionVariants}>
         <div className="flex items-center justify-between mb-4">
           <h2>Стихи на сегодня</h2>
           <Button
@@ -355,42 +413,46 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
         </div>
 
         {todayVerses.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-muted-foreground">
-              Нет запланированных стихов. Добавьте их, чтобы начать учить!
-            </p>
-          </Card>
+          <motion.div initial="hidden" animate="show" variants={cardItemVariants}>
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">
+                Нет запланированных стихов. Добавьте их, чтобы начать учить!
+              </p>
+            </Card>
+          </motion.div>
         ) : (
-          <div className="grid gap-4">
+          <motion.div className="grid gap-4" initial="hidden" animate="show" variants={groupStaggerVariants}>
             {todayVerses.map((verse) => (
-              <Card key={verse.id} className="p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="mb-2">{verse.reference}</h3>
-                    {/* <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+              <motion.div key={verse.id} variants={cardItemVariants}>
+                <Card className="p-5 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="mb-2">{verse.reference}</h3>
+                      {/* <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                       {verse.text}
                     </p> */}
-                    
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{verse.repetitions} {verse.repetitions === 1 ? 'повторение' : verse.repetitions < 5 ? 'повторения' : 'повторений'}</span>
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                    <div className="text-right">
-                      <div className="text-sm font-medium">{toMasteryPercent(verse.masteryLevel)}%</div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{verse.repetitions} {verse.repetitions === 1 ? 'повторение' : verse.repetitions < 5 ? 'повторения' : 'повторений'}</span>
+                      </div>
                     </div>
-                    <Progress value={toMasteryPercent(verse.masteryLevel)} className="w-full h-2" />
-                    <div className="text-xs text-muted-foreground">
-                      {/* {formatDate(verse.nextReview)} */}
+
+                    <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                      <div className="text-right">
+                        <div className="text-sm font-medium">{toMasteryPercent(verse.masteryLevel)}%</div>
+                      </div>
+                      <Progress value={toMasteryPercent(verse.masteryLevel)} className="w-full h-2" />
+                      <div className="text-xs text-muted-foreground">
+                        {/* {formatDate(verse.nextReview)} */}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

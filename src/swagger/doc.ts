@@ -89,7 +89,33 @@ const swaggerDoc = {
       get: {
         tags: ["User Verses"],
         summary: "Список стихов пользователя",
-        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["NEW", "LEARNING", "STOPPED"] },
+          },
+          {
+            name: "orderBy",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["createdAt", "updatedAt"] },
+          },
+          {
+            name: "order",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"] },
+          },
+          {
+            name: "filter",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["all", "new", "learning", "review", "stopped"] },
+          },
+        ],
         responses: {
           200: {
             description: "OK",
@@ -129,6 +155,37 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/users/{telegramId}/verses/review": {
+      get: {
+        tags: ["User Verses"],
+        summary: "Список стихов пользователя на повторение (LEARNING, masteryLevel > TRAINING_STAGE_MASTERY_MAX)",
+        parameters: [
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "orderBy",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["createdAt", "updatedAt"] },
+          },
+          {
+            name: "order",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"] },
+          },
+        ],
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/UserVerse" } },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/users/{telegramId}/verses/{externalVerseId}": {
       patch: {
         tags: ["User Verses"],
@@ -150,7 +207,7 @@ const swaggerDoc = {
                   nextReviewAt: { type: "string", format: "date-time" },
                   status: {
                     type: "string",
-                    enum: ["NEW", "LEARNING", "MASTERED", "STOPPED"],
+                    enum: ["NEW", "LEARNING", "STOPPED"],
                   },
                 },
               },

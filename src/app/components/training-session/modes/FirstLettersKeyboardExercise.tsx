@@ -119,6 +119,53 @@ export function ModeFirstLettersKeyboardExercise({
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
+  const focusRetryTimeoutsRef = useRef<number[]>([]);
+  const focusRafRef = useRef<number | null>(null);
+
+  const clearPendingFocus = () => {
+    if (focusRafRef.current !== null) {
+      window.cancelAnimationFrame(focusRafRef.current);
+      focusRafRef.current = null;
+    }
+    for (const timeoutId of focusRetryTimeoutsRef.current) {
+      window.clearTimeout(timeoutId);
+    }
+    focusRetryTimeoutsRef.current = [];
+  };
+
+  const focusInput = () => {
+    const input = inputRef.current;
+    if (!input || input.disabled) return;
+
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+
+    try {
+      const caret = input.value.length;
+      input.setSelectionRange(caret, caret);
+    } catch {
+      // ignore browsers that do not allow selection updates here
+    }
+  };
+
+  const scheduleInitialFocus = () => {
+    clearPendingFocus();
+
+    focusRafRef.current = window.requestAnimationFrame(() => {
+      focusRafRef.current = null;
+      focusInput();
+    });
+
+    for (const delayMs of [120, 320]) {
+      const timeoutId = window.setTimeout(() => {
+        focusInput();
+      }, delayMs);
+      focusRetryTimeoutsRef.current.push(timeoutId);
+    }
+  };
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
@@ -128,15 +175,22 @@ export function ModeFirstLettersKeyboardExercise({
     setIsCompleted(false);
     setShakeInput(false);
 
-    requestAnimationFrame(() => inputRef.current?.focus());
+    scheduleInitialFocus();
 
     return () => {
+      clearPendingFocus();
       if (clearShakeTimeoutRef.current) {
         window.clearTimeout(clearShakeTimeoutRef.current);
         clearShakeTimeoutRef.current = null;
       }
     };
   }, [verse]);
+
+  useEffect(() => {
+    if (!isCompleted) return;
+    clearPendingFocus();
+    inputRef.current?.blur();
+  }, [isCompleted]);
 
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
@@ -180,6 +234,8 @@ export function ModeFirstLettersKeyboardExercise({
       setInputValue(sanitized);
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
+        clearPendingFocus();
+        inputRef.current?.blur();
         setIsCompleted(true);
         toast.success('Отлично! Вы ввели первые буквы слов в правильной последовательности.');
       }
@@ -191,19 +247,19 @@ export function ModeFirstLettersKeyboardExercise({
     toast.error('Неверная буква. Ввод сброшен, попробуйте ещё раз.');
     triggerInputShake();
 
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => focusInput());
   };
 
   const handleUndo = () => {
     if (isCompleted || typedCount === 0) return;
     setInputValue((prev) => removeLastMeaningfulChar(prev));
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => focusInput());
   };
 
   const handleReset = () => {
     if (isCompleted || typedCount === 0) return;
     setInputValue('');
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => focusInput());
   };
 
   return (
@@ -211,7 +267,7 @@ export function ModeFirstLettersKeyboardExercise({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-2xl p-6 sm:p-8 shadow-sm border border-border"
+        className="bg-card rounded-3xl p-6 sm:p-8 shadow-sm border border-border"
       >
         <div className="space-y-6">
           <div className="text-center">
@@ -283,6 +339,7 @@ export function ModeFirstLettersKeyboardExercise({
             >
               <Textarea
                 ref={inputRef}
+                autoFocus
                 value={inputValue}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Введите первые буквы слов..."

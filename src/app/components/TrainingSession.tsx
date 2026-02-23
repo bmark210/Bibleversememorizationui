@@ -12,21 +12,20 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import {
+  TrainingModeId,
+  TRAINING_MODE_SHIFT_BY_RATING,
+  chooseTrainingModeId,
+  getRemainingTrainingModesCount,
+  getTrainingModeByShiftInProgressOrder,
+  isTrainingReviewRawMastery,
+  normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
+  toTrainingStageMasteryLevel,
+} from '@/shared/training/modeEngine';
 
 type Rating = 0 | 1 | 2 | 3;
 type SaveState = 'saving' | 'saved' | 'error' | 'skipped';
-
-const MAX_MASTERY_LEVEL = 8;
-
-enum TrainingModeId {
-  ClickChunks = 1,
-  ClickWordsHinted = 2,
-  ClickWordsNoHints = 3,
-  FirstLettersWithWordHints = 4,
-  FirstLettersTapNoHints = 5,
-  FirstLettersTyping = 6,
-  FullRecall = 7,
-}
 
 type ModeId = TrainingModeId;
 
@@ -38,7 +37,7 @@ type TrainingVerseInput = {
   text?: string | null;
   translation?: string | null;
   status?: VerseStatus | string | null;
-  masteryLevel?: number | null; // supports 0..8 and legacy 0..100
+  masteryLevel?: number | null;
   repetitions?: number | null;
   lastReviewedAt?: string | Date | null;
   nextReviewAt?: string | Date | null;
@@ -61,7 +60,8 @@ interface SessionVerse {
   text: string;
   translation: string;
   status: VerseStatus;
-  masteryLevel: number; // 0..8
+  rawMasteryLevel: number;
+  masteryLevel: number;
   repetitions: number;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
@@ -166,17 +166,6 @@ const MODE_PIPELINE: Record<ModeId, { label: string; description: string; render
   },
 };
 
-// Порядок сложности режимов соответствует ожидаемому порядку запуска в сессии.
-const MODE_PROGRESS_ORDER: ModeId[] = [
-  TrainingModeId.ClickChunks,
-  TrainingModeId.ClickWordsHinted,
-  TrainingModeId.ClickWordsNoHints,
-  TrainingModeId.FirstLettersWithWordHints,
-  TrainingModeId.FirstLettersTapNoHints,
-  TrainingModeId.FirstLettersTyping,
-  TrainingModeId.FullRecall,
-];
-
 const SCORE_BY_RATING: Record<Rating, number> = {
   0: 35,
   1: 60,
@@ -191,12 +180,7 @@ const MASTERY_DELTA_BY_RATING: Record<Rating, number> = {
   3: 2,  // Отлично (перепрыгиваем один режим)
 };
 
-const MODE_SHIFT_BY_RATING: Record<Rating, number> = {
-  0: -1, // назад на предыдущий режим
-  1: 0,  // повторить этот же режим
-  2: 1,  // следующий режим
-  3: 2,  // пропустить один режим вперёд
-};
+const MODE_SHIFT_BY_RATING: Record<Rating, number> = TRAINING_MODE_SHIFT_BY_RATING;
 
 const SPACED_REPETITION_MS: Record<number, number> = {
   0: 10 * 60 * 1000,
@@ -226,14 +210,16 @@ function normalizeStatus(value: TrainingVerseInput['status']): VerseStatus {
   return VerseStatus.NEW;
 }
 
-function normalizeMasteryLevel(raw: number | null | undefined): number {
-  if (typeof raw !== 'number' || Number.isNaN(raw)) return 0;
-  if (raw <= MAX_MASTERY_LEVEL) return clamp(Math.round(raw), 0, MAX_MASTERY_LEVEL);
-  return clamp(Math.round((raw / 100) * MAX_MASTERY_LEVEL), 0, MAX_MASTERY_LEVEL);
+function normalizeRawMasteryLevel(raw: number | null | undefined): number {
+  return normalizeSharedRawMasteryLevel(raw);
+}
+
+function toStageMasteryLevel(rawMasteryLevel: number): number {
+  return toTrainingStageMasteryLevel(rawMasteryLevel);
 }
 
 function masteryToProgress(masteryLevel: number) {
-  return Math.round((clamp(masteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100);
+  return Math.round((clamp(masteryLevel, 0, TRAINING_STAGE_MASTERY_MAX) / TRAINING_STAGE_MASTERY_MAX) * 100);
 }
 
 function getVerseKey(verse: TrainingVerseInput, index: number) {
@@ -247,6 +233,8 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
   const externalVerseId = String(verse.externalVerseId ?? verse.id ?? '').trim();
   if (!externalVerseId) return null;
 
+  const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel ?? 0);
+
   return {
     key: getVerseKey(verse, index),
     telegramId: verse.telegramId ?? null,
@@ -255,7 +243,8 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
     text,
     translation: String(verse.translation ?? 'SYNOD'),
     status: normalizeStatus(verse.status),
-    masteryLevel: normalizeMasteryLevel(verse.masteryLevel ?? 0),
+    rawMasteryLevel,
+    masteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
     lastReviewedAt: parseDate(verse.lastReviewedAt),
     nextReviewAt: parseDate(verse.nextReviewAt ?? verse.nextReview),
@@ -263,60 +252,36 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
   };
 }
 
+function isReviewVerse(verse: Pick<SessionVerse, 'rawMasteryLevel'>) {
+  return isTrainingReviewRawMastery(verse.rawMasteryLevel);
+}
+
 function getEligibleVerses(verses: SessionVerse[]) {
-  return verses.filter((verse) => verse.status !== VerseStatus.STOPPED && verse.masteryLevel < MAX_MASTERY_LEVEL);
+  return verses.filter((verse) =>
+    verse.status !== VerseStatus.STOPPED
+    && verse.rawMasteryLevel !== TRAINING_STAGE_MASTERY_MAX
+  );
 }
 
 function isEligibleVerse(verse: SessionVerse) {
-  return verse.status !== VerseStatus.STOPPED && verse.masteryLevel < MAX_MASTERY_LEVEL;
-}
-
-function getBaseModeForMastery(masteryLevel: number): ModeId {
-  const masteryBaseModeMap: Record<number, ModeId> = {
-    0: TrainingModeId.ClickChunks, // Click Chunks — самый простой режим
-    1: TrainingModeId.ClickWordsHinted,
-    2: TrainingModeId.ClickWordsNoHints,
-    3: TrainingModeId.FirstLettersWithWordHints,
-    4: TrainingModeId.FirstLettersTapNoHints,
-    5: TrainingModeId.FirstLettersTyping,
-    6: TrainingModeId.FullRecall,
-    7: TrainingModeId.FullRecall,
-    8: TrainingModeId.FullRecall,
-  };
-  return masteryBaseModeMap[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ?? TrainingModeId.ClickChunks;
+  return verse.status !== VerseStatus.STOPPED && verse.rawMasteryLevel !== TRAINING_STAGE_MASTERY_MAX;
 }
 
 function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): ModeId | null {
-  const index = MODE_PROGRESS_ORDER.indexOf(modeId);
-  if (index < 0) return null;
-
-  if (shift === 0) return modeId;
-
-  if (shift > 0) {
-    const nextIndex = index + shift;
-    if (nextIndex >= MODE_PROGRESS_ORDER.length) {
-      // At the top of the pipeline, allow fallback to the last mode if at least one step forward exists.
-      if (index < MODE_PROGRESS_ORDER.length - 1) return MODE_PROGRESS_ORDER[MODE_PROGRESS_ORDER.length - 1];
-      return null;
-    }
-    return MODE_PROGRESS_ORDER[nextIndex];
-  }
-
-  const prevIndex = Math.max(0, index + shift);
-  return MODE_PROGRESS_ORDER[prevIndex];
+  return getTrainingModeByShiftInProgressOrder(modeId, shift);
 }
 
 function getRemainingModesCountForVerse(verse: SessionVerse) {
-  const base = getBaseModeForMastery(verse.masteryLevel);
-  const baseIndex = MODE_PROGRESS_ORDER.indexOf(base);
-  if (baseIndex < 0) return 1;
-  return MODE_PROGRESS_ORDER.length - baseIndex;
+  return getRemainingTrainingModesCount({
+    rawMasteryLevel: verse.rawMasteryLevel,
+    stageMasteryLevel: verse.masteryLevel,
+  });
 }
 
 function chooseVerseIndex(verses: SessionVerse[], cursor: number): { index: number; nextCursor: number } | null {
   const candidates = verses
     .map((verse, index) => ({ verse, index, rand: Math.random() }))
-    .filter(({ verse }) => verse.status !== VerseStatus.STOPPED && verse.masteryLevel < MAX_MASTERY_LEVEL);
+    .filter(({ verse }) => isEligibleVerse(verse));
 
   if (candidates.length === 0) return null;
 
@@ -335,28 +300,11 @@ function chooseVerseIndex(verses: SessionVerse[], cursor: number): { index: numb
 }
 
 function chooseModeId(verse: SessionVerse): ModeId {
-  const base = getBaseModeForMastery(verse.masteryLevel);
-
-  const baseIndex = MODE_PROGRESS_ORDER.indexOf(base);
-  if (baseIndex === -1) return base;
-
-  const candidates: ModeId[] = [];
-  for (let distance = 0; distance < MODE_PROGRESS_ORDER.length; distance += 1) {
-    const left = baseIndex - distance;
-    const right = baseIndex + distance;
-
-    if (left >= 0) {
-      const leftMode = MODE_PROGRESS_ORDER[left];
-      if (!candidates.includes(leftMode)) candidates.push(leftMode);
-    }
-
-    if (distance > 0 && right < MODE_PROGRESS_ORDER.length) {
-      const rightMode = MODE_PROGRESS_ORDER[right];
-      if (!candidates.includes(rightMode)) candidates.push(rightMode);
-    }
-  }
-
-  return candidates.find((id) => id !== verse.lastModeId) ?? base;
+  return chooseTrainingModeId({
+    rawMasteryLevel: verse.rawMasteryLevel,
+    stageMasteryLevel: verse.masteryLevel,
+    lastModeId: verse.lastModeId,
+  });
 }
 
 function buildExerciseStep(runtime: RuntimeState): Pick<RuntimeState, 'cursor' | 'currentStep' | 'finished'> {
@@ -395,7 +343,7 @@ function createStepForVerse(
 function findRequestedStartVerseIndex(verses: SessionVerse[], startFromVerseId: string | null | undefined) {
   if (!startFromVerseId) return -1;
   return verses.findIndex((verse) =>
-    (verse.status !== VerseStatus.STOPPED && verse.masteryLevel < MAX_MASTERY_LEVEL)
+    isEligibleVerse(verse)
     && (
       verse.externalVerseId === startFromVerseId
       || verse.key === startFromVerseId
@@ -413,6 +361,7 @@ function buildNextModeStepForSameVerse(runtime: RuntimeState): ExerciseStep | nu
   const verse = runtime.verses[verseIndex];
   // Continue chaining modes only while the verse is still in training.
   if (!isEligibleVerse(verse)) return null;
+  if (isReviewVerse(verse)) return null;
 
   const modeShift = MODE_SHIFT_BY_RATING[lastOutcome.rating] ?? 1;
   const nextModeId = getModeByShiftInProgressOrder(lastOutcome.modeId, modeShift);
@@ -494,7 +443,7 @@ function createInitialRuntime(
 }
 
 function calcNextReviewAt(masteryLevel: number, score: number): Date {
-  const base = SPACED_REPETITION_MS[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ?? SPACED_REPETITION_MS[0];
+  const base = SPACED_REPETITION_MS[clamp(masteryLevel, 0, TRAINING_STAGE_MASTERY_MAX)] ?? SPACED_REPETITION_MS[0];
   const multiplier = score >= 92 ? 1.25 : score >= 80 ? 1 : score >= 65 ? 0.75 : 0.5;
   return new Date(Date.now() + Math.round(base * multiplier));
 }
@@ -509,7 +458,7 @@ function getTelegramId(): string | null {
 
 function patchStatusForVerse(verse: SessionVerse): 'NEW' | 'LEARNING' | 'STOPPED' {
   if (verse.status === VerseStatus.STOPPED) return 'STOPPED';
-  return verse.masteryLevel > 0 ? 'LEARNING' : 'NEW';
+  return verse.rawMasteryLevel > 0 ? 'LEARNING' : 'NEW';
 }
 
 async function persistVerseProgress(verse: SessionVerse) {
@@ -517,7 +466,7 @@ async function persistVerseProgress(verse: SessionVerse) {
   if (!telegramId) return false;
 
   await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
-    masteryLevel: verse.masteryLevel,
+    masteryLevel: verse.rawMasteryLevel,
     repetitions: verse.repetitions,
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
@@ -571,6 +520,7 @@ export function TrainingSession({
 
   const currentVerse = getCurrentVerse(runtime);
   const currentMode = runtime.currentStep ? MODE_PIPELINE[runtime.currentStep.modeId] : null;
+  const isCurrentVerseReview = currentVerse ? isReviewVerse(currentVerse) : false;
 
   const avgScore = runtime.history.length > 0
     ? Math.round(runtime.history.reduce((sum, item) => sum + item.score, 0) / runtime.history.length)
@@ -655,17 +605,20 @@ export function TrainingSession({
     const baseVerse = runtime.verses[verseIndex];
     const modeMeta = MODE_PIPELINE[step.modeId];
     const score = SCORE_BY_RATING[rating];
+    const rawMasteryBefore = baseVerse.rawMasteryLevel;
     const masteryBefore = baseVerse.masteryLevel;
     const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
-    const masteryAfter = clamp(masteryBefore + masteryDelta, 0, MAX_MASTERY_LEVEL);
+    const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + masteryDelta));
+    const masteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const passed = masteryDelta > 0;
-    const becameLearned = masteryBefore < MAX_MASTERY_LEVEL && masteryAfter >= MAX_MASTERY_LEVEL;
+    const becameLearned = masteryBefore < TRAINING_STAGE_MASTERY_MAX && masteryAfter >= TRAINING_STAGE_MASTERY_MAX;
     const durationMs = Date.now() - step.startedAt;
     const now = new Date();
     const nextReviewAt = calcNextReviewAt(masteryAfter, score);
 
     const updatedVerse: SessionVerse = {
       ...baseVerse,
+      rawMasteryLevel: rawMasteryAfter,
       masteryLevel: masteryAfter,
       repetitions: baseVerse.repetitions + 1,
       lastReviewedAt: now,
@@ -673,7 +626,7 @@ export function TrainingSession({
       lastModeId: step.modeId,
       status: baseVerse.status === VerseStatus.STOPPED
         ? VerseStatus.STOPPED
-        : (masteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW),
+        : (rawMasteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW),
     };
 
     const updatedVerses = [...runtime.verses];
@@ -756,7 +709,7 @@ export function TrainingSession({
                 <CardDescription>
                   {runtime.targetExercises > 0
                     ? 'TrainingSession переработан под engine-подход: авто-режим, round-robin, spaced repetition.'
-                    : 'Для сессии нужны стихи со статусом не STOPPED и masteryLevel < 8.'}
+                    : `Для сессии нужны стихи со статусом не STOPPED и masteryLevel != ${TRAINING_STAGE_MASTERY_MAX} (изучение или повторение).`}
                 </CardDescription>
               </div>
               <Button variant="ghost" size="icon" onClick={onExit}>
@@ -791,7 +744,7 @@ export function TrainingSession({
                 <AlertCircle className="w-4 h-4" />
                 <AlertTitle>Нет активных стихов для тренировки</AlertTitle>
                 <AlertDescription>
-                  Сессия берёт стихи по правилам движка: `status != STOPPED` и `masteryLevel &lt; 8`.
+                  Сессия берёт стихи по правилам движка: `status != STOPPED` и `masteryLevel != ${TRAINING_STAGE_MASTERY_MAX}`.
                 </AlertDescription>
               </Alert>
             )}
@@ -840,6 +793,11 @@ export function TrainingSession({
                   Выход
                 </Button>
                 <Badge className={currentMode.badgeClass}>Режим {runtime.currentStep.modeId}</Badge>
+                {isCurrentVerseReview && (
+                  <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700">
+                    Повторение
+                  </Badge>
+                )}
               </div>
               {/* <div className="text-base sm:text-lg font-semibold truncate">{currentVerse.reference}</div>
               <div className="text-xs sm:text-sm text-muted-foreground mt-1">{currentMode.label}</div>
@@ -853,7 +811,7 @@ export function TrainingSession({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-            <MetaPill label="Уровень" value={`${currentVerse.masteryLevel}/${MAX_MASTERY_LEVEL}`} />
+            <MetaPill label="Уровень" value={`${currentVerse.masteryLevel}/${TRAINING_STAGE_MASTERY_MAX}`} />
             <MetaPill label="Повторы" value={`${currentVerse.repetitions}`} />
             </div>
         </div>

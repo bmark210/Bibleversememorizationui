@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { TrainingSession } from "./components/TrainingSession";
 import { VerseList } from "./components/VerseList";
+import { VerseGallery } from "./components/VerseGallery";
 import { Collections } from "./components/Collections";
 import { Statistics } from "./components/Statistics";
 import { Settings } from "./components/Settings";
@@ -159,6 +160,8 @@ export default function App() {
   const [trainingVerses, setTrainingVerses] = useState<Array<Verse>>([]);
   const [trainingStartVerseId, setTrainingStartVerseId] = useState<string | null>(null);
   const [returnToGalleryContext, setReturnToGalleryContext] = useState<ReturnToGalleryContext | null>(null);
+  const [dashboardGalleryVerses, setDashboardGalleryVerses] = useState<Array<Verse>>([]);
+  const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
@@ -242,6 +245,8 @@ export default function App() {
     setIsTraining(false);
     setTrainingStartVerseId(null);
     setReturnToGalleryContext(null);
+    setDashboardGalleryIndex(null);
+    setDashboardGalleryVerses([]);
   };
 
   const loadPlannedVersesForDashboard = async (
@@ -258,6 +263,47 @@ export default function App() {
       console.error("Не удалось получить стихи для дневной подборки:", err);
       setVerses([]);
       throw err;
+    }
+  };
+
+  const getVerseKey = (verse: Pick<Verse, "id" | "externalVerseId">) =>
+    String(verse.externalVerseId ?? verse.id);
+
+  const handleDashboardGalleryClose = () => {
+    setDashboardGalleryIndex(null);
+    setDashboardGalleryVerses([]);
+
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (telegramIdValue && trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
+    }
+  };
+
+  const handleDashboardGalleryStatusChange = async (verse: Verse, status: VerseStatus) => {
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) throw new Error("No telegramId");
+
+    await UserVersesService.patchApiUsersVerses(telegramIdValue, verse.externalVerseId, { status });
+
+    setDashboardGalleryVerses((prev) =>
+      prev.map((v) => (getVerseKey(v) === getVerseKey(verse) ? { ...v, status } : v))
+    );
+
+    if (trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
+    }
+  };
+
+  const handleDashboardGalleryDelete = async (verse: Verse) => {
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) throw new Error("No telegramId");
+
+    await UserVersesService.deleteApiUsersVerses(telegramIdValue, verse.externalVerseId);
+
+    setDashboardGalleryVerses((prev) => prev.filter((v) => getVerseKey(v) !== getVerseKey(verse)));
+
+    if (trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
   };
 
@@ -298,18 +344,43 @@ export default function App() {
       return;
     }
 
+    const openDashboardGallery = (plannedList: Array<Verse>) => {
+      if (plannedList.length === 0) return false;
+      setIsTraining(false);
+      setReturnToGalleryContext(null);
+      setDashboardGalleryVerses(plannedList);
+      setDashboardGalleryIndex(0);
+      return true;
+    };
+
+    // Open immediately from the current dashboard list, then refresh in background.
+    // This prevents a visible "dead time" before VerseGallery appears.
+    if (verses.length > 0 && openDashboardGallery(verses)) {
+      void (async () => {
+        try {
+          const refreshed = await loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
+          if (refreshed.length > 0) {
+            setDashboardGalleryVerses(refreshed);
+            setDashboardGalleryIndex((prev) =>
+              prev === null ? null : Math.min(prev, Math.max(0, refreshed.length - 1))
+            );
+          }
+        } catch (error) {
+          console.error("Не удалось обновить подборку перед тренировкой:", error);
+        }
+      })();
+      return;
+    }
+
     try {
       const plannedVerses = await loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
       if (plannedVerses.length === 0) {
         toast.info("Нет стихов для тренировки", {
-          description: "Добавьте новые стихи или дождитесь времени повторения изучаемых.",
+          description: "Добавьте новые стихи или дождитесь времени повторения изучаемых. Просмотр доступен в разделе «Стихи».",
         });
         return;
       }
-      setTrainingVerses(plannedVerses);
-      setTrainingStartVerseId(null);
-      setReturnToGalleryContext(null);
-      setIsTraining(true);
+      openDashboardGallery(plannedVerses);
     } catch {
       toast.error("Не удалось загрузить стихи для тренировки");
     }
@@ -457,7 +528,7 @@ export default function App() {
 
   return (
     <>
-      <div aria-hidden={isTraining}>
+      <div aria-hidden={isTraining || dashboardGalleryIndex !== null}>
         <Layout currentPage={currentPage} onNavigate={handleNavigate}>
           {currentPage === "dashboard" && (
             <Dashboard
@@ -471,7 +542,6 @@ export default function App() {
           {currentPage === "verses" && (
             <VerseList
               onAddVerse={handleAddVerse}
-              onStartTraining={handleStartTrainingFromVerse}
               reopenGalleryVerseId={!isTraining ? returnToGalleryContext?.verseId ?? null : null}
               reopenGalleryStatusFilter={!isTraining ? returnToGalleryContext?.filter ?? null : null}
               onReopenGalleryHandled={() => setReturnToGalleryContext(null)}
@@ -497,6 +567,16 @@ export default function App() {
         onClose={() => setShowAddVerseDialog(false)}
         onAdd={handleVerseAdded}
       />
+
+      {dashboardGalleryIndex !== null && dashboardGalleryVerses[dashboardGalleryIndex] && (
+        <VerseGallery
+          verses={dashboardGalleryVerses}
+          initialIndex={dashboardGalleryIndex}
+          onClose={handleDashboardGalleryClose}
+          onStatusChange={handleDashboardGalleryStatusChange}
+          onDelete={handleDashboardGalleryDelete}
+        />
+      )}
 
       {isTrainingBatchPromptOpen && (
         <div className="fixed inset-0 z-[450] bg-background/70 backdrop-blur-sm p-4 flex items-center justify-center">

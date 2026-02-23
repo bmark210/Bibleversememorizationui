@@ -39,10 +39,11 @@ import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { MasteryBadge } from './MasteryBadge';
 import { VerseGallery } from './VerseGallery';
+import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 /* ===================== TYPES ===================== */
 
-type VerseListStatusFilter = 'all' | 'learning' | 'stopped' | 'new';
+type VerseListStatusFilter = 'all' | 'learning' | 'review' | 'stopped' | 'new';
 
 type SwipeCardProps = {
   verse: Verse;
@@ -118,7 +119,7 @@ const SwipeableVerseCard = ({
             title="Удалить стих"
             aria-label="Удалить стих"
             disabled={isPending}
-            className="text-destructive hover:text-destructive"
+            className="text-destructive hover:text-destructive backdrop-blur-xl"
             onClick={(e) => {
               stopCardOpen(e);
               onRequestDelete(verse);
@@ -224,18 +225,20 @@ const SwipeableVerseCard = ({
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold">{verse.reference}</h3>
               <Badge variant="secondary" className="text-[11px]">SYNOD</Badge>
-              <MasteryBadge status={verse.status} />
+              <MasteryBadge status={verse.status} masteryLevel={verse.masteryLevel ?? 0} />
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{Math.round(verse.masteryLevel / 14 * 100)}%</span>
+              <span>{Math.min(Math.round(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100), 100)}%</span>
               <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${
                     verse.status === VerseStatus.LEARNING ? 'bg-emerald-500' : 'bg-amber-500'
                   }`}
                   initial={{ width: 0 }}
-                  animate={{ width: `${verse.masteryLevel / 14 * 100}%` }}
+                  animate={{
+                    width: `${Math.min(Math.round(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100), 100)}%`
+                  }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                 />
               </div>
@@ -297,10 +300,6 @@ function ConfirmDeleteModal({
 
 interface VerseListProps {
   onAddVerse: () => void;
-  onStartTraining: (
-    verseId: string,
-    options?: { returnToGallery?: boolean; returnToGalleryFilter?: VerseListStatusFilter }
-  ) => void | Promise<void>;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -308,7 +307,6 @@ interface VerseListProps {
 
 export function VerseList({
   onAddVerse,
-  onStartTraining,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -363,19 +361,19 @@ export function VerseList({
     });
   }, [getVerseKey]);
 
-  const matchesStatusFilter = useCallback((status: VerseStatus, filter: VerseListStatusFilter) => {
-    if (filter === 'all') return true;
-    if (filter === 'learning') return status === VerseStatus.LEARNING;
-    if (filter === 'stopped') return status === VerseStatus.STOPPED;
-    return status === VerseStatus.NEW;
+  const isReviewVerse = useCallback((verse: Pick<Verse, 'status' | 'masteryLevel'>) => {
+    return verse.status === VerseStatus.LEARNING && Number(verse.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX;
   }, []);
 
-  const mapFilterToApiStatus = useCallback((filter: VerseListStatusFilter): VerseStatus | undefined => {
-    if (filter === 'learning') return VerseStatus.LEARNING;
-    if (filter === 'stopped') return VerseStatus.STOPPED;
-    if (filter === 'new') return VerseStatus.NEW;
-    return undefined;
-  }, []);
+  const matchesListFilter = useCallback((verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
+    if (filter === 'all') return true;
+    if (filter === 'learning') {
+      return verse.status === VerseStatus.LEARNING && Number(verse.masteryLevel ?? 0) <= TRAINING_STAGE_MASTERY_MAX;
+    }
+    if (filter === 'review') return isReviewVerse(verse);
+    if (filter === 'stopped') return verse.status === VerseStatus.STOPPED;
+    return verse.status === VerseStatus.NEW;
+  }, [isReviewVerse]);
 
   const sortByLoadedAtDesc = useCallback((list: Array<Verse>) => {
     return [...list].sort((a, b) => {
@@ -403,19 +401,15 @@ export function VerseList({
     setIsFetchingVerses(true);
     setHasFetchedVersesOnce(false);
     try {
-      const requestedStatus = mapFilterToApiStatus(filter);
-      const data = await UserVersesService.getApiUsersVerses(id, {
-        status: requestedStatus,
-        orderBy: 'createdAt',
-        order: 'desc',
-      });
+      const data = (await UserVersesService.getApiUsersVerses(
+        id,
+        undefined,
+        'createdAt',
+        'desc',
+        filter
+      )) as Array<Verse>;
 
-      // Fallbacks in case backend ignores query params in current deployment.
-      const casted = data as Array<Verse>;
-      const statusFiltered = requestedStatus
-        ? casted.filter((v) => v.status === requestedStatus)
-        : casted;
-      setVerses(sortByLoadedAtDesc(statusFiltered));
+      setVerses(sortByLoadedAtDesc(data));
     } catch (err) {
       console.error('Не удалось получить стихи:', err);
       setVerses([]);
@@ -423,7 +417,7 @@ export function VerseList({
       setIsFetchingVerses(false);
       setHasFetchedVersesOnce(true);
     }
-  }, [mapFilterToApiStatus, sortByLoadedAtDesc]);
+  }, [sortByLoadedAtDesc]);
 
   useEffect(() => {
     const id = resolveTelegramId();
@@ -449,7 +443,7 @@ export function VerseList({
     if (!hasFetchedVersesOnce) return;
     if (isFetchingVerses) return;
 
-    const index = verses.findIndex(
+      const index = verses.findIndex(
       (v) => String(v.id) === String(reopenGalleryVerseId) || v.externalVerseId === reopenGalleryVerseId
     );
 
@@ -500,7 +494,7 @@ export function VerseList({
     setVerses((prev) =>
       prev
         .map((v) => (isSameVerse(v, verse) ? { ...v, status } : v))
-        .filter((v) => matchesStatusFilter(v.status, statusFilter))
+        .filter((v) => matchesListFilter(v, statusFilter))
     );
   };
 
@@ -519,7 +513,7 @@ export function VerseList({
     setVerses((prev) => {
       const next = prev
         .map((v) => (isSameVerse(v, verse) ? { ...v, status: nextStatus } : v))
-        .filter((v) => matchesStatusFilter(v.status, statusFilter));
+        .filter((v) => matchesListFilter(v, statusFilter));
       return next;
     });
 
@@ -538,7 +532,7 @@ export function VerseList({
     } finally {
       markVersePending(verse, false);
     }
-  }, [telegramId, pushToast, markVersePending, isSameVerse, patchVerseStatusOnServer, matchesStatusFilter, statusFilter, fetchVerses]);
+  }, [telegramId, pushToast, markVersePending, isSameVerse, patchVerseStatusOnServer, matchesListFilter, statusFilter, fetchVerses]);
 
   /* ── delete ── */
   const handleDeleteVerse = async (verse: Verse) => {
@@ -608,6 +602,7 @@ export function VerseList({
   const filterOptions: Array<{ key: VerseListStatusFilter; label: string }> = [
     { key: 'all', label: 'Все' },
     { key: 'learning', label: 'Изучаю' },
+    { key: 'review', label: 'На повторение' },
     { key: 'stopped', label: 'На паузе' },
     { key: 'new', label: 'Новые' },
   ];
@@ -702,7 +697,7 @@ export function VerseList({
         animate="show"
         variants={sectionVariants}
       >
-        <Card className={`gap-0 overflow-hidden border-border/70 ${config.borderClassName}`}>
+        <Card className={`gap-0 overflow-hidden border-border/70 rounded-3xl ${config.borderClassName}`}>
           <div className={`border-b border-border/70 p-4 sm:p-5 ${config.tintClassName}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
@@ -774,7 +769,7 @@ export function VerseList({
           )} */}
           <Button
             onClick={() => { haptic('medium'); onAddVerse(); }}
-            className="shrink-0 w-full sm:w-auto"
+            className="shrink-0 w-full sm:w-auto rounded-3xl"
           >
             <Plus className="w-4 h-4 mr-2" />
             Добавить стих
@@ -783,7 +778,7 @@ export function VerseList({
       </motion.div>
 
       <motion.div className="mb-6" variants={sectionVariants}>
-        <Card className="border-border/70 p-4 sm:p-5 gap-0">
+        <Card className="border-border/70 rounded-3xl p-4 sm:p-5 gap-0">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <div className="text-sm font-medium">Фильтр по статусу</div>
@@ -826,7 +821,7 @@ export function VerseList({
       {isListLoading ? (
         <motion.div className="space-y-4" initial="hidden" animate="show" variants={sectionVariants}>
           {[0, 1, 2].map((idx) => (
-            <Card key={`skeleton-${idx}`} className="p-4 sm:p-5 border-border/70 animate-pulse gap-3">
+            <Card key={`skeleton-${idx}`} className="p-4 sm:p-5 border-border/70 rounded-3xl animate-pulse gap-3">
               <div className="h-4 w-28 rounded bg-muted" />
               <div className="h-3 w-full rounded bg-muted/80" />
               <div className="h-3 w-3/4 rounded bg-muted/70" />
@@ -860,11 +855,16 @@ export function VerseList({
         <motion.div className="space-y-6" initial="hidden" animate="show" variants={gridVariants}>
           {renderVerseSection(learningVerses, {
             headingId: 'learning-verses-heading',
-            title: 'Изучаю',
-            subtitle: dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
-            dotClassName: 'bg-emerald-500',
-            borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
-            tintClassName: 'bg-emerald-500/5',
+            title: statusFilter === 'review' ? 'На повторение' : 'Изучаю',
+            subtitle:
+              statusFilter === 'review'
+                ? `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`
+                : (dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении'),
+            dotClassName: statusFilter === 'review' ? 'bg-violet-500' : 'bg-emerald-500',
+            borderClassName: statusFilter === 'review'
+              ? 'bg-gradient-to-b from-violet-500/5 to-background'
+              : 'bg-gradient-to-b from-emerald-500/5 to-background',
+            tintClassName: statusFilter === 'review' ? 'bg-violet-500/5' : 'bg-emerald-500/5',
           })}
 
           {renderVerseSection(stoppedVerses, {
@@ -905,12 +905,6 @@ export function VerseList({
           onClose={() => setGalleryIndex(null)}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteVerse}
-          onStartTraining={(verse) =>
-            onStartTraining(String(verse.externalVerseId ?? verse.id), {
-              returnToGallery: true,
-              returnToGalleryFilter: statusFilter,
-            })
-          }
         />,
         document.body
       )}

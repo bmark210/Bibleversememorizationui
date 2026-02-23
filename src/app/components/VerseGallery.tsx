@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type Ref, type TouchEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -12,6 +12,7 @@ import {
   Plus,
   Pause,
   Play,
+  Repeat,
   Trash2,
 } from "lucide-react";
 
@@ -31,6 +32,16 @@ import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { VerseStatus } from "@/generated/prisma";
+import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import {
+  TrainingModeId,
+  TRAINING_MODE_SHIFT_BY_RATING,
+  chooseTrainingModeId,
+  getTrainingModeByShiftInProgressOrder,
+  isTrainingReviewRawMastery,
+  normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
+  toTrainingStageMasteryLevel,
+} from "@/shared/training/modeEngine";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { VerseCard } from "./VerseCard";
 import type { Verse as LegacyVerse } from "../data/mockData";
@@ -47,12 +58,12 @@ type VerseGalleryProps = {
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
   onDelete: (verse: Verse) => Promise<void>;
-  onStartTraining?: (verse: Verse) => void | Promise<void>;
 };
 
 type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
 type PanelMode = "preview" | "training";
 type Rating = TrainingModeRating;
+type TrainingSubsetFilter = "learning" | "review" | "all";
 
 type GalleryStatusAction = {
   nextStatus: VerseStatus;
@@ -63,19 +74,10 @@ type GalleryStatusAction = {
 
 type VersePreviewOverride = Partial<Pick<Verse, "status" | "masteryLevel" | "repetitions">>;
 
-const MAX_MASTERY_LEVEL = 8;
-
-enum TrainingModeId {
-  ClickChunks = 1,
-  ClickWordsHinted = 2,
-  ClickWordsNoHints = 3,
-  FirstLettersWithWordHints = 4,
-  FirstLettersTapNoHints = 5,
-  FirstLettersTyping = 6,
-  FullRecall = 7,
-}
+const MAX_MASTERY_LEVEL = TRAINING_STAGE_MASTERY_MAX;
 
 type ModeId = TrainingModeId;
+type TrainingModeMeta = (typeof MODE_PIPELINE)[ModeId];
 
 type TrainingVerseState = {
   raw: Verse;
@@ -83,12 +85,19 @@ type TrainingVerseState = {
   telegramId: string | null;
   externalVerseId: string;
   status: VerseStatus;
-  masteryLevel: number;
+  rawMasteryLevel: number;
+  stageMasteryLevel: number;
   repetitions: number;
   lastModeId: ModeId | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
 };
+
+const TRAINING_SUBSET_OPTIONS: Array<{ key: TrainingSubsetFilter; label: string }> = [
+  { key: "all", label: "Все" },
+  { key: "learning", label: "Изучение" },
+  { key: "review", label: "Повторение" },
+];
 
 const MODE_PIPELINE: Record<ModeId, { label: string; description: string; renderer: TrainingModeRendererKey; badgeClass: string }> = {
   [TrainingModeId.ClickChunks]: {
@@ -135,19 +144,9 @@ const MODE_PIPELINE: Record<ModeId, { label: string; description: string; render
   },
 };
 
-const MODE_PROGRESS_ORDER: ModeId[] = [
-  TrainingModeId.ClickChunks,
-  TrainingModeId.ClickWordsHinted,
-  TrainingModeId.ClickWordsNoHints,
-  TrainingModeId.FirstLettersWithWordHints,
-  TrainingModeId.FirstLettersTapNoHints,
-  TrainingModeId.FirstLettersTyping,
-  TrainingModeId.FullRecall,
-];
-
 const SCORE_BY_RATING: Record<Rating, number> = { 0: 35, 1: 60, 2: 84, 3: 96 };
 const MASTERY_DELTA_BY_RATING: Record<Rating, number> = { 0: -1, 1: 0, 2: 1, 3: 2 };
-const MODE_SHIFT_BY_RATING: Record<Rating, number> = { 0: -1, 1: 0, 2: 1, 3: 2 };
+const MODE_SHIFT_BY_RATING: Record<Rating, number> = TRAINING_MODE_SHIFT_BY_RATING;
 const SPACED_REPETITION_MS: Record<number, number> = {
   0: 10 * 60 * 1000,
   1: 60 * 60 * 1000,
@@ -196,14 +195,16 @@ function normalizeVerseStatus(status: Verse["status"]): VerseStatus {
   return VerseStatus.NEW;
 }
 
-function normalizeMasteryLevel(raw: number | null | undefined): number {
-  if (typeof raw !== "number" || Number.isNaN(raw)) return 0;
-  if (raw <= MAX_MASTERY_LEVEL) return clamp(Math.round(raw), 0, MAX_MASTERY_LEVEL);
-  return clamp(Math.round((raw / 100) * MAX_MASTERY_LEVEL), 0, MAX_MASTERY_LEVEL);
+function normalizeRawMasteryLevel(raw: number | null | undefined): number {
+  return normalizeSharedRawMasteryLevel(raw);
 }
 
-function masteryToProgress(masteryLevel: number) {
-  return Math.round((clamp(masteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100);
+function toStageMasteryLevel(rawMasteryLevel: number) {
+  return toTrainingStageMasteryLevel(rawMasteryLevel);
+}
+
+function masteryToProgress(stageMasteryLevel: number) {
+  return Math.round((clamp(stageMasteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100);
 }
 
 function getVerseIdentity(verse: Pick<Verse, "id" | "externalVerseId">) {
@@ -214,13 +215,15 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   const externalVerseId = String(verse.externalVerseId ?? verse.id ?? "").trim();
   const text = String(verse.text ?? "").trim();
   if (!externalVerseId || !text) return null;
+  const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel);
   return {
     raw: verse,
     key: getVerseIdentity(verse),
     telegramId: (verse as any).telegramId ? String((verse as any).telegramId) : null,
     externalVerseId,
     status: normalizeVerseStatus(verse.status),
-    masteryLevel: normalizeMasteryLevel(verse.masteryLevel),
+    rawMasteryLevel,
+    stageMasteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
     lastModeId: null,
     lastReviewedAt: parseDate((verse as any).lastReviewedAt),
@@ -228,58 +231,32 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   };
 }
 function isTrainingEligibleVerse(verse: TrainingVerseState) {
-  return verse.status === VerseStatus.LEARNING && verse.masteryLevel < MAX_MASTERY_LEVEL;
+  return verse.status === VerseStatus.LEARNING;
 }
 
-function getBaseModeForMastery(masteryLevel: number): ModeId {
-  const map: Record<number, ModeId> = {
-    0: TrainingModeId.ClickChunks,
-    1: TrainingModeId.ClickWordsHinted,
-    2: TrainingModeId.ClickWordsNoHints,
-    3: TrainingModeId.FirstLettersWithWordHints,
-    4: TrainingModeId.FirstLettersTapNoHints,
-    5: TrainingModeId.FirstLettersTyping,
-    6: TrainingModeId.FullRecall,
-    7: TrainingModeId.FullRecall,
-    8: TrainingModeId.FullRecall,
-  };
-  return map[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ?? TrainingModeId.ClickChunks;
+function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status" | "rawMasteryLevel">) {
+  return verse.status === VerseStatus.LEARNING && isTrainingReviewRawMastery(verse.rawMasteryLevel);
+}
+
+function matchesTrainingSubsetFilter(
+  verse: TrainingVerseState,
+  filter: TrainingSubsetFilter
+) {
+  if (filter === "all") return isTrainingEligibleVerse(verse);
+  if (filter === "review") return isTrainingReviewVerse(verse);
+  return verse.status === VerseStatus.LEARNING && verse.rawMasteryLevel <= TRAINING_STAGE_MASTERY_MAX;
 }
 
 function chooseModeId(verse: TrainingVerseState): ModeId {
-  const base = getBaseModeForMastery(verse.masteryLevel);
-  const baseIndex = MODE_PROGRESS_ORDER.indexOf(base);
-  if (baseIndex < 0) return base;
-
-  const candidates: ModeId[] = [];
-  for (let distance = 0; distance < MODE_PROGRESS_ORDER.length; distance += 1) {
-    const left = baseIndex - distance;
-    const right = baseIndex + distance;
-    if (left >= 0) {
-      const leftMode = MODE_PROGRESS_ORDER[left];
-      if (!candidates.includes(leftMode)) candidates.push(leftMode);
-    }
-    if (distance > 0 && right < MODE_PROGRESS_ORDER.length) {
-      const rightMode = MODE_PROGRESS_ORDER[right];
-      if (!candidates.includes(rightMode)) candidates.push(rightMode);
-    }
-  }
-  return candidates.find((id) => id !== verse.lastModeId) ?? base;
+  return chooseTrainingModeId({
+    rawMasteryLevel: verse.rawMasteryLevel,
+    stageMasteryLevel: verse.stageMasteryLevel,
+    lastModeId: verse.lastModeId,
+  });
 }
 
 function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): ModeId | null {
-  const index = MODE_PROGRESS_ORDER.indexOf(modeId);
-  if (index < 0) return null;
-  if (shift === 0) return modeId;
-  if (shift > 0) {
-    const nextIndex = index + shift;
-    if (nextIndex >= MODE_PROGRESS_ORDER.length) {
-      if (index < MODE_PROGRESS_ORDER.length - 1) return MODE_PROGRESS_ORDER[MODE_PROGRESS_ORDER.length - 1];
-      return null;
-    }
-    return MODE_PROGRESS_ORDER[nextIndex];
-  }
-  return MODE_PROGRESS_ORDER[Math.max(0, index + shift)];
+  return getTrainingModeByShiftInProgressOrder(modeId, shift);
 }
 
 function calcNextReviewAt(masteryLevel: number, score: number): Date {
@@ -298,14 +275,14 @@ function getTelegramId(): string | null {
 
 function patchStatusForTrainingVerse(verse: TrainingVerseState): "NEW" | "LEARNING" | "STOPPED" {
   if (verse.status === VerseStatus.STOPPED) return "STOPPED";
-  return verse.masteryLevel > 0 ? "LEARNING" : "NEW";
+  return verse.rawMasteryLevel > 0 ? "LEARNING" : "NEW";
 }
 
 async function persistTrainingVerseProgress(verse: TrainingVerseState) {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return false;
   await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
-    masteryLevel: verse.masteryLevel,
+    masteryLevel: verse.rawMasteryLevel,
     repetitions: verse.repetitions,
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
@@ -315,7 +292,7 @@ async function persistTrainingVerseProgress(verse: TrainingVerseState) {
 }
 
 function asLegacyVerse(verse: TrainingVerseState): LegacyVerse {
-  const progress = masteryToProgress(verse.masteryLevel);
+  const progress = masteryToProgress(verse.stageMasteryLevel);
   return {
     id: verse.key,
     reference: verse.raw.reference,
@@ -435,20 +412,107 @@ function DotProgress({ total, active }: { total: number; active: number }) {
     </div>
   );
 }
-function TrainingMetaPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
-      <div className="text-sm font-medium truncate">{value}</div>
-    </div>
-  );
-}
-
 const slideVariants = {
   enter: (dir: number) => ({ y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 }),
   center: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 320, damping: 32 } as const },
   exit: (dir: number) => ({ y: dir > 0 ? "-18%" : "18%", opacity: 0, scale: 0.86, transition: { duration: 0.2, ease: "easeIn" } as const }),
 };
+
+type PreviewViewportProps = {
+  verse: Verse;
+  activeIndex: number;
+  versesCount: number;
+  actionPending: boolean;
+  onNavigate: (dir: "prev" | "next") => void;
+  onStartTraining: () => void | Promise<void>;
+};
+
+function VerseGalleryPreviewViewport({
+  verse,
+  activeIndex,
+  versesCount,
+  actionPending,
+  onNavigate,
+  onStartTraining,
+}: PreviewViewportProps) {
+  const isReviewAction =
+    normalizeVerseStatus(verse.status) === VerseStatus.LEARNING &&
+    Number(verse.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX;
+  const ctaLabel = isReviewAction ? "ПОВТОРЯТЬ" : "УЧИТЬ";
+  const ctaAriaLabel = isReviewAction ? "Повторять этот стих" : "Учить этот стих";
+
+  return (
+    <VerseCard
+      verse={verse}
+      isActive
+      isFirst={activeIndex === 0}
+      isLast={activeIndex === versesCount - 1}
+      onNavigate={onNavigate}
+      onHaptic={haptic}
+      topBadge={<MasteryBadge status={normalizeVerseStatus(verse.status)} masteryLevel={verse.masteryLevel ?? 0} />}
+      centerAction={
+        <Button
+          className={`gap-2 min-w-[200px] shadow-lg rounded-2xl ${
+            isReviewAction
+              ? ""
+              : ""
+          }`}
+          onClick={() => void onStartTraining()}
+          disabled={actionPending}
+          aria-label={ctaAriaLabel}
+        >
+          {isReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {ctaLabel}
+        </Button>
+      }
+    />
+  );
+}
+
+type TrainingViewportProps = {
+  trainingActiveVerse: TrainingVerseState;
+  trainingModeId: ModeId;
+  trainingModeMeta: TrainingModeMeta | null;
+  trainingRendererRef: Ref<TrainingModeRendererHandle>;
+  onTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
+  onTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
+  onRate: (rating: Rating) => void | Promise<void>;
+};
+
+function VerseGalleryTrainingViewport({
+  trainingActiveVerse,
+  trainingModeId,
+  trainingModeMeta,
+  trainingRendererRef,
+  onTouchStart,
+  onTouchEnd,
+  onRate,
+}: TrainingViewportProps) {
+  return (
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className="w-full">
+      <TrainingModeRenderer
+        ref={trainingRendererRef}
+        renderer={MODE_PIPELINE[trainingModeId].renderer}
+        verse={asLegacyVerse(trainingActiveVerse)}
+        onRate={onRate}
+        topBadge={
+          trainingModeMeta ? (
+            <div className="flex items-center gap-2">
+              <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
+                {trainingModeMeta.label}
+              </Badge>
+              {isTrainingReviewVerse(trainingActiveVerse) && (
+                <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700 shadow-sm">
+                  Повторение
+                </Badge>
+              )}
+            </div>
+          ) : null
+        }
+      />
+    </div>
+  );
+}
 
 export function VerseGallery({
   verses,
@@ -456,7 +520,6 @@ export function VerseGallery({
   onClose,
   onStatusChange,
   onDelete,
-  onStartTraining: _onStartTraining,
 }: VerseGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
@@ -469,6 +532,7 @@ export function VerseGallery({
   const [trainingVerses, setTrainingVerses] = useState<TrainingVerseState[]>([]);
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
+  const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
   const trainingTouchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
@@ -476,7 +540,7 @@ export function VerseGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
-  const bottomInset = contentSafeAreaInset.bottom + 10;
+  const bottomInset = contentSafeAreaInset.bottom;
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
 
   useBodyScrollLock();
@@ -485,8 +549,12 @@ export function VerseGallery({
   const previewActiveVerse = previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null;
 
   const trainingEligibleIndices = useMemo(
-    () => trainingVerses.map((verse, index) => ({ verse, index })).filter(({ verse }) => isTrainingEligibleVerse(verse)).map(({ index }) => index),
-    [trainingVerses]
+    () =>
+      trainingVerses
+        .map((verse, index) => ({ verse, index }))
+        .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
+        .map(({ index }) => index),
+    [trainingVerses, trainingSubsetFilter]
   );
 
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
@@ -518,6 +586,37 @@ export function VerseGallery({
       : activeIndex + 1;
     setSlideAnnouncement(`Стих ${position} из ${Math.max(total, 1)}: ${displayVerse.reference}`);
   }, [displayVerse, panelMode, trainingEligibleIndices, trainingIndex, activeIndex, verses.length]);
+
+  useEffect(() => {
+    if (panelMode !== "training") return;
+    if (trainingEligibleIndices.length > 0) {
+      if (!trainingEligibleIndices.includes(trainingIndex)) {
+        const nextIndex = trainingEligibleIndices[0];
+        const nextVerse = trainingVerses[nextIndex];
+        if (!nextVerse) return;
+        setTrainingIndex(nextIndex);
+        setTrainingModeId(chooseModeId(nextVerse));
+      }
+      return;
+    }
+
+    if (trainingSubsetFilter !== "all") {
+      toast.info("Нет стихов для выбранного режима", {
+        description: "Переключаем обратно на «Все».",
+      });
+      setTrainingSubsetFilter("all");
+      return;
+    }
+
+    if (trainingVerses.some(isTrainingEligibleVerse)) {
+      const nextIndex = trainingVerses.findIndex(isTrainingEligibleVerse);
+      if (nextIndex >= 0) {
+        const nextVerse = trainingVerses[nextIndex];
+        setTrainingIndex(nextIndex);
+        setTrainingModeId(chooseModeId(nextVerse));
+      }
+    }
+  }, [panelMode, trainingEligibleIndices, trainingIndex, trainingSubsetFilter, trainingVerses]);
 
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
     setFeedback({ message, type });
@@ -625,11 +724,12 @@ export function VerseGallery({
       return sortByCreatedAtDesc(verses.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING));
     }
     try {
-      const response = (await UserVersesService.getApiUsersVerses(telegramId, {
-        status: VerseStatus.LEARNING,
-        orderBy: "createdAt",
-        order: "desc",
-      })) as Array<Verse>;
+      const response = (await UserVersesService.getApiUsersVerses(
+        telegramId,
+        VerseStatus.LEARNING,
+        "createdAt",
+        "desc"
+      )) as Array<Verse>;
       const filtered = response.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING);
       return sortByCreatedAtDesc(filtered);
     } catch (error) {
@@ -639,7 +739,7 @@ export function VerseGallery({
   }, [verses]);
 
   const startTrainingFromActiveVerse = useCallback(async () => {
-    if (actionPending || !previewActiveVerse) return;
+    if (actionPending || !previewActiveVerse) return false;
     try {
       setActionPending(true);
       let startVerse = previewActiveVerse;
@@ -657,23 +757,33 @@ export function VerseGallery({
       }
       if (!normalized.some((v) => v.status === VerseStatus.LEARNING)) {
         showFeedback("Нет стихов в изучении", "error");
-        return;
+        return false;
       }
       const startIndex = Math.max(0, normalized.findIndex((v) => v.key === startKey));
       const startState = normalized[startIndex] ?? normalized[0];
       setTrainingVerses(normalized);
+      setTrainingSubsetFilter("all");
       setTrainingIndex(startIndex);
       setTrainingModeId(chooseModeId(startState));
       setPanelMode("training");
       setDirection(0);
       haptic("medium");
+      return true;
     } catch {
       haptic("error");
       showFeedback("Ошибка — попробуйте ещё раз", "error");
+      return false;
     } finally {
       setActionPending(false);
     }
-  }, [actionPending, previewActiveVerse, onStatusChange, setPreviewOverride, fetchLearningVersesForTraining, showFeedback]);
+  }, [
+    actionPending,
+    previewActiveVerse,
+    onStatusChange,
+    setPreviewOverride,
+    fetchLearningVersesForTraining,
+    showFeedback,
+  ]);
 
   const handleTrainingTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
@@ -704,24 +814,31 @@ export function VerseGallery({
     const current = trainingVerses[trainingIndex];
     if (!current) return;
 
-    const masteryBefore = current.masteryLevel;
-    const masteryAfter = clamp(masteryBefore + (MASTERY_DELTA_BY_RATING[rating] ?? 0), 0, MAX_MASTERY_LEVEL);
+    const rawMasteryBefore = current.rawMasteryLevel;
+    const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + (MASTERY_DELTA_BY_RATING[rating] ?? 0)));
+    const stageMasteryBefore = current.stageMasteryLevel;
+    const stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const now = new Date();
     const score = SCORE_BY_RATING[rating];
-    const nextReviewAt = calcNextReviewAt(masteryAfter, score);
-    const becameLearned = masteryBefore < MAX_MASTERY_LEVEL && masteryAfter >= MAX_MASTERY_LEVEL;
+    const nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
+    const becameLearned = stageMasteryBefore < MAX_MASTERY_LEVEL && stageMasteryAfter >= MAX_MASTERY_LEVEL;
+    const nextStatus =
+      current.status === VerseStatus.STOPPED
+        ? VerseStatus.STOPPED
+        : (rawMasteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW);
 
     const updated: TrainingVerseState = {
       ...current,
       raw: {
         ...current.raw,
-        masteryLevel: masteryAfter,
+        masteryLevel: rawMasteryAfter,
         repetitions: current.repetitions + 1,
-        status: current.status === VerseStatus.STOPPED ? VerseStatus.STOPPED : (masteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW),
+        status: nextStatus,
       } as Verse,
-      masteryLevel: masteryAfter,
+      rawMasteryLevel: rawMasteryAfter,
+      stageMasteryLevel: stageMasteryAfter,
       repetitions: current.repetitions + 1,
-      status: current.status === VerseStatus.STOPPED ? VerseStatus.STOPPED : (masteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW),
+      status: nextStatus,
       lastModeId: trainingModeId,
       lastReviewedAt: now,
       nextReviewAt,
@@ -732,7 +849,7 @@ export function VerseGallery({
     setTrainingVerses(updatedList);
     setPreviewOverride(current.raw, {
       status: updated.status,
-      masteryLevel: masteryAfter,
+      masteryLevel: rawMasteryAfter,
       repetitions: updated.repetitions,
     });
 
@@ -741,14 +858,26 @@ export function VerseGallery({
       showFeedback("Стих выучен", "success");
     }
 
+    const isReviewExercise = isTrainingReviewVerse(updated);
     const nextMode = getModeByShiftInProgressOrder(trainingModeId, MODE_SHIFT_BY_RATING[rating] ?? 1);
-    if (isTrainingEligibleVerse(updated) && nextMode) {
+    if (!isReviewExercise && matchesTrainingSubsetFilter(updated, trainingSubsetFilter) && nextMode) {
       setTrainingModeId(nextMode);
     } else {
-      const eligibleIndices = updatedList
+      let eligibleIndices = updatedList
         .map((verse, index) => ({ verse, index }))
-        .filter(({ verse }) => isTrainingEligibleVerse(verse))
+        .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
         .map(({ index }) => index);
+
+      if (eligibleIndices.length === 0 && trainingSubsetFilter !== "all") {
+        toast.info("Нет стихов для выбранного режима", {
+          description: "Переключаем обратно на «Все».",
+        });
+        setTrainingSubsetFilter("all");
+        eligibleIndices = updatedList
+          .map((verse, index) => ({ verse, index }))
+          .filter(({ verse }) => isTrainingEligibleVerse(verse))
+          .map(({ index }) => index);
+      }
 
       if (eligibleIndices.length === 0) {
         exitTrainingMode(updated);
@@ -768,7 +897,7 @@ export function VerseGallery({
       haptic("error");
       showFeedback("Ошибка — попробуйте ещё раз", "error");
     }
-  }, [panelMode, trainingModeId, trainingVerses, trainingIndex, setPreviewOverride, exitTrainingMode, showFeedback]);
+  }, [panelMode, trainingModeId, trainingVerses, trainingIndex, trainingSubsetFilter, setPreviewOverride, exitTrainingMode, showFeedback]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -798,6 +927,8 @@ export function VerseGallery({
   }, [deleteDialogOpen, panelMode, onClose, exitTrainingMode, jumpToAdjacentTrainingVerse, navigatePreviewTo]);
 
   if (!displayVerse) return null;
+
+  const galleryBodyKey = `${panelMode}-${getVerseIdentity(displayVerse)}`;
 
   const previewStatusAction = panelMode === "preview" && previewActiveVerse
     ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
@@ -854,13 +985,25 @@ export function VerseGallery({
                   )}
                   <Badge className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
                 </div>
-                {/* <div className="text-base sm:text-lg font-semibold truncate">{displayVerse.reference}</div>
-                {trainingModeMeta && (
-                  <>
-                    <div className="text-xs sm:text-sm text-muted-foreground mt-1">{trainingModeMeta.label}</div>
-                    <div className="text-xs text-muted-foreground">{trainingModeMeta.description}</div>
-                  </>
-                )} */}
+                <div className="p-1 backdrop-blur-lg absolute left-1/2 -translate-x-1/2 flex gap-1 bg-background/80 rounded-full">
+                  {TRAINING_SUBSET_OPTIONS.map((option) => (
+                    <Button
+                      key={option.key}
+                      type="button"
+                      size="sm"
+                      variant={trainingSubsetFilter === option.key ? "default" : "outline"}
+                      className="rounded-full"
+                      onClick={() => {
+                        if (trainingSubsetFilter === option.key) return;
+                        haptic("light");
+                        setTrainingSubsetFilter(option.key);
+                      }}
+                      aria-pressed={trainingSubsetFilter === option.key}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
               {!isInTelegram && (
                 <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
@@ -868,49 +1011,33 @@ export function VerseGallery({
                 </Button>
               )}
             </div>
-            {/* {trainingActiveVerse && (
-              <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
-                <TrainingMetaPill label="Уровень" value={`${trainingActiveVerse.masteryLevel}/${MAX_MASTERY_LEVEL}`} />
-                <TrainingMetaPill label="Повторы" value={`${trainingActiveVerse.repetitions}`} />
-              </div>
-            )} */}
           </div>
         )}
       </div>
       <div className="flex-1 relative flex items-center justify-center px-4 sm:px-6" role="region" aria-roledescription="carousel" aria-label={panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"}>
         <AnimatePresence mode="wait" custom={direction}>
-          <motion.div key={`${panelMode}-${getVerseIdentity(displayVerse)}`} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
+          <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
             {panelMode === "preview" && previewActiveVerse ? (
-              <VerseCard
+              <VerseGalleryPreviewViewport
                 verse={displayVerse}
-                isActive
-                isFirst={activeIndex === 0}
-                isLast={activeIndex === verses.length - 1}
+                activeIndex={activeIndex}
+                versesCount={verses.length}
+                actionPending={actionPending}
                 onNavigate={navigatePreviewTo}
-                onHaptic={haptic}
-                topBadge={<MasteryBadge status={normalizeVerseStatus(displayVerse.status)} />}
-                centerAction={
-                  <Button className="gap-2 min-w-[180px] shadow-lg" onClick={() => void startTrainingFromActiveVerse()} disabled={actionPending} aria-label="Учить этот стих">
-                    <Play className="h-4 w-4" />УЧИТЬ
-                  </Button>
-                }
+                onStartTraining={() => {
+                  void startTrainingFromActiveVerse();
+                }}
               />
             ) : panelMode === "training" && trainingActiveVerse && trainingModeId ? (
-              <div onTouchStart={handleTrainingTouchStart} onTouchEnd={handleTrainingTouchEnd} className="w-full">
-                <TrainingModeRenderer
-                  ref={trainingRendererRef}
-                  renderer={MODE_PIPELINE[trainingModeId].renderer}
-                  verse={asLegacyVerse(trainingActiveVerse)}
-                  onRate={handleTrainingRate}
-                  topBadge={
-                    trainingModeMeta ? (
-                      <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
-                        {trainingModeMeta.label}
-                      </Badge>
-                    ) : null
-                  }
-                />
-              </div>
+              <VerseGalleryTrainingViewport
+                trainingActiveVerse={trainingActiveVerse}
+                trainingModeId={trainingModeId}
+                trainingModeMeta={trainingModeMeta}
+                trainingRendererRef={trainingRendererRef}
+                onTouchStart={handleTrainingTouchStart}
+                onTouchEnd={handleTrainingTouchEnd}
+                onRate={handleTrainingRate}
+              />
             ) : null}
           </motion.div>
         </AnimatePresence>
@@ -920,14 +1047,14 @@ export function VerseGallery({
         <div className="shrink-0 px-4 sm:px-6 z-40">
           <div className="mx-auto w-full max-w-2xl flex items-center gap-3">
             {previewStatusAction && (
-              <Button variant="secondary" className="flex-1 gap-2" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
+              <Button variant="secondary" className="flex-1 gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
                 {previewStatusAction.label}
               </Button>
             )}
             <Button
               variant="outline"
-              className={`gap-2 text-destructive hover:text-destructive ${previewStatusAction ? "" : "flex-1"}`}
+              className={`gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl ${previewStatusAction ? "" : "flex-1"}`}
               onClick={() => {
                 if (actionPending) return;
                 haptic("warning");
@@ -942,12 +1069,19 @@ export function VerseGallery({
         </div>
       )}
 
-      <div className="shrink-0 flex items-center justify-center gap-3 pt-3" style={{ paddingBottom: `${Math.max(20, bottomInset)}px` }}>
+      <div
+        className="shrink-0 flex items-center justify-center gap-3 pt-3 z-40"
+        style={{ paddingBottom: `${Math.max(bottomInset, 10)}px` }}
+      >
         <Button
           variant="secondary"
           size="icon"
           onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(-1) : navigatePreviewTo("prev"))}
-          disabled={panelMode === "training" ? displayActive <= 0 || trainingEligibleIndices.length <= 1 : activeIndex === 0}
+          disabled={
+            (panelMode === "training"
+              ? displayActive <= 0 || trainingEligibleIndices.length <= 1
+              : activeIndex === 0)
+          }
           aria-label="Предыдущий стих"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -959,7 +1093,11 @@ export function VerseGallery({
           variant="secondary"
           size="icon"
           onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(1) : navigatePreviewTo("next"))}
-          disabled={panelMode === "training" ? displayActive >= displayTotal - 1 || trainingEligibleIndices.length <= 1 : activeIndex === verses.length - 1}
+          disabled={
+            (panelMode === "training"
+              ? displayActive >= displayTotal - 1 || trainingEligibleIndices.length <= 1
+              : activeIndex === verses.length - 1)
+          }
           aria-label="Следующий стих"
         >
           <ChevronRight className="h-5 w-5" />

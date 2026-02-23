@@ -7,13 +7,14 @@ import { Textarea } from '../../ui/textarea';
 import { motion } from 'motion/react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Verse } from '../../../data/mockData';
+import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 interface TypingModeProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
-function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
+function RatingButtons({ verse, onRate }: { verse: Verse, onRate: (rating: 0 | 1 | 2 | 3) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -34,21 +35,21 @@ function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) 
           className="bg-orange-500 hover:bg-orange-600 text-white"
           size="lg"
         >
-          Сложно
+          Повторить
         </Button>
-        <Button
+        {/* <Button
           onClick={() => onRate(2)}
           className="bg-blue-500 hover:bg-blue-600 text-white"
           size="lg"
         >
           Норм
-        </Button>
+        </Button> */}
         <Button
-          onClick={() => onRate(3)}
+          onClick={() => onRate(verse.masteryLevel >= TRAINING_STAGE_MASTERY_MAX ? 3 : 2)}
           className="bg-[#059669] hover:bg-[#047857] text-white"
           size="lg"
         >
-          Отлично
+          Завершить стих
         </Button>
       </div>
     </motion.div>
@@ -116,7 +117,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-xl p-8 sm:p-12 shadow-sm border border-border"
+        className="bg-card rounded-3xl p-8 sm:p-12 shadow-sm border border-border"
       >
         <div className="space-y-6">
           {/* Reference */}
@@ -197,7 +198,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             </Button>
           ) : (
             <TrainingRatingFooter>
-              <RatingButtons onRate={onRate} />
+              <RatingButtons verse={verse} onRate={onRate} />
             </TrainingRatingFooter>
           )}
         </div>

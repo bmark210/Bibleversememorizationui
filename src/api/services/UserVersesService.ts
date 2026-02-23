@@ -10,16 +10,19 @@ export class UserVersesService {
     /**
      * Список стихов пользователя
      * @param telegramId
+     * @param status
+     * @param orderBy
+     * @param order
+     * @param filter
      * @returns UserVerse OK
      * @throws ApiError
      */
     public static getApiUsersVerses(
         telegramId: string,
-        query?: {
-            status?: 'NEW' | 'LEARNING' | 'MASTERED' | 'STOPPED';
-            orderBy?: 'createdAt' | 'updatedAt';
-            order?: 'asc' | 'desc';
-        },
+        status?: 'NEW' | 'LEARNING' | 'STOPPED',
+        orderBy?: 'createdAt' | 'updatedAt',
+        order?: 'asc' | 'desc',
+        filter?: 'all' | 'new' | 'learning' | 'review' | 'stopped',
     ): CancelablePromise<Array<UserVerse>> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -27,7 +30,12 @@ export class UserVersesService {
             path: {
                 'telegramId': telegramId,
             },
-            query,
+            query: {
+                'status': status,
+                'orderBy': orderBy,
+                'order': order,
+                'filter': filter,
+            },
         });
     }
     /**
@@ -61,6 +69,31 @@ export class UserVersesService {
         });
     }
     /**
+     * Список стихов пользователя на повторение (LEARNING, masteryLevel > TRAINING_STAGE_MASTERY_MAX)
+     * @param telegramId
+     * @param orderBy
+     * @param order
+     * @returns UserVerse OK
+     * @throws ApiError
+     */
+    public static getApiUsersVersesReview(
+        telegramId: string,
+        orderBy?: 'createdAt' | 'updatedAt',
+        order?: 'asc' | 'desc',
+    ): CancelablePromise<Array<UserVerse>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/verses/review',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'orderBy': orderBy,
+                'order': order,
+            },
+        });
+    }
+    /**
      * Обновить прогресс по стиху
      * @param telegramId
      * @param externalVerseId
@@ -76,7 +109,7 @@ export class UserVersesService {
             repetitions?: number;
             lastReviewedAt?: string;
             nextReviewAt?: string;
-            status?: 'NEW' | 'LEARNING' | 'MASTERED' | 'STOPPED';
+            status?: 'NEW' | 'LEARNING' | 'STOPPED';
         },
     ): CancelablePromise<UserVerse> {
         return __request(OpenAPI, {

@@ -29,7 +29,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const topInset = contentSafeAreaInset.top;
-  const bottomInset = contentSafeAreaInset.bottom + 10;
+  const bottomInset = contentSafeAreaInset.bottom;
 
   useEffect(() => {
     const root = document.documentElement;

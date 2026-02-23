@@ -5,6 +5,7 @@ import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import { useDrag } from "@use-gesture/react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { Verse } from "@/app/App";
+import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 /* ===================== CONSTANTS ===================== */
 
@@ -158,20 +159,20 @@ export function VerseCard({
             <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
               Прогресс освоения
             </span>
-            <span className="text-2xl font-bold text-primary">{Math.round(verse.masteryLevel / 14 * 100)}%</span>
+            <span className="text-2xl font-bold text-primary">{Math.min(Math.round(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100), 100)}%</span>
           </div>
           <div className="relative h-2 bg-muted rounded-full overflow-hidden">
             <motion.div
               key={`${verse.id}-${isActive}`}
               className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: 0 }}
-              animate={{ width: `${verse.masteryLevel / 14 * 100}%` }}
+              animate={{ width: `${Math.min(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100, 100)}%` }}
               transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
             />
           </div>
         </div>
 
-        <div className="z-10 absolute top-[-30px] left-1/2 -translate-x-1/2 pointer-events-none">
+        <div className="z-10 absolute top-[-30px] left-1/2 -translate-x-1/2 h-fit pointer-events-none">
           {topBadge}
         </div>
 
