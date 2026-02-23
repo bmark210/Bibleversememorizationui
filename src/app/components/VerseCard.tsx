@@ -38,10 +38,12 @@ export function VerseCard({
   minHeight = "training",
   bodyScrollable = false,
 }: VerseCardProps) {
+  const enableTapScale = !bodyScrollable;
+
   return (
     <div className={cn("relative w-full max-w-2xl mx-auto select-none", shellClassName)}>
       <motion.div
-        whileTap={{ scale: 0.985 }}
+        whileTap={enableTapScale ? { scale: 0.985 } : undefined}
         className={cn(
           "relative z-10 w-full bg-gradient-to-br from-card to-card/80",
           "backdrop-blur-sm rounded-[3rem] border-2 border-border/50",
@@ -61,11 +63,11 @@ export function VerseCard({
         {header ? <div className="flex-shrink-0 mb-2">{header}</div> : null}
 
         <div className="relative flex-1 min-h-0">
-        <div
-          data-verse-card-scroll-body={bodyScrollable ? "true" : undefined}
+          <div
+            data-verse-card-scroll-body={bodyScrollable ? "true" : undefined}
             className={cn(
               "h-full min-h-0",
-              bodyScrollable && "overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]",
+              bodyScrollable && "overflow-y-auto overscroll-contain touch-pan-y pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]",
               contentClassName
             )}
           >

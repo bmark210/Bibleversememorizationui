@@ -104,6 +104,7 @@ type TrainingVerseState = {
 
 type TrainingTouchGestureContext = {
   swipeStart: VerticalTouchSwipeStart | null;
+  startedInTrainingContent: boolean;
   scrollEl: HTMLElement | null;
   startScrollTop: number;
   maxScrollTop: number;
@@ -891,6 +892,22 @@ export function VerseGallery({
     showFeedback,
   ]);
 
+  const scrollTrainingContentBySwipeStep = (
+    scrollEl: HTMLElement,
+    step: 1 | -1,
+  ) => {
+    const delta = Math.max(96, Math.round(scrollEl.clientHeight * 0.72));
+    const top = step === 1 ? delta : -delta;
+
+    try {
+      scrollEl.scrollBy({ top, behavior: "smooth" });
+      return;
+    } catch {
+      const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      scrollEl.scrollTop = clamp(scrollEl.scrollTop + top, 0, maxScrollTop);
+    }
+  };
+
   const handleTrainingTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
     const swipeStart = createVerticalTouchSwipeStart(e);
@@ -901,6 +918,7 @@ export function VerseGallery({
 
     trainingTouchGestureRef.current = {
       swipeStart,
+      startedInTrainingContent: Boolean(scrollEl),
       scrollEl,
       startScrollTop: scrollEl?.scrollTop ?? 0,
       maxScrollTop,
@@ -916,20 +934,12 @@ export function VerseGallery({
     const step = getVerticalTouchSwipeStep(touchContext?.swipeStart ?? null, e);
     if (!step) return;
 
-    if (!touchContext?.scrollEl || !touchContext.scrollable) {
-      jumpToAdjacentTrainingVerse(step);
+    if (touchContext?.startedInTrainingContent) {
+      if (touchContext.scrollEl && touchContext.scrollable) {
+        scrollTrainingContentBySwipeStep(touchContext.scrollEl, step);
+      }
       return;
     }
-
-    const currentScrollTop = touchContext.scrollEl.scrollTop;
-    const wasAtTop = touchContext.startScrollTop <= 1;
-    const wasAtBottom = touchContext.startScrollTop >= touchContext.maxScrollTop - 1;
-    const scrollMoved = Math.abs(currentScrollTop - touchContext.startScrollTop) > 2;
-
-    if (scrollMoved) return;
-
-    if (step === 1 && !wasAtBottom) return;
-    if (step === -1 && !wasAtTop) return;
 
     jumpToAdjacentTrainingVerse(step);
   };
