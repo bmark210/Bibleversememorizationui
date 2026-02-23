@@ -31,6 +31,11 @@ export const TRAINING_MODE_SHIFT_BY_RATING: Record<TrainingModeRating, number> =
   3: 2,
 };
 
+export function shouldCountTrainingRepetition(rating: TrainingModeRating): boolean {
+  // "Забыл" = attempt does not count as a successful repetition for repetition stats.
+  return rating !== 0;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -133,4 +138,3 @@ export function getRemainingTrainingModesCount(params: {
 
   return TRAINING_MODE_PROGRESS_ORDER.length - baseIndex;
 }
-

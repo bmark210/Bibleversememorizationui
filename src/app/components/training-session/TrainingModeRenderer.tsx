@@ -5,7 +5,6 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -152,7 +151,6 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const modeRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const seen = readSeenModeTutorials();
@@ -172,24 +170,6 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
     seen[renderer] = true;
     writeSeenModeTutorials(seen);
     setTutorialOpen(false);
-
-    const focusEditable = () => {
-      const root = modeRootRef.current;
-      if (!root) return;
-      const field = root.querySelector<HTMLTextAreaElement | HTMLInputElement>(
-        'textarea:not([disabled]), input:not([disabled])'
-      );
-      if (!field) return;
-      try {
-        field.focus({ preventScroll: true });
-      } catch {
-        field.focus();
-      }
-    };
-
-    focusEditable();
-    requestAnimationFrame(focusEditable);
-    window.setTimeout(focusEditable, 80);
   };
 
   const modeContent = (() => {
@@ -223,7 +203,6 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
   return (
     <>
       <div
-        ref={modeRootRef}
         className="
           relative w-full
           min-h-[560px] sm:min-h-[620px]

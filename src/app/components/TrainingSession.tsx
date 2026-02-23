@@ -21,6 +21,7 @@ import {
   getTrainingModeByShiftInProgressOrder,
   isTrainingReviewRawMastery,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
+  shouldCountTrainingRepetition,
   toTrainingStageMasteryLevel,
 } from '@/shared/training/modeEngine';
 import {
@@ -594,6 +595,7 @@ export function TrainingSession({
     const rawMasteryBefore = baseVerse.rawMasteryLevel;
     const masteryBefore = baseVerse.masteryLevel;
     const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
+    const shouldIncrementRepetitions = shouldCountTrainingRepetition(rating);
     const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + masteryDelta));
     const masteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const passed = masteryDelta > 0;
@@ -606,7 +608,7 @@ export function TrainingSession({
       ...baseVerse,
       rawMasteryLevel: rawMasteryAfter,
       masteryLevel: masteryAfter,
-      repetitions: baseVerse.repetitions + 1,
+      repetitions: baseVerse.repetitions + (shouldIncrementRepetitions ? 1 : 0),
       lastReviewedAt: now,
       nextReviewAt,
       lastModeId: step.modeId,

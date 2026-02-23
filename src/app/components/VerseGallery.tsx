@@ -41,6 +41,7 @@ import {
   getTrainingModeByShiftInProgressOrder,
   isTrainingReviewRawMastery,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
+  shouldCountTrainingRepetition,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
 import {
@@ -831,6 +832,7 @@ export function VerseGallery({
     if (!current) return;
 
     const rawMasteryBefore = current.rawMasteryLevel;
+    const shouldIncrementRepetitions = shouldCountTrainingRepetition(rating);
     const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + (MASTERY_DELTA_BY_RATING[rating] ?? 0)));
     const stageMasteryBefore = current.stageMasteryLevel;
     const stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
@@ -848,12 +850,12 @@ export function VerseGallery({
       raw: {
         ...current.raw,
         masteryLevel: rawMasteryAfter,
-        repetitions: current.repetitions + 1,
+        repetitions: current.repetitions + (shouldIncrementRepetitions ? 1 : 0),
         status: nextStatus,
       } as Verse,
       rawMasteryLevel: rawMasteryAfter,
       stageMasteryLevel: stageMasteryAfter,
-      repetitions: current.repetitions + 1,
+      repetitions: current.repetitions + (shouldIncrementRepetitions ? 1 : 0),
       status: nextStatus,
       lastModeId: trainingModeId,
       lastReviewedAt: now,
@@ -980,9 +982,11 @@ export function VerseGallery({
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
           <div className="flex items-center justify-center p-4 w-full">
-            <Badge variant="outline">cfdvfd</Badge>
+            <p className="text-lg text-center font-bold flex items-center justify-center gap-2">Цель сегодня: 
+              <Badge variant="secondary" className="text-lg rounded-full">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
+            </p>
             {/* <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge> */}
-            <Badge className="absolute right-4 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
+            <Badge className="absolute right-4 top-[80px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
 
             {!isInTelegram && (
               <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
