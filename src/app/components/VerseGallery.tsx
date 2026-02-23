@@ -925,7 +925,7 @@ export function VerseGallery({
         </div>
       )}
 
-      <div className="shrink-0 flex items-center justify-center gap-3 pb-6 pt-3" style={{ paddingBottom: `${Math.max(24, bottomInset + 16)}px` }}>
+      <div className="shrink-0 flex items-center justify-center gap-3 pt-3" style={{ paddingBottom: `${Math.max(20, bottomInset)}px` }}>
         <Button
           variant="secondary"
           size="icon"
