@@ -469,7 +469,7 @@ export function VerseGallery({
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const { contentSafeAreaInset } = useTelegramSafeArea();
+  const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom + 10;
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
@@ -554,6 +554,41 @@ export function VerseGallery({
     setPanelMode("preview");
     setTrainingModeId(null);
   }, [syncPreviewIndexToVerse, trainingActiveVerse]);
+
+  useEffect(() => {
+    if (!isInTelegram || typeof window === "undefined") return;
+
+    const backButton = (window as any).Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+
+    const handleBackButton = () => {
+      if (deleteDialogOpen) {
+        setDeleteDialogOpen(false);
+        return;
+      }
+      if (panelMode === "training") {
+        exitTrainingMode();
+        return;
+      }
+      onClose();
+    };
+
+    try {
+      backButton.onClick(handleBackButton);
+      backButton.show();
+    } catch {
+      return;
+    }
+
+    return () => {
+      try {
+        backButton.offClick(handleBackButton);
+        backButton.hide();
+      } catch {
+        // ignore Telegram API cleanup errors
+      }
+    };
+  }, [isInTelegram, deleteDialogOpen, panelMode, exitTrainingMode, onClose]);
 
   const jumpToAdjacentTrainingVerse = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
@@ -786,11 +821,12 @@ export function VerseGallery({
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
           <div className="flex items-center justify-between p-4">
-            {/* <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Стих {activeIndex + 1} из {verses.length}</span> */}
             <Badge className="absolute left-1/2 -translate-x-1/2" variant="outline">{activeIndex + 1} / {verses.length}</Badge>
-            <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
-              <X className="h-5 w-5" />
-            </Button>
+            {!isInTelegram && (
+              <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
+                <X className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         ) : (
           <div className="max-w-4xl mx-auto px-4 py-4">
@@ -810,9 +846,11 @@ export function VerseGallery({
                   </>
                 )} */}
               </div>
-              <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
-                <X className="h-5 w-5" />
-              </Button>
+              {!isInTelegram && (
+                <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
+                  <X className="h-5 w-5" />
+                </Button>
+              )}
             </div>
             {/* {trainingActiveVerse && (
               <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
