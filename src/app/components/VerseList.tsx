@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  BookOpen,
   Pause,
   Play,
   Plus,
@@ -17,6 +18,7 @@ import {
 import {
   AnimatePresence,
   motion,
+  useReducedMotion,
 } from 'motion/react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
@@ -226,14 +228,14 @@ const SwipeableVerseCard = ({
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{verse.masteryLevel}%</span>
+              <span>{Math.round(verse.masteryLevel / 14 * 100)}%</span>
               <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${
                     verse.status === VerseStatus.LEARNING ? 'bg-emerald-500' : 'bg-amber-500'
                   }`}
                   initial={{ width: 0 }}
-                  animate={{ width: `${verse.masteryLevel}%` }}
+                  animate={{ width: `${verse.masteryLevel / 14 * 100}%` }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                 />
               </div>
@@ -610,153 +612,279 @@ export function VerseList({
     { key: 'new', label: 'Новые' },
   ];
 
+  const shouldReduceMotion = useReducedMotion();
+  const isListLoading = isFetchingVerses && !hasFetchedVersesOnce && verses.length === 0;
+  const currentFilterLabel = filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Все';
+  const totalVisible = filteredVerses.length;
+  const dueNowCount = learningVerses.filter((verse) => {
+    if (!verse.nextReviewAt) return true;
+    const date = new Date(verse.nextReviewAt);
+    return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
+  }).length;
+
+  const pageVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.07,
+        delayChildren: shouldReduceMotion ? 0 : 0.03,
+      },
+    },
+  };
+
+  const sectionVariants = {
+    hidden: {
+      opacity: shouldReduceMotion ? 1 : 0,
+      y: shouldReduceMotion ? 0 : 14,
+    },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: shouldReduceMotion ? 0 : 0.26,
+        ease: 'easeOut' as const,
+      },
+    },
+  };
+
+  const gridVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.05,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: {
+      opacity: shouldReduceMotion ? 1 : 0,
+      y: shouldReduceMotion ? 0 : 10,
+      scale: shouldReduceMotion ? 1 : 0.99,
+    },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: shouldReduceMotion ? 0 : 0.22,
+        ease: 'easeOut' as const,
+      },
+    },
+  };
+
+  const openVerseInGallery = useCallback((verse: Verse) => {
+    const index = verses.findIndex((v) => isSameVerse(v, verse));
+    if (index === -1) return;
+    haptic('light');
+    setGalleryIndex(index);
+  }, [verses, isSameVerse]);
+
+  const renderVerseSection = (
+    items: Array<Verse>,
+    config: {
+      headingId: string;
+      title: string;
+      subtitle: string;
+      dotClassName: string;
+      borderClassName: string;
+      tintClassName: string;
+    }
+  ) => {
+    if (items.length === 0) return null;
+
+    return (
+      <motion.section
+        key={config.headingId}
+        className="space-y-3"
+        aria-labelledby={config.headingId}
+        initial="hidden"
+        animate="show"
+        variants={sectionVariants}
+      >
+        <Card className={`gap-0 overflow-hidden border-border/70 ${config.borderClassName}`}>
+          <div className={`border-b border-border/70 p-4 sm:p-5 ${config.tintClassName}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm">
+                  <div className={`h-2.5 w-2.5 rounded-full ${config.dotClassName}`} />
+                  <span id={config.headingId} className="font-medium">{config.title}</span>
+                  <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[11px]">
+                    {items.length} шт.
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{config.subtitle}</p>
+              </div>
+            </div>
+          </div>
+
+          <motion.div className="p-3 sm:p-4 space-y-3" variants={gridVariants}>
+            <AnimatePresence initial={false}>
+              {items.map((verse) => (
+                <motion.div
+                  key={getVerseKey(verse)}
+                  layout
+                  variants={itemVariants}
+                  initial="hidden"
+                  animate="show"
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.985 }}
+                >
+                  <SwipeableVerseCard
+                    verse={verse}
+                    onOpen={() => openVerseInGallery(verse)}
+                    onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+                    onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
+                    onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+                    onRequestDelete={confirmDeleteVerse}
+                    isPending={pendingVerseKeys.has(getVerseKey(verse))}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </Card>
+      </motion.section>
+    );
+  };
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+    <motion.div
+      className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto"
+      initial="hidden"
+      animate="show"
+      variants={pageVariants}
+    >
       {/* aria-live region */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+      <motion.div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" variants={sectionVariants}>
         <div>
           <h1 className="mb-1">Мои стихи</h1>
-          <p className="text-muted-foreground text-sm">
-            Откройте карточку или используйте кнопки действий: добавить, пауза, возобновить, удалить.
+          <p className="text-sm text-muted-foreground">
+            Кликните на карточку, чтобы перейти в галерею и начать изучение.
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* {isFetchingVerses && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 animate-pulse">
+              Обновляю...
+            </Badge>
+          )} */}
           <Button
             onClick={() => { haptic('medium'); onAddVerse(); }}
-            className="shrink-0"
+            className="shrink-0 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Добавить
+            Добавить стих
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Status Filter */}
-      <div className="mb-6">
-        <div
-          role="tablist"
-          aria-label="Фильтр по статусу стихов"
-          className="flex flex-wrap gap-2"
-        >
-          {filterOptions.map((option) => (
-            <Button
-              key={option.key}
-              role="tab"
-              aria-selected={statusFilter === option.key}
-              size="sm"
-              variant={statusFilter === option.key ? 'default' : 'outline'}
-              onClick={() => {
-                if (statusFilter === option.key) return;
-                haptic('light');
-                setStatusFilter(option.key);
-                setAnnouncement(`Фильтр: ${option.label}`);
-              }}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      <motion.div className="mb-6" variants={sectionVariants}>
+        <Card className="border-border/70 p-4 sm:p-5 gap-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="text-sm font-medium">Фильтр по статусу</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Сейчас показано {totalVisible} {totalVisible === 1 ? 'стих' : totalVisible < 5 ? 'стиха' : 'стихов'}.
+              </p>
+            </div>
+            <Badge variant="outline" className="rounded-full px-3 py-1">
+              Текущий: {currentFilterLabel}
+            </Badge>
+          </div>
 
-      {/* Verse List */}
-      {filteredVerses.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground">Стихов пока нет. Добавьте первый!</p>
+          <div
+            role="tablist"
+            aria-label="Фильтр по статусу стихов"
+            className="flex flex-wrap gap-2"
+          >
+            {filterOptions.map((option) => (
+              <Button
+                key={option.key}
+                role="tab"
+                aria-selected={statusFilter === option.key}
+                size="sm"
+                variant={statusFilter === option.key ? 'default' : 'outline'}
+                className="rounded-full"
+                onClick={() => {
+                  if (statusFilter === option.key) return;
+                  haptic('light');
+                  setStatusFilter(option.key);
+                  setAnnouncement(`Фильтр: ${option.label}`);
+                }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </Card>
+      </motion.div>
+
+      {isListLoading ? (
+        <motion.div className="space-y-4" initial="hidden" animate="show" variants={sectionVariants}>
+          {[0, 1, 2].map((idx) => (
+            <Card key={`skeleton-${idx}`} className="p-4 sm:p-5 border-border/70 animate-pulse gap-3">
+              <div className="h-4 w-28 rounded bg-muted" />
+              <div className="h-3 w-full rounded bg-muted/80" />
+              <div className="h-3 w-3/4 rounded bg-muted/70" />
+            </Card>
+          ))}
+        </motion.div>
+      ) : filteredVerses.length === 0 ? (
+        <motion.div initial="hidden" animate="show" variants={sectionVariants}>
+          <Card className="relative overflow-hidden border-border/70 bg-gradient-to-br from-background to-primary/5 p-8 text-center gap-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-background/80">
+              <BookOpen className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <div className="text-lg font-semibold">Список пока пуст</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Добавьте первый стих, и он появится здесь. Дальше сможете открыть его в галерее и начать тренировку.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                onClick={() => { haptic('medium'); onAddVerse(); }}
+                className="rounded-full"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Добавить первый стих
+              </Button>
+            </div>
+          </Card>
+        </motion.div>
       ) : (
-        <div className="space-y-6">
-          {learningVerses.length > 0 && (
-            <section className="space-y-3" aria-labelledby="learning-verses-heading">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span id="learning-verses-heading">Изучаю</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{learningVerses.length} шт.</span>
-              </div>
-              <AnimatePresence initial={false}>
-                {learningVerses.map((verse) => (
-                  <SwipeableVerseCard
-                    key={getVerseKey(verse)}
-                    verse={verse}
-                    onOpen={() => {
-                      const index = verses.findIndex((v) => isSameVerse(v, verse));
-                      if (index !== -1) { haptic('light'); setGalleryIndex(index); }
-                    }}
-                    onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
-                    onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onRequestDelete={confirmDeleteVerse}
-                    isPending={pendingVerseKeys.has(getVerseKey(verse))}
-                  />
-                ))}
-              </AnimatePresence>
-            </section>
-          )}
+        <motion.div className="space-y-6" initial="hidden" animate="show" variants={gridVariants}>
+          {renderVerseSection(learningVerses, {
+            headingId: 'learning-verses-heading',
+            title: 'Изучаю',
+            subtitle: dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
+            dotClassName: 'bg-emerald-500',
+            borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
+            tintClassName: 'bg-emerald-500/5',
+          })}
 
-          {stoppedVerses.length > 0 && (
-            <section className="space-y-3" aria-labelledby="stopped-verses-heading">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span id="stopped-verses-heading">На паузе</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{stoppedVerses.length} шт.</span>
-              </div>
-              <AnimatePresence initial={false}>
-                {stoppedVerses.map((verse) => (
-                  <SwipeableVerseCard
-                    key={getVerseKey(verse)}
-                    verse={verse}
-                    onOpen={() => {
-                      const index = verses.findIndex((v) => isSameVerse(v, verse));
-                      if (index !== -1) { haptic('light'); setGalleryIndex(index); }
-                    }}
-                    onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
-                    onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onRequestDelete={confirmDeleteVerse}
-                    isPending={pendingVerseKeys.has(getVerseKey(verse))}
-                  />
-                ))}
-              </AnimatePresence>
-            </section>
-          )}
+          {renderVerseSection(stoppedVerses, {
+            headingId: 'stopped-verses-heading',
+            title: 'На паузе',
+            subtitle: 'Можно возобновить в один тап с карточки',
+            dotClassName: 'bg-amber-500',
+            borderClassName: 'bg-gradient-to-b from-amber-500/5 to-background',
+            tintClassName: 'bg-amber-500/5',
+          })}
 
-          {newVerses.length > 0 && (
-            <section className="space-y-3" aria-labelledby="new-verses-heading">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-slate-400" />
-                  <span id="new-verses-heading">Новые</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{newVerses.length} шт.</span>
-              </div>
-              <AnimatePresence initial={false}>
-                {newVerses.map((verse) => (
-                  <SwipeableVerseCard
-                    key={getVerseKey(verse)}
-                    verse={verse}
-                    onOpen={() => {
-                      const index = verses.findIndex((v) => isSameVerse(v, verse));
-                      if (index !== -1) { haptic('light'); setGalleryIndex(index); }
-                    }}
-                    onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
-                    onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onRequestDelete={confirmDeleteVerse}
-                    isPending={pendingVerseKeys.has(getVerseKey(verse))}
-                  />
-                ))}
-              </AnimatePresence>
-            </section>
-          )}
-        </div>
+          {renderVerseSection(newVerses, {
+            headingId: 'new-verses-heading',
+            title: 'Новые',
+            subtitle: 'Добавленные стихи, которые ещё не переведены в изучение',
+            dotClassName: 'bg-sky-500',
+            borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
+            tintClassName: 'bg-sky-500/5',
+          })}
+        </motion.div>
       )}
 
       <ConfirmDeleteModal
@@ -786,6 +914,6 @@ export function VerseList({
         />,
         document.body
       )}
-    </div>
+    </motion.div>
   );
 }

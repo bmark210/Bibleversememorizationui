@@ -12,6 +12,8 @@ import { Settings } from "./components/Settings";
 import { AddVerseDialog } from "./components/AddVerseDialog";
 import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
+import { Button } from "./components/ui/button";
+import { Card } from "./components/ui/card";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
@@ -46,6 +48,108 @@ type Page =
   | "settings"
   | "training";
 
+type TrainingBatchPreferences = {
+  newVersesCount: number;
+  reviewVersesCount: number;
+};
+
+const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
+const NEW_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
+const REVIEW_VERSE_COUNT_OPTIONS = [3, 5, 10, 15] as const;
+const DEFAULT_TRAINING_BATCH_PREFERENCES: TrainingBatchPreferences = {
+  newVersesCount: 1,
+  reviewVersesCount: 5,
+};
+
+function parseDateValue(value: unknown): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function readTrainingBatchPreferences(): TrainingBatchPreferences | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(TRAINING_BATCH_PREFERENCES_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<TrainingBatchPreferences>;
+    const newVersesCount = Number(parsed?.newVersesCount);
+    const reviewVersesCount = Number(parsed?.reviewVersesCount);
+    if (!Number.isFinite(newVersesCount) || !Number.isFinite(reviewVersesCount)) return null;
+    return {
+      newVersesCount: Math.max(0, Math.round(newVersesCount)),
+      reviewVersesCount: Math.max(0, Math.round(reviewVersesCount)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTrainingBatchPreferences(value: TrainingBatchPreferences) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(TRAINING_BATCH_PREFERENCES_KEY, JSON.stringify(value));
+}
+
+function sortByOldestReviewNeed(a: Verse, b: Verse) {
+  const aNext = parseDateValue(a.nextReviewAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bNext = parseDateValue(b.nextReviewAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  if (aNext !== bNext) return aNext - bNext;
+
+  const aLast = parseDateValue(a.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bLast = parseDateValue(b.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  if (aLast !== bLast) return aLast - bLast;
+
+  const aUpdated = parseDateValue((a as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bUpdated = parseDateValue((b as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  if (aUpdated !== bUpdated) return aUpdated - bUpdated;
+
+  return String(a.externalVerseId ?? a.id).localeCompare(String(b.externalVerseId ?? b.id));
+}
+
+function sortByCreatedAtAsc(a: Verse, b: Verse) {
+  const aCreated = parseDateValue((a as any).createdAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+  const bCreated = parseDateValue((b as any).createdAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+  if (aCreated !== bCreated) return aCreated - bCreated;
+  return String(a.externalVerseId ?? a.id).localeCompare(String(b.externalVerseId ?? b.id));
+}
+
+function buildTrainingBatchVerses(
+  allVerses: Array<Verse>,
+  prefs: TrainingBatchPreferences
+): Array<Verse> {
+  const now = Date.now();
+
+  const newVerses = allVerses
+    .filter((verse) => verse.status === VerseStatus.NEW)
+    .sort(sortByCreatedAtAsc)
+    .slice(0, prefs.newVersesCount);
+
+  const learningVerses = allVerses.filter((verse) => verse.status === VerseStatus.LEARNING);
+  const dueReviews = learningVerses
+    .filter((verse) => {
+      const next = parseDateValue(verse.nextReviewAt);
+      return !next || next.getTime() <= now;
+    })
+    .sort(sortByOldestReviewNeed);
+
+  const futureReviews = learningVerses
+    .filter((verse) => {
+      const next = parseDateValue(verse.nextReviewAt);
+      return !!next && next.getTime() > now;
+    })
+    .sort(sortByOldestReviewNeed);
+
+  const reviewVerses = [...dueReviews, ...futureReviews].slice(0, prefs.reviewVersesCount);
+
+  const seen = new Set<string>();
+  return [...newVerses, ...reviewVerses].filter((verse) => {
+    const key = String(verse.externalVerseId ?? verse.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
@@ -56,6 +160,15 @@ export default function App() {
   const [trainingStartVerseId, setTrainingStartVerseId] = useState<string | null>(null);
   const [returnToGalleryContext, setReturnToGalleryContext] = useState<ReturnToGalleryContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
+  const [isTrainingBatchPromptOpen, setIsTrainingBatchPromptOpen] = useState(false);
+  const [selectedNewVersesCount, setSelectedNewVersesCount] = useState<number>(
+    DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount
+  );
+  const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
+    DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
+  );
   const initUserRef = useRef(false);
 
   // Инициализация пользователя в окружении Telegram (idempotent).
@@ -77,7 +190,20 @@ export default function App() {
       setIsLoading(false);
       return;
     }
+    setTelegramId(telegramId);
     localStorage.setItem("telegramId", telegramId);
+
+    const savedPreferences = readTrainingBatchPreferences();
+    if (savedPreferences) {
+      setTrainingBatchPreferences(savedPreferences);
+      setSelectedNewVersesCount(savedPreferences.newVersesCount);
+      setSelectedReviewVersesCount(savedPreferences.reviewVersesCount);
+    } else {
+      setTrainingBatchPreferences(null);
+      setSelectedNewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount);
+      setSelectedReviewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount);
+      setIsTrainingBatchPromptOpen(true);
+    }
 
     const fetchUser = async () => {
       try {
@@ -103,7 +229,11 @@ export default function App() {
       }
     };
 
-    getVerces(telegramId);
+    if (savedPreferences) {
+      void loadPlannedVersesForDashboard(telegramId, savedPreferences);
+    } else {
+      setVerses([]);
+    }
     fetchUser();
   }, []);
 
@@ -114,13 +244,20 @@ export default function App() {
     setReturnToGalleryContext(null);
   };
 
-  const getVerces = async (telegramId: string) => {
+  const loadPlannedVersesForDashboard = async (
+    telegramIdValue: string,
+    prefs: TrainingBatchPreferences
+  ) => {
     try {
-      const verses = await UserVersesService.getApiUsersVerses(telegramId);
-      setVerses(verses as Array<Verse>);
+      const response = await UserVersesService.getApiUsersVerses(telegramIdValue);
+      const allVerses = response as Array<Verse>;
+      const planned = buildTrainingBatchVerses(allVerses, prefs);
+      setVerses(planned);
+      return planned;
     } catch (err) {
-      console.error("Не удалось получить стихи:", err);
-      setVerses([] as Array<Verse>);
+      console.error("Не удалось получить стихи для дневной подборки:", err);
+      setVerses([]);
+      throw err;
     }
   };
 
@@ -147,20 +284,29 @@ export default function App() {
   };
 
   const handleStartTraining = async () => {
-    const telegramId = localStorage.getItem("telegramId") ?? "";
-    if (!telegramId) {
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) {
       toast.error("Не найден telegramId");
       return;
     }
 
+    if (!trainingBatchPreferences) {
+      setIsTrainingBatchPromptOpen(true);
+      toast.info("Сначала выберите формат тренировки", {
+        description: "Сколько новых стихов и сколько повторений загружать за раз.",
+      });
+      return;
+    }
+
     try {
-      const learningVerses = await getLearningVerses(telegramId);
-      if (learningVerses.length === 0) {
-        toast.info("Нет стихов в изучении", {
-          description: "В тренировку попадают только стихи со статусом LEARNING.",
+      const plannedVerses = await loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
+      if (plannedVerses.length === 0) {
+        toast.info("Нет стихов для тренировки", {
+          description: "Добавьте новые стихи или дождитесь времени повторения изучаемых.",
         });
         return;
       }
+      setTrainingVerses(plannedVerses);
       setTrainingStartVerseId(null);
       setReturnToGalleryContext(null);
       setIsTraining(true);
@@ -175,6 +321,9 @@ export default function App() {
     setTrainingStartVerseId(null);
     setReturnToGalleryContext(null);
     setCurrentPage("dashboard");
+    if (telegramId && trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
+    }
     toast.success("Тренировка завершена!", {
       description: "Отличная работа! Ваш прогресс сохранён.",
     });
@@ -193,6 +342,32 @@ export default function App() {
 
   const handleAddVerse = () => {
     setShowAddVerseDialog(true);
+  };
+
+  const handleSaveTrainingBatchPreferences = async () => {
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    const nextPreferences: TrainingBatchPreferences = {
+      newVersesCount: selectedNewVersesCount,
+      reviewVersesCount: selectedReviewVersesCount,
+    };
+
+    writeTrainingBatchPreferences(nextPreferences);
+    setTrainingBatchPreferences(nextPreferences);
+    setIsTrainingBatchPromptOpen(false);
+
+    if (!telegramIdValue) return;
+
+    try {
+      setIsLoading(true);
+      await loadPlannedVersesForDashboard(telegramIdValue, nextPreferences);
+      toast.success("План тренировки сохранён", {
+        description: `Новых: ${nextPreferences.newVersesCount}, повторений: ${nextPreferences.reviewVersesCount}.`,
+      });
+    } catch {
+      toast.error("Не удалось загрузить стихи по новым настройкам");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVerseAdded = async (verse: {
@@ -222,6 +397,10 @@ export default function App() {
       const errorMessage = (err as ApiError)?.body?.error as string;
       console.error("Не удалось добавить стих:", errorMessage);
       toast.error(errorMessage ?? "Не удалось добавить стих");
+    }
+
+    if (telegramId && trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
     }
 
     return verse;
@@ -318,6 +497,59 @@ export default function App() {
         onClose={() => setShowAddVerseDialog(false)}
         onAdd={handleVerseAdded}
       />
+
+      {isTrainingBatchPromptOpen && (
+        <div className="fixed inset-0 z-[450] bg-background/70 backdrop-blur-sm p-4 flex items-center justify-center">
+          <Card className="w-full max-w-lg p-6 sm:p-7 border-border/70 shadow-xl">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold">Настройка тренировки</h2>
+                <p className="text-sm text-muted-foreground">
+                  Выберите, сколько новых стихов и сколько повторений загружать за одну тренировку.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Новых стихов за раз</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {NEW_VERSE_COUNT_OPTIONS.map((value) => (
+                    <Button
+                      key={`new-${value}`}
+                      type="button"
+                      variant={selectedNewVersesCount === value ? "default" : "outline"}
+                      onClick={() => setSelectedNewVersesCount(value)}
+                    >
+                      {value}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Повторять старые (выученные) за раз</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {REVIEW_VERSE_COUNT_OPTIONS.map((value) => (
+                    <Button
+                      key={`review-${value}`}
+                      type="button"
+                      variant={selectedReviewVersesCount === value ? "default" : "outline"}
+                      onClick={() => setSelectedReviewVersesCount(value)}
+                    >
+                      {value}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => void handleSaveTrainingBatchPreferences()}>
+                  Сохранить и продолжить
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {isTraining && (

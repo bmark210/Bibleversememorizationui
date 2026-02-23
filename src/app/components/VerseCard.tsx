@@ -158,14 +158,14 @@ export function VerseCard({
             <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
               Прогресс освоения
             </span>
-            <span className="text-2xl font-bold text-primary">{verse.masteryLevel}%</span>
+            <span className="text-2xl font-bold text-primary">{Math.round(verse.masteryLevel / 14 * 100)}%</span>
           </div>
           <div className="relative h-2 bg-muted rounded-full overflow-hidden">
             <motion.div
               key={`${verse.id}-${isActive}`}
               className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
               initial={{ width: 0 }}
-              animate={{ width: `${verse.masteryLevel}%` }}
+              animate={{ width: `${verse.masteryLevel / 14 * 100}%` }}
               transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
             />
           </div>
