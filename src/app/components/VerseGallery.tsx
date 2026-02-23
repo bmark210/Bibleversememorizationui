@@ -471,7 +471,7 @@ export function VerseGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
-  const bottomInset = contentSafeAreaInset.bottom;
+  const bottomInset = contentSafeAreaInset.bottom + 10;
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
 
   useBodyScrollLock();

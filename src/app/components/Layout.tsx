@@ -25,9 +25,11 @@ const getPreferredTheme = (): Theme => {
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(getPreferredTheme);
   const { user, isReady, platform } = useTelegram();
-  const { safeAreaInset, isInTelegram } = useTelegramSafeArea();
+  const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const topInset = contentSafeAreaInset.top + 30;
+  const bottomInset = contentSafeAreaInset.bottom + 10;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -190,7 +192,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       {/* Header */}
       <header 
         className="bg-card border-b border-border sticky top-0 z-10 overflow-hidden"
-        style={{ paddingTop: `${safeAreaInset.top}px` }}
+        style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -272,7 +274,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         <main 
           className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
           style={{ 
-            paddingBottom: `calc(82px + ${safeAreaInset.bottom}px)` 
+            paddingBottom: `calc(82px + ${bottomInset}px)` 
           }}
         >
           {children}
@@ -282,7 +284,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       {/* Mobile Bottom Navigation */}
       <div 
         className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90"
-        style={{ paddingBottom: `${safeAreaInset.bottom}px` }}
+        style={{ paddingBottom: `${bottomInset}px` }}
       >
         <nav className="flex justify-around p-2 pt-2.5">
           {navItems.slice(0, 4).map((item) => {
