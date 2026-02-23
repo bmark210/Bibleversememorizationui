@@ -34,7 +34,11 @@ import { VerseStatus } from "@/generated/prisma";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { VerseCard } from "./VerseCard";
 import type { Verse as LegacyVerse } from "../data/mockData";
-import { TrainingModeRenderer, TrainingModeRendererKey } from "./training-session/TrainingModeRenderer";
+import {
+  TrainingModeRenderer,
+  TrainingModeRendererKey,
+  type TrainingModeRendererHandle,
+} from "./training-session/TrainingModeRenderer";
 import type { TrainingModeRating } from "./training-session/modes/types";
 
 type VerseGalleryProps = {
@@ -466,6 +470,7 @@ export function VerseGallery({
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const trainingTouchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -555,8 +560,15 @@ export function VerseGallery({
     setTrainingModeId(null);
   }, [syncPreviewIndexToVerse, trainingActiveVerse]);
 
+  const handleTrainingBackAction = useCallback(() => {
+    if (trainingRendererRef.current?.handleBackAction()) {
+      return;
+    }
+    exitTrainingMode();
+  }, [exitTrainingMode]);
+
   useEffect(() => {
-    if (!isInTelegram || typeof window === "undefined" || panelMode === "training") return;
+    if (!isInTelegram || typeof window === "undefined") return;
 
     const backButton = (window as any).Telegram?.WebApp?.BackButton;
     if (!backButton) return;
@@ -564,6 +576,10 @@ export function VerseGallery({
     const handleBackButton = () => {
       if (deleteDialogOpen) {
         setDeleteDialogOpen(false);
+        return;
+      }
+      if (panelMode === "training") {
+        handleTrainingBackAction();
         return;
       }
       onClose();
@@ -584,7 +600,7 @@ export function VerseGallery({
         // ignore Telegram API cleanup errors
       }
     };
-  }, [isInTelegram, deleteDialogOpen, panelMode, onClose]);
+  }, [isInTelegram, deleteDialogOpen, panelMode, handleTrainingBackAction, onClose]);
 
   const jumpToAdjacentTrainingVerse = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
@@ -830,7 +846,7 @@ export function VerseGallery({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   {!isInTelegram ? (
-                    <Button variant="ghost" size="sm" onClick={() => exitTrainingMode()} className="gap-1">
+                    <Button variant="ghost" size="sm" onClick={handleTrainingBackAction} className="gap-1">
                       <ChevronLeft className="w-4 h-4" />К стиху
                     </Button>
                   ) : (
@@ -882,10 +898,10 @@ export function VerseGallery({
             ) : panelMode === "training" && trainingActiveVerse && trainingModeId ? (
               <div onTouchStart={handleTrainingTouchStart} onTouchEnd={handleTrainingTouchEnd} className="w-full">
                 <TrainingModeRenderer
+                  ref={trainingRendererRef}
                   renderer={MODE_PIPELINE[trainingModeId].renderer}
                   verse={asLegacyVerse(trainingActiveVerse)}
                   onRate={handleTrainingRate}
-                  onBack={exitTrainingMode}
                   topBadge={
                     trainingModeMeta ? (
                       <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>

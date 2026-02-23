@@ -1,6 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { Verse as LegacyVerse } from '../../data/mockData';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
 import { ModeClickWordsHintedExercise } from './modes/ClickWordsHintedExercise';
@@ -19,7 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
-import { useTelegramSafeArea } from '../../hooks/useTelegramSafeArea';
 
 export enum TrainingModeRendererKey {
   ChunksOrder = 'chunks-order',
@@ -131,65 +137,33 @@ interface TrainingModeRendererProps {
   verse: LegacyVerse;
   onRate: (rating: TrainingModeRating) => void;
   topBadge?: ReactNode;
-  onBack?: () => void;
 }
 
-export function TrainingModeRenderer({
+export interface TrainingModeRendererHandle {
+  handleBackAction: () => boolean;
+}
+
+export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
   onRate,
   topBadge,
-  onBack,
-}: TrainingModeRendererProps) {
+}, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const { isInTelegram } = useTelegramSafeArea();
-  const onBackRef = useRef(onBack);
-  const tutorialOpenRef = useRef(tutorialOpen);
-
-  useEffect(() => {
-    onBackRef.current = onBack;
-  }, [onBack]);
-
-  useEffect(() => {
-    tutorialOpenRef.current = tutorialOpen;
-  }, [tutorialOpen]);
 
   useEffect(() => {
     const seen = readSeenModeTutorials();
     setTutorialOpen(!seen[renderer]);
   }, [renderer]);
 
-  useEffect(() => {
-    if (!isInTelegram || typeof window === 'undefined') return;
-
-    const backButton = (window as any).Telegram?.WebApp?.BackButton;
-    if (!backButton || !onBackRef.current) return;
-
-    const handleBackButton = () => {
-      if (tutorialOpenRef.current) {
-        setTutorialOpen(false);
-        return;
-      }
-      onBackRef.current?.();
-    };
-
-    try {
-      backButton.onClick(handleBackButton);
-      backButton.show();
-    } catch {
-      return;
-    }
-
-    return () => {
-      try {
-        backButton.offClick(handleBackButton);
-        backButton.hide();
-      } catch {
-        // ignore Telegram API cleanup errors
-      }
-    };
-  }, [isInTelegram]);
+  useImperativeHandle(ref, () => ({
+    handleBackAction: () => {
+      if (!tutorialOpen) return false;
+      setTutorialOpen(false);
+      return true;
+    },
+  }), [tutorialOpen]);
 
   const handleTutorialComplete = () => {
     const seen = readSeenModeTutorials();
@@ -286,4 +260,4 @@ export function TrainingModeRenderer({
       )}
     </>
   );
-}
+});
