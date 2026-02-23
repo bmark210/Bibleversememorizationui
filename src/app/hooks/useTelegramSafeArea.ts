@@ -122,7 +122,7 @@ export function useTelegramSafeArea(): TelegramWebAppData {
 
         console.log("🎨 Telegram Content Safe Area from CSS:", { top, bottom, left, right });
 
-        return { top: top + 60, bottom: bottom + 10, left, right };
+        return { top, bottom, left, right };
       };
 
       // Функция обновления safe area - используем ТОЛЬКО CSS переменные
