@@ -50,7 +50,7 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function toMasteryPercent(masteryLevel: number) {
+export function toMasteryPercent(masteryLevel: number) {
   return clampPercent((masteryLevel / MASTERY_LEVEL_MAX) * 100);
 }
 

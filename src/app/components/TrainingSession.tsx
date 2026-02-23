@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { VerseCard } from './VerseCard';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   TrainingModeId,
@@ -29,6 +30,8 @@ import {
   getVerticalTouchSwipeStep,
   type VerticalTouchSwipeStart,
 } from '@/shared/ui/verticalTouchSwipe';
+import { Progress } from './ui/progress';
+import { toMasteryPercent } from './Dashboard';
 
 type Rating = 0 | 1 | 2 | 3;
 type SaveState = 'saving' | 'saved' | 'error' | 'skipped';
@@ -764,6 +767,16 @@ export function TrainingSession({
   }
 
   const legacyVerse = asLegacyVerse(currentVerse);
+  const trainingCardTopBadge = (
+    <div className="flex items-center gap-2">
+      <Badge className={currentMode.badgeClass}>{currentMode.label}</Badge>
+      {isCurrentVerseReview && (
+        <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700">
+          Повторение
+        </Badge>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -780,12 +793,6 @@ export function TrainingSession({
                   <ChevronLeft className="w-4 h-4" />
                   Выход
                 </Button>
-                <Badge className={currentMode.badgeClass}>Режим {runtime.currentStep.modeId}</Badge>
-                {isCurrentVerseReview && (
-                  <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700">
-                    Повторение
-                  </Badge>
-                )}
               </div>
               {/* <div className="text-base sm:text-lg font-semibold truncate">{currentVerse.reference}</div>
               <div className="text-xs sm:text-sm text-muted-foreground mt-1">{currentMode.label}</div>
@@ -807,11 +814,27 @@ export function TrainingSession({
 
       <div className="flex-1 px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-4">
+          <VerseCard
+            topBadge={trainingCardTopBadge}
+            header={
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">
+                  {currentVerse.reference}
+                </h2>
+                <div className="text-sm text-muted-foreground">{currentVerse.translation}</div>
+              </div>
+            }
+            body={
               <TrainingModeRenderer
                 renderer={currentMode.renderer}
                 verse={legacyVerse}
                 onRate={handleRate}
               />
+            }
+            bodyScrollable
+            contentClassName="pb-24 md:pb-2"
+            minHeight="training"
+          />
         </div>
       </div>
     </div>

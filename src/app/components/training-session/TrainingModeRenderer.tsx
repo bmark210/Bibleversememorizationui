@@ -6,7 +6,6 @@ import {
   useImperativeHandle,
   useMemo,
   useState,
-  type ReactNode,
 } from 'react';
 import type { Verse as LegacyVerse } from '../../data/mockData';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
@@ -136,18 +135,17 @@ interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: LegacyVerse;
   onRate: (rating: TrainingModeRating) => void;
-  topBadge?: ReactNode;
 }
 
 export interface TrainingModeRendererHandle {
   handleBackAction: () => boolean;
+  openTutorial: () => boolean;
 }
 
 export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
   onRate,
-  topBadge,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -163,7 +161,12 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
       setTutorialOpen(false);
       return true;
     },
-  }), [tutorialOpen]);
+    openTutorial: () => {
+      if (!tutorial) return false;
+      setTutorialOpen(true);
+      return true;
+    },
+  }), [tutorial, tutorialOpen]);
 
   const handleTutorialComplete = () => {
     const seen = readSeenModeTutorials();
@@ -202,30 +205,7 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
 
   return (
     <>
-      <div
-        className="
-          relative w-full
-          min-h-[560px] sm:min-h-[620px]
-          [&>div]:h-full
-          [&>div>div]:min-h-[560px]
-          sm:[&>div>div]:min-h-[620px]
-        "
-      >
-        {topBadge && tutorial && (
-          <div className="z-10 absolute top-[-30px] left-1/2 -translate-x-1/2 !h-fit">
-            <button
-              type="button"
-              onClick={() => setTutorialOpen(true)}
-              className="pointer-events-auto rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2"
-              aria-label={`Показать обучение для режима: ${tutorial.title}`}
-              title="Показать обучение по режиму"
-            >
-              {topBadge}
-            </button>
-          </div>
-        )}
-        {modeContent}
-      </div>
+      {modeContent}
 
       {tutorial && (
         <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>

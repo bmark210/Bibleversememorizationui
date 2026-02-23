@@ -113,19 +113,12 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
   const accuracy = isChecked ? calculateAccuracy() : 0;
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-3xl p-8 sm:p-12 shadow-sm border border-border"
-      >
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full"
+    >
         <div className="space-y-6">
-          {/* Reference */}
-          <div className="text-center">
-            <h2 className="text-primary mb-2">{verse.reference}</h2>
-            <div className="text-sm text-muted-foreground">{verse.translation}</div>
-          </div>
-
           {/* Input Area */}
           <div className="space-y-3">
             <label className="text-sm text-muted-foreground">Напечатайте стих по памяти:</label>
@@ -202,7 +195,6 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             </TrainingRatingFooter>
           )}
         </div>
-      </motion.div>
-    </div>
+    </motion.div>
   );
 }

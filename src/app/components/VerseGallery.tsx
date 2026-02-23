@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback, type Ref, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type RefObject, type TouchEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -29,6 +29,7 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Progress } from "./ui/progress";
 import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
@@ -58,6 +59,7 @@ import {
   type TrainingModeRendererHandle,
 } from "./training-session/TrainingModeRenderer";
 import type { TrainingModeRating } from "./training-session/modes/types";
+import { toMasteryPercent } from "./Dashboard";
 
 type VerseGalleryProps = {
   verses: Verse[];
@@ -98,6 +100,14 @@ type TrainingVerseState = {
   lastModeId: ModeId | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
+};
+
+type TrainingTouchGestureContext = {
+  swipeStart: VerticalTouchSwipeStart | null;
+  scrollEl: HTMLElement | null;
+  startScrollTop: number;
+  maxScrollTop: number;
+  scrollable: boolean;
 };
 
 const TRAINING_SUBSET_OPTIONS: Array<{ key: TrainingSubsetFilter; label: string }> = [
@@ -425,100 +435,170 @@ const slideVariants = {
   exit: (dir: number) => ({ y: dir > 0 ? "-18%" : "18%", opacity: 0, scale: 0.86, transition: { duration: 0.2, ease: "easeIn" } as const }),
 };
 
-type PreviewViewportProps = {
-  verse: Verse;
+type UnifiedViewportProps = {
+  panelMode: PanelMode;
+  previewVerse: Verse | null;
   activeIndex: number;
-  versesCount: number;
   actionPending: boolean;
-  onNavigate: (dir: "prev" | "next") => void;
-  onStartTraining: () => void | Promise<void>;
-  onTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
-  onTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
-};
-
-function VerseGalleryPreviewViewport({
-  verse,
-  activeIndex,
-  versesCount,
-  actionPending,
-  onNavigate,
-  onStartTraining,
-  onTouchStart,
-  onTouchEnd,
-}: PreviewViewportProps) {
-  const isReviewAction =
-    normalizeVerseStatus(verse.status) === VerseStatus.LEARNING &&
-    Number(verse.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX;
-  const ctaLabel = isReviewAction ? "ПОВТОРЯТЬ" : "УЧИТЬ";
-  const ctaAriaLabel = isReviewAction ? "Повторять этот стих" : "Учить этот стих";
-
-  return (
-    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className="w-full">
-      <VerseCard
-        verse={verse}
-        isActive
-        isFirst={activeIndex === 0}
-        isLast={activeIndex === versesCount - 1}
-        onNavigate={onNavigate}
-        onHaptic={haptic}
-        topBadge={<MasteryBadge status={normalizeVerseStatus(verse.status)} masteryLevel={verse.masteryLevel ?? 0} />}
-        centerAction={
-          <Button
-            className={`gap-2 min-w-[200px] shadow-lg rounded-2xl ${
-              isReviewAction
-                ? ""
-                : ""
-            }`}
-            onClick={() => void onStartTraining()}
-            disabled={actionPending}
-            aria-label={ctaAriaLabel}
-          >
-            {isReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {ctaLabel}
-          </Button>
-        }
-      />
-    </div>
-  );
-}
-
-type TrainingViewportProps = {
-  trainingActiveVerse: TrainingVerseState;
-  trainingModeId: ModeId;
+  trainingActiveVerse: TrainingVerseState | null;
+  trainingModeId: ModeId | null;
   trainingModeMeta: TrainingModeMeta | null;
-  trainingRendererRef: Ref<TrainingModeRendererHandle>;
-  onTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
-  onTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
-  onRate: (rating: Rating) => void | Promise<void>;
+  trainingRendererRef: RefObject<TrainingModeRendererHandle | null>;
+  onStartTraining: () => void | Promise<void>;
+  onPreviewTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
+  onPreviewTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
+  onTrainingTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
+  onTrainingTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
+  onTrainingRate: (rating: Rating) => void | Promise<void>;
 };
 
-function VerseGalleryTrainingViewport({
+function VerseGalleryUnifiedCardViewport({
+  panelMode,
+  previewVerse,
+  activeIndex,
+  actionPending,
   trainingActiveVerse,
   trainingModeId,
   trainingModeMeta,
   trainingRendererRef,
-  onTouchStart,
-  onTouchEnd,
-  onRate,
-}: TrainingViewportProps) {
+  onStartTraining,
+  onPreviewTouchStart,
+  onPreviewTouchEnd,
+  onTrainingTouchStart,
+  onTrainingTouchEnd,
+  onTrainingRate,
+}: UnifiedViewportProps) {
+  const isPreview = panelMode === "preview";
+  const preview = isPreview ? previewVerse : null;
+  const trainingVerse = !isPreview ? trainingActiveVerse : null;
+  const activeTouchStart = isPreview ? onPreviewTouchStart : onTrainingTouchStart;
+  const activeTouchEnd = isPreview ? onPreviewTouchEnd : onTrainingTouchEnd;
+
+  if (isPreview && !preview) return null;
+  if (!isPreview && (!trainingVerse || !trainingModeId)) return null;
+
+  const previewProgress = preview
+    ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
+    : 0;
+
+  const isPreviewReviewAction =
+    preview &&
+    normalizeVerseStatus(preview.status) === VerseStatus.LEARNING &&
+    Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX;
+
+  const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
+  const trainingTopBadge = trainingModeMeta && trainingVerse ? (
+    <button
+      type="button"
+      onClick={() => {
+        trainingRendererRef.current?.openTutorial();
+      }}
+      className="pointer-events-auto rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2"
+      aria-label={`Показать обучение для режима: ${trainingModeMeta.label}`}
+      title="Показать обучение по режиму"
+    >
+      <div className="flex items-center gap-2">
+        <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
+          {trainingModeMeta.label}
+        </Badge>
+        {isTrainingReviewVerse(trainingVerse) && (
+          <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700 shadow-sm">
+            Повторение
+          </Badge>
+        )}
+      </div>
+    </button>
+  ) : null;
+
   return (
-    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className="w-full">
-      <TrainingModeRenderer
-        ref={trainingRendererRef}
-        renderer={MODE_PIPELINE[trainingModeId].renderer}
-        verse={asLegacyVerse(trainingActiveVerse)}
-        onRate={onRate}
+    <div onTouchStart={activeTouchStart} onTouchEnd={activeTouchEnd} className="w-full">
+      <VerseCard
+        isActive
+        minHeight="training"
         topBadge={
-          trainingModeMeta ? (
-            <div className="flex items-center gap-2">
-              <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
-                {trainingModeMeta.label}
-              </Badge>
-              {/* {isTrainingReviewVerse(trainingActiveVerse) && (
-                <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700 shadow-sm">
-                  Повторение
-                </Badge>
-              )} */}
+          isPreview && preview ? (
+            <MasteryBadge status={normalizeVerseStatus(preview.status)} masteryLevel={preview.masteryLevel ?? 0} />
+          ) : trainingTopBadge
+        }
+        header={
+          isPreview && preview ? (
+            <div className="flex-shrink-0 text-center space-y-3">
+              <h2 className="text-3xl sm:text-4xl font-serif italic text-primary/90 font-bold">
+                {preview.reference}
+              </h2>
+              <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+            </div>
+          ) : trainingVerse ? (
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">
+                {trainingVerse.raw.reference}
+              </h2>
+              <div className="mx-auto w-full max-w-md px-3 py-2 text-left">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Прогресс освоения
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-primary">
+                    {Math.min(Math.round((trainingVerse.raw.masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100), 100)}%
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(Math.round((trainingVerse.raw.masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100), 100)}
+                  className="w-full h-2"
+                />
+              </div>
+            </div>
+          ) : null
+        }
+        body={
+          isPreview && preview ? (
+            <div className="h-full flex items-center justify-center overflow-hidden px-2">
+              <p className="text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center line-clamp-[9] font-light">
+                «{preview.text}»
+              </p>
+            </div>
+          ) : trainingLegacyVerse && trainingModeId ? (
+            <TrainingModeRenderer
+              ref={trainingRendererRef as unknown as RefObject<TrainingModeRendererHandle>}
+              renderer={MODE_PIPELINE[trainingModeId].renderer}
+              verse={trainingLegacyVerse}
+              onRate={onTrainingRate}
+            />
+          ) : null
+        }
+        bodyScrollable={!isPreview}
+        contentClassName={!isPreview ? "pb-24 md:pb-2" : undefined}
+        centerAction={
+          isPreview && preview ? (
+            <Button
+              className="gap-2 min-w-[200px] shadow-lg rounded-2xl"
+              onClick={() => void onStartTraining()}
+              disabled={actionPending}
+              aria-label={isPreviewReviewAction ? "Повторять этот стих" : "Учить этот стих"}
+            >
+              {isPreviewReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {isPreviewReviewAction ? "ПОВТОРЯТЬ" : "УЧИТЬ"}
+            </Button>
+          ) : null
+        }
+        footer={
+          isPreview && preview ? (
+            <div className="space-y-3">
+              <div className="flex items-end justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+                  Прогресс освоения
+                </span>
+                <span className="text-2xl font-bold text-primary">{previewProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  key={`${preview.id}-${activeIndex}`}
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${previewProgress}%` }}
+                  transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
+                />
+              </div>
             </div>
           ) : null
         }
@@ -547,7 +627,7 @@ export function VerseGallery({
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
   const previewTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
-  const trainingTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
+  const trainingTouchGestureRef = useRef<TrainingTouchGestureContext | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -720,10 +800,22 @@ export function VerseGallery({
     if (!trainingActiveVerse) return;
     if (trainingEligibleIndices.length <= 1) return;
     const currentPos = trainingEligibleIndices.indexOf(trainingIndex);
-    if (currentPos < 0) return;
-    const nextPos = currentPos + delta;
-    if (nextPos < 0 || nextPos >= trainingEligibleIndices.length) return;
-    const nextIndex = trainingEligibleIndices[nextPos];
+
+    let nextIndex: number | undefined;
+    if (currentPos >= 0) {
+      const nextPos = currentPos + delta;
+      if (nextPos < 0 || nextPos >= trainingEligibleIndices.length) return;
+      nextIndex = trainingEligibleIndices[nextPos];
+    } else {
+      // Current verse may temporarily fall out of the selected filter after rating.
+      // Keep manual navigation working by jumping to the nearest eligible verse.
+      if (delta > 0) {
+        nextIndex = trainingEligibleIndices.find((idx) => idx > trainingIndex) ?? trainingEligibleIndices[0];
+      } else {
+        nextIndex = [...trainingEligibleIndices].reverse().find((idx) => idx < trainingIndex) ?? trainingEligibleIndices[trainingEligibleIndices.length - 1];
+      }
+    }
+
     const nextVerse = trainingVerses[nextIndex];
     if (!nextVerse) return;
     setDirection(delta > 0 ? 1 : -1);
@@ -801,15 +893,44 @@ export function VerseGallery({
 
   const handleTrainingTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
-    trainingTouchStartRef.current = createVerticalTouchSwipeStart(e);
+    const swipeStart = createVerticalTouchSwipeStart(e);
+    const target = e.target as HTMLElement | null;
+    const scrollCandidate = target?.closest('[data-verse-card-scroll-body="true"]');
+    const scrollEl = scrollCandidate instanceof HTMLElement ? scrollCandidate : null;
+    const maxScrollTop = scrollEl ? Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight) : 0;
+
+    trainingTouchGestureRef.current = {
+      swipeStart,
+      scrollEl,
+      startScrollTop: scrollEl?.scrollTop ?? 0,
+      maxScrollTop,
+      scrollable: maxScrollTop > 0,
+    };
   };
 
   const handleTrainingTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
-    const start = trainingTouchStartRef.current;
-    trainingTouchStartRef.current = null;
-    const step = getVerticalTouchSwipeStep(start, e);
+    const touchContext = trainingTouchGestureRef.current;
+    trainingTouchGestureRef.current = null;
+
+    const step = getVerticalTouchSwipeStep(touchContext?.swipeStart ?? null, e);
     if (!step) return;
+
+    if (!touchContext?.scrollEl || !touchContext.scrollable) {
+      jumpToAdjacentTrainingVerse(step);
+      return;
+    }
+
+    const currentScrollTop = touchContext.scrollEl.scrollTop;
+    const wasAtTop = touchContext.startScrollTop <= 1;
+    const wasAtBottom = touchContext.startScrollTop >= touchContext.maxScrollTop - 1;
+    const scrollMoved = Math.abs(currentScrollTop - touchContext.startScrollTop) > 2;
+
+    if (scrollMoved) return;
+
+    if (step === 1 && !wasAtBottom) return;
+    if (step === -1 && !wasAtTop) return;
+
     jumpToAdjacentTrainingVerse(step);
   };
 
@@ -878,35 +999,19 @@ export function VerseGallery({
 
     const isReviewExercise = isTrainingReviewVerse(updated);
     const nextMode = getModeByShiftInProgressOrder(trainingModeId, MODE_SHIFT_BY_RATING[rating] ?? 1);
-    if (!isReviewExercise && matchesTrainingSubsetFilter(updated, trainingSubsetFilter) && nextMode) {
-      setTrainingModeId(nextMode);
-    } else {
-      let eligibleIndices = updatedList
-        .map((verse, index) => ({ verse, index }))
-        .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
-        .map(({ index }) => index);
+    const nextModeForCurrentVerse =
+      !isReviewExercise && nextMode
+        ? nextMode
+        : chooseModeId(updated);
 
-      if (eligibleIndices.length === 0 && trainingSubsetFilter !== "all") {
-        toast.info("Нет стихов для выбранного режима", {
-          description: "Переключаем обратно на «Все».",
-        });
-        setTrainingSubsetFilter("all");
-        eligibleIndices = updatedList
-          .map((verse, index) => ({ verse, index }))
-          .filter(({ verse }) => isTrainingEligibleVerse(verse))
-          .map(({ index }) => index);
-      }
-
-      if (eligibleIndices.length === 0) {
-        exitTrainingMode(updated);
-      } else {
-        const nextIndex = eligibleIndices.find((idx) => idx !== trainingIndex) ?? eligibleIndices[0];
-        const nextVerse = updatedList[nextIndex];
-        setDirection(1);
-        setTrainingIndex(nextIndex);
-        setTrainingModeId(chooseModeId(nextVerse));
-      }
+    if (trainingSubsetFilter !== "all" && !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)) {
+      toast.info("Стих вышел из текущего фильтра", {
+        description: "Фильтр переключен на «Все», вы остаетесь на текущем стихе.",
+      });
+      setTrainingSubsetFilter("all");
     }
+
+    setTrainingModeId(nextModeForCurrentVerse);
 
     try {
       await persistTrainingVerseProgress(updated);
@@ -946,7 +1051,7 @@ export function VerseGallery({
 
   if (!displayVerse) return null;
 
-  const galleryBodyKey = `${panelMode}-${getVerseIdentity(displayVerse)}`;
+  const galleryBodyKey = getVerseIdentity(displayVerse);
 
   const previewStatusAction = panelMode === "preview" && previewActiveVerse
     ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
@@ -1048,30 +1153,24 @@ export function VerseGallery({
       <div className="flex-1 relative flex items-center justify-center px-4 sm:px-6" role="region" aria-roledescription="carousel" aria-label={panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
-            {panelMode === "preview" && previewActiveVerse ? (
-              <VerseGalleryPreviewViewport
-                verse={displayVerse}
-                activeIndex={activeIndex}
-                versesCount={verses.length}
-                actionPending={actionPending}
-                onNavigate={navigatePreviewTo}
-                onStartTraining={() => {
-                  void startTrainingFromActiveVerse();
-                }}
-                onTouchStart={handlePreviewTouchStart}
-                onTouchEnd={handlePreviewTouchEnd}
-              />
-            ) : panelMode === "training" && trainingActiveVerse && trainingModeId ? (
-              <VerseGalleryTrainingViewport
-                trainingActiveVerse={trainingActiveVerse}
-                trainingModeId={trainingModeId}
-                trainingModeMeta={trainingModeMeta}
-                trainingRendererRef={trainingRendererRef}
-                onTouchStart={handleTrainingTouchStart}
-                onTouchEnd={handleTrainingTouchEnd}
-                onRate={handleTrainingRate}
-              />
-            ) : null}
+            <VerseGalleryUnifiedCardViewport
+              panelMode={panelMode}
+              previewVerse={previewActiveVerse}
+              activeIndex={activeIndex}
+              actionPending={actionPending}
+              trainingActiveVerse={trainingActiveVerse}
+              trainingModeId={trainingModeId}
+              trainingModeMeta={trainingModeMeta}
+              trainingRendererRef={trainingRendererRef}
+              onStartTraining={() => {
+                void startTrainingFromActiveVerse();
+              }}
+              onPreviewTouchStart={handlePreviewTouchStart}
+              onPreviewTouchEnd={handlePreviewTouchEnd}
+              onTrainingTouchStart={handleTrainingTouchStart}
+              onTrainingTouchEnd={handleTrainingTouchEnd}
+              onTrainingRate={handleTrainingRate}
+            />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1097,6 +1196,26 @@ export function VerseGallery({
               aria-label="Удалить стих"
             >
               <Trash2 className="h-4 w-4" />Удалить
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {panelMode === "training" && (
+        <div className="shrink-0 px-4 sm:px-6 pt-3 z-40">
+          <div className="mx-auto w-full max-w-2xl">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2 rounded-2xl backdrop-blur-xl bg-background/70"
+              onClick={() => {
+                haptic("light");
+                handleTrainingBackAction();
+              }}
+              aria-label="Вернуться к превью текущего стиха"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              К превью
             </Button>
           </div>
         </div>

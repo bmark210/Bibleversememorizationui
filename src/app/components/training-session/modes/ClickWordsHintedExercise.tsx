@@ -259,21 +259,12 @@ export function ModeClickWordsHintedExercise({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-3xl p-6 sm:p-8 shadow-sm border border-border"
-      >
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full"
+    >
         <div className="space-y-6">
-          <div className="text-center">
-            <h2 className="text-primary mb-2">{verse.reference}</h2>
-            <div className="text-sm text-muted-foreground">{verse.translation}</div>
-            {/* <p className="text-sm text-muted-foreground mt-2">
-              Часть слов уже открыта. Нажимайте скрытые слова в правильной последовательности
-            </p> */}
-          </div>
-
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Скрытых слов</div>
@@ -429,8 +420,7 @@ export function ModeClickWordsHintedExercise({
             </>
           )}
         </div>
-      </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
