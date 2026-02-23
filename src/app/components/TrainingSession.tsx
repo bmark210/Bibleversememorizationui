@@ -23,6 +23,11 @@ import {
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   toTrainingStageMasteryLevel,
 } from '@/shared/training/modeEngine';
+import {
+  createVerticalTouchSwipeStart,
+  getVerticalTouchSwipeStep,
+  type VerticalTouchSwipeStart,
+} from '@/shared/ui/verticalTouchSwipe';
 
 type Rating = 0 | 1 | 2 | 3;
 type SaveState = 'saving' | 'saved' | 'error' | 'skipped';
@@ -512,7 +517,7 @@ export function TrainingSession({
   onExit,
 }: TrainingSessionProps) {
   const [runtime, setRuntime] = useState<RuntimeState>(() => createInitialRuntime(verses, startFromVerseId));
-  const touchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const touchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
 
   useEffect(() => {
     setRuntime(createInitialRuntime(verses, startFromVerseId));
@@ -564,35 +569,16 @@ export function TrainingSession({
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement | null;
-    const ignore = Boolean(target?.closest('input, textarea, [contenteditable=\"true\"]'));
-    const touch = e.touches[0];
-    if (!touch) return;
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, ignore };
+    touchStartRef.current = createVerticalTouchSwipeStart(e);
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
     touchStartRef.current = null;
-    if (!start || start.ignore) return;
     if (runtime.lastOutcome) return;
-
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    if (absDy < 70) return;
-    if (absDy < absDx * 1.2) return;
-
-    if (dy < 0) {
-      jumpToAdjacentVerse(1);
-    } else {
-      jumpToAdjacentVerse(-1);
-    }
+    const step = getVerticalTouchSwipeStep(start, e);
+    if (!step) return;
+    jumpToAdjacentVerse(step);
   };
 
   const handleRate = async (rating: Rating) => {

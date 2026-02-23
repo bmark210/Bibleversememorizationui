@@ -28,6 +28,7 @@ import {
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
@@ -42,6 +43,11 @@ import {
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
+import {
+  createVerticalTouchSwipeStart,
+  getVerticalTouchSwipeStep,
+  type VerticalTouchSwipeStart,
+} from "@/shared/ui/verticalTouchSwipe";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { VerseCard } from "./VerseCard";
 import type { Verse as LegacyVerse } from "../data/mockData";
@@ -425,6 +431,8 @@ type PreviewViewportProps = {
   actionPending: boolean;
   onNavigate: (dir: "prev" | "next") => void;
   onStartTraining: () => void | Promise<void>;
+  onTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
+  onTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
 };
 
 function VerseGalleryPreviewViewport({
@@ -434,6 +442,8 @@ function VerseGalleryPreviewViewport({
   actionPending,
   onNavigate,
   onStartTraining,
+  onTouchStart,
+  onTouchEnd,
 }: PreviewViewportProps) {
   const isReviewAction =
     normalizeVerseStatus(verse.status) === VerseStatus.LEARNING &&
@@ -442,30 +452,32 @@ function VerseGalleryPreviewViewport({
   const ctaAriaLabel = isReviewAction ? "Повторять этот стих" : "Учить этот стих";
 
   return (
-    <VerseCard
-      verse={verse}
-      isActive
-      isFirst={activeIndex === 0}
-      isLast={activeIndex === versesCount - 1}
-      onNavigate={onNavigate}
-      onHaptic={haptic}
-      topBadge={<MasteryBadge status={normalizeVerseStatus(verse.status)} masteryLevel={verse.masteryLevel ?? 0} />}
-      centerAction={
-        <Button
-          className={`gap-2 min-w-[200px] shadow-lg rounded-2xl ${
-            isReviewAction
-              ? ""
-              : ""
-          }`}
-          onClick={() => void onStartTraining()}
-          disabled={actionPending}
-          aria-label={ctaAriaLabel}
-        >
-          {isReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          {ctaLabel}
-        </Button>
-      }
-    />
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className="w-full">
+      <VerseCard
+        verse={verse}
+        isActive
+        isFirst={activeIndex === 0}
+        isLast={activeIndex === versesCount - 1}
+        onNavigate={onNavigate}
+        onHaptic={haptic}
+        topBadge={<MasteryBadge status={normalizeVerseStatus(verse.status)} masteryLevel={verse.masteryLevel ?? 0} />}
+        centerAction={
+          <Button
+            className={`gap-2 min-w-[200px] shadow-lg rounded-2xl ${
+              isReviewAction
+                ? ""
+                : ""
+            }`}
+            onClick={() => void onStartTraining()}
+            disabled={actionPending}
+            aria-label={ctaAriaLabel}
+          >
+            {isReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {ctaLabel}
+          </Button>
+        }
+      />
+    </div>
   );
 }
 
@@ -501,11 +513,11 @@ function VerseGalleryTrainingViewport({
               <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
                 {trainingModeMeta.label}
               </Badge>
-              {isTrainingReviewVerse(trainingActiveVerse) && (
+              {/* {isTrainingReviewVerse(trainingActiveVerse) && (
                 <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700 shadow-sm">
                   Повторение
                 </Badge>
-              )}
+              )} */}
             </div>
           ) : null
         }
@@ -533,7 +545,8 @@ export function VerseGallery({
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
-  const trainingTouchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const previewTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
+  const trainingTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -787,27 +800,30 @@ export function VerseGallery({
 
   const handleTrainingTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
-    const target = e.target as HTMLElement | null;
-    const ignore = Boolean(target?.closest('input, textarea, [contenteditable="true"]'));
-    const touch = e.touches[0];
-    if (!touch) return;
-    trainingTouchStartRef.current = { x: touch.clientX, y: touch.clientY, ignore };
+    trainingTouchStartRef.current = createVerticalTouchSwipeStart(e);
   };
 
   const handleTrainingTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "training") return;
     const start = trainingTouchStartRef.current;
     trainingTouchStartRef.current = null;
-    if (!start || start.ignore) return;
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-    if (absDy < 70 || absDy < absDx * 1.2) return;
-    if (dy < 0) jumpToAdjacentTrainingVerse(1);
-    else jumpToAdjacentTrainingVerse(-1);
+    const step = getVerticalTouchSwipeStep(start, e);
+    if (!step) return;
+    jumpToAdjacentTrainingVerse(step);
+  };
+
+  const handlePreviewTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (panelMode !== "preview") return;
+    previewTouchStartRef.current = createVerticalTouchSwipeStart(e);
+  };
+
+  const handlePreviewTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (panelMode !== "preview") return;
+    const start = previewTouchStartRef.current;
+    previewTouchStartRef.current = null;
+    const step = getVerticalTouchSwipeStep(start, e);
+    if (!step) return;
+    navigatePreviewTo(step > 0 ? "next" : "prev");
   };
   const handleTrainingRate = useCallback(async (rating: Rating) => {
     if (panelMode !== "training" || trainingModeId === null) return;
@@ -964,7 +980,10 @@ export function VerseGallery({
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
           <div className="flex items-center justify-center p-4 w-full">
-            <Badge variant="outline">{activeIndex + 1} / {verses.length}</Badge>
+            <Badge variant="outline">cfdvfd</Badge>
+            {/* <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge> */}
+            <Badge className="absolute right-4 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
+
             {!isInTelegram && (
               <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
                 <X className="h-5 w-5" />
@@ -975,7 +994,7 @@ export function VerseGallery({
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="flex items-start justify-between gap-4 relative">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex justify-center items-center gap-3">
                   {!isInTelegram ? (
                     <Button variant="ghost" size="sm" onClick={handleTrainingBackAction} className="gap-1">
                       <ChevronLeft className="w-4 h-4" />К стиху
@@ -983,27 +1002,35 @@ export function VerseGallery({
                   ) : (
                     <div className="h-9" aria-hidden="true" />
                   )}
-                  <Badge className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
-                </div>
-                <div className="p-1 backdrop-blur-lg absolute left-1/2 -translate-x-1/2 flex gap-1 bg-background/80 rounded-full">
-                  {TRAINING_SUBSET_OPTIONS.map((option) => (
-                    <Button
-                      key={option.key}
-                      type="button"
-                      size="sm"
-                      variant={trainingSubsetFilter === option.key ? "default" : "outline"}
-                      className="rounded-full"
-                      onClick={() => {
-                        if (trainingSubsetFilter === option.key) return;
+
+                  <div className="w-full flex flex-col items-center justify-center max-w-[140px] space-y-1 ">
+                    <Select
+                      value={trainingSubsetFilter}
+                      onValueChange={(value) => {
+                        const nextFilter = value as TrainingSubsetFilter;
+                        if (trainingSubsetFilter === nextFilter) return;
                         haptic("light");
-                        setTrainingSubsetFilter(option.key);
+                        setTrainingSubsetFilter(nextFilter);
                       }}
-                      aria-pressed={trainingSubsetFilter === option.key}
                     >
-                      {option.label}
-                    </Button>
-                  ))}
+                      <SelectTrigger
+                        size="sm"
+                        className="w-full rounded-xl bg-background/80 backdrop-blur-lg"
+                        aria-label="Фильтр тренировочных стихов"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TRAINING_SUBSET_OPTIONS.map((option) => (
+                          <SelectItem key={option.key} value={option.key}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
               </div>
               {!isInTelegram && (
                 <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
@@ -1027,6 +1054,8 @@ export function VerseGallery({
                 onStartTraining={() => {
                   void startTrainingFromActiveVerse();
                 }}
+                onTouchStart={handlePreviewTouchStart}
+                onTouchEnd={handlePreviewTouchEnd}
               />
             ) : panelMode === "training" && trainingActiveVerse && trainingModeId ? (
               <VerseGalleryTrainingViewport

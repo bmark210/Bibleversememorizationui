@@ -7,7 +7,7 @@ import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 const getMasteryColor = (status: VerseStatus, masteryLevel: number) => {
   if (status === VerseStatus.STOPPED) return "text-destructive";
   if (status === VerseStatus.NEW) return "text-destructive";
-  if (status === VerseStatus.LEARNING) return masteryLevel < TRAINING_STAGE_MASTERY_MAX ? "text-orange-500" : "bg-violet-600";
+  if (status === VerseStatus.LEARNING) return masteryLevel < TRAINING_STAGE_MASTERY_MAX ? "text-orange-500" : "text-violet-600";
 };
 
 const getMasteryLabel = (status: VerseStatus, masteryLevel: number) => {

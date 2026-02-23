@@ -1,17 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { animate, motion, useMotionValue, useTransform } from "motion/react";
-import { useDrag } from "@use-gesture/react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { motion } from "motion/react";
 import { Verse } from "@/app/App";
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
-
-/* ===================== CONSTANTS ===================== */
-
-const SWIPE_Y = 80;    // px — trigger navigation
-// @use-gesture/react reports velocity in px/ms → 0.6 px/ms = 600 px/s
-const VEL_Y   = 0.6;
 
 /* ===================== TYPES ===================== */
 
@@ -31,94 +23,17 @@ export interface VerseCardProps {
 export function VerseCard({
   verse,
   isActive,
-  isFirst,
-  isLast,
-  onNavigate,
-  onHaptic,
+  isFirst: _isFirst,
+  isLast: _isLast,
+  onNavigate: _onNavigate,
+  onHaptic: _onHaptic,
   centerAction,
   topBadge,
 }: VerseCardProps) {
-  const y = useMotionValue(0);
-
-  /* ─── Y transforms (vertical — navigation hints) ─── */
-  const upHintOpacity   = useTransform(y, [0, -30, -SWIPE_Y], [0, 0.5, 1]);
-  const upHintScale     = useTransform(y, [0, -SWIPE_Y], [0.9, 1.1]);
-  const downHintOpacity = useTransform(y, [0,  30,  SWIPE_Y], [0, 0.5, 1]);
-  const downHintScale   = useTransform(y, [0, SWIPE_Y], [0.9, 1.1]);
-
-  /* ─── Snap back helpers ─── */
-  const resetY = () => animate(y, 0, { type: "spring", stiffness: 400, damping: 38 } as const);
-
-  const handleVerticalSwipeProgress = (offsetY: number, triggered: boolean) => {
-    y.set(offsetY);
-    if (!triggered && Math.abs(offsetY) > SWIPE_Y) {
-      onHaptic?.("light");
-      return true;
-    }
-    if (triggered && Math.abs(offsetY) < SWIPE_Y * 0.8) {
-      return false;
-    }
-    return triggered;
-  };
-
-  const handleVerticalSwipeEnd = (offsetY: number, velocityY: number) => {
-    if (offsetY < -SWIPE_Y || velocityY < -VEL_Y) {
-      if (!isLast) {
-        onHaptic?.("medium");
-        onNavigate("next");
-      }
-    } else if (offsetY > SWIPE_Y || velocityY > VEL_Y) {
-      if (!isFirst) {
-        onHaptic?.("medium");
-        onNavigate("prev");
-      }
-    }
-    resetY();
-  };
-
-  /* ─── useDrag — vertical-only navigation ─── */
-  const bind = useDrag(
-    ({ movement: [, my], last, velocity: [, vy], memo }) => {
-      if (!isActive) return memo;
-
-      memo = memo ?? { triggered: false };
-
-      if (!last) {
-        memo.triggered = handleVerticalSwipeProgress(my, memo.triggered);
-      } else {
-        handleVerticalSwipeEnd(my, vy);
-      }
-
-      return memo;
-    },
-    {
-      enabled: isActive,
-      filterTaps: true,
-      threshold: 8,
-      from: () => [0, y.get()],
-      pointer: { touch: true },
-    }
-  );
-
   return (
     <div className="relative w-full max-w-2xl mx-auto select-none">
-      
-      {/* ── NEXT hint (drag up) ── */}
-      {!isLast && (
-        <motion.div
-          style={{ opacity: upHintOpacity, scale: upHintScale }}
-          className="absolute -top-9 left-0 right-0 flex justify-center pointer-events-none z-50"
-        >
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/70 px-3 py-1 rounded-full backdrop-blur-sm">
-            <ChevronUp className="h-3 w-3" /> Следующий
-          </span>
-        </motion.div>
-      )}
-
       {/* ── CARD ── */}
       <motion.div
-        {...(bind() as Record<string, unknown>)}
-        style={{ y, touchAction: "none" }}
         whileTap={{ scale: 0.985 }}
         className={`
           relative z-10 w-full h-[520px]
@@ -183,18 +98,6 @@ export function VerseCard({
           </p>
         )} */}
       </motion.div>
-
-      {/* ── PREV hint (drag down) ── */}
-      {!isFirst && (
-        <motion.div
-          style={{ opacity: downHintOpacity, scale: downHintScale }}
-          className="absolute -bottom-9 left-0 right-0 flex justify-center pointer-events-none z-50"
-        >
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/70 px-3 py-1 rounded-full backdrop-blur-sm">
-            <ChevronDown className="h-3 w-3" /> Предыдущий
-          </span>
-        </motion.div>
-      )}
     </div>
   );
 }

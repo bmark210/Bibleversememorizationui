@@ -66,6 +66,15 @@ function removeLastMeaningfulChar(rawValue: string) {
   return chars.join('');
 }
 
+function isLikelyIOSDevice() {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent ?? '';
+  const platform = window.navigator.platform ?? '';
+  const maxTouchPoints = window.navigator.maxTouchPoints ?? 0;
+
+  return /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && maxTouchPoints > 1);
+}
+
 function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
   return (
     <motion.div
@@ -118,9 +127,14 @@ export function ModeFirstLettersKeyboardExercise({
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showTapToFocusHint, setShowTapToFocusHint] = useState(false);
+  const [visualViewportHeight, setVisualViewportHeight] = useState<number | null>(null);
   const clearShakeTimeoutRef = useRef<number | null>(null);
   const focusRetryTimeoutsRef = useRef<number[]>([]);
   const focusRafRef = useRef<number | null>(null);
+  const focusProbeTimeoutRef = useRef<number | null>(null);
+  const baselineViewportHeightRef = useRef<number>(0);
 
   const clearPendingFocus = () => {
     if (focusRafRef.current !== null) {
@@ -131,6 +145,10 @@ export function ModeFirstLettersKeyboardExercise({
       window.clearTimeout(timeoutId);
     }
     focusRetryTimeoutsRef.current = [];
+    if (focusProbeTimeoutRef.current !== null) {
+      window.clearTimeout(focusProbeTimeoutRef.current);
+      focusProbeTimeoutRef.current = null;
+    }
   };
 
   const focusInput = () => {
@@ -153,6 +171,7 @@ export function ModeFirstLettersKeyboardExercise({
 
   const scheduleInitialFocus = () => {
     clearPendingFocus();
+    setShowTapToFocusHint(false);
 
     focusRafRef.current = window.requestAnimationFrame(() => {
       focusRafRef.current = null;
@@ -165,6 +184,14 @@ export function ModeFirstLettersKeyboardExercise({
       }, delayMs);
       focusRetryTimeoutsRef.current.push(timeoutId);
     }
+
+    focusProbeTimeoutRef.current = window.setTimeout(() => {
+      focusProbeTimeoutRef.current = null;
+      if (!isLikelyIOSDevice()) return;
+      if (document.activeElement !== inputRef.current) {
+        setShowTapToFocusHint(true);
+      }
+    }, 450);
   };
 
   useEffect(() => {
@@ -192,6 +219,54 @@ export function ModeFirstLettersKeyboardExercise({
     inputRef.current?.blur();
   }, [isCompleted]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const vk = (navigator as any)?.virtualKeyboard;
+      if (vk && typeof vk === 'object' && 'overlaysContent' in vk) {
+        vk.overlaysContent = true;
+      }
+    } catch {
+      // iOS Safari / Telegram iOS usually do not support this API.
+    }
+
+    const tgWebApp = (window as any)?.Telegram?.WebApp;
+    const vv = window.visualViewport;
+
+    const updateViewportMetrics = () => {
+      const currentHeight = Math.round(vv?.height ?? window.innerHeight);
+      setVisualViewportHeight(currentHeight);
+
+      if (!isInputFocused) {
+        baselineViewportHeightRef.current = Math.max(
+          baselineViewportHeightRef.current,
+          currentHeight,
+          Math.round(window.innerHeight)
+        );
+        return;
+      }
+
+      if (currentHeight > baselineViewportHeightRef.current) {
+        baselineViewportHeightRef.current = currentHeight;
+      }
+    };
+
+    updateViewportMetrics();
+
+    vv?.addEventListener('resize', updateViewportMetrics);
+    vv?.addEventListener('scroll', updateViewportMetrics);
+    window.addEventListener('resize', updateViewportMetrics);
+    tgWebApp?.onEvent?.('viewportChanged', updateViewportMetrics);
+
+    return () => {
+      vv?.removeEventListener('resize', updateViewportMetrics);
+      vv?.removeEventListener('scroll', updateViewportMetrics);
+      window.removeEventListener('resize', updateViewportMetrics);
+      tgWebApp?.offEvent?.('viewportChanged', updateViewportMetrics);
+    };
+  }, [isInputFocused]);
+
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
     [expectedLetters]
@@ -211,6 +286,16 @@ export function ModeFirstLettersKeyboardExercise({
   const typedCount = typedLettersList.length;
   const progress = total > 0 ? Math.round((typedCount / total) * 100) : 0;
   const nextIndex = Math.min(typedCount + 1, total);
+
+  const baselineViewportHeight = baselineViewportHeightRef.current || visualViewportHeight || 0;
+  const rawKeyboardInset = Math.max(0, baselineViewportHeight - (visualViewportHeight ?? baselineViewportHeight));
+  const keyboardInset = isInputFocused ? rawKeyboardInset : 0;
+  const isKeyboardOpen = keyboardInset > 120;
+  const isCompactKeyboardLayout = isKeyboardOpen && !isCompleted;
+  const dynamicCardMaxHeight = isKeyboardOpen && (visualViewportHeight ?? 0) > 0
+    ? Math.max(260, (visualViewportHeight ?? 0) - 120)
+    : null;
+  const activateKeyboardHintVisible = !isCompleted && !isInputFocused && showTapToFocusHint;
 
   const triggerInputShake = () => {
     setShakeInput(true);
@@ -262,17 +347,27 @@ export function ModeFirstLettersKeyboardExercise({
     requestAnimationFrame(() => focusInput());
   };
 
+  const handleManualKeyboardActivate = () => {
+    setShowTapToFocusHint(false);
+    focusInput();
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-3xl p-6 sm:p-8 shadow-sm border border-border"
+        className={`bg-card rounded-3xl shadow-sm border border-border overflow-y-auto overscroll-contain ${
+          isCompactKeyboardLayout ? 'p-4 sm:p-5' : 'p-6 sm:p-8'
+        }`}
+        style={dynamicCardMaxHeight ? { maxHeight: `${dynamicCardMaxHeight}px` } : undefined}
       >
-        <div className="space-y-6">
+        <div className={isCompactKeyboardLayout ? 'space-y-4' : 'space-y-6'}>
           <div className="text-center">
             <h2 className="text-primary mb-2">{verse.reference}</h2>
-            <div className="text-sm text-muted-foreground">{verse.translation}</div>
+            {!isCompactKeyboardLayout && (
+              <div className="text-sm text-muted-foreground">{verse.translation}</div>
+            )}
           </div>
 
           {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -302,12 +397,12 @@ export function ModeFirstLettersKeyboardExercise({
             />
           </div> */}
 
-          <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[84px]">
+          <div className={`rounded-lg border border-border/60 bg-background p-4 ${isCompactKeyboardLayout ? 'min-h-[64px]' : 'min-h-[84px]'}`}>
             <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
               Введённые буквы
             </div>
             {typedLettersList.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className={`flex flex-wrap gap-2 ${isCompactKeyboardLayout ? 'max-h-20 overflow-y-auto pr-1' : ''}`}>
                 {typedLettersList.map((letter, index) => (
                   <motion.span
                     key={`${letter}-${index}`}
@@ -326,12 +421,38 @@ export function ModeFirstLettersKeyboardExercise({
             )}
           </div>
 
-          {!isCompleted && (<div className="space-y-3">
+          {!isCompleted && (<div
+            className="space-y-3"
+            onTouchStartCapture={() => {
+              if (!isInputFocused) {
+                focusInput();
+              }
+            }}
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 Ввод с клавиатуры
               </div>
+              {isKeyboardOpen && (
+                <span className="text-[10px] text-muted-foreground">Клавиатура активна</span>
+              )}
             </div>
+
+            {activateKeyboardHintVisible && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  handleManualKeyboardActivate();
+                }}
+                onClick={handleManualKeyboardActivate}
+              >
+                Нажмите, чтобы открыть клавиатуру
+              </Button>
+            )}
 
             <motion.div
               animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -342,6 +463,13 @@ export function ModeFirstLettersKeyboardExercise({
                 autoFocus
                 value={inputValue}
                 onChange={(e) => handleInputChange(e.target.value)}
+                onFocus={() => {
+                  setIsInputFocused(true);
+                  setShowTapToFocusHint(false);
+                }}
+                onBlur={() => {
+                  setIsInputFocused(false);
+                }}
                 placeholder="Введите первые буквы слов..."
                 disabled={isCompleted}
                 className={`min-h-24 font-mono text-base tracking-[0.16em] uppercase ${
@@ -351,6 +479,7 @@ export function ModeFirstLettersKeyboardExercise({
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
+                enterKeyHint="done"
               />
             </motion.div>
           </div>)}
