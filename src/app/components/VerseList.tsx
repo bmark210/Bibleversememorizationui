@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Pause,
   Play,
@@ -769,7 +770,7 @@ export function VerseList({
       />
 
       {/* Gallery overlay */}
-      {galleryIndex !== null && verses[galleryIndex] && (
+      {galleryIndex !== null && verses[galleryIndex] && typeof document !== 'undefined' && createPortal(
         <VerseGallery
           verses={verses}
           initialIndex={galleryIndex}
@@ -782,7 +783,8 @@ export function VerseList({
               returnToGalleryFilter: statusFilter,
             })
           }
-        />
+        />,
+        document.body
       )}
     </div>
   );
