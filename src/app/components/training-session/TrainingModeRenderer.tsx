@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Verse as LegacyVerse } from '../../data/mockData';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
 import { ModeClickWordsHintedExercise } from './modes/ClickWordsHintedExercise';
@@ -144,6 +144,16 @@ export function TrainingModeRenderer({
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const { isInTelegram } = useTelegramSafeArea();
+  const onBackRef = useRef(onBack);
+  const tutorialOpenRef = useRef(tutorialOpen);
+
+  useEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
+
+  useEffect(() => {
+    tutorialOpenRef.current = tutorialOpen;
+  }, [tutorialOpen]);
 
   useEffect(() => {
     const seen = readSeenModeTutorials();
@@ -151,17 +161,17 @@ export function TrainingModeRenderer({
   }, [renderer]);
 
   useEffect(() => {
-    if (!onBack || !isInTelegram || typeof window === 'undefined') return;
+    if (!isInTelegram || typeof window === 'undefined') return;
 
     const backButton = (window as any).Telegram?.WebApp?.BackButton;
-    if (!backButton) return;
+    if (!backButton || !onBackRef.current) return;
 
     const handleBackButton = () => {
-      if (tutorialOpen) {
+      if (tutorialOpenRef.current) {
         setTutorialOpen(false);
         return;
       }
-      onBack();
+      onBackRef.current?.();
     };
 
     try {
@@ -179,7 +189,7 @@ export function TrainingModeRenderer({
         // ignore Telegram API cleanup errors
       }
     };
-  }, [onBack, isInTelegram, tutorialOpen]);
+  }, [isInTelegram]);
 
   const handleTutorialComplete = () => {
     const seen = readSeenModeTutorials();

@@ -885,7 +885,7 @@ export function VerseGallery({
                   renderer={MODE_PIPELINE[trainingModeId].renderer}
                   verse={asLegacyVerse(trainingActiveVerse)}
                   onRate={handleTrainingRate}
-                  onBack={() => exitTrainingMode()}
+                  onBack={exitTrainingMode}
                   topBadge={
                     trainingModeMeta ? (
                       <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
