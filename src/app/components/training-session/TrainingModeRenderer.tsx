@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
+import { useTelegramSafeArea } from '../../hooks/useTelegramSafeArea';
 
 export enum TrainingModeRendererKey {
   ChunksOrder = 'chunks-order',
@@ -130,6 +131,7 @@ interface TrainingModeRendererProps {
   verse: LegacyVerse;
   onRate: (rating: TrainingModeRating) => void;
   topBadge?: ReactNode;
+  onBack?: () => void;
 }
 
 export function TrainingModeRenderer({
@@ -137,14 +139,47 @@ export function TrainingModeRenderer({
   verse,
   onRate,
   topBadge,
+  onBack,
 }: TrainingModeRendererProps) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const { isInTelegram } = useTelegramSafeArea();
 
   useEffect(() => {
     const seen = readSeenModeTutorials();
     setTutorialOpen(!seen[renderer]);
   }, [renderer]);
+
+  useEffect(() => {
+    if (!onBack || !isInTelegram || typeof window === 'undefined') return;
+
+    const backButton = (window as any).Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+
+    const handleBackButton = () => {
+      if (tutorialOpen) {
+        setTutorialOpen(false);
+        return;
+      }
+      onBack();
+    };
+
+    try {
+      backButton.onClick(handleBackButton);
+      backButton.show();
+    } catch {
+      return;
+    }
+
+    return () => {
+      try {
+        backButton.offClick(handleBackButton);
+        backButton.hide();
+      } catch {
+        // ignore Telegram API cleanup errors
+      }
+    };
+  }, [onBack, isInTelegram, tutorialOpen]);
 
   const handleTutorialComplete = () => {
     const seen = readSeenModeTutorials();

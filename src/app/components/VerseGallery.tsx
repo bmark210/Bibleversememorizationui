@@ -556,7 +556,7 @@ export function VerseGallery({
   }, [syncPreviewIndexToVerse, trainingActiveVerse]);
 
   useEffect(() => {
-    if (!isInTelegram || typeof window === "undefined") return;
+    if (!isInTelegram || typeof window === "undefined" || panelMode === "training") return;
 
     const backButton = (window as any).Telegram?.WebApp?.BackButton;
     if (!backButton) return;
@@ -564,10 +564,6 @@ export function VerseGallery({
     const handleBackButton = () => {
       if (deleteDialogOpen) {
         setDeleteDialogOpen(false);
-        return;
-      }
-      if (panelMode === "training") {
-        exitTrainingMode();
         return;
       }
       onClose();
@@ -588,7 +584,7 @@ export function VerseGallery({
         // ignore Telegram API cleanup errors
       }
     };
-  }, [isInTelegram, deleteDialogOpen, panelMode, exitTrainingMode, onClose]);
+  }, [isInTelegram, deleteDialogOpen, panelMode, onClose]);
 
   const jumpToAdjacentTrainingVerse = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
@@ -820,8 +816,8 @@ export function VerseGallery({
 
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
-          <div className="flex items-center justify-between p-4">
-            <Badge className="absolute left-1/2 -translate-x-1/2" variant="outline">{activeIndex + 1} / {verses.length}</Badge>
+          <div className="flex items-center justify-center p-4 w-full">
+            <Badge variant="outline">{activeIndex + 1} / {verses.length}</Badge>
             {!isInTelegram && (
               <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
                 <X className="h-5 w-5" />
@@ -833,9 +829,13 @@ export function VerseGallery({
             <div className="flex items-start justify-between gap-4 relative">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => exitTrainingMode()} className="gap-1">
-                    <ChevronLeft className="w-4 h-4" />К стиху
-                  </Button>
+                  {!isInTelegram ? (
+                    <Button variant="ghost" size="sm" onClick={() => exitTrainingMode()} className="gap-1">
+                      <ChevronLeft className="w-4 h-4" />К стиху
+                    </Button>
+                  ) : (
+                    <div className="h-9" aria-hidden="true" />
+                  )}
                   <Badge className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
                 </div>
                 {/* <div className="text-base sm:text-lg font-semibold truncate">{displayVerse.reference}</div>
@@ -885,6 +885,7 @@ export function VerseGallery({
                   renderer={MODE_PIPELINE[trainingModeId].renderer}
                   verse={asLegacyVerse(trainingActiveVerse)}
                   onRate={handleTrainingRate}
+                  onBack={() => exitTrainingMode()}
                   topBadge={
                     trainingModeMeta ? (
                       <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
