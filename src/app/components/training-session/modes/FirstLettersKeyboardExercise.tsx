@@ -7,12 +7,19 @@ import { toast } from 'sonner';
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from '../../ui/textarea';
+import { useIsMobile } from '../../ui/use-mobile';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
+
+const MOBILE_RU_KEYBOARD_ROWS: string[][] = [
+  ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х'],
+  ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
+  ['я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю'],
+];
 
 function tokenizeFirstLetters(text: string): string[] {
   return text
@@ -112,6 +119,7 @@ export function ModeFirstLettersKeyboardExercise({
   verse,
   onRate,
 }: FirstLettersKeyboardExerciseProps) {
+  const isMobile = useIsMobile();
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mistakes, setMistakes] = useState(0);
@@ -166,7 +174,7 @@ export function ModeFirstLettersKeyboardExercise({
     }, 280);
   };
 
-  const handleInputChange = (nextRaw: string) => {
+  const applyNextInputValue = (nextRaw: string) => {
     if (isCompleted) return;
 
     const sanitized = trimToMaxLetters(sanitizeInput(nextRaw), expectedCompact.length);
@@ -189,6 +197,10 @@ export function ModeFirstLettersKeyboardExercise({
     triggerInputShake();
   };
 
+  const handleInputChange = (nextRaw: string) => {
+    applyNextInputValue(nextRaw);
+  };
+
   const handleUndo = () => {
     if (isCompleted || typedCount === 0) return;
     setInputValue((prev) => removeLastMeaningfulChar(prev));
@@ -197,6 +209,24 @@ export function ModeFirstLettersKeyboardExercise({
   const handleReset = () => {
     if (isCompleted || typedCount === 0) return;
     setInputValue('');
+  };
+
+  const handleMobileKeyPress = (letter: string) => {
+    if (isCompleted) return;
+    applyNextInputValue(`${inputValue}${letter}`);
+  };
+
+  const handleMobileBackspace = () => {
+    handleUndo();
+  };
+
+  const handleMobileReset = () => {
+    handleReset();
+  };
+
+  const handleMobileSpace = () => {
+    if (isCompleted) return;
+    applyNextInputValue(`${inputValue} `);
   };
 
   return (
@@ -268,21 +298,45 @@ export function ModeFirstLettersKeyboardExercise({
               animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <Textarea
-                value={inputValue}
-                onChange={(e) => handleInputChange(e.target.value)}
-                placeholder="Введите первые буквы слов..."
-                disabled={isCompleted}
-                className={`min-h-24 font-mono text-base tracking-[0.16em] uppercase ${
-                  shakeInput ? 'border-destructive text-destructive' : ''
-                }`}
-                aria-label="Поле ввода первых букв"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-              />
+              {!isMobile ? (
+                <Textarea
+                  value={inputValue}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  placeholder="Введите первые буквы слов..."
+                  disabled={isCompleted}
+                  className={`min-h-24 font-mono text-base tracking-[0.16em] uppercase ${
+                    shakeInput ? 'border-destructive text-destructive' : ''
+                  }`}
+                  aria-label="Поле ввода первых букв"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              ) : (
+                <div
+                  className={`rounded-lg border border-border/60 bg-background p-4 text-left ${
+                    shakeInput ? 'border-destructive/60 bg-destructive/5 text-destructive' : ''
+                  }`}
+                  aria-label="Ввод через экранную клавиатуру"
+                >
+                  <div className="text-sm font-medium">
+                    Используйте экранную клавиатуру ниже
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Нажимайте первые буквы слов по порядку
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>}
+
+          {isMobile && !isCompleted && (
+            <div
+              aria-hidden="true"
+              className="md:hidden"
+              style={{ height: 'calc(17rem + env(safe-area-inset-bottom, 0px))' }}
+            />
+          )}
 
           {isCompleted && (
             <>
@@ -296,6 +350,83 @@ export function ModeFirstLettersKeyboardExercise({
             </>
           )}
         </div>
+
+      {isMobile && !isCompleted && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-[70] border-t border-border backdrop-blur-xl bg-card/90"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          <div className="w-full p-2 pt-2.5 space-y-2">
+            <div className="space-y-1.5">
+              {MOBILE_RU_KEYBOARD_ROWS.map((row, rowIndex) => (
+                <div
+                  key={`row-${rowIndex}`}
+                  className={
+                    rowIndex === 0
+                      ? 'grid gap-1 px-0.5'
+                      : rowIndex === 1
+                        ? 'grid gap-1 px-3'
+                        : 'grid gap-1 px-7'
+                  }
+                  style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}
+                >
+                  {row.map((letter) => (
+                    <Button
+                      key={letter}
+                      type="button"
+                      variant="outline"
+                      className="h-10 min-w-0 px-0 font-mono text-[13px] uppercase rounded-md"
+                      onClick={() => handleMobileKeyPress(letter)}
+                      disabled={isCompleted}
+                      aria-label={`Ввести букву ${letter.toUpperCase()}`}
+                    >
+                      {letter.toUpperCase()}
+                    </Button>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-[1fr_2fr_1fr] gap-2 px-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg"
+                onClick={handleMobileBackspace}
+                disabled={typedCount === 0}
+                aria-label="Удалить последний символ"
+              >
+                ⌫
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg"
+                onClick={handleMobileSpace}
+                disabled={isCompleted}
+                aria-label="Пробел"
+              >
+                Пробел
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 rounded-lg"
+                onClick={handleMobileReset}
+                disabled={typedCount === 0}
+                aria-label="Сбросить ввод"
+              >
+                Сброс
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

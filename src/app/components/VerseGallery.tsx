@@ -568,7 +568,7 @@ function VerseGalleryUnifiedCardViewport({
           ) : null
         }
         bodyScrollable={!isPreview}
-        contentClassName={!isPreview ? "pb-24 md:pb-2" : undefined}
+        contentClassName={!isPreview ? "pb-2" : undefined}
         centerAction={
           isPreview && preview ? (
             <Button

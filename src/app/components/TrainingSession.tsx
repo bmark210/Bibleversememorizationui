@@ -832,7 +832,7 @@ export function TrainingSession({
               />
             }
             bodyScrollable
-            contentClassName="pb-24 md:pb-2"
+            contentClassName="pb-2"
             minHeight="training"
           />
         </div>
