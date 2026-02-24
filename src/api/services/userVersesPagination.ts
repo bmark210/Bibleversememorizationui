@@ -9,7 +9,7 @@ type GetApiUsersVersesParams = {
   order?: "asc" | "desc";
   filter?: "all" | "new" | "learning" | "review" | "stopped";
   limit?: number;
-  cursorId?: string;
+  cursorId?: number;
 };
 
 type FetchAllUserVersesParams = Omit<GetApiUsersVersesParams, "cursorId"> & {
@@ -35,7 +35,7 @@ export async function fetchAllUserVerses(
 ): Promise<Array<UserVerse>> {
   const pageLimit = params.pageLimit ?? 50;
   const items: Array<UserVerse> = [];
-  let cursorId: string | undefined;
+  let cursorId: number | undefined;
 
   while (true) {
     const page = await fetchUserVersesPage({
@@ -44,9 +44,7 @@ export async function fetchAllUserVerses(
       cursorId,
     });
     items.push(...page.items);
-    if (!page.hasMore || page.nextCursorId == null) {
-      break;
-    }
+    if (!page.hasMore || page.nextCursorId == null) break;
     cursorId = page.nextCursorId;
   }
 

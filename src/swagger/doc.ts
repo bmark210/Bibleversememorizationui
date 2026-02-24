@@ -125,7 +125,7 @@ const swaggerDoc = {
             name: "cursorId",
             in: "query",
             required: false,
-            schema: { type: "string" },
+            schema: { type: "integer", minimum: 1 },
           },
         ],
         responses: {
@@ -481,7 +481,7 @@ const swaggerDoc = {
             items: { $ref: "#/components/schemas/UserVerse" },
           },
           hasMore: { type: "boolean" },
-          nextCursorId: { type: "string", nullable: true },
+          nextCursorId: { type: "integer", nullable: true },
           totalCount: { type: "integer", minimum: 0 },
         },
       },

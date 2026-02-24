@@ -42,9 +42,9 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   // Отладка safe area
   useEffect(() => {
     if (isInTelegram) {
-      console.log('📱 Layout: Telegram detected, safe area:', safeAreaInset);
+      // console.log('📱 Layout: Telegram detected, safe area:', safeAreaInset);
     } else {
-      console.log('🌐 Layout: Browser mode, safe area:', safeAreaInset);
+      // console.log('🌐 Layout: Browser mode, safe area:', safeAreaInset);
     }
   }, [isInTelegram, safeAreaInset]);
 

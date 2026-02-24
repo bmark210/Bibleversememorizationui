@@ -237,7 +237,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           }
         ],
@@ -887,7 +888,7 @@
             "type": "boolean"
           },
           "nextCursorId": {
-            "type": "string",
+            "type": "integer",
             "nullable": true
           },
           "totalCount": {

@@ -102,13 +102,13 @@ export function useTelegramWebApp() {
         // Устанавливаем цвет заголовка
         WebApp.setHeaderColor('secondary_bg_color');
 
-        console.log('Telegram WebApp инициализирован:', {
-          platform: WebApp.platform,
-          version: WebApp.version,
-          user: user,
-          fullscreen: WebApp.isFullscreen,
-          verticalSwipes: WebApp.isVerticalSwipesEnabled,
-        });
+        // console.log('Telegram WebApp инициализирован:', {
+        //   platform: WebApp.platform,
+        //   version: WebApp.version,
+        //   user: user,
+        //   fullscreen: WebApp.isFullscreen,
+        //   verticalSwipes: WebApp.isVerticalSwipesEnabled,
+        // });
 
       } catch (error) {
         console.error('Ошибка инициализации Telegram WebApp:', error);
@@ -116,7 +116,7 @@ export function useTelegramWebApp() {
       }
     } else {
       // Не в Telegram - используем моковые данные для разработки
-      console.log('Приложение запущено вне Telegram');
+      // console.log('Приложение запущено вне Telegram');
       setState({
         isReady: true,
         user: null,

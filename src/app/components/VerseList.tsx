@@ -17,10 +17,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
-  AnimatePresence,
   motion,
   useReducedMotion,
 } from 'motion/react';
+import type { ListRange } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -117,6 +118,8 @@ type SwipeCardProps = {
 };
 
 const VERSE_LIST_PAGE_SIZE = 20;
+const SCROLL_ACTIVATION_DELTA_PX = 24;
+const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 160;
 
 /* ===================== HAPTIC ===================== */
 
@@ -410,6 +413,12 @@ export function VerseList({
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
 }: VerseListProps) {
+  const debugInfiniteScroll = useCallback((event: string, payload?: Record<string, unknown>) => {
+    if (process.env.NODE_ENV === 'production') return;
+    if (process.env.NEXT_PUBLIC_DEBUG_INFINITE_SCROLL !== '1') return;
+    console.debug('[VerseList][infinite]', event, payload ?? {});
+  }, []);
+
   const [searchQuery] = useState('');
   const [testamentFilter] = useState<'all' | 'OT' | 'NT'>('all');
   const [masteryFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
@@ -422,19 +431,43 @@ export function VerseList({
   const [isFetchingMoreVerses, setIsFetchingMoreVerses] = useState(false);
   const [hasFetchedVersesOnce, setHasFetchedVersesOnce] = useState(false);
   const [hasMoreVerses, setHasMoreVerses] = useState(false);
-  const [nextCursorId, setNextCursorId] = useState<string | null>(null);
+  const [nextCursorId, setNextCursorId] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const requestVersionRef = useRef(0);
   const versesRef = useRef<Array<Verse>>([]);
+  const fetchMoreLockRef = useRef(false);
+  const inFlightCursorRef = useRef<string | null>(null);
+  const lastFailedCursorRef = useRef<string | null>(null);
+  const hasMoreVersesRef = useRef(false);
+  const loadMoreErrorRef = useRef<string | null>(null);
+  const suspendAutoLoadRef = useRef(false);
+  const hasUserScrolledRef = useRef(false);
+  const userScrollArmedRef = useRef(false);
+  const scrollBaselineRef = useRef(0);
+  const scrollInteractionTickRef = useRef(0);
+  const isVirtuosoAtBottomRef = useRef(false);
+  const lastBottomAutoRequestKeyRef = useRef<string | null>(null);
+  const lastBottomAutoScrollTickRef = useRef<number>(-1);
+  const lastVisibleRangeRef = useRef<ListRange | null>(null);
+  const currentRenderedListLengthRef = useRef(0);
+  const listScrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [customScrollParent, setCustomScrollParent] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     versesRef.current = verses;
   }, [verses]);
+
+  useEffect(() => {
+    hasMoreVersesRef.current = hasMoreVerses;
+  }, [hasMoreVerses]);
+
+  useEffect(() => {
+    loadMoreErrorRef.current = loadMoreError;
+  }, [loadMoreError]);
 
   /* ── toasts ── */
   const pushToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
@@ -486,17 +519,6 @@ export function VerseList({
     return verse.status === VerseStatus.NEW;
   }, [isReviewVerse]);
 
-  const sortByLoadedAtDesc = useCallback((list: Array<Verse>) => {
-    return [...list].sort((a, b) => {
-      const aTime = new Date((a as any).createdAt ?? 0).getTime();
-      const bTime = new Date((b as any).createdAt ?? 0).getTime();
-      if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
-      if (Number.isNaN(aTime)) return 1;
-      if (Number.isNaN(bTime)) return -1;
-      return bTime - aTime; // newest first
-    });
-  }, []);
-
   /* ── telegram id ── */
   const resolveTelegramId = (): string | undefined => {
     if (typeof window === 'undefined') return undefined;
@@ -521,10 +543,34 @@ export function VerseList({
     return appended.length > 0 ? [...prev, ...appended] : prev;
   }, [getVerseKey]);
 
+  const getScrollParent = useCallback((node: HTMLElement | null): HTMLElement | null => {
+    if (!node || typeof window === 'undefined') return null;
+    let current = node.parentElement;
+    while (current && current !== document.body) {
+      const style = window.getComputedStyle(current);
+      const overflowY = style.overflowY;
+      const canScrollContainer = overflowY === 'auto' || overflowY === 'scroll';
+      if (canScrollContainer) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }, []);
+
+  const resolveScrollParent = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    return getScrollParent(listScrollAnchorRef.current);
+  }, [getScrollParent]);
+
+  const getCurrentScrollTop = useCallback(() => {
+    if (typeof window === 'undefined') return 0;
+    if (customScrollParent) return customScrollParent.scrollTop;
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }, [customScrollParent]);
+
   const requestVersesPage = useCallback(async (
     id: string,
     filter: VerseListStatusFilter,
-    cursorId?: string | null
+    cursorId?: number | null
   ) => {
     const page = await fetchUserVersesPage({
       telegramId: id,
@@ -543,6 +589,19 @@ export function VerseList({
 
   const resetAndFetchFirstPage = useCallback(async (id: string, filter: VerseListStatusFilter) => {
     const requestVersion = ++requestVersionRef.current;
+    fetchMoreLockRef.current = false;
+    inFlightCursorRef.current = null;
+    lastFailedCursorRef.current = null;
+    suspendAutoLoadRef.current = false;
+    hasUserScrolledRef.current = false;
+    userScrollArmedRef.current = false;
+    scrollBaselineRef.current = 0;
+    scrollInteractionTickRef.current = 0;
+    isVirtuosoAtBottomRef.current = false;
+    lastBottomAutoRequestKeyRef.current = null;
+    lastBottomAutoScrollTickRef.current = -1;
+    lastVisibleRangeRef.current = null;
+    currentRenderedListLengthRef.current = 0;
     setIsFetchingVerses(true);
     setHasFetchedVersesOnce(false);
     setIsFetchingMoreVerses(false);
@@ -573,15 +632,35 @@ export function VerseList({
     }
   }, [requestVersesPage]);
 
-  const fetchNextPage = useCallback(async () => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const nextParent = resolveScrollParent();
+    setCustomScrollParent((prev) => (prev === nextParent ? prev : nextParent));
+  }, [resolveScrollParent, hasFetchedVersesOnce, statusFilter, verses.length]);
+
+  const fetchNextPage = useCallback(async (
+    options?: { source?: 'auto' | 'manual' | 'reopen' | 'gallery' }
+  ) => {
+    const source = options?.source ?? 'auto';
     if (!telegramId) return false;
-    if (isFetchingVerses || isFetchingMoreVerses) return false;
+    if (source === 'auto' && suspendAutoLoadRef.current) return false;
+    if (source === 'auto' && !hasUserScrolledRef.current) return false;
+    if (source === 'auto' && loadMoreError) return false;
+    if (isFetchingVerses || isFetchingMoreVerses || fetchMoreLockRef.current) return false;
     if (!hasMoreVerses) return false;
 
     const requestVersion = requestVersionRef.current;
     const cursor = nextCursorId;
+    const requestKey = `${telegramId}:${statusFilter}:${cursor ?? 'first'}`;
+    if (source === 'auto' && lastFailedCursorRef.current === requestKey) return false;
+    if (inFlightCursorRef.current === requestKey) return false;
+    fetchMoreLockRef.current = true;
+    inFlightCursorRef.current = requestKey;
     setIsFetchingMoreVerses(true);
-    setLoadMoreError(null);
+    if (source !== 'auto') {
+      setLoadMoreError(null);
+      lastFailedCursorRef.current = null;
+    }
 
     try {
       const page = await requestVersesPage(telegramId, statusFilter, cursor);
@@ -593,21 +672,44 @@ export function VerseList({
         didAppend = merged.length > prev.length;
         return merged;
       });
-      setHasMoreVerses(page.hasMore);
-      setNextCursorId(page.nextCursorId);
+
+      const repeatedCursor = cursor !== null && page.nextCursorId === cursor;
+      const stalledPagination = page.hasMore && (page.items.length === 0 || repeatedCursor || !didAppend);
+
+      if (stalledPagination) {
+        console.warn('Остановлена пагинация: повтор страницы или курсора', {
+          cursor,
+          nextCursorId: page.nextCursorId,
+          pageItems: page.items.length,
+          didAppend,
+        });
+        setHasMoreVerses(false);
+        setNextCursorId(null);
+        lastFailedCursorRef.current = null;
+      } else {
+        setHasMoreVerses(page.hasMore);
+        setNextCursorId(page.nextCursorId);
+        lastFailedCursorRef.current = null;
+      }
       setTotalCount(page.totalCount);
       return didAppend;
     } catch (err) {
       if (requestVersionRef.current !== requestVersion) return false;
       console.error('Не удалось подгрузить ещё стихи:', err);
+      lastFailedCursorRef.current = requestKey;
       setLoadMoreError('Не удалось загрузить ещё стихи');
       return false;
     } finally {
+      fetchMoreLockRef.current = false;
+      if (inFlightCursorRef.current === requestKey) {
+        inFlightCursorRef.current = null;
+      }
       if (requestVersionRef.current !== requestVersion) return false;
       setIsFetchingMoreVerses(false);
     }
   }, [
     telegramId,
+    loadMoreError,
     isFetchingVerses,
     isFetchingMoreVerses,
     hasMoreVerses,
@@ -616,6 +718,189 @@ export function VerseList({
     statusFilter,
     mergeUniqueVerses,
   ]);
+
+  const tryAutoLoadFromVirtuosoSignals = useCallback((reason: string) => {
+    const cursorLabel = nextCursorId ?? 'first';
+    const visibleRange = lastVisibleRangeRef.current;
+    const listLength = currentRenderedListLengthRef.current;
+    const rangeHitsListEnd = listLength > 0 && !!visibleRange && visibleRange.endIndex >= listLength - 1;
+    const requestKey = telegramId ? `${telegramId}:${statusFilter}:${nextCursorId ?? 'first'}` : null;
+
+    debugInfiniteScroll('auto-eval', {
+      reason,
+      cursor: cursorLabel,
+      isVirtuosoAtBottom: isVirtuosoAtBottomRef.current,
+      listLength,
+      visibleRange,
+      rangeHitsListEnd,
+      hasUserScrolled: hasUserScrolledRef.current,
+      tick: scrollInteractionTickRef.current,
+      hasMoreVerses: hasMoreVersesRef.current,
+      loadingLocked: fetchMoreLockRef.current,
+      inFlight: inFlightCursorRef.current,
+      requestKey,
+    });
+
+    if (!hasUserScrolledRef.current) {
+      debugInfiniteScroll('auto-skip:no-user-scroll', { cursor: cursorLabel, reason });
+      return;
+    }
+    if (!isVirtuosoAtBottomRef.current) {
+      debugInfiniteScroll('auto-skip:not-at-bottom', { cursor: cursorLabel, reason });
+      return;
+    }
+    if (!rangeHitsListEnd) {
+      debugInfiniteScroll('auto-skip:range-not-end', { cursor: cursorLabel, reason, listLength, visibleRange });
+      return;
+    }
+    if (suspendAutoLoadRef.current) {
+      debugInfiniteScroll('auto-skip:suspended', { cursor: cursorLabel, reason });
+      return;
+    }
+    if (!hasMoreVersesRef.current) {
+      debugInfiniteScroll('auto-skip:no-more', { cursor: cursorLabel, reason });
+      return;
+    }
+    if (loadMoreErrorRef.current) {
+      debugInfiniteScroll('auto-skip:error', { cursor: cursorLabel, reason, error: loadMoreErrorRef.current });
+      return;
+    }
+    if (!requestKey) {
+      debugInfiniteScroll('auto-skip:no-request-key', { cursor: cursorLabel, reason });
+      return;
+    }
+    if (fetchMoreLockRef.current) {
+      debugInfiniteScroll('auto-skip:locked', { cursor: cursorLabel, reason, requestKey });
+      return;
+    }
+    if (inFlightCursorRef.current === requestKey) {
+      debugInfiniteScroll('auto-skip:in-flight-same-cursor', { reason, requestKey });
+      return;
+    }
+    if (lastFailedCursorRef.current === requestKey) {
+      debugInfiniteScroll('auto-skip:last-failed-cursor', { reason, requestKey });
+      return;
+    }
+
+    const currentScrollTick = scrollInteractionTickRef.current;
+    if (currentScrollTick <= 0) {
+      debugInfiniteScroll('auto-skip:no-scroll-tick', { cursor: cursorLabel, reason, currentScrollTick });
+      return;
+    }
+    if (lastBottomAutoScrollTickRef.current === currentScrollTick) {
+      debugInfiniteScroll('auto-skip:same-scroll-tick', {
+        reason,
+        currentScrollTick,
+        lastBottomAutoScrollTick: lastBottomAutoScrollTickRef.current,
+        requestKey,
+      });
+      return;
+    }
+    if (lastBottomAutoRequestKeyRef.current === requestKey) {
+      debugInfiniteScroll('auto-skip:same-request-key', {
+        reason,
+        requestKey,
+        currentScrollTick,
+      });
+      return;
+    }
+
+    lastBottomAutoRequestKeyRef.current = requestKey;
+    lastBottomAutoScrollTickRef.current = currentScrollTick;
+    debugInfiniteScroll('auto-trigger', {
+      reason,
+      requestKey,
+      currentScrollTick,
+      listLength,
+      visibleRangeEnd: visibleRange?.endIndex ?? null,
+    });
+    void fetchNextPage({ source: 'auto' }).then((didLoad) => {
+      debugInfiniteScroll('auto-result', { requestKey, didLoad, reason });
+    });
+  }, [debugInfiniteScroll, fetchNextPage, nextCursorId, statusFilter, telegramId]);
+
+  useEffect(() => {
+    if (!hasFetchedVersesOnce) return;
+    if (typeof window === 'undefined') return;
+
+    const scrollTarget = (customScrollParent ?? window) as Window | HTMLElement;
+    scrollBaselineRef.current = getCurrentScrollTop();
+    userScrollArmedRef.current = true;
+
+    const onScroll = () => {
+      scrollInteractionTickRef.current += 1;
+      const currentTop = getCurrentScrollTop();
+      if (!userScrollArmedRef.current) {
+        scrollBaselineRef.current = currentTop;
+        userScrollArmedRef.current = true;
+      }
+      if (!hasUserScrolledRef.current && currentTop - scrollBaselineRef.current > SCROLL_ACTIVATION_DELTA_PX) {
+        hasUserScrolledRef.current = true;
+        debugInfiniteScroll('user-scroll-armed', {
+          delta: currentTop - scrollBaselineRef.current,
+          threshold: SCROLL_ACTIVATION_DELTA_PX,
+          customScrollParent: Boolean(customScrollParent),
+        });
+      }
+    };
+
+    scrollTarget.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      scrollTarget.removeEventListener('scroll', onScroll);
+    };
+  }, [
+    customScrollParent,
+    getCurrentScrollTop,
+    hasFetchedVersesOnce,
+    debugInfiniteScroll,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onViewportChange = () => {
+      const nextParent = resolveScrollParent();
+      setCustomScrollParent((prev) => (prev === nextParent ? prev : nextParent));
+    };
+
+    window.addEventListener('resize', onViewportChange, { passive: true });
+    window.addEventListener('orientationchange', onViewportChange);
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
+    };
+  }, [resolveScrollParent]);
+
+  const ensureVerseLoadedForReopen = useCallback(async (targetVerseId: string) => {
+    if (!targetVerseId) return false;
+    if (!telegramId) return false;
+
+    const hasTarget = () =>
+      versesRef.current.some(
+        (v) => String(v.id) === String(targetVerseId) || v.externalVerseId === targetVerseId
+      );
+
+    if (hasTarget()) return true;
+
+    suspendAutoLoadRef.current = true;
+    try {
+      let safety = 0;
+      while (safety < 100) {
+        if (hasTarget()) return true;
+        if (!hasMoreVersesRef.current) return false;
+        if (loadMoreErrorRef.current) return false;
+        const didLoad = await fetchNextPage({ source: 'reopen' });
+        if (!didLoad && !hasMoreVersesRef.current) return false;
+        if (!didLoad && loadMoreErrorRef.current) return false;
+        if (!didLoad) return hasTarget();
+        safety += 1;
+      }
+      return hasTarget();
+    } finally {
+      suspendAutoLoadRef.current = false;
+    }
+  }, [fetchNextPage, telegramId]);
 
   useEffect(() => {
     const id = resolveTelegramId();
@@ -653,7 +938,7 @@ export function VerseList({
 
     if (index === -1) {
       if (hasMoreVerses && !isFetchingMoreVerses) {
-        void fetchNextPage();
+        void ensureVerseLoadedForReopen(String(reopenGalleryVerseId));
         return;
       }
       // Verse may have moved out of the restored filter (e.g. NEW -> LEARNING).
@@ -683,7 +968,7 @@ export function VerseList({
     isFetchingMoreVerses,
     hasMoreVerses,
     hasFetchedVersesOnce,
-    fetchNextPage,
+    ensureVerseLoadedForReopen,
     onReopenGalleryHandled,
   ]);
 
@@ -856,29 +1141,6 @@ export function VerseList({
     return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
   }).length;
 
-  useEffect(() => {
-    const target = loadMoreSentinelRef.current;
-    if (!target) return;
-    if (isListLoading) return;
-    if (!hasMoreVerses) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (!entry?.isIntersecting) return;
-        void fetchNextPage();
-      },
-      {
-        root: null,
-        rootMargin: '400px 0px',
-        threshold: 0,
-      }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [fetchNextPage, hasMoreVerses, isListLoading]);
-
   const pageVariants = {
     hidden: {},
     show: {
@@ -904,32 +1166,6 @@ export function VerseList({
     },
   };
 
-  const gridVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.05,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 10,
-      scale: shouldReduceMotion ? 1 : 0.99,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.22,
-        ease: 'easeOut' as const,
-      },
-    },
-  };
-
   const openVerseInGallery = useCallback((verse: Verse) => {
     const index = verses.findIndex((v) => isSameVerse(v, verse));
     if (index === -1) return;
@@ -937,7 +1173,91 @@ export function VerseList({
     setGalleryIndex(index);
   }, [verses, isSameVerse]);
 
-  const renderVerseSection = (
+  const renderVerseRow = useCallback((verse: Verse) => {
+    return (
+      <SwipeableVerseCard
+        verse={verse}
+        onOpen={() => openVerseInGallery(verse)}
+        onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+        onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
+        onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+        onRequestDelete={confirmDeleteVerse}
+        isPending={pendingVerseKeys.has(getVerseKey(verse))}
+      />
+    );
+  }, [confirmDeleteVerse, getVerseKey, openVerseInGallery, pendingVerseKeys, updateVerseStatus]);
+
+  const handleVirtuosoRangeChanged = useCallback((range: ListRange, listLength: number) => {
+    lastVisibleRangeRef.current = range;
+    currentRenderedListLengthRef.current = listLength;
+    debugInfiniteScroll('virtuoso-rangeChanged', {
+      range,
+      listLength,
+      rangeHitsListEnd: listLength > 0 && range.endIndex >= listLength - 1,
+    });
+    tryAutoLoadFromVirtuosoSignals('virtuoso-range');
+  }, [debugInfiniteScroll, tryAutoLoadFromVirtuosoSignals]);
+
+  const handleBottomStateChange = useCallback((isBottom: boolean) => {
+    const prevIsBottom = isVirtuosoAtBottomRef.current;
+    isVirtuosoAtBottomRef.current = isBottom;
+
+    debugInfiniteScroll('virtuoso-atBottomStateChange', {
+      isBottom,
+      prevIsBottom,
+      hasUserScrolled: hasUserScrolledRef.current,
+      threshold: AUTO_LOAD_BOTTOM_THRESHOLD_PX,
+      hasMoreVerses,
+      isFetchingMoreVerses,
+      nextCursorId,
+    });
+
+    if (!isBottom) {
+      lastBottomAutoRequestKeyRef.current = null;
+      return;
+    }
+
+    tryAutoLoadFromVirtuosoSignals('virtuoso-bottom');
+  }, [
+    debugInfiniteScroll,
+    hasMoreVerses,
+    isFetchingMoreVerses,
+    nextCursorId,
+    tryAutoLoadFromVirtuosoSignals,
+  ]);
+
+  const renderVirtualizedVerseList = useCallback((
+    items: Array<Verse>,
+    options?: { padded?: boolean }
+  ) => {
+    if (items.length === 0) return null;
+
+    currentRenderedListLengthRef.current = items.length;
+    const padded = options?.padded ?? false;
+    const scrollModeKey = customScrollParent ? 'container' : 'window';
+
+    return (
+      <Virtuoso<Verse>
+        key={`virtuoso-${scrollModeKey}-${statusFilter}`}
+        data={items}
+        customScrollParent={customScrollParent ?? undefined}
+        useWindowScroll={!customScrollParent}
+        increaseViewportBy={240}
+        overscan={180}
+        atBottomThreshold={AUTO_LOAD_BOTTOM_THRESHOLD_PX}
+        computeItemKey={(_, verse) => getVerseKey(verse)}
+        rangeChanged={(range) => handleVirtuosoRangeChanged(range, items.length)}
+        atBottomStateChange={handleBottomStateChange}
+        itemContent={(index, verse) => (
+          <div className={`${padded ? '' : ''} ${index < items.length - 1 ? 'pb-3' : ''}`}>
+            {renderVerseRow(verse)}
+          </div>
+        )}
+      />
+    );
+  }, [customScrollParent, getVerseKey, handleBottomStateChange, handleVirtuosoRangeChanged, renderVerseRow, statusFilter]);
+
+  const renderVirtualizedVerseSection = (
     items: Array<Verse>,
     config: {
       headingId: string;
@@ -975,70 +1295,67 @@ export function VerseList({
             </div>
           </div>
 
-          <motion.div className="p-3 sm:p-4 space-y-3" variants={gridVariants}>
-            <AnimatePresence initial={false}>
-              {items.map((verse) => (
-                <motion.div
-                  key={getVerseKey(verse)}
-                  layout
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="show"
-                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.985 }}
-                >
-                  <SwipeableVerseCard
-                    verse={verse}
-                    onOpen={() => openVerseInGallery(verse)}
-                    onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
-                    onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                    onRequestDelete={confirmDeleteVerse}
-                    isPending={pendingVerseKeys.has(getVerseKey(verse))}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div className="p-3 sm:p-4">
+            {renderVirtualizedVerseList(items, { padded: true })}
+          </div>
         </Card>
       </motion.section>
     );
   };
 
-  const renderFlatVerseList = (items: Array<Verse>) => {
-    if (items.length === 0) return null;
-
-    return (
-      <motion.div
-        className="space-y-3"
-        initial="hidden"
-        animate="show"
-        variants={gridVariants}
-      >
-        <AnimatePresence initial={false}>
-          {items.map((verse) => (
-            <motion.div
-              key={getVerseKey(verse)}
-              layout
-              variants={itemVariants}
-              initial="hidden"
-              animate="show"
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.985 }}
-            >
-              <SwipeableVerseCard
-                verse={verse}
-                onOpen={() => openVerseInGallery(verse)}
-                onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
-                onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
-                onRequestDelete={confirmDeleteVerse}
-                isPending={pendingVerseKeys.has(getVerseKey(verse))}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </motion.div>
-    );
-  };
+  const activeFilteredSection = useMemo(() => {
+    if (statusFilter === 'all') return null;
+    if (statusFilter === 'learning') {
+      return {
+        items: learningVerses,
+        config: {
+          headingId: 'learning-verses-heading',
+          title: 'Изучение',
+          subtitle: dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
+          dotClassName: 'bg-emerald-500',
+          borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
+          tintClassName: 'bg-emerald-500/5',
+        },
+      };
+    }
+    if (statusFilter === 'review') {
+      return {
+        items: reviewVerses,
+        config: {
+          headingId: 'review-verses-heading',
+          title: 'Повторение',
+          subtitle: `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`,
+          dotClassName: 'bg-violet-500',
+          borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
+          tintClassName: 'bg-violet-500/5',
+        },
+      };
+    }
+    if (statusFilter === 'stopped') {
+      return {
+        items: stoppedVerses,
+        config: {
+          headingId: 'stopped-verses-heading',
+          title: 'На паузе',
+          subtitle: 'Можно возобновить в один тап с карточки',
+          dotClassName: 'bg-rose-500',
+          borderClassName: 'bg-gradient-to-b from-rose-500/5 to-background',
+          tintClassName: 'bg-rose-500/5',
+        },
+      };
+    }
+    return {
+      items: newVerses,
+      config: {
+        headingId: 'new-verses-heading',
+        title: 'Новые',
+        subtitle: 'Добавленные стихи, которые ещё не переведены в изучение',
+        dotClassName: 'bg-sky-500',
+        borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
+        tintClassName: 'bg-sky-500/5',
+      },
+    };
+  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, stoppedVerses, newVerses]);
 
   return (
     <motion.div
@@ -1138,6 +1455,8 @@ export function VerseList({
         </Card>
       </motion.div>
 
+      <div ref={listScrollAnchorRef} className="h-px w-full" aria-hidden="true" />
+
       {isListLoading ? (
         <motion.div className="space-y-4" initial="hidden" animate="show" variants={sectionVariants}>
           {[0, 1, 2].map((idx) => (
@@ -1172,51 +1491,22 @@ export function VerseList({
           </Card>
         </motion.div>
       ) : statusFilter === 'all' ? (
-        renderFlatVerseList(filteredVerses)
-      ) : (
-        <motion.div className="space-y-6" initial="hidden" animate="show" variants={gridVariants}>
-          {renderVerseSection(learningVerses, {
-            headingId: 'learning-verses-heading',
-            title: 'Изучение',
-            subtitle:
-              dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
-            dotClassName: 'bg-emerald-500',
-            borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
-            tintClassName: 'bg-emerald-500/5',
-          })}
-
-          {renderVerseSection(reviewVerses, {
-            headingId: 'review-verses-heading',
-            title: 'Повторение',
-            subtitle: `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`,
-            dotClassName: 'bg-violet-500',
-            borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
-            tintClassName: 'bg-violet-500/5',
-          })}
-
-          {renderVerseSection(stoppedVerses, {
-            headingId: 'stopped-verses-heading',
-            title: 'На паузе',
-            subtitle: 'Можно возобновить в один тап с карточки',
-            dotClassName: 'bg-rose-500',
-            borderClassName: 'bg-gradient-to-b from-rose-500/5 to-background',
-            tintClassName: 'bg-rose-500/5',
-          })}
-
-          {renderVerseSection(newVerses, {
-            headingId: 'new-verses-heading',
-            title: 'Новые',
-            subtitle: 'Добавленные стихи, которые ещё не переведены в изучение',
-            dotClassName: 'bg-sky-500',
-            borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
-            tintClassName: 'bg-sky-500/5',
-          })}
+        <motion.div
+          className="space-y-3"
+          initial="hidden"
+          animate="show"
+          variants={sectionVariants}
+        >
+          {renderVirtualizedVerseList(filteredVerses)}
         </motion.div>
+      ) : (
+        activeFilteredSection
+          ? renderVirtualizedVerseSection(activeFilteredSection.items, activeFilteredSection.config)
+          : null
       )}
 
       {!isListLoading && (verses.length > 0 || hasMoreVerses || isFetchingMoreVerses || loadMoreError) && (
         <motion.div className="mt-6 space-y-3" initial="hidden" animate="show" variants={sectionVariants}>
-          <div ref={loadMoreSentinelRef} className="h-1 w-full" aria-hidden="true" />
           <div className="flex justify-center">
             {isFetchingMoreVerses ? (
               <Badge variant="outline" className="rounded-full px-3 py-1">
@@ -1229,7 +1519,7 @@ export function VerseList({
                 variant="outline"
                 className="rounded-full"
                 onClick={() => {
-                  void fetchNextPage();
+                  void fetchNextPage({ source: 'manual' });
                 }}
               >
                 Повторить загрузку
@@ -1264,7 +1554,7 @@ export function VerseList({
           previewTotalCount={totalCount}
           previewHasMore={hasMoreVerses}
           previewIsLoadingMore={isFetchingMoreVerses}
-          onRequestMorePreviewVerses={fetchNextPage}
+          onRequestMorePreviewVerses={() => fetchNextPage({ source: 'gallery' })}
         />,
         document.body
       )}

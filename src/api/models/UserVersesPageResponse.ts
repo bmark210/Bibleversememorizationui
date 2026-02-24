@@ -6,7 +6,7 @@ import type { UserVerse } from './UserVerse';
 export type UserVersesPageResponse = {
     items: Array<UserVerse>;
     hasMore: boolean;
-    nextCursorId: string | null;
+    nextCursorId: number | null;
     totalCount: number;
 };
 

@@ -27,7 +27,7 @@ export class UserVersesService {
         order?: 'asc' | 'desc',
         filter?: 'all' | 'new' | 'learning' | 'review' | 'stopped',
         limit?: number,
-        cursorId?: string,
+        cursorId?: number,
     ): CancelablePromise<UserVersesPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
