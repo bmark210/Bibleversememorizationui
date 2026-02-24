@@ -12,7 +12,8 @@ export type VerseCardLayoutSignature =
   | 'learning-progress'
   | 'review-pill'
   | 'stopped-progress'
-  | 'stopped-repeat';
+  | 'stopped-repeat'
+  | 'stopped-mastered';
 
 export type VerseListFilterOption = {
   key: VerseListStatusFilter;

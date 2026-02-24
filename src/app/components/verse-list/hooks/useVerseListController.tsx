@@ -3,7 +3,7 @@ import { useReducedMotion } from 'motion/react';
 import type { IndexRange } from 'react-virtualized';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
-import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
   FILTER_VISUAL_THEME,
   LOAD_MORE_SKELETON_DELAY_MS,
@@ -59,27 +59,29 @@ export function useVerseListController({
     loadMoreSkeletonDelayMs: LOAD_MORE_SKELETON_DELAY_MS,
   });
 
-  const isReviewVerse = useCallback((verse: Pick<Verse, 'status' | 'masteryLevel'>) => {
-    return (
-      verse.status === VerseStatus.LEARNING &&
-      Number(verse.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
-    );
+  const isReviewVerse = useCallback((verse: Pick<Verse, 'status'>) => {
+    const status = normalizeDisplayVerseStatus(verse.status);
+    return status === 'REVIEW';
+  }, []);
+
+  const isMasteredVerse = useCallback((verse: Pick<Verse, 'status'>) => {
+    const status = normalizeDisplayVerseStatus(verse.status);
+    return status === 'MASTERED';
   }, []);
 
   const matchesListFilter = useCallback(
     (verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
+      const status = normalizeDisplayVerseStatus(verse.status);
       if (filter === 'all') return true;
       if (filter === 'learning') {
-        return (
-          verse.status === VerseStatus.LEARNING &&
-          Number(verse.masteryLevel ?? 0) <= TRAINING_STAGE_MASTERY_MAX
-        );
+        return status === VerseStatus.LEARNING;
       }
       if (filter === 'review') return isReviewVerse(verse);
-      if (filter === 'stopped') return verse.status === VerseStatus.STOPPED;
-      return verse.status === VerseStatus.NEW;
+      if (filter === 'mastered') return isMasteredVerse(verse);
+      if (filter === 'stopped') return status === VerseStatus.STOPPED;
+      return status === VerseStatus.NEW;
     },
-    [isReviewVerse]
+    [isReviewVerse, isMasteredVerse]
   );
 
   const actions = useVerseActions({
@@ -179,9 +181,13 @@ export function useVerseListController({
     searchQuery.trim().length > 0 || testamentFilter !== 'all' || masteryFilter !== 'all';
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
+  const masteredVerses = useMemo(
+    () => filteredVerses.filter((v) => isMasteredVerse(v)),
+    [filteredVerses, isMasteredVerse]
+  );
   const learningVerses = useMemo(
-    () => filteredVerses.filter((v) => v.status === VerseStatus.LEARNING && !isReviewVerse(v)),
-    [filteredVerses, isReviewVerse]
+    () => filteredVerses.filter((v) => normalizeDisplayVerseStatus(v.status) === VerseStatus.LEARNING),
+    [filteredVerses]
   );
   const stoppedVerses = useMemo(
     () => filteredVerses.filter((v) => v.status === VerseStatus.STOPPED),
@@ -197,6 +203,7 @@ export function useVerseListController({
       { key: 'all', label: 'Все' },
       { key: 'learning', label: 'Изучаю' },
       { key: 'review', label: 'Повторяю' },
+      { key: 'mastered', label: 'Выучены' },
       { key: 'stopped', label: 'На паузе' },
       { key: 'new', label: 'Новые' },
     ],
@@ -318,10 +325,23 @@ export function useVerseListController({
         config: {
           headingId: 'review-verses-heading',
           title: 'Повторение',
-          subtitle: `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`,
+          subtitle: 'Стихи в статусе REVIEW',
           dotClassName: 'bg-violet-500',
           borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
           tintClassName: 'bg-violet-500/5',
+        },
+      };
+    }
+    if (statusFilter === 'mastered') {
+      return {
+        items: masteredVerses,
+        config: {
+          headingId: 'mastered-verses-heading',
+          title: 'Выученные',
+          subtitle: 'Стихи в статусе MASTERED',
+          dotClassName: 'bg-amber-500',
+          borderClassName: 'bg-gradient-to-b from-amber-500/8 to-background',
+          tintClassName: 'bg-amber-500/8',
         },
       };
     }
@@ -349,7 +369,7 @@ export function useVerseListController({
         tintClassName: 'bg-sky-500/5',
       },
     };
-  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, stoppedVerses, newVerses]);
+  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, newVerses]);
 
   const listItems = statusFilter === 'all'
     ? hasLocalClientFiltersActive

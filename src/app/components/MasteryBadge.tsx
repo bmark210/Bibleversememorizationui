@@ -2,31 +2,34 @@
 
 import { Badge } from "./ui/badge";
 import { VerseStatus } from "@/generated/prisma";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 
-const getMasteryColor = (status: VerseStatus, masteryLevel: number) => {
+const getMasteryColor = (status: DisplayVerseStatus) => {
   if (status === VerseStatus.STOPPED) return "text-destructive";
-  if (status === VerseStatus.NEW) return "text-destructive";
-  if (status === VerseStatus.LEARNING) return masteryLevel < TRAINING_STAGE_MASTERY_MAX ? "text-orange-500" : "text-violet-600";
+  if (status === VerseStatus.NEW) return "text-sky-600";
+  if (status === "MASTERED") return "text-emerald-600";
+  if (status === "REVIEW") return "text-violet-600";
+  if (status === VerseStatus.LEARNING) return "text-orange-500";
+  return "text-foreground";
 };
 
-const getMasteryLabel = (status: VerseStatus, masteryLevel: number) => {
+const getMasteryLabel = (status: DisplayVerseStatus) => {
   if (status === VerseStatus.STOPPED) return "Остановлено";
   if (status === VerseStatus.NEW) return "Новый";
-  if (status === VerseStatus.LEARNING) return masteryLevel < TRAINING_STAGE_MASTERY_MAX ? "Изучение" : "Повторение";
-
-  return "Освоено";
+  if (status === "REVIEW") return "Повторение";
+  if (status === "MASTERED") return "Освоено";
+  return "Изучение";
 };
 
 type MasteryBadgeProps = {
-  status: VerseStatus;
+  status: DisplayVerseStatus;
   masteryLevel: number;
 };
 
 export function MasteryBadge({ status, masteryLevel }: MasteryBadgeProps) {
   return (
-    <Badge variant="outline" className={`text-xs ${getMasteryColor(status, masteryLevel)}`}>
-      {getMasteryLabel(status, masteryLevel)}
+    <Badge variant="outline" className={`text-xs ${getMasteryColor(status)}`}>
+      {getMasteryLabel(status)}
     </Badge>
   );
 }

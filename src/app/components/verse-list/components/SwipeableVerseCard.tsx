@@ -1,15 +1,17 @@
 import React from 'react';
-import { Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react';
+import { Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
-import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
   FILTER_VISUAL_THEME,
+  getStoppedVerseStageKind,
   getVerseCardLayoutSignature,
   getVerseStageVisual,
+  STOPPED_REVIEW_MASTERY_THRESHOLD,
 } from '../constants';
 import { haptic } from '../haptics';
 
@@ -33,13 +35,18 @@ export const SwipeableVerseCard = ({
   isPending = false,
 }: SwipeCardProps) => {
   const masteryLevel = Number(verse.masteryLevel ?? 0);
-  const isReviewCard =
-    verse.status === VerseStatus.LEARNING && masteryLevel > TRAINING_STAGE_MASTERY_MAX;
-  const stageVisual = getVerseStageVisual(verse.status, masteryLevel);
+  const displayStatus = normalizeDisplayVerseStatus(verse.status);
+  const isReviewCard = displayStatus === 'REVIEW';
+  const isMasteredCard = displayStatus === 'MASTERED';
+  const stoppedStageKind =
+    displayStatus === VerseStatus.STOPPED ? getStoppedVerseStageKind(verse) : null;
+  const isStoppedReviewCard = displayStatus === VerseStatus.STOPPED && stoppedStageKind === 'review';
+  const isStoppedMasteredCard = displayStatus === VerseStatus.STOPPED && stoppedStageKind === 'mastered';
+  const stageVisual = getVerseStageVisual(verse);
   const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
   const learningProgress = Math.min(
-    Math.round((masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100),
+    Math.round((masteryLevel / STOPPED_REVIEW_MASTERY_THRESHOLD) * 100),
     100
   );
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
@@ -58,7 +65,7 @@ export const SwipeableVerseCard = ({
   };
 
   const renderActions = () => {
-    if (verse.status === VerseStatus.NEW) {
+    if (displayStatus === VerseStatus.NEW) {
       return (
         <>
           <Button
@@ -95,7 +102,7 @@ export const SwipeableVerseCard = ({
       );
     }
 
-    if (verse.status === VerseStatus.LEARNING) {
+    if (displayStatus === VerseStatus.LEARNING || displayStatus === 'REVIEW' || displayStatus === 'MASTERED') {
       return (
         <>
           <Button
@@ -168,14 +175,21 @@ export const SwipeableVerseCard = ({
     );
   };
 
-  const statusMetaContent = isReviewCard ? (
+  const statusMetaContent = isMasteredCard ? (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-1 text-amber-800 dark:text-amber-300">
+        <Trophy className="h-3.5 w-3.5" />
+        <span className="font-semibold">Выучен · {repetitionsCount}</span>
+      </div>
+    </div>
+  ) : isReviewCard ? (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
         <Repeat className="h-3.5 w-3.5" />
         <span className="font-semibold">{repetitionsCount}</span>
       </div>
     </div>
-  ) : verse.status === VerseStatus.LEARNING ? (
+  ) : displayStatus === VerseStatus.LEARNING ? (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <span>{learningProgress}%</span>
       <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
@@ -185,10 +199,19 @@ export const SwipeableVerseCard = ({
         />
       </div>
     </div>
-  ) : verse.status === VerseStatus.STOPPED ? (
-    masteryLevel > TRAINING_STAGE_MASTERY_MAX ? (
+  ) : displayStatus === VerseStatus.STOPPED ? (
+    isStoppedMasteredCard ? (
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
+          <Pause className="h-3.5 w-3.5" />
+          <Trophy className="h-3.5 w-3.5" />
+          <span className="font-semibold">Выучено · пауза · {repetitionsCount}</span>
+        </div>
+      </div>
+    ) : isStoppedReviewCard ? (
       <div className="flex items-center gap-2 text-xs">
-        <div className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
+          <Repeat className="h-3.5 w-3.5" />
           {repetitionsCount} повт.
         </div>
       </div>

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
+import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -69,14 +70,18 @@ export function useVerseActions({
     [getVerseKey]
   );
 
-  const getStatusSuccessMessage = (prevStatus: VerseStatus, nextStatus: VerseStatus) => {
+  const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
+    const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
     if (prevStatus === VerseStatus.NEW && nextStatus === VerseStatus.LEARNING) {
       return 'Добавлено в изучение';
     }
     if (prevStatus === VerseStatus.STOPPED && nextStatus === VerseStatus.LEARNING) {
       return 'Возобновлено';
     }
-    if (prevStatus === VerseStatus.LEARNING && nextStatus === VerseStatus.STOPPED) {
+    if (
+      (prevStatus === VerseStatus.LEARNING || prevStatus === 'REVIEW' || prevStatus === 'MASTERED') &&
+      nextStatus === VerseStatus.STOPPED
+    ) {
       return 'Пауза включена';
     }
     return 'Статус обновлён';
@@ -247,4 +252,3 @@ export function useVerseActions({
     handleConfirmDeleteVerse,
   };
 }
-

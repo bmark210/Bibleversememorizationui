@@ -25,9 +25,11 @@ import { UserVerse } from "@/generated/prisma/client";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
+import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 
 export type Verse = UserVerse & {
-  status: VerseStatus;
+  status: DisplayVerseStatus;
   text: string;
   reference: string;
 };
@@ -126,15 +128,18 @@ function buildTrainingBatchVerses(
     .sort(sortByCreatedAtAsc)
     .slice(0, prefs.newVersesCount);
 
-  const learningVerses = allVerses.filter((verse) => verse.status === VerseStatus.LEARNING);
-  const dueReviews = learningVerses
+  const reviewCandidateVerses = allVerses.filter((verse) => {
+    const status = normalizeDisplayVerseStatus(verse.status);
+    return status === VerseStatus.LEARNING || status === "REVIEW";
+  });
+  const dueReviews = reviewCandidateVerses
     .filter((verse) => {
       const next = parseDateValue(verse.nextReviewAt);
       return !next || next.getTime() <= now;
     })
     .sort(sortByOldestReviewNeed);
 
-  const futureReviews = learningVerses
+  const futureReviews = reviewCandidateVerses
     .filter((verse) => {
       const next = parseDateValue(verse.nextReviewAt);
       return !!next && next.getTime() > now;
@@ -319,7 +324,10 @@ export default function App() {
 
       // Если backend ещё не применяет query-параметр, дополнительно фильтруем на клиенте.
       const learningOnly = (response as Array<Verse>).filter(
-        (verse) => verse.status === VerseStatus.LEARNING
+        (verse) => {
+          const status = normalizeDisplayVerseStatus(verse.status);
+          return status === VerseStatus.LEARNING || status === "REVIEW";
+        }
       );
       setTrainingVerses(learningOnly);
       return learningOnly;

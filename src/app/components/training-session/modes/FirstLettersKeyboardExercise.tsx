@@ -216,7 +216,7 @@ export function ModeFirstLettersKeyboardExercise({
       <div className="space-y-4">
           <div className="space-y-3">
             <div className="flex flex-col gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1 text-center">
                 <label className="text-sm font-medium text-foreground">
                   Введите первые буквы слов
                 </label>

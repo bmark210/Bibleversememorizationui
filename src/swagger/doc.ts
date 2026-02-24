@@ -113,7 +113,7 @@ const swaggerDoc = {
             name: "filter",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["all", "new", "learning", "review", "stopped"] },
+            schema: { type: "string", enum: ["all", "new", "learning", "review", "mastered", "stopped"] },
           },
           {
             name: "limit",

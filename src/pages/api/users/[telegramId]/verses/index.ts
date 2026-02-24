@@ -40,6 +40,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
     const page = await fetchPaginatedEnrichedUserVerses({
       telegramId,
       where: buildWhereForUserVersesListQuery(query),
+      displayFilter: query.filter,
       orderBy: query.orderBy,
       order: query.order,
       limit: query.limit,

@@ -1,6 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
+import {
+  isReviewState,
+  normalizeProgressValue,
+  type UserVerseWithLegacyNullableProgress,
+} from "./verseCard.types";
 
 type UpdateVersePayload = {
   masteryLevel?: number;
@@ -37,16 +42,53 @@ async function handlePatch(
 ) {
   // Корректирует поля прогресса (мастерство, повторения, даты).
   try {
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-      select: { id: true },
-    });
+    const body = req.body as UpdateVersePayload;
+
+    const [user, existingVerse] = await Promise.all([
+      prisma.user.findUnique({
+        where: { telegramId },
+        select: { id: true },
+      }),
+      prisma.userVerse.findUnique({
+        where: {
+          telegramId_externalVerseId: {
+            telegramId,
+            externalVerseId,
+          },
+        },
+      }),
+    ]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const body = req.body as UpdateVersePayload;
+    if (!existingVerse) {
+      return res.status(404).json({ error: "Verse not found" });
+    }
+
+    const existingVerseWithStatus = existingVerse as UserVerseWithLegacyNullableProgress;
+
+    const currentRepetitions = normalizeProgressValue(existingVerseWithStatus.repetitions);
+    const requestedRepetitions =
+      body.repetitions !== undefined ? normalizeProgressValue(body.repetitions) : currentRepetitions;
+    const isRepetitionsMutation =
+      body.repetitions !== undefined && requestedRepetitions !== currentRepetitions;
+
+    if (
+      isRepetitionsMutation &&
+      !isReviewState(
+        existingVerseWithStatus.status,
+        existingVerseWithStatus.masteryLevel,
+        existingVerseWithStatus.repetitions
+      )
+    ) {
+      // 409 is clearer than silently ignoring the write: repetitions are allowed only in REVIEW phase.
+      return res.status(409).json({
+        error:
+          "repetitions can only be changed in REVIEW state (LEARNING + masteryLevel >= 7 + repetitions < 5)",
+      });
+    }
 
     const verse = await prisma.userVerse.update({
       where: {
@@ -56,8 +98,12 @@ async function handlePatch(
         },
       },
       data: {
-        ...(body.masteryLevel !== undefined ? { masteryLevel: body.masteryLevel } : {}),
-        ...(body.repetitions !== undefined ? { repetitions: body.repetitions } : {}),
+        ...(body.masteryLevel !== undefined
+          ? { masteryLevel: normalizeProgressValue(body.masteryLevel) }
+          : {}),
+        ...(body.repetitions !== undefined
+          ? { repetitions: normalizeProgressValue(body.repetitions) }
+          : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
         ...(body.nextReviewAt ? { nextReviewAt: new Date(body.nextReviewAt) } : {}),
         ...(body.status ? { status: body.status } : {}),

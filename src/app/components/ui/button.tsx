@@ -36,33 +36,46 @@ const buttonVariants = cva(
   },
 );
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  onClick,
-  ...props
-}: React.ComponentProps<"button"> &
+type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot : "button";
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    onClick?.(event as React.MouseEvent<HTMLButtonElement>);
-    if (event.currentTarget instanceof HTMLElement) {
-      event.currentTarget.blur();
-    }
   };
 
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }), "focus:outline-none focus:ring-0 focus:border-0 focus:shadow-none focus:ring-offset-0")}
-      onClick={handleClick}
-      {...props}
-    />
-  );
-}
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      onClick,
+      ...props
+    },
+    ref
+  ) => {
+    const Comp = asChild ? Slot : "button";
+    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+      onClick?.(event as React.MouseEvent<HTMLButtonElement>);
+      if (event.currentTarget instanceof HTMLElement) {
+        event.currentTarget.blur();
+      }
+    };
+
+    return (
+      <Comp
+        ref={ref}
+        data-slot="button"
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          "focus:outline-none focus:ring-0 focus:border-0 focus:shadow-none focus:ring-offset-0"
+        )}
+        onClick={handleClick}
+        {...props}
+      />
+    );
+  }
+);
+
+Button.displayName = "Button";
 
 export { Button, buttonVariants };

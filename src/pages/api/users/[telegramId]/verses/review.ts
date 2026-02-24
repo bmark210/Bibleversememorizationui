@@ -1,11 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { VerseStatus } from "@/generated/prisma";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
   fetchEnrichedUserVerses,
   parseUserVersesListQuery,
   UserVersesApiError,
 } from "./_shared";
+import {
+  REVIEW_MASTERY_LEVEL_MIN,
+} from "./verseCard.types";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
@@ -24,12 +26,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       telegramId,
       where: {
         status: VerseStatus.LEARNING,
-        masteryLevel: { gt: TRAINING_STAGE_MASTERY_MAX },
+        masteryLevel: { gte: REVIEW_MASTERY_LEVEL_MIN },
       },
       orderBy,
       order,
     });
-    return res.status(200).json(verses);
+    return res.status(200).json(verses.filter((verse) => verse.status === "REVIEW"));
   } catch (error) {
     if (error instanceof UserVersesApiError) {
       return res.status(error.statusCode).json({ error: error.message });

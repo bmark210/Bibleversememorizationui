@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import {
+  mapUserVerseToVerseCardDto,
+  type UserVerseWithLegacyNullableProgress,
+  type UserVersesPageResponse,
+  type VerseCardDto,
+  type VerseCardTagDto,
+  type VerseTagLinkWithTag,
+} from "./verseCard.types";
 
 const DEFAULT_BOLLS_TRANSLATION = "SYNOD";
 const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
@@ -16,7 +23,7 @@ type ParsedExternalVerseId = {
 
 export type UserVersesOrderBy = "createdAt" | "updatedAt";
 export type UserVersesOrder = "asc" | "desc";
-export type UserVersesFilter = "all" | "new" | "learning" | "review" | "stopped";
+export type UserVersesFilter = "all" | "new" | "learning" | "review" | "mastered" | "stopped";
 
 export type UserVersesListQuery = {
   status?: VerseStatus;
@@ -35,13 +42,9 @@ type FetchEnrichedUserVersesOptions = {
 };
 
 type FetchPaginatedEnrichedUserVersesOptions = FetchEnrichedUserVersesOptions & {
+  displayFilter?: UserVersesFilter;
   limit?: number;
   startWith?: number;
-};
-
-export type UserVersesPageResponse = {
-  items: Array<Record<string, unknown>>;
-  totalCount: number;
 };
 
 const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
@@ -97,7 +100,14 @@ function parseOrder(value: string | undefined): UserVersesOrder | undefined {
 
 function parseFilter(value: string | undefined): UserVersesFilter | undefined {
   if (!value) return undefined;
-  if (value === "all" || value === "new" || value === "learning" || value === "review" || value === "stopped") {
+  if (
+    value === "all" ||
+    value === "new" ||
+    value === "learning" ||
+    value === "review" ||
+    value === "mastered" ||
+    value === "stopped"
+  ) {
     return value;
   }
   return undefined;
@@ -140,22 +150,30 @@ export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Re
     if (query.filter === "all") return undefined;
     if (query.filter === "new") return { status: VerseStatus.NEW };
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
-    if (query.filter === "learning") {
-      return {
-        status: VerseStatus.LEARNING,
-        masteryLevel: { lte: TRAINING_STAGE_MASTERY_MAX },
-      };
-    }
-    if (query.filter === "review") {
-      return {
-        status: VerseStatus.LEARNING,
-        masteryLevel: { gt: TRAINING_STAGE_MASTERY_MAX },
-      };
+    if (query.filter === "learning" || query.filter === "review" || query.filter === "mastered") {
+      // Computed display statuses are filtered after DTO mapping to handle legacy null progress values safely.
+      return { status: VerseStatus.LEARNING };
     }
   }
 
   if (query.status) return { status: query.status };
   return undefined;
+}
+
+type ComputedDisplayFilter = Extract<UserVersesFilter, "learning" | "review" | "mastered">;
+
+function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter is ComputedDisplayFilter {
+  return filter === "learning" || filter === "review" || filter === "mastered";
+}
+
+function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
+  if (!filter || filter === "all") return verses;
+  if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
+  if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
+  if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");
+  if (filter === "new") return verses.filter((verse) => verse.status === VerseStatus.NEW);
+  if (filter === "stopped") return verses.filter((verse) => verse.status === VerseStatus.STOPPED);
+  return verses;
 }
 
 function buildUserVersesWhere(
@@ -193,12 +211,47 @@ async function getUserTranslationForTelegram(telegramId: string) {
   return user.translation ?? DEFAULT_BOLLS_TRANSLATION;
 }
 
+async function fetchTagsForVerses(
+  externalVerseIds: string[]
+): Promise<Map<string, VerseCardTagDto[]>> {
+  const uniqueIds = Array.from(new Set(externalVerseIds.filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const links: VerseTagLinkWithTag[] = await prisma.verseTag.findMany({
+    where: {
+      externalVerseId: { in: uniqueIds },
+    },
+    select: {
+      externalVerseId: true,
+      tag: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+        },
+      },
+    },
+  });
+
+  const tagsByVerseId = new Map<string, VerseCardTagDto[]>();
+
+  for (const link of links) {
+    const current = tagsByVerseId.get(link.externalVerseId) ?? [];
+    current.push(link.tag);
+    tagsByVerseId.set(link.externalVerseId, current);
+  }
+
+  return tagsByVerseId;
+}
+
 async function enrichUserVerses(
-  verses: Array<Prisma.UserVerseGetPayload<Record<string, never>>>,
+  verses: UserVerseWithLegacyNullableProgress[],
   translation: string
-) {
+): Promise<VerseCardDto[]> {
   if (verses.length === 0) {
-    return verses;
+    return [];
   }
 
   const requestGroups = new Map<
@@ -231,6 +284,7 @@ async function enrichUserVerses(
 
   const groupedRequests = Array.from(requestGroups.values());
   const textsMap = new Map<string, Map<number, string>>();
+  const tagsByVerseIdPromise = fetchTagsForVerses(verses.map((verse) => verse.externalVerseId));
 
   if (groupedRequests.length > 0) {
     const response = await fetch(BOLLS_BATCH_URL, {
@@ -258,16 +312,25 @@ async function enrichUserVerses(
     }
   }
 
+  const tagsByVerseId = await tagsByVerseIdPromise;
+
   return verses.map((verse) => {
     const parsed = parseExternalVerseId(verse.externalVerseId);
-    if (!parsed) return verse;
-    const key = buildGroupKey(translation, parsed.book, parsed.chapter);
-    const text = textsMap.get(key)?.get(parsed.verse);
-    return {
+    const text =
+      parsed !== null
+        ? textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter))?.get(parsed.verse)
+        : undefined;
+    const reference =
+      parsed !== null
+        ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`
+        : undefined;
+
+    return mapUserVerseToVerseCardDto({
       ...verse,
       text,
-      reference: `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`,
-    };
+      reference,
+      tags: tagsByVerseId.get(verse.externalVerseId) ?? [],
+    });
   });
 }
 
@@ -276,12 +339,12 @@ export async function fetchEnrichedUserVerses({
   where,
   orderBy,
   order,
-}: FetchEnrichedUserVersesOptions) {
+}: FetchEnrichedUserVersesOptions): Promise<VerseCardDto[]> {
   const translation = await getUserTranslationForTelegram(telegramId);
-  const verses = await prisma.userVerse.findMany({
+  const verses = (await prisma.userVerse.findMany({
     where: buildUserVersesWhere(telegramId, where),
     orderBy: buildUserVersesOrderBy(orderBy, order),
-  });
+  })) as UserVerseWithLegacyNullableProgress[];
 
   return enrichUserVerses(verses, translation);
 }
@@ -291,6 +354,7 @@ export async function fetchPaginatedEnrichedUserVerses({
   where,
   orderBy,
   order,
+  displayFilter,
   limit,
   startWith,
 }: FetchPaginatedEnrichedUserVersesOptions): Promise<UserVersesPageResponse> {
@@ -298,6 +362,21 @@ export async function fetchPaginatedEnrichedUserVerses({
   const translation = await getUserTranslationForTelegram(telegramId);
   const prismaWhere = buildUserVersesWhere(telegramId, where);
   const pageOffset = Math.max(0, startWith ?? 0);
+
+  if (isComputedDisplayFilter(displayFilter)) {
+    const rawItems = (await prisma.userVerse.findMany({
+      where: prismaWhere,
+      orderBy: buildUserVersesOrderBy(orderBy, order),
+    })) as UserVerseWithLegacyNullableProgress[];
+
+    const enrichedItems = await enrichUserVerses(rawItems, translation);
+    const filteredItems = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
+
+    return {
+      items: filteredItems.slice(pageOffset, pageOffset + pageLimit),
+      totalCount: filteredItems.length,
+    };
+  }
 
   const [rawItems, totalCount] = await Promise.all([
     prisma.userVerse.findMany({
@@ -311,10 +390,13 @@ export async function fetchPaginatedEnrichedUserVerses({
     }),
   ]);
 
-  const enrichedItems = await enrichUserVerses(rawItems, translation);
+  const enrichedItems = await enrichUserVerses(
+    rawItems as UserVerseWithLegacyNullableProgress[],
+    translation
+  );
 
   return {
-    items: enrichedItems as Array<Record<string, unknown>>,
+    items: enrichedItems,
     totalCount,
   };
 }

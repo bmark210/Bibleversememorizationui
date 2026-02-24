@@ -13,6 +13,7 @@ import {
   Pause,
   Play,
   Repeat,
+  Trophy,
   Trash2,
 } from "lucide-react";
 
@@ -34,13 +35,13 @@ import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
+import { normalizeDisplayVerseStatus, type DisplayVerseStatus } from "@/app/types/verseStatus";
 import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
   TrainingModeId,
   TRAINING_MODE_SHIFT_BY_RATING,
   chooseTrainingModeId,
   getTrainingModeByShiftInProgressOrder,
-  isTrainingReviewRawMastery,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   shouldCountTrainingRepetition,
   toTrainingStageMasteryLevel,
@@ -97,7 +98,7 @@ type TrainingVerseState = {
   key: string;
   telegramId: string | null;
   externalVerseId: string;
-  status: VerseStatus;
+  status: DisplayVerseStatus;
   rawMasteryLevel: number;
   stageMasteryLevel: number;
   repetitions: number;
@@ -175,11 +176,11 @@ function haptic(style: HapticStyle) {
   } catch {}
 }
 
-function getGalleryStatusAction(status: VerseStatus): GalleryStatusAction | null {
+function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {
   if (status === VerseStatus.NEW) {
     return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
-  if (status === VerseStatus.LEARNING) {
+  if (status === VerseStatus.LEARNING || status === "REVIEW" || status === "MASTERED") {
     return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };
   }
   if (status === VerseStatus.STOPPED) {
@@ -196,10 +197,8 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function normalizeVerseStatus(status: Verse["status"]): VerseStatus {
-  if (status === VerseStatus.LEARNING) return VerseStatus.LEARNING;
-  if (status === VerseStatus.STOPPED) return VerseStatus.STOPPED;
-  return VerseStatus.NEW;
+function normalizeVerseStatus(status: Verse["status"]): DisplayVerseStatus {
+  return normalizeDisplayVerseStatus(status);
 }
 
 function normalizeRawMasteryLevel(raw: number | null | undefined): number {
@@ -238,11 +237,11 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   };
 }
 function isTrainingEligibleVerse(verse: TrainingVerseState) {
-  return verse.status === VerseStatus.LEARNING;
+  return verse.status === VerseStatus.LEARNING || verse.status === "REVIEW";
 }
 
-function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status" | "rawMasteryLevel">) {
-  return verse.status === VerseStatus.LEARNING && isTrainingReviewRawMastery(verse.rawMasteryLevel);
+function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status">) {
+  return verse.status === "REVIEW" || verse.status === "MASTERED";
 }
 
 function matchesTrainingSubsetFilter(
@@ -251,7 +250,7 @@ function matchesTrainingSubsetFilter(
 ) {
   if (filter === "all") return isTrainingEligibleVerse(verse);
   if (filter === "review") return isTrainingReviewVerse(verse);
-  return verse.status === VerseStatus.LEARNING && verse.rawMasteryLevel <= TRAINING_STAGE_MASTERY_MAX;
+  return verse.status === VerseStatus.LEARNING;
 }
 
 function chooseModeId(verse: TrainingVerseState): ModeId {
@@ -285,12 +284,15 @@ function patchStatusForTrainingVerse(verse: TrainingVerseState): "NEW" | "LEARNI
   return verse.rawMasteryLevel > 0 ? "LEARNING" : "NEW";
 }
 
-async function persistTrainingVerseProgress(verse: TrainingVerseState) {
+async function persistTrainingVerseProgress(
+  verse: TrainingVerseState,
+  options?: { includeRepetitions?: boolean }
+) {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return false;
   await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
     masteryLevel: verse.rawMasteryLevel,
-    repetitions: verse.repetitions,
+    ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
     status: patchStatusForTrainingVerse(verse),
@@ -388,50 +390,125 @@ function SwipeHint({ panelMode }: { panelMode: PanelMode }) {
 
 const MAX_DOTS = 12;
 const MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS = "max-w-[46vw] sm:max-w-[240px]";
-
-function formatProgressCountForUi(value: number) {
-  if (value >= 1_000_000) return `${Math.floor(value / 1_000_000)}M`;
-  if (value >= 10_000) return `${Math.floor(value / 1_000)}k`;
-  return String(value);
-}
+const EMULATED_DOT_COUNT = 15;
 
 function DotProgress({ total, active }: { total: number; active: number }) {
   const safeTotal = Math.max(0, total);
   const safeActive = clamp(active, 0, Math.max(0, safeTotal - 1));
   const currentValue = safeTotal > 0 ? safeActive + 1 : 0;
-  const currentLabel = formatProgressCountForUi(currentValue);
-  const totalLabel = formatProgressCountForUi(safeTotal);
+  const isEmulated = safeTotal > MAX_DOTS;
+  const dotCount = isEmulated ? EMULATED_DOT_COUNT : safeTotal;
+  const activeDotIndex =
+    dotCount <= 1 || safeTotal <= 1
+      ? 0
+      : Math.round((safeActive / (safeTotal - 1)) * (dotCount - 1));
 
-  if (safeTotal > MAX_DOTS) {
+  if (dotCount <= 0) {
     return (
       <div
         role="status"
-        aria-label={`Стих ${currentValue} из ${safeTotal}`}
-        className={cn(
-          "min-w-0 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
-          MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS
-        )}
+        aria-label="Нет карточек"
+        className="px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
       >
-        <span className="block truncate text-sm font-semibold tabular-nums text-center">
-          {currentLabel} / {totalLabel}
-        </span>
+        <div className="h-2 w-20 rounded-full bg-muted/40" />
       </div>
     );
   }
+
   return (
-      <div
+    <div
       role="status"
       aria-label={`Стих ${currentValue} из ${safeTotal}`}
-      className="flex items-center gap-1.5 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+      className={cn(
+        "relative overflow-hidden rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
+        isEmulated
+          ? "w-[min(46vw,220px)] min-w-[146px] px-3 py-2.5"
+          : "px-3 py-2.5"
+      )}
     >
-      {Array.from({ length: safeTotal }).map((_, i) => (
-        <div key={i} className="relative flex items-center justify-center">
-          <motion.div layout animate={{ width: i === safeActive ? 28 : 8, opacity: i === safeActive ? 1 : 0.3 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className={`h-2 rounded-full transition-colors duration-300 ${i === safeActive ? "bg-primary" : "bg-muted-foreground/40"}`} />
-          {i === safeActive && (
-            <motion.span aria-hidden="true" className="absolute inset-0 rounded-full bg-primary pointer-events-none" animate={{ scaleX: [1, 2.4], scaleY: [1, 2], opacity: [0.45, 0] }} transition={{ duration: 1.15, repeat: Infinity, ease: "easeOut", repeatDelay: 0.55 }} />
-          )}
-        </div>
-      ))}
+      {isEmulated && (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-border/25"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background/95 to-transparent"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background/95 to-transparent"
+          />
+        </>
+      )}
+
+      <div className={cn("relative flex items-center", isEmulated ? "w-full justify-between" : "gap-1.5")}>
+        {Array.from({ length: dotCount }).map((_, i) => {
+          const isActiveDot = i === activeDotIndex;
+          const distance = Math.abs(i - activeDotIndex);
+          const compressedSize = distance >= 6 ? 4 : distance >= 4 ? 5 : 6;
+          const baseDotSize = isEmulated ? compressedSize : 8;
+          const baseOpacity = isEmulated ? clamp(0.95 - distance * 0.12, 0.18, 0.9) : 0.32;
+
+          return (
+            <div
+              key={i}
+              className={cn(
+                "relative flex items-center justify-center",
+                isEmulated ? "shrink-0" : ""
+              )}
+            >
+              {isActiveDot ? (
+                <>
+                  <motion.span
+                    aria-hidden="true"
+                    className="absolute rounded-full bg-primary/28 blur-md pointer-events-none"
+                    animate={{
+                      width: isEmulated ? 20 : 24,
+                      height: isEmulated ? 10 : 11,
+                      opacity: [0.35, 0.5, 0.35],
+                    }}
+                    transition={{ duration: 1.25, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <motion.div
+                    layout
+                    animate={{
+                      width: isEmulated ? 18 : 20,
+                      height: isEmulated ? 8 : 9,
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    transition={{ type: "spring", stiffness: 420, damping: 30 }}
+                    className="relative rounded-full border border-primary/40 bg-gradient-to-r from-primary/80 via-primary to-primary/80 shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_2px_10px_rgba(0,0,0,0.22)]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-[12%] right-[12%] top-[1px] h-[2px] rounded-full bg-white/28"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-y-[1px] left-[1px] w-[28%] rounded-full bg-white/10 blur-[1px]"
+                    />
+                  </motion.div>
+                </>
+              ) : (
+                <motion.div
+                  layout
+                  animate={{
+                    width: baseDotSize,
+                    height: baseDotSize,
+                    opacity: baseOpacity,
+                    scale: isEmulated && distance >= 5 ? 0.95 : 1,
+                  }}
+                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                  className="rounded-full bg-muted-foreground/55"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -486,12 +563,11 @@ function VerseGalleryUnifiedCardViewport({
     ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
     : 0;
   const isPreviewReviewStage = preview
-    ? previewStatus === VerseStatus.LEARNING &&
-      Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
+    ? previewStatus === "REVIEW" || previewStatus === "MASTERED"
     : false;
   const isPreviewStoppedStage = previewStatus === VerseStatus.STOPPED;
   const isPreviewStoppedRepeatStage = Boolean(
-    preview && isPreviewStoppedStage && Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
+    preview && isPreviewStoppedStage && Number(preview.repetitions ?? 0) > 0
   );
   const previewRepetitionsCount = preview ? Math.max(0, Number(preview.repetitions ?? 0)) : 0;
   const previewTone: VerseCardPreviewTone | undefined = preview
@@ -499,14 +575,16 @@ function VerseGalleryUnifiedCardViewport({
       ? "new"
       : previewStatus === VerseStatus.STOPPED
         ? "stopped"
-        : isPreviewReviewStage
+        : previewStatus === "MASTERED"
+          ? "mastered"
+          : isPreviewReviewStage
           ? "review"
           : "learning"
     : undefined;
   const trainingProgress = trainingVerse
     ? Math.min(Math.round((Number(trainingVerse.raw.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100), 100)
     : 0;
-  const isTrainingReviewStage = trainingVerse ? Number(trainingVerse.rawMasteryLevel) > 7 : false;
+  const isTrainingReviewStage = trainingVerse ? trainingVerse.status === "REVIEW" : false;
   const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
 
   const isPreviewReviewAction = Boolean(isPreviewReviewStage);
@@ -533,12 +611,14 @@ function VerseGalleryUnifiedCardViewport({
             }
           : isPreviewReviewAction
             ? {
-                label: "Повторять",
-                ariaLabel: "Повторять этот стих",
-                icon: Repeat,
+                label: previewStatus === "MASTERED" ? "Выучен" : "Повторять",
+                ariaLabel: previewStatus === "MASTERED" ? "Стих отмечен как выученный" : "Повторять этот стих",
+                icon: previewStatus === "MASTERED" ? Trophy : Repeat,
                 onClick: () => void onStartTraining(),
                 className:
-                  "border border-violet-500/25 bg-gradient-to-r from-violet-500/18 to-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
+                  previewStatus === "MASTERED"
+                    ? "border border-amber-500/30 bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-800 hover:bg-amber-500/22 dark:text-amber-300"
+                    : "border border-violet-500/25 bg-gradient-to-r from-violet-500/18 to-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
               }
             : {
                 label: "Учить",
@@ -557,7 +637,14 @@ function VerseGalleryUnifiedCardViewport({
           trackClass: "bg-rose-500/14",
           fillClass: "from-rose-500 to-rose-400/80",
         }
-      : {
+      : previewTone === "mastered"
+        ? {
+            labelClass: "text-amber-800/75 dark:text-amber-300/80",
+            valueClass: "text-amber-800 dark:text-amber-300",
+            trackClass: "bg-amber-500/14",
+            fillClass: "from-amber-500 to-yellow-400/85",
+          }
+        : {
           labelClass: "text-emerald-700/75 dark:text-emerald-300/80",
           valueClass: "text-emerald-700 dark:text-emerald-300",
           trackClass: "bg-emerald-500/14",
@@ -573,14 +660,26 @@ function VerseGalleryUnifiedCardViewport({
           titleClass: "text-rose-700/80 dark:text-rose-300/80",
           valueClass: "text-rose-700 dark:text-rose-300",
           title: "На паузе",
+          icon: Repeat,
         }
-      : {
+      : previewTone === "mastered"
+        ? {
+            wrapperClass: "border-amber-500/25 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-background",
+            iconWrapClass:
+              "border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300",
+            titleClass: "text-amber-800/80 dark:text-amber-300/80",
+            valueClass: "text-amber-800 dark:text-amber-300",
+            title: "Выучено",
+            icon: Trophy,
+          }
+        : {
           wrapperClass: "border-violet-500/20 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-background",
           iconWrapClass:
             "border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300",
           titleClass: "text-violet-700/80 dark:text-violet-300/80",
           valueClass: "text-violet-700 dark:text-violet-300",
           title: "Повторение",
+          icon: Repeat,
         };
 
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
@@ -711,7 +810,7 @@ function VerseGalleryUnifiedCardViewport({
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-xl border", previewRepeatTone.iconWrapClass)}>
-                      <Repeat className="h-4 w-4" />
+                      <previewRepeatTone.icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 text-left">
                       <div className={cn("text-[10px] font-semibold uppercase tracking-[0.18em]", previewRepeatTone.titleClass)}>
@@ -885,7 +984,7 @@ export function VerseGallery({
       if (activeIndex < verses.length - 1) {
         haptic("light");
         setDirection(newDir);
-        setActiveIndex(activeIndex + 1);
+        setActiveIndex((prev) => Math.min(prev + 1, Math.max(0, verses.length - 1)));
         return;
       }
 
@@ -906,7 +1005,7 @@ export function VerseGallery({
     if (newIndex === activeIndex) return;
     haptic("light");
     setDirection(newDir);
-    setActiveIndex(newIndex);
+    setActiveIndex((prev) => Math.max(0, prev - 1));
   }, [activeIndex, verses.length, previewHasMore, previewIsLoadingMore, onRequestMorePreviewVerses]);
 
   const syncPreviewIndexToVerse = useCallback((target: TrainingVerseState | Verse | null | undefined) => {
@@ -962,7 +1061,12 @@ export function VerseGallery({
   const fetchLearningVersesForTraining = useCallback(async () => {
     const telegramId = getTelegramId();
     if (!telegramId) {
-      return sortByCreatedAtDesc(verses.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING));
+      return sortByCreatedAtDesc(
+        verses.filter((v) => {
+          const status = normalizeVerseStatus(v.status);
+          return status === VerseStatus.LEARNING || status === "REVIEW";
+        })
+      );
     }
     try {
       const response = (await fetchAllUserVerses({
@@ -971,11 +1075,19 @@ export function VerseGallery({
         orderBy: "createdAt",
         order: "desc",
       })) as Array<Verse>;
-      const filtered = response.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING);
+      const filtered = response.filter((v) => {
+        const status = normalizeVerseStatus(v.status);
+        return status === VerseStatus.LEARNING || status === "REVIEW";
+      });
       return sortByCreatedAtDesc(filtered);
     } catch (error) {
       console.error("Не удалось загрузить стихи LEARNING:", error);
-      return sortByCreatedAtDesc(verses.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING));
+      return sortByCreatedAtDesc(
+        verses.filter((v) => {
+          const status = normalizeVerseStatus(v.status);
+          return status === VerseStatus.LEARNING || status === "REVIEW";
+        })
+      );
     }
   }, [verses]);
 
@@ -984,7 +1096,8 @@ export function VerseGallery({
     try {
       setActionPending(true);
       let startVerse = previewActiveVerse;
-      if (normalizeVerseStatus(previewActiveVerse.status) !== VerseStatus.LEARNING) {
+      const activeDisplayStatus = normalizeVerseStatus(previewActiveVerse.status);
+      if (activeDisplayStatus === VerseStatus.NEW || activeDisplayStatus === VerseStatus.STOPPED) {
         await onStatusChange(previewActiveVerse, VerseStatus.LEARNING);
         setPreviewOverride(previewActiveVerse, { status: VerseStatus.LEARNING });
         startVerse = { ...previewActiveVerse, status: VerseStatus.LEARNING } as Verse;
@@ -994,9 +1107,9 @@ export function VerseGallery({
       const startKey = getVerseIdentity(startVerse);
       if (!normalized.some((v) => v.key === startKey)) {
         const fallback = toTrainingVerseState(startVerse);
-        if (fallback && fallback.status === VerseStatus.LEARNING) normalized = [fallback, ...normalized];
+        if (fallback && (fallback.status === VerseStatus.LEARNING || fallback.status === "REVIEW")) normalized = [fallback, ...normalized];
       }
-      if (!normalized.some((v) => v.status === VerseStatus.LEARNING)) {
+      if (!normalized.some((v) => v.status === VerseStatus.LEARNING || v.status === "REVIEW")) {
         showFeedback("Нет стихов в изучении", "error");
         return false;
       }
@@ -1045,7 +1158,10 @@ export function VerseGallery({
     if (!current) return;
 
     const rawMasteryBefore = current.rawMasteryLevel;
-    const shouldIncrementRepetitions = shouldCountTrainingRepetition(rating);
+    const canUpdateRepetitions = current.status === "REVIEW";
+    const shouldIncrementRepetitions =
+      canUpdateRepetitions && shouldCountTrainingRepetition(rating);
+    const nextRepetitions = current.repetitions + (shouldIncrementRepetitions ? 1 : 0);
     const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + (MASTERY_DELTA_BY_RATING[rating] ?? 0)));
     const stageMasteryBefore = current.stageMasteryLevel;
     const stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
@@ -1063,12 +1179,12 @@ export function VerseGallery({
       raw: {
         ...current.raw,
         masteryLevel: rawMasteryAfter,
-        repetitions: current.repetitions + (shouldIncrementRepetitions ? 1 : 0),
+        repetitions: nextRepetitions,
         status: nextStatus,
       } as Verse,
       rawMasteryLevel: rawMasteryAfter,
       stageMasteryLevel: stageMasteryAfter,
-      repetitions: current.repetitions + (shouldIncrementRepetitions ? 1 : 0),
+      repetitions: nextRepetitions,
       status: nextStatus,
       lastModeId: trainingModeId,
       lastReviewedAt: now,
@@ -1081,7 +1197,7 @@ export function VerseGallery({
     setPreviewOverride(current.raw, {
       status: updated.status,
       masteryLevel: rawMasteryAfter,
-      repetitions: updated.repetitions,
+      ...(canUpdateRepetitions ? { repetitions: updated.repetitions } : {}),
     });
 
     if (becameLearned) {
@@ -1106,7 +1222,7 @@ export function VerseGallery({
     setTrainingModeId(nextModeForCurrentVerse);
 
     try {
-      await persistTrainingVerseProgress(updated);
+      await persistTrainingVerseProgress(updated, { includeRepetitions: canUpdateRepetitions });
     } catch (error) {
       console.error("Failed to persist training progress", error);
       haptic("error");
@@ -1143,7 +1259,10 @@ export function VerseGallery({
 
   if (!displayVerse) return null;
 
-  const galleryBodyKey = `${panelMode}-${getVerseIdentity(displayVerse)}`;
+  const galleryBodyKey =
+    panelMode === "training"
+      ? `training-${trainingIndex}-${getVerseIdentity(displayVerse)}-${trainingModeId ?? "none"}`
+      : `preview-${activeIndex}-${getVerseIdentity(displayVerse)}`;
 
   const previewStatusAction = panelMode === "preview" && previewActiveVerse
     ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
@@ -1176,51 +1295,32 @@ export function VerseGallery({
       <div aria-live="polite" aria-atomic="true" className="sr-only">{slideAnnouncement}</div>
 
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
-        {panelMode === "preview" ? (
-          <div className="flex items-center justify-center p-4 w-full">
-            <Badge className="" variant="outline">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>            
-              {/* <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
-                <X className="h-5 w-5" />
-              </Button> */}
-
-          </div>
-        ) : (
+     
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="flex items-start justify-between gap-4 relative">
               <div className="min-w-0 flex-1">
                 <div className="flex justify-center items-center gap-3">
-                  {!isInTelegram ? (
-                    <Button variant="ghost" size="sm" onClick={handleTrainingBackAction} className="gap-1">
-                      <ChevronLeft className="w-4 h-4" />К стиху
-                    </Button>
-                  ) : (
-                    <div className="h-9" aria-hidden="true" />
-                  )}
-
-                  <TrainingSubsetSelect
-                    value={trainingSubsetFilter}
-                    onValueChange={(value) => {
-                      const nextFilter = value as TrainingSubsetFilter;
-                      if (trainingSubsetFilter === nextFilter) return;
-                      haptic("light");
-                      setTrainingSubsetFilter(nextFilter);
-                    }}
-                  />
-                </div>
-                <Badge className="absolute right-0 top-[65px] bg-background/80 backdrop-blur-lg" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
+                          <div
+                role="status"
+                aria-label={`Стих ${Math.min(displayActive + 1, displayTotal)} из ${displayTotal}`}
+                className={cn(
+                  "min-w-0 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
+                  MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS
+                )}
+              >
+                <span className="block truncate text-sm font-semibold tabular-nums text-center">
+                  {Math.min(displayActive + 1, displayTotal)} / {displayTotal}
+                </span>
               </div>
-              {/* {!isInTelegram && (
-                <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
-                  <X className="h-5 w-5" />
-                </Button>
-              )} */}
+
+                </div>
+              </div>
             </div>
           </div>
-        )}
       </div>
-      <div className="flex-1 relative flex items-center justify-center px-4 sm:px-6" role="region" aria-roledescription="carousel" aria-label={panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"}>
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
+      <div className="flex-1 relative grid place-items-center px-4 sm:px-6" role="region" aria-roledescription="carousel" aria-label={panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"}>
+        <AnimatePresence initial={false} mode="sync" custom={direction}>
+          <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="col-start-1 row-start-1 w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
             <VerseGalleryUnifiedCardViewport
               panelMode={panelMode}
               previewVerse={previewActiveVerse}
@@ -1247,6 +1347,16 @@ export function VerseGallery({
       {panelMode === "preview" && (
         <div className="shrink-0 px-4 sm:px-6 z-40">
           <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
+            <Button
+              variant="outline"
+              className="gap-2 backdrop-blur-xl rounded-2xl"
+              ref={closeButtonRef}
+              onClick={onClose}
+              disabled={actionPending}
+              aria-label="Завершить тренировку"
+            >
+              Завершить
+            </Button>
             {previewStatusAction && (
               <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
@@ -1267,23 +1377,13 @@ export function VerseGallery({
               <Trash2 className="h-4 w-4" />
               {/* Удалить */}
             </Button>
-            <Button
-              variant="outline"
-              className="gap-2 backdrop-blur-xl rounded-2xl"
-              ref={closeButtonRef}
-              onClick={onClose}
-              disabled={actionPending}
-              aria-label="Завершить тренировку"
-            >
-              Завершить тренировку
-            </Button>
           </div>
         </div>
       )}
 
       {panelMode === "training" && (
         <div className="shrink-0 px-4 sm:px-6 pt-3 z-40">
-          <div className="mx-auto w-full flex items-center justify-center max-w-2xl">
+          <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
             <Button
               type="button"
               variant="secondary"
@@ -1297,6 +1397,15 @@ export function VerseGallery({
               <ChevronLeft className="h-4 w-4" />
               К превью
             </Button>
+            <TrainingSubsetSelect
+              value={trainingSubsetFilter}
+              onValueChange={(value) => {
+                const nextFilter = value as TrainingSubsetFilter;
+                if (trainingSubsetFilter === nextFilter) return;
+                haptic("light");
+                setTrainingSubsetFilter(nextFilter);
+              }}
+            />
           </div>
         </div>
       )}

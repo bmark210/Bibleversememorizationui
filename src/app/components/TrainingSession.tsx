@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { VerseStatus } from '@/generated/prisma';
+import { normalizeDisplayVerseStatus, type DisplayVerseStatus } from '@/app/types/verseStatus';
 import type { Verse as LegacyVerse } from '../data/mockData';
 import { TrainingModeRenderer, TrainingModeRendererKey } from './training-session/TrainingModeRenderer';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -20,7 +21,6 @@ import {
   chooseTrainingModeId,
   getRemainingTrainingModesCount,
   getTrainingModeByShiftInProgressOrder,
-  isTrainingReviewRawMastery,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   shouldCountTrainingRepetition,
   toTrainingStageMasteryLevel,
@@ -45,7 +45,7 @@ type TrainingVerseInput = {
   reference?: string | null;
   text?: string | null;
   translation?: string | null;
-  status?: VerseStatus | string | null;
+  status?: DisplayVerseStatus | string | null;
   masteryLevel?: number | null;
   repetitions?: number | null;
   lastReviewedAt?: string | Date | null;
@@ -68,7 +68,7 @@ interface SessionVerse {
   reference: string;
   text: string;
   translation: string;
-  status: VerseStatus;
+  status: DisplayVerseStatus;
   rawMasteryLevel: number;
   masteryLevel: number;
   repetitions: number;
@@ -213,10 +213,8 @@ function parseDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function normalizeStatus(value: TrainingVerseInput['status']): VerseStatus {
-  if (value === VerseStatus.STOPPED || value === 'STOPPED') return VerseStatus.STOPPED;
-  if (value === VerseStatus.LEARNING || value === 'LEARNING') return VerseStatus.LEARNING;
-  return VerseStatus.NEW;
+function normalizeStatus(value: TrainingVerseInput['status']): DisplayVerseStatus {
+  return normalizeDisplayVerseStatus(value);
 }
 
 function normalizeRawMasteryLevel(raw: number | null | undefined): number {
@@ -261,19 +259,20 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
   };
 }
 
-function isReviewVerse(verse: Pick<SessionVerse, 'rawMasteryLevel'>) {
-  return isTrainingReviewRawMastery(verse.rawMasteryLevel);
+function isReviewVerse(verse: Pick<SessionVerse, 'status'>) {
+  const status = normalizeDisplayVerseStatus(verse.status);
+  return status === 'REVIEW' || status === 'MASTERED';
 }
 
 function getEligibleVerses(verses: SessionVerse[]) {
   return verses.filter((verse) =>
     verse.status !== VerseStatus.STOPPED
-    && verse.rawMasteryLevel !== TRAINING_STAGE_MASTERY_MAX
+    && verse.status !== 'MASTERED'
   );
 }
 
 function isEligibleVerse(verse: SessionVerse) {
-  return verse.status !== VerseStatus.STOPPED && verse.rawMasteryLevel !== TRAINING_STAGE_MASTERY_MAX;
+  return verse.status !== VerseStatus.STOPPED && verse.status !== 'MASTERED';
 }
 
 function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): ModeId | null {
@@ -470,13 +469,16 @@ function patchStatusForVerse(verse: SessionVerse): 'NEW' | 'LEARNING' | 'STOPPED
   return verse.rawMasteryLevel > 0 ? 'LEARNING' : 'NEW';
 }
 
-async function persistVerseProgress(verse: SessionVerse) {
+async function persistVerseProgress(
+  verse: SessionVerse,
+  options?: { includeRepetitions?: boolean }
+) {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return false;
 
   await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
     masteryLevel: verse.rawMasteryLevel,
-    repetitions: verse.repetitions,
+    ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
     status: patchStatusForVerse(verse),
@@ -598,7 +600,10 @@ export function TrainingSession({
     const rawMasteryBefore = baseVerse.rawMasteryLevel;
     const masteryBefore = baseVerse.masteryLevel;
     const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
-    const shouldIncrementRepetitions = shouldCountTrainingRepetition(rating);
+    const canUpdateRepetitions = baseVerse.status === 'REVIEW';
+    const shouldIncrementRepetitions =
+      canUpdateRepetitions && shouldCountTrainingRepetition(rating);
+    const nextRepetitions = baseVerse.repetitions + (shouldIncrementRepetitions ? 1 : 0);
     const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + masteryDelta));
     const masteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const passed = masteryDelta > 0;
@@ -611,13 +616,17 @@ export function TrainingSession({
       ...baseVerse,
       rawMasteryLevel: rawMasteryAfter,
       masteryLevel: masteryAfter,
-      repetitions: baseVerse.repetitions + (shouldIncrementRepetitions ? 1 : 0),
+      repetitions: nextRepetitions,
       lastReviewedAt: now,
       nextReviewAt,
       lastModeId: step.modeId,
       status: baseVerse.status === VerseStatus.STOPPED
         ? VerseStatus.STOPPED
-        : (rawMasteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW),
+        : (rawMasteryAfter > 0
+            ? (nextRepetitions >= 5
+                ? 'MASTERED'
+                : (rawMasteryAfter >= TRAINING_STAGE_MASTERY_MAX ? 'REVIEW' : VerseStatus.LEARNING))
+            : VerseStatus.NEW),
     };
 
     const updatedVerses = [...runtime.verses];
@@ -670,7 +679,7 @@ export function TrainingSession({
 
     if (saveState === 'saving') {
       try {
-        await persistVerseProgress(updatedVerse);
+        await persistVerseProgress(updatedVerse, { includeRepetitions: canUpdateRepetitions });
       } catch (error) {
         console.error('Failed to persist training progress', error);
         toast.error('Не удалось сохранить прогресс по стиху');
@@ -700,7 +709,7 @@ export function TrainingSession({
                 <CardDescription>
                   {runtime.targetExercises > 0
                     ? 'TrainingSession переработан под engine-подход: авто-режим, round-robin, spaced repetition.'
-                    : `Для сессии нужны стихи со статусом не STOPPED и masteryLevel != ${TRAINING_STAGE_MASTERY_MAX} (изучение или повторение).`}
+                    : 'Для сессии нужны стихи со статусом не STOPPED и не MASTERED (изучение или повторение).'}
                 </CardDescription>
               </div>
               <Button variant="ghost" size="icon" onClick={onExit}>
@@ -735,7 +744,7 @@ export function TrainingSession({
                 <AlertCircle className="w-4 h-4" />
                 <AlertTitle>Нет активных стихов для тренировки</AlertTitle>
                 <AlertDescription>
-                  Сессия берёт стихи по правилам движка: `status != STOPPED` и `masteryLevel != ${TRAINING_STAGE_MASTERY_MAX}`.
+                  Сессия берёт стихи по правилам движка: `status != STOPPED` и `status != MASTERED`.
                 </AlertDescription>
               </Alert>
             )}

@@ -1,9 +1,11 @@
 import type { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
+import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
-export type VerseListStatusFilter = 'all' | 'learning' | 'review' | 'stopped' | 'new';
+export type VerseListStatusFilter = 'all' | 'learning' | 'review' | 'mastered' | 'stopped' | 'new';
 export type VerseStageVisualKey = Exclude<VerseListStatusFilter, 'all'>;
+export type StoppedVerseStageKind = 'progress' | 'review' | 'mastered';
 
 export type FilterVisualTheme = {
   dotClassName: string;
@@ -18,6 +20,8 @@ export const SCROLL_ACTIVATION_DELTA_PX = 4;
 export const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 0;
 export const PREFETCH_ROWS = 0;
 export const LOAD_MORE_SKELETON_DELAY_MS = 160;
+export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
+export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = 5;
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
   all: {
@@ -47,6 +51,17 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
     cardClassName: 'border-violet-500/22 bg-gradient-to-br from-violet-500/9 via-card to-card',
   },
+  mastered: {
+    dotClassName: 'bg-amber-400',
+    activeTabClassName:
+      'border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300',
+    currentBadgeClassName:
+      'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+    statusBadgeClassName:
+      'border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300',
+    cardClassName:
+      'border-amber-500/28 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6',
+  },
   stopped: {
     dotClassName: 'bg-rose-400',
     activeTabClassName: 'border-rose-500/30 bg-rose-500/14 text-rose-700 dark:text-rose-300',
@@ -67,19 +82,50 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
   },
 };
 
-export function getVerseStageVisual(status: VerseStatus, masteryLevel: number): {
+export function getStoppedVerseStageKind(
+  verse: Pick<Verse, 'masteryLevel' | 'repetitions'>
+): StoppedVerseStageKind {
+  const masteryLevel = Math.max(0, Number(verse.masteryLevel ?? 0));
+  const repetitions = Math.max(0, Number(verse.repetitions ?? 0));
+
+  if (masteryLevel < STOPPED_REVIEW_MASTERY_THRESHOLD) {
+    return 'progress';
+  }
+
+  if (repetitions >= STOPPED_MASTERED_REPETITIONS_THRESHOLD) {
+    return 'mastered';
+  }
+
+  return 'review';
+}
+
+export function getVerseStageVisual(
+  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+): {
   key: VerseStageVisualKey;
   label: string;
 } {
+  const status = normalizeDisplayVerseStatus(verse.status);
   if (status === VerseStatus.NEW) {
     return { key: 'new', label: 'Новый' };
   }
 
   if (status === VerseStatus.STOPPED) {
+    const stoppedKind = getStoppedVerseStageKind(verse);
+    if (stoppedKind === 'mastered') {
+      return { key: 'stopped', label: 'Выучено · пауза' };
+    }
+    if (stoppedKind === 'review') {
+      return { key: 'stopped', label: 'Повторение · пауза' };
+    }
     return { key: 'stopped', label: 'На паузе' };
   }
 
-  if (status === VerseStatus.LEARNING && masteryLevel > TRAINING_STAGE_MASTERY_MAX) {
+  if (status === 'MASTERED') {
+    return { key: 'mastered', label: 'Выучено' };
+  }
+
+  if (status === 'REVIEW') {
     return { key: 'review', label: 'Повторение' };
   }
 
@@ -88,16 +134,23 @@ export function getVerseStageVisual(status: VerseStatus, masteryLevel: number): 
 
 export function getVerseCardLayoutSignature(
   verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
-): 'new' | 'learning-progress' | 'review-pill' | 'stopped-progress' | 'stopped-repeat' {
-  const masteryLevel = Number(verse.masteryLevel ?? 0);
+): 'new' | 'learning-progress' | 'review-pill' | 'stopped-progress' | 'stopped-repeat' | 'stopped-mastered' {
+  const status = normalizeDisplayVerseStatus(verse.status);
 
-  if (verse.status === VerseStatus.NEW) {
+  if (status === VerseStatus.NEW) {
     return 'new';
   }
 
-  if (verse.status === VerseStatus.LEARNING) {
-    return masteryLevel > TRAINING_STAGE_MASTERY_MAX ? 'review-pill' : 'learning-progress';
+  if (status === VerseStatus.LEARNING) {
+    return 'learning-progress';
   }
 
-  return masteryLevel > TRAINING_STAGE_MASTERY_MAX ? 'stopped-repeat' : 'stopped-progress';
+  if (status === 'REVIEW' || status === 'MASTERED') {
+    return 'review-pill';
+  }
+
+  const stoppedKind = getStoppedVerseStageKind(verse);
+  if (stoppedKind === 'mastered') return 'stopped-mastered';
+  if (stoppedKind === 'review') return 'stopped-repeat';
+  return 'stopped-progress';
 }
