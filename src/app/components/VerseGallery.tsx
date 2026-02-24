@@ -29,10 +29,10 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Progress } from "./ui/progress";
 import { MasteryBadge } from "./MasteryBadge";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
 import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
@@ -67,6 +67,10 @@ type VerseGalleryProps = {
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
   onDelete: (verse: Verse) => Promise<void>;
+  previewTotalCount?: number;
+  previewHasMore?: boolean;
+  previewIsLoadingMore?: boolean;
+  onRequestMorePreviewVerses?: () => Promise<boolean>;
 };
 
 type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
@@ -481,11 +485,18 @@ function VerseGalleryUnifiedCardViewport({
   const previewProgress = preview
     ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
     : 0;
+  const isPreviewReviewStage = preview
+    ? normalizeVerseStatus(preview.status) === VerseStatus.LEARNING &&
+      Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
+    : false;
+  const previewRepetitionsCount = preview ? Math.max(0, Number(preview.repetitions ?? 0)) : 0;
+  const trainingProgress = trainingVerse
+    ? Math.min(Math.round((Number(trainingVerse.raw.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100), 100)
+    : 0;
+  const isTrainingReviewStage = trainingVerse ? Number(trainingVerse.rawMasteryLevel) > 7 : false;
+  const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
 
-  const isPreviewReviewAction =
-    preview &&
-    normalizeVerseStatus(preview.status) === VerseStatus.LEARNING &&
-    Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX;
+  const isPreviewReviewAction = Boolean(isPreviewReviewStage);
 
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
   const trainingTopBadge = trainingModeMeta && trainingVerse ? (
@@ -534,19 +545,60 @@ function VerseGalleryUnifiedCardViewport({
               <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">
                 {trainingVerse.raw.reference}
               </h2>
-              <div className="mx-auto w-full max-w-md px-3 py-2 text-left">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Прогресс освоения
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums text-primary">
-                    {Math.min(Math.round((trainingVerse.raw.masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100), 100)}%
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(Math.round((trainingVerse.raw.masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100), 100)}
-                  className="w-full h-2"
-                />
+              <div className="mx-auto">
+                {isTrainingReviewStage ? (
+                  <motion.div
+                    key={`review-${trainingVerse.key}-${trainingRepetitionsCount}`}
+                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-violet-500/25 bg-gradient-to-r from-violet-500/12 to-violet-500/5 px-2.5 py-1.5 backdrop-blur-sm"
+                  >
+                    <div className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300">
+                      <Repeat className="h-3 w-3" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-700/85 dark:text-violet-300/90">
+                        Повторение
+                      </span>
+                      <span className="h-3.5 w-px bg-violet-500/20" aria-hidden="true" />
+                      <span className="text-[11px] font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                        {trainingRepetitionsCount} повт.
+                      </span>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={`learn-${trainingVerse.key}-${trainingProgress}`}
+                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/45 px-2.5 py-1 backdrop-blur-sm"
+                  >
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Освоение
+                    </span>
+                    <div
+                      role="progressbar"
+                      aria-label="Прогресс освоения"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={trainingProgress}
+                      className="relative h-1 w-16 overflow-hidden rounded-full bg-primary/15"
+                    >
+                      <motion.div
+                        key={`${trainingVerse.raw.id}-${trainingProgress}`}
+                        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${trainingProgress}%` }}
+                        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-semibold tabular-nums text-primary">
+                      {trainingProgress}%
+                    </span>
+                  </motion.div>
+                )}
               </div>
             </div>
           ) : null
@@ -584,23 +636,54 @@ function VerseGalleryUnifiedCardViewport({
         }
         footer={
           isPreview && preview ? (
-            <div className="space-y-3">
-              <div className="flex items-end justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
-                  Прогресс освоения
-                </span>
-                <span className="text-2xl font-bold text-primary">{previewProgress}%</span>
+            isPreviewReviewStage ? (
+              <motion.div
+                key={`preview-review-footer-${preview.id}-${previewRepetitionsCount}`}
+                initial={{ opacity: 0, y: 6, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-background p-3 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300">
+                      <Repeat className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
+                        Повторение
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Количество повторов
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
+                      {previewRepetitionsCount}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-end justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+                    Прогресс освоения
+                  </span>
+                  <span className="text-2xl font-bold text-primary">{previewProgress}%</span>
+                </div>
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    key={`${preview.id}-${activeIndex}`}
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${previewProgress}%` }}
+                    transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
+                  />
+                </div>
               </div>
-              <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-                <motion.div
-                  key={`${preview.id}-${activeIndex}`}
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${previewProgress}%` }}
-                  transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
-                />
-              </div>
-            </div>
+            )
           ) : null
         }
       />
@@ -614,6 +697,10 @@ export function VerseGallery({
   onClose,
   onStatusChange,
   onDelete,
+  previewTotalCount = verses.length,
+  previewHasMore = false,
+  previewIsLoadingMore = false,
+  onRequestMorePreviewVerses,
 }: VerseGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
@@ -637,6 +724,7 @@ export function VerseGallery({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
+  const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
 
   useBodyScrollLock();
 
@@ -675,12 +763,12 @@ export function VerseGallery({
 
   useEffect(() => {
     if (!displayVerse) return;
-    const total = panelMode === "training" ? Math.max(trainingEligibleIndices.length, 1) : verses.length;
+    const total = panelMode === "training" ? Math.max(trainingEligibleIndices.length, 1) : previewDisplayTotal;
     const position = panelMode === "training"
       ? Math.max(1, trainingEligibleIndices.indexOf(trainingIndex) + 1)
       : activeIndex + 1;
     setSlideAnnouncement(`Стих ${position} из ${Math.max(total, 1)}: ${displayVerse.reference}`);
-  }, [displayVerse, panelMode, trainingEligibleIndices, trainingIndex, activeIndex, verses.length]);
+  }, [displayVerse, panelMode, trainingEligibleIndices, trainingIndex, activeIndex, previewDisplayTotal]);
 
   useEffect(() => {
     if (panelMode !== "training") return;
@@ -732,14 +820,35 @@ export function VerseGallery({
     });
   }, []);
 
-  const navigatePreviewTo = useCallback((dir: "prev" | "next") => {
+  const navigatePreviewTo = useCallback(async (dir: "prev" | "next") => {
     const newDir = dir === "next" ? 1 : -1;
-    const newIndex = dir === "next" ? Math.min(verses.length - 1, activeIndex + 1) : Math.max(0, activeIndex - 1);
+    if (dir === "next") {
+      if (activeIndex < verses.length - 1) {
+        haptic("light");
+        setDirection(newDir);
+        setActiveIndex(activeIndex + 1);
+        return;
+      }
+
+      if (!previewHasMore || previewIsLoadingMore || !onRequestMorePreviewVerses) {
+        return;
+      }
+
+      const didLoadMore = await onRequestMorePreviewVerses();
+      if (!didLoadMore) return;
+
+      haptic("light");
+      setDirection(newDir);
+      setActiveIndex((prev) => Math.min(prev + 1, Math.max(0, verses.length)));
+      return;
+    }
+
+    const newIndex = Math.max(0, activeIndex - 1);
     if (newIndex === activeIndex) return;
     haptic("light");
     setDirection(newDir);
     setActiveIndex(newIndex);
-  }, [activeIndex, verses.length]);
+  }, [activeIndex, verses.length, previewHasMore, previewIsLoadingMore, onRequestMorePreviewVerses]);
 
   const syncPreviewIndexToVerse = useCallback((target: TrainingVerseState | Verse | null | undefined) => {
     if (!target) return;
@@ -750,6 +859,7 @@ export function VerseGallery({
 
   const exitTrainingMode = useCallback((target?: TrainingVerseState | null) => {
     syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+    setDirection(0);
     setPanelMode("preview");
     setTrainingModeId(null);
   }, [syncPreviewIndexToVerse, trainingActiveVerse]);
@@ -760,41 +870,6 @@ export function VerseGallery({
     }
     exitTrainingMode();
   }, [exitTrainingMode]);
-
-  useEffect(() => {
-    if (!isInTelegram || typeof window === "undefined") return;
-
-    const backButton = (window as any).Telegram?.WebApp?.BackButton;
-    if (!backButton) return;
-
-    const handleBackButton = () => {
-      if (deleteDialogOpen) {
-        setDeleteDialogOpen(false);
-        return;
-      }
-      if (panelMode === "training") {
-        handleTrainingBackAction();
-        return;
-      }
-      onClose();
-    };
-
-    try {
-      backButton.onClick(handleBackButton);
-      backButton.show();
-    } catch {
-      return;
-    }
-
-    return () => {
-      try {
-        backButton.offClick(handleBackButton);
-        backButton.hide();
-      } catch {
-        // ignore Telegram API cleanup errors
-      }
-    };
-  }, [isInTelegram, deleteDialogOpen, panelMode, handleTrainingBackAction, onClose]);
 
   const jumpToAdjacentTrainingVerse = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
@@ -831,12 +906,12 @@ export function VerseGallery({
       return sortByCreatedAtDesc(verses.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING));
     }
     try {
-      const response = (await UserVersesService.getApiUsersVerses(
+      const response = (await fetchAllUserVerses({
         telegramId,
-        VerseStatus.LEARNING,
-        "createdAt",
-        "desc"
-      )) as Array<Verse>;
+        status: VerseStatus.LEARNING,
+        orderBy: "createdAt",
+        order: "desc",
+      })) as Array<Verse>;
       const filtered = response.filter((v) => normalizeVerseStatus(v.status) === VerseStatus.LEARNING);
       return sortByCreatedAtDesc(filtered);
     } catch (error) {
@@ -969,7 +1044,7 @@ export function VerseGallery({
     previewTouchStartRef.current = null;
     const step = getVerticalTouchSwipeStep(start, e);
     if (!step) return;
-    navigatePreviewTo(step > 0 ? "next" : "prev");
+    void navigatePreviewTo(step > 0 ? "next" : "prev");
   };
   const handleTrainingRate = useCallback(async (rating: Rating) => {
     if (panelMode !== "training" || trainingModeId === null) return;
@@ -1058,13 +1133,13 @@ export function VerseGallery({
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
         if (panelMode === "training") jumpToAdjacentTrainingVerse(1);
-        else navigatePreviewTo("next");
+        else void navigatePreviewTo("next");
         return;
       }
       if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
         if (panelMode === "training") jumpToAdjacentTrainingVerse(-1);
-        else navigatePreviewTo("prev");
+        else void navigatePreviewTo("prev");
         return;
       }
       if (e.key === "Tab" && dialogRef.current) trapFocus(dialogRef.current, e);
@@ -1075,7 +1150,7 @@ export function VerseGallery({
 
   if (!displayVerse) return null;
 
-  const galleryBodyKey = getVerseIdentity(displayVerse);
+  const galleryBodyKey = `${panelMode}-${getVerseIdentity(displayVerse)}`;
 
   const previewStatusAction = panelMode === "preview" && previewActiveVerse
     ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
@@ -1098,7 +1173,7 @@ export function VerseGallery({
     }
   };
 
-  const displayTotal = panelMode === "training" ? Math.max(trainingEligibleIndices.length, 1) : Math.max(verses.length, 1);
+  const displayTotal = panelMode === "training" ? Math.max(trainingEligibleIndices.length, 1) : previewDisplayTotal;
   const displayActive = panelMode === "training"
     ? Math.max(0, trainingEligibleIndices.indexOf(trainingIndex))
     : Math.max(0, activeIndex);
@@ -1112,10 +1187,10 @@ export function VerseGallery({
         {panelMode === "preview" ? (
           <div className="flex items-center justify-center p-4 w-full">
             <p className="text-lg text-center font-bold flex items-center justify-center gap-2">Цель сегодня: 
-              <Badge variant="secondary" className="text-lg rounded-full">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
+              <Badge variant="secondary" className="text-lg rounded-full">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>
             </p>
             {/* <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge> */}
-            <Badge className="absolute right-4 top-[80px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge>
+            <Badge className="absolute right-4 top-[80px]" variant="outline">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>
 
             {!isInTelegram && (
               <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
@@ -1163,7 +1238,7 @@ export function VerseGallery({
                     </Select>
                   </div>
                 </div>
-                <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
+                <Badge className="absolute right-0 top-[65px] bg-background/80 backdrop-blur-lg" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
               </div>
               {!isInTelegram && (
                 <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
@@ -1201,11 +1276,11 @@ export function VerseGallery({
 
       {panelMode === "preview" && (
         <div className="shrink-0 px-4 sm:px-6 z-40">
-          <div className="mx-auto w-full max-w-2xl flex items-center gap-3">
+          <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
             {previewStatusAction && (
-              <Button variant="secondary" className="flex-1 gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
+              <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
-                {previewStatusAction.label}
+                {/* {previewStatusAction.label} */}
               </Button>
             )}
             <Button
@@ -1219,7 +1294,21 @@ export function VerseGallery({
               disabled={actionPending}
               aria-label="Удалить стих"
             >
-              <Trash2 className="h-4 w-4" />Удалить
+              <Trash2 className="h-4 w-4" />
+              {/* Удалить */}
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2 backdrop-blur-xl rounded-2xl"
+              onClick={() => {
+                if (actionPending) return;
+                haptic("light");
+                onClose();
+              }}
+              disabled={actionPending}
+              aria-label="Завершить тренировку"
+            >
+              Завершить тренировку
             </Button>
           </div>
         </div>
@@ -1227,16 +1316,16 @@ export function VerseGallery({
 
       {panelMode === "training" && (
         <div className="shrink-0 px-4 sm:px-6 pt-3 z-40">
-          <div className="mx-auto w-full max-w-2xl">
+          <div className="mx-auto w-full flex items-center justify-center max-w-2xl">
             <Button
               type="button"
-              variant="outline"
-              className="w-full gap-2 rounded-2xl backdrop-blur-xl bg-background/70"
+              variant="secondary"
+              className="w-fit gap-2 rounded-2xl backdrop-blur-xl"
               onClick={() => {
                 haptic("light");
                 handleTrainingBackAction();
               }}
-              aria-label="Вернуться к превью текущего стиха"
+              aria-label="Вернуться к превью"
             >
               <ChevronLeft className="h-4 w-4" />
               К превью
@@ -1252,7 +1341,7 @@ export function VerseGallery({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(-1) : navigatePreviewTo("prev"))}
+          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(-1) : void navigatePreviewTo("prev"))}
           disabled={
             (panelMode === "training"
               ? displayActive <= 0 || trainingEligibleIndices.length <= 1
@@ -1268,11 +1357,11 @@ export function VerseGallery({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(1) : navigatePreviewTo("next"))}
+          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(1) : void navigatePreviewTo("next"))}
           disabled={
             (panelMode === "training"
               ? displayActive >= displayTotal - 1 || trainingEligibleIndices.length <= 1
-              : activeIndex === verses.length - 1)
+              : (previewIsLoadingMore && activeIndex >= verses.length - 1) || (activeIndex === verses.length - 1 && !previewHasMore))
           }
           aria-label="Следующий стих"
         >

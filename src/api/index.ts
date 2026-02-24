@@ -15,6 +15,7 @@ export type { OpenApiDoc } from './models/OpenApiDoc';
 export type { Tag } from './models/Tag';
 export type { User } from './models/User';
 export type { UserVerse } from './models/UserVerse';
+export type { UserVersesPageResponse } from './models/UserVersesPageResponse';
 export type { UserWithVerses } from './models/UserWithVerses';
 export type { VerseTag } from './models/VerseTag';
 

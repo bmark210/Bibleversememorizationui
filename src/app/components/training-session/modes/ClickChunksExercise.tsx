@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Lightbulb } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
@@ -120,6 +120,7 @@ function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) 
 export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExerciseProps) {
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -130,6 +131,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     const chunks = splitIntoChunks(verse.text);
     setTokens(shuffleTokens(chunks));
     setSelectedIds([]);
+    setShowHint(false);
     setMistakes(0);
     setIsCompleted(false);
     setFeedback(null);
@@ -158,7 +160,6 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
   const selectedCount = selectedTokens.length;
   const totalChunks = tokens.length;
-  const progress = totalChunks > 0 ? Math.round((selectedCount / totalChunks) * 100) : 0;
 
   const handleChunkClick = (token: ChunkToken) => {
     if (isCompleted) return;
@@ -197,38 +198,44 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-        <div className="space-y-6">
-          {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Прогресс</div>
-              <div className="text-sm font-semibold">{selectedCount} / {totalChunks}</div>
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">
+                Соберите стих по частям
+              </label>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Следующее</div>
-              <div className="text-sm font-semibold">Кусок #{nextChunkNumber}</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Ошибки</div>
-              <div className="text-sm font-semibold">{mistakes}</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Готовность</div>
-              <div className="text-sm font-semibold">{progress}%</div>
-            </div>
-          </div> */}
 
-          {/* <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
-            <motion.div
-              className="h-full bg-gradient-to-r from-primary to-primary/70"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.2 }}
-            />
-          </div> */}
+            {!isCompleted && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHint((prev) => !prev)}
+                  aria-pressed={showHint}
+                  className="gap-2 rounded-full"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  {showHint ? 'Скрыть подсказку' : 'Подсказка'}
+                </Button>
+              </div>
+            )}
+          </div>
 
-          <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[92px]">
-            {/* <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
-              Собранная последовательность
-            </div> */}
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                Собранная последовательность
+              </div>
+              {!isCompleted && totalChunks > 0 && (
+                <div className="text-[11px] tabular-nums text-muted-foreground">
+                  {selectedCount}/{totalChunks}
+                </div>
+              )}
+            </div>
+
             {selectedTokens.length > 0 ? (
               <div className="space-y-2">
                 {selectedTokens.map((token) => (
@@ -236,86 +243,121 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                     key={token.id}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm"
+                    className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-sm"
                   >
                     {token.text}
                   </motion.div>
                 ))}
               </div>
-            )
-             : (
-               <p className="text-sm text-muted-foreground">
-                 Нажмите с начальную часть стиха.
-               </p>
-             )}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ввод появится здесь
+              </p>
+            )}
           </div>
 
-          {feedback && (
+          {!tokens.every((token) => selectedIds.includes(token.id)) && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  Части стиха
+                </div>
+                {mistakes > 0 && (
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                    Ошибок: {mistakes}
+                  </div>
+                )}
+              </div>
+
+              <AnimatePresence initial={false}>
+                {feedback && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="inline-flex max-w-full items-center rounded-full border border-destructive/25 bg-destructive/10 px-3 py-1 text-xs text-destructive"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {feedback}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-2">
+                {tokens.map((token) => {
+                  const isSelected = selectedIds.includes(token.id);
+                  const isError = errorFlashTokenId === token.id;
+
+                  if (isSelected) return null;
+
+                  return (
+                    <motion.div
+                      key={token.id}
+                      animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={`h-auto w-full justify-start whitespace-normal rounded-xl border-border/70 bg-background/60 px-4 py-3 text-left ${
+                          isError ? 'border-destructive text-destructive' : ''
+                        }`}
+                        onClick={() => handleChunkClick(token)}
+                        disabled={isCompleted}
+                        aria-pressed={false}
+                      >
+                        {token.text}
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {showHint && !isCompleted && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border p-3 text-sm bg-destructive/10 border-destructive/30 text-destructive"
-              role="status"
-              aria-live="polite"
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -4 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
             >
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>{feedback}</span>
+              <div className="flex items-center gap-2 text-sm">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <p className="text-muted-foreground">
+                  {verse.text.split(' ').slice(0, 2).join(' ')}...
+                </p>
               </div>
             </motion.div>
           )}
-        {!tokens.every((token) => selectedIds.includes(token.id)) && (
-          <div className="space-y-3">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Части стиха
-            </div>
-            <div className="space-y-2">
-              {tokens.map((token) => {
-                const isSelected = selectedIds.includes(token.id);
-                const isError = errorFlashTokenId === token.id;
+        </AnimatePresence>
 
-                if (isSelected) {
-                  return null;
-                }
-
-                return (
-                  <motion.div
-                    key={token.id}
-                    animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`w-full h-auto justify-start text-left whitespace-normal py-3 px-4 ${
-                        isError ? 'border-destructive text-destructive' : ''
-                      }`}
-                      onClick={() => handleChunkClick(token)}
-                      disabled={isCompleted}
-                      aria-pressed={false}
-                    >
-                      {token.text}
-                    </Button>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-          {/* {isCompleted && (
-            <div className="rounded-lg bg-muted/40 p-4 text-sm">
-              <div className="text-muted-foreground mb-1">Полный стих</div>
-              <p className="leading-relaxed">{verse.text}</p>
-            </div>
-          )} */}
-        </div>
+        <AnimatePresence initial={false}>
+          {isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="space-y-4"
+            >
+              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+                <div className="mb-2 text-sm font-medium text-foreground">Полный стих</div>
+                <p className="leading-relaxed text-sm sm:text-base">{verse.text}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {isCompleted && (
           <TrainingRatingFooter>
             <RatingButtons onRate={onRate} />
           </TrainingRatingFooter>
         )}
+      </div>
     </motion.div>
   );
 }

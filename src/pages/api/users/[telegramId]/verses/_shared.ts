@@ -23,6 +23,8 @@ export type UserVersesListQuery = {
   orderBy?: UserVersesOrderBy;
   order?: UserVersesOrder;
   filter?: UserVersesFilter;
+  limit?: number;
+  cursorId?: string;
 };
 
 type FetchEnrichedUserVersesOptions = {
@@ -31,6 +33,21 @@ type FetchEnrichedUserVersesOptions = {
   orderBy?: UserVersesOrderBy;
   order?: UserVersesOrder;
 };
+
+type FetchPaginatedEnrichedUserVersesOptions = FetchEnrichedUserVersesOptions & {
+  limit?: number;
+  cursorId?: string;
+};
+
+export type UserVersesPageResponse = {
+  items: Array<Record<string, unknown>>;
+  hasMore: boolean;
+  nextCursorId: string | null;
+  totalCount: number;
+};
+
+const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
+const MAX_USER_VERSES_PAGE_LIMIT = 50;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -88,12 +105,35 @@ function parseFilter(value: string | undefined): UserVersesFilter | undefined {
   return undefined;
 }
 
+function parsePageLimit(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_USER_VERSES_PAGE_LIMIT) {
+    throw new UserVersesApiError(
+      400,
+      `limit must be an integer between 1 and ${MAX_USER_VERSES_PAGE_LIMIT}`
+    );
+  }
+  return parsed;
+}
+
+function parseCursorId(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const parsed = value.trim();
+  if (!parsed) {
+    throw new UserVersesApiError(400, "cursorId must be a non-empty string");
+  }
+  return parsed;
+}
+
 export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQuery {
   return {
     status: parseStatus(getSingleQueryValue(query, "status")),
     orderBy: parseOrderBy(getSingleQueryValue(query, "orderBy")),
     order: parseOrder(getSingleQueryValue(query, "order")),
     filter: parseFilter(getSingleQueryValue(query, "filter")),
+    limit: parsePageLimit(getSingleQueryValue(query, "limit")),
+    cursorId: parseCursorId(getSingleQueryValue(query, "cursorId")),
   };
 }
 
@@ -120,12 +160,29 @@ export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Re
   return undefined;
 }
 
-export async function fetchEnrichedUserVerses({
-  telegramId,
-  where,
-  orderBy,
-  order,
-}: FetchEnrichedUserVersesOptions) {
+function buildUserVersesWhere(
+  telegramId: string,
+  where?: Record<string, unknown>
+): Prisma.UserVerseWhereInput {
+  return {
+    telegramId,
+    ...(where ?? {}),
+  } as Prisma.UserVerseWhereInput;
+}
+
+function buildUserVersesOrderBy(
+  orderBy?: UserVersesOrderBy,
+  order?: UserVersesOrder
+): Prisma.UserVerseOrderByWithRelationInput[] {
+  const field = orderBy ?? "createdAt";
+  const direction = order ?? "desc";
+  return [
+    { [field]: direction } as Prisma.UserVerseOrderByWithRelationInput,
+    { id: direction },
+  ];
+}
+
+async function getUserTranslationForTelegram(telegramId: string) {
   const user = await prisma.user.findUnique({
     where: { telegramId },
     select: { id: true, translation: true },
@@ -135,23 +192,16 @@ export async function fetchEnrichedUserVerses({
     throw new UserVersesApiError(404, "User not found");
   }
 
-  const prismaOrderBy: Prisma.UserVerseOrderByWithRelationInput | undefined = orderBy
-    ? { [orderBy]: order ?? "desc" }
-    : undefined;
+  return user.translation ?? DEFAULT_BOLLS_TRANSLATION;
+}
 
-  const verses = await prisma.userVerse.findMany({
-    where: {
-      telegramId,
-      ...(where ?? {}),
-    } as any,
-    ...(prismaOrderBy ? { orderBy: prismaOrderBy } : {}),
-  });
-
+async function enrichUserVerses(
+  verses: Array<Prisma.UserVerseGetPayload<Record<string, never>>>,
+  translation: string
+) {
   if (verses.length === 0) {
     return verses;
   }
-
-  const translation = user.translation ?? DEFAULT_BOLLS_TRANSLATION;
 
   const requestGroups = new Map<
     string,
@@ -221,4 +271,60 @@ export async function fetchEnrichedUserVerses({
       reference: `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`,
     };
   });
+}
+
+export async function fetchEnrichedUserVerses({
+  telegramId,
+  where,
+  orderBy,
+  order,
+}: FetchEnrichedUserVersesOptions) {
+  const translation = await getUserTranslationForTelegram(telegramId);
+  const verses = await prisma.userVerse.findMany({
+    where: buildUserVersesWhere(telegramId, where),
+    orderBy: buildUserVersesOrderBy(orderBy, order),
+  });
+
+  return enrichUserVerses(verses, translation);
+}
+
+export async function fetchPaginatedEnrichedUserVerses({
+  telegramId,
+  where,
+  orderBy,
+  order,
+  limit,
+  cursorId,
+}: FetchPaginatedEnrichedUserVersesOptions): Promise<UserVersesPageResponse> {
+  const pageLimit = limit ?? DEFAULT_USER_VERSES_PAGE_LIMIT;
+  const translation = await getUserTranslationForTelegram(telegramId);
+  const prismaWhere = buildUserVersesWhere(telegramId, where);
+
+  const [rawItems, totalCount] = await Promise.all([
+    prisma.userVerse.findMany({
+      where: prismaWhere,
+      orderBy: buildUserVersesOrderBy(orderBy, order),
+      take: pageLimit + 1,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    }),
+    prisma.userVerse.count({
+      where: prismaWhere,
+    }),
+  ]);
+
+  const hasMore = rawItems.length > pageLimit;
+  const pageItems = hasMore ? rawItems.slice(0, pageLimit) : rawItems;
+  const nextCursorId =
+    hasMore && pageItems.length > 0
+      ? String(pageItems[pageItems.length - 1]?.id ?? "")
+      : null;
+
+  const enrichedItems = await enrichUserVerses(pageItems, translation);
+
+  return {
+    items: enrichedItems as Array<Record<string, unknown>>,
+    hasMore,
+    nextCursorId,
+    totalCount,
+  };
 }

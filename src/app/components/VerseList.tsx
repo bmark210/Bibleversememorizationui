@@ -13,6 +13,7 @@ import {
   Pause,
   Play,
   Plus,
+  Repeat,
   Trash2,
 } from 'lucide-react';
 import {
@@ -35,15 +36,75 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { UserVersesService } from '@/api/services/UserVersesService';
+import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
-import { MasteryBadge } from './MasteryBadge';
 import { VerseGallery } from './VerseGallery';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 /* ===================== TYPES ===================== */
 
 type VerseListStatusFilter = 'all' | 'learning' | 'review' | 'stopped' | 'new';
+type VerseStageVisualKey = Exclude<VerseListStatusFilter, 'all'>;
+
+type FilterVisualTheme = {
+  dotClassName: string;
+  activeTabClassName: string;
+  currentBadgeClassName: string;
+  statusBadgeClassName: string;
+};
+
+const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
+  all: {
+    dotClassName: 'bg-foreground/60',
+    activeTabClassName: 'border-foreground/20 bg-foreground/8 text-foreground',
+    currentBadgeClassName: 'border-foreground/15 bg-foreground/5 text-foreground/90',
+    statusBadgeClassName: 'border-border/70 bg-background/80 text-foreground/90',
+  },
+  learning: {
+    dotClassName: 'bg-emerald-400',
+    activeTabClassName: 'border-emerald-500/30 bg-emerald-500/14 text-emerald-700 dark:text-emerald-300',
+    currentBadgeClassName: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    statusBadgeClassName: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  },
+  review: {
+    dotClassName: 'bg-violet-400',
+    activeTabClassName: 'border-violet-500/30 bg-violet-500/14 text-violet-700 dark:text-violet-300',
+    currentBadgeClassName: 'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    statusBadgeClassName: 'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  },
+  stopped: {
+    dotClassName: 'bg-rose-400',
+    activeTabClassName: 'border-rose-500/30 bg-rose-500/14 text-rose-700 dark:text-rose-300',
+    currentBadgeClassName: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    statusBadgeClassName: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  },
+  new: {
+    dotClassName: 'bg-sky-400',
+    activeTabClassName: 'border-sky-500/30 bg-sky-500/14 text-sky-700 dark:text-sky-300',
+    currentBadgeClassName: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    statusBadgeClassName: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  },
+};
+
+function getVerseStageVisual(status: VerseStatus, masteryLevel: number): {
+  key: VerseStageVisualKey;
+  label: string;
+} {
+  if (status === VerseStatus.NEW) {
+    return { key: 'new', label: 'Новый' };
+  }
+
+  if (status === VerseStatus.STOPPED) {
+    return { key: 'stopped', label: 'На паузе' };
+  }
+
+  if (status === VerseStatus.LEARNING && masteryLevel > TRAINING_STAGE_MASTERY_MAX) {
+    return { key: 'review', label: 'Повторение' };
+  }
+
+  return { key: 'learning', label: 'Изучение' };
+}
 
 type SwipeCardProps = {
   verse: Verse;
@@ -54,6 +115,8 @@ type SwipeCardProps = {
   onRequestDelete: (verse: Verse) => void;
   isPending?: boolean;
 };
+
+const VERSE_LIST_PAGE_SIZE = 20;
 
 /* ===================== HAPTIC ===================== */
 
@@ -81,6 +144,17 @@ const SwipeableVerseCard = ({
   onRequestDelete,
   isPending = false,
 }: SwipeCardProps) => {
+  const masteryLevel = Number(verse.masteryLevel ?? 0);
+  const isReviewCard =
+    verse.status === VerseStatus.LEARNING && masteryLevel > TRAINING_STAGE_MASTERY_MAX;
+  const stageVisual = getVerseStageVisual(verse.status, masteryLevel);
+  const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
+  const learningProgress = Math.min(
+    Math.round((masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100),
+    100
+  );
+  const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
     if (e.key === 'Enter' || e.key === ' ') {
@@ -215,7 +289,14 @@ const SwipeableVerseCard = ({
         }}
         onKeyDown={handleKeyDown}
         className={`
-          relative z-10 bg-card border border-border/70 rounded-2xl p-4 shadow-sm
+          relative z-10 rounded-2xl p-4 shadow-sm
+          border ${
+            isReviewCard
+              ? 'border-violet-500/20 bg-gradient-to-br from-violet-500/8 via-card to-card'
+              : verse.status === VerseStatus.LEARNING
+                ? 'border-emerald-500/15 bg-gradient-to-br from-emerald-500/6 via-card to-card'
+                : 'bg-card border-border/70'
+          }
           active:shadow-md transition-shadow cursor-pointer
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
         `}
@@ -225,25 +306,43 @@ const SwipeableVerseCard = ({
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold">{verse.reference}</h3>
               <Badge variant="secondary" className="text-[11px]">SYNOD</Badge>
-              <MasteryBadge status={verse.status} masteryLevel={verse.masteryLevel ?? 0} />
+              <Badge
+                variant="outline"
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${stageVisualTheme.statusBadgeClassName}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${stageVisualTheme.dotClassName}`} />
+                {stageVisual.label}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{Math.min(Math.round(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100), 100)}%</span>
-              <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
-                <motion.div
-                  className={`h-full ${
-                    verse.status === VerseStatus.LEARNING ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}
-                  initial={{ width: 0 }}
-                  animate={{
-                    width: `${Math.min(Math.round(verse.masteryLevel / TRAINING_STAGE_MASTERY_MAX * 100), 100)}%`
-                  }}
-                  transition={{ duration: 0.35, ease: 'easeOut' }}
-                />
+            {isReviewCard ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
+                  <Repeat className="h-3.5 w-3.5" />
+                  <span className="font-medium">Повторение</span>
+                </div>
+                <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground">
+                  {repetitionsCount} повт.
+                </div>
               </div>
-              <span>{verse.repetitions} повт.</span>
-            </div>
+            ) : verse.status === VerseStatus.LEARNING ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{learningProgress}%</span>
+                <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-emerald-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${learningProgress}%` }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                  />
+                </div>
+                <span>{repetitionsCount} повт.</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{repetitionsCount} повт.</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -320,10 +419,22 @@ export function VerseList({
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [isFetchingVerses, setIsFetchingVerses] = useState(false);
+  const [isFetchingMoreVerses, setIsFetchingMoreVerses] = useState(false);
   const [hasFetchedVersesOnce, setHasFetchedVersesOnce] = useState(false);
+  const [hasMoreVerses, setHasMoreVerses] = useState(false);
+  const [nextCursorId, setNextCursorId] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const requestVersionRef = useRef(0);
+  const versesRef = useRef<Array<Verse>>([]);
+
+  useEffect(() => {
+    versesRef.current = verses;
+  }, [verses]);
 
   /* ── toasts ── */
   const pushToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
@@ -397,39 +508,132 @@ export function VerseList({
     );
   };
 
-  const fetchVerses = useCallback(async (id: string, filter: VerseListStatusFilter) => {
+  const mergeUniqueVerses = useCallback((prev: Array<Verse>, incoming: Array<Verse>) => {
+    if (incoming.length === 0) return prev;
+    const seen = new Set(prev.map((v) => getVerseKey(v)));
+    const appended: Array<Verse> = [];
+    for (const verse of incoming) {
+      const key = getVerseKey(verse);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      appended.push(verse);
+    }
+    return appended.length > 0 ? [...prev, ...appended] : prev;
+  }, [getVerseKey]);
+
+  const requestVersesPage = useCallback(async (
+    id: string,
+    filter: VerseListStatusFilter,
+    cursorId?: string | null
+  ) => {
+    const page = await fetchUserVersesPage({
+      telegramId: id,
+      orderBy: 'createdAt',
+      order: 'desc',
+      filter,
+      limit: VERSE_LIST_PAGE_SIZE,
+      cursorId: cursorId ?? undefined,
+    });
+
+    return {
+      ...page,
+      items: page.items as Array<Verse>,
+    };
+  }, []);
+
+  const resetAndFetchFirstPage = useCallback(async (id: string, filter: VerseListStatusFilter) => {
+    const requestVersion = ++requestVersionRef.current;
     setIsFetchingVerses(true);
     setHasFetchedVersesOnce(false);
-    try {
-      const data = (await UserVersesService.getApiUsersVerses(
-        id,
-        undefined,
-        'createdAt',
-        'desc',
-        filter
-      )) as Array<Verse>;
+    setIsFetchingMoreVerses(false);
+    setLoadMoreError(null);
+    setHasMoreVerses(false);
+    setNextCursorId(null);
+    setTotalCount(0);
+    setVerses([]);
 
-      setVerses(sortByLoadedAtDesc(data));
+    try {
+      const page = await requestVersesPage(id, filter, null);
+      if (requestVersionRef.current !== requestVersion) return;
+      setVerses(page.items);
+      setHasMoreVerses(page.hasMore);
+      setNextCursorId(page.nextCursorId);
+      setTotalCount(page.totalCount);
     } catch (err) {
+      if (requestVersionRef.current !== requestVersion) return;
       console.error('Не удалось получить стихи:', err);
       setVerses([]);
+      setHasMoreVerses(false);
+      setNextCursorId(null);
+      setTotalCount(0);
     } finally {
+      if (requestVersionRef.current !== requestVersion) return;
       setIsFetchingVerses(false);
       setHasFetchedVersesOnce(true);
     }
-  }, [sortByLoadedAtDesc]);
+  }, [requestVersesPage]);
+
+  const fetchNextPage = useCallback(async () => {
+    if (!telegramId) return false;
+    if (isFetchingVerses || isFetchingMoreVerses) return false;
+    if (!hasMoreVerses) return false;
+
+    const requestVersion = requestVersionRef.current;
+    const cursor = nextCursorId;
+    setIsFetchingMoreVerses(true);
+    setLoadMoreError(null);
+
+    try {
+      const page = await requestVersesPage(telegramId, statusFilter, cursor);
+      if (requestVersionRef.current !== requestVersion) return false;
+
+      let didAppend = false;
+      setVerses((prev) => {
+        const merged = mergeUniqueVerses(prev, page.items);
+        didAppend = merged.length > prev.length;
+        return merged;
+      });
+      setHasMoreVerses(page.hasMore);
+      setNextCursorId(page.nextCursorId);
+      setTotalCount(page.totalCount);
+      return didAppend;
+    } catch (err) {
+      if (requestVersionRef.current !== requestVersion) return false;
+      console.error('Не удалось подгрузить ещё стихи:', err);
+      setLoadMoreError('Не удалось загрузить ещё стихи');
+      return false;
+    } finally {
+      if (requestVersionRef.current !== requestVersion) return false;
+      setIsFetchingMoreVerses(false);
+    }
+  }, [
+    telegramId,
+    isFetchingVerses,
+    isFetchingMoreVerses,
+    hasMoreVerses,
+    nextCursorId,
+    requestVersesPage,
+    statusFilter,
+    mergeUniqueVerses,
+  ]);
 
   useEffect(() => {
     const id = resolveTelegramId();
-    if (!id) { setVerses([]); return; }
+    if (!id) {
+      setVerses([]);
+      setHasMoreVerses(false);
+      setNextCursorId(null);
+      setTotalCount(0);
+      return;
+    }
     setTelegramId(id);
     localStorage.setItem('telegramId', id);
   }, []);
 
   useEffect(() => {
     if (!telegramId) return;
-    void fetchVerses(telegramId, statusFilter);
-  }, [telegramId, statusFilter, fetchVerses]);
+    void resetAndFetchFirstPage(telegramId, statusFilter);
+  }, [telegramId, statusFilter, resetAndFetchFirstPage]);
 
   useEffect(() => {
     if (!reopenGalleryStatusFilter) return;
@@ -443,11 +647,15 @@ export function VerseList({
     if (!hasFetchedVersesOnce) return;
     if (isFetchingVerses) return;
 
-      const index = verses.findIndex(
+    const index = verses.findIndex(
       (v) => String(v.id) === String(reopenGalleryVerseId) || v.externalVerseId === reopenGalleryVerseId
     );
 
     if (index === -1) {
+      if (hasMoreVerses && !isFetchingMoreVerses) {
+        void fetchNextPage();
+        return;
+      }
       // Verse may have moved out of the restored filter (e.g. NEW -> LEARNING).
       onReopenGalleryHandled?.();
       return;
@@ -472,7 +680,10 @@ export function VerseList({
     statusFilter,
     verses,
     isFetchingVerses,
+    isFetchingMoreVerses,
+    hasMoreVerses,
     hasFetchedVersesOnce,
+    fetchNextPage,
     onReopenGalleryHandled,
   ]);
 
@@ -491,11 +702,22 @@ export function VerseList({
   /* ── status change (gallery/low-level) ── */
   const handleStatusChange = async (verse: Verse, status: VerseStatus) => {
     await patchVerseStatusOnServer(verse, status);
+    let removedFromCurrentFilter = false;
     setVerses((prev) =>
       prev
-        .map((v) => (isSameVerse(v, verse) ? { ...v, status } : v))
-        .filter((v) => matchesListFilter(v, statusFilter))
+        .map((v) => {
+          if (!isSameVerse(v, verse)) return v;
+          return { ...v, status };
+        })
+        .filter((v) => {
+          const keep = matchesListFilter(v, statusFilter);
+          if (!keep && isSameVerse(v, verse)) removedFromCurrentFilter = true;
+          return keep;
+        })
     );
+    if (removedFromCurrentFilter) {
+      setTotalCount((prev) => Math.max(0, prev - 1));
+    }
   };
 
   /* ── status change (list actions, optimistic + rollback) ── */
@@ -510,12 +732,20 @@ export function VerseList({
     if (prevStatus === nextStatus) return;
 
     markVersePending(verse, true);
+    let removedFromCurrentFilter = false;
     setVerses((prev) => {
       const next = prev
         .map((v) => (isSameVerse(v, verse) ? { ...v, status: nextStatus } : v))
-        .filter((v) => matchesListFilter(v, statusFilter));
+        .filter((v) => {
+          const keep = matchesListFilter(v, statusFilter);
+          if (!keep && isSameVerse(v, verse)) removedFromCurrentFilter = true;
+          return keep;
+        });
       return next;
     });
+    if (removedFromCurrentFilter) {
+      setTotalCount((prev) => Math.max(0, prev - 1));
+    }
 
     try {
       await patchVerseStatusOnServer(verse, nextStatus);
@@ -525,21 +755,25 @@ export function VerseList({
     } catch (err) {
       console.error('Не удалось изменить статус стиха:', err);
       if (telegramId) {
-        void fetchVerses(telegramId, statusFilter);
+        void resetAndFetchFirstPage(telegramId, statusFilter);
       }
       haptic('error');
       pushToast('Ошибка — попробуйте ещё раз', 'error');
     } finally {
       markVersePending(verse, false);
     }
-  }, [telegramId, pushToast, markVersePending, isSameVerse, patchVerseStatusOnServer, matchesListFilter, statusFilter, fetchVerses]);
+  }, [telegramId, pushToast, markVersePending, isSameVerse, patchVerseStatusOnServer, matchesListFilter, statusFilter, resetAndFetchFirstPage]);
 
   /* ── delete ── */
   const handleDeleteVerse = async (verse: Verse) => {
     if (!telegramId) return;
     await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
     setVerses((prev) => {
+      const hadVerse = prev.some((v) => isSameVerse(v, verse));
       const updated = prev.filter((v) => !isSameVerse(v, verse));
+      if (hadVerse) {
+        setTotalCount((count) => Math.max(0, count - 1));
+      }
       setGalleryIndex((cur) => {
         if (updated.length === 0 || cur === null) return null;
         return cur >= updated.length ? updated.length - 1 : cur;
@@ -584,6 +818,7 @@ export function VerseList({
   const filteredVerses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return verses.filter((v) => {
+      const matchStatus = matchesListFilter(v, statusFilter);
       const matchSearch = !q || v.reference.toLowerCase().includes(q) || v.text.toLowerCase().includes(q);
       const matchTestament = testamentFilter === 'all' || (v as any).testament === testamentFilter;
       const matchMastery =
@@ -591,18 +826,21 @@ export function VerseList({
         (masteryFilter === 'low' && (v as any).masteryLevel < 40) ||
         (masteryFilter === 'medium' && (v as any).masteryLevel >= 40 && (v as any).masteryLevel < 75) ||
         (masteryFilter === 'high' && (v as any).masteryLevel >= 75);
-      return matchSearch && matchTestament && matchMastery;
+      return matchStatus && matchSearch && matchTestament && matchMastery;
     });
-  }, [verses, searchQuery, testamentFilter, masteryFilter]);
+  }, [verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter]);
 
-  const learningVerses = filteredVerses.filter((v) => v.status === VerseStatus.LEARNING);
+  const reviewVerses = filteredVerses.filter((v) => isReviewVerse(v));
+  const learningVerses = filteredVerses.filter(
+    (v) => v.status === VerseStatus.LEARNING && !isReviewVerse(v)
+  );
   const stoppedVerses = filteredVerses.filter((v) => v.status === VerseStatus.STOPPED);
   const newVerses = filteredVerses.filter((v) => v.status === VerseStatus.NEW);
 
   const filterOptions: Array<{ key: VerseListStatusFilter; label: string }> = [
     { key: 'all', label: 'Все' },
     { key: 'learning', label: 'Изучаю' },
-    { key: 'review', label: 'На повторение' },
+    { key: 'review', label: 'Повторяю' },
     { key: 'stopped', label: 'На паузе' },
     { key: 'new', label: 'Новые' },
   ];
@@ -610,12 +848,36 @@ export function VerseList({
   const shouldReduceMotion = useReducedMotion();
   const isListLoading = isFetchingVerses && !hasFetchedVersesOnce && verses.length === 0;
   const currentFilterLabel = filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Все';
+  const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
   const dueNowCount = learningVerses.filter((verse) => {
     if (!verse.nextReviewAt) return true;
     const date = new Date(verse.nextReviewAt);
     return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
   }).length;
+
+  useEffect(() => {
+    const target = loadMoreSentinelRef.current;
+    if (!target) return;
+    if (isListLoading) return;
+    if (!hasMoreVerses) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry?.isIntersecting) return;
+        void fetchNextPage();
+      },
+      {
+        root: null,
+        rootMargin: '400px 0px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasMoreVerses, isListLoading]);
 
   const pageVariants = {
     hidden: {},
@@ -742,6 +1004,42 @@ export function VerseList({
     );
   };
 
+  const renderFlatVerseList = (items: Array<Verse>) => {
+    if (items.length === 0) return null;
+
+    return (
+      <motion.div
+        className="space-y-3"
+        initial="hidden"
+        animate="show"
+        variants={gridVariants}
+      >
+        <AnimatePresence initial={false}>
+          {items.map((verse) => (
+            <motion.div
+              key={getVerseKey(verse)}
+              layout
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.985 }}
+            >
+              <SwipeableVerseCard
+                verse={verse}
+                onOpen={() => openVerseInGallery(verse)}
+                onAddToLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+                onPauseLearning={(v) => void updateVerseStatus(v, VerseStatus.STOPPED)}
+                onResumeLearning={(v) => void updateVerseStatus(v, VerseStatus.LEARNING)}
+                onRequestDelete={confirmDeleteVerse}
+                isPending={pendingVerseKeys.has(getVerseKey(verse))}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
+
   return (
     <motion.div
       className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto"
@@ -783,10 +1081,14 @@ export function VerseList({
             <div>
               <div className="text-sm font-medium">Фильтр по статусу</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Сейчас показано {totalVisible} {totalVisible === 1 ? 'стих' : totalVisible < 5 ? 'стиха' : 'стихов'}.
+                Загружено {totalVisible} из {totalCount} {totalCount === 1 ? 'стиха' : totalCount < 5 ? 'стихов' : 'стихов'}.
               </p>
             </div>
-            <Badge variant="outline" className="rounded-full px-3 py-1">
+            <Badge
+              variant="outline"
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${currentFilterTheme.currentBadgeClassName}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${currentFilterTheme.dotClassName}`} />
               Текущий: {currentFilterLabel}
             </Badge>
           </div>
@@ -797,22 +1099,40 @@ export function VerseList({
             className="flex flex-wrap gap-2"
           >
             {filterOptions.map((option) => (
-              <Button
-                key={option.key}
-                role="tab"
-                aria-selected={statusFilter === option.key}
-                size="sm"
-                variant={statusFilter === option.key ? 'default' : 'outline'}
-                className="rounded-full"
-                onClick={() => {
-                  if (statusFilter === option.key) return;
-                  haptic('light');
-                  setStatusFilter(option.key);
-                  setAnnouncement(`Фильтр: ${option.label}`);
-                }}
-              >
-                {option.label}
-              </Button>
+              (() => {
+                const isActive = statusFilter === option.key;
+                const optionTheme = FILTER_VISUAL_THEME[option.key];
+
+                return (
+                  <Button
+                    key={option.key}
+                    role="tab"
+                    aria-selected={isActive}
+                    size="sm"
+                    variant="ghost"
+                    className={`
+                      rounded-full border px-3.5 backdrop-blur-sm transition-colors
+                      inline-flex items-center gap-2
+                      ${isActive
+                        ? optionTheme.activeTabClassName
+                        : 'border-border/60 bg-background/45 text-foreground/85 hover:bg-muted/50 hover:text-foreground'}
+                    `}
+                    onClick={() => {
+                      if (isActive) return;
+                      haptic('light');
+                      setStatusFilter(option.key);
+                      setAnnouncement(`Фильтр: ${option.label}`);
+                    }}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isActive ? optionTheme.dotClassName : 'bg-muted-foreground/35'
+                      }`}
+                    />
+                    {option.label}
+                  </Button>
+                );
+              })()
             ))}
           </div>
         </Card>
@@ -851,29 +1171,36 @@ export function VerseList({
             </div>
           </Card>
         </motion.div>
+      ) : statusFilter === 'all' ? (
+        renderFlatVerseList(filteredVerses)
       ) : (
         <motion.div className="space-y-6" initial="hidden" animate="show" variants={gridVariants}>
           {renderVerseSection(learningVerses, {
             headingId: 'learning-verses-heading',
-            title: statusFilter === 'review' ? 'На повторение' : 'Изучаю',
+            title: 'Изучение',
             subtitle:
-              statusFilter === 'review'
-                ? `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`
-                : (dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении'),
-            dotClassName: statusFilter === 'review' ? 'bg-violet-500' : 'bg-emerald-500',
-            borderClassName: statusFilter === 'review'
-              ? 'bg-gradient-to-b from-violet-500/5 to-background'
-              : 'bg-gradient-to-b from-emerald-500/5 to-background',
-            tintClassName: statusFilter === 'review' ? 'bg-violet-500/5' : 'bg-emerald-500/5',
+              dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
+            dotClassName: 'bg-emerald-500',
+            borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
+            tintClassName: 'bg-emerald-500/5',
+          })}
+
+          {renderVerseSection(reviewVerses, {
+            headingId: 'review-verses-heading',
+            title: 'Повторение',
+            subtitle: `Стихи в статусе LEARNING с уровнем mastery > ${TRAINING_STAGE_MASTERY_MAX}`,
+            dotClassName: 'bg-violet-500',
+            borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
+            tintClassName: 'bg-violet-500/5',
           })}
 
           {renderVerseSection(stoppedVerses, {
             headingId: 'stopped-verses-heading',
             title: 'На паузе',
             subtitle: 'Можно возобновить в один тап с карточки',
-            dotClassName: 'bg-amber-500',
-            borderClassName: 'bg-gradient-to-b from-amber-500/5 to-background',
-            tintClassName: 'bg-amber-500/5',
+            dotClassName: 'bg-rose-500',
+            borderClassName: 'bg-gradient-to-b from-rose-500/5 to-background',
+            tintClassName: 'bg-rose-500/5',
           })}
 
           {renderVerseSection(newVerses, {
@@ -884,6 +1211,35 @@ export function VerseList({
             borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
             tintClassName: 'bg-sky-500/5',
           })}
+        </motion.div>
+      )}
+
+      {!isListLoading && (verses.length > 0 || hasMoreVerses || isFetchingMoreVerses || loadMoreError) && (
+        <motion.div className="mt-6 space-y-3" initial="hidden" animate="show" variants={sectionVariants}>
+          <div ref={loadMoreSentinelRef} className="h-1 w-full" aria-hidden="true" />
+          <div className="flex justify-center">
+            {isFetchingMoreVerses ? (
+              <Badge variant="outline" className="rounded-full px-3 py-1">
+                Загружаю ещё стихи...
+              </Badge>
+            ) : loadMoreError ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full"
+                onClick={() => {
+                  void fetchNextPage();
+                }}
+              >
+                Повторить загрузку
+              </Button>
+            ) : !hasMoreVerses && verses.length > 0 ? (
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-muted-foreground">
+                Все стихи загружены
+              </Badge>
+            ) : null}
+          </div>
         </motion.div>
       )}
 
@@ -905,6 +1261,10 @@ export function VerseList({
           onClose={() => setGalleryIndex(null)}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteVerse}
+          previewTotalCount={totalCount}
+          previewHasMore={hasMoreVerses}
+          previewIsLoadingMore={isFetchingMoreVerses}
+          onRequestMorePreviewVerses={fetchNextPage}
         />,
         document.body
       )}

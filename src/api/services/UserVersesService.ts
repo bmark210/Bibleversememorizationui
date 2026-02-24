@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { UserVerse } from '../models/UserVerse';
+import type { UserVersesPageResponse } from '../models/UserVersesPageResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -14,7 +15,9 @@ export class UserVersesService {
      * @param orderBy
      * @param order
      * @param filter
-     * @returns UserVerse OK
+     * @param limit
+     * @param cursorId
+     * @returns UserVersesPageResponse OK
      * @throws ApiError
      */
     public static getApiUsersVerses(
@@ -23,7 +26,9 @@ export class UserVersesService {
         orderBy?: 'createdAt' | 'updatedAt',
         order?: 'asc' | 'desc',
         filter?: 'all' | 'new' | 'learning' | 'review' | 'stopped',
-    ): CancelablePromise<Array<UserVerse>> {
+        limit?: number,
+        cursorId?: string,
+    ): CancelablePromise<UserVersesPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses',
@@ -35,6 +40,8 @@ export class UserVersesService {
                 'orderBy': orderBy,
                 'order': order,
                 'filter': filter,
+                'limit': limit,
+                'cursorId': cursorId,
             },
         });
     }

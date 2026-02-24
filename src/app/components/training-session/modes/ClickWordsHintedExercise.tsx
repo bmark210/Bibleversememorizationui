@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { Lightbulb } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
@@ -172,6 +173,7 @@ export function ModeClickWordsHintedExercise({
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choices, setChoices] = useState<HiddenChoice[]>([]);
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
+  const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
@@ -182,6 +184,7 @@ export function ModeClickWordsHintedExercise({
     setSlots(exercise.slots);
     setChoices(exercise.hiddenChoices);
     setSelectedChoiceIds([]);
+    setShowHint(false);
     setMistakes(0);
     setIsCompleted(false);
     setErrorFlashChoiceId(null);
@@ -264,37 +267,42 @@ export function ModeClickWordsHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-        <div className="space-y-6">
-          {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Скрытых слов</div>
-              <div className="text-sm font-semibold">{selectedCount} / {totalHiddenWords}</div>
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">
+                Восстановите скрытые слова по порядку
+              </label>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Открыто</div>
-              <div className="text-sm font-semibold">{revealedCount} слов</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Ошибки</div>
-              <div className="text-sm font-semibold">{mistakes}</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Готовность</div>
-              <div className="text-sm font-semibold">{progress}%</div>
-            </div>
-          </div> */}
 
-          {/* <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
-            <motion.div
-              className="h-full bg-gradient-to-r from-primary to-primary/70"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.2 }}
-            />
-          </div> */}
+            {!isCompleted && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHint((prev) => !prev)}
+                  aria-pressed={showHint}
+                  className="gap-2 rounded-full"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  {showHint ? 'Скрыть подсказку' : 'Подсказка'}
+                </Button>
+              </div>
+            )}
+          </div>
 
-          <div className="rounded-lg border border-border/60 bg-background p-4">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
-              Стих с подсказками
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Стих с подсказками
+              </div>
+              {!isCompleted && totalHiddenWords > 0 && (
+                <div className="text-[11px] tabular-nums text-muted-foreground">
+                  {selectedCount}/{totalHiddenWords}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-1.5 leading-relaxed">
               {slots.map((slot) => {
@@ -320,7 +328,7 @@ export function ModeClickWordsHintedExercise({
                       key={slot.id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-sm"
+                      className="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-sm"
                     >
                       {slot.text}
                     </motion.span>
@@ -346,22 +354,43 @@ export function ModeClickWordsHintedExercise({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
+          <AnimatePresence initial={false}>
+          {showHint && !isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -4 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <p className="text-muted-foreground">
+                  {verse.text.split(' ').slice(0, 2).join(' ')}...
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 Слова для выбора
               </div>
-              {/* {!isCompleted && nextHiddenSlot && (
-                <div className="text-xs text-muted-foreground">
-                  Следующее скрытое слово #{selectedCount + 1}
+              {mistakes > 0 && (
+                <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                  Ошибок: {mistakes}
                 </div>
-              )} */}
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
               {choices.map((choice) => {
                 const isSelected = selectedChoiceIds.includes(choice.id);
                 const isError = errorFlashChoiceId === choice.id;
+
+                if (isSelected) return null;
 
                 return (
                   <motion.div
@@ -371,13 +400,15 @@ export function ModeClickWordsHintedExercise({
                   >
                     <Button
                       type="button"
-                      variant={isSelected ? 'secondary' : 'outline'}
-                      className={`h-auto py-2.5 px-3 ${
-                        isSelected ? 'opacity-70 cursor-default' : ''
-                      } ${isError ? 'border-destructive text-destructive' : ''}`}
+                      variant="outline"
+                      className={`h-auto rounded-xl px-3 py-2.5 ${
+                        isError
+                          ? 'border-destructive text-destructive'
+                          : 'border-border/70 bg-background/60'
+                      }`}
                       onClick={() => handleWordClick(choice)}
-                      disabled={isSelected || isCompleted}
-                      aria-pressed={isSelected}
+                      disabled={isCompleted}
+                      aria-pressed={false}
                     >
                       {choice.text}
                     </Button>
@@ -386,40 +417,30 @@ export function ModeClickWordsHintedExercise({
               })}
             </div>
           </div>
-
-          {/* {!isCompleted ? ( */}
-            {/* <div className="flex flex-col sm:flex-row gap-3"> */}
-              {/* <Button
-                type="button"
-                variant="outline"
-                onClick={handleUndo}
-                disabled={selectedChoiceIds.length === 0}
-                className="gap-2"
-              >
-                <Undo2 className="w-4 h-4" />
-                Отменить ход
-              </Button> */}
-              {/* <Button
-                type="button"
-                variant="ghost"
-                onClick={handleReset}
-                disabled={selectedChoiceIds.length === 0}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Сбросить последовательность
-              </Button> */}
-            {/* </div> */}
-          {isCompleted && (
-            <>
-              {/* <div className="rounded-lg bg-muted/40 p-4 text-sm">
-                <div className="text-muted-foreground mb-1">Полный стих</div>
-                <p className="leading-relaxed">{verse.text}</p>
-              </div> */}
-              <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
-            </>
-          )}
         </div>
+
+        <AnimatePresence initial={false}>
+          {isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="space-y-4"
+            >
+              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+                <div className="mb-2 text-sm font-medium text-foreground">Полный стих</div>
+                <p className="leading-relaxed text-sm sm:text-base">{verse.text}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isCompleted && (
+          <TrainingRatingFooter>
+            <RatingButtons onRate={onRate} />
+          </TrainingRatingFooter>
+        )}
+      </div>
     </motion.div>
   );
 }

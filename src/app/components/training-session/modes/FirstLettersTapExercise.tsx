@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { Lightbulb } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { Button } from '../../ui/button';
@@ -100,6 +101,7 @@ export function ModeFirstLettersTapExercise({
 }: FirstLettersTapExerciseProps) {
   const [tokens, setTokens] = useState<LetterToken[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
+  const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export function ModeFirstLettersTapExercise({
     const letters = tokenizeFirstLetters(verse.text);
     setTokens(shuffleTokens(letters));
     setSelectedLetters([]);
+    setShowHint(false);
     setMistakes(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
@@ -154,7 +157,6 @@ export function ModeFirstLettersTapExercise({
   );
 
   const total = tokens.length;
-  const progress = total > 0 ? Math.round((selectedCount / total) * 100) : 0;
 
   const handlePick = (letter: string) => {
     if (isCompleted) return;
@@ -189,56 +191,50 @@ export function ModeFirstLettersTapExercise({
     }, 280);
   };
 
-  const handleUndo = () => {
-    if (isCompleted || selectedLetters.length === 0) return;
-    setSelectedLetters((prev) => prev.slice(0, -1));
-  };
-
-  const handleReset = () => {
-    if (isCompleted || selectedLetters.length === 0) return;
-    setSelectedLetters([]);
-  };
-
-  const nextIndex = Math.min(selectedCount + 1, total);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-        <div className="space-y-6">
-          {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Прогресс</div>
-              <div className="text-sm font-semibold">{selectedCount} / {total}</div>
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">
+                Соберите первые буквы слов
+              </label>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Следующее</div>
-              <div className="text-sm font-semibold">Буква #{nextIndex}</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Ошибки</div>
-              <div className="text-sm font-semibold">{mistakes}</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Готовность</div>
-              <div className="text-sm font-semibold">{progress}%</div>
-            </div>
-          </div> */}
 
-          {/* <div className="h-2 rounded-full bg-muted overflow-hidden" aria-hidden="true">
-            <motion.div
-              className="h-full bg-gradient-to-r from-primary to-primary/70"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.2 }}
-            />
-          </div> */}
+            {!isCompleted && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHint((prev) => !prev)}
+                  aria-pressed={showHint}
+                  className="gap-2 rounded-full"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  {showHint ? 'Скрыть подсказку' : 'Подсказка'}
+                </Button>
+              </div>
+            )}
+          </div>
 
-          <div className="rounded-lg border border-border/60 bg-background p-4 min-h-[84px]">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground mb-2">
-              Собранные буквы
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                Собранные буквы
+              </div>
+              {!isCompleted && total > 0 && (
+                <div className="text-[11px] tabular-nums text-muted-foreground">
+                  {selectedCount}/{total}
+                </div>
+              )}
             </div>
+
             {selectedTokens.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {selectedTokens.map((token) => (
@@ -246,7 +242,7 @@ export function ModeFirstLettersTapExercise({
                     key={token.id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="inline-flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 min-w-9 font-mono text-sm uppercase"
+                    className="inline-flex min-w-9 items-center justify-center rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 font-mono text-sm uppercase"
                   >
                     {token.letter}
                   </motion.span>
@@ -254,55 +250,96 @@ export function ModeFirstLettersTapExercise({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Выберите первую букву первого слова.
+                Ввод появится здесь
               </p>
             )}
           </div>
 
-          {!availableLetters.every((letter) => selectedLetters.includes(letter)) && (<div className="space-y-3">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Варианты букв
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableLetters.map((letter) => {
-                const isError = errorFlashLetter === letter;
-
-                return (
-                  <motion.div
-                    key={letter}
-                    animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`min-w-10 h-auto py-2 px-3 font-mono uppercase ${
-                        isError ? 'border-destructive text-destructive' : ''
-                      }`}
-                      onClick={() => handlePick(letter)}
-                      disabled={isCompleted}
-                    >
-                      {letter}
-                    </Button>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>)}
-
-          {isCompleted && (
-            <>
-              <div className="rounded-lg bg-muted/40 p-4 text-sm">
-                <div className="text-muted-foreground mb-1">Полный стих</div>
-                <p className="leading-relaxed">
-                  {verse.text}
-                </p>
+          {!availableLetters.every((letter) => selectedLetters.includes(letter)) && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  Варианты букв
+                </div>
+                {mistakes > 0 && (
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                    Ошибок: {mistakes}
+                  </div>
+                )}
               </div>
-              <TrainingRatingFooter><RatingButtons onRate={onRate} /></TrainingRatingFooter>
-            </>
+
+              <div className="flex flex-wrap gap-2">
+                {availableLetters.map((letter) => {
+                  const isError = errorFlashLetter === letter;
+
+                  return (
+                    <motion.div
+                      key={letter}
+                      animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase ${
+                          isError
+                            ? 'border-destructive text-destructive'
+                            : 'border-border/70 bg-background/60'
+                        }`}
+                        onClick={() => handlePick(letter)}
+                        disabled={isCompleted}
+                      >
+                        {letter}
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
+
+        <AnimatePresence initial={false}>
+          {showHint && !isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -4 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <p className="text-muted-foreground">
+                  {verse.text.split(' ').slice(0, 2).join(' ')}...
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="space-y-4"
+            >
+              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+                <div className="mb-2 text-sm font-medium text-foreground">Полный стих</div>
+                <p className="leading-relaxed text-sm sm:text-base">{verse.text}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isCompleted && (
+          <TrainingRatingFooter>
+            <RatingButtons onRate={onRate} />
+          </TrainingRatingFooter>
+        )}
+      </div>
     </motion.div>
   );
 }
-

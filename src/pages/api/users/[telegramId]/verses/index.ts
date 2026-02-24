@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import {
   buildWhereForUserVersesListQuery,
-  fetchEnrichedUserVerses,
+  fetchPaginatedEnrichedUserVerses,
   parseUserVersesListQuery,
   UserVersesApiError,
 } from "./_shared";
@@ -37,13 +37,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
   // Возвращает все стихи для конкретного пользователя вместе с текстами из Bolls.
   try {
     const query = parseUserVersesListQuery(req.query);
-    const enriched = await fetchEnrichedUserVerses({
+    const page = await fetchPaginatedEnrichedUserVerses({
       telegramId,
       where: buildWhereForUserVersesListQuery(query),
       orderBy: query.orderBy,
       order: query.order,
+      limit: query.limit,
+      cursorId: query.cursorId,
     });
-    return res.status(200).json(enriched);
+    return res.status(200).json(page);
   } catch (error) {
     if (error instanceof UserVersesApiError) {
       return res.status(error.statusCode).json({ error: error.message });

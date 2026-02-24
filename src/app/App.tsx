@@ -23,6 +23,7 @@ import { request as apiRequest } from "@/api/core/request";
 import { mockCollections, mockStats } from "./data/mockData";
 import { UserVerse } from "@/generated/prisma/client";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
 
 export type Verse = UserVerse & {
@@ -254,7 +255,7 @@ export default function App() {
     prefs: TrainingBatchPreferences
   ) => {
     try {
-      const response = await UserVersesService.getApiUsersVerses(telegramIdValue);
+      const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
       const allVerses = response as Array<Verse>;
       const planned = buildTrainingBatchVerses(allVerses, prefs);
       setVerses(planned);

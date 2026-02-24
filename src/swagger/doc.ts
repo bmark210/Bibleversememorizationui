@@ -115,13 +115,25 @@ const swaggerDoc = {
             required: false,
             schema: { type: "string", enum: ["all", "new", "learning", "review", "stopped"] },
           },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 50 },
+          },
+          {
+            name: "cursorId",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
         ],
         responses: {
           200: {
             description: "OK",
             content: {
               "application/json": {
-                schema: { type: "array", items: { $ref: "#/components/schemas/UserVerse" } },
+                schema: { $ref: "#/components/schemas/UserVersesPageResponse" },
               },
             },
           },
@@ -458,6 +470,19 @@ const swaggerDoc = {
           repetitions: { type: "integer" },
           lastReviewedAt: { type: "string", format: "date-time", nullable: true },
           nextReviewAt: { type: "string", format: "date-time", nullable: true },
+        },
+      },
+      UserVersesPageResponse: {
+        type: "object",
+        required: ["items", "hasMore", "nextCursorId", "totalCount"],
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/UserVerse" },
+          },
+          hasMore: { type: "boolean" },
+          nextCursorId: { type: "string", nullable: true },
+          totalCount: { type: "integer", minimum: 0 },
         },
       },
       UserWithVerses: {
