@@ -345,16 +345,6 @@ function trapFocus(container: HTMLElement, e: KeyboardEvent) {
   }
 }
 
-// function useBodyScrollLock() {
-//   useEffect(() => {
-//     const original = document.body.style.overflow;
-//     document.body.style.overflow = "hidden";
-//     return () => {
-//       document.body.style.overflow = original;
-//     };
-//   }, []);
-// }
-
 const SWIPE_HINT_KEY = "verse-swipe-hint-seen";
 
 function SwipeHint({ panelMode }: { panelMode: PanelMode }) {
@@ -396,22 +386,48 @@ function SwipeHint({ panelMode }: { panelMode: PanelMode }) {
   );
 }
 
-const MAX_DOTS = 20;
+const MAX_DOTS = 12;
+const MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS = "max-w-[46vw] sm:max-w-[240px]";
+
+function formatProgressCountForUi(value: number) {
+  if (value >= 1_000_000) return `${Math.floor(value / 1_000_000)}M`;
+  if (value >= 10_000) return `${Math.floor(value / 1_000)}k`;
+  return String(value);
+}
 
 function DotProgress({ total, active }: { total: number; active: number }) {
-  if (total > MAX_DOTS) {
+  const safeTotal = Math.max(0, total);
+  const safeActive = clamp(active, 0, Math.max(0, safeTotal - 1));
+  const currentValue = safeTotal > 0 ? safeActive + 1 : 0;
+  const currentLabel = formatProgressCountForUi(currentValue);
+  const totalLabel = formatProgressCountForUi(safeTotal);
+
+  if (safeTotal > MAX_DOTS) {
     return (
-      <div role="status" aria-label={`Стих ${active + 1} из ${total}`} className="px-4 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg">
-        <span className="text-sm font-semibold tabular-nums">{active + 1} / {total}</span>
+      <div
+        role="status"
+        aria-label={`Стих ${currentValue} из ${safeTotal}`}
+        className={cn(
+          "min-w-0 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
+          MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS
+        )}
+      >
+        <span className="block truncate text-sm font-semibold tabular-nums text-center">
+          {currentLabel} / {totalLabel}
+        </span>
       </div>
     );
   }
   return (
-    <div role="status" aria-label={`Стих ${active + 1} из ${total}`} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg">
-      {Array.from({ length: total }).map((_, i) => (
+      <div
+      role="status"
+      aria-label={`Стих ${currentValue} из ${safeTotal}`}
+      className="flex items-center gap-1.5 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg"
+    >
+      {Array.from({ length: safeTotal }).map((_, i) => (
         <div key={i} className="relative flex items-center justify-center">
-          <motion.div layout animate={{ width: i === active ? 28 : 8, opacity: i === active ? 1 : 0.3 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className={`h-2 rounded-full transition-colors duration-300 ${i === active ? "bg-primary" : "bg-muted-foreground/40"}`} />
-          {i === active && (
+          <motion.div layout animate={{ width: i === safeActive ? 28 : 8, opacity: i === safeActive ? 1 : 0.3 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className={`h-2 rounded-full transition-colors duration-300 ${i === safeActive ? "bg-primary" : "bg-muted-foreground/40"}`} />
+          {i === safeActive && (
             <motion.span aria-hidden="true" className="absolute inset-0 rounded-full bg-primary pointer-events-none" animate={{ scaleX: [1, 2.4], scaleY: [1, 2], opacity: [0.45, 0] }} transition={{ duration: 1.15, repeat: Infinity, ease: "easeOut", repeatDelay: 0.55 }} />
           )}
         </div>
@@ -772,8 +788,6 @@ export function VerseGallery({
   const bottomInset = contentSafeAreaInset.bottom;
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
-
-  // useBodyScrollLock();
 
   const previewActiveVerseBase = verses[activeIndex] ?? null;
   const previewActiveVerse = previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null;
@@ -1255,7 +1269,7 @@ export function VerseGallery({
             </Button>
             <Button
               variant="outline"
-              className="gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl"
+              className="gap-2 backdrop-blur-xl rounded-2xl"
               ref={closeButtonRef}
               onClick={onClose}
               disabled={actionPending}
@@ -1288,7 +1302,7 @@ export function VerseGallery({
       )}
 
       <div
-        className="shrink-0 flex items-center justify-center gap-3 pt-3 z-40"
+        className="shrink-0 flex items-center justify-center gap-2 sm:gap-3 pt-3 z-40 px-2 sm:px-4"
         style={{ paddingBottom: `${Math.max(bottomInset, 10)}px` }}
       >
         <Button
@@ -1305,7 +1319,9 @@ export function VerseGallery({
           <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <DotProgress total={displayTotal} active={Math.min(displayActive, Math.max(0, displayTotal - 1))} />
+        <div className="min-w-0 flex items-center justify-center">
+          <DotProgress total={displayTotal} active={Math.min(displayActive, Math.max(0, displayTotal - 1))} />
+        </div>
 
         <Button
           variant="secondary"

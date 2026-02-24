@@ -1,3 +1,4 @@
+import type { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
@@ -83,4 +84,20 @@ export function getVerseStageVisual(status: VerseStatus, masteryLevel: number): 
   }
 
   return { key: 'learning', label: 'Изучение' };
+}
+
+export function getVerseCardLayoutSignature(
+  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+): 'new' | 'learning-progress' | 'review-pill' | 'stopped-progress' | 'stopped-repeat' {
+  const masteryLevel = Number(verse.masteryLevel ?? 0);
+
+  if (verse.status === VerseStatus.NEW) {
+    return 'new';
+  }
+
+  if (verse.status === VerseStatus.LEARNING) {
+    return masteryLevel > TRAINING_STAGE_MASTERY_MAX ? 'review-pill' : 'learning-progress';
+  }
+
+  return masteryLevel > TRAINING_STAGE_MASTERY_MAX ? 'stopped-repeat' : 'stopped-progress';
 }

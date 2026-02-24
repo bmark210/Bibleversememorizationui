@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 import './globals.css'
-import ScrollLock from './components/ScrollLock'
 
 export const metadata: Metadata = {
   title: 'Заучивание библейских стихов',
@@ -17,7 +16,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <script src="https://telegram.org/js/telegram-web-app.js"></script>
       </head>
       <body>
-        {/* <ScrollLock /> */}
         <div className="app-scroll">
           {children}
         </div>

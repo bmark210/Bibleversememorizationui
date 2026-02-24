@@ -1,11 +1,16 @@
 import React from 'react';
 import { Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
-import { FILTER_VISUAL_THEME, getVerseStageVisual } from '../constants';
+import {
+  FILTER_VISUAL_THEME,
+  getVerseCardLayoutSignature,
+  getVerseStageVisual,
+} from '../constants';
 import { haptic } from '../haptics';
 
 export type SwipeCardProps = {
@@ -32,6 +37,7 @@ export const SwipeableVerseCard = ({
     verse.status === VerseStatus.LEARNING && masteryLevel > TRAINING_STAGE_MASTERY_MAX;
   const stageVisual = getVerseStageVisual(verse.status, masteryLevel);
   const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
+  const layoutSignature = getVerseCardLayoutSignature(verse);
   const learningProgress = Math.min(
     Math.round((masteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100),
     100
@@ -162,6 +168,43 @@ export const SwipeableVerseCard = ({
     );
   };
 
+  const statusMetaContent = isReviewCard ? (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
+        <Repeat className="h-3.5 w-3.5" />
+        <span className="font-semibold">{repetitionsCount}</span>
+      </div>
+    </div>
+  ) : verse.status === VerseStatus.LEARNING ? (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span>{learningProgress}%</span>
+      <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
+          style={{ width: `${learningProgress}%` }}
+        />
+      </div>
+    </div>
+  ) : verse.status === VerseStatus.STOPPED ? (
+    masteryLevel > TRAINING_STAGE_MASTERY_MAX ? (
+      <div className="flex items-center gap-2 text-xs">
+        <div className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
+          {repetitionsCount} повт.
+        </div>
+      </div>
+    ) : (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{learningProgress}%</span>
+        <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-rose-500 transition-[width] duration-300 ease-out"
+            style={{ width: `${learningProgress}%` }}
+          />
+        </div>
+      </div>
+    )
+  ) : null;
+
   return (
     <div className="relative isolate">
       <div
@@ -193,52 +236,25 @@ export const SwipeableVerseCard = ({
                 <span className={`h-1.5 w-1.5 rounded-full ${stageVisualTheme.dotClassName}`} />
                 {stageVisual.label}
               </Badge>
-            <Badge variant="secondary" className="text-[11px]">
+              <Badge variant="secondary" className="text-[11px]">
                 SYNOD
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
-            {isReviewCard ? (
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
-                  <Repeat className="h-3.5 w-3.5" />
-                  {/* <span className="font-medium"></span> */}
-                  <span className="font-semibold">{repetitionsCount}</span>
-                </div>
-              </div>
-            ) : verse.status === VerseStatus.LEARNING ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{learningProgress}%</span>
-                <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
-                    style={{ width: `${learningProgress}%` }}
-                  />
-                </div>
-              </div>
-            ) : verse.status === VerseStatus.STOPPED ? (
-              masteryLevel > TRAINING_STAGE_MASTERY_MAX ? (
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
-                    {repetitionsCount} повт.
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{learningProgress}%</span>
-                  <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-rose-500 transition-[width] duration-300 ease-out"
-                      style={{ width: `${learningProgress}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            ) : verse.status === VerseStatus.NEW ? null : (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{repetitionsCount} повт.</span>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {statusMetaContent ? (
+                <motion.div
+                  key={layoutSignature}
+                  initial={{ height: 0, opacity: 0, y: -4 }}
+                  animate={{ height: 'auto', opacity: 1, y: 0 }}
+                  exit={{ height: 0, opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-0.5">{statusMetaContent}</div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">{renderActions()}</div>

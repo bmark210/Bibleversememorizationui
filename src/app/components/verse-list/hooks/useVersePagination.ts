@@ -6,15 +6,11 @@ import type { VerseListStatusFilter } from '../constants';
 export type FetchNextPageSource = 'auto' | 'manual' | 'reopen' | 'gallery';
 export type AppendRevealRange = { start: number; end: number } | null;
 
-type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
-
 type UseVersePaginationParams = {
   telegramId?: string;
   statusFilter: VerseListStatusFilter;
   pageSize: number;
   loadMoreSkeletonDelayMs: number;
-  hasUserScrolledRef: React.MutableRefObject<boolean>;
-  debugInfiniteScroll?: DebugInfiniteScroll;
 };
 
 export function useVersePagination({
@@ -22,7 +18,6 @@ export function useVersePagination({
   statusFilter,
   pageSize,
   loadMoreSkeletonDelayMs,
-  hasUserScrolledRef,
 }: UseVersePaginationParams) {
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [isFetchingVerses, setIsFetchingVerses] = useState(false);
@@ -205,7 +200,6 @@ export function useVersePagination({
       const source = options?.source ?? 'auto';
       if (!telegramId) return false;
       if (source === 'auto' && suspendAutoLoadRef.current) return false;
-      if (source === 'auto' && !hasUserScrolledRef.current) return false;
       if (source === 'auto' && loadMoreErrorRef.current) return false;
       if (isFetchingVerses || isFetchingMoreVerses || fetchMoreLockRef.current) return false;
       if (!hasMoreVersesRef.current) return false;
@@ -295,7 +289,6 @@ export function useVersePagination({
     [
       telegramId,
       statusFilter,
-      hasUserScrolledRef,
       isFetchingVerses,
       isFetchingMoreVerses,
       requestVersesPage,
@@ -364,4 +357,3 @@ export function useVersePagination({
     suspendAutoLoadRef,
   };
 }
-

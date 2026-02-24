@@ -256,6 +256,25 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
             )}
           </div>
 
+          <AnimatePresence initial={false}>
+          {showHint && !isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -4 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <p className="text-muted-foreground">
+                  {verse.text.split(' ').slice(0, 2).join(' ')}...
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
           {!tokens.every((token) => selectedIds.includes(token.id)) && (
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -316,25 +335,6 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
             </div>
           )}
         </div>
-
-        <AnimatePresence initial={false}>
-          {showHint && !isCompleted && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, y: -4 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -4 }}
-              transition={{ duration: 0.22 }}
-              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
-            >
-              <div className="flex items-center gap-2 text-sm">
-                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
-                <p className="text-muted-foreground">
-                  {verse.text.split(' ').slice(0, 2).join(' ')}...
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence initial={false}>
           {isCompleted && (

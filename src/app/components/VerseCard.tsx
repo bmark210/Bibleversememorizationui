@@ -42,6 +42,13 @@ type ScrollFadeState = {
   showBottom: boolean;
 };
 
+const SCROLL_EDGE_EPSILON_PX = 2;
+const SWIPE_SCROLL_STEP_RATIO = 0.9;
+const SWIPE_SCROLL_MIN_STEP_PX = 112;
+const SWIPE_TINY_OVERFLOW_MAX_SCROLL_PX = 56;
+const MIN_SCROLLABLE_OVERFLOW_PX = 0.5;
+const SWIPE_MIN_DISTANCE_DEFAULT_PX = 70;
+
 const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   auto: "",
   preview: "h-[520px]",
@@ -85,13 +92,57 @@ export function VerseCard({
   const enableTapScale = !bodyScrollable;
   const isPreviewToneActive = Boolean(previewTone);
   const tone = previewTone ?? "learning";
+  const usesSwipeStepScroll = bodyScrollable && Boolean(onVerticalSwipeStep);
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const touchGestureRef = useRef<CardTouchGestureContext | null>(null);
+  const stepScrollTargetTopRef = useRef<number | null>(null);
   const [scrollFadeState, setScrollFadeState] = useState<ScrollFadeState>({
     canScroll: false,
     showTop: false,
     showBottom: false,
   });
+
+  const getAdaptiveSwipeDetectionOptions = useCallback((maxScrollTop: number) => {
+    if (maxScrollTop > 0 && maxScrollTop <= SWIPE_TINY_OVERFLOW_MAX_SCROLL_PX) {
+      // Tiny overflows need a much shorter reverse gesture, otherwise "swipe back"
+      // feels ignored because the user naturally moves the finger only a little.
+      return {
+        minVerticalDistance: Math.max(8, Math.min(16, Math.round(maxScrollTop * 0.4) + 4)),
+        verticalDominanceRatio: 0.9,
+      } as const;
+    }
+
+    return {
+      minVerticalDistance: SWIPE_MIN_DISTANCE_DEFAULT_PX,
+      verticalDominanceRatio: 1.2,
+    } as const;
+  }, []);
+
+  const getFallbackTinyOverflowSwipeStep = useCallback(
+    (
+      start: VerticalTouchSwipeStart | null,
+      e: ReactTouchEvent<HTMLDivElement>,
+      maxScrollTop: number
+    ): 1 | -1 | null => {
+      if (!start || start.ignore) return null;
+      if (maxScrollTop <= 0 || maxScrollTop > SWIPE_TINY_OVERFLOW_MAX_SCROLL_PX) return null;
+
+      const touch = e.changedTouches[0];
+      if (!touch) return null;
+
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const tinyThreshold = Math.max(6, Math.min(14, Math.round(maxScrollTop * 0.45) + 4));
+
+      if (absDy < tinyThreshold) return null;
+      if (absDy < absDx * 0.55) return null;
+
+      return dy < 0 ? 1 : -1;
+    },
+    []
+  );
 
   const updateScrollFadeState = useCallback(() => {
     const el = bodyScrollRef.current;
@@ -116,16 +167,41 @@ export function VerseCard({
     );
   }, [bodyScrollable]);
 
-  const scrollCardContentBySwipeStep = (scrollEl: HTMLElement, step: 1 | -1) => {
-    const delta = Math.max(96, Math.round(scrollEl.clientHeight * 0.72));
+  const scrollCardContentBySwipeStep = (
+    scrollEl: HTMLElement,
+    step: 1 | -1,
+    fromScrollTop?: number
+  ) => {
+    // Use large discrete "page-like" steps so most training cards need ~1 extra swipe
+    // to reach the end before the next swipe switches to another card.
+    const delta = Math.max(
+      SWIPE_SCROLL_MIN_STEP_PX,
+      Math.round(scrollEl.clientHeight * SWIPE_SCROLL_STEP_RATIO)
+    );
     const offset = step === 1 ? delta : -delta;
     const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
-    const nextTop = Math.max(0, Math.min(scrollEl.scrollTop + offset, maxScrollTop));
+    const baseScrollTop =
+      typeof fromScrollTop === "number" && Number.isFinite(fromScrollTop)
+        ? Math.max(0, Math.min(fromScrollTop, maxScrollTop))
+        : scrollEl.scrollTop;
+    let nextTop = Math.max(0, Math.min(baseScrollTop + offset, maxScrollTop));
+
+    // Direction-aware edge snap. With tiny overflows both near-top and near-bottom can
+    // be true at once, so we snap only to the edge matching the swipe direction.
+    if (step === 1) {
+      if (maxScrollTop - nextTop <= SCROLL_EDGE_EPSILON_PX * 8) {
+        nextTop = maxScrollTop;
+      }
+    } else if (nextTop <= SCROLL_EDGE_EPSILON_PX * 8) {
+      nextTop = 0;
+    }
 
     try {
+      stepScrollTargetTopRef.current = nextTop;
       scrollEl.scrollTo({ top: nextTop, behavior: "smooth" });
       return;
     } catch {
+      stepScrollTargetTopRef.current = null;
       scrollEl.scrollTop = nextTop;
     }
   };
@@ -136,6 +212,17 @@ export function VerseCard({
     const swipeStart = createVerticalTouchSwipeStart(e);
     const target = e.target as HTMLElement | null;
     const scrollEl = bodyScrollable ? bodyScrollRef.current : null;
+
+    if (usesSwipeStepScroll && scrollEl) {
+      // Cancel any in-flight smooth scroll so the new swipe starts from the real current position.
+      try {
+        scrollEl.scrollTo({ top: scrollEl.scrollTop, behavior: "auto" });
+      } catch {
+        scrollEl.scrollTop = scrollEl.scrollTop;
+      }
+      stepScrollTargetTopRef.current = null;
+    }
+
     const startedInScrollableBody = Boolean(scrollEl && target && scrollEl.contains(target));
     const maxScrollTop = scrollEl ? Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight) : 0;
 
@@ -155,17 +242,38 @@ export function VerseCard({
     const context = touchGestureRef.current;
     touchGestureRef.current = null;
 
-    const step = getVerticalTouchSwipeStep(context?.swipeStart ?? null, e);
+    const liveMaxScrollTop =
+      context?.scrollEl
+        ? Math.max(context.maxScrollTop, Math.max(0, context.scrollEl.scrollHeight - context.scrollEl.clientHeight))
+        : context?.maxScrollTop ?? 0;
+
+    const step =
+      getVerticalTouchSwipeStep(
+        context?.swipeStart ?? null,
+        e,
+        getAdaptiveSwipeDetectionOptions(liveMaxScrollTop)
+      ) ??
+      getFallbackTinyOverflowSwipeStep(context?.swipeStart ?? null, e, liveMaxScrollTop);
     if (!step) return;
 
-    if (context?.startedInScrollableBody) {
-      if (!context.scrollEl || !context.scrollable) {
+    // In step-scroll mode, any vertical swipe on the card should first try to scroll
+    // the internal content. Requiring the gesture to start strictly inside the scrollable
+    // body makes tiny-overflow "swipe back" feel broken.
+    if (usesSwipeStepScroll && context?.scrollEl) {
+      const scrollEl = context.scrollEl;
+      const maxScrollTop = Math.max(
+        liveMaxScrollTop,
+        Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
+      );
+
+      if (maxScrollTop <= MIN_SCROLLABLE_OVERFLOW_PX) {
         onVerticalSwipeStep(step);
         return;
       }
 
-      const atTop = context.startScrollTop <= 1;
-      const atBottom = context.startScrollTop >= context.maxScrollTop - 1;
+      const currentScrollTop = scrollEl.scrollTop;
+      const atTop = currentScrollTop <= SCROLL_EDGE_EPSILON_PX;
+      const atBottom = currentScrollTop >= maxScrollTop - SCROLL_EDGE_EPSILON_PX;
 
       // Boundary handoff: at scroll edges, swipe navigates to adjacent card.
       if ((step === 1 && atBottom) || (step === -1 && atTop)) {
@@ -173,8 +281,15 @@ export function VerseCard({
         return;
       }
 
-      scrollCardContentBySwipeStep(context.scrollEl, step);
+      scrollCardContentBySwipeStep(scrollEl, step, currentScrollTop);
       return;
+    }
+
+    if (context?.startedInScrollableBody) {
+      if (!context.scrollEl || !context.scrollable) {
+        onVerticalSwipeStep(step);
+        return;
+      }
     }
 
     onVerticalSwipeStep(step);
@@ -202,7 +317,13 @@ export function VerseCard({
       });
     };
 
-    const onScroll = () => scheduleUpdate();
+    const onScroll = () => {
+      const targetTop = stepScrollTargetTopRef.current;
+      if (targetTop !== null && Math.abs(el.scrollTop - targetTop) <= 1) {
+        stepScrollTargetTopRef.current = null;
+      }
+      scheduleUpdate();
+    };
     const onResize = () => scheduleUpdate();
 
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -281,7 +402,10 @@ export function VerseCard({
             data-verse-card-scroll-body={bodyScrollable ? "true" : undefined}
             className={cn(
               "h-full min-h-0",
-              bodyScrollable && "overflow-y-auto overscroll-contain touch-pan-y pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]",
+              bodyScrollable &&
+                "overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]",
+              usesSwipeStepScroll && "touch-none",
+              bodyScrollable && !usesSwipeStepScroll && "touch-pan-y",
               contentClassName
             )}
           >
