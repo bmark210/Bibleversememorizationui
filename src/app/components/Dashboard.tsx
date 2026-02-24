@@ -397,62 +397,6 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           </Card>
         </motion.div>
       </motion.div>
-
-      {/* Today's Verses Section */}
-      <motion.div className="mb-8" variants={sectionVariants}>
-        <div className="flex items-center justify-between mb-4">
-          <h2>Стихи на сегодня</h2>
-          <Button
-            variant="ghost"
-            onClick={onViewAll}
-            className="text-primary hover:text-primary"
-          >
-            Показать все
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-
-        {todayVerses.length === 0 ? (
-          <motion.div initial="hidden" animate="show" variants={cardItemVariants}>
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">
-                Нет запланированных стихов. Добавьте их, чтобы начать учить!
-              </p>
-            </Card>
-          </motion.div>
-        ) : (
-          <motion.div className="grid gap-4" initial="hidden" animate="show" variants={groupStaggerVariants}>
-            {todayVerses.map((verse) => (
-              <motion.div key={verse.id} variants={cardItemVariants}>
-                <Card className="p-5 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="mb-2">{verse.reference}</h3>
-                      {/* <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {verse.text}
-                    </p> */}
-
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{verse.repetitions} {verse.repetitions === 1 ? 'повторение' : verse.repetitions < 5 ? 'повторения' : 'повторений'}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                      <div className="text-right">
-                        <div className="text-sm font-medium">{toMasteryPercent(verse.masteryLevel)}%</div>
-                      </div>
-                      <Progress value={toMasteryPercent(verse.masteryLevel)} className="w-full h-2" />
-                      <div className="text-xs text-muted-foreground">
-                        {/* {formatDate(verse.nextReview)} */}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </motion.div>
     </motion.div>
   );
 }

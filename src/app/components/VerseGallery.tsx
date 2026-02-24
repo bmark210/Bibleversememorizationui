@@ -28,8 +28,9 @@ import {
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { cn } from "./ui/utils";
 import { MasteryBadge } from "./MasteryBadge";
+import { TrainingSubsetSelect } from "./verse-gallery/TrainingSubsetSelect";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
@@ -51,7 +52,7 @@ import {
   type VerticalTouchSwipeStart,
 } from "@/shared/ui/verticalTouchSwipe";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
-import { VerseCard } from "./VerseCard";
+import { VerseCard, type VerseCardPreviewTone } from "./VerseCard";
 import type { Verse as LegacyVerse } from "../data/mockData";
 import {
   TrainingModeRenderer,
@@ -114,12 +115,6 @@ type TrainingTouchGestureContext = {
   maxScrollTop: number;
   scrollable: boolean;
 };
-
-const TRAINING_SUBSET_OPTIONS: Array<{ key: TrainingSubsetFilter; label: string }> = [
-  { key: "all", label: "Все" },
-  { key: "learning", label: "Изучение" },
-  { key: "review", label: "Повторение" },
-];
 
 const MODE_PIPELINE: Record<ModeId, { label: string; description: string; renderer: TrainingModeRendererKey; badgeClass: string }> = {
   [TrainingModeId.ClickChunks]: {
@@ -450,6 +445,7 @@ type UnifiedViewportProps = {
   trainingModeMeta: TrainingModeMeta | null;
   trainingRendererRef: RefObject<TrainingModeRendererHandle | null>;
   onStartTraining: () => void | Promise<void>;
+  onPreviewStatusAction: () => void | Promise<void>;
   onPreviewTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
   onPreviewTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
   onTrainingTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
@@ -467,6 +463,7 @@ function VerseGalleryUnifiedCardViewport({
   trainingModeMeta,
   trainingRendererRef,
   onStartTraining,
+  onPreviewStatusAction,
   onPreviewTouchStart,
   onPreviewTouchEnd,
   onTrainingTouchStart,
@@ -482,14 +479,28 @@ function VerseGalleryUnifiedCardViewport({
   if (isPreview && !preview) return null;
   if (!isPreview && (!trainingVerse || !trainingModeId)) return null;
 
+  const previewStatus = preview ? normalizeVerseStatus(preview.status) : null;
   const previewProgress = preview
     ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
     : 0;
   const isPreviewReviewStage = preview
-    ? normalizeVerseStatus(preview.status) === VerseStatus.LEARNING &&
+    ? previewStatus === VerseStatus.LEARNING &&
       Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
     : false;
+  const isPreviewStoppedStage = previewStatus === VerseStatus.STOPPED;
+  const isPreviewStoppedRepeatStage = Boolean(
+    preview && isPreviewStoppedStage && Number(preview.masteryLevel ?? 0) > TRAINING_STAGE_MASTERY_MAX
+  );
   const previewRepetitionsCount = preview ? Math.max(0, Number(preview.repetitions ?? 0)) : 0;
+  const previewTone: VerseCardPreviewTone | undefined = preview
+    ? previewStatus === VerseStatus.NEW
+      ? "new"
+      : previewStatus === VerseStatus.STOPPED
+        ? "stopped"
+        : isPreviewReviewStage
+          ? "review"
+          : "learning"
+    : undefined;
   const trainingProgress = trainingVerse
     ? Math.min(Math.round((Number(trainingVerse.raw.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100), 100)
     : 0;
@@ -497,6 +508,78 @@ function VerseGalleryUnifiedCardViewport({
   const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
 
   const isPreviewReviewAction = Boolean(isPreviewReviewStage);
+  const previewPrimaryAction =
+    !preview || !previewStatus
+      ? null
+      : previewStatus === VerseStatus.NEW
+        ? {
+            label: "Добавить в мои",
+            ariaLabel: "Добавить стих в мои",
+            icon: Plus,
+            onClick: () => void onPreviewStatusAction(),
+            className:
+              "border border-sky-500/25 bg-gradient-to-r from-sky-500/18 to-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:text-sky-300",
+          }
+        : previewStatus === VerseStatus.STOPPED
+          ? {
+              label: "Возобновить",
+              ariaLabel: "Возобновить изучение стиха",
+              icon: Play,
+              onClick: () => void onPreviewStatusAction(),
+              className:
+                "border border-rose-500/25 bg-gradient-to-r from-rose-500/16 to-rose-500/8 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300",
+            }
+          : isPreviewReviewAction
+            ? {
+                label: "Повторять",
+                ariaLabel: "Повторять этот стих",
+                icon: Repeat,
+                onClick: () => void onStartTraining(),
+                className:
+                  "border border-violet-500/25 bg-gradient-to-r from-violet-500/18 to-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
+              }
+            : {
+                label: "Учить",
+                ariaLabel: "Учить этот стих",
+                icon: Play,
+                onClick: () => void onStartTraining(),
+                className:
+                  "border border-emerald-500/25 bg-gradient-to-r from-emerald-500/18 to-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
+              };
+
+  const previewProgressTone =
+    previewTone === "stopped"
+      ? {
+          labelClass: "text-rose-700/75 dark:text-rose-300/80",
+          valueClass: "text-rose-700 dark:text-rose-300",
+          trackClass: "bg-rose-500/14",
+          fillClass: "from-rose-500 to-rose-400/80",
+        }
+      : {
+          labelClass: "text-emerald-700/75 dark:text-emerald-300/80",
+          valueClass: "text-emerald-700 dark:text-emerald-300",
+          trackClass: "bg-emerald-500/14",
+          fillClass: "from-emerald-500 to-emerald-400/80",
+        };
+
+  const previewRepeatTone =
+    previewTone === "stopped"
+      ? {
+          wrapperClass: "border-rose-500/20 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-background",
+          iconWrapClass:
+            "border-rose-500/25 bg-rose-500/12 text-rose-700 dark:text-rose-300",
+          titleClass: "text-rose-700/80 dark:text-rose-300/80",
+          valueClass: "text-rose-700 dark:text-rose-300",
+          title: "На паузе",
+        }
+      : {
+          wrapperClass: "border-violet-500/20 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-background",
+          iconWrapClass:
+            "border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300",
+          titleClass: "text-violet-700/80 dark:text-violet-300/80",
+          valueClass: "text-violet-700 dark:text-violet-300",
+          title: "Повторение",
+        };
 
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
   const trainingTopBadge = trainingModeMeta && trainingVerse ? (
@@ -527,6 +610,7 @@ function VerseGalleryUnifiedCardViewport({
       <VerseCard
         isActive
         minHeight="training"
+        previewTone={isPreview ? previewTone : undefined}
         topBadge={
           isPreview && preview ? (
             <MasteryBadge status={normalizeVerseStatus(preview.status)} masteryLevel={preview.masteryLevel ?? 0} />
@@ -573,9 +657,9 @@ function VerseGalleryUnifiedCardViewport({
                     initial={{ opacity: 0, y: 4, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/45 px-2.5 py-1 backdrop-blur-sm"
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 backdrop-blur-sm"
                   >
-                    <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/90">
                       Освоение
                     </span>
                     <div
@@ -584,17 +668,17 @@ function VerseGalleryUnifiedCardViewport({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={trainingProgress}
-                      className="relative h-1 w-16 overflow-hidden rounded-full bg-primary/15"
+                      className="relative h-1 w-16 overflow-hidden rounded-full bg-emerald-500/15"
                     >
                       <motion.div
                         key={`${trainingVerse.raw.id}-${trainingProgress}`}
-                        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                        className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
                         initial={{ width: 0 }}
                         animate={{ width: `${trainingProgress}%` }}
                         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold tabular-nums text-primary">
+                    <span className="text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
                       {trainingProgress}%
                     </span>
                   </motion.div>
@@ -624,42 +708,46 @@ function VerseGalleryUnifiedCardViewport({
         centerAction={
           isPreview && preview ? (
             <Button
-              className="gap-2 min-w-[200px] shadow-lg rounded-2xl"
-              onClick={() => void onStartTraining()}
+              variant="secondary"
+              className={cn(
+                "gap-2 min-w-[200px] shadow-lg rounded-2xl backdrop-blur-sm",
+                previewPrimaryAction?.className
+              )}
+              onClick={previewPrimaryAction?.onClick}
               disabled={actionPending}
-              aria-label={isPreviewReviewAction ? "Повторять этот стих" : "Учить этот стих"}
+              aria-label={previewPrimaryAction?.ariaLabel}
             >
-              {isPreviewReviewAction ? <Repeat className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {isPreviewReviewAction ? "ПОВТОРЯТЬ" : "УЧИТЬ"}
+              {previewPrimaryAction ? <previewPrimaryAction.icon className="h-4 w-4" /> : null}
+              {previewPrimaryAction?.label}
             </Button>
           ) : null
         }
         footer={
           isPreview && preview ? (
-            isPreviewReviewStage ? (
+            previewStatus === VerseStatus.NEW ? null : (isPreviewReviewStage || isPreviewStoppedRepeatStage) ? (
               <motion.div
-                key={`preview-review-footer-${preview.id}-${previewRepetitionsCount}`}
+                key={`preview-repeat-footer-${preview.id}-${previewStatus}-${previewRepetitionsCount}`}
                 initial={{ opacity: 0, y: 6, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-background p-3 shadow-sm"
+                className={cn("rounded-2xl border p-3 shadow-sm", previewRepeatTone.wrapperClass)}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300">
+                    <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-xl border", previewRepeatTone.iconWrapClass)}>
                       <Repeat className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 text-left">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
-                        Повторение
+                      <div className={cn("text-[10px] font-semibold uppercase tracking-[0.18em]", previewRepeatTone.titleClass)}>
+                        {previewRepeatTone.title}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Количество повторов
+                        Повторы
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
+                    <div className={cn("text-2xl font-bold tabular-nums", previewRepeatTone.valueClass)}>
                       {previewRepetitionsCount}
                     </div>
                   </div>
@@ -668,15 +756,15 @@ function VerseGalleryUnifiedCardViewport({
             ) : (
               <div className="space-y-3">
                 <div className="flex items-end justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
-                    Прогресс освоения
+                  <span className={cn("text-[10px] font-bold uppercase tracking-[0.3em]", previewProgressTone.labelClass)}>
+                    {previewStatus === VerseStatus.STOPPED ? "Прогресс" : "Прогресс освоения"}
                   </span>
-                  <span className="text-2xl font-bold text-primary">{previewProgress}%</span>
+                  <span className={cn("text-2xl font-bold", previewProgressTone.valueClass)}>{previewProgress}%</span>
                 </div>
-                <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                <div className={cn("relative h-2 rounded-full overflow-hidden", previewProgressTone.trackClass)}>
                   <motion.div
                     key={`${preview.id}-${activeIndex}`}
-                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70 rounded-full"
+                    className={cn("absolute inset-y-0 left-0 bg-gradient-to-r rounded-full", previewProgressTone.fillClass)}
                     initial={{ width: 0 }}
                     animate={{ width: `${previewProgress}%` }}
                     transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
@@ -1177,7 +1265,6 @@ export function VerseGallery({
   const displayActive = panelMode === "training"
     ? Math.max(0, trainingEligibleIndices.indexOf(trainingIndex))
     : Math.max(0, activeIndex);
-
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={panelMode === "training" ? "Режим обучения" : "Просмотр стиха"} className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md">
       <div aria-live="polite" aria-atomic="true" className="sr-only">{feedback?.message ?? ""}</div>
@@ -1186,17 +1273,11 @@ export function VerseGallery({
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
         {panelMode === "preview" ? (
           <div className="flex items-center justify-center p-4 w-full">
-            <p className="text-lg text-center font-bold flex items-center justify-center gap-2">Цель сегодня: 
-              <Badge variant="secondary" className="text-lg rounded-full">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>
-            </p>
-            {/* <Badge className="absolute right-0 top-[65px]" variant="outline">{Math.min(activeIndex + 1, verses.length)} / {verses.length}</Badge> */}
-            <Badge className="absolute right-4 top-[80px]" variant="outline">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>
-
-            {!isInTelegram && (
-              <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
+            <Badge className="" variant="outline">{Math.min(activeIndex + 1, previewDisplayTotal)} / {previewDisplayTotal}</Badge>            
+              {/* <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
                 <X className="h-5 w-5" />
-              </Button>
-            )}
+              </Button> */}
+
           </div>
         ) : (
           <div className="max-w-4xl mx-auto px-4 py-4">
@@ -1211,40 +1292,23 @@ export function VerseGallery({
                     <div className="h-9" aria-hidden="true" />
                   )}
 
-                  <div className="w-full flex flex-col items-center justify-center max-w-[140px] space-y-1 ">
-                    <Select
-                      value={trainingSubsetFilter}
-                      onValueChange={(value) => {
-                        const nextFilter = value as TrainingSubsetFilter;
-                        if (trainingSubsetFilter === nextFilter) return;
-                        haptic("light");
-                        setTrainingSubsetFilter(nextFilter);
-                      }}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="w-full rounded-xl bg-background/80 backdrop-blur-lg"
-                        aria-label="Фильтр тренировочных стихов"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TRAINING_SUBSET_OPTIONS.map((option) => (
-                          <SelectItem key={option.key} value={option.key}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TrainingSubsetSelect
+                    value={trainingSubsetFilter}
+                    onValueChange={(value) => {
+                      const nextFilter = value as TrainingSubsetFilter;
+                      if (trainingSubsetFilter === nextFilter) return;
+                      haptic("light");
+                      setTrainingSubsetFilter(nextFilter);
+                    }}
+                  />
                 </div>
                 <Badge className="absolute right-0 top-[65px] bg-background/80 backdrop-blur-lg" variant="outline">{Math.min(displayActive + 1, displayTotal)} / {displayTotal}</Badge>
               </div>
-              {!isInTelegram && (
+              {/* {!isInTelegram && (
                 <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Закрыть галерею">
                   <X className="h-5 w-5" />
                 </Button>
-              )}
+              )} */}
             </div>
           </div>
         )}
@@ -1263,6 +1327,9 @@ export function VerseGallery({
               trainingRendererRef={trainingRendererRef}
               onStartTraining={() => {
                 void startTrainingFromActiveVerse();
+              }}
+              onPreviewStatusAction={() => {
+                void handlePreviewStatusAction();
               }}
               onPreviewTouchStart={handlePreviewTouchStart}
               onPreviewTouchEnd={handlePreviewTouchEnd}
@@ -1300,11 +1367,8 @@ export function VerseGallery({
             <Button
               variant="secondary"
               className="gap-2 backdrop-blur-xl rounded-2xl"
-              onClick={() => {
-                if (actionPending) return;
-                haptic("light");
-                onClose();
-              }}
+              ref={closeButtonRef}
+              onClick={onClose}
               disabled={actionPending}
               aria-label="Завершить тренировку"
             >
