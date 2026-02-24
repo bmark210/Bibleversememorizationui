@@ -59,7 +59,7 @@ export function MobileRuKeyboardOverlay({
             opacity: { duration: 0.18, ease: 'easeOut' },
             scale: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
           }}
-          className="md:hidden fixed bottom-0 left-0 right-0 z-[70] border-t border-border backdrop-blur-xl bg-card/90"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-[70] isolate overflow-hidden border-t border-border bg-card"
           style={{
             paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
             transformOrigin: 'bottom center',
@@ -69,7 +69,11 @@ export function MobileRuKeyboardOverlay({
           onTouchMove={stopTouchPropagation}
           onTouchEnd={stopTouchPropagation}
         >
-          <div className="w-full p-2 pt-2.5 space-y-2">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-card"
+          />
+          <div className="relative z-[1] w-full p-2 pt-2.5 space-y-2">
             <div className="space-y-1.5">
               {RU_KEYBOARD_ROWS.map((row, rowIndex) => (
                 <div

@@ -767,16 +767,6 @@ export function TrainingSession({
   }
 
   const legacyVerse = asLegacyVerse(currentVerse);
-  const trainingCardTopBadge = (
-    <div className="flex items-center gap-2">
-      <Badge className={currentMode.badgeClass}>{currentMode.label}</Badge>
-      {isCurrentVerseReview && (
-        <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700">
-          Повторение
-        </Badge>
-      )}
-    </div>
-  );
 
   return (
     <div
@@ -815,7 +805,6 @@ export function TrainingSession({
       <div className="flex-1 px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-4">
           <VerseCard
-            topBadge={trainingCardTopBadge}
             header={
               <div className="text-center space-y-2">
                 <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">

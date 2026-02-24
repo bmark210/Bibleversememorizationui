@@ -29,7 +29,6 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
-import { MasteryBadge } from "./MasteryBadge";
 import { TrainingSubsetSelect } from "./verse-gallery/TrainingSubsetSelect";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
@@ -105,15 +104,6 @@ type TrainingVerseState = {
   lastModeId: ModeId | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
-};
-
-type TrainingTouchGestureContext = {
-  swipeStart: VerticalTouchSwipeStart | null;
-  startedInTrainingContent: boolean;
-  scrollEl: HTMLElement | null;
-  startScrollTop: number;
-  maxScrollTop: number;
-  scrollable: boolean;
 };
 
 const MODE_PIPELINE: Record<ModeId, { label: string; description: string; renderer: TrainingModeRendererKey; badgeClass: string }> = {
@@ -442,14 +432,12 @@ type UnifiedViewportProps = {
   actionPending: boolean;
   trainingActiveVerse: TrainingVerseState | null;
   trainingModeId: ModeId | null;
-  trainingModeMeta: TrainingModeMeta | null;
   trainingRendererRef: RefObject<TrainingModeRendererHandle | null>;
   onStartTraining: () => void | Promise<void>;
   onPreviewStatusAction: () => void | Promise<void>;
   onPreviewTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
   onPreviewTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
-  onTrainingTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
-  onTrainingTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
+  onTrainingSwipeStep: (step: 1 | -1) => void;
   onTrainingRate: (rating: Rating) => void | Promise<void>;
 };
 
@@ -460,21 +448,19 @@ function VerseGalleryUnifiedCardViewport({
   actionPending,
   trainingActiveVerse,
   trainingModeId,
-  trainingModeMeta,
   trainingRendererRef,
   onStartTraining,
   onPreviewStatusAction,
   onPreviewTouchStart,
   onPreviewTouchEnd,
-  onTrainingTouchStart,
-  onTrainingTouchEnd,
+  onTrainingSwipeStep,
   onTrainingRate,
 }: UnifiedViewportProps) {
   const isPreview = panelMode === "preview";
   const preview = isPreview ? previewVerse : null;
   const trainingVerse = !isPreview ? trainingActiveVerse : null;
-  const activeTouchStart = isPreview ? onPreviewTouchStart : onTrainingTouchStart;
-  const activeTouchEnd = isPreview ? onPreviewTouchEnd : onTrainingTouchEnd;
+  const activeTouchStart = isPreview ? onPreviewTouchStart : undefined;
+  const activeTouchEnd = isPreview ? onPreviewTouchEnd : undefined;
 
   if (isPreview && !preview) return null;
   if (!isPreview && (!trainingVerse || !trainingModeId)) return null;
@@ -582,28 +568,6 @@ function VerseGalleryUnifiedCardViewport({
         };
 
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
-  const trainingTopBadge = trainingModeMeta && trainingVerse ? (
-    <button
-      type="button"
-      onClick={() => {
-        trainingRendererRef.current?.openTutorial();
-      }}
-      className="pointer-events-auto rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2"
-      aria-label={`Показать обучение для режима: ${trainingModeMeta.label}`}
-      title="Показать обучение по режиму"
-    >
-      <div className="flex items-center gap-2">
-        <Badge className={`${trainingModeMeta.badgeClass} shadow-sm`}>
-          {trainingModeMeta.label}
-        </Badge>
-        {isTrainingReviewVerse(trainingVerse) && (
-          <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-700 shadow-sm">
-            Повторение
-          </Badge>
-        )}
-      </div>
-    </button>
-  ) : null;
 
   return (
     <div onTouchStart={activeTouchStart} onTouchEnd={activeTouchEnd} className="w-full">
@@ -611,11 +575,7 @@ function VerseGalleryUnifiedCardViewport({
         isActive
         minHeight="training"
         previewTone={isPreview ? previewTone : undefined}
-        topBadge={
-          isPreview && preview ? (
-            <MasteryBadge status={normalizeVerseStatus(preview.status)} masteryLevel={preview.masteryLevel ?? 0} />
-          ) : trainingTopBadge
-        }
+        onVerticalSwipeStep={!isPreview ? onTrainingSwipeStep : undefined}
         header={
           isPreview && preview ? (
             <div className="flex-shrink-0 text-center space-y-3">
@@ -803,7 +763,6 @@ export function VerseGallery({
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
   const previewTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
-  const trainingTouchGestureRef = useRef<TrainingTouchGestureContext | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -830,8 +789,6 @@ export function VerseGallery({
 
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
   const displayVerse = panelMode === "training" && trainingActiveVerse ? trainingActiveVerse.raw : previewActiveVerse;
-  const trainingModeMeta = panelMode === "training" && trainingModeId ? MODE_PIPELINE[trainingModeId] : null;
-
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
@@ -1055,72 +1012,6 @@ export function VerseGallery({
     showFeedback,
   ]);
 
-  const scrollTrainingContentBySwipeStep = (
-    scrollEl: HTMLElement,
-    step: 1 | -1,
-  ) => {
-    const delta = Math.max(96, Math.round(scrollEl.clientHeight * 0.72));
-    const offset = step === 1 ? delta : -delta;
-    const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
-    const nextTop = clamp(scrollEl.scrollTop + offset, 0, maxScrollTop);
-
-    try {
-      scrollEl.scrollTo({ top: nextTop, behavior: "smooth" });
-      return;
-    } catch {
-      scrollEl.scrollTop = nextTop;
-    }
-  };
-
-  const handleTrainingTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "training") return;
-    const swipeStart = createVerticalTouchSwipeStart(e);
-    const target = e.target as HTMLElement | null;
-    const scrollCandidate = target?.closest('[data-verse-card-scroll-body="true"]');
-    const scrollEl = scrollCandidate instanceof HTMLElement ? scrollCandidate : null;
-    const maxScrollTop = scrollEl ? Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight) : 0;
-
-    trainingTouchGestureRef.current = {
-      swipeStart,
-      startedInTrainingContent: Boolean(scrollEl),
-      scrollEl,
-      startScrollTop: scrollEl?.scrollTop ?? 0,
-      maxScrollTop,
-      scrollable: maxScrollTop > 0,
-    };
-  };
-
-  const handleTrainingTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "training") return;
-    const touchContext = trainingTouchGestureRef.current;
-    trainingTouchGestureRef.current = null;
-
-    const step = getVerticalTouchSwipeStep(touchContext?.swipeStart ?? null, e);
-    if (!step) return;
-
-    if (touchContext?.startedInTrainingContent) {
-      if (!touchContext.scrollEl || !touchContext.scrollable) {
-        jumpToAdjacentTrainingVerse(step);
-        return;
-      }
-
-      const atTop = touchContext.startScrollTop <= 1;
-      const atBottom = touchContext.startScrollTop >= touchContext.maxScrollTop - 1;
-
-      // Boundary handoff: if content is already at the edge in swipe direction,
-      // interpret the next swipe as verse navigation instead of content scroll.
-      if ((step === 1 && atBottom) || (step === -1 && atTop)) {
-        jumpToAdjacentTrainingVerse(step);
-        return;
-      }
-
-      scrollTrainingContentBySwipeStep(touchContext.scrollEl, step);
-      return;
-    }
-
-    jumpToAdjacentTrainingVerse(step);
-  };
-
   const handlePreviewTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "preview") return;
     previewTouchStartRef.current = createVerticalTouchSwipeStart(e);
@@ -1323,7 +1214,6 @@ export function VerseGallery({
               actionPending={actionPending}
               trainingActiveVerse={trainingActiveVerse}
               trainingModeId={trainingModeId}
-              trainingModeMeta={trainingModeMeta}
               trainingRendererRef={trainingRendererRef}
               onStartTraining={() => {
                 void startTrainingFromActiveVerse();
@@ -1333,8 +1223,7 @@ export function VerseGallery({
               }}
               onPreviewTouchStart={handlePreviewTouchStart}
               onPreviewTouchEnd={handlePreviewTouchEnd}
-              onTrainingTouchStart={handleTrainingTouchStart}
-              onTrainingTouchEnd={handleTrainingTouchEnd}
+              onTrainingSwipeStep={jumpToAdjacentTrainingVerse}
               onTrainingRate={handleTrainingRate}
             />
           </motion.div>
@@ -1365,8 +1254,8 @@ export function VerseGallery({
               {/* Удалить */}
             </Button>
             <Button
-              variant="secondary"
-              className="gap-2 backdrop-blur-xl rounded-2xl"
+              variant="outline"
+              className="gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl"
               ref={closeButtonRef}
               onClick={onClose}
               disabled={actionPending}

@@ -479,7 +479,7 @@ export function VerseList({
         {...getRevealProps(0.02)}
       >
         <div>
-          <h1 className="mb-1">Мои стихи</h1>
+          <h1 className="mb-1">Cтихи</h1>
           <p className="text-sm text-muted-foreground">
             Кликните на карточку, чтобы перейти в галерею и начать изучение.
           </p>
