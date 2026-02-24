@@ -43,7 +43,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
       orderBy: query.orderBy,
       order: query.order,
       limit: query.limit,
-      cursorId: query.cursorId,
+      startWith: query.startWith,
     });
     return res.status(200).json(page);
   } catch (error) {

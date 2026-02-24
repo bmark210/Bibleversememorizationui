@@ -24,7 +24,7 @@ export type UserVersesListQuery = {
   order?: UserVersesOrder;
   filter?: UserVersesFilter;
   limit?: number;
-  cursorId?: number;
+  startWith?: number;
 };
 
 type FetchEnrichedUserVersesOptions = {
@@ -36,13 +36,11 @@ type FetchEnrichedUserVersesOptions = {
 
 type FetchPaginatedEnrichedUserVersesOptions = FetchEnrichedUserVersesOptions & {
   limit?: number;
-  cursorId?: number;
+  startWith?: number;
 };
 
 export type UserVersesPageResponse = {
   items: Array<Record<string, unknown>>;
-  hasMore: boolean;
-  nextCursorId: number | null;
   totalCount: number;
 };
 
@@ -117,11 +115,11 @@ function parsePageLimit(value: string | undefined): number | undefined {
   return parsed;
 }
 
-function parseCursorId(value: string | undefined): number | undefined {
+function parseStartWith(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new UserVersesApiError(400, "cursorId must be a positive integer");
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new UserVersesApiError(400, "startWith must be a non-negative integer");
   }
   return parsed;
 }
@@ -133,7 +131,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
     order: parseOrder(getSingleQueryValue(query, "order")),
     filter: parseFilter(getSingleQueryValue(query, "filter")),
     limit: parsePageLimit(getSingleQueryValue(query, "limit")),
-    cursorId: parseCursorId(getSingleQueryValue(query, "cursorId")),
+    startWith: parseStartWith(getSingleQueryValue(query, "startWith")),
   };
 }
 
@@ -294,54 +292,29 @@ export async function fetchPaginatedEnrichedUserVerses({
   orderBy,
   order,
   limit,
-  cursorId,
+  startWith,
 }: FetchPaginatedEnrichedUserVersesOptions): Promise<UserVersesPageResponse> {
   const pageLimit = limit ?? DEFAULT_USER_VERSES_PAGE_LIMIT;
   const translation = await getUserTranslationForTelegram(telegramId);
   const prismaWhere = buildUserVersesWhere(telegramId, where);
+  const pageOffset = Math.max(0, startWith ?? 0);
 
   const [rawItems, totalCount] = await Promise.all([
-    (async () => {
-      try {
-        return await prisma.userVerse.findMany({
-          where: prismaWhere,
-          orderBy: buildUserVersesOrderBy(orderBy, order),
-          take: pageLimit + 1,
-          ...(cursorId ? { cursor: { id: cursorId } as any, skip: 1 } : {}),
-        });
-      } catch (error) {
-        if (cursorId) {
-          console.warn("Invalid cursorId for user verses pagination", {
-            telegramId,
-            cursorId,
-            orderBy,
-            order,
-            where,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          throw new UserVersesApiError(400, "Invalid cursorId");
-        }
-        throw error;
-      }
-    })(),
+    prisma.userVerse.findMany({
+      where: prismaWhere,
+      orderBy: buildUserVersesOrderBy(orderBy, order),
+      skip: pageOffset,
+      take: pageLimit,
+    }),
     prisma.userVerse.count({
       where: prismaWhere,
     }),
   ]);
 
-  const hasMore = rawItems.length > pageLimit;
-  const pageItems = hasMore ? rawItems.slice(0, pageLimit) : rawItems;
-  const nextCursorId =
-    hasMore && pageItems.length > 0
-      ? Number(pageItems[pageItems.length - 1]?.id ?? 0) || null
-      : null;
-
-  const enrichedItems = await enrichUserVerses(pageItems, translation);
+  const enrichedItems = await enrichUserVerses(rawItems, translation);
 
   return {
     items: enrichedItems as Array<Record<string, unknown>>,
-    hasMore,
-    nextCursorId,
     totalCount,
   };
 }

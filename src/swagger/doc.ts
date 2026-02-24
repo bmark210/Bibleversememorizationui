@@ -122,10 +122,10 @@ const swaggerDoc = {
             schema: { type: "integer", minimum: 1, maximum: 50 },
           },
           {
-            name: "cursorId",
+            name: "startWith",
             in: "query",
             required: false,
-            schema: { type: "integer", minimum: 1 },
+            schema: { type: "integer", minimum: 0 },
           },
         ],
         responses: {
@@ -474,14 +474,12 @@ const swaggerDoc = {
       },
       UserVersesPageResponse: {
         type: "object",
-        required: ["items", "hasMore", "nextCursorId", "totalCount"],
+        required: ["items", "totalCount"],
         properties: {
           items: {
             type: "array",
             items: { $ref: "#/components/schemas/UserVerse" },
           },
-          hasMore: { type: "boolean" },
-          nextCursorId: { type: "integer", nullable: true },
           totalCount: { type: "integer", minimum: 0 },
         },
       },

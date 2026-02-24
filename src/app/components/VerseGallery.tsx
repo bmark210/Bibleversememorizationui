@@ -360,15 +360,15 @@ function trapFocus(container: HTMLElement, e: KeyboardEvent) {
   }
 }
 
-function useBodyScrollLock() {
-  useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, []);
-}
+// function useBodyScrollLock() {
+//   useEffect(() => {
+//     const original = document.body.style.overflow;
+//     document.body.style.overflow = "hidden";
+//     return () => {
+//       document.body.style.overflow = original;
+//     };
+//   }, []);
+// }
 
 const SWIPE_HINT_KEY = "verse-swipe-hint-seen";
 
@@ -726,7 +726,7 @@ export function VerseGallery({
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
 
-  useBodyScrollLock();
+  // useBodyScrollLock();
 
   const previewActiveVerseBase = verses[activeIndex] ?? null;
   const previewActiveVerse = previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null;

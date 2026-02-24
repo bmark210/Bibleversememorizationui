@@ -233,12 +233,12 @@
             }
           },
           {
-            "name": "cursorId",
+            "name": "startWith",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 0
             }
           }
         ],
@@ -874,7 +874,6 @@
         "required": [
           "items",
           "hasMore",
-          "nextCursorId",
           "totalCount"
         ],
         "properties": {
@@ -886,10 +885,6 @@
           },
           "hasMore": {
             "type": "boolean"
-          },
-          "nextCursorId": {
-            "type": "integer",
-            "nullable": true
           },
           "totalCount": {
             "type": "integer",

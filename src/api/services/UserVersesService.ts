@@ -16,7 +16,7 @@ export class UserVersesService {
      * @param order
      * @param filter
      * @param limit
-     * @param cursorId
+     * @param startWith
      * @returns UserVersesPageResponse OK
      * @throws ApiError
      */
@@ -27,7 +27,7 @@ export class UserVersesService {
         order?: 'asc' | 'desc',
         filter?: 'all' | 'new' | 'learning' | 'review' | 'stopped',
         limit?: number,
-        cursorId?: number,
+        startWith?: number,
     ): CancelablePromise<UserVersesPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -41,7 +41,7 @@ export class UserVersesService {
                 'order': order,
                 'filter': filter,
                 'limit': limit,
-                'cursorId': cursorId,
+                'startWith': startWith,
             },
         });
     }

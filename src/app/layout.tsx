@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <script src="https://telegram.org/js/telegram-web-app.js"></script>
       </head>
       <body>
-        <ScrollLock />
+        {/* <ScrollLock /> */}
         <div className="app-scroll">
           {children}
         </div>
