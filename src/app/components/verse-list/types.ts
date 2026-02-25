@@ -3,6 +3,7 @@ import type { Verse } from '@/app/App';
 import type { VerseStatus } from '@/generated/prisma';
 import type { FilterVisualTheme, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
+import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 
 export type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
 export type VerseListLoadRange = { startIndex: number; stopIndex: number };
@@ -86,7 +87,8 @@ export type VerseListController = {
   gallery: {
     galleryIndex: number | null;
     onClose: () => void;
-    onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
+    onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
+    onVersePatched: (event: VersePatchEvent) => void;
     onDelete: (verse: Verse) => Promise<void>;
     onRequestMorePreviewVerses: () => Promise<boolean>;
   };

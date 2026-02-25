@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { Verse } from '@/app/App';
 import type { VerseListStatusFilter } from '../constants';
+import type { VersePatchEvent } from '@/app/types/verseSync';
+import { isSameVerseByRef, mergeVersePatch } from '@/app/utils/versePatch';
 
 export type FetchNextPageSource = 'auto' | 'manual' | 'reopen' | 'gallery';
 export type AppendRevealRange = { start: number; end: number } | null;
@@ -137,6 +139,65 @@ export function useVersePagination({
     setShowDelayedLoadMoreSkeleton(false);
     setAppendRevealRange(null);
   }, []);
+
+  const applyVersePatch = useCallback(
+    (
+      event: VersePatchEvent,
+      options: {
+        statusFilter: VerseListStatusFilter;
+        matchesListFilter: (
+          verse: Pick<Verse, 'status' | 'masteryLevel'>,
+          filter: VerseListStatusFilter
+        ) => boolean;
+        adjustTotalCountOnFilterExit?: boolean;
+      }
+    ) => {
+      const { statusFilter: currentFilter, matchesListFilter, adjustTotalCountOnFilterExit = true } = options;
+      let removedFromCurrentFilter = false;
+      let didPatch = false;
+
+      setVerses((prev) => {
+        let changed = false;
+        const next: Array<Verse> = [];
+
+        for (const verse of prev) {
+          if (!isSameVerseByRef(verse, event.target)) {
+            next.push(verse);
+            continue;
+          }
+
+          const merged = mergeVersePatch(verse, event.patch);
+          didPatch = true;
+          changed = true;
+
+          const keep =
+            currentFilter === 'all' ? true : matchesListFilter(merged, currentFilter);
+
+          if (keep) {
+            next.push(merged);
+          } else {
+            removedFromCurrentFilter = true;
+          }
+        }
+
+        const finalList = changed ? next : prev;
+        versesRef.current = finalList;
+        nextOffsetRef.current = finalList.length;
+        return finalList;
+      });
+
+      if (removedFromCurrentFilter && adjustTotalCountOnFilterExit) {
+        setTotalCount((prev) => {
+          const next = Math.max(0, prev - 1);
+          totalCountRef.current = next;
+          return next;
+        });
+      }
+
+      return { didPatch, removedFromCurrentFilter };
+    },
+    []
+  );
 
   const resetAndFetchFirstPage = useCallback(
     async (id: string, filter: VerseListStatusFilter) => {
@@ -337,6 +398,11 @@ export function useVersePagination({
     [fetchNextPage, telegramId]
   );
 
+  const refetchCurrentListFromExternalSync = useCallback(async () => {
+    if (!telegramId) return;
+    await resetAndFetchFirstPage(telegramId, statusFilter);
+  }, [resetAndFetchFirstPage, statusFilter, telegramId]);
+
   return {
     verses,
     setVerses,
@@ -357,6 +423,8 @@ export function useVersePagination({
     fetchNextPage,
     ensureVerseLoadedForReopen,
     clearPaginationState,
+    applyVersePatch,
+    refetchCurrentListFromExternalSync,
 
     versesRef,
     nextOffsetRef,

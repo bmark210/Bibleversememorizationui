@@ -28,7 +28,17 @@ import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
+import {
+  getVerseSyncKey,
+  mergeVersePatch,
+  pickMutableVersePatchFromApiResponse,
+} from "@/app/utils/versePatch";
 import { useDailyGoalController } from "@/app/features/daily-goal/useDailyGoalController";
+import {
+  getLocalDayKey,
+  readDailyGoalSession,
+} from "@/app/features/daily-goal/storage";
 import type {
   DailyGoalReadinessResponse,
   DailyGoalResumeMode,
@@ -67,6 +77,10 @@ type Page =
 type TrainingBatchPreferences = {
   newVersesCount: number;
   reviewVersesCount: number;
+};
+
+type RefreshDailyGoalReadinessOptions = {
+  force?: boolean;
 };
 
 const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
@@ -152,6 +166,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
+  const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [user, setUser] = useState<UserWithVerses | null>(null);
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [dailyGoalVersePool, setDailyGoalVersePool] = useState<Array<Verse>>([]);
@@ -176,6 +191,12 @@ export default function App() {
   const initUserRef = useRef(false);
   const dailyGoalCompletionSyncRef = useRef<Set<string>>(new Set());
   const dailyGoalReadinessRequestIdRef = useRef(0);
+  const dailyGoalReadinessInFlightRef = useRef<{
+    key: string;
+    requestId: number;
+    promise: Promise<DailyGoalReadinessResponse | null>;
+  } | null>(null);
+  const dailyGoalReadinessLastSuccessKeyRef = useRef<string | null>(null);
   const dailyGoal = useDailyGoalController({
     telegramId,
     trainingBatchPreferences,
@@ -282,34 +303,104 @@ export default function App() {
 
   const refreshDailyGoalReadiness = async (
     telegramIdValue: string,
-    prefs: TrainingBatchPreferences
+    prefs: TrainingBatchPreferences,
+    options?: RefreshDailyGoalReadinessOptions
   ) => {
-    const requestId = ++dailyGoalReadinessRequestIdRef.current;
-    setIsDailyGoalReadinessLoading(true);
-    try {
-      const snapshot = await fetchDailyGoalReadiness({
-        telegramId: telegramIdValue,
-        newVersesCount: prefs.newVersesCount,
-        reviewVersesCount: prefs.reviewVersesCount,
-      });
-      if (dailyGoalReadinessRequestIdRef.current !== requestId) return null;
-      setDailyGoalReadiness(snapshot);
-      return snapshot;
-    } catch (error) {
-      if (dailyGoalReadinessRequestIdRef.current === requestId) {
-        setDailyGoalReadiness(null);
+    const todayKey = getLocalDayKey();
+    const activeSession = dailyGoal.session;
+    const isCompletedTodayInActiveSession = Boolean(
+      activeSession &&
+        activeSession.telegramId === telegramIdValue &&
+        activeSession.dayKey === todayKey &&
+        activeSession.progress.completedAt
+    );
+    const isCompletedTodayInStorage =
+      !isCompletedTodayInActiveSession &&
+      (() => {
+        const stored = readDailyGoalSession();
+        return Boolean(
+          stored &&
+            stored.telegramId === telegramIdValue &&
+            stored.dayKey === todayKey &&
+            stored.progress?.completedAt
+        );
+      })();
+
+    if (isCompletedTodayInActiveSession || isCompletedTodayInStorage) {
+      setIsDailyGoalReadinessLoading(false);
+      return dailyGoalReadiness;
+    }
+
+    const requestKey = `${telegramIdValue}:${prefs.newVersesCount}:${prefs.reviewVersesCount}:${todayKey}`;
+    const force = options?.force === true;
+
+    if (!force) {
+      const inFlight = dailyGoalReadinessInFlightRef.current;
+      if (inFlight?.key === requestKey) {
+        return inFlight.promise;
       }
-      console.error("Не удалось получить readiness ежедневной цели:", error);
-      return null;
-    } finally {
-      if (dailyGoalReadinessRequestIdRef.current === requestId) {
-        setIsDailyGoalReadinessLoading(false);
+      if (
+        dailyGoalReadinessLastSuccessKeyRef.current === requestKey &&
+        dailyGoalReadiness !== null
+      ) {
+        return dailyGoalReadiness;
       }
     }
+
+    const requestId = ++dailyGoalReadinessRequestIdRef.current;
+    setIsDailyGoalReadinessLoading(true);
+
+    const requestPromise = (async () => {
+      try {
+        const snapshot = await fetchDailyGoalReadiness({
+          telegramId: telegramIdValue,
+          newVersesCount: prefs.newVersesCount,
+          reviewVersesCount: prefs.reviewVersesCount,
+        });
+        if (dailyGoalReadinessRequestIdRef.current !== requestId) return null;
+        dailyGoalReadinessLastSuccessKeyRef.current = requestKey;
+        setDailyGoalReadiness(snapshot);
+        return snapshot;
+      } catch (error) {
+        if (dailyGoalReadinessRequestIdRef.current === requestId) {
+          setDailyGoalReadiness(null);
+        }
+        console.error("Не удалось получить readiness ежедневной цели:", error);
+        return null;
+      } finally {
+        if (dailyGoalReadinessRequestIdRef.current === requestId) {
+          setIsDailyGoalReadinessLoading(false);
+        }
+        if (
+          dailyGoalReadinessInFlightRef.current?.key === requestKey &&
+          dailyGoalReadinessInFlightRef.current?.requestId === requestId
+        ) {
+          dailyGoalReadinessInFlightRef.current = null;
+        }
+      }
+    })();
+
+    dailyGoalReadinessInFlightRef.current = {
+      key: requestKey,
+      requestId,
+      promise: requestPromise,
+    };
+
+    return requestPromise;
   };
 
   const getVerseKey = (verse: Pick<Verse, "id" | "externalVerseId">) =>
-    String(verse.externalVerseId ?? verse.id);
+    getVerseSyncKey(verse);
+
+  const applyPatchToDashboardGalleryVerses = (event: VersePatchEvent) => {
+    setDashboardGalleryVerses((prev) =>
+      prev.map((verse) =>
+        getVerseSyncKey(verse) === getVerseSyncKey(event.target)
+          ? mergeVersePatch(verse, event.patch)
+          : verse
+      )
+    );
+  };
 
   const handleDashboardGalleryClose = () => {
     setDashboardGalleryIndex(null);
@@ -344,20 +435,34 @@ export default function App() {
     }
   };
 
-  const handleDashboardGalleryStatusChange = async (verse: Verse, status: VerseStatus) => {
+  const handleDashboardGalleryStatusChange = async (
+    verse: Verse,
+    status: VerseStatus
+  ): Promise<VerseMutablePatch | void> => {
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) throw new Error("No telegramId");
 
-    await UserVersesService.patchApiUsersVerses(telegramIdValue, verse.externalVerseId, { status });
-
-    setDashboardGalleryVerses((prev) =>
-      prev.map((v) => (getVerseKey(v) === getVerseKey(verse) ? { ...v, status } : v))
-    );
+    const response = await UserVersesService.patchApiUsersVerses(telegramIdValue, verse.externalVerseId, {
+      status,
+    });
+    const patch = pickMutableVersePatchFromApiResponse(response) ?? { status };
+    applyPatchToDashboardGalleryVerses({
+      target: { id: verse.id, externalVerseId: verse.externalVerseId },
+      patch,
+    });
 
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences);
+      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+        force: true,
+      });
     }
+
+    return patch;
+  };
+
+  const handleDashboardGalleryVersePatched = (event: VersePatchEvent) => {
+    applyPatchToDashboardGalleryVerses(event);
   };
 
   const handleDashboardGalleryDelete = async (verse: Verse) => {
@@ -370,7 +475,9 @@ export default function App() {
 
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences);
+      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+        force: true,
+      });
     }
   };
 
@@ -414,7 +521,9 @@ export default function App() {
       return;
     }
 
-    await refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences);
+    await refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+      force: true,
+    });
 
     dailyGoal.ensureSessionForToday();
     const preferredTargetVerseId = dailyGoal.getNextTargetVerseId();
@@ -486,7 +595,9 @@ export default function App() {
     setCurrentPage("dashboard");
     if (telegramId && trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
+      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+        force: true,
+      });
     }
     toast.success("Тренировка завершена!", {
       description: "Отличная работа! Ваш прогресс сохранён.",
@@ -520,7 +631,9 @@ export default function App() {
     }
     const result = dailyGoal.applyProgressEvent(event);
     if (telegramId && trainingBatchPreferences) {
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
+      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+        force: true,
+      });
     }
     if (result.completedNow) {
       void syncDailyGoalCompletionToServer();
@@ -533,6 +646,14 @@ export default function App() {
     setDashboardGalleryVerses([]);
     setDashboardGalleryAutoStartTraining(false);
     void handleStartTraining({ autoStartInGallery: true });
+  };
+
+  const handleVerseListMutationCommitted = () => {
+    if (!telegramId || !trainingBatchPreferences) return;
+    void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
+    void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+      force: true,
+    });
   };
 
   const handleSaveTrainingBatchPreferences = async () => {
@@ -565,8 +686,9 @@ export default function App() {
     externalVerseId: string;
     reference: string;
     tags: string[];
-  }) => {
+  }): Promise<void> => {
     const telegramId = localStorage.getItem("telegramId") ?? "";
+    let addedSuccessfully = false;
 
     try {
       await UserVersesService.postApiUsersVerses(telegramId, {
@@ -580,6 +702,8 @@ export default function App() {
       // Обновляем данные пользователя после добавления стиха
       const updatedUser = await UsersService.getApiUsers(telegramId);
       setUser(updatedUser);
+      setVerseListExternalSyncVersion((prev) => prev + 1);
+      addedSuccessfully = true;
 
       toast.success("Стих успешно добавлен", {
         description: `${verse.reference} добавлен в ваш список стихов.`,
@@ -588,14 +712,15 @@ export default function App() {
       const errorMessage = (err as ApiError)?.body?.error as string;
       console.error("Не удалось добавить стих:", errorMessage);
       toast.error(errorMessage ?? "Не удалось добавить стих");
+      throw err;
     }
 
-    if (telegramId && trainingBatchPreferences) {
+    if (addedSuccessfully && telegramId && trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
+      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+        force: true,
+      });
     }
-
-    return verse;
   };
 
   const handleStartTrainingFromVerse = async (
@@ -610,7 +735,9 @@ export default function App() {
 
     try {
       if (trainingBatchPreferences) {
-        await refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
+        await refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+          force: true,
+        });
       }
       const decision = dailyGoal.decideStartFromVerse(String(verseId));
       if (decision.kind === "redirect") {
@@ -690,7 +817,7 @@ export default function App() {
       return;
     }
     void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
-  }, [telegramId, trainingBatchPreferences, dailyGoalVersePool, dailyGoal.session?.dayKey]);
+  }, [telegramId, trainingBatchPreferences]);
 
   const syncDailyGoalCompletionToServer = async () => {
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
@@ -757,6 +884,8 @@ export default function App() {
               reopenGalleryVerseId={!isTraining ? returnToGalleryContext?.verseId ?? null : null}
               reopenGalleryStatusFilter={!isTraining ? returnToGalleryContext?.filter ?? null : null}
               onReopenGalleryHandled={() => setReturnToGalleryContext(null)}
+              verseListExternalSyncVersion={verseListExternalSyncVersion}
+              onVerseMutationCommitted={handleVerseListMutationCommitted}
               dailyGoalReminder={verseListDailyGoalReminder}
               dailyGoalGalleryContext={dailyGoal.galleryContext}
               onBeforeStartTrainingFromGalleryVerse={(verse) =>
@@ -797,6 +926,7 @@ export default function App() {
           autoStartTrainingOnOpen={dashboardGalleryAutoStartTraining}
           onClose={handleDashboardGalleryClose}
           onStatusChange={handleDashboardGalleryStatusChange}
+          onVersePatched={handleDashboardGalleryVersePatched}
           onDelete={handleDashboardGalleryDelete}
           dailyGoalContext={dailyGoal.galleryContext ?? undefined}
           onBeforeStartTrainingFromGalleryVerse={(verse) =>

@@ -30,6 +30,8 @@ interface VerseListProps {
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
+  verseListExternalSyncVersion?: number;
+  onVerseMutationCommitted?: () => void;
   dailyGoalReminder?: DailyGoalVerseListReminder;
   dailyGoalGalleryContext?: DailyGoalGalleryContext | null;
   onBeforeStartTrainingFromGalleryVerse?:
@@ -45,6 +47,8 @@ export function VerseList({
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
+  verseListExternalSyncVersion,
+  onVerseMutationCommitted,
   dailyGoalReminder,
   dailyGoalGalleryContext = null,
   onBeforeStartTrainingFromGalleryVerse,
@@ -57,6 +61,8 @@ export function VerseList({
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
+    verseListExternalSyncVersion,
+    onVerseMutationCommitted,
   });
 
   const reveal = vm.view.getRevealProps;
@@ -235,6 +241,7 @@ export function VerseList({
             initialIndex={vm.gallery.galleryIndex}
             onClose={vm.gallery.onClose}
             onStatusChange={vm.gallery.onStatusChange}
+            onVersePatched={vm.gallery.onVersePatched}
             onDelete={vm.gallery.onDelete}
             dailyGoalContext={dailyGoalGalleryContext ?? undefined}
             onBeforeStartTrainingFromGalleryVerse={onBeforeStartTrainingFromGalleryVerse}

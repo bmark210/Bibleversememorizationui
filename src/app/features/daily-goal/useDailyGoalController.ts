@@ -14,6 +14,7 @@ import type {
   DailyGoalUiState,
 } from './types';
 import { buildDailyGoalPlan, getVerseId, type DailyGoalVerseSource } from './planner';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 import {
   getLocalDayKey,
   readDailyGoalOnboardingSeen,
@@ -504,6 +505,19 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       }
       if (!targetKind) return { completedNow: false };
 
+      // Daily goal progress is intentionally stricter than generic training progress:
+      // - learning counts only after masteryLevel becomes > 7
+      // - review counts only after completing "typing first letters" mode
+      if (targetKind === 'new') {
+        if (!(Number(event.after.masteryLevel ?? 0) > 7)) {
+          return { completedNow: false };
+        }
+      } else {
+        if (Number(event.trainingModeId ?? 0) !== TrainingModeId.FirstLettersTyping) {
+          return { completedNow: false };
+        }
+      }
+
       const completedNew = toUniqueSet(current.progress.completedVerseIds.new);
       const completedReview = toUniqueSet(current.progress.completedVerseIds.review);
       const skippedNew = toUniqueSet(current.progress.skippedVerseIds?.new);
@@ -742,7 +756,9 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
 
   const reminder = useMemo<DailyGoalReminderModel | null>(() => {
     if (ui.phase !== 'learning' && ui.phase !== 'review') return null;
-    const progressLabel = `Изучение ${ui.progressCounts.newDone}/${ui.progressCounts.newTotal} · Повторение ${ui.progressCounts.reviewDone}/${ui.progressCounts.reviewTotal}`;
+    const progressLabel = ui.phaseStates.review.enabled
+      ? `Изучение ${ui.progressCounts.newDone}/${ui.progressCounts.newTotal} · Повторение ${ui.progressCounts.reviewDone}/${ui.progressCounts.reviewTotal}`
+      : `Изучение ${ui.progressCounts.newDone}/${ui.progressCounts.newTotal}`;
     return {
       visible: true,
       phase: ui.effectiveResumeMode ?? ui.phase,

@@ -229,16 +229,23 @@ export function Dashboard({
             100
         )
       : 0;
-  const dailyGoalPhaseLabel =
-    dailyGoal.ui.phase === 'learning'
-      ? 'Этап 1: Изучение'
-      : dailyGoal.ui.phase === 'review'
-        ? 'Этап 2: Повторение'
-        : dailyGoal.ui.phase === 'completed'
-          ? 'Цель выполнена'
-          : 'Цель на сегодня';
+  // const dailyGoalPhaseLabel =
+  //   dailyGoal.ui.phase === 'learning'
+  //     ? 'Этап 1: Изучение'
+  //     : dailyGoal.ui.phase === 'review'
+  //       ? 'Этап 2: Повторение'
+  //       : dailyGoal.ui.phase === 'completed'
+  //         ? 'Цель выполнена'
+  //         : 'Цель на сегодня';
   const dailyGoalActionLabel = dailyGoal.ui.isActive ? 'Продолжить цель' : 'Начать ежедневную цель';
   const dailyGoalActionHandler = dailyGoal.ui.isActive ? onResumeDailyGoal : onStartDailyGoal;
+  const showDailyGoalReviewStage = Boolean(dailyGoal.ui.phaseStates.review.enabled);
+  const dailyGoalRequestedLabel = showDailyGoalReviewStage
+    ? `Запрошено: ${dailyGoal.requestedCounts.new} в изучении · ${dailyGoal.requestedCounts.review} повторений`
+    : `Запрошено: ${dailyGoal.requestedCounts.new} в изучении`;
+  const dailyGoalAvailableLabel = showDailyGoalReviewStage
+    ? `Доступно сейчас: ${dailyGoal.availableCounts.new} в изучении · ${dailyGoal.availableCounts.review} повторений`
+    : `Доступно сейчас: ${dailyGoal.availableCounts.new} в изучении`;
 
   return (
     <motion.div
@@ -287,17 +294,17 @@ export function Dashboard({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <Badge className="rounded-full px-3 py-1">Ежедневная цель</Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                  {/* <Badge variant="outline" className="rounded-full px-3 py-1">
                     {dailyGoalPhaseLabel}
-                  </Badge>
-                  {dailyGoal.onboardingPending && (
+                  </Badge> */}
+                  {/* {dailyGoal.onboardingPending && (
                     <Badge
                       variant="outline"
                       className="rounded-full px-3 py-1 border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300"
                     >
                       Новый сценарий
                     </Badge>
-                  )}
+                  )} */}
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold">План на сегодня</h2>
                 <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
@@ -314,40 +321,79 @@ export function Dashboard({
                           : 'Идём по шагам: сначала стихи в изучении, затем повторение.'}
                 </p>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right min-w-[150px]">
+              {/* <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right min-w-[150px]">
                 <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   Прогресс цели
                 </div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums">{dailyGoalProgressPercent}%</div>
-              </div>
+              </div> */}
             </div>
 
             {!dailyGoal.needsFirstVerse && (
-              <div className="mt-4 rounded-2xl border border-border/60 bg-background/55 p-4 space-y-3">
+              <div className="mt-4 rounded-2xl border border-border/60 bg-background/55 p-4 sm:p-5 space-y-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm font-medium">Выполнение по этапам</div>
-                  <div className="text-xs text-muted-foreground">
-                    Запрошено: {dailyGoal.requestedCounts.new} в изучении · {dailyGoal.requestedCounts.review} повторений
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Выполнение цели</div>
+                    {/* <div className="mt-1 text-xs text-muted-foreground">{dailyGoalRequestedLabel}</div>
+                    <div className="text-xs text-muted-foreground">{dailyGoalAvailableLabel}</div> */}
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-right">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Прогресс
+                    </div>
+                    {/* <div className="mt-1 text-lg font-semibold tabular-nums">{dailyGoalProgressPercent}%</div> */}
                   </div>
                 </div>
                 <Progress value={dailyGoalProgressPercent} className="h-2.5" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/80">
-                      Изучение
+                {/* {dailyGoal.reviewStageWillBeSkipped && !dailyGoal.needsLearningVersesForGoal ? (
+                  <div className="rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                    Этап повторения сегодня пропущен: сейчас нет карточек для повторения.
+                  </div>
+                ) : null} */}
+                <div
+                  className={`grid gap-3 text-sm ${showDailyGoalReviewStage ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}
+                >
+                  <div
+                    className={
+                      dailyGoal.ui.phaseStates.learning.completed
+                        ? 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5'
+                        : 'rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2.5'
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/80">
+                        Изучение
+                      </div>
+                      <div className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
+                        В плане: {dailyGoal.ui.phaseStates.learning.total}
+                      </div>
                     </div>
-                    <div className="mt-1 font-semibold tabular-nums">
+                    <div className="mt-1.5 font-semibold tabular-nums">
                       {dailyGoal.ui.progressCounts.newDone}/{dailyGoal.ui.progressCounts.newTotal}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-violet-700/80 dark:text-violet-300/80">
-                      Повторение
+
+                  {showDailyGoalReviewStage ? (
+                    <div
+                      className={
+                        dailyGoal.ui.phaseStates.review.completed
+                          ? 'rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2.5'
+                          : 'rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2.5'
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-violet-700/80 dark:text-violet-300/80">
+                          Повторение
+                        </div>
+                        <div className="text-[11px] text-violet-700/80 dark:text-violet-300/80">
+                          В плане: {dailyGoal.ui.phaseStates.review.total}
+                        </div>
+                      </div>
+                      <div className="mt-1.5 font-semibold tabular-nums">
+                        {dailyGoal.ui.progressCounts.reviewDone}/{dailyGoal.ui.progressCounts.reviewTotal}
+                      </div>
                     </div>
-                    <div className="mt-1 font-semibold tabular-nums">
-                      {dailyGoal.ui.progressCounts.reviewDone}/{dailyGoal.ui.progressCounts.reviewTotal}
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
                 {dailyGoal.nextTargetReference && !dailyGoal.ui.isCompleted && !dailyGoal.ui.isEmpty ? (
                   <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/75 px-3 py-2 text-sm">

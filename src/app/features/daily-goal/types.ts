@@ -160,6 +160,7 @@ export interface DailyGoalProgressEvent {
   targetKindHint: DailyGoalTargetKind | null;
   saved: boolean;
   rating?: number;
+  trainingModeId?: number | null;
   before: {
     status: string;
     masteryLevel: number;

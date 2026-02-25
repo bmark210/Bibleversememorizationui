@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
@@ -23,12 +23,15 @@ import type {
   VerseListLoadRange,
   VerseListSectionConfig,
 } from '../types';
+import type { VersePatchEvent } from '@/app/types/verseSync';
 
 type UseVerseListControllerParams = {
   onAddVerse: () => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
+  verseListExternalSyncVersion?: number;
+  onVerseMutationCommitted?: () => void;
 };
 
 export function useVerseListController({
@@ -36,6 +39,8 @@ export function useVerseListController({
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
+  verseListExternalSyncVersion,
+  onVerseMutationCommitted,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>((event, payload) => {
     if (process.env.NODE_ENV === 'production') return;
@@ -49,6 +54,9 @@ export function useVerseListController({
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'all');
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const lastHandledExternalSyncVersionRef = useRef<number | null>(
+    typeof verseListExternalSyncVersion === 'number' ? verseListExternalSyncVersion : null
+  );
 
   const { telegramId } = useTelegramId();
 
@@ -99,6 +107,8 @@ export function useVerseListController({
     setTotalCount: pagination.setTotalCount,
     setGalleryIndex,
     setAnnouncement,
+    applyVersePatch: pagination.applyVersePatch,
+    onVerseMutationCommitted,
   });
 
   useEffect(() => {
@@ -108,6 +118,20 @@ export function useVerseListController({
     }
     void pagination.resetAndFetchFirstPage(telegramId, statusFilter);
   }, [telegramId, statusFilter, pagination.clearPaginationState, pagination.resetAndFetchFirstPage]);
+
+  useEffect(() => {
+    if (verseListExternalSyncVersion == null) return;
+    if (lastHandledExternalSyncVersionRef.current === verseListExternalSyncVersion) return;
+    lastHandledExternalSyncVersionRef.current = verseListExternalSyncVersion;
+    if (!telegramId) return;
+    if (!pagination.hasFetchedVersesOnce) return;
+    void pagination.refetchCurrentListFromExternalSync();
+  }, [
+    telegramId,
+    pagination.hasFetchedVersesOnce,
+    pagination.refetchCurrentListFromExternalSync,
+    verseListExternalSyncVersion,
+  ]);
 
   useEffect(() => {
     if (!reopenGalleryStatusFilter) return;
@@ -461,6 +485,7 @@ export function useVerseListController({
       galleryIndex,
       onClose: () => setGalleryIndex(null),
       onStatusChange: actions.handleStatusChange,
+      onVersePatched: (event: VersePatchEvent) => actions.applyVersePatchedFromGallery(event),
       onDelete: actions.handleDeleteVerse,
       onRequestMorePreviewVerses: () => pagination.fetchNextPage({ source: 'gallery' }),
     },

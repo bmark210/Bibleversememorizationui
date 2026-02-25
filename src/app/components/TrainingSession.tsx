@@ -695,6 +695,7 @@ export function TrainingSession({
           targetKindHint: null,
           saved: true,
           rating,
+          trainingModeId: step.modeId,
           before: {
             status: String(baseVerse.status),
             masteryLevel: Number(baseVerse.rawMasteryLevel ?? 0),

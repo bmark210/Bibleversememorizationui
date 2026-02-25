@@ -4,6 +4,8 @@ import { UserVersesService } from '@/api/services/UserVersesService';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
+import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
+import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -19,6 +21,18 @@ type UseVerseActionsParams = {
   setTotalCount: React.Dispatch<React.SetStateAction<number>>;
   setGalleryIndex: React.Dispatch<React.SetStateAction<number | null>>;
   setAnnouncement: React.Dispatch<React.SetStateAction<string>>;
+  applyVersePatch: (
+    event: VersePatchEvent,
+    options: {
+      statusFilter: VerseListStatusFilter;
+      matchesListFilter: (
+        verse: Pick<Verse, 'status' | 'masteryLevel'>,
+        filter: VerseListStatusFilter
+      ) => boolean;
+      adjustTotalCountOnFilterExit?: boolean;
+    }
+  ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
+  onVerseMutationCommitted?: () => void;
 };
 
 export function useVerseActions({
@@ -30,6 +44,8 @@ export function useVerseActions({
   setTotalCount,
   setGalleryIndex,
   setAnnouncement,
+  applyVersePatch,
+  onVerseMutationCommitted,
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
@@ -93,34 +109,32 @@ export function useVerseActions({
   };
 
   const patchVerseStatusOnServer = useCallback(
-    async (verse: Verse, status: VerseStatus) => {
+    async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
       if (!telegramId) throw new Error('No telegramId');
-      await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, { status });
+      const response = await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, { status });
+      const patch = pickMutableVersePatchFromApiResponse(response);
+      return patch ?? { status };
     },
     [telegramId]
   );
 
   const handleStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
-      await patchVerseStatusOnServer(verse, status);
-      let removedFromCurrentFilter = false;
-      setVerses((prev) =>
-        prev
-          .map((v) => {
-            if (!isSameVerse(v, verse)) return v;
-            return { ...v, status };
-          })
-          .filter((v) => {
-            const keep = matchesListFilter(v, statusFilter);
-            if (!keep && isSameVerse(v, verse)) removedFromCurrentFilter = true;
-            return keep;
-          })
+      const patch = await patchVerseStatusOnServer(verse, status);
+      applyVersePatch(
+        { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
+        { statusFilter, matchesListFilter }
       );
-      if (removedFromCurrentFilter) {
-        setTotalCount((prev) => Math.max(0, prev - 1));
-      }
+      onVerseMutationCommitted?.();
+      return patch;
     },
-    [isSameVerse, matchesListFilter, patchVerseStatusOnServer, setTotalCount, setVerses, statusFilter]
+    [
+      applyVersePatch,
+      matchesListFilter,
+      onVerseMutationCommitted,
+      patchVerseStatusOnServer,
+      statusFilter,
+    ]
   );
 
   const updateVerseStatus = useCallback(
@@ -135,24 +149,13 @@ export function useVerseActions({
       if (prevStatus === nextStatus) return;
 
       markVersePending(verse, true);
-      let removedFromCurrentFilter = false;
-      setVerses((prev) => {
-        const next = prev
-          .map((v) => (isSameVerse(v, verse) ? { ...v, status: nextStatus } : v))
-          .filter((v) => {
-            const keep = matchesListFilter(v, statusFilter);
-            if (!keep && isSameVerse(v, verse)) removedFromCurrentFilter = true;
-            return keep;
-          });
-        return next;
-      });
-
-      if (removedFromCurrentFilter) {
-        setTotalCount((prev) => Math.max(0, prev - 1));
-      }
-
       try {
-        await patchVerseStatusOnServer(verse, nextStatus);
+        const patch = await patchVerseStatusOnServer(verse, nextStatus);
+        applyVersePatch(
+          { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
+          { statusFilter, matchesListFilter }
+        );
+        onVerseMutationCommitted?.();
         haptic('success');
         const message = getStatusSuccessMessage(prevStatus, nextStatus);
         pushToast(message, 'success');
@@ -180,7 +183,16 @@ export function useVerseActions({
       patchVerseStatusOnServer,
       setAnnouncement,
       resetAndFetchFirstPage,
+      applyVersePatch,
     ]
+  );
+
+  const applyVersePatchedFromGallery = useCallback(
+    (event: VersePatchEvent) => {
+      applyVersePatch(event, { statusFilter, matchesListFilter });
+      onVerseMutationCommitted?.();
+    },
+    [applyVersePatch, matchesListFilter, onVerseMutationCommitted, statusFilter]
   );
 
   const handleDeleteVerse = useCallback(
@@ -199,8 +211,9 @@ export function useVerseActions({
         });
         return updated;
       });
+      onVerseMutationCommitted?.();
     },
-    [telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex]
+    [telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
   );
 
   const confirmDeleteVerse = useCallback((verse: Verse) => {
@@ -251,6 +264,7 @@ export function useVerseActions({
     isSameVerse,
     markVersePending,
     handleStatusChange,
+    applyVersePatchedFromGallery,
     updateVerseStatus,
     handleDeleteVerse,
     confirmDeleteVerse,

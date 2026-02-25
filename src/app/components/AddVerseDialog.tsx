@@ -63,7 +63,7 @@ interface AddVerseDialogProps {
     externalVerseId: string;
     reference: string;
     tags: string[];
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
@@ -75,6 +75,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const [tags, setTags] = useState("");
   const [mode, setMode] = useState<"search" | "manual">("search");
   const [showTags, setShowTags] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Поля для загрузки стиха
   const [selectedBook, setSelectedBook] = useState<string>("");
@@ -292,35 +293,41 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     setSearchError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!reference || !selectedBook || !chapter || !verse) return;
+    if (!reference || !selectedBook || !chapter || !verse || submitting) return;
 
     const externalVerseId = `${selectedBook}-${chapter}-${verse}`;
+    setSubmitting(true);
+    try {
+      await onAdd({
+        externalVerseId,
+        reference,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      });
 
-    onAdd({
-      externalVerseId,
-      reference,
-      tags: tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-    });
-
-    // Reset form
-    setReference("");
-    setText("");
-    setTranslation(DEFAULT_BOLLS_TRANSLATION);
-    setTags("");
-    setSelectedBook("");
-    setChapter("");
-    setVerse("");
-    setError(null);
-    setSearchQuery("");
-    setSearchResults([]);
-    setSearchError(null);
-    onClose();
+      // Reset form only after successful add.
+      setReference("");
+      setText("");
+      setTranslation(DEFAULT_BOLLS_TRANSLATION);
+      setTags("");
+      setSelectedBook("");
+      setChapter("");
+      setVerse("");
+      setError(null);
+      setSearchQuery("");
+      setSearchResults([]);
+      setSearchError(null);
+      onClose();
+    } catch {
+      // Error toast is shown by parent; keep form open for quick retry.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const bibleBooks = getAllBibleBooks();
@@ -582,10 +589,13 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
           </div>
 
           <DialogFooter className="flex flex-row md:flex-col justify-between gap-2 w-full py-2 bg-background">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Отмена
             </Button>
-            <Button type="submit">Добавить стих</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {submitting ? "Добавляем..." : "Добавить стих"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

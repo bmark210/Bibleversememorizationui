@@ -34,6 +34,10 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { cn } from "./ui/utils";
 import { TrainingSubsetSelect } from "./verse-gallery/TrainingSubsetSelect";
+import {
+  TrainingCompletionToastCard,
+  type TrainingCompletionToastCardPayload,
+} from "./verse-gallery/TrainingCompletionToastCard";
 import { Verse } from "@/app/App";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
@@ -70,13 +74,15 @@ import type {
   DailyGoalResumeMode,
   DailyGoalTrainingStartDecision,
 } from "@/app/features/daily-goal/types";
+import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
 
 type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
   autoStartTrainingOnOpen?: boolean;
   onClose: () => void;
-  onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
+  onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
+  onVersePatched?: (event: VersePatchEvent) => void;
   onDelete: (verse: Verse) => Promise<void>;
   previewTotalCount?: number;
   previewHasMore?: boolean;
@@ -102,12 +108,10 @@ type GalleryStatusAction = {
 };
 
 type VersePreviewOverride = Partial<
-  Pick<Verse, "status" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt">
->;
-type TrainingCompletionOverlay = {
-  key: number;
-  tone: "learning" | "review";
-  message: string;
+  Pick<Verse, "status" | "masteryLevel" | "repetitions">
+> & {
+  lastReviewedAt?: string | Date | null;
+  nextReviewAt?: string | Date | null;
 };
 
 const MAX_MASTERY_LEVEL = TRAINING_STAGE_MASTERY_MAX;
@@ -310,35 +314,78 @@ function deriveTrainingDisplayStatus(params: {
   return VerseStatus.LEARNING;
 }
 
-function getTrainingCompletionOutcome(params: {
+function getTrainingCompletionToastPayload(params: {
   wasReviewExercise: boolean;
   becameLearned: boolean;
   finalStatus: DisplayVerseStatus;
-}): { tone: "learning" | "review"; message: string } | null {
-  const { wasReviewExercise, becameLearned, finalStatus } = params;
+  reference: string;
+}): TrainingCompletionToastCardPayload | null {
+  const { wasReviewExercise, becameLearned, finalStatus, reference } = params;
 
   if (wasReviewExercise) {
     if (finalStatus === "MASTERED") {
-      return { tone: "review", message: "Стих выучен!" };
+      return {
+        id: Date.now(),
+        reference,
+        status: "MASTERED",
+        title: "Стих выучен полностью",
+        description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
+      };
     }
     if (finalStatus === "WAITING") {
-      return { tone: "review", message: "Стих повторён. Ожидание следующего повтора." };
+      return {
+        id: Date.now(),
+        reference,
+        status: "WAITING",
+        title: "Переведён в ожидание повторения",
+        description: "Следующее повторение станет доступно завтра.",
+      };
     }
     if (finalStatus === "REVIEW") {
-      return { tone: "review", message: "Стих повторён!" };
+      return {
+        id: Date.now(),
+        reference,
+        status: "REVIEW",
+        title: "Стих повторён",
+        description: "Повторение сохранено. Можно продолжать тренировку.",
+      };
     }
-    return { tone: "review", message: "Стих повторён!" };
+    return {
+      id: Date.now(),
+      reference,
+      status: finalStatus,
+      title: "Стих повторён",
+      description: "Повторение сохранено. Можно продолжать тренировку.",
+    };
   }
 
   if (!becameLearned) return null;
 
   if (finalStatus === "MASTERED") {
-    return { tone: "learning", message: "Стих выучен!" };
+    return {
+      id: Date.now(),
+      reference,
+      status: "MASTERED",
+      title: "Стих выучен полностью",
+      description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
+    };
   }
   if (finalStatus === "WAITING") {
-    return { tone: "learning", message: "Стих изучен. Повторение позже." };
+    return {
+      id: Date.now(),
+      reference,
+      status: "WAITING",
+      title: "Переведён в ожидание повторения",
+      description: "Можно будет повторить завтра.",
+    };
   }
-  return { tone: "learning", message: "Стих изучен!" };
+  return {
+    id: Date.now(),
+    reference,
+    status: "LEARNING",
+    title: "Стих изучен",
+    description: "Этап изучения сохранён. Переходите к следующему стиху.",
+  };
 }
 
 function getTelegramId(): string | null {
@@ -397,6 +444,16 @@ function sortByCreatedAtDesc(list: Verse[]) {
 function mergePreviewOverrides(verse: Verse, overrides: Map<string, VersePreviewOverride>) {
   const patch = overrides.get(getVerseIdentity(verse));
   return patch ? ({ ...verse, ...patch } as Verse) : verse;
+}
+
+function toPreviewOverrideFromVersePatch(patch: VerseMutablePatch): VersePreviewOverride {
+  const next: VersePreviewOverride = {};
+  if (patch.status !== undefined) next.status = patch.status;
+  if (patch.masteryLevel !== undefined) next.masteryLevel = patch.masteryLevel ?? 0;
+  if (patch.repetitions !== undefined) next.repetitions = patch.repetitions ?? 0;
+  if (patch.lastReviewedAt !== undefined) next.lastReviewedAt = patch.lastReviewedAt ?? null;
+  if (patch.nextReviewAt !== undefined) next.nextReviewAt = patch.nextReviewAt ?? null;
+  return next;
 }
 
 function getDailyGoalPhaseLabel(phase: DailyGoalGalleryContext['phase']) {
@@ -681,7 +738,6 @@ type UnifiedViewportProps = {
   onTrainingSwipeStep: (step: 1 | -1) => void;
   onTrainingRate: (rating: Rating) => void | Promise<void>;
   dailyGoalGuideActive?: boolean;
-  trainingCompletionOverlay?: TrainingCompletionOverlay | null;
 };
 
 function VerseGalleryUnifiedCardViewport({
@@ -699,7 +755,6 @@ function VerseGalleryUnifiedCardViewport({
   onTrainingSwipeStep,
   onTrainingRate,
   dailyGoalGuideActive = false,
-  trainingCompletionOverlay = null,
 }: UnifiedViewportProps) {
   const isPreview = panelMode === "preview";
   const preview = isPreview ? previewVerse : null;
@@ -949,58 +1004,12 @@ function VerseGalleryUnifiedCardViewport({
             </div>
           ) : trainingLegacyVerse && trainingModeId ? (
             <div className="relative h-full">
-              {trainingCompletionOverlay ? (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`training-completion-${trainingCompletionOverlay.key}`}
-                    initial={{ opacity: 0, scale: 0.985, y: 6 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.99, y: -4 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className={cn(
-                      "absolute inset-0 grid place-items-center rounded-2xl border backdrop-blur-sm px-4 text-center",
-                      trainingCompletionOverlay.tone === "learning"
-                        ? "border-emerald-500/25 bg-emerald-500/10"
-                        : "border-violet-500/25 bg-violet-500/10"
-                    )}
-                    aria-live="polite"
-                  >
-                    <div className="space-y-3">
-                      <div
-                        className={cn(
-                          "mx-auto grid h-12 w-12 place-items-center rounded-2xl border",
-                          trainingCompletionOverlay.tone === "learning"
-                            ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300"
-                            : "border-violet-500/30 bg-violet-500/12 text-violet-600 dark:text-violet-300"
-                        )}
-                      >
-                        {trainingCompletionOverlay.tone === "learning" ? (
-                          <CheckCircle2 className="h-6 w-6" />
-                        ) : (
-                          <Repeat className="h-6 w-6" />
-                        )}
-                      </div>
-                      <div
-                        className={cn(
-                          "text-lg sm:text-xl font-semibold",
-                          trainingCompletionOverlay.tone === "learning"
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : "text-violet-700 dark:text-violet-300"
-                        )}
-                      >
-                        {trainingCompletionOverlay.message}
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <TrainingModeRenderer
-                  ref={trainingRendererRef as unknown as RefObject<TrainingModeRendererHandle>}
-                  renderer={MODE_PIPELINE[trainingModeId].renderer}
-                  verse={trainingLegacyVerse}
-                  onRate={onTrainingRate}
-                />
-              )}
+              <TrainingModeRenderer
+                ref={trainingRendererRef as unknown as RefObject<TrainingModeRendererHandle>}
+                renderer={MODE_PIPELINE[trainingModeId].renderer}
+                verse={trainingLegacyVerse}
+                onRate={onTrainingRate}
+              />
             </div>
           ) : null
         }
@@ -1136,6 +1145,7 @@ export function VerseGallery({
   autoStartTrainingOnOpen = false,
   onClose,
   onStatusChange,
+  onVersePatched,
   onDelete,
   previewTotalCount = verses.length,
   previewHasMore = false,
@@ -1152,7 +1162,8 @@ export function VerseGallery({
   const [panelMode, setPanelMode] = useState<PanelMode>("preview");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const [trainingCompletionOverlay, setTrainingCompletionOverlay] = useState<TrainingCompletionOverlay | null>(null);
+  const [trainingCompletionToast, setTrainingCompletionToast] =
+    useState<TrainingCompletionToastCardPayload | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [previewOverrides, setPreviewOverrides] = useState<Map<string, VersePreviewOverride>>(() => new Map());
 
@@ -1166,7 +1177,6 @@ export function VerseGallery({
   const autoStartedTrainingRef = useRef(false);
   const hasUserChosenTrainingSubsetRef = useRef(false);
   const hasAutoAppliedDailyGoalSubsetRef = useRef(false);
-  const trainingCompletionOverlayRef = useRef<TrainingCompletionOverlay | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -1242,9 +1252,6 @@ export function VerseGallery({
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
   const displayVerse = panelMode === "training" && trainingActiveVerse ? trainingActiveVerse.raw : previewActiveVerse;
   const isTrainingAutoStartOverlayVisible = isAutoStartingTraining && panelMode === "preview";
-  useEffect(() => {
-    trainingCompletionOverlayRef.current = trainingCompletionOverlay;
-  }, [trainingCompletionOverlay]);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -1331,7 +1338,7 @@ export function VerseGallery({
       setIsAutoStartingTraining(false);
       return;
     }
-    setTrainingCompletionOverlay(null);
+    setTrainingCompletionToast(null);
   }, [panelMode]);
 
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
@@ -1344,12 +1351,13 @@ export function VerseGallery({
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
-  const showTrainingCompletionOverlay = useCallback(
-    (message: string, tone: "learning" | "review") => {
-      setTrainingCompletionOverlay({ key: Date.now(), tone, message });
-    },
-    []
-  );
+  const showTrainingCompletionToast = useCallback((payload: TrainingCompletionToastCardPayload) => {
+    setTrainingCompletionToast(payload);
+  }, []);
+
+  const dismissTrainingCompletionToast = useCallback(() => {
+    setTrainingCompletionToast(null);
+  }, []);
 
   const applyUserTrainingSubsetFilter = useCallback(
     (nextFilter: TrainingSubsetFilter) => {
@@ -1472,17 +1480,12 @@ export function VerseGallery({
     haptic("medium");
   }, [panelMode, trainingActiveVerse, trainingEligibleIndices, trainingIndex, trainingVerses]);
 
-  const dismissCompletedTrainingVerse = useCallback((delta: -1 | 1) => {
+  const removeCompletedTrainingVerseAndNavigate = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
     if (!trainingActiveVerse) return;
-    if (!trainingCompletionOverlayRef.current) {
-      jumpToAdjacentTrainingVerse(delta);
-      return;
-    }
 
     const currentKey = trainingActiveVerse.key;
     const nextList = trainingVerses.filter((verse) => verse.key !== currentKey);
-    setTrainingCompletionOverlay(null);
 
     if (nextList.length === trainingVerses.length) {
       jumpToAdjacentTrainingVerse(delta);
@@ -1547,12 +1550,8 @@ export function VerseGallery({
   ]);
 
   const handleTrainingNavigationStep = useCallback((delta: -1 | 1) => {
-    if (trainingCompletionOverlayRef.current) {
-      dismissCompletedTrainingVerse(delta);
-      return;
-    }
     jumpToAdjacentTrainingVerse(delta);
-  }, [dismissCompletedTrainingVerse, jumpToAdjacentTrainingVerse]);
+  }, [jumpToAdjacentTrainingVerse]);
 
   const fetchLearningVersesForTraining = useCallback(async () => {
     const telegramId = getTelegramId();
@@ -1876,15 +1875,23 @@ export function VerseGallery({
         lastReviewedAt: persistedUpdated.lastReviewedAt ?? null,
         nextReviewAt: persistedUpdated.nextReviewAt ?? null,
       });
+      onVersePatched?.({
+        target: { id: current.raw.id, externalVerseId: current.externalVerseId },
+        patch: {
+          status: persistedUpdated.status,
+          masteryLevel: persistedUpdated.rawMasteryLevel,
+          repetitions: persistedUpdated.repetitions,
+          lastReviewedAt: persistedUpdated.lastReviewedAt?.toISOString() ?? null,
+          nextReviewAt: persistedUpdated.nextReviewAt?.toISOString() ?? null,
+        },
+      });
 
-      const completionOutcome = getTrainingCompletionOutcome({
+      const completionToast = getTrainingCompletionToastPayload({
         wasReviewExercise,
         becameLearned,
         finalStatus: persistedUpdated.status,
+        reference: persistedUpdated.raw.reference,
       });
-      if (completionOutcome) {
-        showTrainingCompletionOverlay(completionOutcome.message, completionOutcome.tone);
-      }
       onDailyGoalProgressEvent?.({
         source: 'verse-gallery',
         externalVerseId: persistedUpdated.externalVerseId,
@@ -1892,6 +1899,7 @@ export function VerseGallery({
         targetKindHint: getDailyGoalTargetKindHint(dailyGoalContext),
         saved: true,
         rating,
+        trainingModeId,
         before: {
           status: String(current.status),
           masteryLevel: Number(current.rawMasteryLevel ?? 0),
@@ -1906,6 +1914,10 @@ export function VerseGallery({
         },
         occurredAt: new Date().toISOString(),
       });
+      if (completionToast) {
+        showTrainingCompletionToast(completionToast);
+        removeCompletedTrainingVerseAndNavigate(1);
+      }
     } catch (error) {
       console.error("Failed to persist training progress", error);
       haptic("error");
@@ -1913,12 +1925,13 @@ export function VerseGallery({
     }
   }, [
     dailyGoalContext,
-    exitTrainingMode,
     onDailyGoalProgressEvent,
     panelMode,
+    onVersePatched,
+    removeCompletedTrainingVerseAndNavigate,
     setPreviewOverride,
     showFeedback,
-    showTrainingCompletionOverlay,
+    showTrainingCompletionToast,
     trainingIndex,
     trainingModeId,
     trainingSubsetFilter,
@@ -1970,7 +1983,10 @@ export function VerseGallery({
     try {
       setActionPending(true);
       setPreviewOverride(previewActiveVerse, { status: previewStatusAction.nextStatus });
-      await onStatusChange(previewActiveVerse, previewStatusAction.nextStatus);
+      const patch = await onStatusChange(previewActiveVerse, previewStatusAction.nextStatus);
+      if (patch) {
+        setPreviewOverride(previewActiveVerse, toPreviewOverrideFromVersePatch(patch));
+      }
       haptic("success");
       showFeedback(previewStatusAction.successMessage, "success");
     } catch {
@@ -2126,7 +2142,6 @@ export function VerseGallery({
                 onTrainingSwipeStep={handleTrainingNavigationStep}
                 onTrainingRate={handleTrainingRate}
                 dailyGoalGuideActive={dailyGoalGuideActive}
-                trainingCompletionOverlay={trainingCompletionOverlay}
               />
             </motion.div>
           </AnimatePresence>
@@ -2243,6 +2258,13 @@ export function VerseGallery({
       </div>
 
       {!isTrainingAutoStartOverlayVisible && <SwipeHint panelMode={panelMode} />}
+
+      <TrainingCompletionToastCard
+        toast={trainingCompletionToast}
+        onDismiss={dismissTrainingCompletionToast}
+        bottomOffset={Math.max(bottomInset, 10) + 84}
+        durationMs={10000}
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
