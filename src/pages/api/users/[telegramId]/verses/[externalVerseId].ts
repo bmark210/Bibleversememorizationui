@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
+import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
   WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
   WAITING_NEXT_REVIEW_DELAY_HOURS,
@@ -10,6 +11,10 @@ import {
   normalizeProgressValue,
   type UserVerseWithLegacyNullableProgress,
 } from "./verseCard.types";
+
+function clampMasteryForLearning(value: number): number {
+  return Math.max(1, Math.min(TRAINING_STAGE_MASTERY_MAX, Math.round(value)));
+}
 
 type UpdateVersePayload = {
   masteryLevel?: number;
@@ -78,10 +83,14 @@ async function handlePatch(
     const currentRepetitions = normalizeProgressValue(existingVerseWithStatus.repetitions);
     const requestedRepetitions =
       body.repetitions !== undefined ? normalizeProgressValue(body.repetitions) : currentRepetitions;
-    const requestedMasteryLevel =
+    const requestedMasteryLevelRaw =
       body.masteryLevel !== undefined
         ? normalizeProgressValue(body.masteryLevel)
         : currentMasteryLevel;
+    const requestedMasteryLevel =
+      currentBaseStatus === VerseStatus.LEARNING && body.masteryLevel !== undefined
+        ? clampMasteryForLearning(requestedMasteryLevelRaw)
+        : requestedMasteryLevelRaw;
     const requestedBaseStatus =
       body.status !== undefined ? normalizeBaseStatus(body.status) : currentBaseStatus;
     const isRepetitionsMutation =
@@ -117,9 +126,7 @@ async function handlePatch(
         },
       },
       data: {
-        ...(body.masteryLevel !== undefined
-          ? { masteryLevel: normalizeProgressValue(body.masteryLevel) }
-          : {}),
+        ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
         ...(body.repetitions !== undefined
           ? { repetitions: normalizeProgressValue(body.repetitions) }
           : {}),

@@ -47,6 +47,7 @@ import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
   TrainingModeId,
   TRAINING_MODE_SHIFT_BY_RATING,
+  applyMasteryDelta,
   chooseTrainingModeId,
   getTrainingModeByShiftInProgressOrder,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
@@ -1753,21 +1754,28 @@ export function VerseGallery({
 
     const wasReviewExercise = isTrainingReviewVerse(current);
     const rawMasteryBefore = current.rawMasteryLevel;
+    const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
+    const isLearningVerse = current.status === VerseStatus.LEARNING;
+    const { rawMasteryAfter, graduatesToReview } = applyMasteryDelta({
+      isLearningVerse,
+      rawMasteryBefore,
+      masteryDelta,
+    });
     const canUpdateRepetitions = current.status === "REVIEW";
     const shouldIncrementRepetitions =
       canUpdateRepetitions && shouldCountTrainingRepetition(rating);
     const nextRepetitions = current.repetitions + (shouldIncrementRepetitions ? 1 : 0);
-    const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + (MASTERY_DELTA_BY_RATING[rating] ?? 0)));
-    const stageMasteryBefore = current.stageMasteryLevel;
     const stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const now = new Date();
     const score = SCORE_BY_RATING[rating];
     const nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
-    const becameLearned = stageMasteryBefore < MAX_MASTERY_LEVEL && stageMasteryAfter >= MAX_MASTERY_LEVEL;
+    const becameLearned = graduatesToReview;
     const nextStatus =
       current.status === VerseStatus.STOPPED
         ? VerseStatus.STOPPED
-        : (rawMasteryAfter > 0 ? VerseStatus.LEARNING : VerseStatus.NEW);
+        : rawMasteryAfter > 0
+          ? (nextRepetitions >= 5 ? "MASTERED" : graduatesToReview ? "REVIEW" : VerseStatus.LEARNING)
+          : VerseStatus.NEW;
 
     const updated: TrainingVerseState = {
       ...current,

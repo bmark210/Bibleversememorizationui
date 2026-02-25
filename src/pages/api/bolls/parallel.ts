@@ -2,6 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 const BOLLS_PARALLEL_URL = "https://bolls.life/get-parallel-verses/";
 
+const BOLLS_PARALLEL_CACHE_TTL_MS = 5 * 60 * 1000; // 5m
+const bollsParallelCache = new Map<string, { expiresAt: number; data: unknown }>();
+
 type ParallelRequestBody = {
   translations?: string[];
   book: number;
@@ -17,6 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as ParallelRequestBody;
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
 
     if (
       !body ||
@@ -29,6 +33,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res
         .status(400)
         .json({ error: "translations, book, chapter и verses обязательны" });
+    }
+
+    const cacheKey = JSON.stringify({
+      translations: body.translations,
+      book: body.book,
+      chapter: body.chapter,
+      verses: body.verses,
+    });
+    const cached = bollsParallelCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.status(200).json(cached.data);
     }
 
     const response = await fetch(BOLLS_PARALLEL_URL, {
@@ -52,6 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const data = await response.json();
+    bollsParallelCache.set(cacheKey, {
+      expiresAt: Date.now() + BOLLS_PARALLEL_CACHE_TTL_MS,
+      data,
+    });
     return res.status(200).json(data);
   } catch (error) {
     console.error("Ошибка прокси парrallel Bolls:", error);

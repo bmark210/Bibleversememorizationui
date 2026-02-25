@@ -138,3 +138,26 @@ export function getRemainingTrainingModesCount(params: {
 
   return TRAINING_MODE_PROGRESS_ORDER.length - baseIndex;
 }
+
+/**
+ * Применяет дельту мастерства с соблюдением инвариантов:
+ * - LEARNING: rawMastery в [1, TRAINING_STAGE_MASTERY_MAX], переход в REVIEW только при достижении потолка.
+ * - Не-LEARNING: rawMastery >= 0 без верхнего ограничения.
+ */
+export function applyMasteryDelta(params: {
+  isLearningVerse: boolean;
+  rawMasteryBefore: number;
+  masteryDelta: number;
+}): { rawMasteryAfter: number; graduatesToReview: boolean } {
+  const { isLearningVerse, rawMasteryBefore, masteryDelta } = params;
+  const raw = Math.round(rawMasteryBefore + masteryDelta);
+
+  if (isLearningVerse) {
+    const rawMasteryAfter = clamp(raw, 1, TRAINING_STAGE_MASTERY_MAX);
+    const graduatesToReview = rawMasteryAfter >= TRAINING_STAGE_MASTERY_MAX;
+    return { rawMasteryAfter, graduatesToReview };
+  }
+
+  const rawMasteryAfter = Math.max(0, raw);
+  return { rawMasteryAfter, graduatesToReview: false };
+}

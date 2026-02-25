@@ -1,16 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
-import { TrainingSession } from "./components/TrainingSession";
-import { VerseList } from "./components/VerseList";
-import { VerseGallery } from "./components/VerseGallery";
-import { Collections } from "./components/Collections";
-import { Statistics } from "./components/Statistics";
-import { Settings } from "./components/Settings";
-import { AddVerseDialog } from "./components/AddVerseDialog";
 import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
@@ -45,6 +39,55 @@ import type {
   DailyGoalProgressEvent,
   DailyGoalVerseListReminder,
 } from "@/app/features/daily-goal/types";
+
+const VerseList = dynamic(
+  () => import("./components/VerseList").then((m) => m.VerseList),
+  {
+    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+  }
+);
+
+const Collections = dynamic(
+  () => import("./components/Collections").then((m) => m.Collections),
+  {
+    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+  }
+);
+
+const Statistics = dynamic(
+  () => import("./components/Statistics").then((m) => m.Statistics),
+  {
+    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+  }
+);
+
+const Settings = dynamic(
+  () => import("./components/Settings").then((m) => m.Settings),
+  {
+    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+  }
+);
+
+const AddVerseDialog = dynamic(
+  () => import("./components/AddVerseDialog").then((m) => m.AddVerseDialog),
+  {
+    loading: () => null,
+  }
+);
+
+const VerseGallery = dynamic(
+  () => import("./components/VerseGallery").then((m) => m.VerseGallery),
+  {
+    loading: () => <div className="fixed inset-0 z-50 bg-background" />,
+  }
+);
+
+const TrainingSession = dynamic(
+  () => import("./components/TrainingSession").then((m) => m.TrainingSession),
+  {
+    loading: () => <div className="min-h-screen bg-background" />,
+  }
+);
 
 export type Verse = UserVerse & {
   status: DisplayVerseStatus;

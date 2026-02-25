@@ -18,6 +18,7 @@ import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   TrainingModeId,
   TRAINING_MODE_SHIFT_BY_RATING,
+  applyMasteryDelta,
   chooseTrainingModeId,
   getRemainingTrainingModesCount,
   getTrainingModeByShiftInProgressOrder,
@@ -608,14 +609,19 @@ export function TrainingSession({
     const rawMasteryBefore = baseVerse.rawMasteryLevel;
     const masteryBefore = baseVerse.masteryLevel;
     const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
+    const isLearningVerse = baseVerse.status === VerseStatus.LEARNING;
+    const { rawMasteryAfter, graduatesToReview } = applyMasteryDelta({
+      isLearningVerse,
+      rawMasteryBefore,
+      masteryDelta,
+    });
+    const masteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const canUpdateRepetitions = baseVerse.status === 'REVIEW';
     const shouldIncrementRepetitions =
       canUpdateRepetitions && shouldCountTrainingRepetition(rating);
     const nextRepetitions = baseVerse.repetitions + (shouldIncrementRepetitions ? 1 : 0);
-    const rawMasteryAfter = Math.max(0, Math.round(rawMasteryBefore + masteryDelta));
-    const masteryAfter = toStageMasteryLevel(rawMasteryAfter);
     const passed = masteryDelta > 0;
-    const becameLearned = masteryBefore < TRAINING_STAGE_MASTERY_MAX && masteryAfter >= TRAINING_STAGE_MASTERY_MAX;
+    const becameLearned = graduatesToReview;
     const durationMs = Date.now() - step.startedAt;
     const now = new Date();
     const nextReviewAt = calcNextReviewAt(masteryAfter, score);
@@ -633,7 +639,7 @@ export function TrainingSession({
         : (rawMasteryAfter > 0
             ? (nextRepetitions >= 5
                 ? 'MASTERED'
-                : (rawMasteryAfter >= TRAINING_STAGE_MASTERY_MAX ? 'REVIEW' : VerseStatus.LEARNING))
+                : (graduatesToReview ? 'REVIEW' : VerseStatus.LEARNING))
             : VerseStatus.NEW),
     };
 

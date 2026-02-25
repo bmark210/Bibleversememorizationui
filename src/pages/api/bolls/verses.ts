@@ -2,6 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
 
+const BOLLS_VERSES_CACHE_TTL_MS = 5 * 60 * 1000; // 5m
+const bollsVersesCache = new Map<string, { expiresAt: number; data: unknown }>();
+
 type BatchVerseRequestItem = {
   translation?: string;
   book: number;
@@ -18,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as BatchVerseRequestItem[];
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
 
     if (!Array.isArray(body) || body.length === 0) {
       return res.status(400).json({ error: "Body must be a non-empty array" });
@@ -38,6 +42,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    const cacheKey = JSON.stringify(body);
+    const cached = bollsVersesCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.status(200).json(cached.data);
+    }
+
     const response = await fetch(BOLLS_BATCH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -54,6 +64,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const data = await response.json();
+    bollsVersesCache.set(cacheKey, {
+      expiresAt: Date.now() + BOLLS_VERSES_CACHE_TTL_MS,
+      data,
+    });
     return res.status(200).json(data);
   } catch (error) {
     console.error("Ошибка прокси Bolls get-verses:", error);

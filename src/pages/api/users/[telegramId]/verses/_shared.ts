@@ -15,6 +15,37 @@ import {
 const DEFAULT_BOLLS_TRANSLATION = "SYNOD";
 const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
 
+type CachedBollsChapter = {
+  expiresAt: number;
+  verses: Map<number, string>;
+};
+
+const BOLLS_CHAPTER_TEXT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+const bollsChapterTextCache = new Map<string, CachedBollsChapter>();
+
+function getCachedBollsChapter(key: string): CachedBollsChapter | null {
+  const cached = bollsChapterTextCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    bollsChapterTextCache.delete(key);
+    return null;
+  }
+  return cached;
+}
+
+function upsertCachedBollsVerse(key: string, verse: number, text: string) {
+  const now = Date.now();
+  const cached = getCachedBollsChapter(key);
+  if (cached) {
+    cached.verses.set(verse, text);
+    return;
+  }
+  bollsChapterTextCache.set(key, {
+    expiresAt: now + BOLLS_CHAPTER_TEXT_CACHE_TTL_MS,
+    verses: new Map([[verse, text]]),
+  });
+}
+
 type ParsedExternalVerseId = {
   book: number;
   chapter: number;
@@ -300,26 +331,49 @@ async function enrichUserVerses(
   const textsMap = new Map<string, Map<number, string>>();
   const tagsByVerseIdPromise = fetchTagsForVerses(verses.map((verse) => verse.externalVerseId));
 
-  if (groupedRequests.length > 0) {
+  // Дедупаем номера стихов внутри группы (меньше payload и CPU на парсинг ответа).
+  groupedRequests.forEach((req) => {
+    req.verses = Array.from(new Set(req.verses));
+  });
+
+  // Используем in-memory TTL cache по главам, чтобы не дергать Bolls повторно при листании/рендерах.
+  const missingRequests = groupedRequests
+    .map((req) => {
+      const key = buildGroupKey(req.translation, req.book, req.chapter);
+      const cached = getCachedBollsChapter(key);
+      if (cached) {
+        // Подкладываем всё, что уже есть.
+        textsMap.set(key, new Map(cached.verses));
+        const missingVerses = req.verses.filter((v) => !cached.verses.has(v));
+        return missingVerses.length > 0 ? { ...req, verses: missingVerses } : null;
+      }
+      textsMap.set(key, new Map());
+      return req;
+    })
+    .filter((req): req is { translation: string; book: number; chapter: number; verses: number[] } => Boolean(req));
+
+  if (missingRequests.length > 0) {
     const response = await fetch(BOLLS_BATCH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(groupedRequests),
+      body: JSON.stringify(missingRequests),
     });
 
     if (response.ok) {
       const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
 
       payload.forEach((items, index) => {
-        const request = groupedRequests[index];
+        const request = missingRequests[index];
         if (!request) return;
-        const map = new Map<number, string>();
+        const key = buildGroupKey(request.translation, request.book, request.chapter);
+        const map = textsMap.get(key) ?? new Map<number, string>();
         items?.forEach((item) => {
           if (typeof item?.verse === "number" && typeof item?.text === "string") {
             map.set(item.verse, item.text);
+            upsertCachedBollsVerse(key, item.verse, item.text);
           }
         });
-        textsMap.set(buildGroupKey(request.translation, request.book, request.chapter), map);
+        textsMap.set(key, map);
       });
     } else {
       console.warn("Не удалось получить тексты от Bolls:", response.status);
