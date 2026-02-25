@@ -13,6 +13,12 @@ type UseVersePaginationParams = {
   loadMoreSkeletonDelayMs: number;
 };
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, Math.max(0, ms));
+  });
+}
+
 export function useVersePagination({
   telegramId,
   statusFilter,
@@ -26,6 +32,7 @@ export function useVersePagination({
   const [hasMoreVerses, setHasMoreVerses] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [showDelayedInitialFetchSkeleton, setShowDelayedInitialFetchSkeleton] = useState(false);
   const [showDelayedLoadMoreSkeleton, setShowDelayedLoadMoreSkeleton] = useState(false);
   const [appendRevealRange, setAppendRevealRange] = useState<AppendRevealRange>(null);
 
@@ -57,21 +64,6 @@ export function useVersePagination({
   useEffect(() => {
     totalCountRef.current = totalCount;
   }, [totalCount]);
-
-  useEffect(() => {
-    if (!isFetchingMoreVerses) {
-      setShowDelayedLoadMoreSkeleton(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setShowDelayedLoadMoreSkeleton(true);
-    }, loadMoreSkeletonDelayMs);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isFetchingMoreVerses, loadMoreSkeletonDelayMs]);
 
   useEffect(() => {
     if (!appendRevealRange) return;
@@ -141,6 +133,7 @@ export function useVersePagination({
     setHasMoreVerses(false);
     setTotalCount(0);
     setLoadMoreError(null);
+    setShowDelayedInitialFetchSkeleton(false);
     setShowDelayedLoadMoreSkeleton(false);
     setAppendRevealRange(null);
   }, []);
@@ -148,6 +141,7 @@ export function useVersePagination({
   const resetAndFetchFirstPage = useCallback(
     async (id: string, filter: VerseListStatusFilter) => {
       const requestVersion = ++requestVersionRef.current;
+      const minDelayPromise = sleep(loadMoreSkeletonDelayMs);
       versesRef.current = [];
       nextOffsetRef.current = 0;
       totalCountRef.current = 0;
@@ -162,6 +156,7 @@ export function useVersePagination({
       setHasFetchedVersesOnce(false);
       setIsFetchingMoreVerses(false);
       setLoadMoreError(null);
+      setShowDelayedInitialFetchSkeleton(true);
       setShowDelayedLoadMoreSkeleton(false);
       setAppendRevealRange(null);
       setHasMoreVerses(false);
@@ -170,6 +165,8 @@ export function useVersePagination({
 
       try {
         const page = await requestVersesPage(id, filter, null);
+        if (requestVersionRef.current !== requestVersion) return;
+        await minDelayPromise;
         if (requestVersionRef.current !== requestVersion) return;
         versesRef.current = page.items;
         nextOffsetRef.current = page.items.length;
@@ -180,6 +177,8 @@ export function useVersePagination({
       } catch (err) {
         if (requestVersionRef.current !== requestVersion) return;
         console.error('Не удалось получить стихи:', err);
+        await minDelayPromise;
+        if (requestVersionRef.current !== requestVersion) return;
         versesRef.current = [];
         nextOffsetRef.current = 0;
         totalCountRef.current = 0;
@@ -190,9 +189,10 @@ export function useVersePagination({
         if (requestVersionRef.current !== requestVersion) return;
         setIsFetchingVerses(false);
         setHasFetchedVersesOnce(true);
+        setShowDelayedInitialFetchSkeleton(false);
       }
     },
-    [requestVersesPage]
+    [loadMoreSkeletonDelayMs, requestVersesPage]
   );
 
   const fetchNextPage = useCallback(
@@ -222,9 +222,11 @@ export function useVersePagination({
       if (inFlightStartOffsetsRef.current.has(startWith)) return false;
       if (completedStartOffsetsRef.current.has(startWith)) return false;
 
+      const minDelayPromise = sleep(loadMoreSkeletonDelayMs);
       fetchMoreLockRef.current = true;
       inFlightCursorRef.current = requestKey;
       inFlightStartOffsetsRef.current.add(startWith);
+      setShowDelayedLoadMoreSkeleton(true);
       setIsFetchingMoreVerses(true);
       if (source !== 'auto') {
         setLoadMoreError(null);
@@ -233,6 +235,8 @@ export function useVersePagination({
 
       try {
         const page = await requestVersesPage(telegramId, statusFilter, startWith);
+        if (requestVersionRef.current !== requestVersion) return false;
+        await minDelayPromise;
         if (requestVersionRef.current !== requestVersion) return false;
 
         const prevVerses = versesRef.current;
@@ -273,6 +277,8 @@ export function useVersePagination({
       } catch (err) {
         if (requestVersionRef.current !== requestVersion) return false;
         console.error('Не удалось подгрузить ещё стихи:', err);
+        await minDelayPromise;
+        if (requestVersionRef.current !== requestVersion) return false;
         lastFailedCursorRef.current = requestKey;
         setLoadMoreError('Не удалось загрузить ещё стихи');
         return false;
@@ -284,6 +290,7 @@ export function useVersePagination({
         }
         if (requestVersionRef.current !== requestVersion) return false;
         setIsFetchingMoreVerses(false);
+        setShowDelayedLoadMoreSkeleton(false);
       }
     },
     [
@@ -291,6 +298,7 @@ export function useVersePagination({
       statusFilter,
       isFetchingVerses,
       isFetchingMoreVerses,
+      loadMoreSkeletonDelayMs,
       requestVersesPage,
       mergeUniqueVerses,
     ]
@@ -341,6 +349,7 @@ export function useVersePagination({
     setTotalCount,
     loadMoreError,
     setLoadMoreError,
+    showDelayedInitialFetchSkeleton,
     showDelayedLoadMoreSkeleton,
     appendRevealRange,
     setAppendRevealRange,

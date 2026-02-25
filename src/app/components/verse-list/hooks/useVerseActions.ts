@@ -79,7 +79,12 @@ export function useVerseActions({
       return 'Возобновлено';
     }
     if (
-      (prevStatus === VerseStatus.LEARNING || prevStatus === 'REVIEW' || prevStatus === 'MASTERED') &&
+      (
+        prevStatus === VerseStatus.LEARNING ||
+        prevStatus === 'WAITING' ||
+        prevStatus === 'REVIEW' ||
+        prevStatus === 'MASTERED'
+      ) &&
       nextStatus === VerseStatus.STOPPED
     ) {
       return 'Пауза включена';

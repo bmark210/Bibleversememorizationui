@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
   X,
+  Clock3,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -15,6 +16,8 @@ import {
   Repeat,
   Trophy,
   Trash2,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -61,10 +64,17 @@ import {
 } from "./training-session/TrainingModeRenderer";
 import type { TrainingModeRating } from "./training-session/modes/types";
 import { toMasteryPercent } from "./Dashboard";
+import type {
+  DailyGoalGalleryContext,
+  DailyGoalProgressEvent,
+  DailyGoalResumeMode,
+  DailyGoalTrainingStartDecision,
+} from "@/app/features/daily-goal/types";
 
 type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
+  autoStartTrainingOnOpen?: boolean;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<void>;
   onDelete: (verse: Verse) => Promise<void>;
@@ -72,6 +82,11 @@ type VerseGalleryProps = {
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;
   onRequestMorePreviewVerses?: () => Promise<boolean>;
+  dailyGoalContext?: DailyGoalGalleryContext;
+  onBeforeStartTrainingFromGalleryVerse?: (verse: Verse) => Promise<DailyGoalTrainingStartDecision> | DailyGoalTrainingStartDecision;
+  onDailyGoalProgressEvent?: (event: DailyGoalProgressEvent) => void;
+  onDailyGoalJumpToVerseRequest?: (externalVerseId: string) => void;
+  onDailyGoalPreferredResumeModeChange?: (mode: DailyGoalResumeMode) => void;
 };
 
 type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
@@ -86,7 +101,14 @@ type GalleryStatusAction = {
   successMessage: string;
 };
 
-type VersePreviewOverride = Partial<Pick<Verse, "status" | "masteryLevel" | "repetitions">>;
+type VersePreviewOverride = Partial<
+  Pick<Verse, "status" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt">
+>;
+type TrainingCompletionOverlay = {
+  key: number;
+  tone: "learning" | "review";
+  message: string;
+};
 
 const MAX_MASTERY_LEVEL = TRAINING_STAGE_MASTERY_MAX;
 
@@ -180,7 +202,7 @@ function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction
   if (status === VerseStatus.NEW) {
     return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
-  if (status === VerseStatus.LEARNING || status === "REVIEW" || status === "MASTERED") {
+  if (status === VerseStatus.LEARNING || status === "WAITING" || status === "REVIEW" || status === "MASTERED") {
     return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };
   }
   if (status === VerseStatus.STOPPED) {
@@ -271,6 +293,54 @@ function calcNextReviewAt(masteryLevel: number, score: number): Date {
   return new Date(Date.now() + Math.round(base * multiplier));
 }
 
+function deriveTrainingDisplayStatus(params: {
+  baseStatus: VerseStatus;
+  masteryLevel: number;
+  repetitions: number;
+  nextReviewAt: Date | null;
+}): DisplayVerseStatus {
+  const { baseStatus, masteryLevel, repetitions, nextReviewAt } = params;
+  if (baseStatus === VerseStatus.NEW) return VerseStatus.NEW;
+  if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
+  if (repetitions >= 5) return "MASTERED";
+  if (masteryLevel > MAX_MASTERY_LEVEL && nextReviewAt && nextReviewAt.getTime() > Date.now()) {
+    return "WAITING";
+  }
+  if (masteryLevel >= MAX_MASTERY_LEVEL) return "REVIEW";
+  return VerseStatus.LEARNING;
+}
+
+function getTrainingCompletionOutcome(params: {
+  wasReviewExercise: boolean;
+  becameLearned: boolean;
+  finalStatus: DisplayVerseStatus;
+}): { tone: "learning" | "review"; message: string } | null {
+  const { wasReviewExercise, becameLearned, finalStatus } = params;
+
+  if (wasReviewExercise) {
+    if (finalStatus === "MASTERED") {
+      return { tone: "review", message: "Стих выучен!" };
+    }
+    if (finalStatus === "WAITING") {
+      return { tone: "review", message: "Стих повторён. Ожидание следующего повтора." };
+    }
+    if (finalStatus === "REVIEW") {
+      return { tone: "review", message: "Стих повторён!" };
+    }
+    return { tone: "review", message: "Стих повторён!" };
+  }
+
+  if (!becameLearned) return null;
+
+  if (finalStatus === "MASTERED") {
+    return { tone: "learning", message: "Стих выучен!" };
+  }
+  if (finalStatus === "WAITING") {
+    return { tone: "learning", message: "Стих изучен. Повторение позже." };
+  }
+  return { tone: "learning", message: "Стих изучен!" };
+}
+
 function getTelegramId(): string | null {
   if (typeof window === "undefined") return null;
   const fromStorage = localStorage.getItem("telegramId");
@@ -287,17 +357,17 @@ function patchStatusForTrainingVerse(verse: TrainingVerseState): "NEW" | "LEARNI
 async function persistTrainingVerseProgress(
   verse: TrainingVerseState,
   options?: { includeRepetitions?: boolean }
-) {
+): Promise<Record<string, unknown> | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
-  if (!telegramId) return false;
-  await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
+  if (!telegramId) return null;
+  const response = await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
     masteryLevel: verse.rawMasteryLevel,
     ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
     status: patchStatusForTrainingVerse(verse),
   });
-  return true;
+  return (response ?? null) as unknown as Record<string, unknown> | null;
 }
 
 function asLegacyVerse(verse: TrainingVerseState): LegacyVerse {
@@ -327,6 +397,84 @@ function sortByCreatedAtDesc(list: Verse[]) {
 function mergePreviewOverrides(verse: Verse, overrides: Map<string, VersePreviewOverride>) {
   const patch = overrides.get(getVerseIdentity(verse));
   return patch ? ({ ...verse, ...patch } as Verse) : verse;
+}
+
+function getDailyGoalPhaseLabel(phase: DailyGoalGalleryContext['phase']) {
+  if (phase === 'learning') return 'Изучение';
+  if (phase === 'review') return 'Повторение';
+  return 'Цель выполнена';
+}
+
+function getDailyGoalTargetKindHint(
+  context: DailyGoalGalleryContext | undefined
+): 'new' | 'review' | null {
+  if (!context) return null;
+  if (context.phase === 'learning') return 'new';
+  if (context.phase === 'review') return 'review';
+  return null;
+}
+
+function getDailyGoalPreferredTrainingSubset(
+  context: DailyGoalGalleryContext | undefined
+): TrainingSubsetFilter {
+  if (!context) return "all";
+  if (context.effectiveResumeMode === "learning") return "learning";
+  if (context.effectiveResumeMode === "review") return "review";
+  return "all";
+}
+
+function getDailyGoalResumeModeLabel(mode: DailyGoalResumeMode | null | undefined) {
+  if (mode === "learning") return "Изучение";
+  if (mode === "review") return "Повторение";
+  return "Не выбран";
+}
+
+function getDailyGoalModeFromDisplayStatus(
+  status: DisplayVerseStatus | null | undefined
+): DailyGoalResumeMode | null {
+  if (!status) return null;
+  if (status === "REVIEW" || status === "MASTERED") return "review";
+  if (status === VerseStatus.LEARNING) return "learning";
+  return null;
+}
+
+function getDailyGoalPhasePillMeta(options: {
+  mode: DailyGoalResumeMode;
+  title: string;
+  done: number;
+  total: number;
+  completed: boolean;
+  isCurrentMode: boolean;
+}) {
+  const { mode, title, done, total, completed, isCurrentMode } = options;
+  const accent =
+    mode === "learning"
+      ? {
+          active: "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+          chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+          icon: "text-emerald-500",
+        }
+      : {
+          active: "border-violet-500/35 bg-violet-500/12 text-violet-700 dark:text-violet-300",
+          chip: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/20",
+          icon: "text-violet-500",
+        };
+  const className = completed
+    ? "border-border/60 bg-background/65 text-muted-foreground"
+    : isCurrentMode
+      ? accent.active
+      : "border-border/60 bg-background/60 text-muted-foreground";
+  return {
+    mode,
+    title,
+    progress: `${done}/${total}`,
+    planCount: total,
+    className,
+    completed,
+    isCurrentMode,
+    chipClassName: accent.chip,
+    iconClassName: completed ? "text-emerald-500" : isCurrentMode ? accent.icon : "text-muted-foreground/70",
+  };
 }
 
 const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -532,6 +680,8 @@ type UnifiedViewportProps = {
   onPreviewTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
   onTrainingSwipeStep: (step: 1 | -1) => void;
   onTrainingRate: (rating: Rating) => void | Promise<void>;
+  dailyGoalGuideActive?: boolean;
+  trainingCompletionOverlay?: TrainingCompletionOverlay | null;
 };
 
 function VerseGalleryUnifiedCardViewport({
@@ -548,6 +698,8 @@ function VerseGalleryUnifiedCardViewport({
   onPreviewTouchEnd,
   onTrainingSwipeStep,
   onTrainingRate,
+  dailyGoalGuideActive = false,
+  trainingCompletionOverlay = null,
 }: UnifiedViewportProps) {
   const isPreview = panelMode === "preview";
   const preview = isPreview ? previewVerse : null;
@@ -575,6 +727,8 @@ function VerseGalleryUnifiedCardViewport({
       ? "new"
       : previewStatus === VerseStatus.STOPPED
         ? "stopped"
+        : previewStatus === "WAITING"
+          ? "waiting"
         : previewStatus === "MASTERED"
           ? "mastered"
           : isPreviewReviewStage
@@ -588,6 +742,13 @@ function VerseGalleryUnifiedCardViewport({
   const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
 
   const isPreviewReviewAction = Boolean(isPreviewReviewStage);
+  const isTrainingStartPrimaryAction = Boolean(
+    preview &&
+      previewStatus &&
+      previewStatus !== VerseStatus.NEW &&
+      previewStatus !== VerseStatus.STOPPED &&
+      previewStatus !== "WAITING"
+  );
   const previewPrimaryAction =
     !preview || !previewStatus
       ? null
@@ -609,6 +770,16 @@ function VerseGalleryUnifiedCardViewport({
               className:
                 "border border-rose-500/25 bg-gradient-to-r from-rose-500/16 to-rose-500/8 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300",
             }
+          : previewStatus === "WAITING"
+            ? {
+                label: "Ожидание",
+                ariaLabel: "Стих ожидает времени следующего повтора",
+                icon: Clock3,
+                onClick: () => {},
+                disabled: true,
+                className:
+                  "border border-indigo-500/25 bg-gradient-to-r from-indigo-500/14 to-indigo-500/8 text-indigo-700 dark:text-indigo-300",
+              }
           : isPreviewReviewAction
             ? {
                 label: previewStatus === "MASTERED" ? "Выучен" : "Повторять",
@@ -644,6 +815,13 @@ function VerseGalleryUnifiedCardViewport({
             trackClass: "bg-amber-500/14",
             fillClass: "from-amber-500 to-yellow-400/85",
           }
+        : previewTone === "waiting"
+          ? {
+              labelClass: "text-indigo-700/75 dark:text-indigo-300/80",
+              valueClass: "text-indigo-700 dark:text-indigo-300",
+              trackClass: "bg-indigo-500/14",
+              fillClass: "from-indigo-500 to-indigo-400/80",
+            }
         : {
           labelClass: "text-emerald-700/75 dark:text-emerald-300/80",
           valueClass: "text-emerald-700 dark:text-emerald-300",
@@ -770,12 +948,60 @@ function VerseGalleryUnifiedCardViewport({
               </p>
             </div>
           ) : trainingLegacyVerse && trainingModeId ? (
-            <TrainingModeRenderer
-              ref={trainingRendererRef as unknown as RefObject<TrainingModeRendererHandle>}
-              renderer={MODE_PIPELINE[trainingModeId].renderer}
-              verse={trainingLegacyVerse}
-              onRate={onTrainingRate}
-            />
+            <div className="relative h-full">
+              {trainingCompletionOverlay ? (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`training-completion-${trainingCompletionOverlay.key}`}
+                    initial={{ opacity: 0, scale: 0.985, y: 6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.99, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className={cn(
+                      "absolute inset-0 grid place-items-center rounded-2xl border backdrop-blur-sm px-4 text-center",
+                      trainingCompletionOverlay.tone === "learning"
+                        ? "border-emerald-500/25 bg-emerald-500/10"
+                        : "border-violet-500/25 bg-violet-500/10"
+                    )}
+                    aria-live="polite"
+                  >
+                    <div className="space-y-3">
+                      <div
+                        className={cn(
+                          "mx-auto grid h-12 w-12 place-items-center rounded-2xl border",
+                          trainingCompletionOverlay.tone === "learning"
+                            ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300"
+                            : "border-violet-500/30 bg-violet-500/12 text-violet-600 dark:text-violet-300"
+                        )}
+                      >
+                        {trainingCompletionOverlay.tone === "learning" ? (
+                          <CheckCircle2 className="h-6 w-6" />
+                        ) : (
+                          <Repeat className="h-6 w-6" />
+                        )}
+                      </div>
+                      <div
+                        className={cn(
+                          "text-lg sm:text-xl font-semibold",
+                          trainingCompletionOverlay.tone === "learning"
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-violet-700 dark:text-violet-300"
+                        )}
+                      >
+                        {trainingCompletionOverlay.message}
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <TrainingModeRenderer
+                  ref={trainingRendererRef as unknown as RefObject<TrainingModeRendererHandle>}
+                  renderer={MODE_PIPELINE[trainingModeId].renderer}
+                  verse={trainingLegacyVerse}
+                  onRate={onTrainingRate}
+                />
+              )}
+            </div>
           ) : null
         }
         bodyScrollable={!isPreview}
@@ -789,8 +1015,13 @@ function VerseGalleryUnifiedCardViewport({
                 previewPrimaryAction?.className
               )}
               onClick={previewPrimaryAction?.onClick}
-              disabled={actionPending}
+              disabled={actionPending || Boolean(previewPrimaryAction?.disabled)}
               aria-label={previewPrimaryAction?.ariaLabel}
+              data-tour-id={
+                dailyGoalGuideActive && isTrainingStartPrimaryAction
+                  ? "daily-goal-gallery-train-button"
+                  : undefined
+              }
             >
               {previewPrimaryAction ? <previewPrimaryAction.icon className="h-4 w-4" /> : null}
               {previewPrimaryAction?.label}
@@ -854,9 +1085,55 @@ function VerseGalleryUnifiedCardViewport({
   );
 }
 
+function DailyGoalTrainingLoadingView() {
+  return (
+    <div className="w-full max-w-3xl">
+      <div className="rounded-[1.75rem] border border-border/60 bg-background/95 shadow-xl backdrop-blur-xl">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0">
+                <div className="text-sm sm:text-base font-semibold leading-snug">
+                  Подготавливаем тренировку
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Подбираем упражнения и включаем нужный режим.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2.5">
+              <div className="flex items-center justify-between text-[0.7rem] text-muted-foreground">
+                <span>Загрузка упражнений</span>
+                <span className="font-medium text-foreground/80">Почти готово</span>
+              </div>
+              <div className="relative h-2 overflow-hidden rounded-full bg-muted/35">
+                <motion.div
+                  aria-hidden="true"
+                  className="absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
+                  initial={{ x: "-45%", width: "60%" }}
+                  animate={{ x: ["-45%", "10%", "85%"], width: ["60%", "68%", "58%"] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </div>
+            </div>
+
+            <div aria-hidden="true" className="mt-4 rounded-xl border border-border/40 bg-background/70 p-3">
+              <div className="mb-2 h-3.5 w-32 rounded-full bg-muted/45 animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-2.5 w-full rounded-full bg-muted/30 animate-pulse" />
+                <div className="h-2.5 w-4/5 rounded-full bg-muted/20 animate-pulse [animation-delay:120ms]" />
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VerseGallery({
   verses,
   initialIndex,
+  autoStartTrainingOnOpen = false,
   onClose,
   onStatusChange,
   onDelete,
@@ -864,12 +1141,18 @@ export function VerseGallery({
   previewHasMore = false,
   previewIsLoadingMore = false,
   onRequestMorePreviewVerses,
+  dailyGoalContext,
+  onBeforeStartTrainingFromGalleryVerse,
+  onDailyGoalProgressEvent,
+  onDailyGoalJumpToVerseRequest,
+  onDailyGoalPreferredResumeModeChange,
 }: VerseGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
   const [panelMode, setPanelMode] = useState<PanelMode>("preview");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [trainingCompletionOverlay, setTrainingCompletionOverlay] = useState<TrainingCompletionOverlay | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [previewOverrides, setPreviewOverrides] = useState<Map<string, VersePreviewOverride>>(() => new Map());
 
@@ -877,8 +1160,13 @@ export function VerseGallery({
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
+  const [isAutoStartingTraining, setIsAutoStartingTraining] = useState(() => autoStartTrainingOnOpen);
   const previewTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
+  const autoStartedTrainingRef = useRef(false);
+  const hasUserChosenTrainingSubsetRef = useRef(false);
+  const hasAutoAppliedDailyGoalSubsetRef = useRef(false);
+  const trainingCompletionOverlayRef = useRef<TrainingCompletionOverlay | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -890,6 +1178,57 @@ export function VerseGallery({
 
   const previewActiveVerseBase = verses[activeIndex] ?? null;
   const previewActiveVerse = previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null;
+  const dailyGoalGuideActive = Boolean(
+    dailyGoalContext?.showGuideBanner &&
+      (dailyGoalContext.phase === 'learning' || dailyGoalContext.phase === 'review')
+  );
+  const dailyGoalPreferredTrainingSubset = getDailyGoalPreferredTrainingSubset(dailyGoalContext);
+  const closeTrainingGoesToPreview = !autoStartTrainingOnOpen;
+  const dailyGoalPhaseLabel = dailyGoalContext ? getDailyGoalPhaseLabel(dailyGoalContext.phase) : null;
+  const dailyGoalNextTargetReference = dailyGoalContext?.nextTargetVerseId
+    ? verses.find((verse) => getVerseIdentity(verse) === dailyGoalContext.nextTargetVerseId)?.reference ?? null
+    : null;
+  const dailyGoalLearningTotalCount = dailyGoalContext?.progressCounts.newTotal ?? 0;
+  const dailyGoalLearningCompletedCount = dailyGoalContext?.progressCounts.newDone ?? 0;
+  const dailyGoalReviewTotalCount = dailyGoalContext?.progressCounts.reviewTotal ?? 0;
+  const dailyGoalReviewCompletedCount = dailyGoalContext?.progressCounts.reviewDone ?? 0;
+  const dailyGoalEffectiveResumeMode = dailyGoalContext?.effectiveResumeMode ?? null;
+  const dailyGoalShowReviewStage = Boolean(dailyGoalContext?.phaseStates.review.enabled);
+  const currentCardDailyGoalMode =
+    panelMode === "training"
+      ? getDailyGoalModeFromDisplayStatus(trainingVerses[trainingIndex]?.status ?? null)
+      : getDailyGoalModeFromDisplayStatus(previewActiveVerse ? normalizeVerseStatus(previewActiveVerse.status) : null);
+  const dailyGoalCurrentExecutionMode: DailyGoalResumeMode | null =
+    panelMode === "training"
+      ? trainingSubsetFilter === "all"
+        ? currentCardDailyGoalMode ?? dailyGoalEffectiveResumeMode
+        : trainingSubsetFilter
+      : currentCardDailyGoalMode ?? dailyGoalEffectiveResumeMode;
+  const dailyGoalLearningPill = dailyGoalContext
+    ? getDailyGoalPhasePillMeta({
+        mode: "learning",
+        title: "Изучение",
+        done: dailyGoalContext.phaseStates.learning.done,
+        total: dailyGoalContext.phaseStates.learning.total,
+        completed: dailyGoalContext.phaseStates.learning.completed,
+        isCurrentMode:
+          dailyGoalCurrentExecutionMode === "learning" &&
+          !dailyGoalContext.phaseStates.learning.completed,
+      })
+    : null;
+  const dailyGoalReviewPill =
+    dailyGoalContext && dailyGoalShowReviewStage
+      ? getDailyGoalPhasePillMeta({
+          mode: "review",
+          title: "Повторение",
+          done: dailyGoalContext.phaseStates.review.done,
+          total: dailyGoalContext.phaseStates.review.total,
+          completed: dailyGoalContext.phaseStates.review.completed,
+          isCurrentMode:
+            dailyGoalCurrentExecutionMode === "review" &&
+            !dailyGoalContext.phaseStates.review.completed,
+        })
+      : null;
 
   const trainingEligibleIndices = useMemo(
     () =>
@@ -902,6 +1241,11 @@ export function VerseGallery({
 
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
   const displayVerse = panelMode === "training" && trainingActiveVerse ? trainingActiveVerse.raw : previewActiveVerse;
+  const isTrainingAutoStartOverlayVisible = isAutoStartingTraining && panelMode === "preview";
+  useEffect(() => {
+    trainingCompletionOverlayRef.current = trainingCompletionOverlay;
+  }, [trainingCompletionOverlay]);
+
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
@@ -959,6 +1303,37 @@ export function VerseGallery({
     }
   }, [panelMode, trainingEligibleIndices, trainingIndex, trainingSubsetFilter, trainingVerses]);
 
+  useEffect(() => {
+    if (panelMode !== "training") return;
+    if (!dailyGoalGuideActive) return;
+    if (dailyGoalPreferredTrainingSubset === "all") return;
+    if (hasUserChosenTrainingSubsetRef.current) return;
+    if (hasAutoAppliedDailyGoalSubsetRef.current) return;
+    // Do not override an explicit subset chosen by the user (or selected card at start).
+    if (trainingSubsetFilter !== "all") return;
+    hasAutoAppliedDailyGoalSubsetRef.current = true;
+    setTrainingSubsetFilter(dailyGoalPreferredTrainingSubset);
+    toast.info(
+      dailyGoalPreferredTrainingSubset === "learning"
+        ? "Этап ежедневной цели: изучение"
+        : "Этап ежедневной цели: повторение",
+      {
+        description:
+          dailyGoalPreferredTrainingSubset === "learning"
+            ? "Фильтр тренировки переключен на «Изучение»."
+            : "Фильтр тренировки переключен на «Повторение».",
+      }
+    );
+  }, [panelMode, dailyGoalGuideActive, dailyGoalPreferredTrainingSubset, trainingSubsetFilter]);
+
+  useEffect(() => {
+    if (panelMode === "training") {
+      setIsAutoStartingTraining(false);
+      return;
+    }
+    setTrainingCompletionOverlay(null);
+  }, [panelMode]);
+
   const showFeedback = useCallback((message: string, type: "success" | "error" = "success") => {
     setFeedback({ message, type });
     if (type === "success") {
@@ -968,6 +1343,41 @@ export function VerseGallery({
     }
     setTimeout(() => setFeedback(null), 2000);
   }, []);
+
+  const showTrainingCompletionOverlay = useCallback(
+    (message: string, tone: "learning" | "review") => {
+      setTrainingCompletionOverlay({ key: Date.now(), tone, message });
+    },
+    []
+  );
+
+  const applyUserTrainingSubsetFilter = useCallback(
+    (nextFilter: TrainingSubsetFilter) => {
+      hasUserChosenTrainingSubsetRef.current = true;
+      hasAutoAppliedDailyGoalSubsetRef.current = true;
+      setTrainingSubsetFilter((prev) => (prev === nextFilter ? prev : nextFilter));
+      if (nextFilter === "learning" || nextFilter === "review") {
+        onDailyGoalPreferredResumeModeChange?.(nextFilter);
+      }
+    },
+    [onDailyGoalPreferredResumeModeChange]
+  );
+
+  const handleDailyGoalPillClick = useCallback(
+    (mode: DailyGoalResumeMode) => {
+      haptic("light");
+      applyUserTrainingSubsetFilter(mode);
+      if (panelMode === "preview") {
+        toast.info(
+          mode === "learning" ? "Выбран режим изучения" : "Выбран режим повторения",
+          {
+            description: "Этот режим будет использован при запуске тренировки.",
+          }
+        );
+      }
+    },
+    [applyUserTrainingSubsetFilter, panelMode]
+  );
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -1026,8 +1436,12 @@ export function VerseGallery({
     if (trainingRendererRef.current?.handleBackAction()) {
       return;
     }
+    if (!closeTrainingGoesToPreview) {
+      onClose();
+      return;
+    }
     exitTrainingMode();
-  }, [exitTrainingMode]);
+  }, [closeTrainingGoesToPreview, exitTrainingMode, onClose]);
 
   const jumpToAdjacentTrainingVerse = useCallback((delta: -1 | 1) => {
     if (panelMode !== "training") return;
@@ -1057,6 +1471,88 @@ export function VerseGallery({
     setTrainingModeId(chooseModeId(nextVerse));
     haptic("medium");
   }, [panelMode, trainingActiveVerse, trainingEligibleIndices, trainingIndex, trainingVerses]);
+
+  const dismissCompletedTrainingVerse = useCallback((delta: -1 | 1) => {
+    if (panelMode !== "training") return;
+    if (!trainingActiveVerse) return;
+    if (!trainingCompletionOverlayRef.current) {
+      jumpToAdjacentTrainingVerse(delta);
+      return;
+    }
+
+    const currentKey = trainingActiveVerse.key;
+    const nextList = trainingVerses.filter((verse) => verse.key !== currentKey);
+    setTrainingCompletionOverlay(null);
+
+    if (nextList.length === trainingVerses.length) {
+      jumpToAdjacentTrainingVerse(delta);
+      return;
+    }
+
+    if (nextList.length === 0) {
+      setTrainingVerses([]);
+      setTrainingIndex(0);
+      setTrainingModeId(null);
+      haptic("light");
+      return;
+    }
+
+    const candidateIndices = nextList
+      .map((verse, index) => ({ verse, index }))
+      .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
+      .map(({ index }) => index);
+
+    let nextIndex: number | null = null;
+    if (candidateIndices.length > 0) {
+      const pivot = delta > 0 ? trainingIndex : trainingIndex - 1;
+      if (delta > 0) {
+        nextIndex = candidateIndices.find((idx) => idx >= pivot) ?? candidateIndices[0] ?? null;
+      } else {
+        nextIndex = [...candidateIndices].reverse().find((idx) => idx <= pivot) ?? candidateIndices[candidateIndices.length - 1] ?? null;
+      }
+    } else {
+      const fallbackEligible = nextList
+        .map((verse, index) => ({ verse, index }))
+        .filter(({ verse }) => isTrainingEligibleVerse(verse))
+        .map(({ index }) => index);
+      if (fallbackEligible.length > 0) {
+        nextIndex = delta > 0 ? (fallbackEligible[0] ?? 0) : (fallbackEligible[fallbackEligible.length - 1] ?? 0);
+        if (trainingSubsetFilter !== "all") {
+          setTrainingSubsetFilter("all");
+        }
+      } else {
+        nextIndex = Math.min(Math.max(delta > 0 ? trainingIndex : trainingIndex - 1, 0), nextList.length - 1);
+      }
+    }
+
+    const nextVerse = nextIndex != null ? nextList[nextIndex] : nextList[0];
+    setTrainingVerses(nextList);
+    if (nextVerse) {
+      const resolvedIndex = nextList.findIndex((verse) => verse.key === nextVerse.key);
+      setDirection(delta > 0 ? 1 : -1);
+      setTrainingIndex(resolvedIndex >= 0 ? resolvedIndex : 0);
+      setTrainingModeId(chooseModeId(nextVerse));
+    } else {
+      setTrainingIndex(0);
+      setTrainingModeId(null);
+    }
+    haptic("light");
+  }, [
+    jumpToAdjacentTrainingVerse,
+    panelMode,
+    trainingActiveVerse,
+    trainingIndex,
+    trainingSubsetFilter,
+    trainingVerses,
+  ]);
+
+  const handleTrainingNavigationStep = useCallback((delta: -1 | 1) => {
+    if (trainingCompletionOverlayRef.current) {
+      dismissCompletedTrainingVerse(delta);
+      return;
+    }
+    jumpToAdjacentTrainingVerse(delta);
+  }, [dismissCompletedTrainingVerse, jumpToAdjacentTrainingVerse]);
 
   const fetchLearningVersesForTraining = useCallback(async () => {
     const telegramId = getTelegramId();
@@ -1093,6 +1589,26 @@ export function VerseGallery({
 
   const startTrainingFromActiveVerse = useCallback(async () => {
     if (actionPending || !previewActiveVerse) return false;
+    if (onBeforeStartTrainingFromGalleryVerse) {
+      const decision = await onBeforeStartTrainingFromGalleryVerse(previewActiveVerse);
+      if (decision.kind === 'redirect') {
+        toast.info(decision.message);
+        const targetIndex = verses.findIndex(
+          (verse) => getVerseIdentity(verse) === String(decision.targetVerseId)
+        );
+        if (targetIndex >= 0) {
+          setDirection(targetIndex > activeIndex ? 1 : -1);
+          setActiveIndex(targetIndex);
+        } else {
+          onDailyGoalJumpToVerseRequest?.(decision.targetVerseId);
+          onClose();
+        }
+        return false;
+      }
+      if (decision.kind === 'warn') {
+        toast.info(decision.message);
+      }
+    }
     try {
       setActionPending(true);
       let startVerse = previewActiveVerse;
@@ -1113,14 +1629,55 @@ export function VerseGallery({
         showFeedback("Нет стихов в изучении", "error");
         return false;
       }
-      const startIndex = Math.max(0, normalized.findIndex((v) => v.key === startKey));
+      const selectedSubsetHint: TrainingSubsetFilter =
+        activeDisplayStatus === "REVIEW" || activeDisplayStatus === "MASTERED"
+          ? "review"
+          : activeDisplayStatus === VerseStatus.LEARNING
+            ? "learning"
+            : "all";
+      const preferredSubset =
+        selectedSubsetHint !== "all"
+          ? selectedSubsetHint
+          : dailyGoalGuideActive && dailyGoalPreferredTrainingSubset !== "all"
+            ? dailyGoalPreferredTrainingSubset
+            : "all";
+      const activeVerseMatchesPreferred =
+        preferredSubset === "all"
+          ? true
+          : normalized.some(
+              (v) => v.key === startKey && matchesTrainingSubsetFilter(v, preferredSubset)
+            );
+
+      const preferredEligibleIndex =
+        preferredSubset === "all"
+          ? -1
+          : normalized.findIndex((v) => matchesTrainingSubsetFilter(v, preferredSubset));
+
+      const rawStartIndex = activeVerseMatchesPreferred
+        ? normalized.findIndex((v) => v.key === startKey)
+        : preferredEligibleIndex;
+      const startIndex = rawStartIndex >= 0 ? rawStartIndex : Math.max(0, normalized.findIndex((v) => v.key === startKey));
       const startState = normalized[startIndex] ?? normalized[0];
+      hasUserChosenTrainingSubsetRef.current = false;
+      hasAutoAppliedDailyGoalSubsetRef.current = preferredSubset !== "all";
       setTrainingVerses(normalized);
-      setTrainingSubsetFilter("all");
+      setTrainingSubsetFilter(preferredSubset);
+      if (preferredSubset === "learning" || preferredSubset === "review") {
+        onDailyGoalPreferredResumeModeChange?.(preferredSubset);
+      }
       setTrainingIndex(startIndex);
       setTrainingModeId(chooseModeId(startState));
       setPanelMode("training");
       setDirection(0);
+      if (preferredSubset === "learning") {
+        toast.info("Этап ежедневной цели: изучение", {
+          description: "Тренировка открыта в режиме «Изучение».",
+        });
+      } else if (preferredSubset === "review") {
+        toast.info("Этап ежедневной цели: повторение", {
+          description: "Тренировка открыта в режиме «Повторение».",
+        });
+      }
       haptic("medium");
       return true;
     } catch {
@@ -1131,21 +1688,59 @@ export function VerseGallery({
       setActionPending(false);
     }
   }, [
+    activeIndex,
     actionPending,
+    onBeforeStartTrainingFromGalleryVerse,
+    onClose,
+    onDailyGoalJumpToVerseRequest,
     previewActiveVerse,
     onStatusChange,
     setPreviewOverride,
     fetchLearningVersesForTraining,
     showFeedback,
+    dailyGoalGuideActive,
+    dailyGoalPreferredTrainingSubset,
+    verses,
+    onDailyGoalPreferredResumeModeChange,
+  ]);
+
+  useEffect(() => {
+    if (!autoStartTrainingOnOpen) return;
+    if (autoStartedTrainingRef.current) return;
+    if (panelMode !== "preview") return;
+    if (!previewActiveVerse) return;
+    if (actionPending) return;
+
+    autoStartedTrainingRef.current = true;
+    setIsAutoStartingTraining(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        await startTrainingFromActiveVerse();
+      } finally {
+        if (!cancelled) {
+          setIsAutoStartingTraining(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    autoStartTrainingOnOpen,
+    panelMode,
+    previewActiveVerse,
+    actionPending,
+    startTrainingFromActiveVerse,
   ]);
 
   const handlePreviewTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "preview") return;
+    if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
     previewTouchStartRef.current = createVerticalTouchSwipeStart(e);
   };
 
   const handlePreviewTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "preview") return;
+    if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
     const start = previewTouchStartRef.current;
     previewTouchStartRef.current = null;
     const step = getVerticalTouchSwipeStep(start, e);
@@ -1157,6 +1752,7 @@ export function VerseGallery({
     const current = trainingVerses[trainingIndex];
     if (!current) return;
 
+    const wasReviewExercise = isTrainingReviewVerse(current);
     const rawMasteryBefore = current.rawMasteryLevel;
     const canUpdateRepetitions = current.status === "REVIEW";
     const shouldIncrementRepetitions =
@@ -1205,10 +1801,9 @@ export function VerseGallery({
       showFeedback("Стих выучен", "success");
     }
 
-    const isReviewExercise = isTrainingReviewVerse(updated);
     const nextMode = getModeByShiftInProgressOrder(trainingModeId, MODE_SHIFT_BY_RATING[rating] ?? 1);
     const nextModeForCurrentVerse =
-      !isReviewExercise && nextMode
+      !wasReviewExercise && nextMode
         ? nextMode
         : chooseModeId(updated);
 
@@ -1222,32 +1817,134 @@ export function VerseGallery({
     setTrainingModeId(nextModeForCurrentVerse);
 
     try {
-      await persistTrainingVerseProgress(updated, { includeRepetitions: canUpdateRepetitions });
+      const persistedResponse = await persistTrainingVerseProgress(updated, { includeRepetitions: canUpdateRepetitions });
+      const persistedStatus = normalizeVerseStatus(
+        (persistedResponse?.status as Verse["status"] | undefined) ?? updated.status
+      );
+      const persistedMasteryLevel = normalizeRawMasteryLevel(
+        (persistedResponse?.masteryLevel as number | null | undefined) ?? updated.rawMasteryLevel
+      );
+      const persistedRepetitions = Math.max(
+        0,
+        Math.round(Number((persistedResponse?.repetitions as number | null | undefined) ?? updated.repetitions))
+      );
+      const persistedLastReviewedAt =
+        parseDate((persistedResponse?.lastReviewedAt as string | Date | null | undefined) ?? updated.lastReviewedAt) ??
+        updated.lastReviewedAt;
+      const persistedNextReviewAt =
+        parseDate((persistedResponse?.nextReviewAt as string | Date | null | undefined) ?? updated.nextReviewAt) ??
+        null;
+      const persistedDisplayStatus =
+        persistedStatus === VerseStatus.LEARNING
+          ? deriveTrainingDisplayStatus({
+              baseStatus: VerseStatus.LEARNING,
+              masteryLevel: persistedMasteryLevel,
+              repetitions: persistedRepetitions,
+              nextReviewAt: persistedNextReviewAt,
+            })
+          : persistedStatus;
+
+      const persistedUpdated: TrainingVerseState = {
+        ...updated,
+        raw: {
+          ...updated.raw,
+          status: persistedDisplayStatus,
+          masteryLevel: persistedMasteryLevel,
+          repetitions: persistedRepetitions,
+          lastReviewedAt: persistedLastReviewedAt ? persistedLastReviewedAt.toISOString() : null,
+          nextReviewAt: persistedNextReviewAt ? persistedNextReviewAt.toISOString() : null,
+        } as Verse,
+        status: persistedDisplayStatus,
+        rawMasteryLevel: persistedMasteryLevel,
+        stageMasteryLevel: toStageMasteryLevel(persistedMasteryLevel),
+        repetitions: persistedRepetitions,
+        lastReviewedAt: persistedLastReviewedAt,
+        nextReviewAt: persistedNextReviewAt,
+      };
+
+      setTrainingVerses((prev) => {
+        const idx = prev.findIndex((v) => v.key === current.key);
+        if (idx < 0) return prev;
+        const next = [...prev];
+        next[idx] = persistedUpdated;
+        return next;
+      });
+      setPreviewOverride(current.raw, {
+        status: persistedUpdated.status,
+        masteryLevel: persistedUpdated.rawMasteryLevel,
+        repetitions: persistedUpdated.repetitions,
+        lastReviewedAt: persistedUpdated.lastReviewedAt ?? null,
+        nextReviewAt: persistedUpdated.nextReviewAt ?? null,
+      });
+
+      const completionOutcome = getTrainingCompletionOutcome({
+        wasReviewExercise,
+        becameLearned,
+        finalStatus: persistedUpdated.status,
+      });
+      if (completionOutcome) {
+        showTrainingCompletionOverlay(completionOutcome.message, completionOutcome.tone);
+      }
+      onDailyGoalProgressEvent?.({
+        source: 'verse-gallery',
+        externalVerseId: persistedUpdated.externalVerseId,
+        reference: persistedUpdated.raw.reference,
+        targetKindHint: getDailyGoalTargetKindHint(dailyGoalContext),
+        saved: true,
+        rating,
+        before: {
+          status: String(current.status),
+          masteryLevel: Number(current.rawMasteryLevel ?? 0),
+          repetitions: Number(current.repetitions ?? 0),
+          lastReviewedAt: current.lastReviewedAt ? current.lastReviewedAt.toISOString() : null,
+        },
+        after: {
+          status: String(persistedUpdated.status),
+          masteryLevel: Number(persistedUpdated.rawMasteryLevel ?? 0),
+          repetitions: Number(persistedUpdated.repetitions ?? 0),
+          lastReviewedAt: persistedUpdated.lastReviewedAt ? persistedUpdated.lastReviewedAt.toISOString() : null,
+        },
+        occurredAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error("Failed to persist training progress", error);
       haptic("error");
       showFeedback("Ошибка — попробуйте ещё раз", "error");
     }
-  }, [panelMode, trainingModeId, trainingVerses, trainingIndex, trainingSubsetFilter, setPreviewOverride, exitTrainingMode, showFeedback]);
+  }, [
+    dailyGoalContext,
+    exitTrainingMode,
+    onDailyGoalProgressEvent,
+    panelMode,
+    setPreviewOverride,
+    showFeedback,
+    showTrainingCompletionOverlay,
+    trainingIndex,
+    trainingModeId,
+    trainingSubsetFilter,
+    trainingVerses,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (deleteDialogOpen) return;
       if (e.key === "Escape") {
         e.preventDefault();
-        if (panelMode === "training") exitTrainingMode();
-        else onClose();
+        if (panelMode === "training") {
+          if (closeTrainingGoesToPreview) exitTrainingMode();
+          else onClose();
+        } else onClose();
         return;
       }
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
-        if (panelMode === "training") jumpToAdjacentTrainingVerse(1);
+        if (panelMode === "training") handleTrainingNavigationStep(1);
         else void navigatePreviewTo("next");
         return;
       }
       if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
-        if (panelMode === "training") jumpToAdjacentTrainingVerse(-1);
+        if (panelMode === "training") handleTrainingNavigationStep(-1);
         else void navigatePreviewTo("prev");
         return;
       }
@@ -1255,7 +1952,7 @@ export function VerseGallery({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [deleteDialogOpen, panelMode, onClose, exitTrainingMode, jumpToAdjacentTrainingVerse, navigatePreviewTo]);
+  }, [closeTrainingGoesToPreview, deleteDialogOpen, panelMode, onClose, exitTrainingMode, handleTrainingNavigationStep, navigatePreviewTo]);
 
   if (!displayVerse) return null;
 
@@ -1290,13 +1987,23 @@ export function VerseGallery({
     ? Math.max(0, trainingEligibleIndices.indexOf(trainingIndex))
     : Math.max(0, activeIndex);
   return (
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={panelMode === "training" ? "Режим обучения" : "Просмотр стиха"} className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={
+        isTrainingAutoStartOverlayVisible
+          ? "Подготовка режима обучения"
+          : (panelMode === "training" ? "Режим обучения" : "Просмотр стиха")
+      }
+      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+    >
       <div aria-live="polite" aria-atomic="true" className="sr-only">{feedback?.message ?? ""}</div>
       <div aria-live="polite" aria-atomic="true" className="sr-only">{slideAnnouncement}</div>
 
       <div className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40" style={{ paddingTop: `${topInset}px` }}>
      
-          <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="max-w-4xl mx-auto px-4 py-2">
             <div className="flex items-start justify-between gap-4 relative">
               <div className="min-w-0 flex-1">
                 <div className="flex justify-center items-center gap-3">
@@ -1318,33 +2025,115 @@ export function VerseGallery({
             </div>
           </div>
       </div>
+      {dailyGoalGuideActive && dailyGoalContext ? (
+        <div className="shrink-0 px-4 sm:px-6 pt-3 z-30">
+            <div className="flex flex-col gap-2.5">
+                {dailyGoalContext.learningStageBlocked ? (
+                  <div className="mt-1 text-xs sm:text-sm text-amber-700 dark:text-amber-300">
+                    Чтобы начать цель, добавьте стих или переведите стих в режим изучения (LEARNING).
+                  </div>
+                ) : dailyGoalContext.reviewStageSkipped ? (null
+                  // <div className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                  //   Этап повторения будет пропущен: сейчас нет карточек для повторения.
+                  // </div>
+                ) : null}
+                {dailyGoalNextTargetReference && dailyGoalContext.phase !== 'completed' ? (
+                  <div className="mt-1 text-xs sm:text-sm truncate">
+                    Следующий стих: <span className="font-medium">{dailyGoalNextTargetReference}</span>
+                  </div>
+                ) : null}
+
+              <div className="flex flex-row md:flex-col gap-2 h-full">
+                {dailyGoalLearningPill ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDailyGoalPillClick("learning")}
+                    aria-pressed={dailyGoalCurrentExecutionMode === "learning"}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2.5 backdrop-blur-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                      "hover:bg-background/70",
+                      dailyGoalLearningPill.className
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {dailyGoalLearningPill.completed ? (
+                          <CheckCircle2 className={cn("h-4 w-4 shrink-0", dailyGoalLearningPill.iconClassName)} />
+                        ) : (
+                          <Clock3 className={cn("h-4 w-4 shrink-0", dailyGoalLearningPill.iconClassName)} />
+                        )}
+                        <span className="font-medium truncate text-sm">{dailyGoalLearningPill.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs tabular-nums font-semibold">{dailyGoalLearningPill.progress}</span>
+                      </div>
+                    </div>
+                  </button>
+                ) : null}
+                {dailyGoalReviewPill ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDailyGoalPillClick("review")}
+                    aria-pressed={dailyGoalCurrentExecutionMode === "review"}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 backdrop-blur-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                      "hover:bg-background/70",
+                      dailyGoalReviewPill.className
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {dailyGoalReviewPill.completed ? (
+                          <CheckCircle2 className={cn("h-4 w-4 shrink-0", dailyGoalReviewPill.iconClassName)} />
+                        ) : (
+                          <Clock3 className={cn("h-4 w-4 shrink-0", dailyGoalReviewPill.iconClassName)} />
+                        )}
+                        <span className="font-medium truncate text-sm">{dailyGoalReviewPill.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs tabular-nums font-semibold">{dailyGoalReviewPill.progress}</span>
+                      </div>
+                    </div>
+                  </button>
+                ) : null}
+              </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex-1 relative grid place-items-center px-4 sm:px-6" role="region" aria-roledescription="carousel" aria-label={panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"}>
-        <AnimatePresence initial={false} mode="sync" custom={direction}>
-          <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="col-start-1 row-start-1 w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
-            <VerseGalleryUnifiedCardViewport
-              panelMode={panelMode}
-              previewVerse={previewActiveVerse}
-              activeIndex={activeIndex}
-              actionPending={actionPending}
-              trainingActiveVerse={trainingActiveVerse}
-              trainingModeId={trainingModeId}
-              trainingRendererRef={trainingRendererRef}
-              onStartTraining={() => {
-                void startTrainingFromActiveVerse();
-              }}
-              onPreviewStatusAction={() => {
-                void handlePreviewStatusAction();
-              }}
-              onPreviewTouchStart={handlePreviewTouchStart}
-              onPreviewTouchEnd={handlePreviewTouchEnd}
-              onTrainingSwipeStep={jumpToAdjacentTrainingVerse}
-              onTrainingRate={handleTrainingRate}
-            />
-          </motion.div>
-        </AnimatePresence>
+        {isTrainingAutoStartOverlayVisible ? (
+          <DailyGoalTrainingLoadingView
+          />
+        ) : (
+          <AnimatePresence initial={false} mode="sync" custom={direction}>
+            <motion.div key={galleryBodyKey} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" className="col-start-1 row-start-1 w-full max-w-4xl focus-visible:outline-none" tabIndex={-1}>
+              <VerseGalleryUnifiedCardViewport
+                panelMode={panelMode}
+                previewVerse={previewActiveVerse}
+                activeIndex={activeIndex}
+                actionPending={actionPending}
+                trainingActiveVerse={trainingActiveVerse}
+                trainingModeId={trainingModeId}
+                trainingRendererRef={trainingRendererRef}
+                onStartTraining={() => {
+                  void startTrainingFromActiveVerse();
+                }}
+                onPreviewStatusAction={() => {
+                  void handlePreviewStatusAction();
+                }}
+                onPreviewTouchStart={handlePreviewTouchStart}
+                onPreviewTouchEnd={handlePreviewTouchEnd}
+                onTrainingSwipeStep={handleTrainingNavigationStep}
+                onTrainingRate={handleTrainingRate}
+                dailyGoalGuideActive={dailyGoalGuideActive}
+                trainingCompletionOverlay={trainingCompletionOverlay}
+              />
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
 
-      {panelMode === "preview" && (
+      {panelMode === "preview" && !isTrainingAutoStartOverlayVisible && (
         <div className="shrink-0 px-4 sm:px-6 z-40">
           <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
             <Button
@@ -1360,7 +2149,6 @@ export function VerseGallery({
             {previewStatusAction && (
               <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
-                {/* {previewStatusAction.label} */}
               </Button>
             )}
             <Button
@@ -1375,13 +2163,12 @@ export function VerseGallery({
               aria-label="Удалить стих"
             >
               <Trash2 className="h-4 w-4" />
-              {/* Удалить */}
             </Button>
           </div>
         </div>
       )}
 
-      {panelMode === "training" && (
+      {panelMode === "training" && !isTrainingAutoStartOverlayVisible && (
         <div className="shrink-0 px-4 sm:px-6 pt-3 z-40">
           <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
             <Button
@@ -1392,10 +2179,10 @@ export function VerseGallery({
                 haptic("light");
                 handleTrainingBackAction();
               }}
-              aria-label="Вернуться к превью"
+              aria-label={closeTrainingGoesToPreview ? "Вернуться к превью" : "Закрыть галерею"}
             >
               <ChevronLeft className="h-4 w-4" />
-              К превью
+              {closeTrainingGoesToPreview ? "К превью" : "Закрыть"}
             </Button>
             <TrainingSubsetSelect
               value={trainingSubsetFilter}
@@ -1403,7 +2190,7 @@ export function VerseGallery({
                 const nextFilter = value as TrainingSubsetFilter;
                 if (trainingSubsetFilter === nextFilter) return;
                 haptic("light");
-                setTrainingSubsetFilter(nextFilter);
+                applyUserTrainingSubsetFilter(nextFilter);
               }}
             />
           </div>
@@ -1417,8 +2204,9 @@ export function VerseGallery({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(-1) : void navigatePreviewTo("prev"))}
+          onClick={() => (panelMode === "training" ? handleTrainingNavigationStep(-1) : void navigatePreviewTo("prev"))}
           disabled={
+            isTrainingAutoStartOverlayVisible ||
             (panelMode === "training"
               ? displayActive <= 0 || trainingEligibleIndices.length <= 1
               : activeIndex === 0)
@@ -1429,14 +2217,21 @@ export function VerseGallery({
         </Button>
 
         <div className="min-w-0 flex items-center justify-center">
-          <DotProgress total={displayTotal} active={Math.min(displayActive, Math.max(0, displayTotal - 1))} />
+          {isTrainingAutoStartOverlayVisible ? (
+            <div className="px-3 py-2 rounded-full border border-border/50 bg-background/80 text-xs text-muted-foreground">
+              Подготовка…
+            </div>
+          ) : (
+            <DotProgress total={displayTotal} active={Math.min(displayActive, Math.max(0, displayTotal - 1))} />
+          )}
         </div>
 
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => (panelMode === "training" ? jumpToAdjacentTrainingVerse(1) : void navigatePreviewTo("next"))}
+          onClick={() => (panelMode === "training" ? handleTrainingNavigationStep(1) : void navigatePreviewTo("next"))}
           disabled={
+            isTrainingAutoStartOverlayVisible ||
             (panelMode === "training"
               ? displayActive >= displayTotal - 1 || trainingEligibleIndices.length <= 1
               : (previewIsLoadingMore && activeIndex >= verses.length - 1) || (activeIndex === verses.length - 1 && !previewHasMore))
@@ -1447,7 +2242,7 @@ export function VerseGallery({
         </Button>
       </div>
 
-      <SwipeHint panelMode={panelMode} />
+      {!isTrainingAutoStartOverlayVisible && <SwipeHint panelMode={panelMode} />}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

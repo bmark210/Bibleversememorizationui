@@ -1,41 +1,27 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  AutoSizer,
-  CellMeasurer,
-  CellMeasurerCache,
-  InfiniteLoader,
-  List as VirtualizedList,
-  WindowScroller,
-} from 'react-virtualized';
-import {
-  motion,
-  useReducedMotion,
-} from 'motion/react';
-import type {
-  IndexRange,
-  InfiniteLoaderChildProps,
-  ListRowProps,
-  ListRowRenderer,
-  WindowScrollerChildProps,
-} from 'react-virtualized';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { Virtuoso, type ListRange } from 'react-virtuoso';
 import { Verse } from '@/app/App';
-import { Card } from '@/app/components/ui/card';
 import {
   SCROLL_ACTIVATION_DELTA_PX,
   type VerseListStatusFilter,
 } from '../constants';
 import type { AppendRevealRange } from '../hooks/useVersePagination';
+import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
-type WindowScrollerElement = Element | (Window & typeof globalThis);
+type WindowScrollerElement = HTMLElement | (Window & typeof globalThis);
+type ScrollMode = 'window' | 'container';
+type RangeLike = VerseListLoadRange;
 
 type VerseVirtualizedListProps = {
   items: Array<Verse>;
   enableInfiniteLoader: boolean;
+  hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
   appendRevealRange: AppendRevealRange;
-  onLoadMore: (range: IndexRange) => Promise<void> | void;
+  onLoadMore: (range: VerseListLoadRange) => Promise<void> | void;
   renderRow: (verse: Verse) => React.ReactNode;
   getItemKey: (verse: Verse) => string;
   getItemLayoutSignature: (verse: Verse) => string;
@@ -43,99 +29,48 @@ type VerseVirtualizedListProps = {
   totalCount: number;
   pageSize: number;
   prefetchRows: number;
+  skeletonCount?: number;
   scrollActivationDeltaPx?: number;
   debugInfiniteScroll?: DebugInfiniteScroll;
 };
 
-type MeasuredVerseRowProps = {
-  index: number;
-  rowKey: string;
-  layoutSignature: string;
-  registerChild: (element?: Element | null) => void;
-  measure: () => void;
-  renderRow: (verse: Verse) => React.ReactNode;
-  verse: Verse;
-  shouldAnimateAppend: boolean;
-  onLayoutSignatureObserved: (
-    rowKey: string,
-    layoutSignature: string,
-    index: number,
-    measure: () => void
-  ) => void;
-  onRowHeightObserved: (
-    rowKey: string,
-    index: number,
-    height: number,
-    measure: () => void
-  ) => void;
-};
+const DEFAULT_INLINE_SKELETON_COUNT = 4;
+const DEFAULT_ITEM_HEIGHT_ESTIMATE = 176;
 
-function MeasuredVerseRow({
-  index,
-  rowKey,
-  layoutSignature,
-  registerChild,
-  measure,
-  renderRow,
-  verse,
-  shouldAnimateAppend,
-  onLayoutSignatureObserved,
-  onRowHeightObserved,
-}: MeasuredVerseRowProps) {
-  const measuredNodeRef = useRef<HTMLDivElement | null>(null);
-
-  const setMeasuredNodeRef = useCallback<React.RefCallback<HTMLDivElement>>(
-    (node) => {
-      measuredNodeRef.current = node;
-      registerChild(node);
-    },
-    [registerChild]
-  );
-
-  useEffect(() => {
-    onLayoutSignatureObserved(rowKey, layoutSignature, index, measure);
-  }, [index, layoutSignature, measure, onLayoutSignatureObserved, rowKey]);
-
-  useEffect(() => {
-    const node = measuredNodeRef.current;
-    if (!node) return;
-
-    const reportHeight = () => {
-      const height = Math.round(node.getBoundingClientRect().height);
-      onRowHeightObserved(rowKey, index, height, measure);
-    };
-
-    reportHeight();
-
-    if (typeof ResizeObserver === 'undefined') {
-      return;
-    }
-
-    const observer = new ResizeObserver(() => {
-      reportHeight();
-    });
-    observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [index, measure, onRowHeightObserved, rowKey]);
+function InlineLoadMoreSkeleton({
+  count,
+  pulse,
+}: {
+  count: number;
+  pulse: boolean;
+}) {
+  if (count <= 0) return null;
 
   return (
-    <div ref={setMeasuredNodeRef}>
-      <div className="pb-3">
-        {shouldAnimateAppend ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+    <div className="w-full pt-1" aria-hidden="true">
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        className="space-y-3 pointer-events-none"
+      >
+        {Array.from({ length: count }, (_, idx) => (
+          <div
+            key={`inline-load-skeleton-${idx}`}
+            className={[
+              'min-h-[164px] sm:min-h-[180px] rounded-3xl border border-border/70 bg-card/70 p-4 sm:p-5',
+              pulse ? 'animate-pulse' : '',
+            ].join(' ')}
           >
-            {renderRow(verse)}
-          </motion.div>
-        ) : (
-          renderRow(verse)
-        )}
-      </div>
+            <div className="flex h-full flex-col justify-center space-y-3">
+              <div className="h-4 w-28 rounded bg-muted" />
+              <div className="h-3 w-full rounded bg-muted/80" />
+              <div className="h-3 w-3/4 rounded bg-muted/70" />
+              <div className="h-3 w-5/6 rounded bg-muted/60" />
+            </div>
+          </div>
+        ))}
+      </motion.div>
     </div>
   );
 }
@@ -143,6 +78,7 @@ function MeasuredVerseRow({
 export function VerseVirtualizedList({
   items,
   enableInfiniteLoader,
+  hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
   appendRevealRange,
@@ -154,30 +90,21 @@ export function VerseVirtualizedList({
   totalCount,
   pageSize,
   prefetchRows,
+  skeletonCount = DEFAULT_INLINE_SKELETON_COUNT,
   scrollActivationDeltaPx = SCROLL_ACTIVATION_DELTA_PX,
   debugInfiniteScroll,
 }: VerseVirtualizedListProps) {
   const shouldReduceMotion = useReducedMotion();
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
-  const listRef = useRef<VirtualizedList | null>(null);
-  const infiniteLoaderRef = useRef<InfiniteLoader | null>(null);
-  const rowLayoutSignatureByKeyRef = useRef<Map<string, string>>(new Map());
-  const rowObservedHeightByKeyRef = useRef<Map<string, number>>(new Map());
-  const pendingRemeasureRowsRef = useRef<Set<number>>(new Set());
-  const rowRemeasureRafRef = useRef<number | null>(null);
-  const rowHeightCacheRef = useRef(
-    new CellMeasurerCache({
-      defaultHeight: 160,
-      fixedWidth: true,
-      minHeight: 96,
-    })
-  );
   const [scrollElement, setScrollElement] = useState<WindowScrollerElement | undefined>(undefined);
-  const [scrollMode, setScrollMode] = useState<'window' | 'container'>('window');
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [scrollMode, setScrollMode] = useState<ScrollMode>('window');
+
   const hasUserInteractedRef = useRef(false);
   const userScrollArmedRef = useRef(false);
   const scrollBaselineRef = useRef(0);
+  const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
+  const lastVisibleRangeRef = useRef<RangeLike | null>(null);
+  const maybeTriggerAutoLoadMoreRef = useRef<(range: RangeLike) => void>(() => {});
 
   const debug = debugInfiniteScroll ?? (() => {});
 
@@ -215,103 +142,71 @@ export function VerseVirtualizedList({
     return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }, [scrollElement]);
 
+  const maybeTriggerAutoLoadMore = useCallback(
+    (range: RangeLike) => {
+      if (!enableInfiniteLoader) return;
+      if (!hasMoreItems) return;
+      if (isFetchingMore) return;
+      if (!hasUserInteractedRef.current) return;
+      if (items.length === 0) return;
+
+      const lastRealIndex = items.length - 1;
+      const triggerIndex = Math.max(0, lastRealIndex - Math.max(0, prefetchRows));
+      if (range.stopIndex < triggerIndex) return;
+
+      if (autoLoadTriggeredForItemsLengthRef.current === items.length) {
+        debug('virtuoso-autoLoad-skip:already-triggered', {
+          itemsLength: items.length,
+          range,
+          triggerIndex,
+        });
+        return;
+      }
+
+      autoLoadTriggeredForItemsLengthRef.current = items.length;
+      const nextRange: VerseListLoadRange = {
+        startIndex: items.length,
+        stopIndex: Math.max(items.length, items.length + Math.max(pageSize, 1) - 1),
+      };
+
+      debug('virtuoso-autoLoad-trigger', {
+        visibleRange: range,
+        requestRange: nextRange,
+        itemsLength: items.length,
+        totalCount,
+        prefetchRows,
+      });
+
+      void onLoadMore(nextRange);
+    },
+    [
+      debug,
+      enableInfiniteLoader,
+      hasMoreItems,
+      isFetchingMore,
+      items.length,
+      onLoadMore,
+      pageSize,
+      prefetchRows,
+      totalCount,
+    ]
+  );
+
+  maybeTriggerAutoLoadMoreRef.current = maybeTriggerAutoLoadMore;
+
   const openInteractionGate = useCallback(
     (event: string, payload?: Record<string, unknown>) => {
       if (hasUserInteractedRef.current) return;
       hasUserInteractedRef.current = true;
-      setHasUserInteracted(true);
       debug(event, payload);
+
+      const lastRange = lastVisibleRangeRef.current;
+      if (lastRange) {
+        maybeTriggerAutoLoadMoreRef.current(lastRange);
+      }
     },
     [debug]
   );
-
-  const scheduleRowRemeasure = useCallback((index: number) => {
-    if (typeof window === 'undefined') return;
-    pendingRemeasureRowsRef.current.add(index);
-    if (rowRemeasureRafRef.current !== null) return;
-
-    rowRemeasureRafRef.current = window.requestAnimationFrame(() => {
-      rowRemeasureRafRef.current = null;
-      if (pendingRemeasureRowsRef.current.size === 0) return;
-      const minChangedIndex = Math.min(...pendingRemeasureRowsRef.current);
-      pendingRemeasureRowsRef.current.clear();
-      listRef.current?.recomputeRowHeights(minChangedIndex);
-      listRef.current?.forceUpdateGrid();
-    });
-  }, []);
-
-  const invalidateRowMeasurement = useCallback(
-    (index: number, measure: () => void) => {
-      if (index < 0) return;
-      rowHeightCacheRef.current.clear(index, 0);
-      measure();
-      scheduleRowRemeasure(index);
-    },
-    [scheduleRowRemeasure]
-  );
-
-  const handleRowLayoutSignatureObserved = useCallback(
-    (rowKey: string, layoutSignature: string, index: number, measure: () => void) => {
-      const previousSignature = rowLayoutSignatureByKeyRef.current.get(rowKey);
-      if (previousSignature === layoutSignature) return;
-      rowLayoutSignatureByKeyRef.current.set(rowKey, layoutSignature);
-      if (previousSignature !== undefined) {
-        // Row content geometry changed (e.g. NEW -> LEARNING), so cached row height is stale.
-        invalidateRowMeasurement(index, measure);
-      }
-    },
-    [invalidateRowMeasurement]
-  );
-
-  const handleRowHeightObserved = useCallback(
-    (rowKey: string, index: number, height: number, measure: () => void) => {
-      const previousHeight = rowObservedHeightByKeyRef.current.get(rowKey);
-      if (previousHeight !== undefined && Math.abs(previousHeight - height) <= 1) return;
-      rowObservedHeightByKeyRef.current.set(rowKey, height);
-      invalidateRowMeasurement(index, measure);
-    },
-    [invalidateRowMeasurement]
-  );
-
-  useEffect(() => {
-    rowHeightCacheRef.current.clearAll();
-    listRef.current?.recomputeRowHeights();
-    listRef.current?.forceUpdateGrid();
-    infiniteLoaderRef.current?.resetLoadMoreRowsCache(false);
-    rowLayoutSignatureByKeyRef.current.clear();
-    rowObservedHeightByKeyRef.current.clear();
-    pendingRemeasureRowsRef.current.clear();
-  }, [statusFilter, scrollMode]);
-
-  useEffect(() => {
-    const aliveKeys = new Set(items.map((item) => getItemKey(item)));
-    for (const key of rowLayoutSignatureByKeyRef.current.keys()) {
-      if (!aliveKeys.has(key)) rowLayoutSignatureByKeyRef.current.delete(key);
-    }
-    for (const key of rowObservedHeightByKeyRef.current.keys()) {
-      if (!aliveKeys.has(key)) rowObservedHeightByKeyRef.current.delete(key);
-    }
-  }, [getItemKey, items]);
-
-  useEffect(() => {
-    return () => {
-      if (typeof window !== 'undefined' && rowRemeasureRafRef.current !== null) {
-        window.cancelAnimationFrame(rowRemeasureRafRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasUserInteracted) return;
-    if (typeof window === 'undefined') return;
-    const raf = window.requestAnimationFrame(() => {
-      infiniteLoaderRef.current?.resetLoadMoreRowsCache(true);
-      listRef.current?.forceUpdateGrid();
-    });
-    return () => {
-      window.cancelAnimationFrame(raf);
-    };
-  }, [hasUserInteracted]);
 
   useEffect(() => {
     resolveScrollElement();
@@ -319,9 +214,7 @@ export function VerseVirtualizedList({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const onViewportChange = () => {
-      resolveScrollElement();
-    };
+    const onViewportChange = () => resolveScrollElement();
     window.addEventListener('resize', onViewportChange, { passive: true });
     window.addEventListener('orientationchange', onViewportChange);
     return () => {
@@ -332,17 +225,23 @@ export function VerseVirtualizedList({
 
   useEffect(() => {
     hasUserInteractedRef.current = false;
-    setHasUserInteracted(false);
     userScrollArmedRef.current = false;
     scrollBaselineRef.current = 0;
+    autoLoadTriggeredForItemsLengthRef.current = null;
+    lastVisibleRangeRef.current = null;
   }, [statusFilter]);
 
   useEffect(() => {
     if (items.length !== 0) return;
     hasUserInteractedRef.current = false;
-    setHasUserInteracted(false);
     userScrollArmedRef.current = false;
     scrollBaselineRef.current = 0;
+    autoLoadTriggeredForItemsLengthRef.current = null;
+    lastVisibleRangeRef.current = null;
+  }, [items.length]);
+
+  useEffect(() => {
+    autoLoadTriggeredForItemsLengthRef.current = null;
   }, [items.length]);
 
   useEffect(() => {
@@ -361,7 +260,7 @@ export function VerseVirtualizedList({
       }
       const delta = Math.abs(currentTop - scrollBaselineRef.current);
       if (delta > scrollActivationDeltaPx) {
-        openInteractionGate('user-scroll-armed', {
+        openInteractionGate('virtuoso-user-scroll-armed', {
           delta,
           threshold: scrollActivationDeltaPx,
           mode: scrollMode,
@@ -370,17 +269,17 @@ export function VerseVirtualizedList({
     };
 
     const onWheel = () => {
-      openInteractionGate('user-scroll-armed:wheel', { mode: scrollMode });
+      openInteractionGate('virtuoso-user-scroll-armed:wheel', { mode: scrollMode });
     };
 
     const onTouchMove = () => {
-      openInteractionGate('user-scroll-armed:touchmove', { mode: scrollMode });
+      openInteractionGate('virtuoso-user-scroll-armed:touchmove', { mode: scrollMode });
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       const scrollKeys = new Set(['ArrowDown', 'PageDown', 'End', ' ', 'Spacebar']);
       if (!scrollKeys.has(event.key)) return;
-      openInteractionGate('user-scroll-armed:keydown', { key: event.key, mode: scrollMode });
+      openInteractionGate('virtuoso-user-scroll-armed:keydown', { key: event.key, mode: scrollMode });
     };
 
     target.addEventListener('scroll', onScroll, { passive: true });
@@ -402,180 +301,138 @@ export function VerseVirtualizedList({
     scrollMode,
   ]);
 
-  const handleVirtualizedRowsRendered = useCallback(
-    (range: IndexRange, listLength: number) => {
-      debug('virtualized-rowsRendered', {
-        range,
-        listLength,
+  const handleRangeChanged = useCallback(
+    (range: ListRange) => {
+      const visibleRange: RangeLike = {
+        startIndex: range.startIndex,
+        stopIndex: range.endIndex,
+      };
+      lastVisibleRangeRef.current = visibleRange;
+
+      debug('virtuoso-rangeChanged', {
+        range: visibleRange,
+        listLength: items.length,
+        totalCount,
         prefetchRows,
-        nearEnd: listLength > 0 && range.stopIndex >= Math.max(0, listLength - 1 - prefetchRows),
+        nearEnd:
+          items.length > 0 &&
+          visibleRange.stopIndex >= Math.max(0, items.length - 1 - Math.max(0, prefetchRows)),
       });
+
+      maybeTriggerAutoLoadMore(visibleRange);
     },
-    [debug, prefetchRows]
+    [debug, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
   );
 
-  const handleVirtualizedLoadMoreRows = useCallback(
-    async (range: IndexRange) => {
-      if (!enableInfiniteLoader) return;
-      if (!hasUserInteractedRef.current) {
-        debug('virtualized-loadMoreRows-skip:no-user-interaction', {
-          range,
-          totalCount,
-          loadedItems: items.length,
-        });
-        return;
-      }
-      debug('virtualized-loadMoreRows', {
+  const handleEndReached = useCallback(
+    (index: number) => {
+      const range: RangeLike = {
+        startIndex: Math.max(0, index - Math.max(0, prefetchRows)),
+        stopIndex: index,
+      };
+      lastVisibleRangeRef.current = range;
+
+      debug('virtuoso-endReached', {
+        index,
         range,
+        itemsLength: items.length,
         totalCount,
-        loadedItems: items.length,
-        enableInfiniteLoader,
         isFetchingMore,
+        hasMoreItems,
         hasUserInteracted: hasUserInteractedRef.current,
       });
-      await onLoadMore(range);
+
+      maybeTriggerAutoLoadMore(range);
     },
-    [debug, enableInfiniteLoader, isFetchingMore, items.length, onLoadMore, totalCount]
+    [debug, hasMoreItems, isFetchingMore, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
   );
+
+  const inlineLoadSkeletonCount =
+    enableInfiniteLoader && hasMoreItems && isFetchingMore && showDelayedLoadMoreSkeleton
+      ? Math.max(1, Math.min(skeletonCount, pageSize))
+      : 0;
+
+  const FooterComponent = useMemo(() => {
+    const Footer = () => (
+      <InlineLoadMoreSkeleton
+        count={inlineLoadSkeletonCount}
+        pulse={showDelayedLoadMoreSkeleton}
+      />
+    );
+    Footer.displayName = 'VerseListVirtuosoFooter';
+    return Footer;
+  }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
+
+  const virtuosoComponents = useMemo(
+    () => ({ Footer: FooterComponent }),
+    [FooterComponent]
+  );
+
+  const customScrollParent =
+    scrollElement && scrollElement !== (typeof window !== 'undefined' ? (window as Window & typeof globalThis) : undefined)
+      ? (scrollElement as HTMLElement)
+      : undefined;
+
+  const scrollProps =
+    scrollMode === 'window' || !customScrollParent
+      ? ({ useWindowScroll: true } as const)
+      : ({ customScrollParent } as const);
 
   if (items.length === 0) return null;
 
-  const scrollModeKey = scrollMode;
-  const serverRowCount = Math.max(totalCount, items.length);
-  const rowCount = enableInfiniteLoader ? serverRowCount : items.length;
-  const cache = rowHeightCacheRef.current;
-
-  const isRowLoaded = ({ index }: { index: number }) => {
-    if (!enableInfiniteLoader) return true;
-    return index < items.length;
-  };
-
-  const rowRenderer: ListRowRenderer = ({ index, key, parent, style }: ListRowProps) => {
-    const verse = items[index];
-    if (!verse) {
-      const showInlineLoadSkeleton =
-        isFetchingMore && showDelayedLoadMoreSkeleton && index === items.length;
-
-      return (
-        <div
-          key={key}
-          style={{ ...style, boxSizing: 'border-box', paddingBottom: 12 }}
-          aria-hidden="true"
-        >
-          <div className="h-full">
-            {showInlineLoadSkeleton ? (
-              <motion.div
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="h-full rounded-3xl border border-border/70 bg-card/70 p-4 sm:p-5 animate-pulse"
-              >
-                <div className="space-y-3">
-                  <div className="h-4 w-28 rounded bg-muted" />
-                  <div className="h-3 w-full rounded bg-muted/80" />
-                  <div className="h-3 w-3/4 rounded bg-muted/70" />
-                </div>
-              </motion.div>
-            ) : (
-              <div className="h-full rounded-3xl opacity-0 pointer-events-none select-none" />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    const shouldAnimateAppend =
-      !shouldReduceMotion &&
-      !!appendRevealRange &&
-      index >= appendRevealRange.start &&
-      index <= appendRevealRange.end;
-
-    const rowKey = getItemKey(verse);
-    const layoutSignature = getItemLayoutSignature(verse);
-
-    return (
-      <div key={key} style={style}>
-        <CellMeasurer cache={cache} columnIndex={0} rowIndex={index} parent={parent}>
-          {({ registerChild, measure }) => (
-            <MeasuredVerseRow
-              index={index}
-              rowKey={rowKey}
-              layoutSignature={layoutSignature}
-              registerChild={registerChild}
-              measure={measure}
-              renderRow={renderRow}
-              verse={verse}
-              shouldAnimateAppend={shouldAnimateAppend}
-              onLayoutSignatureObserved={handleRowLayoutSignatureObserved}
-              onRowHeightObserved={handleRowHeightObserved}
-            />
-          )}
-        </CellMeasurer>
-      </div>
-    );
-  };
-
-  const windowScrollerScrollElement: WindowScrollerElement | undefined =
-    scrollElement ??
-    (typeof window !== 'undefined'
-      ? (window as Window & typeof globalThis)
-      : undefined);
-
   return (
     <div ref={scrollAnchorRef} className="w-full">
-      <WindowScroller
-        key={`window-scroller-${scrollModeKey}-${statusFilter}`}
-        scrollElement={windowScrollerScrollElement}
-      >
-        {({ height, scrollTop, isScrolling, onChildScroll, registerChild }: WindowScrollerChildProps) => (
-          <div ref={registerChild} className="w-full">
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <InfiniteLoader
-                  ref={infiniteLoaderRef}
-                  isRowLoaded={isRowLoaded}
-                  loadMoreRows={handleVirtualizedLoadMoreRows}
-                  rowCount={rowCount}
-                  threshold={enableInfiniteLoader ? prefetchRows : 0}
-                  minimumBatchSize={pageSize}
+      <Virtuoso<Verse>
+        key={`verse-virtuoso-${scrollMode}-${statusFilter}`}
+        data={items}
+        className="w-full"
+        components={virtuosoComponents}
+        computeItemKey={(_, verse) => getItemKey(verse)}
+        defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
+        endReached={handleEndReached}
+        rangeChanged={handleRangeChanged}
+        increaseViewportBy={{
+          top: 0,
+          bottom: Math.max(240, Math.max(0, prefetchRows) * 140),
+        }}
+        minOverscanItemCount={{
+          top: 2,
+          bottom: Math.max(2, Math.max(0, prefetchRows)),
+        }}
+        itemContent={(index, verse) => {
+          const layoutSignature = getItemLayoutSignature(verse);
+          const itemKey = getItemKey(verse);
+          const shouldAnimateAppend =
+            !shouldReduceMotion &&
+            !!appendRevealRange &&
+            index >= appendRevealRange.start &&
+            index <= appendRevealRange.end;
+
+          const content = (
+            <div data-layout-signature={layoutSignature}>
+              {renderRow(verse)}
+            </div>
+          );
+
+          return (
+            <div className="pb-3">
+              {shouldAnimateAppend ? (
+                <motion.div
+                  key={`${itemKey}:${layoutSignature}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
                 >
-                  {({ onRowsRendered, registerChild: registerInfiniteChild }: InfiniteLoaderChildProps) => (
-                    <VirtualizedList
-                      ref={(ref) => {
-                        listRef.current = ref;
-                        registerInfiniteChild(ref);
-                      }}
-                      autoHeight
-                      width={Math.max(0, width)}
-                      height={Math.max(1, height)}
-                      rowCount={rowCount}
-                      rowHeight={({ index }) => {
-                        if (index >= items.length) return 160;
-                        return cache.rowHeight({ index });
-                      }}
-                      deferredMeasurementCache={cache}
-                      estimatedRowSize={160}
-                      overscanRowCount={Math.max(4, prefetchRows + 2)}
-                      rowRenderer={rowRenderer}
-                      onScroll={onChildScroll}
-                      scrollTop={scrollTop}
-                      isScrolling={isScrolling}
-                      onRowsRendered={(info) => {
-                        onRowsRendered(info);
-                        handleVirtualizedRowsRendered(
-                          { startIndex: info.startIndex, stopIndex: info.stopIndex },
-                          items.length
-                        );
-                      }}
-                      noRowsRenderer={() => <></>}
-                    />
-                  )}
-                </InfiniteLoader>
+                  {content}
+                </motion.div>
+              ) : (
+                content
               )}
-            </AutoSizer>
-          </div>
-        )}
-      </WindowScroller>
+            </div>
+          );
+        }}
+        {...scrollProps}
+      />
     </div>
   );
 }

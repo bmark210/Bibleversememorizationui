@@ -32,6 +32,7 @@ import {
 } from '@/shared/ui/verticalTouchSwipe';
 import { Progress } from './ui/progress';
 import { toMasteryPercent } from './Dashboard';
+import type { DailyGoalProgressEvent } from '@/app/features/daily-goal/types';
 
 type Rating = 0 | 1 | 2 | 3;
 type SaveState = 'saving' | 'saved' | 'error' | 'skipped';
@@ -59,6 +60,7 @@ interface TrainingSessionProps {
   startFromVerseId?: string | null;
   onComplete: () => void;
   onExit: () => void;
+  onProgressSaved?: (event: DailyGoalProgressEvent) => void;
 }
 
 interface SessionVerse {
@@ -267,12 +269,17 @@ function isReviewVerse(verse: Pick<SessionVerse, 'status'>) {
 function getEligibleVerses(verses: SessionVerse[]) {
   return verses.filter((verse) =>
     verse.status !== VerseStatus.STOPPED
+    && verse.status !== 'WAITING'
     && verse.status !== 'MASTERED'
   );
 }
 
 function isEligibleVerse(verse: SessionVerse) {
-  return verse.status !== VerseStatus.STOPPED && verse.status !== 'MASTERED';
+  return (
+    verse.status !== VerseStatus.STOPPED &&
+    verse.status !== 'WAITING' &&
+    verse.status !== 'MASTERED'
+  );
 }
 
 function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): ModeId | null {
@@ -521,6 +528,7 @@ export function TrainingSession({
   startFromVerseId = null,
   onComplete,
   onExit,
+  onProgressSaved,
 }: TrainingSessionProps) {
   const [runtime, setRuntime] = useState<RuntimeState>(() => createInitialRuntime(verses, startFromVerseId));
   const touchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
@@ -680,6 +688,27 @@ export function TrainingSession({
     if (saveState === 'saving') {
       try {
         await persistVerseProgress(updatedVerse, { includeRepetitions: canUpdateRepetitions });
+        onProgressSaved?.({
+          source: 'training-session',
+          externalVerseId: updatedVerse.externalVerseId,
+          reference: updatedVerse.reference,
+          targetKindHint: null,
+          saved: true,
+          rating,
+          before: {
+            status: String(baseVerse.status),
+            masteryLevel: Number(baseVerse.rawMasteryLevel ?? 0),
+            repetitions: Number(baseVerse.repetitions ?? 0),
+            lastReviewedAt: baseVerse.lastReviewedAt ? baseVerse.lastReviewedAt.toISOString() : null,
+          },
+          after: {
+            status: String(updatedVerse.status),
+            masteryLevel: Number(updatedVerse.rawMasteryLevel ?? 0),
+            repetitions: Number(updatedVerse.repetitions ?? 0),
+            lastReviewedAt: updatedVerse.lastReviewedAt ? updatedVerse.lastReviewedAt.toISOString() : null,
+          },
+          occurredAt: new Date().toISOString(),
+        });
       } catch (error) {
         console.error('Failed to persist training progress', error);
         toast.error('Не удалось сохранить прогресс по стиху');
@@ -709,7 +738,7 @@ export function TrainingSession({
                 <CardDescription>
                   {runtime.targetExercises > 0
                     ? 'TrainingSession переработан под engine-подход: авто-режим, round-robin, spaced repetition.'
-                    : 'Для сессии нужны стихи со статусом не STOPPED и не MASTERED (изучение или повторение).'}
+                    : 'Для сессии нужны стихи в активном обучении/повторении (без STOPPED, WAITING и MASTERED).'}
                 </CardDescription>
               </div>
               <Button variant="ghost" size="icon" onClick={onExit}>
@@ -744,7 +773,7 @@ export function TrainingSession({
                 <AlertCircle className="w-4 h-4" />
                 <AlertTitle>Нет активных стихов для тренировки</AlertTitle>
                 <AlertDescription>
-                  Сессия берёт стихи по правилам движка: `status != STOPPED` и `status != MASTERED`.
+                  Сессия берёт стихи по правилам движка: исключаются `STOPPED`, `WAITING` и `MASTERED`.
                 </AlertDescription>
               </Alert>
             )}
@@ -784,11 +813,11 @@ export function TrainingSession({
       onTouchEnd={handleTouchEnd}
     >
       <div className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-4xl mx-auto px-4 py-2" data-tour-id="daily-goal-training-session-header">
           <div className="flex items-start justify-between gap-4 pt-20 md:pt-0 mb-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Button variant="ghost" size="sm" onClick={onExit} className="gap-1">
+                <Button className="w-fit gap-1" variant="ghost" size="sm" onClick={onExit}>
                   <ChevronLeft className="w-4 h-4" />
                   Выход
                 </Button>
@@ -804,7 +833,7 @@ export function TrainingSession({
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2" data-tour-id="daily-goal-training-session-progress">
             <MetaPill label="Уровень" value={`${currentVerse.masteryLevel}/${TRAINING_STAGE_MASTERY_MAX}`} />
             <MetaPill label="Повторы" value={`${currentVerse.repetitions}`} />
             </div>

@@ -3,7 +3,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { VerseGallery } from './VerseGallery';
+import type { Verse } from '@/app/App';
 import { ConfirmDeleteModal } from './verse-list/components/ConfirmDeleteModal';
 import { VerseListEmptyState } from './verse-list/components/VerseListEmptyState';
 import { VerseListFilterCard } from './verse-list/components/VerseListFilterCard';
@@ -14,12 +17,27 @@ import { VerseListSkeletonCards } from './verse-list/components/VerseListSkeleto
 import type { VerseListStatusFilter } from './verse-list/constants';
 import { useVerseListController } from './verse-list/hooks/useVerseListController';
 import { VerseVirtualizedList } from './verse-list/virtualization/VerseVirtualizedList';
+import type {
+  DailyGoalGalleryContext,
+  DailyGoalProgressEvent,
+  DailyGoalResumeMode,
+  DailyGoalTrainingStartDecision,
+  DailyGoalVerseListReminder,
+} from '@/app/features/daily-goal/types';
 
 interface VerseListProps {
   onAddVerse: () => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
+  dailyGoalReminder?: DailyGoalVerseListReminder;
+  dailyGoalGalleryContext?: DailyGoalGalleryContext | null;
+  onBeforeStartTrainingFromGalleryVerse?:
+    | ((verse: Verse) => Promise<DailyGoalTrainingStartDecision> | DailyGoalTrainingStartDecision)
+    | undefined;
+  onDailyGoalProgressEvent?: ((event: DailyGoalProgressEvent) => void) | undefined;
+  onDailyGoalJumpToVerseRequest?: ((externalVerseId: string) => void) | undefined;
+  onDailyGoalPreferredResumeModeChange?: ((mode: DailyGoalResumeMode) => void) | undefined;
 }
 
 export function VerseList({
@@ -27,6 +45,12 @@ export function VerseList({
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
+  dailyGoalReminder,
+  dailyGoalGalleryContext = null,
+  onBeforeStartTrainingFromGalleryVerse,
+  onDailyGoalProgressEvent,
+  onDailyGoalJumpToVerseRequest,
+  onDailyGoalPreferredResumeModeChange,
 }: VerseListProps) {
   const vm = useVerseListController({
     onAddVerse,
@@ -45,6 +69,7 @@ export function VerseList({
       <VerseVirtualizedList
         items={visibleListItems}
         enableInfiniteLoader={vm.list.enableInfiniteLoader}
+        hasMoreItems={vm.pagination.hasMoreVerses}
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
         appendRevealRange={vm.pagination.appendRevealRange}
@@ -62,9 +87,9 @@ export function VerseList({
 
   const footerVisible = Boolean(
     !vm.ui.isListLoading &&
+      !vm.pagination.isFetchingMoreVerses &&
       (vm.pagination.verses.length > 0 ||
         vm.pagination.hasMoreVerses ||
-        vm.pagination.isFetchingMoreVerses ||
         vm.pagination.loadMoreError)
   );
 
@@ -87,6 +112,59 @@ export function VerseList({
         <VerseListHeader onAddVerseClick={vm.header.onAddVerseClick} />
       </motion.div>
 
+      {dailyGoalReminder?.visible ? (
+        <motion.div {...reveal(0.03)} className="mb-3">
+          <div
+            data-tour-id="daily-goal-verse-list-reminder"
+            className="rounded-2xl border border-border/70 bg-gradient-to-r from-primary/8 via-background to-amber-500/6 p-3.5 sm:p-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <Badge className="rounded-full px-3 py-1">Ежедневная цель</Badge>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full px-3 py-1"
+                  >
+                    {dailyGoalReminder.phase === 'learning' ? 'Этап 1: Изучение' : 'Этап 2: Повторение'}
+                  </Badge>
+                </div>
+                <div className="text-sm font-medium">{dailyGoalReminder.progressLabel}</div>
+                {dailyGoalReminder.nextTargetReference ? (
+                  <div className="text-xs text-muted-foreground mt-1 truncate">
+                    Следующий стих: {dailyGoalReminder.nextTargetReference}
+                  </div>
+                ) : dailyGoalReminder.onShowHowToAddFirstVerse ? (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Добавьте первый стих, чтобы начать ежедневную цель.
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {dailyGoalReminder.onShowHowToAddFirstVerse ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto rounded-2xl"
+                    onClick={dailyGoalReminder.onShowHowToAddFirstVerse}
+                  >
+                    Добавить стих
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  className="w-full sm:w-auto rounded-2xl"
+                  onClick={dailyGoalReminder.onResume}
+                  data-tour-id="daily-goal-verse-list-resume-cta"
+                >
+                  Продолжить
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ) : null}
+
       <motion.div {...reveal(0.04)}>
         <VerseListFilterCard
           totalVisible={vm.ui.totalVisible}
@@ -105,7 +183,10 @@ export function VerseList({
         </motion.div>
       ) : vm.ui.isEmptyFiltered ? (
         <motion.div {...reveal(0.05)}>
-          <VerseListEmptyState onAddVerseClick={vm.header.onAddVerseClick} />
+          <VerseListEmptyState
+            currentFilterLabel={vm.ui.currentFilterLabel}
+            isAllFilter={vm.filters.statusFilter === 'all'}
+          />
         </motion.div>
       ) : isAllMode ? (
         <motion.div className="space-y-3" {...reveal(0.06)}>
@@ -155,6 +236,11 @@ export function VerseList({
             onClose={vm.gallery.onClose}
             onStatusChange={vm.gallery.onStatusChange}
             onDelete={vm.gallery.onDelete}
+            dailyGoalContext={dailyGoalGalleryContext ?? undefined}
+            onBeforeStartTrainingFromGalleryVerse={onBeforeStartTrainingFromGalleryVerse}
+            onDailyGoalProgressEvent={onDailyGoalProgressEvent}
+            onDailyGoalJumpToVerseRequest={onDailyGoalJumpToVerseRequest}
+            onDailyGoalPreferredResumeModeChange={onDailyGoalPreferredResumeModeChange}
             previewTotalCount={vm.pagination.totalCount}
             previewHasMore={vm.pagination.hasMoreVerses}
             previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}

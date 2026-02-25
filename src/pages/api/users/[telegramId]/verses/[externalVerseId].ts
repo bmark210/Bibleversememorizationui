@@ -2,7 +2,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import {
-  isReviewState,
+  WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
+  WAITING_NEXT_REVIEW_DELAY_HOURS,
+  canMutateRepetitionsByMastery,
+  mapUserVerseToVerseCardDto,
+  normalizeBaseStatus,
   normalizeProgressValue,
   type UserVerseWithLegacyNullableProgress,
 } from "./verseCard.types";
@@ -69,26 +73,41 @@ async function handlePatch(
 
     const existingVerseWithStatus = existingVerse as UserVerseWithLegacyNullableProgress;
 
+    const currentBaseStatus = normalizeBaseStatus(existingVerseWithStatus.status);
+    const currentMasteryLevel = normalizeProgressValue(existingVerseWithStatus.masteryLevel);
     const currentRepetitions = normalizeProgressValue(existingVerseWithStatus.repetitions);
     const requestedRepetitions =
       body.repetitions !== undefined ? normalizeProgressValue(body.repetitions) : currentRepetitions;
+    const requestedMasteryLevel =
+      body.masteryLevel !== undefined
+        ? normalizeProgressValue(body.masteryLevel)
+        : currentMasteryLevel;
+    const requestedBaseStatus =
+      body.status !== undefined ? normalizeBaseStatus(body.status) : currentBaseStatus;
     const isRepetitionsMutation =
       body.repetitions !== undefined && requestedRepetitions !== currentRepetitions;
 
     if (
       isRepetitionsMutation &&
-      !isReviewState(
-        existingVerseWithStatus.status,
-        existingVerseWithStatus.masteryLevel,
-        existingVerseWithStatus.repetitions
-      )
+      !canMutateRepetitionsByMastery(requestedBaseStatus, requestedMasteryLevel)
     ) {
-      // 409 is clearer than silently ignoring the write: repetitions are allowed only in REVIEW phase.
+      // 409 is clearer than silently ignoring the write:
+      // repetitions are allowed only after the verse is in LEARNING and mastery is above stage 7.
       return res.status(409).json({
         error:
-          "repetitions can only be changed in REVIEW state (LEARNING + masteryLevel >= 7 + repetitions < 5)",
+          "repetitions can only be changed after LEARNING verse reaches masteryLevel > 7",
       });
     }
+
+    const reachedWaitingThresholdNow =
+      currentBaseStatus === VerseStatus.LEARNING &&
+      currentMasteryLevel <= WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+      requestedMasteryLevel > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+      requestedBaseStatus === VerseStatus.LEARNING;
+
+    const autoNextReviewAt = reachedWaitingThresholdNow
+      ? new Date(Date.now() + WAITING_NEXT_REVIEW_DELAY_HOURS * 60 * 60 * 1000)
+      : null;
 
     const verse = await prisma.userVerse.update({
       where: {
@@ -105,12 +124,17 @@ async function handlePatch(
           ? { repetitions: normalizeProgressValue(body.repetitions) }
           : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
-        ...(body.nextReviewAt ? { nextReviewAt: new Date(body.nextReviewAt) } : {}),
+        ...(autoNextReviewAt ? { nextReviewAt: autoNextReviewAt } : {}),
         ...(body.status ? { status: body.status } : {}),
       },
     });
 
-    return res.status(200).json(verse);
+    return res.status(200).json(
+      mapUserVerseToVerseCardDto({
+        ...(verse as UserVerseWithLegacyNullableProgress),
+        tags: [],
+      })
+    );
   } catch (error) {
     console.error("Error updating verse:", error);
     return res.status(500).json({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
+import { Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -36,6 +36,7 @@ export const SwipeableVerseCard = ({
 }: SwipeCardProps) => {
   const masteryLevel = Number(verse.masteryLevel ?? 0);
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
+  const isWaitingCard = displayStatus === 'WAITING';
   const isReviewCard = displayStatus === 'REVIEW';
   const isMasteredCard = displayStatus === 'MASTERED';
   const stoppedStageKind =
@@ -50,6 +51,15 @@ export const SwipeableVerseCard = ({
     100
   );
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
+  const waitingUntilLabel = (() => {
+    if (!isWaitingCard || !verse.nextReviewAt) return null;
+    const date = new Date(verse.nextReviewAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  })();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -102,7 +112,12 @@ export const SwipeableVerseCard = ({
       );
     }
 
-    if (displayStatus === VerseStatus.LEARNING || displayStatus === 'REVIEW' || displayStatus === 'MASTERED') {
+    if (
+      displayStatus === VerseStatus.LEARNING ||
+      displayStatus === 'WAITING' ||
+      displayStatus === 'REVIEW' ||
+      displayStatus === 'MASTERED'
+    ) {
       return (
         <>
           <Button
@@ -180,6 +195,15 @@ export const SwipeableVerseCard = ({
       <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-1 text-amber-800 dark:text-amber-300">
         <Trophy className="h-3.5 w-3.5" />
         <span className="font-semibold">Выучен · {repetitionsCount}</span>
+      </div>
+    </div>
+  ) : isWaitingCard ? (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-indigo-700 dark:text-indigo-300">
+        <Clock3 className="h-3.5 w-3.5" />
+        <span className="font-semibold">
+          {waitingUntilLabel ? `До ${waitingUntilLabel}` : 'Ожидание повтора'}
+        </span>
       </div>
     </div>
   ) : isReviewCard ? (

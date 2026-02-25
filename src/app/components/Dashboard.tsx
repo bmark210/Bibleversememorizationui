@@ -3,13 +3,17 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import {
+  BookPlus,
+  CheckCircle2,
   ChevronRight,
+  Compass,
   Crown,
   Dumbbell,
   Flame,
   Medal,
   Plus,
   Repeat,
+  Settings2,
   Sparkles,
   Target,
   Trophy,
@@ -21,12 +25,17 @@ import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { useTelegram } from '../contexts/TelegramContext';
 import { Verse } from '@/app/App';
+import type { DashboardDailyGoalCardModel } from '@/app/features/daily-goal/types';
 
 interface DashboardProps {
   todayVerses: Array<Verse>;
   onStartTraining: () => void;
   onAddVerse: () => void;
   onViewAll: () => void;
+  dailyGoal: DashboardDailyGoalCardModel;
+  onStartDailyGoal: () => void;
+  onResumeDailyGoal: () => void;
+  onOpenTrainingPlanSettings: () => void;
 }
 
 type LeaderboardEntry = {
@@ -85,15 +94,24 @@ function getRankBadge(rank: number) {
   };
 }
 
-export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll }: DashboardProps) {
+export function Dashboard({
+  todayVerses,
+  onStartTraining,
+  onAddVerse,
+  onViewAll,
+  dailyGoal,
+  onStartDailyGoal,
+  onResumeDailyGoal,
+  onOpenTrainingPlanSettings,
+}: DashboardProps) {
   const { user } = useTelegram();
   const shouldReduceMotion = useReducedMotion();
   const now = Date.now();
 
-  const newVersesCount = todayVerses.filter((verse) => verse.status === 'NEW').length;
-  const reviewVersesCount = Math.max(0, todayVerses.length - newVersesCount);
+  const learningVersesCount = todayVerses.filter((verse) => verse.status === 'LEARNING').length;
+  const reviewVersesCount = todayVerses.filter((verse) => verse.status === 'REVIEW').length;
   const dueReviewCount = todayVerses.filter((verse) => {
-    if (verse.status !== 'LEARNING') return false;
+    if (verse.status !== 'REVIEW') return false;
     if (!verse.nextReviewAt) return true;
     const nextReviewTime = new Date(verse.nextReviewAt).getTime();
     return Number.isNaN(nextReviewTime) || nextReviewTime <= now;
@@ -118,7 +136,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
       key: 'planned',
       label: 'В плане сегодня',
       value: `${todayVerses.length}`,
-      hint: `${newVersesCount} новых · ${reviewVersesCount} повторений`,
+      hint: `${learningVersesCount} в изучении · ${reviewVersesCount} повторений`,
       icon: Target,
       accent: 'from-primary/20 to-primary/5',
     },
@@ -200,6 +218,28 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
     },
   };
 
+  const dailyGoalProgressPercent =
+    dailyGoal.ui.progressCounts.newTotal + dailyGoal.ui.progressCounts.reviewTotal > 0
+      ? clampPercent(
+          ((dailyGoal.ui.progressCounts.newDone + dailyGoal.ui.progressCounts.reviewDone) /
+            Math.max(
+              1,
+              dailyGoal.ui.progressCounts.newTotal + dailyGoal.ui.progressCounts.reviewTotal
+            )) *
+            100
+        )
+      : 0;
+  const dailyGoalPhaseLabel =
+    dailyGoal.ui.phase === 'learning'
+      ? 'Этап 1: Изучение'
+      : dailyGoal.ui.phase === 'review'
+        ? 'Этап 2: Повторение'
+        : dailyGoal.ui.phase === 'completed'
+          ? 'Цель выполнена'
+          : 'Цель на сегодня';
+  const dailyGoalActionLabel = dailyGoal.ui.isActive ? 'Продолжить цель' : 'Начать ежедневную цель';
+  const dailyGoalActionHandler = dailyGoal.ui.isActive ? onResumeDailyGoal : onStartDailyGoal;
+
   return (
     <motion.div
       className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto"
@@ -232,7 +272,200 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
         </p>
       </motion.div>
 
-      <motion.div className="flex flex-col sm:flex-row gap-3 mb-8" variants={sectionVariants}>
+      <motion.div className="mb-5" variants={sectionVariants}>
+        <Card
+          data-tour-id="daily-goal-card"
+          className="relative overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-amber-400/10 via-background to-emerald-500/5 p-5 sm:p-6 gap-0"
+        >
+          <div className="pointer-events-none absolute inset-0 opacity-70">
+            <div className="absolute -top-12 -right-8 h-36 w-36 rounded-full bg-amber-400/15 blur-3xl" />
+            <div className="absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
+          </div>
+
+          <div className="relative">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Badge className="rounded-full px-3 py-1">Ежедневная цель</Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    {dailyGoalPhaseLabel}
+                  </Badge>
+                  {dailyGoal.onboardingPending && (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full px-3 py-1 border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                    >
+                      Новый сценарий
+                    </Badge>
+                  )}
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold">План на сегодня</h2>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  {dailyGoal.needsFirstVerse
+                    ? 'Добавьте первый стих, чтобы начать ежедневную цель и получить персональную тренировку.'
+                    : dailyGoal.needsLearningVersesForGoal
+                      ? 'Для выполнения ежедневной цели нужны стихи в статусе LEARNING. Добавьте новый стих или переведите существующий в изучение.'
+                    : dailyGoal.ui.isCompleted
+                      ? 'Отличная работа. Сегодняшняя цель закрыта.'
+                      : dailyGoal.ui.isEmpty
+                        ? 'Сегодня нет доступных стихов для полной цели. Можно скорректировать план или добавить новый стих.'
+                        : dailyGoal.reviewStageWillBeSkipped
+                          ? 'Сегодня этап повторения будет пропущен: нет стихов в статусе REVIEW. Достаточно завершить этап изучения.'
+                          : 'Идём по шагам: сначала стихи в изучении, затем повторение.'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right min-w-[150px]">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Прогресс цели
+                </div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">{dailyGoalProgressPercent}%</div>
+              </div>
+            </div>
+
+            {!dailyGoal.needsFirstVerse && (
+              <div className="mt-4 rounded-2xl border border-border/60 bg-background/55 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm font-medium">Выполнение по этапам</div>
+                  <div className="text-xs text-muted-foreground">
+                    Запрошено: {dailyGoal.requestedCounts.new} в изучении · {dailyGoal.requestedCounts.review} повторений
+                  </div>
+                </div>
+                <Progress value={dailyGoalProgressPercent} className="h-2.5" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/80">
+                      Изучение
+                    </div>
+                    <div className="mt-1 font-semibold tabular-nums">
+                      {dailyGoal.ui.progressCounts.newDone}/{dailyGoal.ui.progressCounts.newTotal}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-violet-700/80 dark:text-violet-300/80">
+                      Повторение
+                    </div>
+                    <div className="mt-1 font-semibold tabular-nums">
+                      {dailyGoal.ui.progressCounts.reviewDone}/{dailyGoal.ui.progressCounts.reviewTotal}
+                    </div>
+                  </div>
+                </div>
+                {dailyGoal.nextTargetReference && !dailyGoal.ui.isCompleted && !dailyGoal.ui.isEmpty ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/75 px-3 py-2 text-sm">
+                    <Compass className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">Следующий шаг:</span>
+                    <span className="font-medium truncate">{dailyGoal.nextTargetReference}</span>
+                  </div>
+                ) : null}
+                {dailyGoal.shortageHints.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {dailyGoal.shortageHints.map((hint) => (
+                      <Badge
+                        key={hint}
+                        variant="outline"
+                        className="rounded-full px-3 py-1 border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                      >
+                        {hint}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              {dailyGoal.needsFirstVerse ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={onAddVerse}
+                    className="flex-1 sm:flex-initial rounded-2xl gap-2"
+                    data-tour-id="daily-goal-add-first-verse"
+                  >
+                    <BookPlus className="w-4 h-4" />
+                    Добавить первый стих
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onViewAll}
+                    className="rounded-2xl gap-2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                    Открыть раздел «Стихи»
+                  </Button>
+                </>
+              ) : dailyGoal.needsLearningVersesForGoal ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={onAddVerse}
+                    className="flex-1 sm:flex-initial rounded-2xl gap-2"
+                  >
+                    <BookPlus className="w-4 h-4" />
+                    Добавить стих
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onViewAll}
+                    className="rounded-2xl gap-2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                    Открыть «Стихи»
+                  </Button>
+                </>
+              ) : dailyGoal.ui.isCompleted ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={onViewAll}
+                    className="flex-1 sm:flex-initial rounded-2xl gap-2"
+                    data-tour-id="daily-goal-view-verses"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Цель выполнена
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onOpenTrainingPlanSettings}
+                    className="rounded-2xl gap-2"
+                    data-tour-id="daily-goal-open-plan-settings"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    Настроить план
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    onClick={dailyGoalActionHandler}
+                    disabled={!dailyGoal.canStart}
+                    className="flex-1 sm:flex-initial rounded-2xl gap-2"
+                    data-tour-id="daily-goal-start-cta"
+                  >
+                    <Target className="w-4 h-4" />
+                    {dailyGoalActionLabel}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onOpenTrainingPlanSettings}
+                    className="rounded-2xl gap-2"
+                    data-tour-id="daily-goal-plan-settings-cta"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    Настроить план
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* <motion.div className="flex flex-col sm:flex-row gap-3 mb-8" variants={sectionVariants}>
         <Button
           onClick={onStartTraining}
           variant="default"
@@ -242,7 +475,7 @@ export function Dashboard({ todayVerses, onStartTraining, onAddVerse, onViewAll 
           <Dumbbell className="w-4 h-4 mr-2" />
           Начать тренировку
         </Button>
-      </motion.div>
+      </motion.div> */}
 
       <motion.div
         className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"

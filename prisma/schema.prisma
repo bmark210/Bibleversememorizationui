@@ -21,12 +21,18 @@ enum VerseStatus {
 }
 
 model User {
-  id        String      @id @default(cuid())
-  telegramId String      @unique
-  translation Translation      @default(SYNOD)
-  createdAt DateTime    @default(now())
+  id           String      @id @default(cuid())
+  telegramId   String      @unique
+  translation  Translation @default(SYNOD)
+  createdAt    DateTime    @default(now())
 
-  verses    UserVerse[]
+  // Количество выполненных ежедневных целей
+  dailyGoalsCompleted Int   @default(0)
+
+  // Максимальное количество дней подряд с выполнением задания
+  dailyStreak        Int    @default(0)
+
+  verses       UserVerse[]
 }
 
 model UserVerse {

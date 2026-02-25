@@ -1,31 +1,40 @@
 import React from 'react';
-import { BookOpen, Plus } from 'lucide-react';
-import { Button } from '@/app/components/ui/button';
+import { ListFilter, SearchX } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 
 type VerseListEmptyStateProps = {
-  onAddVerseClick: () => void;
+  currentFilterLabel: string;
+  isAllFilter?: boolean;
 };
 
-export function VerseListEmptyState({ onAddVerseClick }: VerseListEmptyStateProps) {
+export function VerseListEmptyState({
+  currentFilterLabel,
+  isAllFilter = false,
+}: VerseListEmptyStateProps) {
+  const title = isAllFilter ? 'Пока нет стихов' : 'Ничего не найдено';
+  const description = isAllFilter
+    ? 'Список пуст. Когда стихи появятся, они отобразятся здесь.'
+    : `По фильтру «${currentFilterLabel}» сейчас нет карточек. Попробуйте переключить фильтр.`;
+
   return (
-    <Card className="relative overflow-hidden border-border/70 bg-gradient-to-br from-background to-primary/5 p-8 text-center gap-4">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-background/80">
-        <BookOpen className="h-6 w-6 text-primary" />
+    <Card className="relative overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-background via-background to-muted/30 p-7 sm:p-8 text-center gap-4">
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div className="absolute -left-10 top-4 h-24 w-24 rounded-full bg-foreground/5 blur-2xl" />
+        <div className="absolute -right-6 bottom-3 h-20 w-20 rounded-full bg-foreground/5 blur-2xl" />
       </div>
-      <div>
-        <div className="text-lg font-semibold">Список пока пуст</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Добавьте первый стих, и он появится здесь. Дальше сможете открыть его в галерее и начать тренировку.
-        </p>
+
+      <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-border/70 bg-background/85 shadow-sm">
+        {isAllFilter ? (
+          <SearchX className="h-6 w-6 text-muted-foreground" />
+        ) : (
+          <ListFilter className="h-6 w-6 text-muted-foreground" />
+        )}
       </div>
-      <div className="flex justify-center">
-        <Button onClick={onAddVerseClick} className="rounded-full">
-          <Plus className="w-4 h-4 mr-2" />
-          Добавить первый стих
-        </Button>
+
+      <div className="relative">
+        <div className="text-lg font-semibold tracking-tight">{title}</div>
+        <p className="mt-2 text-sm text-muted-foreground leading-6">{description}</p>
       </div>
     </Card>
   );
 }
-

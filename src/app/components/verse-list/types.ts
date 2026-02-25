@@ -1,15 +1,16 @@
 import type * as React from 'react';
 import type { Verse } from '@/app/App';
 import type { VerseStatus } from '@/generated/prisma';
-import type { IndexRange } from 'react-virtualized';
 import type { FilterVisualTheme, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
 
 export type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
+export type VerseListLoadRange = { startIndex: number; stopIndex: number };
 
 export type VerseCardLayoutSignature =
   | 'new'
   | 'learning-progress'
+  | 'waiting-pill'
   | 'review-pill'
   | 'stopped-progress'
   | 'stopped-repeat'
@@ -50,6 +51,7 @@ export type VerseListController = {
     isFetchingVerses: boolean;
     isFetchingMoreVerses: boolean;
     loadMoreError: string | null;
+    showDelayedInitialFetchSkeleton: boolean;
     showDelayedLoadMoreSkeleton: boolean;
     appendRevealRange: AppendRevealRange;
   };
@@ -63,7 +65,7 @@ export type VerseListController = {
     renderVerseRow: (verse: Verse) => React.ReactNode;
     getItemKey: (verse: Pick<Verse, 'id' | 'externalVerseId'>) => string;
     getItemLayoutSignature: (verse: Verse) => VerseCardLayoutSignature;
-    onLoadMoreRows: (range: IndexRange) => Promise<void>;
+    onLoadMoreRows: (range: VerseListLoadRange) => Promise<void>;
     debugInfiniteScroll: DebugInfiniteScroll;
   };
   header: {

@@ -3,7 +3,14 @@ import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
-export type VerseListStatusFilter = 'all' | 'learning' | 'review' | 'mastered' | 'stopped' | 'new';
+export type VerseListStatusFilter =
+  | 'all'
+  | 'learning'
+  | 'waiting'
+  | 'review'
+  | 'mastered'
+  | 'stopped'
+  | 'new';
 export type VerseStageVisualKey = Exclude<VerseListStatusFilter, 'all'>;
 export type StoppedVerseStageKind = 'progress' | 'review' | 'mastered';
 
@@ -16,10 +23,11 @@ export type FilterVisualTheme = {
 };
 
 export const VERSE_LIST_PAGE_SIZE = 5;
-export const SCROLL_ACTIVATION_DELTA_PX = 4;
+export const SCROLL_ACTIVATION_DELTA_PX = 0;
 export const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 0;
 export const PREFETCH_ROWS = 0;
-export const LOAD_MORE_SKELETON_DELAY_MS = 160;
+// Minimum time to keep the list skeleton visible (initial fetch and load-more requests).
+export const LOAD_MORE_SKELETON_DELAY_MS = 500;
 export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
 export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = 5;
 
@@ -50,6 +58,17 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     statusBadgeClassName:
       'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
     cardClassName: 'border-violet-500/22 bg-gradient-to-br from-violet-500/9 via-card to-card',
+  },
+  waiting: {
+    dotClassName: 'bg-indigo-400',
+    activeTabClassName:
+      'border-indigo-500/30 bg-indigo-500/14 text-indigo-700 dark:text-indigo-300',
+    currentBadgeClassName:
+      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+    statusBadgeClassName:
+      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+    cardClassName:
+      'border-indigo-500/22 bg-gradient-to-br from-indigo-500/9 via-card to-card',
   },
   mastered: {
     dotClassName: 'bg-amber-400',
@@ -125,6 +144,10 @@ export function getVerseStageVisual(
     return { key: 'mastered', label: 'Выучено' };
   }
 
+  if (status === 'WAITING') {
+    return { key: 'waiting', label: 'Ожидание' };
+  }
+
   if (status === 'REVIEW') {
     return { key: 'review', label: 'Повторение' };
   }
@@ -134,7 +157,14 @@ export function getVerseStageVisual(
 
 export function getVerseCardLayoutSignature(
   verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
-): 'new' | 'learning-progress' | 'review-pill' | 'stopped-progress' | 'stopped-repeat' | 'stopped-mastered' {
+):
+  | 'new'
+  | 'learning-progress'
+  | 'waiting-pill'
+  | 'review-pill'
+  | 'stopped-progress'
+  | 'stopped-repeat'
+  | 'stopped-mastered' {
   const status = normalizeDisplayVerseStatus(verse.status);
 
   if (status === VerseStatus.NEW) {
@@ -143,6 +173,10 @@ export function getVerseCardLayoutSignature(
 
   if (status === VerseStatus.LEARNING) {
     return 'learning-progress';
+  }
+
+  if (status === 'WAITING') {
+    return 'waiting-pill';
   }
 
   if (status === 'REVIEW' || status === 'MASTERED') {

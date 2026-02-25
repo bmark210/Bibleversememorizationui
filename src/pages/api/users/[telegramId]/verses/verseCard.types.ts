@@ -4,6 +4,8 @@ import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 
 export const REVIEW_MASTERY_LEVEL_MIN = TRAINING_STAGE_MASTERY_MAX;
 export const MASTERED_REPETITIONS_MIN = 5;
+export const WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE = TRAINING_STAGE_MASTERY_MAX;
+export const WAITING_NEXT_REVIEW_DELAY_HOURS = 24;
 
 type PrismaUserVerse = Prisma.UserVerseGetPayload<Record<string, never>>;
 type PrismaTag = Prisma.TagGetPayload<Record<string, never>>;
@@ -13,7 +15,7 @@ type PrismaVerseCardBaseFields = Pick<
   "externalVerseId" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt"
 >;
 
-export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED";
+export type DisplayStatus = VerseStatus | "REVIEW" | "WAITING" | "MASTERED";
 
 export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
 
@@ -81,7 +83,8 @@ export function normalizeBaseStatus(status: VerseStatus | null | undefined): Ver
 export function computeDisplayStatus(
   baseStatusInput: VerseStatus | null | undefined,
   masteryLevelInput: number | null | undefined,
-  repetitionsInput: number | null | undefined
+  repetitionsInput: number | null | undefined,
+  nextReviewAtInput?: Date | string | null | undefined
 ): DisplayStatus {
   const baseStatus = normalizeBaseStatus(baseStatusInput);
   const masteryLevel = normalizeProgressValue(masteryLevelInput);
@@ -91,6 +94,12 @@ export function computeDisplayStatus(
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
 
   if (repetitions >= MASTERED_REPETITIONS_MIN) return "MASTERED";
+  if (
+    masteryLevel > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+    isFutureReviewDate(nextReviewAtInput)
+  ) {
+    return "WAITING";
+  }
   if (masteryLevel >= REVIEW_MASTERY_LEVEL_MIN) return "REVIEW";
   return VerseStatus.LEARNING;
 }
@@ -98,11 +107,22 @@ export function computeDisplayStatus(
 export function isReviewState(
   baseStatusInput: VerseStatus | null | undefined,
   masteryLevelInput: number | null | undefined,
-  repetitionsInput: number | null | undefined
+  repetitionsInput: number | null | undefined,
+  nextReviewAtInput?: Date | string | null | undefined
 ): boolean {
   return (
-    computeDisplayStatus(baseStatusInput, masteryLevelInput, repetitionsInput) ===
+    computeDisplayStatus(baseStatusInput, masteryLevelInput, repetitionsInput, nextReviewAtInput) ===
     "REVIEW"
+  );
+}
+
+export function canMutateRepetitionsByMastery(
+  baseStatusInput: VerseStatus | null | undefined,
+  masteryLevelInput: number | null | undefined
+): boolean {
+  return (
+    normalizeBaseStatus(baseStatusInput) === VerseStatus.LEARNING &&
+    normalizeProgressValue(masteryLevelInput) > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE
   );
 }
 
@@ -114,6 +134,13 @@ function toIsoStringOrNull(value: Date | string | null | undefined): string | nu
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function isFutureReviewDate(value: Date | string | null | undefined): boolean {
+  if (!value) return false;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getTime() > Date.now();
+}
+
 export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): VerseCardDto {
   const baseStatus = normalizeBaseStatus(verse.status);
   const masteryLevel =
@@ -123,7 +150,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
 
   return {
     externalVerseId: verse.externalVerseId,
-    status: computeDisplayStatus(baseStatus, masteryLevel, repetitions),
+    status: computeDisplayStatus(baseStatus, masteryLevel, repetitions, verse.nextReviewAt),
     masteryLevel,
     repetitions,
     lastReviewedAt: toIsoStringOrNull(verse.lastReviewedAt),

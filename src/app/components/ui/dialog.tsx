@@ -38,7 +38,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
       {...props}
@@ -57,14 +57,14 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border-none md:border p-6 shadow-lg duration-200 sm:max-w-lg",
+          "fixed inset-0 z-[90] grid h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-4 overflow-hidden bg-background p-4 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-border/70 sm:p-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
           className
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground fixed top-22 md:top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
-          {/* <XIcon /> */}
+        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring absolute top-3 right-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-muted-foreground opacity-90 shadow-sm backdrop-blur transition-colors hover:bg-accent hover:text-foreground focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none sm:top-4 sm:right-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+          <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -79,7 +79,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
         <div className="pointer-events-none absolute -bottom-6 left-0 w-full h-6 z-10 bg-gradient-to-b from-background/95 to-transparent" />
         <div
           className={cn(
-            "flex flex-col gap-2 text-center sm:text-left bg-background py-4",
+            "flex flex-col gap-2 bg-background py-4 pr-12 text-center sm:text-left",
             className
           )}
           {...props}
@@ -96,7 +96,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
         <div className="pointer-events-none absolute -top-10 left-0 w-full h-10 z-10 bg-gradient-to-t from-background/95 to-transparent" />
         <div
           className={cn(
-            "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end bg-background pt-4 !pb-6",
+            "flex flex-col-reverse gap-2 bg-background pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:flex-row sm:justify-end sm:pb-6",
             className
           )}
           {...props}
