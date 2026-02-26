@@ -229,14 +229,7 @@ export function Dashboard({
             100
         )
       : 0;
-  // const dailyGoalPhaseLabel =
-  //   dailyGoal.ui.phase === 'learning'
-  //     ? 'Этап 1: Изучение'
-  //     : dailyGoal.ui.phase === 'review'
-  //       ? 'Этап 2: Повторение'
-  //       : dailyGoal.ui.phase === 'completed'
-  //         ? 'Цель выполнена'
-  //         : 'Цель на сегодня';
+
   const dailyGoalActionLabel = dailyGoal.ui.isActive ? 'Продолжить цель' : 'Начать ежедневную цель';
   const dailyGoalActionHandler = dailyGoal.ui.isActive ? onResumeDailyGoal : onStartDailyGoal;
   const showDailyGoalReviewStage = Boolean(dailyGoal.ui.phaseStates.review.enabled);
@@ -321,12 +314,6 @@ export function Dashboard({
                           : 'Идём по шагам: сначала стихи в изучении, затем повторение.'}
                 </p>
               </div>
-              {/* <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right min-w-[150px]">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Прогресс цели
-                </div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums">{dailyGoalProgressPercent}%</div>
-              </div> */}
             </div>
 
             {!dailyGoal.needsFirstVerse && (
@@ -334,22 +321,14 @@ export function Dashboard({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Выполнение цели</div>
-                    {/* <div className="mt-1 text-xs text-muted-foreground">{dailyGoalRequestedLabel}</div>
-                    <div className="text-xs text-muted-foreground">{dailyGoalAvailableLabel}</div> */}
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-right">
                     <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                       Прогресс
                     </div>
-                    {/* <div className="mt-1 text-lg font-semibold tabular-nums">{dailyGoalProgressPercent}%</div> */}
                   </div>
                 </div>
                 <Progress value={dailyGoalProgressPercent} className="h-2.5" />
-                {/* {dailyGoal.reviewStageWillBeSkipped && !dailyGoal.needsLearningVersesForGoal ? (
-                  <div className="rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-                    Этап повторения сегодня пропущен: сейчас нет карточек для повторения.
-                  </div>
-                ) : null} */}
                 <div
                   className={`grid gap-3 text-sm ${showDailyGoalReviewStage ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}
                 >
@@ -510,18 +489,6 @@ export function Dashboard({
           </div>
         </Card>
       </motion.div>
-
-      {/* <motion.div className="flex flex-col sm:flex-row gap-3 mb-8" variants={sectionVariants}>
-        <Button
-          onClick={onStartTraining}
-          variant="default"
-          size="lg"
-          className="flex-1 py-3 sm:flex-initial rounded-3xl"
-        >
-          <Dumbbell className="w-4 h-4 mr-2" />
-          Начать тренировку
-        </Button>
-      </motion.div> */}
 
       <motion.div
         className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"

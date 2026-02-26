@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import { Skeleton } from "./components/ui/skeleton";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
@@ -43,28 +44,28 @@ import type {
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
   {
-    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+    loading: () => <AppPageFallback />,
   }
 );
 
 const Collections = dynamic(
   () => import("./components/Collections").then((m) => m.Collections),
   {
-    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+    loading: () => <AppPageFallback />,
   }
 );
 
 const Statistics = dynamic(
   () => import("./components/Statistics").then((m) => m.Statistics),
   {
-    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+    loading: () => <AppPageFallback />,
   }
 );
 
 const Settings = dynamic(
   () => import("./components/Settings").then((m) => m.Settings),
   {
-    loading: () => <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>,
+    loading: () => <AppPageFallback />,
   }
 );
 
@@ -88,6 +89,42 @@ const TrainingSession = dynamic(
     loading: () => <div className="min-h-screen bg-background" />,
   }
 );
+
+function AppPageFallback() {
+  return (
+    <div className="min-h-[60vh] bg-background p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-5xl space-y-5">
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-56 rounded-xl bg-muted/45 dark:bg-muted/30" />
+          <Skeleton className="h-4 w-72 max-w-full rounded-lg bg-muted/40 dark:bg-muted/25" />
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-5">
+          <Card className="rounded-3xl border-border/70 p-5 sm:p-6 gap-0">
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-52 rounded-lg bg-muted/45 dark:bg-muted/30" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
+                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
+                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
+                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
+              </div>
+              <Skeleton className="h-12 rounded-xl bg-muted/45 dark:bg-muted/30" />
+            </div>
+          </Card>
+          <Card className="rounded-3xl border-border/70 p-5 sm:p-6 gap-0">
+            <div className="space-y-3">
+              <Skeleton className="h-6 w-44 rounded-lg bg-muted/45 dark:bg-muted/30" />
+              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
+              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
+              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export type Verse = UserVerse & {
   status: DisplayVerseStatus;
@@ -220,6 +257,7 @@ export default function App() {
   const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
   const [dashboardGalleryAutoStartTraining, setDashboardGalleryAutoStartTraining] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
   const [dailyGoalReadiness, setDailyGoalReadiness] = useState<DailyGoalReadinessResponse | null>(null);
@@ -231,7 +269,6 @@ export default function App() {
   const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
-  const initUserRef = useRef(false);
   const dailyGoalCompletionSyncRef = useRef<Set<string>>(new Set());
   const dailyGoalReadinessRequestIdRef = useRef(0);
   const dailyGoalReadinessInFlightRef = useRef<{
@@ -251,68 +288,94 @@ export default function App() {
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
-    if (initUserRef.current) return;
-    initUserRef.current = true;
+    let isMounted = true;
+    let bootstrapTimeoutId: number | null = null;
 
-    const telegramId =
-      typeof window !== "undefined"
-        ? (
-            window as any
-          )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
-          process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
-          localStorage.getItem("telegramId") ??
-          undefined
-        : undefined;
-
-    if (!telegramId) {
-      setIsLoading(false);
-      return;
-    }
-    setTelegramId(telegramId);
-    localStorage.setItem("telegramId", telegramId);
-
-    const savedPreferences = readTrainingBatchPreferences();
-    if (savedPreferences) {
-      setTrainingBatchPreferences(savedPreferences);
-      setSelectedNewVersesCount(savedPreferences.newVersesCount);
-      setSelectedReviewVersesCount(savedPreferences.reviewVersesCount);
-    } else {
-      setTrainingBatchPreferences(null);
-      setSelectedNewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount);
-      setSelectedReviewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount);
-      setIsTrainingBatchPromptOpen(true);
-    }
-
-    const fetchUser = async () => {
-      try {
-        setIsLoading(true);
-        const userData = await UsersService.getApiUsers(telegramId);
-        setUser(userData);
-      } catch (err) {
-        const status = (err as ApiError)?.status;
-        if (status === 404) {
-          try {
-            const newUser = await UsersService.postApiUsers({ telegramId });
-            setUser({ ...newUser, verses: [] });
-          } catch (createErr) {
-            console.error("Не удалось создать пользователя:", createErr);
-            toast.error("Ошибка при создании профиля");
-          }
-        } else {
-          console.error("Не удалось получить пользователя:", err);
-          toast.error("Ошибка при подключении к базе данных");
-        }
-      } finally {
-        setIsLoading(false);
+    const finishBootstrapping = () => {
+      if (isMounted) {
+        setIsBootstrapping(false);
       }
     };
 
-    if (savedPreferences) {
-      void loadPlannedVersesForDashboard(telegramId, savedPreferences);
-    } else {
-      setVerses([]);
-    }
-    fetchUser();
+    void (async () => {
+      const telegramId =
+        typeof window !== "undefined"
+          ? (
+              window as any
+            )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+            process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
+            localStorage.getItem("telegramId") ??
+            undefined
+          : undefined;
+
+      if (!telegramId) {
+        setIsLoading(false);
+        finishBootstrapping();
+        return;
+      }
+      setTelegramId(telegramId);
+      localStorage.setItem("telegramId", telegramId);
+
+      const savedPreferences = readTrainingBatchPreferences();
+      if (savedPreferences) {
+        setTrainingBatchPreferences(savedPreferences);
+        setSelectedNewVersesCount(savedPreferences.newVersesCount);
+        setSelectedReviewVersesCount(savedPreferences.reviewVersesCount);
+      } else {
+        setTrainingBatchPreferences(null);
+        setSelectedNewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount);
+        setSelectedReviewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount);
+        setIsTrainingBatchPromptOpen(true);
+      }
+
+      const fetchUser = async () => {
+        try {
+          setIsLoading(true);
+          const userData = await UsersService.getApiUsers(telegramId);
+          setUser(userData);
+        } catch (err) {
+          const status = (err as ApiError)?.status;
+          if (status === 404) {
+            try {
+              const newUser = await UsersService.postApiUsers({ telegramId });
+              setUser({ ...newUser, verses: [] });
+            } catch (createErr) {
+              console.error("Не удалось создать пользователя:", createErr);
+              toast.error("Ошибка при создании профиля");
+            }
+          } else {
+            console.error("Не удалось получить пользователя:", err);
+            toast.error("Ошибка при подключении к базе данных");
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const startupTasks: Array<Promise<unknown>> = [fetchUser()];
+      if (savedPreferences) {
+        startupTasks.push(loadPlannedVersesForDashboard(telegramId, savedPreferences));
+      } else {
+        setVerses([]);
+      }
+
+      const startupSettledPromise = Promise.allSettled(startupTasks).then(() => undefined);
+      const startupTimeoutPromise = new Promise<void>((resolve) => {
+        bootstrapTimeoutId = window.setTimeout(resolve, 1600);
+      });
+      await Promise.race([startupSettledPromise, startupTimeoutPromise]);
+      if (bootstrapTimeoutId !== null) {
+        window.clearTimeout(bootstrapTimeoutId);
+      }
+      finishBootstrapping();
+    })();
+
+    return () => {
+      isMounted = false;
+      if (bootstrapTimeoutId !== null) {
+        window.clearTimeout(bootstrapTimeoutId);
+      }
+    };
   }, []);
 
   const handleNavigate = (page: string) => {
@@ -900,25 +963,47 @@ export default function App() {
 
   return (
     <>
-      <div aria-hidden={isTraining || dashboardGalleryIndex !== null}>
+      <div
+        aria-hidden={isTraining || dashboardGalleryIndex !== null}
+        className="min-h-screen bg-background transition-colors"
+      >
         <Layout currentPage={currentPage} onNavigate={handleNavigate}>
           {currentPage === "dashboard" && (
-            <Dashboard
-              todayVerses={verses}
-              onStartTraining={handleStartTraining}
-              onAddVerse={handleAddVerse}
-              onViewAll={() => setCurrentPage("verses")}
-              dailyGoal={dailyGoal.dashboardCard}
-              onStartDailyGoal={() => {
-                dailyGoal.markOnboardingSeen("dashboardIntro");
-                void handleStartTraining({ autoStartInGallery: true });
-              }}
-              onResumeDailyGoal={() => {
-                dailyGoal.markOnboardingSeen("dashboardIntro");
-                void handleStartTraining({ autoStartInGallery: true });
-              }}
-              onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
-            />
+            <div className="relative">
+              <div
+                className={`transition-opacity duration-300 ease-in-out ${
+                  isBootstrapping
+                    ? "opacity-100"
+                    : "opacity-0 pointer-events-none absolute inset-0 z-10"
+                }`}
+                aria-hidden={!isBootstrapping}
+              >
+                <AppPageFallback />
+              </div>
+              <div
+                className={`transition-opacity duration-300 ease-in-out ${
+                  isBootstrapping ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
+                aria-hidden={isBootstrapping}
+              >
+                <Dashboard
+                  todayVerses={verses}
+                  onStartTraining={handleStartTraining}
+                  onAddVerse={handleAddVerse}
+                  onViewAll={() => setCurrentPage("verses")}
+                  dailyGoal={dailyGoal.dashboardCard}
+                  onStartDailyGoal={() => {
+                    dailyGoal.markOnboardingSeen("dashboardIntro");
+                    void handleStartTraining({ autoStartInGallery: true });
+                  }}
+                  onResumeDailyGoal={() => {
+                    dailyGoal.markOnboardingSeen("dashboardIntro");
+                    void handleStartTraining({ autoStartInGallery: true });
+                  }}
+                  onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
+                />
+              </div>
+            </div>
           )}
 
           {currentPage === "verses" && (
