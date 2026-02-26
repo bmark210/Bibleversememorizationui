@@ -199,7 +199,7 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
           <div className="flex items-center justify-center h-10">
-            <div className="flex items-center gap-3">
+            <div className="ml-5 md:ml-0 flex items-center gap-1">
                 <BookOpen className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
             </div>

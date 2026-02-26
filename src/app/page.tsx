@@ -81,7 +81,7 @@ export default function Page() {
               overlayDismissing ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            <div className="w-full max-w-[220px] rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-lg shadow-primary/10 backdrop-blur-xl">
+            <div className="w-full max-w-[220px] rounded-2xl border border-border/70 bg-gradient-to-r from-background via-background to-amber-500/5 px-4 py-3 shadow-lg backdrop-blur-xl">
             <div className="flex items-center gap-3">
                 <BookOpen className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>

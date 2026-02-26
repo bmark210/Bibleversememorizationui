@@ -73,6 +73,21 @@ export function useTelegramWebApp() {
           WebApp.disableVerticalSwipes();
         }
 
+        // Блокируем выход из приложения
+        if (WebApp.enableClosingConfirmation) {
+          WebApp.enableClosingConfirmation();
+        }
+
+        // Блокируем переворот устройства
+        if (WebApp.disableRotation) {
+          WebApp.disableRotation();
+        }
+
+        // Блокируем перемещение фокуса за пределы приложения
+        if (WebApp.disableFocusOutside) {
+          WebApp.disableFocusOutside();
+        }
+
         // Получаем данные пользователя
         const tgUser = WebApp.initDataUnsafe?.user;
         
