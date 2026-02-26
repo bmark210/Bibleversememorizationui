@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { toast } from "sonner";
@@ -127,6 +127,10 @@ type RefreshDailyGoalReadinessOptions = {
   force?: boolean;
 };
 
+type AppProps = {
+  onInitialContentReady?: () => void;
+};
+
 const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
 const NEW_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
 const REVIEW_VERSE_COUNT_OPTIONS = [3, 5, 10, 15] as const;
@@ -206,7 +210,8 @@ function buildTrainingBatchVerses(
   });
 }
 
-export default function App() {
+export default function App({ onInitialContentReady }: AppProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
@@ -234,6 +239,7 @@ export default function App() {
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
   const dailyGoalCompletionSyncRef = useRef<Set<string>>(new Set());
+  const hasNotifiedInitialContentReadyRef = useRef(false);
   const dailyGoalReadinessRequestIdRef = useRef(0);
   const dailyGoalReadinessInFlightRef = useRef<{
     key: string;
@@ -253,7 +259,6 @@ export default function App() {
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
     let isMounted = true;
-    let bootstrapTimeoutId: number | null = null;
 
     const finishBootstrapping = () => {
       if (isMounted) {
@@ -322,23 +327,12 @@ export default function App() {
       } else {
         setVerses([]);
       }
-
-      const startupSettledPromise = Promise.allSettled(startupTasks).then(() => undefined);
-      const startupTimeoutPromise = new Promise<void>((resolve) => {
-        bootstrapTimeoutId = window.setTimeout(resolve, 1600);
-      });
-      await Promise.race([startupSettledPromise, startupTimeoutPromise]);
-      if (bootstrapTimeoutId !== null) {
-        window.clearTimeout(bootstrapTimeoutId);
-      }
+      await Promise.allSettled(startupTasks);
       finishBootstrapping();
     })();
 
     return () => {
       isMounted = false;
-      if (bootstrapTimeoutId !== null) {
-        window.clearTimeout(bootstrapTimeoutId);
-      }
     };
   }, []);
 
@@ -925,19 +919,29 @@ export default function App() {
     void syncDailyGoalCompletionToServer();
   }, [dailyGoal.hasUnsyncedCompletionCounter, dailyGoal.session?.dayKey, telegramId]);
 
+  useEffect(() => {
+    if (isBootstrapping || hasNotifiedInitialContentReadyRef.current) return;
+    hasNotifiedInitialContentReadyRef.current = true;
+    onInitialContentReady?.();
+  }, [isBootstrapping, onInitialContentReady]);
+
   return (
     <>
       <div
         aria-hidden={isTraining || dashboardGalleryIndex !== null}
         className="min-h-screen transition-colors"
       >
-        <Layout currentPage={currentPage} onNavigate={handleNavigate}>
+        <Layout currentPage={currentPage} onNavigate={handleNavigate} isContentReady={!isBootstrapping}>
           {currentPage === "dashboard" && (
-            <div
-              className={`transition-opacity duration-500 ease-out ${
-                isBootstrapping ? "opacity-0 pointer-events-none" : "opacity-100"
-              }`}
+            <motion.div
               aria-busy={isBootstrapping}
+              {...(shouldReduceMotion
+                ? {}
+                : {
+                    initial: { opacity: 0 },
+                    animate: { opacity: 1 },
+                    transition: { duration: 0.2, ease: "easeOut" as const },
+                  })}
             >
               <Dashboard
                 todayVerses={verses}
@@ -954,8 +958,9 @@ export default function App() {
                   void handleStartTraining({ autoStartInGallery: true });
                 }}
                 onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
+                isInitializingData={isBootstrapping}
               />
-            </div>
+            </motion.div>
           )}
 
           {currentPage === "verses" && (

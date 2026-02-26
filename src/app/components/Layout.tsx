@@ -11,6 +11,7 @@ interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
   onNavigate: (page: string) => void;
+  isContentReady?: boolean;
 }
 
 type Theme = 'light' | 'dark';
@@ -22,7 +23,7 @@ const getPreferredTheme = (): Theme => {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
-export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
+export function Layout({ children, currentPage, onNavigate, isContentReady = false }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(getPreferredTheme);
   const { user, isReady, platform } = useTelegram();
   const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
@@ -191,54 +192,16 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     <div className="min-h-dvh flex flex-col">
       {/* Header */}
       <header 
-        className="bg-card border-b border-border sticky top-0 z-10 overflow-hidden"
+        className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
+          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'
+        }`}
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
           <div className="flex items-center justify-center h-10">
             <div className="flex items-center gap-3">
-              {/* <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"> */}
                 <BookOpen className="w-5 h-5 text-primary" />
-              {/* </div> */}
               <h1 className="text-xl font-semibold text-primary">BMemory</h1>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {/* <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-lg">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium">12 дней подряд</span>
-              </div> */}
-              {/* Кнопка Debug (только в Telegram) */}
-              {/* {isInTelegram && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
-                  aria-label="Debug"
-                >
-                  <span className="text-xs font-mono">DEBUG</span>
-                </Button>
-              )} */}
-              {/* <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={toggleTheme}
-                className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
-                aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
-              >
-                <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
-                <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
-              </Button>
-              <Avatar>
-                {user?.photoUrl ? (
-                  <AvatarImage src={user.photoUrl} alt={user.firstName} />
-                ) : (
-                  <AvatarFallback className="bg-primary text-primary-foreground">{user?.firstName.charAt(0).toUpperCase()}</AvatarFallback>
-                )}
-              </Avatar> */}
             </div>
           </div>
         </div>
@@ -283,7 +246,9 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
       {/* Mobile Bottom Navigation */}
       <div 
-        className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90"
+        className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-400 ease-out ${
+          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+        }`}
         style={{ paddingBottom: `${bottomInset}px` }}
       >
         <nav className="flex justify-around p-2 pt-2.5">
@@ -344,7 +309,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 Закрыть
               </Button>
               <Button
-                type="button"
+                type="button" 
                 onClick={handleCopyDebugInfo}
                 className="gap-2"
               >
@@ -358,3 +323,19 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     </div>
   );
 }
+
+
+{/* <div className="flex items-center gap-4"> */}
+{/* <Button
+  type="button"
+  variant="outline"
+  size="sm"
+  onClick={toggleTheme}
+  className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
+  aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
+>
+  <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
+  <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
+</Button>
+*/}
+{/* </div> */}
