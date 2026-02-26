@@ -585,11 +585,18 @@ export default function App({ onInitialContentReady }: AppProps) {
       return;
     }
 
+    // Ensure the session exists BEFORE refreshing readiness, since session creation
+    // depends only on todayVerses/preferences — not on the readiness API response.
+    dailyGoal.ensureSessionForToday();
+
+    // Refresh readiness from the server (force=true bypasses deduplication cache).
+    // The returned snapshot is not yet in React state, so getNextTargetVerseId()
+    // below reads from the pre-refresh UI. This is acceptable: the gallery opens
+    // immediately with existing verses, then a background refresh corrects the list.
     await refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
       force: true,
     });
 
-    dailyGoal.ensureSessionForToday();
     const preferredTargetVerseId = dailyGoal.getNextTargetVerseId();
     const openDashboardGallery = (
       plannedList: Array<Verse>,

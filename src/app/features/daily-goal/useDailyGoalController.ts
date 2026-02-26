@@ -506,10 +506,10 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       if (!targetKind) return { completedNow: false };
 
       // Daily goal progress is intentionally stricter than generic training progress:
-      // - learning counts only after masteryLevel becomes > 7
+      // - learning counts only after masteryLevel reaches >= 7 (REVIEW threshold)
       // - review counts only after completing "typing first letters" mode
       if (targetKind === 'new') {
-        if (!(Number(event.after.masteryLevel ?? 0) > 7)) {
+        if (!(Number(event.after.masteryLevel ?? 0) >= 7)) {
           return { completedNow: false };
         }
       } else {

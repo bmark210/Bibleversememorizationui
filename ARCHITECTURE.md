@@ -1,569 +1,1005 @@
-# Bible Memory — Архитектура приложения
+# Bible Memory — Полная архитектура приложения
 
-> Этот документ описывает итоговую архитектуру, пайплайн изучения стихов, инварианты данных и специфику фронтенда и бэкенда. Используется как контекст для AI-агентов.
-
----
-
-## 1. Стек и окружение
-
-| Слой | Технология |
-|---|---|
-| Фреймворк | Next.js (App Router + Pages API) |
-| База данных | PostgreSQL + Prisma ORM |
-| Платформа | Telegram Mini App (WebApp API) |
-| UI | React, Tailwind CSS, Framer Motion (motion/react) |
-| Иконки | Lucide React |
-| Тосты | Sonner |
-| Внешний API стихов | bolls.life |
-
-Приложение — **Telegram Mini App**. Пользователь идентифицируется через `telegramId` (строка). Нет логина/пароля — авторизация через Telegram WebApp SDK.
+> Документ описывает полную архитектуру, структуру директорий, пайплайн изучения стихов, потоки данных, API, инварианты и паттерны фронтенда. Используется как контекст для разработки и AI-агентов.
 
 ---
 
-## 2. База данных — Prisma Schema
+## Содержание
+
+1. [Обзор проекта](#1-обзор-проекта)
+2. [Технологический стек](#2-технологический-стек)
+3. [Структура директорий](#3-структура-директорий)
+4. [База данных — Prisma Schema](#4-база-данных--prisma-schema)
+5. [Система статусов стихов](#5-система-статусов-стихов)
+6. [Пайплайн изучения стиха](#6-пайплайн-изучения-стиха)
+7. [Режимы тренировки и движок](#7-режимы-тренировки-и-движок)
+8. [API эндпоинты](#8-api-эндпоинты)
+9. [Фронтенд — архитектура](#9-фронтенд--архитектура)
+10. [Система ежедневной цели](#10-система-ежедневной-цели)
+11. [Последовательность загрузки (Boot Sequence)](#11-последовательность-загрузки-boot-sequence)
+12. [Ключевые потоки данных (Flows)](#12-ключевые-потоки-данных-flows)
+13. [Внешние интеграции](#13-внешние-интеграции)
+14. [Производительность и оптимизации](#14-производительность-и-оптимизации)
+15. [Инварианты (нельзя нарушать)](#15-инварианты-нельзя-нарушать)
+16. [История исправленных багов](#16-история-исправленных-багов)
+17. [Быстрая справка: что где менять](#17-быстрая-справка-что-где-менять)
+
+---
+
+## 1. Обзор проекта
+
+**Bible Memory** — Telegram Mini App для заучивания библейских стихов методом интервальных повторений (spaced repetition). Пользователь добавляет стихи и последовательно проходит 7 режимов тренировки — от простого кликания по блокам текста до полного ввода с клавиатуры. После освоения стих переходит в фазу периодических повторений.
+
+**Ключевые характеристики:**
+- Платформа: Telegram Mini App (WebApp API)
+- Авторизация: только через Telegram `telegramId` — логина/пароля нет
+- Архитектурный паттерн: Full-stack монолит (Next.js App Router + Pages API Routes)
+- БД: PostgreSQL (Neon serverless) + Prisma ORM
+- Развёртывание: Vercel
+
+---
+
+## 2. Технологический стек
+
+| Категория | Технология | Версия |
+|---|---|---|
+| Фреймворк | Next.js (App Router + Pages API) | 14.2.35 |
+| UI-библиотека | React | 18.3.1 |
+| Язык | TypeScript | 5.7.2 |
+| CSS | Tailwind CSS | 4.1.12 |
+| Анимации | motion/react (Framer Motion) | 12.23.24 |
+| UI-компоненты | Radix UI (accordion, dialog, menu…) | разные |
+| Иконки | Lucide React | 0.487.0 |
+| Тосты | Sonner | 2.0.3 |
+| Формы | React Hook Form | 7.55.0 |
+| Жесты | @use-gesture/react | 10.3.1 |
+| ORM | Prisma | 7.2.0 |
+| БД-адаптер | @prisma/adapter-pg (Neon pooler) | 7.2.0 |
+| HTTP-клиент | Axios | 1.13.2 |
+| API-генерация | openapi-typescript-codegen | 0.30.0 |
+| Виртуализация | react-virtuoso | 4.18.1 |
+| Telegram SDK | @twa-dev/sdk | 8.0.2 |
+| Чарты | Recharts | 2.15.2 |
+| Swagger UI | swagger-ui-react | 5.31.0 |
+
+**Шрифты:** Inter (sans-serif, основной), Lora (serif, для стихов) — Google Fonts с Cyrillic-подмножеством.
+
+**Тема:** только тёмная (dark mode), hardcoded. Telegram-специфичные CSS-переменные для safe area.
+
+---
+
+## 3. Структура директорий
 
 ```
+project-root/
+├── prisma/
+│   └── schema.prisma              ← схема БД (User, UserVerse, Tag, VerseTag)
+│
+├── scripts/
+│   └── generate-openapi.ts        ← скрипт генерации openapi.json
+│
+├── openapi.json                   ← OpenAPI 3.0.3 спецификация (auto-generated)
+├── next.config.mjs
+├── tailwind.config.ts
+├── tsconfig.json                  ← paths: "@/*" → "src/*"
+├── prisma.config.ts
+│
+└── src/
+    ├── app/                       ← Next.js App Router (клиентская SPA-часть)
+    │   ├── layout.tsx             ← HTML shell, шрифты, Telegram SDK script
+    │   ├── page.tsx               ← точка входа, boot overlay, TelegramProvider
+    │   ├── globals.css            ← импорты стилей + safe area классы
+    │   ├── App.tsx                ← главный компонент (глобальный state, роутинг)
+    │   ├── error.tsx              ← глобальный error boundary
+    │   ├── loading.tsx
+    │   │
+    │   ├── components/
+    │   │   ├── Layout.tsx             ← таб-бар + сайдбар навигация
+    │   │   ├── Dashboard.tsx          ← главный экран, карточка ежедневной цели
+    │   │   ├── VerseList.tsx          ← список всех стихей с фильтрами
+    │   │   ├── VerseGallery.tsx       ← карусель карточек для тренировки
+    │   │   ├── VerseCard.tsx          ← карточка стиха (отображение текста)
+    │   │   ├── TrainingSession.tsx    ← сессия тренировки (все упражнения)
+    │   │   ├── Collections.tsx        ← тематические коллекции
+    │   │   ├── Statistics.tsx         ← статистика
+    │   │   ├── Settings.tsx           ← настройки (перевод Библии)
+    │   │   ├── AddVerseDialog.tsx     ← диалог поиска и добавления стиха
+    │   │   ├── MasteryBadge.tsx       ← значок уровня мастерства
+    │   │   │
+    │   │   ├── training-session/
+    │   │   │   ├── TrainingModeRenderer.tsx  ← динамический рендер режимов
+    │   │   │   └── modes/
+    │   │   │       ├── ClickChunksExercise.tsx
+    │   │   │       ├── ClickWordsExercise.tsx
+    │   │   │       ├── ClickWordsHintedExercise.tsx
+    │   │   │       ├── FirstLettersHintedExercise.tsx
+    │   │   │       ├── FirstLettersKeyboardExercise.tsx
+    │   │   │       ├── FirstLettersTapExercise.tsx
+    │   │   │       ├── FullRecallExercise.tsx
+    │   │   │       ├── MobileRuKeyboardOverlay.tsx  ← русская клавиатура
+    │   │   │       ├── TrainingRatingFooter.tsx     ← кнопки оценки (0-3)
+    │   │   │       └── types.ts                    ← TrainingModeProps
+    │   │   │
+    │   │   ├── verse-list/
+    │   │   │   ├── components/
+    │   │   │   │   ├── VerseListHeader.tsx
+    │   │   │   │   ├── VerseListFilterCard.tsx       ← фильтры по статусу
+    │   │   │   │   ├── VerseListEmptyState.tsx
+    │   │   │   │   ├── VerseListSkeletonCards.tsx
+    │   │   │   │   ├── VerseListLoadMoreFooter.tsx
+    │   │   │   │   ├── SwipeableVerseCard.tsx        ← свайп-действия (удалить, пауза)
+    │   │   │   │   └── ConfirmDeleteModal.tsx
+    │   │   │   ├── hooks/
+    │   │   │   │   ├── useVerseListController.tsx   ← главный контроллер списка
+    │   │   │   │   ├── useVerseActions.ts
+    │   │   │   │   ├── useVersePagination.ts
+    │   │   │   │   └── useTelegramId.ts
+    │   │   │   ├── virtualization/
+    │   │   │   │   └── VerseVirtualizedList.tsx     ← виртуализированный список
+    │   │   │   ├── constants.ts                     ← PAGE_SIZE = 50
+    │   │   │   ├── haptics.ts                       ← Telegram haptic feedback
+    │   │   │   └── types.ts
+    │   │   │
+    │   │   ├── dashboard/
+    │   │   │   ├── DashboardSections.tsx
+    │   │   │   └── DashboardSkeleton.tsx
+    │   │   │
+    │   │   ├── verse-gallery/
+    │   │   │   ├── TrainingCompletionToastCard.tsx
+    │   │   │   └── TrainingSubsetSelect.tsx
+    │   │   │
+    │   │   └── ui/                    ← базовые UI-компоненты (shadcn/ui + кастом)
+    │   │       ├── button.tsx, card.tsx, dialog.tsx, input.tsx, badge.tsx
+    │   │       ├── accordion.tsx, tabs.tsx, drawer.tsx, popover.tsx
+    │   │       ├── sonner.tsx (Toast provider)
+    │   │       └── ... (50+ компонентов)
+    │   │
+    │   ├── contexts/
+    │   │   └── TelegramContext.tsx    ← контекст Telegram SDK + useTelegram()
+    │   │
+    │   ├── features/
+    │   │   └── daily-goal/
+    │   │       ├── types.ts           ← DailyGoalSession, DailyGoalPlan, фазы
+    │   │       ├── planner.ts         ← buildDailyGoalPlan()
+    │   │       ├── storage.ts         ← localStorage read/write
+    │   │       └── useDailyGoalController.ts  ← React hook контроллер
+    │   │
+    │   ├── hooks/
+    │   │   ├── useTelegramWebApp.ts   ← инициализация SDK, user, haptics
+    │   │   ├── useTelegramSafeArea.ts ← safe area (notch) отступы
+    │   │   └── useBibleVerse.ts       ← хук загрузки отдельного стиха
+    │   │
+    │   ├── types/
+    │   │   ├── verseStatus.ts         ← DisplayVerseStatus + helpers
+    │   │   ├── verseSync.ts           ← VerseMutablePatch, VersePatchEvent
+    │   │   └── bible.ts               ← типы для Библии
+    │   │
+    │   ├── utils/
+    │   │   └── versePatch.ts          ← getVerseSyncKey, mergeVersePatch
+    │   │
+    │   ├── data/
+    │   │   └── mockData.ts            ← моки для разработки
+    │   │
+    │   └── services/
+    │       └── bollsApi.ts            ← прямой клиент к bolls.life
+    │
+    ├── pages/api/                     ← Next.js API Routes (бэкенд)
+    │   ├── users/
+    │   │   ├── telegram.ts            ← POST /api/users/telegram
+    │   │   ├── [telegramId].ts        ← GET /api/users/[telegramId]
+    │   │   └── [telegramId]/
+    │   │       ├── verses/
+    │   │       │   ├── index.ts           ← GET list, POST create
+    │   │       │   ├── [externalVerseId].ts ← PATCH, DELETE
+    │   │       │   ├── review.ts          ← GET review verses
+    │   │       │   ├── verseCard.types.ts ← VerseCardDto, computeDisplayStatus
+    │   │       │   └── _shared.ts         ← fetchEnrichedUserVerses, пагинация
+    │   │       └── daily-goal/
+    │   │           └── readiness.ts   ← GET readiness
+    │   ├── bolls/
+    │   │   ├── verses.ts              ← POST /api/bolls/verses
+    │   │   ├── translations.ts
+    │   │   └── parallel.ts
+    │   ├── verses/
+    │   │   └── [externalVerseId]/
+    │   │       └── tags.ts            ← GET теги стиха
+    │   ├── tags/
+    │   │   └── index.ts               ← GET все теги
+    │   └── docs.ts                    ← GET /api/docs (Swagger UI)
+    │
+    ├── shared/                        ← общий код для фронта и бэка
+    │   ├── training/
+    │   │   ├── modeEngine.ts          ← ДВИЖОК ТРЕНИРОВОК (ключевой файл)
+    │   │   ├── constants.ts           ← TRAINING_STAGE_MASTERY_MAX = 7
+    │   │   └── fullRecallTypingAssist.ts
+    │   └── ui/
+    │       ├── ruKeyboardLayout.ts    ← русская раскладка клавиатуры
+    │       └── verticalTouchSwipe.ts  ← детекция свайпов
+    │
+    ├── api/                           ← auto-generated OpenAPI клиент
+    │   ├── core/
+    │   │   ├── OpenAPI.ts             ← конфигурация (BASE URL, TOKEN)
+    │   │   ├── request.ts             ← Axios-обёртка HTTP-запросов
+    │   │   ├── ApiError.ts
+    │   │   └── CancelablePromise.ts
+    │   ├── services/
+    │   │   ├── UsersService.ts
+    │   │   ├── UserVersesService.ts
+    │   │   ├── BollsService.ts
+    │   │   ├── TagsService.ts
+    │   │   ├── DocsService.ts
+    │   │   ├── dailyGoalReadiness.ts  ← ручной сервис (не auto-generated)
+    │   │   └── userVersesPagination.ts ← пагинационный хелпер
+    │   └── models/
+    │       ├── User.ts, UserVerse.ts, UserWithVerses.ts
+    │       ├── Tag.ts, VerseTag.ts
+    │       ├── BollsVerse.ts
+    │       └── UserVersesPageResponse.ts
+    │
+    ├── generated/prisma/              ← auto-generated Prisma клиент
+    │   ├── client.ts, client.d.ts
+    │   └── models/ (User, UserVerse, Tag, VerseTag)
+    │
+    ├── lib/
+    │   └── prisma.ts                  ← singleton PrismaClient
+    │
+    ├── styles/
+    │   ├── index.css                  ← главный CSS-импорт
+    │   ├── fonts.css                  ← подключение Google Fonts
+    │   ├── theme.css                  ← CSS-переменные тёмной темы
+    │   ├── tailwind.css               ← @tailwind директивы
+    │   └── globals.css                ← утилиты safe area
+    │
+    └── swagger/
+        └── doc.ts                     ← генерация Swagger-спецификации
+```
+
+---
+
+## 4. База данных — Prisma Schema
+
+```prisma
 enum VerseStatus { NEW | LEARNING | STOPPED }
 enum Translation { NRT | SYNOD | RBS2 | BTI }
 
-User
-  id            String  (cuid)
-  telegramId    String  (unique)
-  translation   Translation (default: SYNOD)
-  dailyGoalsCompleted  Int
-  dailyStreak          Int
-  verses        UserVerse[]
+model User {
+  id                   String      @id @default(cuid())
+  telegramId           String      @unique
+  translation          Translation @default(SYNOD)
+  dailyGoalsCompleted  Int         @default(0)
+  dailyStreak          Int         @default(0)
+  createdAt            DateTime    @default(now())
+  verses               UserVerse[]
+}
 
-UserVerse
-  id              Int      (autoincrement)
-  telegramId      String   → User.telegramId
-  externalVerseId String   (формат: "book-chapter-verse", напр. "43-3-16")
-  status          VerseStatus (default: NEW)
-  masteryLevel    Int      (default: 0)
-  repetitions     Int      (default: 0)
-  lastReviewedAt  DateTime?
-  nextReviewAt    DateTime?
-  createdAt / updatedAt
+model UserVerse {
+  id                Int           @id @autoincrement
+  telegramId        String        // → User.telegramId (не FK, для производительности)
+  externalVerseId   String        // формат: "{book}-{chapter}-{verse}", напр. "43-3-16"
+  status            VerseStatus   @default(NEW)
+  masteryLevel      Int           @default(0)
+  repetitions       Int           @default(0)
+  lastTrainingModeId Int?         // ID последнего режима тренировки (TrainingModeId)
+  lastReviewedAt    DateTime?
+  nextReviewAt      DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@unique([telegramId, externalVerseId])
+}
 
-Tag
-  id    String (cuid)
-  slug  String (unique) — напр. "faith"
-  title String (unique) — напр. "Вера"
+model Tag {
+  id        String     @id @default(cuid())
+  slug      String     @unique  // "faith", "love", "hope"
+  title     String     @unique  // "Вера", "Любовь", "Надежда"
+  createdAt DateTime   @default(now())
+  verses    VerseTag[]
+}
 
-VerseTag
+model VerseTag {
+  id              String @id @default(cuid())
   externalVerseId String
-  tagId           String → Tag.id
+  tagId           String
+  tag             Tag    @relation(fields: [tagId], references: [id])
+
   @@unique([externalVerseId, tagId])
+}
 ```
 
-### Ключевые правила схемы
-
-- `VerseStatus` в БД хранит ТОЛЬКО три значения: `NEW`, `LEARNING`, `STOPPED`
-- `REVIEW`, `WAITING`, `MASTERED` — **виртуальные (вычисляемые) статусы**, они никогда не пишутся в БД
-- `externalVerseId` — это ID из bolls.life API в формате `"{book}-{chapter}-{verse}"`
-- `masteryLevel` для LEARNING стихей ВСЕГДА в диапазоне `[1, 7]` — не 0, не 8+
+**Ключевые правила:**
+- `VerseStatus` в БД хранит ТОЛЬКО: `NEW`, `LEARNING`, `STOPPED`
+- `REVIEW`, `WAITING`, `MASTERED` — **виртуальные статусы**, вычисляемые на лету, в БД не пишутся
+- `externalVerseId` — ID из bolls.life в формате `"{book}-{chapter}-{verse}"`
+- `masteryLevel` для LEARNING стихей ВСЕГДА в диапазоне `[1, 7]` — принудительно через clamp на бэке
 
 ---
 
-## 3. Система статусов — полная карта
+## 5. Система статусов стихов
 
-### 3.1 Как вычисляется DisplayStatus (функция `computeDisplayStatus`)
+### 5.1 Маппинг DB → DisplayStatus
 
-```
-DB: status=NEW                          → DisplayStatus: "NEW"
-DB: status=STOPPED                      → DisplayStatus: "STOPPED"
-DB: status=LEARNING, repetitions >= 5   → DisplayStatus: "MASTERED"
-DB: status=LEARNING, masteryLevel >= 7,
-    nextReviewAt в БУДУЩЕМ              → DisplayStatus: "WAITING"
-DB: status=LEARNING, masteryLevel >= 7  → DisplayStatus: "REVIEW"
-DB: status=LEARNING, masteryLevel 1-6   → DisplayStatus: "LEARNING"
-```
-
-**Порядок проверок важен** — MASTERED проверяется раньше WAITING/REVIEW.
-
-### 3.2 Таблица состояний
+Функция `computeDisplayStatus(baseStatus, masteryLevel, repetitions, nextReviewAt?)` в файле `src/pages/api/users/[telegramId]/verses/verseCard.types.ts`:
 
 ```
-DB status | masteryLevel | repetitions | nextReviewAt   → Display
----------------------------------------------------------------------
-NEW       | 0            | 0           | null           → NEW
-LEARNING  | 1–6          | 0           | null           → LEARNING  ← фаза изучения
-LEARNING  | 7            | 0           | null           → REVIEW    ← фаза повторений (готова)
-LEARNING  | 7            | 1–4         | прошедшая/null → REVIEW    ← пора повторять
-LEARNING  | 7            | 1–4         | будущая        → WAITING   ← ждём следующего дня
-LEARNING  | 7            | >= 5        | любая          → MASTERED  ← выучен полностью
-STOPPED   | любой        | любой       | любая          → STOPPED
+DB: status=NEW                                           → "NEW"
+DB: status=STOPPED                                       → "STOPPED"
+DB: status=LEARNING, repetitions >= 5                   → "MASTERED"  ← проверяем первым!
+DB: status=LEARNING, masteryLevel >= 7, nextReviewAt в БУДУЩЕМ → "WAITING"
+DB: status=LEARNING, masteryLevel >= 7                  → "REVIEW"
+DB: status=LEARNING, masteryLevel 1-6                   → "LEARNING"
 ```
 
-### 3.3 Что означает STOPPED
+> **Важно:** порядок проверок критичен — MASTERED всегда проверяется раньше WAITING/REVIEW.
 
-- Это "пауза". Пользователь приостановил стих.
-- По значению `masteryLevel > 0` можно понять, что стих был в LEARNING до паузы.
-- Составные статусы (`LEARNING_STOPPED` и т.п.) **не нужны** — всё выводится из числовых полей.
-
----
-
-## 4. Пайплайн изучения стиха (полный)
+### 5.2 Полная таблица состояний
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        ПАЙПЛАЙН ИЗУЧЕНИЯ СТИХА                          │
-└─────────────────────────────────────────────────────────────────────────┘
+DB status | masteryLevel | repetitions | nextReviewAt       → Display
+────────────────────────────────────────────────────────────────────────
+NEW       │ 0            │ 0           │ null               → NEW
+LEARNING  │ 1–6          │ 0           │ null               → LEARNING  ← фаза изучения
+LEARNING  │ 7            │ 0           │ null               → REVIEW    ← готов к повторению
+LEARNING  │ 7            │ 1–4         │ прошедшая / null   → REVIEW    ← пора повторять
+LEARNING  │ 7            │ 1–4         │ будущая            → WAITING   ← ждём следующего дня
+LEARNING  │ 7            │ ≥ 5         │ любая              → MASTERED  ← выучен полностью
+STOPPED   │ любой        │ любой       │ любая              → STOPPED
+```
 
-  [Добавить стих]
-       │
-       ▼
-  ┌─────────┐
-  │   NEW   │  masteryLevel=0, repetitions=0
-  │         │  Карточка только для чтения. Нельзя тренироваться.
-  └────┬────┘
-       │ пользователь нажимает "Добавить в изучение"
-       │ → status = LEARNING, masteryLevel = 1
-       ▼
-  ╔══════════════════════════════════════════════════════════════╗
-  ║                    ФАЗА 1: LEARNING                          ║
-  ║         masteryLevel ∈ [1, 7]  |  status = LEARNING         ║
-  ╠══════════════════════════════════════════════════════════════╣
-  ║                                                              ║
-  ║  masteryLevel → режим тренировки:                           ║
-  ║    0–1 → ClickChunks          (нажимать блоки текста)       ║
-  ║    2   → ClickWordsHinted     (слова с подсказками)         ║
-  ║    3   → ClickWordsNoHints    (слова без подсказок)         ║
-  ║    4   → FirstLettersWithWordHints (первые буквы + слова)   ║
-  ║    5   → FirstLettersTapNoHints    (первые буквы, тап)      ║
-  ║    6   → FirstLettersTyping        (первые буквы, ввод)     ║
-  ║    7   → FullRecall                (полный ввод текста)     ║
-  ║                                                              ║
-  ║  Оценки после тренировки → delta masteryLevel:             ║
-  ║    "Забыл"   (0) → delta = −1    ← понижаем                ║
-  ║    "Плохо"   (1) → delta =  0    ← повторяем тот же режим  ║
-  ║    "Хорошо"  (2) → delta = +1    ← следующий режим         ║
-  ║    "Отлично" (3) → delta = +2    ← перескакиваем режим     ║
-  ║                                                              ║
-  ║  ИНВАРИАНТЫ (строго соблюдать):                             ║
-  ║    • masteryLevel всегда clamp([1, 7]) при status=LEARNING  ║
-  ║    • При "Плохо": следующий режим = тот же (lastModeId=null)║
-  ║    • При других оценках: следующий режим ≠ предыдущему      ║
-  ║    • masteryLevel НИКОГДА не прыгает выше 7 в этой фазе    ║
-  ║                                                              ║
-  ║  masteryLevel достиг 7 → graduatesToReview = true          ║
-  ║  → DisplayStatus переходит в REVIEW                         ║
-  ╚══════════════════════════╦═══════════════════════════════════╝
-                             │ masteryLevel = 7
-                             ▼
-  ╔══════════════════════════════════════════════════════════════╗
-  ║                    ФАЗА 2: REVIEW                            ║
-  ║         masteryLevel = 7  |  status = LEARNING (в БД)       ║
-  ╠══════════════════════════════════════════════════════════════╣
-  ║                                                              ║
-  ║  Режим тренировки фиксированный: FirstLettersTyping         ║
-  ║                                                              ║
-  ║  После каждой успешной тренировки:                          ║
-  ║    repetitions += 1                                          ║
-  ║    nextReviewAt = now + 24h                                  ║
-  ║    → DisplayStatus становится WAITING                        ║
-  ║                                                              ║
-  ║  Когда nextReviewAt наступает (прошли сутки):               ║
-  ║    → DisplayStatus снова REVIEW (пора повторять)            ║
-  ║                                                              ║
-  ║  Нужно дойти до repetitions = 5                             ║
-  ║                                                              ║
-  ║  repetitions >= 5 → DisplayStatus = MASTERED                ║
-  ╚══════════════════════════╦═══════════════════════════════════╝
-                             │ repetitions = 5
-                             ▼
-                       ┌──────────┐
-                       │ MASTERED │  Стих полностью выучен
-                       └──────────┘
+### 5.3 Ключевые константы (файл `verseCard.types.ts`)
 
-  В любой момент LEARNING/REVIEW/WAITING → STOPPED (пауза)
-  STOPPED → LEARNING (возобновить) с сохранением masteryLevel
+```typescript
+TRAINING_STAGE_MASTERY_MAX = 7        // max masteryLevel в фазе LEARNING
+REVIEW_MASTERY_LEVEL_MIN = 7          // порог перехода в REVIEW
+MASTERED_REPETITIONS_MIN = 5          // сколько повторений нужно для MASTERED
+WAITING_NEXT_REVIEW_DELAY_HOURS = 24  // интервал между повторениями (часы)
 ```
 
 ---
 
-## 5. Режимы тренировки
+## 6. Пайплайн изучения стиха
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                      ПАЙПЛАЙН ИЗУЧЕНИЯ СТИХА                        │
+└────────────────────────────────────────────────────────────────────┘
+
+[Добавить стих] → POST /api/users/{id}/verses
+      │
+      ▼
+  ┌───────┐
+  │  NEW  │  masteryLevel=0, repetitions=0
+  │       │  Карточка только для чтения. Тренировка недоступна.
+  └───┬───┘
+      │ "Начать изучение" → status=LEARNING, masteryLevel=1
+      ▼
+╔═════════════════════════════════════════════════════════════════╗
+║                    ФАЗА 1: LEARNING                              ║
+║       masteryLevel ∈ [1, 7]  |  status=LEARNING в БД           ║
+╠═════════════════════════════════════════════════════════════════╣
+║                                                                 ║
+║  masteryLevel → режим упражнения:                               ║
+║    1   → ClickChunks               (кликать блоки текста)       ║
+║    2   → ClickWordsHinted          (слова с подсказками)        ║
+║    3   → ClickWordsNoHints         (слова без подсказок)        ║
+║    4   → FirstLettersWithWordHints (первые буквы + слова)       ║
+║    5   → FirstLettersTapNoHints    (первые буквы, тап)          ║
+║    6   → FirstLettersTyping        (первые буквы, клавиатура)   ║
+║    7   → FullRecall                (полный ввод стиха)          ║
+║                                                                 ║
+║  Оценка после упражнения → delta:                               ║
+║    0 "Забыл"   → delta = −1   (понизить)                        ║
+║    1 "Плохо"   → delta =  0   (повторить тот же режим)          ║
+║    2 "Хорошо"  → delta = +1   (следующий режим)                 ║
+║    3 "Отлично" → delta = +2   (перескочить режим)               ║
+║                                                                 ║
+║  masteryLevel всегда clamp([1, 7])                              ║
+║  При достижении 7 → graduatesToReview=true                      ║
+║  → автоматически: nextReviewAt = now + 24h                      ║
+╚═════════════════════════╦═══════════════════════════════════════╝
+                           │ masteryLevel достиг 7
+                           ▼
+╔═════════════════════════════════════════════════════════════════╗
+║                    ФАЗА 2: WAITING (первый день)                 ║
+║        masteryLevel=7, nextReviewAt = завтра                    ║
+╠═════════════════════════════════════════════════════════════════╣
+║  DisplayStatus = WAITING                                        ║
+║  Тренировка недоступна до наступления nextReviewAt              ║
+╚═════════════════════════╦═══════════════════════════════════════╝
+                           │ nextReviewAt наступил
+                           ▼
+╔═════════════════════════════════════════════════════════════════╗
+║                    ФАЗА 2: REVIEW                                ║
+║        masteryLevel=7, status=LEARNING в БД                     ║
+╠═════════════════════════════════════════════════════════════════╣
+║  Фиксированный режим: FirstLettersTyping                        ║
+║  После успешного повторения:                                    ║
+║    repetitions += 1                                             ║
+║    nextReviewAt = now + 24h                                     ║
+║    → DisplayStatus → WAITING                                    ║
+║                                                                 ║
+║  Цикл: REVIEW → WAITING → REVIEW → WAITING → ...               ║
+║  Нужно 5 успешных повторений (repetitions ≥ 5)                  ║
+╚═════════════════════════╦═══════════════════════════════════════╝
+                           │ repetitions = 5
+                           ▼
+                    ┌──────────┐
+                    │ MASTERED │  DisplayStatus="MASTERED"
+                    │          │  Стих полностью выучен
+                    └──────────┘
+
+В любой момент LEARNING/REVIEW/WAITING/MASTERED → STOPPED (пауза)
+STOPPED → LEARNING (возобновить с сохранением masteryLevel)
+```
+
+---
+
+## 7. Режимы тренировки и движок
+
+### 7.1 TrainingModeId enum (файл `src/shared/training/modeEngine.ts`)
 
 ```typescript
 enum TrainingModeId {
-  ClickChunks = 1,           // кликать блоки — самый простой
-  ClickWordsHinted = 2,      // слова с подсказками
-  ClickWordsNoHints = 3,     // слова без подсказок
-  FirstLettersWithWordHints = 4,
-  FirstLettersTapNoHints = 5,
-  FirstLettersTyping = 6,    // ввод первых букв (режим REVIEW)
-  FullRecall = 7,            // полный ввод текста — самый сложный
+  ClickChunks = 1,                // блоки текста, самый простой
+  ClickWordsHinted = 2,           // слова с подсказками
+  ClickWordsNoHints = 3,          // слова без подсказок
+  FirstLettersWithWordHints = 4,  // первые буквы + показывать слова
+  FirstLettersTapNoHints = 5,     // первые буквы, тап-ввод
+  FirstLettersTyping = 6,         // первые буквы, клавиатура (режим REVIEW)
+  FullRecall = 7,                 // полный ввод текста, самый сложный
 }
 
-// Порядок прогресса (от простого к сложному):
-[1, 2, 3, 4, 5, 6, 7]
-
-// Оценка → сдвиг в порядке:
-rating 0 ("Забыл")   → shift = −1
-rating 1 ("Плохо")   → shift =  0  ← ОСОБЫЙ СЛУЧАЙ: тот же режим
-rating 2 ("Хорошо")  → shift = +1
-rating 3 ("Отлично") → shift = +2
+const TRAINING_MODE_PROGRESS_ORDER = [1, 2, 3, 4, 5, 6, 7]
 ```
 
-### Алгоритм выбора следующего режима (`chooseTrainingModeId`)
+### 7.2 Ключевые функции движка
+
+```typescript
+// Базовый режим по уровню мастерства
+getBaseTrainingModeForMastery(stageMasteryLevel: number): TrainingModeId
+
+// Выбор следующего режима (избегает повторения lastModeId при rating != "Плохо")
+chooseTrainingModeId({
+  rawMasteryLevel: number,
+  stageMasteryLevel: number,
+  lastModeId: TrainingModeId | null
+}): TrainingModeId
+
+// Применить delta к masteryLevel с учётом clamp и фазы
+applyMasteryDelta({
+  isLearningVerse: boolean,     // true для LEARNING фазы
+  rawMasteryBefore: number,
+  masteryDelta: number
+}): { rawMasteryAfter: number, graduatesToReview: boolean }
+// LEARNING: clamp([1,7]), graduatesToReview=true когда 6→7
+// REVIEW: clamp([0,∞)), graduatesToReview=false
+
+// Проверить, находится ли стих в REVIEW фазе по masteryLevel
+isTrainingReviewRawMastery(rawMasteryLevel: number): boolean  // > 7
+
+// Привести masteryLevel к диапазону [0, TRAINING_STAGE_MASTERY_MAX]
+toTrainingStageMasteryLevel(rawMasteryLevel: number): number
+```
+
+### 7.3 Алгоритм выбора режима
 
 ```
-1. Определить базовый режим по masteryLevel: getBaseTrainingModeForMastery(stageMasteryLevel)
-2. Сформировать кандидатов: от базового режима расширяться влево и вправо
-3. Выбрать первого кандидата ≠ lastModeId (если НЕ "Плохо")
-4. Если "Плохо" (rating=1): передать lastModeId=null → функция вернёт тот же режим
+1. Вычислить stageMasteryLevel = toTrainingStageMasteryLevel(rawMasteryLevel)
+2. Найти базовый режим: getBaseTrainingModeForMastery(stageMasteryLevel)
+3. Построить список кандидатов: от базового расширяться влево/вправо в PROGRESS_ORDER
+4. При rating=1 ("Плохо"): передать lastModeId=null → вернётся тот же режим
+5. При других rating: выбрать первого кандидата ≠ lastModeId
 
-// lastTrainingModeId Int? хранится в БД и возвращается в VerseCardDto.
-// Оба компонента (VerseGallery, TrainingSession) читают его при инициализации
-// сессии и записывают после каждого PATCH.
+// lastTrainingModeId хранится в БД и возвращается в VerseCardDto
+// Читается при старте сессии, сохраняется при каждом PATCH
 ```
 
 ---
 
-## 6. Бэкенд — API эндпоинты
+## 8. API эндпоинты
 
-### Маршруты (Pages API, `/src/pages/api/`)
+### 8.1 Полный список
 
-```
-POST   /api/users/telegram              → создать/получить пользователя по telegramId
-GET    /api/users/[telegramId]          → профиль пользователя
+| Метод | Путь | Описание |
+|---|---|---|
+| POST | /api/users/telegram | Создать/получить пользователя по telegramId |
+| GET | /api/users/[telegramId] | Профиль пользователя |
+| GET | /api/users/[telegramId]/verses | Список стихей (пагинация, фильтры) |
+| POST | /api/users/[telegramId]/verses | Добавить стих |
+| PATCH | /api/users/[telegramId]/verses/[externalVerseId] | Обновить прогресс стиха |
+| DELETE | /api/users/[telegramId]/verses/[externalVerseId] | Удалить стих |
+| GET | /api/users/[telegramId]/verses/review | Стихи в статусе REVIEW |
+| GET | /api/users/[telegramId]/daily-goal/readiness | Готовность к ежедневной цели |
+| POST | /api/bolls/verses | Тексты стихей из bolls.life (batch) |
+| GET | /api/bolls/translations | Доступные переводы Библии |
+| POST | /api/bolls/parallel | Параллельные переводы |
+| GET | /api/verses/[externalVerseId]/tags | Теги стиха |
+| GET | /api/tags | Все теги |
+| GET | /api/docs | Swagger UI |
 
-GET    /api/users/[telegramId]/verses              → список стихей (пагинация, фильтры)
-POST   /api/users/[telegramId]/verses              → добавить стих (NEW → LEARNING)
-PATCH  /api/users/[telegramId]/verses/[id]         → обновить прогресс стиха
-DELETE /api/users/[telegramId]/verses/[id]         → удалить стих
+### 8.2 Правила PATCH `/verses/[externalVerseId]`
 
-GET    /api/users/[telegramId]/verses/review       → стихи в статусе REVIEW
-GET    /api/users/[telegramId]/daily-goal/readiness → готовность к ежедневной цели
-
-GET    /api/bolls/verses                → тексты стихей из bolls.life
-GET    /api/bolls/parallel              → параллельные переводы
-GET    /api/bolls/translations          → список переводов
-
-GET    /api/verses/[externalVerseId]/tags → теги стиха
-GET    /api/tags                          → все теги
-
-GET    /api/docs                          → Swagger UI
-```
-
-### Правила PATCH `/verses/[externalVerseId]`
-
-```
-Тело запроса: { masteryLevel?, repetitions?, lastReviewedAt?, nextReviewAt?, status? }
-
-GUARDS на бэке:
-  1. Если status=LEARNING и body содержит masteryLevel:
-       → clamp(masteryLevel, 1, 7)  — нельзя выйти за границы фазы изучения
-
-  2. Если body содержит repetitions (и значение изменилось):
-       → canMutateRepetitions = status=LEARNING AND masteryLevel >= 7
-       → Если false → 409 Conflict
-
-  3. Если LEARNING, currentMasteryLevel < 7, requestedMasteryLevel >= 7:
-       → Автоматически устанавливается nextReviewAt = now + 24h
-       (первый переход в REVIEW фазу)
-
-Правила guards:
-   canMutateRepetitionsByMastery  → masteryLevel >= REVIEW_MASTERY_LEVEL_MIN (>= 7) ✅
-   reachedWaitingThresholdNow    → currentMasteryLevel < 7 И requestedMasteryLevel >= 7 ✅
-   resolvedNextReviewAt           → body.nextReviewAt ?? autoNextReviewAt ✅
+**Тело запроса:**
+```typescript
+{
+  masteryLevel?: number
+  repetitions?: number
+  lastReviewedAt?: string
+  nextReviewAt?: string
+  lastTrainingModeId?: number
+  status?: "NEW" | "LEARNING" | "STOPPED"
+}
 ```
 
-### Ключевые константы (`verseCard.types.ts`, `constants.ts`)
+**Guard-условия на бэке:**
+
+```
+1. Если status=LEARNING И body.masteryLevel задан:
+   masteryLevel = clamp(body.masteryLevel, 1, 7)
+
+2. Если body.repetitions задан И изменился:
+   canMutate = (status=LEARNING && masteryLevel >= 7)
+   → Если false → 409 Conflict
+
+3. Если (currentMasteryLevel < 7) И (requestedMasteryLevel >= 7):
+   → Первый переход в REVIEW
+   → autoNextReviewAt = now + 24h
+   → resolvedNextReviewAt = body.nextReviewAt ?? autoNextReviewAt
+```
+
+### 8.3 GET `/verses` — параметры фильтрации
+
+```
+filter: "all" | "new" | "learning" | "waiting" | "review" | "mastered" | "stopped"
+status: "NEW" | "LEARNING" | "STOPPED"   (DB-уровень)
+orderBy: "createdAt" | "updatedAt"
+order: "asc" | "desc"
+limit: 1-50 (default: 50)
+startWith: offset (пагинация)
+```
+
+### 8.4 VerseCardDto (ответ от бэка)
 
 ```typescript
-TRAINING_STAGE_MASTERY_MAX = 7      // максимальный masteryLevel в фазе LEARNING
-REVIEW_MASTERY_LEVEL_MIN = 7        // порог для перехода в REVIEW
-WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE = 7  // использовать как >= 7, не > 7 (см. баг выше)
-MASTERED_REPETITIONS_MIN = 5        // сколько повторений нужно для MASTERED
-WAITING_NEXT_REVIEW_DELAY_HOURS = 24  // интервал между повторениями
-```
-
-### Как вычисляется DisplayStatus на бэке
-
-Функция `computeDisplayStatus(baseStatus, masteryLevel, repetitions, nextReviewAt)` вызывается в `mapUserVerseToVerseCardDto` при каждом ответе API. Фронт получает уже готовый `DisplayStatus`. В БД статус ВСЕГДА `NEW | LEARNING | STOPPED`.
-
-### Обогащение стихей текстом
-
-При каждом GET запросе списка стихей бэк:
-1. Достаёт `UserVerse[]` из PostgreSQL
-2. Группирует по книге+главе
-3. Батч-запрашивает тексты из bolls.life API
-4. Кэширует главы в памяти на 6 часов (in-process, не Redis)
-5. Возвращает `VerseCardDto[]` с полями `text` и `reference`
-
-⚠️ Кэш живёт в памяти Next.js процесса. При рестарте сервера сбрасывается.
-
----
-
-## 7. Фронтенд — структура
-
-### Точка входа
-
-```
-page.tsx → <TelegramProvider> → <App>
-```
-
-`App.tsx` — главный компонент. Управляет:
-- Загрузкой данных пользователя и стихей
-- Глобальным состоянием стихей (`verses: Verse[]`)
-- Навигацией между экранами (SPA, без роутера)
-- Синхронизацией патчей через `VersePatchEvent`
-
-### Навигация (таб-бар)
-
-```
-Dashboard  → Главная с дэшбордом и ежедневной целью
-VerseList  → Список всех стихей с фильтрами
-Collections → Коллекции (тематические подборки)
-Statistics → Статистика
-Settings   → Настройки (перевод Библии и т.п.)
-```
-
-Дополнительные экраны (оверлеи/модалки):
-- `VerseGallery` — карусель карточек для тренировки
-- `AddVerseDialog` — поиск и добавление нового стиха
-- `TrainingSession` — сессия тренировки (режимы изучения)
-
-### Тип `Verse` (фронтовая модель)
-
-```typescript
-type Verse = {
-  id: string | number
-  externalVerseId: string         // "43-3-16"
-  status: DisplayVerseStatus      // "NEW"|"LEARNING"|"REVIEW"|"WAITING"|"MASTERED"|"STOPPED"
-  masteryLevel: number            // 0-7
-  repetitions: number             // 0-5
+type VerseCardDto = {
+  id: number
+  telegramId: string
+  externalVerseId: string      // "43-3-16"
+  status: DisplayVerseStatus   // вычисленный виртуальный статус
+  masteryLevel: number         // 0-7
+  repetitions: number          // 0-5+
+  lastTrainingModeId: number | null
   lastReviewedAt: string | null
   nextReviewAt: string | null
-  text?: string                   // текст стиха (от bolls.life)
-  reference?: string              // "Иоанна 3:16"
+  text?: string                // текст стиха (от bolls.life)
+  reference?: string           // "Иоанна 3:16"
   tags: VerseCardTagDto[]
 }
 ```
 
-### Обновление стихей (оптимистичный патч)
+---
 
-Вместо полной перезагрузки при каждом действии используется паттерн `VersePatchEvent`:
+## 9. Фронтенд — архитектура
+
+### 9.1 Иерархия компонентов
 
 ```
-Пользователь делает оценку
-  → applyMasteryDelta() → вычислить новый masteryLevel
-  → Оптимистично обновить состояние в App
-  → PATCH /api/users/{id}/verses/{verseId}
-  → При успехе: применить ответ сервера (pickMutableVersePatchFromApiResponse)
-  → При ошибке: откатить патч
+page.tsx
+└── TelegramProvider (TelegramContext)
+    └── App.tsx                          ← центральный state machine
+        ├── Layout.tsx                   ← навигация (таб-бар / сайдбар)
+        │   ├── Dashboard.tsx            ← главный экран
+        │   ├── VerseList.tsx            ← список стихей
+        │   ├── Collections.tsx
+        │   ├── Statistics.tsx
+        │   └── Settings.tsx
+        ├── VerseGallery.tsx             ← оверлей карусели
+        │   └── TrainingSession.tsx      ← оверлей тренировки
+        │       └── TrainingModeRenderer.tsx
+        │           └── [ExerciseComponent]
+        └── AddVerseDialog.tsx           ← диалог добавления
 ```
 
-### Ежедневная цель (DailyGoal)
+### 9.2 Глобальный стейт в App.tsx
+
+```typescript
+// Данные пользователя
+const [user, setUser] = useState<UserWithVerses | null>(null)
+const [verses, setVerses] = useState<Verse[]>([])          // все стихи (загружены разом)
+const [trainingVerses, setTrainingVerses] = useState<Verse[]>([]) // стихи для сессии
+
+// Навигация
+const [currentPage, setCurrentPage] = useState<Page>("dashboard")
+const [isTraining, setIsTraining] = useState(false)
+
+// Ежедневная цель
+const dailyGoal = useDailyGoalController({ verses, user, ... })
+const [trainingBatchPreferences, setTrainingBatchPreferences] = useState({
+  newVersesCount: 5,
+  reviewVersesCount: 5
+})
+
+// Загрузка
+const [isBootstrapping, setIsBootstrapping] = useState(true)
+const [isLoading, setIsLoading] = useState(true)
+```
+
+### 9.3 Оптимистичный патч (VersePatchEvent)
+
+Вместо полного перезапроса при каждом действии:
+
+```
+Пользователь ставит оценку
+  1. applyMasteryDelta() → вычислить новый masteryLevel
+  2. Оптимистично обновить verses в local state (setVerses)
+  3. Отправить PATCH /api/users/{id}/verses/{verseId}
+  4. Успех → применить ответ: pickMutableVersePatchFromApiResponse()
+  5. Ошибка → откатить через предыдущий VersePatchEvent
+```
+
+```typescript
+// src/app/types/verseSync.ts
+type VersePatchEvent = {
+  target: { id?: string; externalVerseId?: string }
+  patch: {
+    status?: DisplayVerseStatus
+    masteryLevel?: number
+    repetitions?: number
+    lastReviewedAt?: string
+    nextReviewAt?: string
+  }
+}
+```
+
+### 9.4 Тип Verse (фронтовая модель)
+
+```typescript
+type Verse = {
+  id: string | number
+  externalVerseId: string
+  status: DisplayVerseStatus    // "NEW"|"LEARNING"|"WAITING"|"REVIEW"|"MASTERED"|"STOPPED"
+  masteryLevel: number
+  repetitions: number
+  lastTrainingModeId: number | null
+  lastReviewedAt: string | null
+  nextReviewAt: string | null
+  text?: string                 // текст от bolls.life
+  reference?: string            // "Иоанна 3:16"
+  tags: VerseCardTagDto[]
+}
+```
+
+### 9.5 Навигация
+
+SPA без роутера — через `currentPage: Page` в App.tsx:
+
+```typescript
+type Page = "dashboard" | "verses" | "collections" | "statistics" | "settings"
+```
+
+Оверлеи (VerseGallery, TrainingSession, AddVerseDialog) управляются отдельными boolean-флагами.
+
+---
+
+## 10. Система ежедневной цели
+
+### 10.1 Хранение в localStorage
 
 Сессия дневной цели хранится в **localStorage** (не в БД):
 
 ```typescript
-DailyGoalSession {
+// src/app/features/daily-goal/types.ts
+interface DailyGoalSession {
   version: 1
   telegramId: string
-  dayKey: string           // "2026-02-26"
-  plan: DailyGoalPlan      // сколько стихей запланировано
-  progress: DailyGoalProgress  // что уже сделано
+  dayKey: string               // "2026-02-26"
+  plan: DailyGoalPlan
+  progress: DailyGoalProgress
 }
+
+interface DailyGoalPlan {
+  dayKey: string
+  prefsSnapshot: { newVersesCount: number; reviewVersesCount: number }
+  requestedCounts: { new: number; review: number }
+  availableCounts: { new: number; review: number }
+  targetVerseIds: { new: string[]; review: string[] }
+  shortages: { new: number; review: number }
+}
+
+interface DailyGoalProgress {
+  completedVerseIds: { new: string[]; review: string[] }
+  skippedVerseIds?: { new: string[]; review: string[] }
+  startedAt: string | null
+  completedAt: string | null
+  lastActivePhase: DailyGoalPhase
+  lastSuggestedVerseId: string | null
+  preferredResumeMode?: "learning" | "review" | null
+}
+
+type DailyGoalPhase = "learning" | "review" | "completed" | "empty"
 ```
 
-Два этапа цели:
-1. **learning** — тренировать стихи в статусе `LEARNING` (фаза 1)
-2. **review** — повторять стихи в статусе `REVIEW` (фаза 2)
+### 10.2 Фазы ежедневной цели
 
-Readiness (готовность к цели) запрашивается с бэка (`/daily-goal/readiness`) и показывает сколько стихей доступно для каждой фазы.
+```
+learning  → тренировать стихи в статусе LEARNING (фаза изучения)
+review    → повторять стихи в статусе REVIEW (фаза повторений)
+completed → все запланированные стихи пройдены за день
+empty     → нет доступных стихей для тренировки
+```
 
----
+### 10.3 API readiness (`/api/users/[telegramId]/daily-goal/readiness`)
 
-## 8. Модуль `modeEngine.ts` — движок тренировок
+Возвращает количество доступных стихей для каждой фазы и статус готовности. Результат используется для отображения карточки дневной цели на Dashboard.
 
-Файл: `/src/shared/training/modeEngine.ts`
-
-Ключевые функции:
+### 10.4 useDailyGoalController
 
 ```typescript
-// Определить режим по masteryLevel
-getBaseTrainingModeForMastery(stageMasteryLevel: number): TrainingModeId
-
-// Выбрать следующий режим (не равный lastModeId, если rating != "Плохо")
-chooseTrainingModeId({ rawMasteryLevel, stageMasteryLevel, lastModeId }): TrainingModeId
-
-// Применить delta с соблюдением clamp
-applyMasteryDelta({ isLearningVerse, rawMasteryBefore, masteryDelta }):
-  { rawMasteryAfter: number, graduatesToReview: boolean }
-  // LEARNING: clamp([1,7]), graduatesToReview когда достигает 7
-  // не-LEARNING: clamp([0, ∞]), graduatesToReview всегда false
-
-// Проверить, находится ли стих в фазе REVIEW по masteryLevel
-isTrainingReviewRawMastery(rawMasteryLevel: number): boolean  // > TRAINING_STAGE_MASTERY_MAX
+// Ключевые методы
+ensureSessionForToday()       // создать/получить сессию для сегодня
+markDailyGoalStarted()        // зафиксировать начало тренировки
+applyProgressEvent(event)     // обновить прогресс после тренировки стиха
+getNextTargetVerseId()        // получить следующий рекомендуемый стих
+computeUiState()              // вычислить UI-состояние для Dashboard
 ```
 
 ---
 
-## 9. Важные инварианты (нельзя нарушать)
+## 11. Последовательность загрузки (Boot Sequence)
+
+```
+1. layout.tsx
+   ├── Загружает Telegram SDK: <Script src="https://telegram.org/js/telegram-web-app.js">
+   ├── Подключает шрифты (Inter, Lora) через Google Fonts
+   └── Устанавливает тёмную тему: className="dark"
+
+2. page.tsx (Client Component)
+   ├── Показывает boot overlay с анимированным progress bar
+   ├── Инициализирует <TelegramProvider>
+   └── Ждёт onInitialContentReady() от App.tsx
+
+3. TelegramContext.tsx
+   ├── Вызывает useTelegramWebApp()
+   ├── Инициализирует Telegram.WebApp (fullscreen, disable swipes, etc.)
+   ├── Извлекает user из initDataUnsafe
+   └── Предоставляет telegramId через useTelegram()
+
+4. App.tsx
+   ├── POST /api/users/telegram → создать/получить User
+   ├── GET /api/users/{id}/verses → загрузить все стихи
+   ├── GET /api/users/{id}/daily-goal/readiness → готовность к цели
+   ├── Вызывает onInitialContentReady()
+   └── Рендерит Dashboard
+
+5. page.tsx: boot overlay фейдится через ~450ms + 350ms задержки
+```
+
+---
+
+## 12. Ключевые потоки данных (Flows)
+
+### 12.1 Добавление стиха
+
+```
+Пользователь нажимает "+"
+  → AddVerseDialog открывается
+  → Поиск через bolls.life API (POST /api/bolls/verses)
+  → Выбор стиха из результатов
+  → POST /api/users/{telegramId}/verses
+     body: { externalVerseId, masteryLevel: 0 }
+  → Успех → добавить стих в local state (setVerses)
+  → Новый стих отображается в VerseList со статусом NEW
+```
+
+### 12.2 Запуск тренировки через Daily Goal
+
+```
+Dashboard → "Начать тренировку"
+  → useDailyGoalController.ensureSessionForToday()
+  → Построить план (buildDailyGoalPlan)
+  → Открыть VerseGallery с targetVerseIds.new (фаза learning)
+  → Пользователь выбирает стих в карусели
+  → Нажимает "Тренироваться"
+  → Открывается TrainingSession
+```
+
+### 12.3 Тренировочная сессия
+
+```
+TrainingSession открывается
+  ├── Читает lastTrainingModeId из verse (VerseCardDto)
+  ├── Вызывает chooseTrainingModeId() → определяет первый режим
+  └── Рендерит TrainingModeRenderer → ExerciseComponent
+
+Пользователь завершает упражнение → выбирает оценку (0-3)
+  ├── applyMasteryDelta({ delta }) → rawMasteryAfter, graduatesToReview
+  ├── Оптимистично обновляет verses в App.tsx
+  ├── PATCH /api/users/{id}/verses/{externalVerseId}
+  │    body: { masteryLevel, repetitions?, nextReviewAt?, lastTrainingModeId }
+  ├── Успех → применить ответ (pickMutableVersePatchFromApiResponse)
+  ├── DailyGoalProgressEvent → applyProgressEvent()
+  └── Перейти к следующему стиху или завершить сессию
+```
+
+### 12.4 Прогрессия stиха (пример)
+
+```
+Стих с masteryLevel=6, rating=2 ("Хорошо"):
+  delta = +1
+  rawMasteryAfter = 7 → clamp([1,7]) = 7
+  graduatesToReview = true
+
+  На бэке (PATCH guard):
+    currentMasteryLevel=6 < 7, requestedMasteryLevel=7 >= 7
+    → autoNextReviewAt = now + 24h
+
+  В БД: masteryLevel=7, nextReviewAt=завтра, status=LEARNING
+
+  DisplayStatus вычисляется:
+    repetitions=0 < 5 → не MASTERED
+    masteryLevel=7, nextReviewAt в будущем → WAITING
+
+Следующий день (nextReviewAt прошёл):
+  DisplayStatus = REVIEW
+  Режим: FirstLettersTyping (всегда для REVIEW)
+  После успеха: repetitions=1, nextReviewAt=завтра → WAITING
+
+После 5-го повторения:
+  repetitions=5 → DisplayStatus = MASTERED
+```
+
+---
+
+## 13. Внешние интеграции
+
+### 13.1 Telegram WebApp SDK
+
+```typescript
+// Инициализация в useTelegramWebApp.ts
+window.Telegram.WebApp.ready()
+window.Telegram.WebApp.expand()               // полноэкранный режим
+window.Telegram.WebApp.disableVerticalSwipes()
+window.Telegram.WebApp.setHeaderColor("secondary_bg_color")
+
+// Получение пользователя
+const user = window.Telegram.WebApp.initDataUnsafe?.user
+// { id: number, first_name, last_name?, username?, language_code? }
+
+// Haptic Feedback (src/app/components/verse-list/haptics.ts)
+window.Telegram.WebApp.HapticFeedback.impactOccurred("light" | "medium" | "heavy")
+window.Telegram.WebApp.HapticFeedback.notificationOccurred("success" | "error" | "warning")
+
+// Safe Area CSS-переменные (от Telegram SDK)
+var(--tg-content-safe-area-inset-top)
+var(--tg-content-safe-area-inset-bottom)
+// CSS-классы: .pt-safe, .pb-safe, .pl-safe, .pr-safe (в globals.css)
+```
+
+### 13.2 Bolls.life Bible API
+
+```typescript
+// Прямой запрос (проксируется через /api/bolls/*)
+POST https://bolls.life/get-verses/
+Body: [{ translation: "SYNOD", book: 43, chapter: 3, verses: [16] }]
+Response: [{ pk, translation, book, chapter, verse, text, comment }]
+
+// Кэш: in-process Map (в памяти Next.js процесса), TTL = 6 часов
+// Ключ кэша: "SYNOD-43-3"  (translation-book-chapter)
+// Сброс: при перезапуске сервера
+```
+
+### 13.3 OpenAPI клиент (авто-генерация)
+
+```bash
+# Регенерация после изменения эндпоинтов:
+npm run generate-api
+# = npx tsx scripts/generate-openapi.ts
+# + npx openapi-typescript-codegen --input openapi.json --output src/api --client axios
+```
+
+---
+
+## 14. Производительность и оптимизации
+
+### 14.1 Frontend
+
+| Техника | Реализация |
+|---|---|
+| Виртуализация списка | react-virtuoso в VerseVirtualizedList.tsx (10000+ стихей) |
+| Оптимистичные обновления | VersePatchEvent — нет loading-состояний при сохранении |
+| Dynamic imports | Страницы Dashboard, VerseList загружаются лениво |
+| Пагинация | 50 стихей за запрос, infinite scroll через Load More |
+| Memo-изация | React.memo для тяжёлых компонентов карточек |
+
+### 14.2 Backend
+
+| Техника | Реализация |
+|---|---|
+| Кэш текстов | In-process Map для bolls.life ответов (6ч TTL) |
+| Batch-запросы | Один запрос к bolls.life на главу (не на каждый стих) |
+| Paginated fetch | Limit/offset в Prisma запросах |
+| Select fields | Prisma select — только нужные поля |
+| Neon pooler | @prisma/adapter-pg с connection pooling |
+
+---
+
+## 15. Инварианты (нельзя нарушать)
 
 ```
 ✅ masteryLevel для LEARNING стихей: ВСЕГДА [1, 7]
-   Нарушение → стих навсегда застрянет в LEARNING или сломается REVIEW фаза
+   Нарушение → стих застрянет в неверной фазе
 
 ✅ repetitions можно инкрементить ТОЛЬКО при masteryLevel >= 7
-   Нарушение → стих станет MASTERED без прохождения фазы изучения
+   Нарушение → стих станет MASTERED в обход фазы изучения
 
-✅ При "Плохо" (rating=1): следующий режим = тот же
-   Нарушение → пользователь не будет перетренировывать слабые места
+✅ При "Плохо" (rating=1): следующий режим = тот же (shift=0)
+   Реализация → передавать lastModeId=null в chooseTrainingModeId
 
-✅ При graduation (masteryLevel → 7): автоматически установить nextReviewAt
-   Нарушение → стих будет сразу в REVIEW без первого интервала ожидания
+✅ При переходе masteryLevel: 6 → 7 (graduate):
+   Автоматически установить nextReviewAt = now + 24h
 
-✅ MASTERED проверяется РАНЬШЕ WAITING/REVIEW в computeDisplayStatus
-   Нарушение → выученный стих может показаться как WAITING
+✅ MASTERED проверяется раньше WAITING/REVIEW в computeDisplayStatus
+   Нарушение → выученный стих будет показан как WAITING
 
 ✅ externalVerseId уникален для пары (telegramId, externalVerseId)
-   Нарушение → дублирование записей прогресса
+   Обеспечено: @@unique в Prisma schema
 
-✅ DisplayStatus вычисляется на бэке — фронт НЕ должен вычислять его сам
-   Нарушение → рассинхронизация между клиентами
+✅ DisplayStatus вычисляется на бэке при каждом ответе API
+   Фронт получает готовый DisplayStatus — не пересчитывает самостоятельно
+
+✅ lastTrainingModeId читается из БД при старте сессии
+   и записывается при каждом PATCH после тренировки
 ```
 
 ---
 
-## 10. Известные проблемы
+## 16. История исправленных багов
 
-> Все критические баги исправлены. Ниже — история и суть каждого фикса.
+### ✅ repetitions не обновлялись после тренировки REVIEW
 
-### ✅ ИСПРАВЛЕНО: repetitions не обновлялись
+**Файл:** `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`
+**Причина:** `canMutateRepetitionsByMastery` проверял `masteryLevel > 7`, но clamp даёт max 7 → условие никогда не выполнялось.
+**Фикс:** изменено на `>= REVIEW_MASTERY_LEVEL_MIN` (>= 7).
 
-**Файл**: `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`  
-**Причина**: `canMutateRepetitionsByMastery` использовал `masteryLevel > 7`, но clamp даёт max 7.  
-**Фикс**: изменено на `>= REVIEW_MASTERY_LEVEL_MIN` (>= 7).
+### ✅ WAITING никогда не устанавливался
 
-### ✅ ИСПРАВЛЕНО: WAITING никогда не устанавливался
+**Файл:** `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`
+**Причина:** `reachedWaitingThresholdNow` проверял `requestedMasteryLevel > 7` — невозможно при clamp до 7.
+**Фикс:** `currentMasteryLevel < 7` && `requestedMasteryLevel >= 7`.
 
-**Файл**: `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`  
-**Причина**: `reachedWaitingThresholdNow` требовал `requestedMasteryLevel > 7` (невозможно с clamp).  
-**Фикс**: изменено на `< 7` и `>= 7` соответственно.
+### ✅ body.nextReviewAt игнорировался
 
-### ✅ ИСПРАВЛЕНО: body.nextReviewAt игнорировался
+**Файл:** `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`
+**Причина:** поле не попадало в объект `data` для Prisma update.
+**Фикс:** `resolvedNextReviewAt = body.nextReviewAt ?? autoNextReviewAt`.
 
-**Файл**: `src/pages/api/users/[telegramId]/verses/[externalVerseId].ts`  
-**Причина**: поле `nextReviewAt` из тела запроса не применялось в `data` spread.  
-**Фикс**: добавлена `resolvedNextReviewAt = body.nextReviewAt ?? autoNextReviewAt`.
+### ✅ WAITING-условие в VerseGallery
 
-### ✅ ИСПРАВЛЕНО: WAITING-условие в VerseGallery
+**Файл:** `src/app/components/VerseGallery.tsx`
+**Причина:** `deriveTrainingDisplayStatus` использовал `masteryLevel > MAX_MASTERY_LEVEL`.
+**Фикс:** изменено на `masteryLevel >= MAX_MASTERY_LEVEL`.
 
-**Файл**: `src/app/components/VerseGallery.tsx`  
-**Причина**: `deriveTrainingDisplayStatus` использовал `masteryLevel > MAX_MASTERY_LEVEL`.  
-**Фикс**: изменено на `masteryLevel >= MAX_MASTERY_LEVEL`.
+### ✅ lastTrainingModeId не персистировался между сессиями
 
-### ✅ ИСПРАВЛЕНО: lastTrainingModeId не персистировался
-
-**Файлы**: `prisma/schema.prisma`, `verseCard.types.ts`, `[externalVerseId].ts`, `VerseGallery.tsx`, `TrainingSession.tsx`  
-**Фикс**: добавлено поле `lastTrainingModeId Int?` в схему; бэк возвращает его в DTO; фронт читает при инициализации сессии и отправляет при каждом сохранении.
-
-### ℹ️ "Плохо" = тот же режим — уже работало
-
-`getModeByShiftInProgressOrder(modeId, 0)` в обоих компонентах корректно возвращает тот же режим при rating=1 (shift=0). Дополнительных изменений не требовалось.
+**Файлы:** `prisma/schema.prisma`, `verseCard.types.ts`, `[externalVerseId].ts`, компоненты.
+**Фикс:** добавлено поле `lastTrainingModeId Int?` в схему; возвращается в DTO; фронт читает при инициализации сессии и записывает при каждом сохранении.
 
 ---
 
-## 11. Структура директорий
+## 17. Быстрая справка: что где менять
 
-```
-src/
-├── app/
-│   ├── App.tsx                    ← главный компонент, глобальный state
-│   ├── page.tsx                   ← точка входа Next.js + boot анимация
-│   ├── layout.tsx                 ← HTML shell, метатеги
-│   ├── components/
-│   │   ├── Layout.tsx             ← таб-бар навигация
-│   │   ├── Dashboard.tsx          ← главный экран
-│   │   ├── VerseList.tsx          ← список стихей
-│   │   ├── VerseGallery.tsx       ← карусель карточек (тренировка)
-│   │   ├── VerseCard.tsx          ← карточка стиха (shell)
-│   │   ├── Collections.tsx        ← тематические подборки
-│   │   ├── AddVerseDialog.tsx     ← поиск и добавление стиха
-│   │   ├── training-session/      ← компоненты тренировочной сессии
-│   │   │   └── modes/types.ts     ← TrainingModeProps, TrainingModeRating
-│   │   └── ui/                    ← базовые UI компоненты
-│   ├── contexts/
-│   │   └── TelegramContext.tsx    ← Telegram WebApp SDK провайдер
-│   ├── features/
-│   │   └── daily-goal/
-│   │       ├── types.ts           ← все типы ежедневной цели
-│   │       ├── planner.ts         ← buildDailyGoalPlan()
-│   │       ├── storage.ts         ← localStorage read/write
-│   │       └── useDailyGoalController.ts ← React hook контроллер
-│   ├── hooks/
-│   │   ├── useTelegramWebApp.ts   ← хук инициализации Telegram
-│   │   └── useBibleVerse.ts       ← хук загрузки одного стиха
-│   ├── types/
-│   │   ├── verseStatus.ts         ← DisplayVerseStatus, helper функции
-│   │   └── verseSync.ts           ← VerseMutablePatch, VersePatchEvent
-│   └── utils/
-│       └── versePatch.ts          ← patching helpers
-│
-├── pages/api/                     ← Next.js API Routes (бэкенд)
-│   ├── users/
-│   │   ├── telegram.ts
-│   │   ├── [telegramId].ts
-│   │   └── [telegramId]/
-│   │       ├── verses/
-│   │       │   ├── index.ts           ← GET list, POST create
-│   │       │   ├── [externalVerseId].ts ← PATCH update, DELETE
-│   │       │   ├── review.ts          ← GET review verses
-│   │       │   ├── verseCard.types.ts ← DTO типы + computeDisplayStatus
-│   │       │   └── _shared.ts         ← fetchEnrichedUserVerses + pagination
-│   │       └── daily-goal/
-│   │           └── readiness.ts
-│   ├── bolls/                     ← прокси к bolls.life API
-│   ├── verses/                    ← теги стихей
-│   └── tags/
-│
-├── shared/
-│   └── training/
-│       ├── modeEngine.ts          ← ДВИЖОК ТРЕНИРОВОК (главный файл логики)
-│       ├── constants.ts           ← TRAINING_STAGE_MASTERY_MAX = 7
-│       └── fullRecallTypingAssist.ts
-│
-├── api/                           ← автогенерированный OpenAPI клиент
-│   ├── services/                  ← UserVersesService, UsersService и т.д.
-│   ├── models/                    ← DTO модели
-│   └── core/                      ← базовый fetch клиент
-│
-├── generated/prisma/              ← автогенерированный Prisma клиент
-├── lib/
-│   └── prisma.ts                  ← singleton PrismaClient
-└── swagger/
-    └── doc.ts                     ← Swagger документация
-```
-
----
-
-## 12. Специфика Telegram Mini App
-
-- `telegramId` — строка, получается из `window.Telegram.WebApp.initDataUnsafe.user.id`
-- Пользователь создаётся/получается через `POST /api/users/telegram`
-- Нет традиционной аутентификации — всё на доверии telegramId
-- `useTelegramWebApp.ts` — хук для инициализации SDK, получения пользователя, темы
-- Приложение адаптировано под мобильный интерфейс, safe area, back button
-- Haptic feedback используется в `verse-list/haptics.ts`
-
----
-
-## 13. Быстрая справка: что где менять
-
-| Задача | Файл |
-|---|---|
-| Изменить порог для MASTERED (сейчас 5 повторений) | `verseCard.types.ts` → `MASTERED_REPETITIONS_MIN` |
-| Изменить кол-во уровней изучения (сейчас 7) | `constants.ts` → `TRAINING_STAGE_MASTERY_MAX` |
-| Изменить интервал между повторениями (сейчас 24ч) | `verseCard.types.ts` → `WAITING_NEXT_REVIEW_DELAY_HOURS` |
-| Добавить новый режим тренировки | `modeEngine.ts` → `TrainingModeId` + `TRAINING_MODE_PROGRESS_ORDER` |
-| Изменить логику выбора режима | `modeEngine.ts` → `chooseTrainingModeId` |
-| Изменить правила обновления masteryLevel | `modeEngine.ts` → `applyMasteryDelta` + `[externalVerseId].ts` |
-| Изменить правила обновления repetitions | `verseCard.types.ts` → `canMutateRepetitionsByMastery` |
-| Добавить новый тег | POST `/api/tags` или напрямую через Prisma |
-| Изменить схему БД | `prisma/schema.prisma` → `npx prisma migrate dev` |
+| Задача | Файл | Идентификатор |
+|---|---|---|
+| Изменить порог MASTERED (сейчас 5 повторений) | `verseCard.types.ts` | `MASTERED_REPETITIONS_MIN` |
+| Изменить количество уровней изучения (сейчас 7) | `shared/training/constants.ts` | `TRAINING_STAGE_MASTERY_MAX` |
+| Изменить интервал между повторениями (сейчас 24ч) | `verseCard.types.ts` | `WAITING_NEXT_REVIEW_DELAY_HOURS` |
+| Добавить новый режим тренировки | `shared/training/modeEngine.ts` | `TrainingModeId` enum + `TRAINING_MODE_PROGRESS_ORDER` |
+| Изменить логику выбора режима | `shared/training/modeEngine.ts` | `chooseTrainingModeId()` |
+| Изменить правила delta masteryLevel | `shared/training/modeEngine.ts` | `applyMasteryDelta()` |
+| Изменить правила мутации repetitions | `verseCard.types.ts` | `canMutateRepetitionsByMastery` |
+| Изменить интервал кэша bolls.life (сейчас 6ч) | `pages/api/bolls/verses.ts` | константа TTL |
+| Добавить новый тег | Через API: `POST /api/tags` | — |
+| Изменить схему БД | `prisma/schema.prisma` → `npm run prisma:push` | — |
+| Регенерировать API-клиент | — | `npm run generate-api` |
+| Настроить Telegram SDK | `app/hooks/useTelegramWebApp.ts` | инициализация |
+| Изменить перевод Библии по умолчанию | `prisma/schema.prisma` | `Translation @default(SYNOD)` |
+| Изменить размер страницы (сейчас 50) | `app/components/verse-list/constants.ts` | `PAGE_SIZE` |

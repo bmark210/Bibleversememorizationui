@@ -1231,6 +1231,7 @@ export function VerseGallery({
         total: dailyGoalContext.phaseStates.learning.total,
         completed: dailyGoalContext.phaseStates.learning.completed,
         isCurrentMode:
+          panelMode === "training" &&
           dailyGoalCurrentExecutionMode === "learning" &&
           !dailyGoalContext.phaseStates.learning.completed,
       })
@@ -1244,6 +1245,7 @@ export function VerseGallery({
           total: dailyGoalContext.phaseStates.review.total,
           completed: dailyGoalContext.phaseStates.review.completed,
           isCurrentMode:
+            panelMode === "training" &&
             dailyGoalCurrentExecutionMode === "review" &&
             !dailyGoalContext.phaseStates.review.completed,
         })
@@ -1378,22 +1380,6 @@ export function VerseGallery({
       }
     },
     [onDailyGoalPreferredResumeModeChange]
-  );
-
-  const handleDailyGoalPillClick = useCallback(
-    (mode: DailyGoalResumeMode) => {
-      haptic("light");
-      applyUserTrainingSubsetFilter(mode);
-      if (panelMode === "preview") {
-        toast.info(
-          mode === "learning" ? "Выбран режим изучения" : "Выбран режим повторения",
-          {
-            description: "Этот режим будет использован при запуске тренировки.",
-          }
-        );
-      }
-    },
-    [applyUserTrainingSubsetFilter, panelMode]
   );
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
@@ -1595,7 +1581,7 @@ export function VerseGallery({
     }
   }, [verses]);
 
-  const startTrainingFromActiveVerse = useCallback(async () => {
+  const startTrainingFromActiveVerse = useCallback(async (forcedSubset?: DailyGoalResumeMode) => {
     if (actionPending || !previewActiveVerse) return false;
     if (onBeforeStartTrainingFromGalleryVerse) {
       const decision = await onBeforeStartTrainingFromGalleryVerse(previewActiveVerse);
@@ -1643,8 +1629,10 @@ export function VerseGallery({
           : activeDisplayStatus === VerseStatus.LEARNING
             ? "learning"
             : "all";
-      const preferredSubset =
-        selectedSubsetHint !== "all"
+      const preferredSubset: TrainingSubsetFilter =
+        forcedSubset === "learning" || forcedSubset === "review"
+          ? forcedSubset
+          : selectedSubsetHint !== "all"
           ? selectedSubsetHint
           : dailyGoalGuideActive && dailyGoalPreferredTrainingSubset !== "all"
             ? dailyGoalPreferredTrainingSubset
@@ -1711,6 +1699,18 @@ export function VerseGallery({
     verses,
     onDailyGoalPreferredResumeModeChange,
   ]);
+
+  const handleDailyGoalPillClick = useCallback(
+    async (mode: DailyGoalResumeMode) => {
+      haptic("light");
+      if (panelMode === "preview") {
+        await startTrainingFromActiveVerse(mode);
+        return;
+      }
+      applyUserTrainingSubsetFilter(mode);
+    },
+    [applyUserTrainingSubsetFilter, panelMode, startTrainingFromActiveVerse]
+  );
 
   useEffect(() => {
     if (!autoStartTrainingOnOpen) return;
@@ -2079,8 +2079,10 @@ export function VerseGallery({
                 {dailyGoalLearningPill ? (
                   <button
                     type="button"
-                    onClick={() => handleDailyGoalPillClick("learning")}
-                    aria-pressed={dailyGoalCurrentExecutionMode === "learning"}
+                    onClick={() => {
+                      void handleDailyGoalPillClick("learning");
+                    }}
+                    aria-pressed={panelMode === "training" && dailyGoalCurrentExecutionMode === "learning"}
                     className={cn(
                       "flex-1 rounded-xl border px-3 py-2.5 backdrop-blur-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                       "hover:bg-background/70",
@@ -2105,8 +2107,10 @@ export function VerseGallery({
                 {dailyGoalReviewPill ? (
                   <button
                     type="button"
-                    onClick={() => handleDailyGoalPillClick("review")}
-                    aria-pressed={dailyGoalCurrentExecutionMode === "review"}
+                    onClick={() => {
+                      void handleDailyGoalPillClick("review");
+                    }}
+                    aria-pressed={panelMode === "training" && dailyGoalCurrentExecutionMode === "review"}
                     className={cn(
                       "rounded-xl border px-3 py-2.5 backdrop-blur-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                       "hover:bg-background/70",

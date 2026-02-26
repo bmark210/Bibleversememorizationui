@@ -34,18 +34,24 @@ import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
-const renderMarkHtml = (text: string) => {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return escaped
-    .replace(/&lt;mark&gt;/g, '<mark class="bg-amber-400/60 text-foreground px-0.5 rounded">')
-    .replace(/&lt;\/mark&gt;/g, "</mark>");
-};
+function HighlightedText({ text, className }: { text: string; className?: string }) {
+  const parts = text.split(/(<mark>.*?<\/mark>)/g);
+  return (
+    <span className={className}>
+      {parts.map((part, i) => {
+        const match = part.match(/^<mark>(.*?)<\/mark>$/);
+        return match ? (
+          <mark key={i} className="bg-amber-400/60 text-foreground px-0.5 rounded">{match[1]}</mark>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        );
+      })}
+    </span>
+  );
+}
 
-const removeMarkTags = (text: string) =>
-  text.replace(/<mark.*?>/g, "").replace(/<\/mark>/g, "");
+const stripMarkTags = (text: string) =>
+  text.replace(/<\/?mark[^>]*>/g, "");
 
 const toInt = (v: string) => {
   const n = parseInt(v, 10);
@@ -439,7 +445,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                             <span className="font-semibold text-sm text-primary">{r.reference}</span>
                             {sel && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary text-primary-foreground">Выбрано</span>}
                           </div>
-                          <div className="text-sm text-foreground/80 line-clamp-2 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkHtml(r.text) }} />
+                          <HighlightedText text={r.text} className="text-sm text-foreground/80 line-clamp-2 leading-relaxed" />
                         </button>
                       );
                     })}
@@ -572,7 +578,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       <RefreshCw className="h-3 w-3" /> Сменить
                     </Button>
                   </div>
-                  <p className="text-base leading-relaxed text-foreground" dangerouslySetInnerHTML={{ __html: removeMarkTags(selectedVerse.text) }} />
+                  <p className="text-base leading-relaxed text-foreground">{stripMarkTags(selectedVerse.text)}</p>
                   <p className="text-sm text-right text-primary font-medium">{selectedVerse.reference}</p>
                 </div>
 

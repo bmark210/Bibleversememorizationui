@@ -96,9 +96,10 @@ export function TrainingCompletionToastCard({
           <motion.div
             drag="x"
             dragDirectionLock
-            dragElastic={0.12}
+            dragSnapToOrigin
+            dragElastic={0.15}
             onDragEnd={(_, info) => {
-              if (Math.abs(info.offset.x) > 72 || Math.abs(info.velocity.x) > 520) {
+              if (Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 500) {
                 onDismiss();
               }
             }}

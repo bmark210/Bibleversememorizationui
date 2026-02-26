@@ -50,7 +50,7 @@ export function toTrainingStageMasteryLevel(rawMasteryLevel: number): number {
 }
 
 export function isTrainingReviewRawMastery(rawMasteryLevel: number): boolean {
-  return normalizeRawMasteryLevel(rawMasteryLevel) > TRAINING_STAGE_MASTERY_MAX;
+  return normalizeRawMasteryLevel(rawMasteryLevel) >= TRAINING_STAGE_MASTERY_MAX;
 }
 
 export function getBaseTrainingModeForMastery(stageMasteryLevel: number): TrainingModeId {
