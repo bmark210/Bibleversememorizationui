@@ -42,10 +42,11 @@ model UserVerse {
 
   status          VerseStatus @default(NEW)
 
-  masteryLevel    Int      @default(0)
-  repetitions     Int      @default(0)
-  lastReviewedAt  DateTime?
-  nextReviewAt    DateTime?
+  masteryLevel        Int      @default(0)
+  repetitions         Int      @default(0)
+  lastTrainingModeId  Int?
+  lastReviewedAt      DateTime?
+  nextReviewAt        DateTime?
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt

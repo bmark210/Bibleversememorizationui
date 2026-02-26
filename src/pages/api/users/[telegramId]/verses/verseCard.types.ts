@@ -29,6 +29,7 @@ export interface VerseCardDto
   repetitions: number;
   lastReviewedAt: string | null;
   nextReviewAt: string | null;
+  lastTrainingModeId: number | null;
   tags: VerseCardTagDto[];
   text?: string;
   reference?: string;
@@ -59,6 +60,7 @@ export type UserVerseWithLegacyNullableProgress = Omit<
   status?: VerseStatus | null;
   masteryLevel?: PrismaUserVerse["masteryLevel"] | null;
   repetitions?: PrismaUserVerse["repetitions"] | null;
+  lastTrainingModeId?: number | null;
 };
 
 export type EnrichedUserVerseSource = UserVerseWithLegacyNullableProgress & {
@@ -95,7 +97,7 @@ export function computeDisplayStatus(
 
   if (repetitions >= MASTERED_REPETITIONS_MIN) return "MASTERED";
   if (
-    masteryLevel > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+    masteryLevel >= REVIEW_MASTERY_LEVEL_MIN &&
     isFutureReviewDate(nextReviewAtInput)
   ) {
     return "WAITING";
@@ -122,7 +124,7 @@ export function canMutateRepetitionsByMastery(
 ): boolean {
   return (
     normalizeBaseStatus(baseStatusInput) === VerseStatus.LEARNING &&
-    normalizeProgressValue(masteryLevelInput) > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE
+    normalizeProgressValue(masteryLevelInput) >= REVIEW_MASTERY_LEVEL_MIN
   );
 }
 
@@ -153,6 +155,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
     status: computeDisplayStatus(baseStatus, masteryLevel, repetitions, verse.nextReviewAt),
     masteryLevel,
     repetitions,
+    lastTrainingModeId: typeof verse.lastTrainingModeId === "number" ? verse.lastTrainingModeId : null,
     lastReviewedAt: toIsoStringOrNull(verse.lastReviewedAt),
     nextReviewAt: toIsoStringOrNull(verse.nextReviewAt),
     tags: verse.tags ?? [],

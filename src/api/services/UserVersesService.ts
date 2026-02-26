@@ -116,6 +116,7 @@ export class UserVersesService {
             repetitions?: number;
             lastReviewedAt?: string;
             nextReviewAt?: string;
+            lastTrainingModeId?: number | null;
             status?: 'NEW' | 'LEARNING' | 'STOPPED';
         },
     ): CancelablePromise<UserVerse> {

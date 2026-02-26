@@ -244,6 +244,11 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
   if (!externalVerseId) return null;
 
   const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel ?? 0);
+  const rawLastModeId = (verse as any).lastTrainingModeId;
+  const lastModeId =
+    typeof rawLastModeId === "number" && rawLastModeId >= 1 && rawLastModeId <= 7
+      ? (rawLastModeId as ModeId)
+      : null;
 
   return {
     key: getVerseKey(verse, index),
@@ -258,7 +263,7 @@ function createSessionVerse(verse: TrainingVerseInput, index: number): SessionVe
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
     lastReviewedAt: parseDate(verse.lastReviewedAt),
     nextReviewAt: parseDate(verse.nextReviewAt ?? verse.nextReview),
-    lastModeId: null,
+    lastModeId,
   };
 }
 
@@ -489,6 +494,7 @@ async function persistVerseProgress(
     ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
+    lastTrainingModeId: verse.lastModeId ?? null,
     status: patchStatusForVerse(verse),
   });
 

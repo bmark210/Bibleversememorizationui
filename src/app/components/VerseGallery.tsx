@@ -249,6 +249,11 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   const text = String(verse.text ?? "").trim();
   if (!externalVerseId || !text) return null;
   const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel);
+  const rawLastModeId = (verse as any).lastTrainingModeId;
+  const lastModeId =
+    typeof rawLastModeId === "number" && rawLastModeId >= 1 && rawLastModeId <= 7
+      ? (rawLastModeId as ModeId)
+      : null;
   return {
     raw: verse,
     key: getVerseIdentity(verse),
@@ -258,7 +263,7 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
     rawMasteryLevel,
     stageMasteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
-    lastModeId: null,
+    lastModeId,
     lastReviewedAt: parseDate((verse as any).lastReviewedAt),
     nextReviewAt: parseDate((verse as any).nextReviewAt ?? (verse as any).nextReview),
   };
@@ -308,7 +313,7 @@ function deriveTrainingDisplayStatus(params: {
   if (baseStatus === VerseStatus.NEW) return VerseStatus.NEW;
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
   if (repetitions >= 5) return "MASTERED";
-  if (masteryLevel > MAX_MASTERY_LEVEL && nextReviewAt && nextReviewAt.getTime() > Date.now()) {
+  if (masteryLevel >= MAX_MASTERY_LEVEL && nextReviewAt && nextReviewAt.getTime() > Date.now()) {
     return "WAITING";
   }
   if (masteryLevel >= MAX_MASTERY_LEVEL) return "REVIEW";
@@ -413,6 +418,7 @@ async function persistTrainingVerseProgress(
     ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
+    lastTrainingModeId: verse.lastModeId ?? null,
     status: patchStatusForTrainingVerse(verse),
   });
   return (response ?? null) as unknown as Record<string, unknown> | null;

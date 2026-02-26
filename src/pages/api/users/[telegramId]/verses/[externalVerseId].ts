@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
+  REVIEW_MASTERY_LEVEL_MIN,
   WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
   WAITING_NEXT_REVIEW_DELAY_HOURS,
   canMutateRepetitionsByMastery,
@@ -21,6 +22,7 @@ type UpdateVersePayload = {
   repetitions?: number;
   lastReviewedAt?: string;
   nextReviewAt?: string;
+  lastTrainingModeId?: number | null;
   status?: VerseStatus;
 };
 
@@ -101,22 +103,28 @@ async function handlePatch(
       !canMutateRepetitionsByMastery(requestedBaseStatus, requestedMasteryLevel)
     ) {
       // 409 is clearer than silently ignoring the write:
-      // repetitions are allowed only after the verse is in LEARNING and mastery is above stage 7.
+      // repetitions are allowed only after the verse is in LEARNING and mastery is >= REVIEW_MASTERY_LEVEL_MIN.
       return res.status(409).json({
         error:
-          "repetitions can only be changed after LEARNING verse reaches masteryLevel > 7",
+          "repetitions can only be changed after LEARNING verse reaches masteryLevel >= 7",
       });
     }
 
+    // Fires exactly once: when mastery first crosses the learning→review boundary.
     const reachedWaitingThresholdNow =
       currentBaseStatus === VerseStatus.LEARNING &&
-      currentMasteryLevel <= WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
-      requestedMasteryLevel > WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+      currentMasteryLevel < WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE &&
+      requestedMasteryLevel >= REVIEW_MASTERY_LEVEL_MIN &&
       requestedBaseStatus === VerseStatus.LEARNING;
 
     const autoNextReviewAt = reachedWaitingThresholdNow
       ? new Date(Date.now() + WAITING_NEXT_REVIEW_DELAY_HOURS * 60 * 60 * 1000)
       : null;
+
+    // Client-computed nextReviewAt (spaced repetition) takes precedence;
+    // server auto-value is the fallback for the graduation step.
+    const resolvedNextReviewAt =
+      body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt;
 
     const verse = await prisma.userVerse.update({
       where: {
@@ -131,7 +139,10 @@ async function handlePatch(
           ? { repetitions: normalizeProgressValue(body.repetitions) }
           : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
-        ...(autoNextReviewAt ? { nextReviewAt: autoNextReviewAt } : {}),
+        ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
+        ...(body.lastTrainingModeId !== undefined
+          ? { lastTrainingModeId: body.lastTrainingModeId ?? null }
+          : {}),
         ...(body.status ? { status: body.status } : {}),
       },
     });
