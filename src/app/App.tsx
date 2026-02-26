@@ -39,32 +39,33 @@ import type {
   DailyGoalProgressEvent,
   DailyGoalVerseListReminder,
 } from "@/app/features/daily-goal/types";
+import { cn } from "./components/ui/utils";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
   {
-    loading: () => <div className="min-h-[60vh] bg-background" />,
+    loading: () => <div className="min-h-[60vh]" />,
   }
 );
 
 const Collections = dynamic(
   () => import("./components/Collections").then((m) => m.Collections),
   {
-    loading: () => <div className="min-h-[60vh] bg-background" />,
+    loading: () => <div className="min-h-[60vh]" />,
   }
 );
 
 const Statistics = dynamic(
   () => import("./components/Statistics").then((m) => m.Statistics),
   {
-    loading: () => <div className="min-h-[60vh] bg-background" />,
+    loading: () => <div className="min-h-[60vh]" />,
   }
 );
 
 const Settings = dynamic(
   () => import("./components/Settings").then((m) => m.Settings),
   {
-    loading: () => <div className="min-h-[60vh] bg-background" />,
+    loading: () => <div className="min-h-[60vh]" />,
   }
 );
 
@@ -78,14 +79,14 @@ const AddVerseDialog = dynamic(
 const VerseGallery = dynamic(
   () => import("./components/VerseGallery").then((m) => m.VerseGallery),
   {
-    loading: () => <div className="fixed inset-0 z-50 bg-background" />,
+    loading: () => <div className="fixed inset-0 z-50" />,
   }
 );
 
 const TrainingSession = dynamic(
   () => import("./components/TrainingSession").then((m) => m.TrainingSession),
   {
-    loading: () => <div className="min-h-screen bg-background" />,
+    loading: () => <div className="min-h-screen" />,
   }
 );
 
@@ -928,7 +929,7 @@ export default function App() {
     <>
       <div
         aria-hidden={isTraining || dashboardGalleryIndex !== null}
-        className="min-h-screen bg-background transition-colors"
+        className="min-h-screen transition-colors"
       >
         <Layout currentPage={currentPage} onNavigate={handleNavigate}>
           {currentPage === "dashboard" && (
