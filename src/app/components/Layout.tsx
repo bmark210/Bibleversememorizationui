@@ -193,7 +193,7 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
       {/* Header */}
       <header 
         className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
-          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'
+          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
         }`}
         style={{ paddingTop: `${topInset}px` }}
       >
@@ -273,53 +273,6 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
           })}
         </nav>
       </div>
-
-      {/* Debug Panel */}
-      {showDebugPanel && (
-        <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-xl font-semibold">Telegram Debug Info</h2>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDebugPanel(false)}
-                className="rounded-full"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-4">
-              <pre className="text-xs font-mono bg-muted/50 p-4 rounded-lg overflow-auto">
-                {JSON.stringify(getTelegramDebugInfo(), null, 2)}
-              </pre>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-border flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowDebugPanel(false)}
-              >
-                Закрыть
-              </Button>
-              <Button
-                type="button" 
-                onClick={handleCopyDebugInfo}
-                className="gap-2"
-              >
-                <Copy className="w-4 h-4" />
-                {copySuccess ? 'Скопировано!' : 'Скопировать JSON'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

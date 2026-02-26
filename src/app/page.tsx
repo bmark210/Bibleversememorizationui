@@ -35,7 +35,7 @@ export default function Page() {
   }, [overlayDismissing])
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen">
       {mounted ? (
         <TelegramProvider>
           <App onInitialContentReady={() => setIsAppReady(true)} />
@@ -61,7 +61,7 @@ export default function Page() {
               isAppReady ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            <BookOpen className="text-primary h-8 w-8" />
+            <BookOpen className="text-primary h-20 w-20" />
           </div>
         </div>
       )}
