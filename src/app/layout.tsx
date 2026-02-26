@@ -24,7 +24,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru" className={`${inter.variable} ${lora.variable}`}>
+    <html
+      lang="ru"
+      className={`${inter.variable} ${lora.variable} dark`}
+      style={{ backgroundColor: "#09090b", colorScheme: "dark" }}
+    >
       <head>
       <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
       <Script
@@ -32,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         strategy="beforeInteractive"
       />
       </head>
-      <body>
+      <body className="bg-background text-foreground" style={{ backgroundColor: "#09090b" }}>
         <div className="app-scroll">
           {children}
         </div>

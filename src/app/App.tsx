@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
-import { Skeleton } from "./components/ui/skeleton";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
@@ -44,28 +43,28 @@ import type {
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
   {
-    loading: () => <AppPageFallback />,
+    loading: () => <div className="min-h-[60vh] bg-background" />,
   }
 );
 
 const Collections = dynamic(
   () => import("./components/Collections").then((m) => m.Collections),
   {
-    loading: () => <AppPageFallback />,
+    loading: () => <div className="min-h-[60vh] bg-background" />,
   }
 );
 
 const Statistics = dynamic(
   () => import("./components/Statistics").then((m) => m.Statistics),
   {
-    loading: () => <AppPageFallback />,
+    loading: () => <div className="min-h-[60vh] bg-background" />,
   }
 );
 
 const Settings = dynamic(
   () => import("./components/Settings").then((m) => m.Settings),
   {
-    loading: () => <AppPageFallback />,
+    loading: () => <div className="min-h-[60vh] bg-background" />,
   }
 );
 
@@ -89,42 +88,6 @@ const TrainingSession = dynamic(
     loading: () => <div className="min-h-screen bg-background" />,
   }
 );
-
-function AppPageFallback() {
-  return (
-    <div className="min-h-[60vh] bg-background p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-5xl space-y-5">
-        <div className="space-y-3">
-          <Skeleton className="h-8 w-56 rounded-xl bg-muted/45 dark:bg-muted/30" />
-          <Skeleton className="h-4 w-72 max-w-full rounded-lg bg-muted/40 dark:bg-muted/25" />
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-5">
-          <Card className="rounded-3xl border-border/70 p-5 sm:p-6 gap-0">
-            <div className="space-y-4">
-              <Skeleton className="h-6 w-52 rounded-lg bg-muted/45 dark:bg-muted/30" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
-                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
-                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
-                <Skeleton className="h-24 rounded-2xl bg-muted/45 dark:bg-muted/30" />
-              </div>
-              <Skeleton className="h-12 rounded-xl bg-muted/45 dark:bg-muted/30" />
-            </div>
-          </Card>
-          <Card className="rounded-3xl border-border/70 p-5 sm:p-6 gap-0">
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-44 rounded-lg bg-muted/45 dark:bg-muted/30" />
-              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
-              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
-              <Skeleton className="h-14 rounded-xl bg-muted/45 dark:bg-muted/30" />
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export type Verse = UserVerse & {
   status: DisplayVerseStatus;
@@ -969,40 +932,28 @@ export default function App() {
       >
         <Layout currentPage={currentPage} onNavigate={handleNavigate}>
           {currentPage === "dashboard" && (
-            <div className="relative">
-              <div
-                className={`transition-opacity duration-300 ease-in-out ${
-                  isBootstrapping
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none absolute inset-0 z-10"
-                }`}
-                aria-hidden={!isBootstrapping}
-              >
-                <AppPageFallback />
-              </div>
-              <div
-                className={`transition-opacity duration-300 ease-in-out ${
-                  isBootstrapping ? "opacity-0 pointer-events-none" : "opacity-100"
-                }`}
-                aria-hidden={isBootstrapping}
-              >
-                <Dashboard
-                  todayVerses={verses}
-                  onStartTraining={handleStartTraining}
-                  onAddVerse={handleAddVerse}
-                  onViewAll={() => setCurrentPage("verses")}
-                  dailyGoal={dailyGoal.dashboardCard}
-                  onStartDailyGoal={() => {
-                    dailyGoal.markOnboardingSeen("dashboardIntro");
-                    void handleStartTraining({ autoStartInGallery: true });
-                  }}
-                  onResumeDailyGoal={() => {
-                    dailyGoal.markOnboardingSeen("dashboardIntro");
-                    void handleStartTraining({ autoStartInGallery: true });
-                  }}
-                  onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
-                />
-              </div>
+            <div
+              className={`transition-opacity duration-500 ease-out ${
+                isBootstrapping ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+              aria-busy={isBootstrapping}
+            >
+              <Dashboard
+                todayVerses={verses}
+                onStartTraining={handleStartTraining}
+                onAddVerse={handleAddVerse}
+                onViewAll={() => setCurrentPage("verses")}
+                dailyGoal={dailyGoal.dashboardCard}
+                onStartDailyGoal={() => {
+                  dailyGoal.markOnboardingSeen("dashboardIntro");
+                  void handleStartTraining({ autoStartInGallery: true });
+                }}
+                onResumeDailyGoal={() => {
+                  dailyGoal.markOnboardingSeen("dashboardIntro");
+                  void handleStartTraining({ autoStartInGallery: true });
+                }}
+                onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
+              />
             </div>
           )}
 

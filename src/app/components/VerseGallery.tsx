@@ -2035,7 +2035,7 @@ export function VerseGallery({
                 role="status"
                 aria-label={`Стих ${Math.min(displayActive + 1, displayTotal)} из ${displayTotal}`}
                 className={cn(
-                  "min-w-0 px-3 py-2.5 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
+                  "min-w-0 px-3 py-1 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg",
                   MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS
                 )}
               >
