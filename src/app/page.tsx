@@ -6,9 +6,9 @@ import App from './App'
 import { TelegramProvider } from './contexts/TelegramContext'
 
 export default function Page() {
-  const BOOT_CONTENT_DELAY_MS = 450
+  const BOOT_CONTENT_DELAY_MS = 1100
   const BOOT_BG_FADE_MS = 650
-  const BOOT_BG_FADE_DELAY_MS = 180
+  const BOOT_BG_FADE_DELAY_MS = 1000
   const [mounted, setMounted] = useState(false)
   const [isAppReady, setIsAppReady] = useState(false)
   const [overlayDismissing, setOverlayDismissing] = useState(false)
