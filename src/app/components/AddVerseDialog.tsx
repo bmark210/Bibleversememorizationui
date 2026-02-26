@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { X, Download, Loader2, Tag } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, Download, Loader2, RefreshCw, Search, Tag } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,45 +15,55 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog";
-  import {
-    BibleBook,
-    getAllBibleBooks,
-    getBibleBookNameRu,
-    formatVerseReference,
-  } from "@/app/types/bible";
+import {
+  BibleBook,
+  BIBLE_BOOKS,
+  formatVerseReference,
+} from "@/app/types/bible";
 import {
   DEFAULT_BOLLS_TRANSLATION,
+  getBollsChapter,
   getBollsVerse,
   searchBollsVerses,
 } from "../services/bollsApi";
+import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 
-// Мини-санитайзер: экранируем HTML и оставляем только подсветку <mark>
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
+
 const renderMarkHtml = (text: string) => {
   const escaped = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-
   return escaped
-    .replace(
-      /&lt;mark&gt;/g,
-      '<mark class="bg-amber-400/60 text-foreground px-0.5 rounded">'
-    )
+    .replace(/&lt;mark&gt;/g, '<mark class="bg-amber-400/60 text-foreground px-0.5 rounded">')
     .replace(/&lt;\/mark&gt;/g, "</mark>");
 };
 
-// Удаляет все HTML-теги <mark> и </mark> из текста
-const removeMarkTags = (text: string) => {
-  // Убирает любые варианты <mark ...> и </mark> из HTML (не делает эскейп)
-  return text.replace(/<mark.*?>/g, "").replace(/<\/mark>/g, "");
+const removeMarkTags = (text: string) =>
+  text.replace(/<mark.*?>/g, "").replace(/<\/mark>/g, "");
+
+const toInt = (v: string) => {
+  const n = parseInt(v, 10);
+  return isFinite(n) && n > 0 ? n : null;
 };
 
-const MODE_STORAGE_KEY = "addVerseDialogMode";
+// ─── Константы ───────────────────────────────────────────────────────────────
+
+const TRANSLATION_KEY = "bibleTranslation";
+const MODE_KEY = "addVerseDialogMode";
+const PAGE_SIZE = 20;
+
+// Книги в каноническом порядке один раз при загрузке модуля.
+// Запись через функцию защищает от undefined при HMR-перезагрузке.
+const getCanonicalBooks = () =>
+  Object.values(BIBLE_BOOKS).sort((a, b) => a.id - b.id);
+
+// ─── Типы ─────────────────────────────────────────────────────────────────────
 
 interface AddVerseDialogProps {
   open: boolean;
@@ -66,411 +75,377 @@ interface AddVerseDialogProps {
   }) => Promise<void>;
 }
 
+type SearchResult = {
+  book: BibleBook;
+  chapter: number;
+  verse: number;
+  text: string;
+  reference: string;
+};
+
+type SelectedVerse = {
+  book: BibleBook;
+  chapter: number;
+  verse: number;
+  reference: string;
+  text: string;
+};
+
+// ─── Компонент ───────────────────────────────────────────────────────────────
+
 export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
-  const [reference, setReference] = useState("");
-  const [text, setText] = useState("");
-  const [translation, setTranslation] = useState<string>(
-    DEFAULT_BOLLS_TRANSLATION
-  );
-  const [tags, setTags] = useState("");
+  const { contentSafeAreaInset } = useTelegramSafeArea();
+  const topInset = contentSafeAreaInset.top;
+
   const [mode, setMode] = useState<"search" | "manual">("search");
+  const [translation, setTranslation] = useState(DEFAULT_BOLLS_TRANSLATION);
+  const [selectedVerse, setSelectedVerse] = useState<SelectedVerse | null>(null);
+  const [tags, setTags] = useState("");
   const [showTags, setShowTags] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Поля для загрузки стиха
-  const [selectedBook, setSelectedBook] = useState<string>("");
-  const [chapter, setChapter] = useState("");
-  const [verse, setVerse] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ── Ручной выбор ────────────────────────────────────────────────────────────
+  const [bookId, setBookId] = useState("");
+  const [chapterNo, setChapterNo] = useState("");
+  const [verseNo, setVerseNo] = useState("");
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Поля для поиска по цитате
-  const [searchQuery, setSearchQuery] = useState("");
+  // Стихи в главе (кэш + состояние)
+  const verseCountCache = useRef<Map<string, number>>(new Map());
+  const [verseCount, setVerseCount] = useState<number | null>(null);
+  const [verseCountLoading, setVerseCountLoading] = useState(false);
+
+  // ── Поиск ───────────────────────────────────────────────────────────────────
+  const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<
-    Array<{
-      book: BibleBook;
-      chapter: number;
-      verse: number;
-      text: string;
-      reference: string;
-    }>
-  >([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [searchPage, setSearchPage] = useState(1);
-  const [hasMoreSearch, setHasMoreSearch] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searchErr, setSearchErr] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Ref для отслеживания текущего поиска
-  const searchAbortControllerRef = useRef<AbortController | null>(null);
-  const isSearchingRef = useRef(false);
-  const lastSearchQueryRef = useRef<string>("");
-  const resultsContainerRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const searchingRef = useRef(false);
+  const lastQueryRef = useRef("");
+  const reqIdRef = useRef(0);
 
-  const SEARCH_PAGE_SIZE = 20;
+  // ── Производные ──────────────────────────────────────────────────────────────
+
+  const canonicalBooks = useMemo(getCanonicalBooks, []);
+
+  const chaptersCount = useMemo(() => {
+    const id = toInt(bookId);
+    return id ? (BIBLE_BOOKS[id]?.chapters ?? 0) : 0;
+  }, [bookId]);
+
+  const canFetch = Boolean(toInt(bookId) && toInt(chapterNo) && toInt(verseNo));
+  const canSubmit = Boolean(selectedVerse && !submitting);
+
+  // ── Читаем перевод и режим из localStorage ──────────────────────────────────
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = localStorage.getItem(TRANSLATION_KEY);
+    if (t) setTranslation(t);
+    const m = localStorage.getItem(MODE_KEY);
+    if (m === "search" || m === "manual") setMode(m);
+  }, [open]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem(MODE_KEY, mode);
+  }, [mode]);
+
+  // ── Загружаем количество стихов при выборе главы ────────────────────────────
+
+  useEffect(() => {
+    const bid = toInt(bookId);
+    const ch = toInt(chapterNo);
+
+    if (!bid || !ch) {
+      setVerseCount(null);
+      return;
+    }
+
+    const key = `${translation}-${bid}-${ch}`;
+    const cached = verseCountCache.current.get(key);
+    if (cached !== undefined) {
+      setVerseCount(cached);
+      return;
+    }
+
+    let cancelled = false;
+    setVerseCountLoading(true);
+    setVerseCount(null);
+
+    getBollsChapter({ translation, book: bid as BibleBook, chapter: ch })
+      .then((verses) => {
+        if (cancelled) return;
+        const count = verses.length;
+        verseCountCache.current.set(key, count);
+        setVerseCount(count);
+      })
+      .catch(() => { if (!cancelled) setVerseCount(176); })
+      .finally(() => { if (!cancelled) setVerseCountLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [translation, bookId, chapterNo]);
+
+  // ── Сброс при смене режима ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (mode === "search") setFetchError(null);
+    else setSearchErr(null);
+  }, [mode]);
+
+  // ── Cleanup ──────────────────────────────────────────────────────────────────
+
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  // ── Функции ──────────────────────────────────────────────────────────────────
+
+  const resetDraft = useCallback(() => {
+    setSelectedVerse(null);
+    setTags("");
+    setShowTags(false);
+    setSubmitting(false);
+    setBookId("");
+    setChapterNo("");
+    setVerseNo("");
+    setFetchError(null);
+    setQuery("");
+    setResults([]);
+    setSearchErr(null);
+    setPage(1);
+    setHasMore(false);
+    setLoadingMore(false);
+    setVerseCount(null);
+    searchingRef.current = false;
+    lastQueryRef.current = "";
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    resetDraft();
+    onClose();
+  }, [resetDraft, onClose]);
 
   const handleFetchVerse = async () => {
-    if (!selectedBook || !chapter || !verse) {
-      setError("Пожалуйста, заполните все поля для загрузки стиха");
-      return;
-    }
+    const bid = toInt(bookId);
+    const ch = toInt(chapterNo);
+    const v = toInt(verseNo);
+    if (!bid || !ch || !v) { setFetchError("Заполните все поля"); return; }
 
-    setLoading(true);
-    setError(null);
+    setFetchLoading(true);
+    setFetchError(null);
 
     try {
-      const bookId = parseInt(selectedBook) as BibleBook;
-      const chapterNum = parseInt(chapter);
-      const verseNum = parseInt(verse);
-
-      // Запрос к Bolls API
-      const verseResult = await getBollsVerse({
-        translation,
-        book: bookId,
-        chapter: chapterNum,
-        verse: verseNum,
+      const res = await getBollsVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
+      if (!res?.text) throw new Error("Стих не найден");
+      setSelectedVerse({
+        book: bid as BibleBook,
+        chapter: ch,
+        verse: v,
+        text: res.text,
+        reference: formatVerseReference(bid as BibleBook, ch, v),
       });
-
-      if (!verseResult?.text) {
-        throw new Error("Стих не найден");
-      }
-
-      // Заполняем поля
-      setText(verseResult.text);
-      setReference(formatVerseReference(bookId, chapterNum, verseNum));
     } catch (err) {
-      console.error("Ошибка при загрузке стиха:", err);
-      setError(
-        err instanceof Error
-          ? `Ошибка загрузки: ${err.message}`
-          : "Не удалось загрузить стих. Проверьте подключение к интернету."
-      );
+      setFetchError(err instanceof Error ? err.message : "Не удалось загрузить стих");
     } finally {
-      setLoading(false);
+      setFetchLoading(false);
     }
   };
 
-  const handleSearchByQuote = async () => {
-    // Предотвращаем множественные одновременные вызовы
-    if (isSearchingRef.current) {
-      console.log("Поиск уже выполняется, пропускаем");
-      return;
-    }
+  const handleSearch = async () => {
+    if (searchingRef.current) return;
+    const q = query.trim();
+    if (q.length < 3) { setSearchErr("Введите минимум 3 символа"); return; }
 
-    if (!searchQuery || searchQuery.length < 3) {
-      setSearchError("Введите минимум 3 символа для поиска");
-      return;
-    }
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const rid = ++reqIdRef.current;
 
-    // Отменяем предыдущий поиск, если он есть
-    if (searchAbortControllerRef.current) {
-      searchAbortControllerRef.current.abort();
-    }
-
-    // Создаем новый контроллер для отмены
-    const abortController = new AbortController();
-    searchAbortControllerRef.current = abortController;
-
-    isSearchingRef.current = true;
+    searchingRef.current = true;
     setSearching(true);
-    setSearchError(null);
-    setSearchResults([]);
-    setSearchPage(1);
-    setHasMoreSearch(false);
-    lastSearchQueryRef.current = searchQuery.trim();
+    setSearchErr(null);
+    setResults([]);
+    setPage(1);
+    setHasMore(false);
+    lastQueryRef.current = q;
 
     try {
-      const normalizedQuery = lastSearchQueryRef.current;
-
-      const response = await searchBollsVerses({
-        translation,
-        query: normalizedQuery,
-        matchCase: false,
-        matchWhole: false,
-        limit: SEARCH_PAGE_SIZE,
-        page: 1,
-        signal: abortController.signal,
-      });
-
-      const results =
-        response.results?.map((item) => ({
-          book: item.book as BibleBook,
-          chapter: item.chapter as number,
-          verse: item.verse as number,
-          text: item.text as string,
-          reference: formatVerseReference(
-            item.book as BibleBook,
-            item.chapter as number,
-            item.verse as number
-          ),
-        })) ?? [];
-
-      // Проверка на отмену перед обновлением состояния
-      if (!abortController.signal.aborted) {
-        const total = response.total ?? results.length;
-        if (!results.length) {
-          setSearchError("Стихи не найдены. Попробуйте другой запрос.");
-        } else {
-          setSearchResults(results);
-          setHasMoreSearch(results.length < total);
-        }
-      }
+      const resp = await searchBollsVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
+      if (ctrl.signal.aborted || reqIdRef.current !== rid) return;
+      const items = (resp.results ?? []).map((it) => ({
+        book: it.book as BibleBook,
+        chapter: it.chapter,
+        verse: it.verse,
+        text: it.text,
+        reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
+      }));
+      if (!items.length) setSearchErr("Стихи не найдены.");
+      else { setResults(items); setHasMore(items.length < (resp.total ?? items.length)); }
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        console.error("Ошибка при поиске по цитате:", err);
-        setSearchError(
-          err instanceof Error
-            ? `Ошибка поиска: ${err.message}`
-            : "Не удалось выполнить поиск."
-        );
-      }
+      if (!(err instanceof DOMException && err.name === "AbortError"))
+        setSearchErr(err instanceof Error ? err.message : "Ошибка поиска");
     } finally {
-      isSearchingRef.current = false;
-      setSearching(false);
-      searchAbortControllerRef.current = null;
+      if (reqIdRef.current === rid) { searchingRef.current = false; setSearching(false); abortRef.current = null; }
     }
   };
 
-  const loadMoreSearchResults = async () => {
-    if (loadingMore || searching || !hasMoreSearch) return;
-    if (!lastSearchQueryRef.current) return;
-
-    const nextPage = searchPage + 1;
+  const loadMore = async () => {
+    if (loadingMore || searching || !hasMore || !lastQueryRef.current) return;
+    const nextPage = page + 1;
     setLoadingMore(true);
-
     try {
-      const response = await searchBollsVerses({
-        translation,
-        query: lastSearchQueryRef.current,
-        matchCase: false,
-        matchWhole: false,
-        limit: SEARCH_PAGE_SIZE,
-        page: nextPage,
-        signal: searchAbortControllerRef.current?.signal,
-      });
-
-      const results =
-        response.results?.map((item) => ({
-          book: item.book as BibleBook,
-          chapter: item.chapter as number,
-          verse: item.verse as number,
-          text: item.text as string,
-          reference: formatVerseReference(
-            item.book as BibleBook,
-            item.chapter as number,
-            item.verse as number
-          ),
-        })) ?? [];
-
-      const total = response.total ?? 0;
-      const merged = [...searchResults, ...results];
-
-      setSearchResults(merged);
-      setSearchPage(nextPage);
-      setHasMoreSearch(merged.length < total && results.length > 0);
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        console.warn("Ошибка при дозагрузке результатов поиска:", err);
-      }
-    } finally {
-      setLoadingMore(false);
-    }
+      const resp = await searchBollsVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
+      const items = (resp.results ?? []).map((it) => ({
+        book: it.book as BibleBook, chapter: it.chapter, verse: it.verse, text: it.text,
+        reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
+      }));
+      const total = resp.total ?? 0;
+      setResults((prev) => { const m = [...prev, ...items]; setHasMore(m.length < total && items.length > 0); return m; });
+      setPage(nextPage);
+    } catch { /* ignore */ } finally { setLoadingMore(false); }
   };
 
-  const handleResultsScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+  const onScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop - clientHeight < 80) {
-      loadMoreSearchResults();
-    }
+    if (scrollHeight - scrollTop - clientHeight < 80) loadMore();
   };
 
-  const handleSelectSearchResult = (result: (typeof searchResults)[0]) => {
-    setText(result.text);
-    setReference(result.reference);
-    setSelectedBook(result.book.toString());
-    setChapter(result.chapter.toString());
-    setVerse(result.verse.toString());
-    setSearchError(null);
+  const selectResult = (r: SearchResult) => {
+    // Устанавливаем selectedVerse до смены book/chapter/verse,
+    // и не используем useEffect-сброс при их изменении.
+    setSelectedVerse({ book: r.book, chapter: r.chapter, verse: r.verse, reference: r.reference, text: r.text });
+    setBookId(r.book.toString());
+    setChapterNo(r.chapter.toString());
+    setVerseNo(r.verse.toString());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!reference || !selectedBook || !chapter || !verse || submitting) return;
-
-    const externalVerseId = `${selectedBook}-${chapter}-${verse}`;
+    if (!selectedVerse || submitting) return;
     setSubmitting(true);
     try {
       await onAdd({
-        externalVerseId,
-        reference,
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
+        externalVerseId: `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`,
+        reference: selectedVerse.reference,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
       });
-
-      // Reset form only after successful add.
-      setReference("");
-      setText("");
-      setTranslation(DEFAULT_BOLLS_TRANSLATION);
-      setTags("");
-      setSelectedBook("");
-      setChapter("");
-      setVerse("");
-      setError(null);
-      setSearchQuery("");
-      setSearchResults([]);
-      setSearchError(null);
-      onClose();
-    } catch {
-      // Error toast is shown by parent; keep form open for quick retry.
-    } finally {
-      setSubmitting(false);
-    }
+      handleClose();
+    } catch { /* toast показывается выше */ } finally { setSubmitting(false); }
   };
 
-  const bibleBooks = getAllBibleBooks();
-
-  useEffect(() => {
-    const storedMode =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(MODE_STORAGE_KEY)
-        : null;
-    if (storedMode === "search" || storedMode === "manual") {
-      setMode(storedMode);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(MODE_STORAGE_KEY, mode);
-    }
-  }, [mode]);
-
-  useEffect(() => {
-    if (selectedBook && chapter && verse) {
-      handleFetchVerse();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBook, chapter, verse]);
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-screen h-screen max-w-full sm:h-[80vh] sm:max-w-[600px] max-h-screen overflow-y-auto sm:rounded-lg rounded-none px-6 py-0 flex flex-col justify-between">
-        <DialogHeader className="sticky top-0 z-10 bg-background pt-28 md:pt-6 !max-h-fit">
-          <DialogTitle className="text-center mb-4">
-            Добавить новый стих
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent className="w-screen h-screen max-w-full sm:h-[88vh] sm:max-w-[680px] max-h-screen overflow-hidden sm:rounded-2xl rounded-none px-0 py-0 flex flex-col border-border/80">
+
+        {/* ── Шапка ─────────────────────────────────────────────────────────── */}
+        <DialogHeader
+          className="px-6 pb-4 border-b bg-gradient-to-b from-card to-card/80 flex-shrink-0"
+          style={{ paddingTop: `${Math.max(topInset, 24)}px` }}
+        >
+          <DialogTitle className="text-center text-lg font-semibold mb-1">
+            Добавить стих
           </DialogTitle>
-          <DialogDescription>
+
+          {/* Описание + переключатель режима — НЕ внутри <p> */}
+          <div className="space-y-3">
+            <p className="text-center text-xs text-muted-foreground">
+              Найдите стих по тексту или выберите по адресу
+            </p>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant={mode === "search" ? "default" : "secondary"}
                 onClick={() => setMode("search")}
+                className="gap-2"
               >
-                Поиск по цитате
+                <Search className="h-4 w-4" />
+                Поиск
               </Button>
               <Button
                 type="button"
                 variant={mode === "manual" ? "default" : "secondary"}
                 onClick={() => setMode("manual")}
+                className="gap-2"
               >
-                Ручной выбор
+                <BookOpen className="h-4 w-4" />
+                По адресу
               </Button>
             </div>
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col justify-between h-full min-h-max"
-        >
-          <div className="space-y-4 pb-4">
+        {/* ── Форма ─────────────────────────────────────────────────────────── */}
+        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+          <div className="space-y-3 p-5 overflow-y-auto min-h-0 flex-1">
+
+            {/* ── Поиск по тексту ─────────────────────────────────────────── */}
             {mode === "search" && (
-              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      id="search-query"
-                      placeholder="Поиск"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleSearchByQuote();
-                          (e.target as HTMLElement).blur();
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleSearchByQuote}
-                      disabled={searching || searchQuery.length < 3}
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      {searching ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Найти"
-                      )}
-                    </Button>
-                  </div>
+              <div className="rounded-xl border bg-muted/40 p-4 space-y-3 shadow-sm">
+                <div className="flex gap-2">
+                  <Input
+                    id="search-query"
+                    name="search-query"
+                    placeholder="Введите часть текста стиха..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); handleSearch(); (e.target as HTMLElement).blur(); }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleSearch}
+                    disabled={searching || query.trim().length < 3}
+                    variant="outline"
+                    className="gap-1.5 shrink-0"
+                  >
+                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4" />Найти</>}
+                  </Button>
                 </div>
 
                 {searching && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-2 p-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Идет поиск...
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Ищем...
                   </div>
                 )}
 
-                {searchError && (
-                  <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                    {searchError}
-                  </div>
+                {searchErr && (
+                  <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{searchErr}</p>
                 )}
 
-                {searchResults.length > 0 && (
-                  <div
-                    ref={resultsContainerRef}
-                    onScroll={handleResultsScroll}
-                    className="space-y-2 max-h-[300px] overflow-y-auto"
-                  >
-                    <Label className="text-sm">
-                      Результаты поиска ({searchResults.length}
-                      {hasMoreSearch ? "+" : ""}):
-                    </Label>
-                    {searchResults.map((result, index) => (
-                      <button
-                        key={`${result.reference}-${index}`}
-                        type="button"
-                        onClick={() => handleSelectSearchResult(result)}
-                        style={{
-                          borderColor:
-                            result.reference === reference
-                              ? "var(--primary)"
-                              : "var(--border)",
-                        }}
-                        className="w-full text-left p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="font-medium text-sm text-primary mb-1">
-                          {result.reference}
-                        </div>
-                        <div
-                          className="text-sm text-foreground line-clamp-3"
-                          dangerouslySetInnerHTML={{
-                            __html: renderMarkHtml(result.text),
-                          }}
-                        />
-                      </button>
-                    ))}
+                {results.length > 0 && (
+                  <div onScroll={onScroll} className="space-y-1.5 max-h-[340px] overflow-y-auto pr-0.5">
+                    <p className="text-xs text-muted-foreground">
+                      Найдено: {results.length}{hasMore ? "+" : ""}
+                    </p>
+                    {results.map((r, i) => {
+                      const sel = r.reference === selectedVerse?.reference;
+                      return (
+                        <button
+                          key={`${r.reference}-${i}`}
+                          type="button"
+                          onClick={() => selectResult(r)}
+                          className={`w-full text-left p-3 border rounded-xl transition-all ${sel ? "border-primary bg-primary/5 ring-1 ring-primary/30" : "border-border hover:border-primary/40 hover:bg-accent/40"}`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-semibold text-sm text-primary">{r.reference}</span>
+                            {sel && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary text-primary-foreground">Выбрано</span>}
+                          </div>
+                          <div className="text-sm text-foreground/80 line-clamp-2 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkHtml(r.text) }} />
+                        </button>
+                      );
+                    })}
                     {loadingMore && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2 pb-2">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Загружаем ещё...
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Загружаем ещё...
                       </div>
                     )}
                   </div>
@@ -478,122 +453,163 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
               </div>
             )}
 
+            {/* ── Выбор по адресу ─────────────────────────────────────────── */}
             {mode === "manual" && (
-              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="book-select">Книга</Label>
-                  <Select value={selectedBook} onValueChange={setSelectedBook}>
-                    <SelectTrigger id="book-select">
+              <div className="rounded-xl border bg-muted/40 p-4 space-y-3 shadow-sm">
+
+                {/* Книга */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="book-select" className="text-sm font-medium">Книга</Label>
+                  <Select
+                    name="book-select"
+                    value={bookId}
+                    onValueChange={(v) => {
+                      setBookId(v);
+                      setChapterNo("");
+                      setVerseNo("");
+                      setSelectedVerse(null);
+                      setVerseCount(null);
+                    }}
+                  >
+                    <SelectTrigger id="book-select" className="w-full">
                       <SelectValue placeholder="Выберите книгу" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      {bibleBooks.map((book) => (
-                        <SelectItem key={book.id} value={book.id.toString()}>
-                          {book.nameRu}
+                      {canonicalBooks.map((b) => (
+                        <SelectItem key={b.id} value={String(b.id)}>
+                          {b.nameRu}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
+                {/* Глава + Стих */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="chapter">Глава</Label>
-                    <Select value={chapter} onValueChange={setChapter}>
-                      <SelectTrigger id="chapter">
-                        <SelectValue placeholder="1" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="chapter-select" className="text-sm font-medium">Глава</Label>
+                    <Select
+                      name="chapter-select"
+                      value={chapterNo}
+                      onValueChange={(v) => {
+                        setChapterNo(v);
+                        setVerseNo("");
+                        setSelectedVerse(null);
+                      }}
+                      disabled={!bookId || chaptersCount === 0}
+                    >
+                      <SelectTrigger id="chapter-select">
+                        <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[240px]">
-                        {Array.from({ length: 200 }, (_, i) => {
-                          const val = (i + 1).toString();
-                          return (
-                            <SelectItem key={val} value={val}>
-                              {val}
-                            </SelectItem>
-                          );
-                        })}
+                        {chaptersCount > 0 && Array.from({ length: chaptersCount }, (_, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="verse">Стих</Label>
-                    <Select value={verse} onValueChange={setVerse}>
-                      <SelectTrigger id="verse">
-                        <SelectValue placeholder="1" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="verse-select" className="text-sm font-medium flex items-center gap-1.5">
+                      Стих
+                      {verseCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </Label>
+                    <Select
+                      name="verse-select"
+                      value={verseNo}
+                      onValueChange={(v) => {
+                        setVerseNo(v);
+                        setSelectedVerse(null);
+                      }}
+                      disabled={!chapterNo}
+                    >
+                      <SelectTrigger id="verse-select">
+                        <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[240px]">
-                        {Array.from({ length: 200 }, (_, i) => {
-                          const val = (i + 1).toString();
-                          return (
-                            <SelectItem key={val} value={val}>
-                              {val}
-                            </SelectItem>
-                          );
-                        })}
+                        {chapterNo && Array.from({ length: verseCount ?? 176 }, (_, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                {error && (
-                  <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-                    {error}
-                  </div>
-                )}
-              </div>
-            )}
 
-            {text && (
-              <div className="space-y-2 min-h-[120px] p-3 border border-secondary rounded bg-secondary/70 text-sm leading-relaxed">
-                <div
-                  id="text"
-                  className=""
-                  dangerouslySetInnerHTML={{
-                    __html: removeMarkTags(text),
-                  }}
-                />
-                {reference && (
-                  <p className="w-full flex justify-end text-muted-foreground">
-                    {reference}
+                {verseCount !== null && chapterNo && !verseCountLoading && (
+                  <p className="text-xs text-muted-foreground">
+                    Глава {chapterNo}: {verseCount} {verseCount === 1 ? "стих" : verseCount < 5 ? "стиха" : "стихов"}
                   </p>
                 )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleFetchVerse}
+                  disabled={!canFetch || fetchLoading}
+                  className="w-full gap-2"
+                >
+                  {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {fetchLoading ? "Загружаем..." : "Загрузить стих"}
+                </Button>
+
+                {fetchError && (
+                  <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{fetchError}</p>
+                )}
               </div>
             )}
-            {text && (
-              <div className="flex flex-col justify-between gap-2 w-full py-2 bg-background space-y-2">
-                {!showTags && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="self-end flex items-center gap-2"
-                    onClick={() => setShowTags(true)}
-                  >
-                    <Tag className="h-4 w-4" />
-                    Добавить теги
-                  </Button>
-                )}
 
-                {showTags && (
-                  <div className="space-y-2">
-                    <Label htmlFor="tags">Теги (через запятую)</Label>
+            {/* ── Предпросмотр ─────────────────────────────────────────────── */}
+            {selectedVerse && (
+              <>
+                <div className="rounded-xl border bg-gradient-to-b from-secondary/60 to-secondary/30 p-4 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Выбранный стих</span>
+                    <Button
+                      type="button" variant="ghost" size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground gap-1"
+                      onClick={() => setSelectedVerse(null)}
+                    >
+                      <RefreshCw className="h-3 w-3" /> Сменить
+                    </Button>
+                  </div>
+                  <p className="text-base leading-relaxed text-foreground" dangerouslySetInnerHTML={{ __html: removeMarkTags(selectedVerse.text) }} />
+                  <p className="text-sm text-right text-primary font-medium">{selectedVerse.reference}</p>
+                </div>
+
+                {!showTags ? (
+                  <Button type="button" variant="outline" className="self-end ml-auto flex items-center gap-2 h-8 text-sm" onClick={() => setShowTags(true)}>
+                    <Tag className="h-3.5 w-3.5" /> Добавить теги
+                  </Button>
+                ) : (
+                  <div className="rounded-xl border bg-muted/20 p-3 space-y-1.5">
+                    <Label htmlFor="tags-input" className="text-sm">Теги (через запятую)</Label>
                     <Input
-                      id="tags"
-                      placeholder="например, Евангелие, Спасение, Любовь"
+                      id="tags-input"
+                      name="tags"
+                      placeholder="например: Евангелие, Спасение, Любовь"
                       value={tags}
                       onChange={(e) => setTags(e.target.value)}
                     />
+                    {tags && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{tag}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
 
-          <DialogFooter className="flex flex-row md:flex-col justify-between gap-2 w-full py-2 bg-background">
-            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          {/* ── Футер ──────────────────────────────────────────────────────── */}
+          <DialogFooter className="flex-shrink-0 flex flex-row justify-between gap-2 px-5 py-4 bg-background border-t">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={submitting} className="flex-1">
               Отмена
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <Button type="submit" disabled={!canSubmit} className="flex-1 gap-2">
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {submitting ? "Добавляем..." : "Добавить стих"}
             </Button>
           </DialogFooter>

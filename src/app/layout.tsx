@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="ru"
       className={`${inter.variable} ${lora.variable} dark`}
-      style={{ backgroundColor: "#09090b", colorScheme: "dark" }}
+      style={{ colorScheme: "dark" }}
     >
       <head>
       <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         strategy="beforeInteractive"
       />
       </head>
-      <body className="bg-background text-foreground" style={{ backgroundColor: "#09090b" }}>
+      <body className="bg-background text-foreground">
         <div className="app-scroll">
           {children}
         </div>

@@ -777,7 +777,7 @@ function VerseGalleryUnifiedCardViewport({
     ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
     : 0;
   const isPreviewReviewStage = preview
-    ? previewStatus === "REVIEW" || previewStatus === "MASTERED"
+    ? previewStatus === "REVIEW" || previewStatus === "WAITING" || previewStatus === "MASTERED"
     : false;
   const isPreviewStoppedStage = previewStatus === VerseStatus.STOPPED;
   const isPreviewStoppedRepeatStage = Boolean(
@@ -800,7 +800,9 @@ function VerseGalleryUnifiedCardViewport({
   const trainingProgress = trainingVerse
     ? Math.min(Math.round((Number(trainingVerse.raw.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100), 100)
     : 0;
-  const isTrainingReviewStage = trainingVerse ? trainingVerse.status === "REVIEW" : false;
+  const isTrainingReviewStage = trainingVerse
+    ? trainingVerse.status === "REVIEW" || trainingVerse.status === "WAITING" || trainingVerse.status === "MASTERED"
+    : false;
   const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
 
   const isPreviewReviewAction = Boolean(isPreviewReviewStage);
