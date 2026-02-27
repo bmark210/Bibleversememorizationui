@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import {
   computeDisplayStatus,
-  type DisplayStatus,
 } from "../verses/verseCard.types";
 
 type ReadinessResponse = {
@@ -58,17 +57,32 @@ function parseNonNegativeInt(
   return parsed;
 }
 
-function countAvailability(statuses: DisplayStatus[]) {
+type VerseAvailabilityInput = {
+  status?: VerseStatus | null;
+  masteryLevel?: number | null;
+  repetitions?: number | null;
+  nextReviewAt?: Date | null;
+};
+
+function countAvailability(verses: VerseAvailabilityInput[]) {
   let learning = 0;
   let review = 0;
 
-  for (const status of statuses) {
+  for (const verse of verses) {
+    const status = computeDisplayStatus(verse.status, verse.masteryLevel, verse.repetitions);
     if (status === VerseStatus.LEARNING) {
       learning += 1;
       continue;
     }
     if (status === "REVIEW") {
-      review += 1;
+      const raw = verse.nextReviewAt;
+      const nextReviewAt =
+        raw instanceof Date ? raw : raw != null ? new Date(String(raw)) : null;
+      const isDue =
+        !nextReviewAt ||
+        Number.isNaN(nextReviewAt.getTime()) ||
+        Date.now() >= nextReviewAt.getTime();
+      if (isDue) review += 1;
     }
   }
 
@@ -108,11 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       nextReviewAt?: Date | null;
     }>;
 
-    const displayStatuses = verses.map((verse) =>
-      computeDisplayStatus(verse.status, verse.masteryLevel, verse.repetitions, verse.nextReviewAt)
-    );
-
-    const available = countAvailability(displayStatuses);
+    const available = countAvailability(verses);
     const hasAnyUserVerses = verses.length > 0;
 
     const reviewStageWillBeSkipped = requestedReview > 0 && available.review === 0;
