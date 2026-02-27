@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback, memo, type RefObject, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo, type RefObject } from "react";
+import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -55,11 +56,6 @@ import {
   shouldCountTrainingRepetition,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
-import {
-  createVerticalTouchSwipeStart,
-  getVerticalTouchSwipeStep,
-  type VerticalTouchSwipeStart,
-} from "@/shared/ui/verticalTouchSwipe";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { VerseCard, type VerseCardPreviewTone } from "./VerseCard";
 import type { Verse as LegacyVerse } from "../data/mockData";
@@ -732,8 +728,7 @@ type UnifiedViewportProps = {
   trainingRendererRef: RefObject<TrainingModeRendererHandle | null>;
   onStartTraining: () => void | Promise<void>;
   onPreviewStatusAction: () => void | Promise<void>;
-  onPreviewTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
-  onPreviewTouchEnd: (e: TouchEvent<HTMLDivElement>) => void;
+  previewSwipeHandlers?: React.HTMLAttributes<HTMLDivElement>;
   onTrainingSwipeStep: (step: 1 | -1) => void;
   onTrainingRate: (rating: Rating) => void | Promise<void>;
   dailyGoalGuideActive?: boolean;
@@ -749,8 +744,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   trainingRendererRef,
   onStartTraining,
   onPreviewStatusAction,
-  onPreviewTouchStart,
-  onPreviewTouchEnd,
+  previewSwipeHandlers,
   onTrainingSwipeStep,
   onTrainingRate,
   dailyGoalGuideActive = false,
@@ -758,8 +752,6 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const isPreview = panelMode === "preview";
   const preview = isPreview ? previewVerse : null;
   const trainingVerse = !isPreview ? trainingActiveVerse : null;
-  const activeTouchStart = isPreview ? onPreviewTouchStart : undefined;
-  const activeTouchEnd = isPreview ? onPreviewTouchEnd : undefined;
 
   if (isPreview && !preview) return null;
   if (!isPreview && (!trainingVerse || !trainingModeId)) return null;
@@ -928,7 +920,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
 
   return (
-    <div onTouchStart={activeTouchStart} onTouchEnd={activeTouchEnd} className="w-full">
+    <div {...(isPreview ? previewSwipeHandlers : undefined)} className="w-full">
       <VerseCard
         isActive
         minHeight="training"
@@ -1180,7 +1172,6 @@ export function VerseGallery({
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
   const [isAutoStartingTraining, setIsAutoStartingTraining] = useState(() => autoStartTrainingOnOpen);
-  const previewTouchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
   const autoStartedTrainingRef = useRef(false);
   const hasUserChosenTrainingSubsetRef = useRef(false);
@@ -1430,17 +1421,23 @@ export function VerseGallery({
   const exitTrainingMode = useCallback((target?: TrainingVerseState | null) => {
     const preservedPreviewVerseKey = preservedPreviewVerseKeyOnTrainingExitRef.current;
     preservedPreviewVerseKeyOnTrainingExitRef.current = null;
+    const effectiveTarget = target ?? trainingActiveVerse;
+    const trainingVerseKey = effectiveTarget?.key ?? null;
     if (preservedPreviewVerseKey) {
       const preservedIndex = verses.findIndex((v) => getVerseIdentity(v) === preservedPreviewVerseKey);
       if (preservedIndex >= 0) {
         setActiveIndex(preservedIndex);
       } else {
-        syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+        syncPreviewIndexToVerse(effectiveTarget);
       }
     } else {
-      syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+      syncPreviewIndexToVerse(effectiveTarget);
     }
-    setDirection(0);
+    // Crossfade when returning to the same verse; slide when preview lands on a different verse.
+    const isSameVerse = preservedPreviewVerseKey
+      ? preservedPreviewVerseKey === trainingVerseKey
+      : true;
+    setDirection(isSameVerse ? 0 : 1);
     setPanelMode("preview");
     setTrainingModeId(null);
   }, [syncPreviewIndexToVerse, trainingActiveVerse, verses]);
@@ -1682,10 +1679,12 @@ export function VerseGallery({
       if (preservePreviewCard) {
         preservedPreviewVerseKeyOnTrainingExitRef.current = getVerseIdentity(previewActiveVerse);
       }
+      // Crossfade when training opens on the same verse as the preview; slide otherwise.
+      const isSameVerse = startState.key === startKey;
       setTrainingIndex(startIndex);
       setTrainingModeId(chooseModeId(startState));
       setPanelMode("training");
-      setDirection(0);
+      setDirection(isSameVerse ? 0 : 1);
       // if (preferredSubset === "learning") {
       //   toast.info("Этап ежедневной цели: изучение", {
       //     description: "Тренировка открыта в режиме «Изучение».",
@@ -1794,19 +1793,16 @@ export function VerseGallery({
     startTrainingFromActiveVerse,
   ]);
 
-  const handlePreviewTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
-    previewTouchStartRef.current = createVerticalTouchSwipeStart(e);
-  }, [panelMode, isTrainingAutoStartOverlayVisible]);
-
-  const handlePreviewTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
-    const start = previewTouchStartRef.current;
-    previewTouchStartRef.current = null;
-    const step = getVerticalTouchSwipeStep(start, e);
-    if (!step) return;
-    void navigatePreviewTo(step > 0 ? "next" : "prev");
-  }, [panelMode, isTrainingAutoStartOverlayVisible, navigatePreviewTo]);
+  const previewSwipeBind = useDrag(
+    ({ last, movement: [, my], velocity: [, vy], canceled }) => {
+      if (!last || canceled || panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
+      if (Math.abs(my) > 50 || Math.abs(vy) > 0.3) {
+        void navigatePreviewTo(my < 0 ? "next" : "prev");
+      }
+    },
+    { axis: "y", filterTaps: true, pointer: { touch: true }, threshold: 10 }
+  );
+  const previewSwipeHandlers = panelMode === "preview" ? previewSwipeBind() : undefined;
   const handleTrainingRate = useCallback(async (rating: Rating) => {
     if (panelMode !== "training" || trainingModeId === null) return;
     const current = trainingVerses[trainingIndex];
@@ -2180,8 +2176,7 @@ export function VerseGallery({
                 trainingRendererRef={trainingRendererRef}
                 onStartTraining={handleStartTraining}
                 onPreviewStatusAction={handlePreviewStatusAction}
-                onPreviewTouchStart={handlePreviewTouchStart}
-                onPreviewTouchEnd={handlePreviewTouchEnd}
+                previewSwipeHandlers={previewSwipeHandlers}
                 onTrainingSwipeStep={handleTrainingNavigationStep}
                 onTrainingRate={handleTrainingRate}
                 dailyGoalGuideActive={dailyGoalGuideActive}
