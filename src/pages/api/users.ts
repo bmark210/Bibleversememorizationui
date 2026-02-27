@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
-import { Translation } from "@/generated/prisma/enums";
+import { Translation } from "@/generated/prisma";
 
 type CreateUserPayload = {
   telegramId?: string;

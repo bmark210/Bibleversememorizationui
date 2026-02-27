@@ -16,7 +16,6 @@ import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
 import { fetchDailyGoalReadiness } from "@/api/services/dailyGoalReadiness";
 import { mockCollections, mockStats } from "./data/mockData";
-import { UserVerse } from "@/generated/prisma/client";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
@@ -90,8 +89,18 @@ const TrainingSession = dynamic(
   }
 );
 
-export type Verse = UserVerse & {
+// Frontend verse model — matches the VerseCardDto shape returned by the API.
+// externalVerseId is the primary identifier (bolls.life format "book-chapter-verse").
+export type Verse = {
+  id?: string | number;
+  externalVerseId: string;
   status: DisplayVerseStatus;
+  masteryLevel: number;
+  repetitions: number;
+  lastTrainingModeId?: number | null;
+  lastReviewedAt: string | null;
+  nextReviewAt: string | null;
+  tags?: Array<{ id: string; slug: string; title: string }>;
   text: string;
   reference: string;
 };
@@ -1111,8 +1120,8 @@ export default function App({ onInitialContentReady }: AppProps) {
               transition={{ type: "spring", stiffness: 260, damping: 28 }}
             >
               <TrainingSession
-                verses={trainingVerses as Array<UserVerse>}
-                allVerses={trainingVerses as Array<UserVerse>}
+                verses={trainingVerses}
+                allVerses={trainingVerses}
                 startFromVerseId={trainingStartVerseId}
                 onComplete={handleCompleteTraining}
                 onExit={handleExitTraining}
