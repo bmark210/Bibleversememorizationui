@@ -1,17 +1,18 @@
 import React from 'react';
-import { Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
+import { Brain, Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
+import { cn } from '@/app/components/ui/utils';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
+import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   FILTER_VISUAL_THEME,
   getStoppedVerseStageKind,
   getVerseCardLayoutSignature,
   getVerseStageVisual,
-  STOPPED_REVIEW_MASTERY_THRESHOLD,
 } from '../constants';
 import { haptic } from '../haptics';
 
@@ -36,9 +37,6 @@ export const SwipeableVerseCard = ({
 }: SwipeCardProps) => {
   const masteryLevel = Number(verse.masteryLevel ?? 0);
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
-  const isWaitingCard = displayStatus === 'WAITING';
-  const isReviewCard = displayStatus === 'REVIEW';
-  const isMasteredCard = displayStatus === 'MASTERED';
   const stoppedStageKind =
     displayStatus === VerseStatus.STOPPED ? getStoppedVerseStageKind(verse) : null;
   const isStoppedReviewCard = displayStatus === VerseStatus.STOPPED && stoppedStageKind === 'review';
@@ -46,13 +44,11 @@ export const SwipeableVerseCard = ({
   const stageVisual = getVerseStageVisual(verse);
   const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
-  const learningProgress = Math.min(
-    Math.round((masteryLevel / STOPPED_REVIEW_MASTERY_THRESHOLD) * 100),
-    100
-  );
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
+  const totalProgress = Math.min(masteryLevel + repetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
+  const totalProgressPercent = Math.round((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
   const waitingUntilLabel = (() => {
-    if (!isWaitingCard || !verse.nextReviewAt) return null;
+    if (!verse.nextReviewAt) return null;
     const date = new Date(verse.nextReviewAt);
     if (Number.isNaN(date.getTime())) return null;
     return new Intl.DateTimeFormat('ru-RU', {
@@ -60,6 +56,9 @@ export const SwipeableVerseCard = ({
       minute: '2-digit',
     }).format(date);
   })();
+  const isNotYetDueCard = displayStatus === 'REVIEW' && verse.nextReviewAt
+    ? Date.now() < new Date(verse.nextReviewAt).getTime()
+    : false;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -114,7 +113,6 @@ export const SwipeableVerseCard = ({
 
     if (
       displayStatus === VerseStatus.LEARNING ||
-      displayStatus === 'WAITING' ||
       displayStatus === 'REVIEW' ||
       displayStatus === 'MASTERED'
     ) {
@@ -190,67 +188,97 @@ export const SwipeableVerseCard = ({
     );
   };
 
-  const statusMetaContent = isMasteredCard ? (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/12 px-2.5 py-1 text-amber-800 dark:text-amber-300">
-        <Trophy className="h-3.5 w-3.5" />
-        <span className="font-semibold">Выучен · {repetitionsCount}</span>
-      </div>
-    </div>
-  ) : isWaitingCard ? (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-indigo-700 dark:text-indigo-300">
-        <Clock3 className="h-3.5 w-3.5" />
-        <span className="font-semibold">
-          {waitingUntilLabel ? `До ${waitingUntilLabel}` : 'Ожидание повтора'}
+  const statusTone = (() => {
+    if (displayStatus === 'MASTERED') {
+      return {
+        icon: Trophy,
+        title: 'Выучен',
+        subtitle: `${repetitionsCount} повторений`,
+        wrapperClass: 'border-amber-500/25',
+        bgFillClass: 'bg-amber-500/[0.12]',
+        titleClass: 'text-amber-800/85 dark:text-amber-300/85',
+        valueClass: 'text-amber-800 dark:text-amber-300',
+        iconColorClass: 'text-amber-700 dark:text-amber-300',
+        trackClass: 'bg-amber-500/12',
+        fillClass: 'from-amber-500 to-yellow-400/85',
+      };
+    }
+    if (displayStatus === 'REVIEW') {
+      return {
+        icon: isNotYetDueCard ? Clock3 : Repeat,
+        title: 'Повторение',
+        subtitle: isNotYetDueCard && waitingUntilLabel
+          ? `Доступно в ${waitingUntilLabel}`
+          : `Повтор ${repetitionsCount} из ${REPEAT_THRESHOLD_FOR_MASTERED}`,
+        wrapperClass: 'border-violet-500/20',
+        bgFillClass: 'bg-violet-500/[0.12]',
+        titleClass: 'text-violet-700/85 dark:text-violet-300/85',
+        valueClass: 'text-violet-700 dark:text-violet-300',
+        iconColorClass: 'text-violet-700 dark:text-violet-300',
+        trackClass: 'bg-violet-500/12',
+        fillClass: 'from-violet-500 to-violet-400/80',
+      };
+    }
+    if (displayStatus === VerseStatus.STOPPED) {
+      const subtitle = isStoppedMasteredCard
+        ? `Выучен · ${repetitionsCount} повт.`
+        : isStoppedReviewCard
+          ? `Повтор ${repetitionsCount} из ${REPEAT_THRESHOLD_FOR_MASTERED}`
+          : `Ступень ${masteryLevel} из ${TRAINING_STAGE_MASTERY_MAX}`;
+      return {
+        icon: Pause,
+        title: 'На паузе',
+        subtitle,
+        wrapperClass: 'border-rose-500/20',
+        bgFillClass: 'bg-rose-500/[0.12]',
+        titleClass: 'text-rose-700/85 dark:text-rose-300/85',
+        valueClass: 'text-rose-700 dark:text-rose-300',
+        iconColorClass: 'text-rose-700 dark:text-rose-300',
+        trackClass: 'bg-rose-500/12',
+        fillClass: 'from-rose-500 to-rose-400/80',
+      };
+    }
+    return {
+      icon: Brain,
+      title: 'Изучение',
+      subtitle: `Ступень ${masteryLevel} из ${TRAINING_STAGE_MASTERY_MAX}`,
+      wrapperClass: 'border-emerald-500/20',
+      bgFillClass: 'bg-emerald-500/[0.12]',
+      titleClass: 'text-emerald-700/85 dark:text-emerald-300/85',
+      valueClass: 'text-emerald-700 dark:text-emerald-300',
+      iconColorClass: 'text-emerald-700 dark:text-emerald-300',
+      trackClass: 'bg-emerald-500/12',
+      fillClass: 'from-emerald-500 to-emerald-400/80',
+    };
+  })();
+
+  const statusMetaContent = displayStatus === VerseStatus.NEW ? null : (
+    <div className={cn('relative rounded-xl border overflow-hidden', statusTone.wrapperClass)}>
+      <div
+        className={cn('absolute inset-y-0 left-0 transition-[width] duration-700 ease-out', statusTone.bgFillClass)}
+        style={{ width: `${totalProgressPercent}%` }}
+      />
+      <div className="relative z-10 flex items-center gap-2 px-2.5 py-1.5">
+        <statusTone.icon className={cn('h-3.5 w-3.5 flex-shrink-0', statusTone.iconColorClass)} />
+        <span className={cn('text-[10px] font-semibold uppercase tracking-[0.12em]', statusTone.titleClass)}>
+          {statusTone.title}
+        </span>
+        <span className="h-3 w-px bg-border/50 flex-shrink-0" aria-hidden="true" />
+        <span className="text-[10px] text-muted-foreground flex-1 truncate min-w-0">
+          {statusTone.subtitle}
+        </span>
+        <span className={cn('text-[10px] font-bold tabular-nums flex-shrink-0', statusTone.valueClass)}>
+          {totalProgressPercent}%
         </span>
       </div>
-    </div>
-  ) : isReviewCard ? (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
-        <Repeat className="h-3.5 w-3.5" />
-        <span className="font-semibold">{repetitionsCount}</span>
-      </div>
-    </div>
-  ) : displayStatus === VerseStatus.LEARNING ? (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span>{learningProgress}%</span>
-      <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
+      <div className={cn('h-[3px]', statusTone.trackClass)}>
         <div
-          className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
-          style={{ width: `${learningProgress}%` }}
+          className={cn('h-full bg-gradient-to-r transition-[width] duration-700 ease-out', statusTone.fillClass)}
+          style={{ width: `${totalProgressPercent}%` }}
         />
       </div>
     </div>
-  ) : displayStatus === VerseStatus.STOPPED ? (
-    isStoppedMasteredCard ? (
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
-          <Pause className="h-3.5 w-3.5" />
-          <Trophy className="h-3.5 w-3.5" />
-          <span className="font-semibold">Выучено · пауза · {repetitionsCount}</span>
-        </div>
-      </div>
-    ) : isStoppedReviewCard ? (
-      <div className="flex items-center gap-2 text-xs">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
-          <Repeat className="h-3.5 w-3.5" />
-          {repetitionsCount} повт.
-        </div>
-      </div>
-    ) : (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{learningProgress}%</span>
-        <div className="h-1 w-24 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-rose-500 transition-[width] duration-300 ease-out"
-            style={{ width: `${learningProgress}%` }}
-          />
-        </div>
-      </div>
-    )
-  ) : null;
+  );
 
   return (
     <div className="relative isolate">

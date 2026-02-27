@@ -25,7 +25,7 @@ export class UserVersesService {
         status?: 'NEW' | 'LEARNING' | 'STOPPED',
         orderBy?: 'createdAt' | 'updatedAt',
         order?: 'asc' | 'desc',
-        filter?: 'all' | 'new' | 'learning' | 'waiting' | 'review' | 'mastered' | 'stopped',
+        filter?: 'all' | 'new' | 'learning' | 'review' | 'mastered' | 'stopped',
         limit?: number,
         startWith?: number,
     ): CancelablePromise<UserVersesPageResponse> {

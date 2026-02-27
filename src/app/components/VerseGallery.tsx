@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
   X,
+  Brain,
   Clock3,
   ChevronLeft,
   ChevronRight,
@@ -43,7 +44,7 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
 import { normalizeDisplayVerseStatus, type DisplayVerseStatus } from "@/app/types/verseStatus";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
   TrainingModeId,
   TRAINING_MODE_SHIFT_BY_RATING,
@@ -207,7 +208,7 @@ function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction
   if (status === VerseStatus.NEW) {
     return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
-  if (status === VerseStatus.LEARNING || status === "WAITING" || status === "REVIEW" || status === "MASTERED") {
+  if (status === VerseStatus.LEARNING || status === "REVIEW") {
     return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };
   }
   if (status === VerseStatus.STOPPED) {
@@ -268,12 +269,18 @@ function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
     nextReviewAt: parseDate((verse as any).nextReviewAt ?? (verse as any).nextReview),
   };
 }
+function isTrainingDueVerse(verse: Pick<TrainingVerseState, "status" | "nextReviewAt">): boolean {
+  if (verse.status !== "REVIEW") return true;
+  if (!verse.nextReviewAt) return true;
+  return Date.now() >= verse.nextReviewAt.getTime();
+}
+
 function isTrainingEligibleVerse(verse: TrainingVerseState) {
-  return verse.status === VerseStatus.LEARNING || verse.status === "REVIEW";
+  return (verse.status === VerseStatus.LEARNING || verse.status === "REVIEW") && isTrainingDueVerse(verse);
 }
 
 function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status">) {
-  return verse.status === "REVIEW" || verse.status === "MASTERED";
+  return verse.status === "REVIEW";
 }
 
 function matchesTrainingSubsetFilter(
@@ -281,7 +288,7 @@ function matchesTrainingSubsetFilter(
   filter: TrainingSubsetFilter
 ) {
   if (filter === "all") return isTrainingEligibleVerse(verse);
-  if (filter === "review") return isTrainingReviewVerse(verse);
+  if (filter === "review") return isTrainingReviewVerse(verse) && isTrainingDueVerse(verse);
   return verse.status === VerseStatus.LEARNING;
 }
 
@@ -312,10 +319,7 @@ function deriveTrainingDisplayStatus(params: {
   const { baseStatus, masteryLevel, repetitions, nextReviewAt } = params;
   if (baseStatus === VerseStatus.NEW) return VerseStatus.NEW;
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
-  if (repetitions >= 5) return "MASTERED";
-  if (masteryLevel >= MAX_MASTERY_LEVEL && nextReviewAt && nextReviewAt.getTime() > Date.now()) {
-    return "WAITING";
-  }
+  if (repetitions >= REPEAT_THRESHOLD_FOR_MASTERED) return "MASTERED";
   if (masteryLevel >= MAX_MASTERY_LEVEL) return "REVIEW";
   return VerseStatus.LEARNING;
 }
@@ -336,15 +340,6 @@ function getTrainingCompletionToastPayload(params: {
         status: "MASTERED",
         title: "Стих выучен полностью",
         description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
-      };
-    }
-    if (finalStatus === "WAITING") {
-      return {
-        id: Date.now(),
-        reference,
-        status: "WAITING",
-        title: "Переведён в ожидание повторения",
-        description: "Следующее повторение станет доступно завтра.",
       };
     }
     if (finalStatus === "REVIEW") {
@@ -374,15 +369,6 @@ function getTrainingCompletionToastPayload(params: {
       status: "MASTERED",
       title: "Стих выучен полностью",
       description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
-    };
-  }
-  if (finalStatus === "WAITING") {
-    return {
-      id: Date.now(),
-      reference,
-      status: "WAITING",
-      title: "Переведён в ожидание повторения",
-      description: "Можно будет повторить завтра.",
     };
   }
   return {
@@ -725,9 +711,20 @@ function DotProgress({ total, active }: { total: number; active: number }) {
   );
 }
 const slideVariants = {
-  enter: (dir: number) => ({ y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 }),
-  center: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 320, damping: 32 } as const },
-  exit: (dir: number) => ({ y: dir > 0 ? "-18%" : "18%", opacity: 0, scale: 0.86, transition: { duration: 0.2, ease: "easeIn" } as const }),
+  enter: (dir: number) =>
+    dir === 0
+      ? { opacity: 0, scale: 1, y: 0 }
+      : { y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 },
+  center: (dir: number) => ({
+    y: 0, opacity: 1, scale: 1,
+    transition: dir === 0
+      ? { duration: 0.22, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }
+      : { type: "spring" as const, stiffness: 320, damping: 32 },
+  }),
+  exit: (dir: number) =>
+    dir === 0
+      ? { opacity: 0, scale: 1, transition: { duration: 0.15, ease: "easeIn" as const } }
+      : { y: dir > 0 ? "-18%" : "18%", opacity: 0, scale: 0.86, transition: { duration: 0.2, ease: "easeIn" as const } },
 };
 
 type UnifiedViewportProps = {
@@ -773,45 +770,50 @@ function VerseGalleryUnifiedCardViewport({
   if (!isPreview && (!trainingVerse || !trainingModeId)) return null;
 
   const previewStatus = preview ? normalizeVerseStatus(preview.status) : null;
+  const previewRawMasteryLevel = preview ? Number(preview.masteryLevel ?? 0) : 0;
   const previewProgress = preview
-    ? Math.min(Math.round(((Number(preview.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
+    ? Math.min(Math.round(((previewRawMasteryLevel / TRAINING_STAGE_MASTERY_MAX) * 100)), 100)
     : 0;
   const isPreviewReviewStage = preview
-    ? previewStatus === "REVIEW" || previewStatus === "WAITING" || previewStatus === "MASTERED"
+    ? previewStatus === "REVIEW" || previewStatus === "MASTERED"
     : false;
   const isPreviewStoppedStage = previewStatus === VerseStatus.STOPPED;
-  const isPreviewStoppedRepeatStage = Boolean(
-    preview && isPreviewStoppedStage && Number(preview.repetitions ?? 0) > 0
-  );
   const previewRepetitionsCount = preview ? Math.max(0, Number(preview.repetitions ?? 0)) : 0;
+  const previewTotalProgress = Math.min(previewRawMasteryLevel + previewRepetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
+  const previewTotalProgressPercent = Math.round((previewTotalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
   const previewTone: VerseCardPreviewTone | undefined = preview
     ? previewStatus === VerseStatus.NEW
       ? "new"
       : previewStatus === VerseStatus.STOPPED
         ? "stopped"
-        : previewStatus === "WAITING"
-          ? "waiting"
         : previewStatus === "MASTERED"
           ? "mastered"
           : isPreviewReviewStage
           ? "review"
           : "learning"
     : undefined;
-  const trainingProgress = trainingVerse
-    ? Math.min(Math.round((Number(trainingVerse.raw.masteryLevel ?? 0) / TRAINING_STAGE_MASTERY_MAX) * 100), 100)
-    : 0;
   const isTrainingReviewStage = trainingVerse
-    ? trainingVerse.status === "REVIEW" || trainingVerse.status === "WAITING" || trainingVerse.status === "MASTERED"
+    ? trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED"
     : false;
   const trainingRepetitionsCount = trainingVerse ? Math.max(0, Number(trainingVerse.repetitions ?? 0)) : 0;
+  const trainingTotalProgress = trainingVerse
+    ? Math.min(trainingVerse.rawMasteryLevel + trainingRepetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX)
+    : 0;
+  const trainingTotalProgressPercent = Math.round((trainingTotalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
 
+  const previewNextReviewAt = preview ? parseDate((preview as any).nextReviewAt ?? (preview as any).nextReview) : null;
+  const isPreviewNotYetDue = previewStatus === "REVIEW" && previewNextReviewAt !== null && Date.now() < previewNextReviewAt.getTime();
+  const previewNotYetDueLabel = isPreviewNotYetDue && previewNextReviewAt
+    ? `Доступно ${previewNextReviewAt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`
+    : null;
   const isPreviewReviewAction = Boolean(isPreviewReviewStage);
   const isTrainingStartPrimaryAction = Boolean(
     preview &&
       previewStatus &&
       previewStatus !== VerseStatus.NEW &&
       previewStatus !== VerseStatus.STOPPED &&
-      previewStatus !== "WAITING"
+      previewStatus !== "MASTERED" &&
+      !isPreviewNotYetDue
   );
   const previewPrimaryAction =
     !preview || !previewStatus
@@ -834,26 +836,34 @@ function VerseGalleryUnifiedCardViewport({
               className:
                 "border border-rose-500/25 bg-gradient-to-r from-rose-500/16 to-rose-500/8 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300",
             }
-          : previewStatus === "WAITING"
+          : isPreviewNotYetDue
             ? {
-                label: "Ожидание",
-                ariaLabel: "Стих ожидает времени следующего повтора",
+                label: "Повторять",
+                ariaLabel: "Повторять этот стих",
                 icon: Clock3,
                 onClick: () => {},
                 disabled: true,
                 className:
-                  "border border-indigo-500/25 bg-gradient-to-r from-indigo-500/14 to-indigo-500/8 text-indigo-700 dark:text-indigo-300",
+                  "border border-violet-500/25 bg-gradient-to-r from-violet-500/14 to-violet-500/8 text-violet-700 dark:text-violet-300",
+              }
+          : previewStatus === "MASTERED"
+            ? {
+                label: "Выучен",
+                ariaLabel: "Стих полностью выучен",
+                icon: Trophy,
+                onClick: () => {},
+                disabled: true,
+                className:
+                  "border border-amber-500/30 bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-800 dark:text-amber-300 opacity-75 cursor-default",
               }
           : isPreviewReviewAction
             ? {
-                label: previewStatus === "MASTERED" ? "Выучен" : "Повторять",
-                ariaLabel: previewStatus === "MASTERED" ? "Стих отмечен как выученный" : "Повторять этот стих",
-                icon: previewStatus === "MASTERED" ? Trophy : Repeat,
+                label: "Повторять",
+                ariaLabel: "Повторять этот стих",
+                icon: Repeat,
                 onClick: () => void onStartTraining(),
                 className:
-                  previewStatus === "MASTERED"
-                    ? "border border-amber-500/30 bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-800 hover:bg-amber-500/22 dark:text-amber-300"
-                    : "border border-violet-500/25 bg-gradient-to-r from-violet-500/18 to-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
+                  "border border-violet-500/25 bg-gradient-to-r from-violet-500/18 to-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
               }
             : {
                 label: "Учить",
@@ -864,65 +874,61 @@ function VerseGalleryUnifiedCardViewport({
                   "border border-emerald-500/25 bg-gradient-to-r from-emerald-500/18 to-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
               };
 
-  const previewProgressTone =
-    previewTone === "stopped"
+  const previewStatusTone =
+    previewStatus === VerseStatus.STOPPED
       ? {
-          labelClass: "text-rose-700/75 dark:text-rose-300/80",
-          valueClass: "text-rose-700 dark:text-rose-300",
-          trackClass: "bg-rose-500/14",
-          fillClass: "from-rose-500 to-rose-400/80",
-        }
-      : previewTone === "mastered"
-        ? {
-            labelClass: "text-amber-800/75 dark:text-amber-300/80",
-            valueClass: "text-amber-800 dark:text-amber-300",
-            trackClass: "bg-amber-500/14",
-            fillClass: "from-amber-500 to-yellow-400/85",
-          }
-        : previewTone === "waiting"
-          ? {
-              labelClass: "text-indigo-700/75 dark:text-indigo-300/80",
-              valueClass: "text-indigo-700 dark:text-indigo-300",
-              trackClass: "bg-indigo-500/14",
-              fillClass: "from-indigo-500 to-indigo-400/80",
-            }
-        : {
-          labelClass: "text-emerald-700/75 dark:text-emerald-300/80",
-          valueClass: "text-emerald-700 dark:text-emerald-300",
-          trackClass: "bg-emerald-500/14",
-          fillClass: "from-emerald-500 to-emerald-400/80",
-        };
-
-  const previewRepeatTone =
-    previewTone === "stopped"
-      ? {
-          wrapperClass: "border-rose-500/20 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-background",
-          iconWrapClass:
-            "border-rose-500/25 bg-rose-500/12 text-rose-700 dark:text-rose-300",
+          icon: Pause,
+          title: "На паузе",
+          subtitle: `${previewTotalProgress} из ${TOTAL_REPEATS_AND_STAGE_MASTERY_MAX} шагов`,
+          wrapperClass: "border-rose-500/20",
+          iconWrapClass: "border-rose-500/25 bg-rose-500/12 text-rose-700 dark:text-rose-300",
           titleClass: "text-rose-700/80 dark:text-rose-300/80",
           valueClass: "text-rose-700 dark:text-rose-300",
-          title: "На паузе",
-          icon: Repeat,
+          fillClass: "from-rose-500 to-rose-400/80",
+          trackClass: "bg-rose-500/14",
+          bgFillClass: "bg-rose-500/[0.13]",
         }
-      : previewTone === "mastered"
+      : previewStatus === "MASTERED"
         ? {
-            wrapperClass: "border-amber-500/25 bg-gradient-to-r from-amber-500/12 via-amber-500/6 to-background",
-            iconWrapClass:
-              "border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300",
+            icon: Trophy,
+            title: "Выучен",
+            subtitle: "Все этапы пройдены",
+            wrapperClass: "border-amber-500/25",
+            iconWrapClass: "border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300",
             titleClass: "text-amber-800/80 dark:text-amber-300/80",
             valueClass: "text-amber-800 dark:text-amber-300",
-            title: "Выучено",
-            icon: Trophy,
+            fillClass: "from-amber-500 to-yellow-400/85",
+            trackClass: "bg-amber-500/14",
+            bgFillClass: "bg-amber-500/[0.13]",
           }
-        : {
-          wrapperClass: "border-violet-500/20 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-background",
-          iconWrapClass:
-            "border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300",
-          titleClass: "text-violet-700/80 dark:text-violet-300/80",
-          valueClass: "text-violet-700 dark:text-violet-300",
-          title: "Повторение",
-          icon: Repeat,
-        };
+        : previewStatus === "REVIEW"
+          ? {
+              icon: isPreviewNotYetDue ? Clock3 : Repeat,
+              title: "Повторение",
+              subtitle: isPreviewNotYetDue
+                ? (previewNotYetDueLabel ?? `Повтор ${previewRepetitionsCount} из ${REPEAT_THRESHOLD_FOR_MASTERED}`)
+                : `Повтор ${previewRepetitionsCount} из ${REPEAT_THRESHOLD_FOR_MASTERED}`,
+              wrapperClass: "border-violet-500/20",
+              iconWrapClass: "border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300",
+              titleClass: "text-violet-700/80 dark:text-violet-300/80",
+              valueClass: "text-violet-700 dark:text-violet-300",
+              fillClass: "from-violet-500 to-violet-400/80",
+              trackClass: "bg-violet-500/14",
+              bgFillClass: "bg-violet-500/[0.13]",
+            }
+            : {
+                // LEARNING (default)
+                icon: Brain,
+                title: "Изучение",
+                subtitle: `Ступень ${previewRawMasteryLevel} из ${TRAINING_STAGE_MASTERY_MAX}`,
+                wrapperClass: "border-emerald-500/20",
+                iconWrapClass: "border-emerald-500/25 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+                titleClass: "text-emerald-700/80 dark:text-emerald-300/80",
+                valueClass: "text-emerald-700 dark:text-emerald-300",
+                fillClass: "from-emerald-500 to-emerald-400/80",
+                trackClass: "bg-emerald-500/14",
+                bgFillClass: "bg-emerald-500/[0.13]",
+              };
 
   const trainingLegacyVerse = trainingVerse ? asLegacyVerse(trainingVerse) : null;
 
@@ -947,56 +953,56 @@ function VerseGalleryUnifiedCardViewport({
                 {trainingVerse.raw.reference}
               </h2>
               <div className="mx-auto">
-                {isTrainingReviewStage ? (
+                {(
                   <motion.div
-                    key={`review-${trainingVerse.key}-${trainingRepetitionsCount}`}
+                    key={`training-badge-${trainingVerse.key}-${isTrainingReviewStage}`}
                     initial={{ opacity: 0, y: 4, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-violet-500/25 bg-gradient-to-r from-violet-500/12 to-violet-500/5 px-2.5 py-1.5 backdrop-blur-sm"
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur-sm",
+                      isTrainingReviewStage
+                        ? "border-violet-500/25 bg-violet-500/10"
+                        : "border-emerald-500/25 bg-emerald-500/10"
+                    )}
                   >
-                    <div className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300">
-                      <Repeat className="h-3 w-3" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-700/85 dark:text-violet-300/90">
-                        Повторение
-                      </span>
-                      <span className="h-3.5 w-px bg-violet-500/20" aria-hidden="true" />
-                      <span className="text-[11px] font-semibold tabular-nums text-violet-700 dark:text-violet-300">
-                        {trainingRepetitionsCount} повт.
-                      </span>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key={`learn-${trainingVerse.key}-${trainingProgress}`}
-                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                    className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 backdrop-blur-sm"
-                  >
-                    <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/90">
-                      Освоение
+                    <span className={cn(
+                      "text-[9px] font-semibold uppercase tracking-[0.14em]",
+                      isTrainingReviewStage
+                        ? "text-violet-700/85 dark:text-violet-300/90"
+                        : "text-emerald-700/80 dark:text-emerald-300/90"
+                    )}>
+                      {isTrainingReviewStage ? "Повторение" : "Освоение"}
                     </span>
                     <div
                       role="progressbar"
-                      aria-label="Прогресс освоения"
+                      aria-label="Прогресс изучения"
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={trainingProgress}
-                      className="relative h-1 w-16 overflow-hidden rounded-full bg-emerald-500/15"
+                      aria-valuenow={trainingTotalProgressPercent}
+                      className={cn(
+                        "relative h-1 w-16 overflow-hidden rounded-full",
+                        isTrainingReviewStage ? "bg-violet-500/15" : "bg-emerald-500/15"
+                      )}
                     >
                       <motion.div
-                        key={`${trainingVerse.raw.id}-${trainingProgress}`}
-                        className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
+                        key={`${trainingVerse.raw.id}-${trainingTotalProgressPercent}`}
+                        className={cn(
+                          "absolute inset-y-0 left-0 rounded-full",
+                          isTrainingReviewStage ? "bg-violet-500" : "bg-emerald-500"
+                        )}
                         initial={{ width: 0 }}
-                        animate={{ width: `${trainingProgress}%` }}
+                        animate={{ width: `${trainingTotalProgressPercent}%` }}
                         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                      {trainingProgress}%
+                    <span className={cn(
+                      "text-[11px] font-semibold tabular-nums",
+                      isTrainingReviewStage
+                        ? "text-violet-700 dark:text-violet-300"
+                        : "text-emerald-700 dark:text-emerald-300"
+                    )}>
+                      {trainingTotalProgressPercent}%
                     </span>
                   </motion.div>
                 )}
@@ -1047,55 +1053,53 @@ function VerseGalleryUnifiedCardViewport({
           ) : null
         }
         footer={
-          isPreview && preview ? (
-            previewStatus === VerseStatus.NEW ? null : (isPreviewReviewStage || isPreviewStoppedRepeatStage) ? (
+          isPreview && preview && previewStatus !== VerseStatus.NEW ? (
+            <motion.div
+              key={`preview-status-footer-${preview.id}-${previewStatus}-${previewTotalProgress}`}
+              initial={{ opacity: 0, y: 6, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className={cn("relative rounded-2xl border overflow-hidden shadow-sm", previewStatusTone.wrapperClass)}
+            >
+              {/* Animated background fill proportional to progress */}
               <motion.div
-                key={`preview-repeat-footer-${preview.id}-${previewStatus}-${previewRepetitionsCount}`}
-                initial={{ opacity: 0, y: 6, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className={cn("rounded-2xl border p-3 shadow-sm", previewRepeatTone.wrapperClass)}
-              >
+                key={`bg-fill-${preview.id}-${previewStatus}`}
+                className={cn("absolute inset-y-0 left-0", previewStatusTone.bgFillClass)}
+                initial={{ width: 0 }}
+                animate={{ width: `${previewTotalProgressPercent}%` }}
+                transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
+              />
+              {/* Content layer */}
+              <div className="relative z-10 p-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-xl border", previewRepeatTone.iconWrapClass)}>
-                      <previewRepeatTone.icon className="h-4 w-4" />
+                    <div className={cn("inline-flex h-8 w-8 items-center justify-center rounded-xl border flex-shrink-0", previewStatusTone.iconWrapClass)}>
+                      <previewStatusTone.icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 text-left">
-                      <div className={cn("text-[10px] font-semibold uppercase tracking-[0.18em]", previewRepeatTone.titleClass)}>
-                        {previewRepeatTone.title}
+                      <div className={cn("text-[10px] font-semibold uppercase tracking-[0.18em] leading-tight", previewStatusTone.titleClass)}>
+                        {previewStatusTone.title}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Повторы
+                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        {previewStatusTone.subtitle}
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={cn("text-2xl font-bold tabular-nums", previewRepeatTone.valueClass)}>
-                      {previewRepetitionsCount}
-                    </div>
+                  <div className={cn("text-2xl font-bold tabular-nums flex-shrink-0", previewStatusTone.valueClass)}>
+                    {previewTotalProgressPercent}%
                   </div>
                 </div>
-              </motion.div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-end justify-between">
-                  <span className={cn("text-[10px] font-bold uppercase tracking-[0.3em]", previewProgressTone.labelClass)}>
-                    {previewStatus === VerseStatus.STOPPED ? "Прогресс" : "Прогресс освоения"}
-                  </span>
-                  <span className={cn("text-2xl font-bold", previewProgressTone.valueClass)}>{previewProgress}%</span>
-                </div>
-                <div className={cn("relative h-2 rounded-full overflow-hidden", previewProgressTone.trackClass)}>
+                <div className={cn("relative h-1.5 rounded-full overflow-hidden", previewStatusTone.trackClass)}>
                   <motion.div
-                    key={`${preview.id}-${activeIndex}`}
-                    className={cn("absolute inset-y-0 left-0 bg-gradient-to-r rounded-full", previewProgressTone.fillClass)}
+                    key={`progress-${preview.id}-${previewStatus}-${previewTotalProgress}`}
+                    className={cn("absolute inset-y-0 left-0 bg-gradient-to-r rounded-full", previewStatusTone.fillClass)}
                     initial={{ width: 0 }}
-                    animate={{ width: `${previewProgress}%` }}
+                    animate={{ width: `${previewTotalProgressPercent}%` }}
                     transition={{ duration: 0.85, ease: [0.34, 1.56, 0.64, 1] }}
                   />
                 </div>
               </div>
-            )
+            </motion.div>
           ) : null
         }
       />
@@ -1186,6 +1190,7 @@ export function VerseGallery({
   const autoStartedTrainingRef = useRef(false);
   const hasUserChosenTrainingSubsetRef = useRef(false);
   const hasAutoAppliedDailyGoalSubsetRef = useRef(false);
+  const preservedPreviewVerseKeyOnTrainingExitRef = useRef<string | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -1203,14 +1208,6 @@ export function VerseGallery({
   );
   const dailyGoalPreferredTrainingSubset = getDailyGoalPreferredTrainingSubset(dailyGoalContext);
   const closeTrainingGoesToPreview = !autoStartTrainingOnOpen;
-  const dailyGoalPhaseLabel = dailyGoalContext ? getDailyGoalPhaseLabel(dailyGoalContext.phase) : null;
-  const dailyGoalNextTargetReference = dailyGoalContext?.nextTargetVerseId
-    ? verses.find((verse) => getVerseIdentity(verse) === dailyGoalContext.nextTargetVerseId)?.reference ?? null
-    : null;
-  const dailyGoalLearningTotalCount = dailyGoalContext?.progressCounts.newTotal ?? 0;
-  const dailyGoalLearningCompletedCount = dailyGoalContext?.progressCounts.newDone ?? 0;
-  const dailyGoalReviewTotalCount = dailyGoalContext?.progressCounts.reviewTotal ?? 0;
-  const dailyGoalReviewCompletedCount = dailyGoalContext?.progressCounts.reviewDone ?? 0;
   const dailyGoalEffectiveResumeMode = dailyGoalContext?.effectiveResumeMode ?? null;
   const dailyGoalShowReviewStage = Boolean(dailyGoalContext?.phaseStates.review.enabled);
   const currentCardDailyGoalMode =
@@ -1331,17 +1328,17 @@ export function VerseGallery({
     if (trainingSubsetFilter !== "all") return;
     hasAutoAppliedDailyGoalSubsetRef.current = true;
     setTrainingSubsetFilter(dailyGoalPreferredTrainingSubset);
-    toast.info(
-      dailyGoalPreferredTrainingSubset === "learning"
-        ? "Этап ежедневной цели: изучение"
-        : "Этап ежедневной цели: повторение",
-      {
-        description:
-          dailyGoalPreferredTrainingSubset === "learning"
-            ? "Фильтр тренировки переключен на «Изучение»."
-            : "Фильтр тренировки переключен на «Повторение».",
-      }
-    );
+    // toast.info(
+    //   dailyGoalPreferredTrainingSubset === "learning"
+    //     ? "Этап ежедневной цели: изучение"
+    //     : "Этап ежедневной цели: повторение",
+    //   {
+    //     description:
+    //       dailyGoalPreferredTrainingSubset === "learning"
+    //         ? "Фильтр тренировки переключен на «Изучение»."
+    //         : "Фильтр тренировки переключен на «Повторение».",
+    //   }
+    // );
   }, [panelMode, dailyGoalGuideActive, dailyGoalPreferredTrainingSubset, trainingSubsetFilter]);
 
   useEffect(() => {
@@ -1402,6 +1399,7 @@ export function VerseGallery({
       }
 
       if (!previewHasMore || previewIsLoadingMore || !onRequestMorePreviewVerses) {
+        if (!previewIsLoadingMore) haptic("warning");
         return;
       }
 
@@ -1415,7 +1413,10 @@ export function VerseGallery({
     }
 
     const newIndex = Math.max(0, activeIndex - 1);
-    if (newIndex === activeIndex) return;
+    if (newIndex === activeIndex) {
+      haptic("warning");
+      return;
+    }
     haptic("light");
     setDirection(newDir);
     setActiveIndex((prev) => Math.max(0, prev - 1));
@@ -1429,11 +1430,22 @@ export function VerseGallery({
   }, [verses]);
 
   const exitTrainingMode = useCallback((target?: TrainingVerseState | null) => {
-    syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+    const preservedPreviewVerseKey = preservedPreviewVerseKeyOnTrainingExitRef.current;
+    preservedPreviewVerseKeyOnTrainingExitRef.current = null;
+    if (preservedPreviewVerseKey) {
+      const preservedIndex = verses.findIndex((v) => getVerseIdentity(v) === preservedPreviewVerseKey);
+      if (preservedIndex >= 0) {
+        setActiveIndex(preservedIndex);
+      } else {
+        syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+      }
+    } else {
+      syncPreviewIndexToVerse(target ?? trainingActiveVerse);
+    }
     setDirection(0);
     setPanelMode("preview");
     setTrainingModeId(null);
-  }, [syncPreviewIndexToVerse, trainingActiveVerse]);
+  }, [syncPreviewIndexToVerse, trainingActiveVerse, verses]);
 
   const handleTrainingBackAction = useCallback(() => {
     if (trainingRendererRef.current?.handleBackAction()) {
@@ -1581,8 +1593,13 @@ export function VerseGallery({
     }
   }, [verses]);
 
-  const startTrainingFromActiveVerse = useCallback(async (forcedSubset?: DailyGoalResumeMode) => {
+  const startTrainingFromActiveVerse = useCallback(async (
+    forcedSubset?: DailyGoalResumeMode,
+    options?: { preservePreviewCard?: boolean }
+  ) => {
     if (actionPending || !previewActiveVerse) return false;
+    const preservePreviewCard = options?.preservePreviewCard === true;
+    preservedPreviewVerseKeyOnTrainingExitRef.current = null;
     if (onBeforeStartTrainingFromGalleryVerse) {
       const decision = await onBeforeStartTrainingFromGalleryVerse(previewActiveVerse);
       if (decision.kind === 'redirect') {
@@ -1607,7 +1624,10 @@ export function VerseGallery({
       setActionPending(true);
       let startVerse = previewActiveVerse;
       const activeDisplayStatus = normalizeVerseStatus(previewActiveVerse.status);
-      if (activeDisplayStatus === VerseStatus.NEW || activeDisplayStatus === VerseStatus.STOPPED) {
+      if (
+        !preservePreviewCard &&
+        (activeDisplayStatus === VerseStatus.NEW || activeDisplayStatus === VerseStatus.STOPPED)
+      ) {
         await onStatusChange(previewActiveVerse, VerseStatus.LEARNING);
         setPreviewOverride(previewActiveVerse, { status: VerseStatus.LEARNING });
         startVerse = { ...previewActiveVerse, status: VerseStatus.LEARNING } as Verse;
@@ -1661,19 +1681,22 @@ export function VerseGallery({
       if (preferredSubset === "learning" || preferredSubset === "review") {
         onDailyGoalPreferredResumeModeChange?.(preferredSubset);
       }
+      if (preservePreviewCard) {
+        preservedPreviewVerseKeyOnTrainingExitRef.current = getVerseIdentity(previewActiveVerse);
+      }
       setTrainingIndex(startIndex);
       setTrainingModeId(chooseModeId(startState));
       setPanelMode("training");
       setDirection(0);
-      if (preferredSubset === "learning") {
-        toast.info("Этап ежедневной цели: изучение", {
-          description: "Тренировка открыта в режиме «Изучение».",
-        });
-      } else if (preferredSubset === "review") {
-        toast.info("Этап ежедневной цели: повторение", {
-          description: "Тренировка открыта в режиме «Повторение».",
-        });
-      }
+      // if (preferredSubset === "learning") {
+      //   toast.info("Этап ежедневной цели: изучение", {
+      //     description: "Тренировка открыта в режиме «Изучение».",
+      //   });
+      // } else if (preferredSubset === "review") {
+      //   toast.info("Этап ежедневной цели: повторение", {
+      //     description: "Тренировка открыта в режиме «Повторение».",
+      //   });
+      // }
       haptic("medium");
       return true;
     } catch {
@@ -1704,7 +1727,7 @@ export function VerseGallery({
     async (mode: DailyGoalResumeMode) => {
       haptic("light");
       if (panelMode === "preview") {
-        await startTrainingFromActiveVerse(mode);
+        await startTrainingFromActiveVerse(mode, { preservePreviewCard: true });
         return;
       }
       applyUserTrainingSubsetFilter(mode);
@@ -1998,7 +2021,15 @@ export function VerseGallery({
     if (!previewStatusAction || !previewActiveVerse || actionPending) return;
     try {
       setActionPending(true);
-      setPreviewOverride(previewActiveVerse, { status: previewStatusAction.nextStatus });
+      // When resuming a STOPPED verse that had high mastery (masteryLevel >= threshold),
+      // the server will compute status as REVIEW (not LEARNING), so use REVIEW optimistically
+      // to avoid a green→purple flash.
+      const optimisticStatus: DisplayVerseStatus =
+        previewStatusAction.nextStatus === VerseStatus.LEARNING &&
+        Number(previewActiveVerse.masteryLevel ?? 0) >= TRAINING_STAGE_MASTERY_MAX
+          ? 'REVIEW'
+          : previewStatusAction.nextStatus;
+      setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
       const patch = await onStatusChange(previewActiveVerse, previewStatusAction.nextStatus);
       if (patch) {
         setPreviewOverride(previewActiveVerse, toPreviewOverrideFromVersePatch(patch));
@@ -2068,11 +2099,6 @@ export function VerseGallery({
                   // <div className="mt-1 text-xs sm:text-sm text-muted-foreground">
                   //   Этап повторения будет пропущен: сейчас нет карточек для повторения.
                   // </div>
-                ) : null}
-                {dailyGoalNextTargetReference && dailyGoalContext.phase !== 'completed' ? (
-                  <div className="mt-1 text-xs sm:text-sm truncate">
-                    Следующий стих: <span className="font-medium">{dailyGoalNextTargetReference}</span>
-                  </div>
                 ) : null}
 
               <div className="flex flex-row md:flex-col gap-2 h-full">

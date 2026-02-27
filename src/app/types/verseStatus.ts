@@ -1,10 +1,9 @@
 import { VerseStatus } from "@/generated/prisma";
 
-export type DisplayVerseStatus = VerseStatus | "WAITING" | "REVIEW" | "MASTERED";
+export type DisplayVerseStatus = VerseStatus | "REVIEW" | "MASTERED";
 
 export function normalizeDisplayVerseStatus(value: unknown): DisplayVerseStatus {
-  if (value === "WAITING") return "WAITING";
-  if (value === "REVIEW") return "REVIEW";
+  if (value === "WAITING" || value === "REVIEW") return "REVIEW";
   if (value === "MASTERED") return "MASTERED";
   if (value === VerseStatus.LEARNING || value === "LEARNING") return VerseStatus.LEARNING;
   if (value === VerseStatus.STOPPED || value === "STOPPED") return VerseStatus.STOPPED;
@@ -14,7 +13,6 @@ export function normalizeDisplayVerseStatus(value: unknown): DisplayVerseStatus 
 export function isActiveLearningLikeStatus(status: DisplayVerseStatus): boolean {
   return (
     status === VerseStatus.LEARNING ||
-    status === "WAITING" ||
     status === "REVIEW" ||
     status === "MASTERED"
   );

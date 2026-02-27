@@ -83,6 +83,17 @@ async function handlePatch(
     const currentBaseStatus = normalizeBaseStatus(existingVerseWithStatus.status);
     const currentMasteryLevel = normalizeProgressValue(existingVerseWithStatus.masteryLevel);
     const currentRepetitions = normalizeProgressValue(existingVerseWithStatus.repetitions);
+    const rawNextReviewAt = existingVerseWithStatus.nextReviewAt;
+    const currentNextReviewAt =
+      rawNextReviewAt instanceof Date
+        ? rawNextReviewAt
+        : rawNextReviewAt != null
+          ? new Date(String(rawNextReviewAt))
+          : null;
+    const isNotYetDue =
+      currentNextReviewAt !== null &&
+      !Number.isNaN(currentNextReviewAt.getTime()) &&
+      Date.now() < currentNextReviewAt.getTime();
     const requestedRepetitions =
       body.repetitions !== undefined ? normalizeProgressValue(body.repetitions) : currentRepetitions;
     const requestedMasteryLevelRaw =
@@ -135,7 +146,7 @@ async function handlePatch(
       },
       data: {
         ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
-        ...(body.repetitions !== undefined
+        ...(body.repetitions !== undefined && !isNotYetDue
           ? { repetitions: normalizeProgressValue(body.repetitions) }
           : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),

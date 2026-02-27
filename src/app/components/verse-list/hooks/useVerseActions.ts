@@ -97,7 +97,6 @@ export function useVerseActions({
     if (
       (
         prevStatus === VerseStatus.LEARNING ||
-        prevStatus === 'WAITING' ||
         prevStatus === 'REVIEW' ||
         prevStatus === 'MASTERED'
       ) &&

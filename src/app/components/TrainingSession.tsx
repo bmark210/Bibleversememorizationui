@@ -14,7 +14,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { VerseCard } from './VerseCard';
-import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   TrainingModeId,
   TRAINING_MODE_SHIFT_BY_RATING,
@@ -275,7 +275,6 @@ function isReviewVerse(verse: Pick<SessionVerse, 'status'>) {
 function getEligibleVerses(verses: SessionVerse[]) {
   return verses.filter((verse) =>
     verse.status !== VerseStatus.STOPPED
-    && verse.status !== 'WAITING'
     && verse.status !== 'MASTERED'
   );
 }
@@ -283,7 +282,6 @@ function getEligibleVerses(verses: SessionVerse[]) {
 function isEligibleVerse(verse: SessionVerse) {
   return (
     verse.status !== VerseStatus.STOPPED &&
-    verse.status !== 'WAITING' &&
     verse.status !== 'MASTERED'
   );
 }
@@ -643,7 +641,7 @@ export function TrainingSession({
       status: baseVerse.status === VerseStatus.STOPPED
         ? VerseStatus.STOPPED
         : (rawMasteryAfter > 0
-            ? (nextRepetitions >= 5
+            ? (nextRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED
                 ? 'MASTERED'
                 : (graduatesToReview ? 'REVIEW' : VerseStatus.LEARNING))
             : VerseStatus.NEW),

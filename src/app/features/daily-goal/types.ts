@@ -48,10 +48,6 @@ export interface DailyGoalPlan {
   prefsSnapshot: { newVersesCount: number; reviewVersesCount: number };
   requestedCounts: { new: number; review: number };
   availableCounts: { new: number; review: number };
-  targetVerseIds: {
-    new: string[];
-    review: string[];
-  };
   shortages: {
     new: number;
     review: number;
@@ -71,7 +67,6 @@ export interface DailyGoalProgress {
   completedAt: string | null;
   completionCounterSyncedAt?: string | null;
   lastActivePhase: DailyGoalPhase;
-  lastSuggestedVerseId: string | null;
   preferredResumeMode?: DailyGoalResumeMode | null;
 }
 
@@ -86,7 +81,6 @@ export interface DailyGoalSession {
 export interface DailyGoalUiState {
   phase: DailyGoalPhase;
   nextTargetKind: DailyGoalTargetKind | null;
-  nextTargetVerseId: string | null;
   progressCounts: {
     newDone: number;
     newTotal: number;
@@ -128,7 +122,6 @@ export interface DashboardDailyGoalCardModel {
   ui: DailyGoalUiState;
   requestedCounts: { new: number; review: number };
   availableCounts: { new: number; review: number };
-  nextTargetReference?: string | null;
   shortageHints: string[];
   canStart: boolean;
   needsFirstVerse: boolean;
@@ -143,7 +136,6 @@ export interface DailyGoalVerseListReminder {
   visible: boolean;
   phase: 'learning' | 'review';
   progressLabel: string;
-  nextTargetReference?: string | null;
   onResume: () => void;
   onShowHowToAddFirstVerse?: () => void;
 }
@@ -178,9 +170,7 @@ export interface DailyGoalProgressEvent {
 
 export interface DailyGoalGalleryContext {
   phase: 'learning' | 'review' | 'completed';
-  targetVerseIdsByPhase: { learning: string[]; review: string[] };
   completedVerseIdsByPhase: { learning: string[]; review: string[] };
-  nextTargetVerseId: string | null;
   showGuideBanner: boolean;
   preferredResumeMode: DailyGoalResumeMode | null;
   effectiveResumeMode: DailyGoalResumeMode | null;

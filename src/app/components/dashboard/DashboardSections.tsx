@@ -235,13 +235,6 @@ export function DashboardDailyGoalCard({
                   </div>
                 ) : null}
               </div>
-              {dailyGoal.nextTargetReference && !dailyGoal.ui.isCompleted && !dailyGoal.ui.isEmpty ? (
-                <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/75 px-3 py-2 text-sm">
-                  <Compass className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">Следующий шаг:</span>
-                  <span className="font-medium truncate">{dailyGoal.nextTargetReference}</span>
-                </div>
-              ) : null}
               {dailyGoal.shortageHints.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {dailyGoal.shortageHints.map((hint) => (

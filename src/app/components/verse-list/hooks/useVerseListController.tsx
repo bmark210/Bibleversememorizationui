@@ -72,11 +72,6 @@ export function useVerseListController({
     return status === 'REVIEW';
   }, []);
 
-  const isWaitingVerse = useCallback((verse: Pick<Verse, 'status'>) => {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    return status === 'WAITING';
-  }, []);
-
   const isMasteredVerse = useCallback((verse: Pick<Verse, 'status'>) => {
     const status = normalizeDisplayVerseStatus(verse.status);
     return status === 'MASTERED';
@@ -89,13 +84,12 @@ export function useVerseListController({
       if (filter === 'learning') {
         return status === VerseStatus.LEARNING;
       }
-      if (filter === 'waiting') return isWaitingVerse(verse);
       if (filter === 'review') return isReviewVerse(verse);
       if (filter === 'mastered') return isMasteredVerse(verse);
       if (filter === 'stopped') return status === VerseStatus.STOPPED;
       return status === VerseStatus.NEW;
     },
-    [isMasteredVerse, isReviewVerse, isWaitingVerse]
+    [isMasteredVerse, isReviewVerse]
   );
 
   const actions = useVerseActions({
@@ -211,10 +205,6 @@ export function useVerseListController({
     searchQuery.trim().length > 0 || testamentFilter !== 'all' || masteryFilter !== 'all';
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
-  const waitingVerses = useMemo(
-    () => filteredVerses.filter((v) => isWaitingVerse(v)),
-    [filteredVerses, isWaitingVerse]
-  );
   const masteredVerses = useMemo(
     () => filteredVerses.filter((v) => isMasteredVerse(v)),
     [filteredVerses, isMasteredVerse]
@@ -236,7 +226,6 @@ export function useVerseListController({
     () => [
       { key: 'all', label: 'Все' },
       { key: 'learning', label: 'Изучаю' },
-      { key: 'waiting', label: 'Ожидание' },
       { key: 'review', label: 'Повторяю' },
       { key: 'mastered', label: 'Выучены' },
       { key: 'stopped', label: 'На паузе' },
@@ -369,19 +358,6 @@ export function useVerseListController({
         },
       };
     }
-    if (statusFilter === 'waiting') {
-      return {
-        items: waitingVerses,
-        config: {
-          headingId: 'waiting-verses-heading',
-          title: 'Ожидание',
-          subtitle: 'Стихи с высоким mastery, для которых ещё не наступило время повторения',
-          dotClassName: 'bg-indigo-500',
-          borderClassName: 'bg-gradient-to-b from-indigo-500/5 to-background',
-          tintClassName: 'bg-indigo-500/5',
-        },
-      };
-    }
     if (statusFilter === 'mastered') {
       return {
         items: masteredVerses,
@@ -419,7 +395,7 @@ export function useVerseListController({
         tintClassName: 'bg-sky-500/5',
       },
     };
-  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, waitingVerses, masteredVerses, stoppedVerses, newVerses]);
+  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, newVerses]);
 
   const listItems = statusFilter === 'all'
     ? hasLocalClientFiltersActive

@@ -597,7 +597,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       force: true,
     });
 
-    const preferredTargetVerseId = dailyGoal.getNextTargetVerseId();
+    const preferredTargetVerseId = null;
     const openDashboardGallery = (
       plannedList: Array<Verse>,
       preferredVerseId?: string | null
@@ -867,7 +867,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           visible: true,
           phase: dailyGoal.reminder.phase,
           progressLabel: dailyGoal.reminder.progressLabel,
-          nextTargetReference: dailyGoal.reminder.nextTargetReference,
           onResume: () => {
             dailyGoal.markOnboardingSeen("verseListReminderIntro");
             void handleStartTraining({ autoStartInGallery: true });

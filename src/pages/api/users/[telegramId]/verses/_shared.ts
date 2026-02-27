@@ -58,7 +58,6 @@ export type UserVersesFilter =
   | "all"
   | "new"
   | "learning"
-  | "waiting"
   | "review"
   | "mastered"
   | "stopped";
@@ -142,7 +141,6 @@ function parseFilter(value: string | undefined): UserVersesFilter | undefined {
     value === "all" ||
     value === "new" ||
     value === "learning" ||
-    value === "waiting" ||
     value === "review" ||
     value === "mastered" ||
     value === "stopped"
@@ -191,7 +189,6 @@ export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Re
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
     if (
       query.filter === "learning" ||
-      query.filter === "waiting" ||
       query.filter === "review" ||
       query.filter === "mastered"
     ) {
@@ -204,16 +201,15 @@ export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Re
   return undefined;
 }
 
-type ComputedDisplayFilter = Extract<UserVersesFilter, "learning" | "waiting" | "review" | "mastered">;
+type ComputedDisplayFilter = Extract<UserVersesFilter, "learning" | "review" | "mastered">;
 
 function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter is ComputedDisplayFilter {
-  return filter === "learning" || filter === "waiting" || filter === "review" || filter === "mastered";
+  return filter === "learning" || filter === "review" || filter === "mastered";
 }
 
 function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
   if (!filter || filter === "all") return verses;
   if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
-  if (filter === "waiting") return verses.filter((verse) => verse.status === "WAITING");
   if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
   if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");
   if (filter === "new") return verses.filter((verse) => verse.status === VerseStatus.NEW);

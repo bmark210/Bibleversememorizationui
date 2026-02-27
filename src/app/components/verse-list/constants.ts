@@ -6,7 +6,6 @@ import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 export type VerseListStatusFilter =
   | 'all'
   | 'learning'
-  | 'waiting'
   | 'review'
   | 'mastered'
   | 'stopped'
@@ -58,17 +57,6 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     statusBadgeClassName:
       'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
     cardClassName: 'border-violet-500/22 bg-gradient-to-br from-violet-500/9 via-card to-card',
-  },
-  waiting: {
-    dotClassName: 'bg-indigo-400',
-    activeTabClassName:
-      'border-indigo-500/30 bg-indigo-500/14 text-indigo-700 dark:text-indigo-300',
-    currentBadgeClassName:
-      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-    statusBadgeClassName:
-      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-    cardClassName:
-      'border-indigo-500/22 bg-gradient-to-br from-indigo-500/9 via-card to-card',
   },
   mastered: {
     dotClassName: 'bg-amber-400',
@@ -144,10 +132,6 @@ export function getVerseStageVisual(
     return { key: 'mastered', label: 'Выучено' };
   }
 
-  if (status === 'WAITING') {
-    return { key: 'waiting', label: 'Ожидание' };
-  }
-
   if (status === 'REVIEW') {
     return { key: 'review', label: 'Повторение' };
   }
@@ -160,7 +144,6 @@ export function getVerseCardLayoutSignature(
 ):
   | 'new'
   | 'learning-progress'
-  | 'waiting-pill'
   | 'review-pill'
   | 'stopped-progress'
   | 'stopped-repeat'
@@ -173,10 +156,6 @@ export function getVerseCardLayoutSignature(
 
   if (status === VerseStatus.LEARNING) {
     return 'learning-progress';
-  }
-
-  if (status === 'WAITING') {
-    return 'waiting-pill';
   }
 
   if (status === 'REVIEW' || status === 'MASTERED') {

@@ -136,11 +136,7 @@ export function VerseList({
                   </Badge>
                 </div>
                 <div className="text-sm font-medium">{dailyGoalReminder.progressLabel}</div>
-                {dailyGoalReminder.nextTargetReference ? (
-                  <div className="text-xs text-muted-foreground mt-1 truncate">
-                    Следующий стих: {dailyGoalReminder.nextTargetReference}
-                  </div>
-                ) : dailyGoalReminder.onShowHowToAddFirstVerse ? (
+                {dailyGoalReminder.onShowHowToAddFirstVerse ? (
                   <div className="text-xs text-muted-foreground mt-1">
                     Добавьте первый стих, чтобы начать ежедневную цель.
                   </div>

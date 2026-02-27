@@ -15,7 +15,7 @@ type PrismaVerseCardBaseFields = Pick<
   "externalVerseId" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt"
 >;
 
-export type DisplayStatus = VerseStatus | "REVIEW" | "WAITING" | "MASTERED";
+export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED";
 
 export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
 
@@ -85,8 +85,7 @@ export function normalizeBaseStatus(status: VerseStatus | null | undefined): Ver
 export function computeDisplayStatus(
   baseStatusInput: VerseStatus | null | undefined,
   masteryLevelInput: number | null | undefined,
-  repetitionsInput: number | null | undefined,
-  nextReviewAtInput?: Date | string | null | undefined
+  repetitionsInput: number | null | undefined
 ): DisplayStatus {
   const baseStatus = normalizeBaseStatus(baseStatusInput);
   const masteryLevel = normalizeProgressValue(masteryLevelInput);
@@ -96,12 +95,6 @@ export function computeDisplayStatus(
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
 
   if (repetitions >= MASTERED_REPETITIONS_MIN) return "MASTERED";
-  if (
-    masteryLevel >= REVIEW_MASTERY_LEVEL_MIN &&
-    isFutureReviewDate(nextReviewAtInput)
-  ) {
-    return "WAITING";
-  }
   if (masteryLevel >= REVIEW_MASTERY_LEVEL_MIN) return "REVIEW";
   return VerseStatus.LEARNING;
 }
@@ -109,11 +102,10 @@ export function computeDisplayStatus(
 export function isReviewState(
   baseStatusInput: VerseStatus | null | undefined,
   masteryLevelInput: number | null | undefined,
-  repetitionsInput: number | null | undefined,
-  nextReviewAtInput?: Date | string | null | undefined
+  repetitionsInput: number | null | undefined
 ): boolean {
   return (
-    computeDisplayStatus(baseStatusInput, masteryLevelInput, repetitionsInput, nextReviewAtInput) ===
+    computeDisplayStatus(baseStatusInput, masteryLevelInput, repetitionsInput) ===
     "REVIEW"
   );
 }
@@ -136,12 +128,6 @@ function toIsoStringOrNull(value: Date | string | null | undefined): string | nu
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function isFutureReviewDate(value: Date | string | null | undefined): boolean {
-  if (!value) return false;
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  return date.getTime() > Date.now();
-}
 
 export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): VerseCardDto {
   const baseStatus = normalizeBaseStatus(verse.status);
@@ -152,7 +138,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
 
   return {
     externalVerseId: verse.externalVerseId,
-    status: computeDisplayStatus(baseStatus, masteryLevel, repetitions, verse.nextReviewAt),
+    status: computeDisplayStatus(baseStatus, masteryLevel, repetitions),
     masteryLevel,
     repetitions,
     lastTrainingModeId: typeof verse.lastTrainingModeId === "number" ? verse.lastTrainingModeId : null,

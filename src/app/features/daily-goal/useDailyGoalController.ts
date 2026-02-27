@@ -41,7 +41,6 @@ type DailyGoalReminderModel = {
   visible: boolean;
   phase: 'learning' | 'review';
   progressLabel: string;
-  nextTargetReference: string | null;
   needsFirstVerse: boolean;
 };
 
@@ -57,8 +56,6 @@ type UseDailyGoalControllerResult = {
   markDailyGoalStarted: () => void;
   markDailyGoalCompleted: () => void;
   setPreferredResumeMode: (mode: DailyGoalResumeMode) => void;
-  getNextTargetVerseId: () => string | null;
-  getNextTargetReference: () => string | null;
   decideStartFromVerse: (verseId: string) => DailyGoalTrainingStartDecision;
   applyProgressEvent: (event: DailyGoalProgressEvent) => { completedNow: boolean };
   markTargetSkipped: (externalVerseId: string) => void;
@@ -93,7 +90,6 @@ function createEmptyProgress(): DailyGoalProgress {
     completedAt: null,
     completionCounterSyncedAt: null,
     lastActivePhase: 'empty',
-    lastSuggestedVerseId: null,
     preferredResumeMode: null,
   };
 }
@@ -123,7 +119,6 @@ function computeUiState(
     return {
       phase: 'empty',
       nextTargetKind: null,
-      nextTargetVerseId: null,
       progressCounts: { newDone: 0, newTotal: 0, reviewDone: 0, reviewTotal: 0 },
       isActive: false,
       isCompleted: false,
@@ -198,9 +193,6 @@ function computeUiState(
   const newDone = Math.min(newTotal, new Set([...completedNew, ...skippedNew]).size);
   const reviewDone = Math.min(reviewTotal, new Set([...completedReview, ...skippedReview]).size);
 
-  const nextNew = null;
-  const nextReview = null;
-
   const isEmpty = newTotal + reviewTotal === 0;
   const learningPhaseDone = newDone >= newTotal;
   const reviewPhaseDone = reviewDone >= reviewTotal;
@@ -211,24 +203,20 @@ function computeUiState(
 
   let phase: DailyGoalPhase = 'empty';
   let nextTargetKind: DailyGoalTargetKind | null = null;
-  let nextTargetVerseId: string | null = null;
 
   if (!isEmpty) {
     if (learningRequired && learningStageBlocked) {
       phase = 'learning';
       nextTargetKind = 'new';
-      nextTargetVerseId = null;
     } else if (!learningPhaseDone) {
       phase = 'learning';
       nextTargetKind = 'new';
-      nextTargetVerseId = nextNew;
     } else if (reviewRequired && (reviewStageWillBeSkipped || !hasReviewTargets)) {
       // Lax behavior: if there are no REVIEW verses today, the goal is considered complete after learning stage.
       phase = 'completed';
     } else if (!reviewPhaseDone) {
       phase = 'review';
       nextTargetKind = 'review';
-      nextTargetVerseId = nextReview;
     } else {
       phase = 'completed';
     }
@@ -265,7 +253,6 @@ function computeUiState(
   return {
     phase,
     nextTargetKind,
-    nextTargetVerseId,
     progressCounts: { newDone, newTotal, reviewDone, reviewTotal },
     isActive: Boolean(session.progress.startedAt) && phase !== 'completed' && phase !== 'empty',
     isCompleted: phase === 'completed',
@@ -389,23 +376,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
 
   const ui = useMemo(() => computeUiState(session, dailyGoalReadiness), [session, dailyGoalReadiness]);
 
-  const findVerseById = useCallback(
-    (verseId: string | null) => {
-      if (!verseId) return null;
-      return todayVerses.find((verse) => getVerseId(verse) === verseId) ?? null;
-    },
-    [todayVerses]
-  );
-
-  const getNextTargetVerseId = useCallback(() => ui.nextTargetVerseId, [ui.nextTargetVerseId]);
-
-  const getNextTargetReference = useCallback(() => {
-    const verse = findVerseById(ui.nextTargetVerseId);
-    return verse && typeof (verse as { reference?: unknown }).reference === 'string'
-      ? ((verse as { reference?: string }).reference ?? null)
-      : null;
-  }, [findVerseById, ui.nextTargetVerseId]);
-
   const markOnboardingSeen = useCallback((key: keyof DailyGoalOnboardingSeen) => {
     setOnboardingSeen((prev) => {
       const next = { ...prev, [key]: true } as DailyGoalOnboardingSeen;
@@ -493,12 +463,10 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
         afterStatus === 'REVIEW' ||
         beforeStatus === 'MASTERED' ||
         afterStatus === 'MASTERED';
-      const isWaitingLike = beforeStatus === 'WAITING' || afterStatus === 'WAITING';
-
       let targetKind: DailyGoalTargetKind | null = null;
       if (isReviewLike && !isLearningLike) {
         targetKind = 'review';
-      } else if (isLearningLike || isWaitingLike) {
+      } else if (isLearningLike) {
         targetKind = 'new';
       } else if (isReviewLike) {
         targetKind = 'review';
@@ -548,7 +516,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
           new: uniqueList(skippedNew),
           review: uniqueList(skippedReview),
         },
-        lastSuggestedVerseId: targetId,
       };
 
       let nextSession: DailyGoalSession = {
@@ -563,7 +530,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
         progress: {
           ...nextSession.progress,
           lastActivePhase: nextUi.phase,
-          lastSuggestedVerseId: nextUi.nextTargetVerseId ?? targetId,
           completedAt:
             nextUi.phase === 'completed'
               ? (nextSession.progress.completedAt ?? new Date().toISOString())
@@ -594,15 +560,18 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       const current = ensureSessionForToday();
       if (!current) return;
       const targetId = String(externalVerseId);
-      const newTargets = new Set(current.plan.targetVerseIds.new);
-      const reviewTargets = new Set(current.plan.targetVerseIds.review);
-      if (!newTargets.has(targetId) && !reviewTargets.has(targetId)) return;
+
+      const verse = todayVerses.find((v) => getVerseId(v) === targetId);
+      const verseStatus = normalizeGoalStatus((verse as { status?: unknown } | undefined)?.status);
+      const isReviewLike = verseStatus === 'REVIEW' || verseStatus === 'MASTERED';
+      const isLearningLike = verseStatus === 'LEARNING';
+      if (!isReviewLike && !isLearningLike) return;
 
       const skippedNew = toUniqueSet(current.progress.skippedVerseIds?.new);
       const skippedReview = toUniqueSet(current.progress.skippedVerseIds?.review);
 
-      if (newTargets.has(targetId)) skippedNew.add(targetId);
-      if (reviewTargets.has(targetId)) skippedReview.add(targetId);
+      if (isLearningLike) skippedNew.add(targetId);
+      if (isReviewLike) skippedReview.add(targetId);
 
       let nextSession: DailyGoalSession = {
         ...current,
@@ -620,7 +589,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
         progress: {
           ...nextSession.progress,
           lastActivePhase: nextUi.phase,
-          lastSuggestedVerseId: nextUi.nextTargetVerseId ?? nextSession.progress.lastSuggestedVerseId,
           completedAt:
             nextUi.phase === 'completed'
               ? (nextSession.progress.completedAt ?? new Date().toISOString())
@@ -629,7 +597,7 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       };
       persistSession(nextSession);
     },
-    [ensureSessionForToday, persistSession, dailyGoalReadiness]
+    [ensureSessionForToday, persistSession, dailyGoalReadiness, todayVerses]
   );
 
   const decideStartFromVerse = useCallback(
@@ -640,41 +608,41 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       const selectedVerse = todayVerses.find((verse) => getVerseId(verse) === String(verseId));
       const selectedStatus = normalizeGoalStatus((selectedVerse as { status?: unknown } | undefined)?.status);
 
-      if (currentUi.phase === 'learning') {
-        if (currentUi.learningStageBlocked) {
-          return {
-            kind: 'warn',
-            phase: 'learning',
-            message: 'Для выполнения цели добавьте стих или переведите существующий в статус LEARNING.',
-          };
-        }
-        // Soft guidance: user is allowed to start with repetition first even during learning phase.
-        if (selectedVerse && (selectedStatus === 'REVIEW' || selectedStatus === 'MASTERED')) {
-          return { kind: 'allow' };
-        }
-        if (selectedVerse && selectedStatus !== 'LEARNING') {
-          return {
-            kind: 'warn',
-            phase: 'learning',
-            message: 'Сейчас этап «Изучение». В режиме training будет выбран фильтр «Изучение».',
-          };
-        }
-        return { kind: 'allow' };
-      }
+      // if (currentUi.phase === 'learning') {
+      //   if (currentUi.learningStageBlocked) {
+      //     return {
+      //       kind: 'warn',
+      //       phase: 'learning',
+      //       message: 'Для выполнения цели добавьте стих или переведите существующий в статус LEARNING.',
+      //     };
+      //   }
+      //   // Soft guidance: user is allowed to start with repetition first even during learning phase.
+      //   if (selectedVerse && (selectedStatus === 'REVIEW' || selectedStatus === 'MASTERED')) {
+      //     return { kind: 'allow' };
+      //   }
+      //   if (selectedVerse && selectedStatus !== 'LEARNING') {
+      //     return {
+      //       kind: 'warn',
+      //       phase: 'learning',
+      //       message: 'Сейчас этап «Изучение». В режиме training будет выбран фильтр «Изучение».',
+      //     };
+      //   }
+      //   return { kind: 'allow' };
+      // }
 
-      if (currentUi.phase === 'review') {
-        // Symmetric soft guidance: allow user to start with learning first if they want.
-        if (selectedVerse && selectedStatus === 'LEARNING') {
-          return { kind: 'allow' };
-        }
-        if (selectedVerse && selectedStatus !== 'REVIEW' && selectedStatus !== 'MASTERED') {
-          return {
-            kind: 'warn',
-            phase: 'review',
-            message: 'Сейчас этап «Повторение». В режиме training будет выбран фильтр «Повторение».',
-          };
-        }
-      }
+      // if (currentUi.phase === 'review') {
+      //   // Symmetric soft guidance: allow user to start with learning first if they want.
+      //   if (selectedVerse && selectedStatus === 'LEARNING') {
+      //     return { kind: 'allow' };
+      //   }
+      //   if (selectedVerse && selectedStatus !== 'REVIEW' && selectedStatus !== 'MASTERED') {
+      //     return {
+      //       kind: 'warn',
+      //       phase: 'review',
+      //       message: 'Сейчас этап «Повторение». В режиме training будет выбран фильтр «Повторение».',
+      //     };
+      //   }
+      // }
 
       return { kind: 'allow' };
     },
@@ -730,7 +698,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       ui,
       requestedCounts,
       availableCounts,
-      nextTargetReference: getNextTargetReference(),
       shortageHints,
       canStart: Boolean(telegramId && trainingBatchPreferences) && ui.canStartDailyGoal && !ui.isEmpty,
       needsFirstVerse,
@@ -744,7 +711,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
     session,
     trainingBatchPreferences,
     ui,
-    getNextTargetReference,
     shortageHints,
     telegramId,
     hasAnyUserVerses,
@@ -763,10 +729,9 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       visible: true,
       phase: ui.effectiveResumeMode ?? ui.phase,
       progressLabel,
-      nextTargetReference: getNextTargetReference(),
       needsFirstVerse: hasAnyUserVerses === false || (hasAnyUserVerses == null && todayVerses.length === 0),
     };
-  }, [ui, getNextTargetReference, hasAnyUserVerses, todayVerses.length]);
+  }, [ui, hasAnyUserVerses, todayVerses.length]);
 
   const galleryContext = useMemo<DailyGoalGalleryContext | null>(() => {
     if (!session) return null;
@@ -774,15 +739,10 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
     const phase = ui.phase === 'learning' || ui.phase === 'review' || ui.phase === 'completed' ? ui.phase : 'completed';
     return {
       phase,
-      targetVerseIdsByPhase: {
-        learning: session.plan.targetVerseIds.new,
-        review: session.plan.targetVerseIds.review,
-      },
       completedVerseIdsByPhase: {
         learning: session.progress.completedVerseIds.new,
         review: session.progress.completedVerseIds.review,
       },
-      nextTargetVerseId: ui.nextTargetVerseId,
       showGuideBanner: ui.phase === 'learning' || ui.phase === 'review',
       preferredResumeMode: ui.preferredResumeMode,
       effectiveResumeMode: ui.effectiveResumeMode,
@@ -812,8 +772,6 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
     markDailyGoalStarted,
     markDailyGoalCompleted,
     setPreferredResumeMode,
-    getNextTargetVerseId,
-    getNextTargetReference,
     decideStartFromVerse,
     applyProgressEvent,
     markTargetSkipped,

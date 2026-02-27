@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Clock3, Repeat, Trophy, CheckCircle2 } from 'lucide-react';
+import { Repeat, Trophy, CheckCircle2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../ui/utils';
 import type { DisplayVerseStatus } from '@/app/types/verseStatus';
@@ -32,17 +32,6 @@ function getToastTheme(status: DisplayVerseStatus) {
       iconWrap: 'border-amber-500/30 bg-amber-500/14 text-amber-700 dark:text-amber-300',
       badge: 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300',
       accentLine: 'from-amber-500/55 via-amber-400/60 to-amber-500/25',
-    } as const;
-  }
-  if (status === 'WAITING') {
-    return {
-      label: 'Ожидание',
-      Icon: Clock3,
-      shell:
-        'border-violet-500/30 bg-gradient-to-br from-violet-500/12 via-background/95 to-violet-500/6 shadow-[0_18px_40px_rgba(0,0,0,0.32)]',
-      iconWrap: 'border-violet-500/30 bg-violet-500/14 text-violet-700 dark:text-violet-300',
-      badge: 'border-violet-500/30 bg-violet-500/12 text-violet-700 dark:text-violet-300',
-      accentLine: 'from-violet-500/55 via-violet-400/60 to-violet-500/25',
     } as const;
   }
   if (status === 'REVIEW') {

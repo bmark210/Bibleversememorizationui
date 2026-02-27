@@ -11,7 +11,6 @@ export type VerseListLoadRange = { startIndex: number; stopIndex: number };
 export type VerseCardLayoutSignature =
   | 'new'
   | 'learning-progress'
-  | 'waiting-pill'
   | 'review-pill'
   | 'stopped-progress'
   | 'stopped-repeat'

@@ -26,9 +26,6 @@ function isValidPlan(plan: Record<string, unknown>): boolean {
     isRecord(plan.prefsSnapshot) &&
     typeof (plan.prefsSnapshot as Record<string, unknown>).newVersesCount === 'number' &&
     typeof (plan.prefsSnapshot as Record<string, unknown>).reviewVersesCount === 'number' &&
-    isRecord(plan.targetVerseIds) &&
-    isStringArray((plan.targetVerseIds as Record<string, unknown>).new) &&
-    isStringArray((plan.targetVerseIds as Record<string, unknown>).review) &&
     isRecord(plan.shortages) &&
     typeof (plan.shortages as Record<string, unknown>).new === 'number' &&
     typeof (plan.shortages as Record<string, unknown>).review === 'number'
@@ -42,8 +39,7 @@ function isValidProgress(progress: Record<string, unknown>): boolean {
     isStringArray((progress.completedVerseIds as Record<string, unknown>).review) &&
     (progress.startedAt === null || typeof progress.startedAt === 'string') &&
     (progress.completedAt === null || typeof progress.completedAt === 'string') &&
-    VALID_PHASES.includes(progress.lastActivePhase as (typeof VALID_PHASES)[number]) &&
-    (progress.lastSuggestedVerseId === null || typeof progress.lastSuggestedVerseId === 'string')
+    VALID_PHASES.includes(progress.lastActivePhase as (typeof VALID_PHASES)[number])
   );
 }
 
