@@ -556,20 +556,18 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const getLearningVerses = async (telegramId: string) => {
     try {
-      const response = await apiRequest<Array<Verse>>(OpenAPI, {
-        method: "GET",
-        url: "/api/users/{telegramId}/verses",
-        path: { telegramId },
-        query: { status: VerseStatus.LEARNING },
+      // Используем fetchAllUserVerses (пагинированный) вместо raw apiRequest —
+      // /api/users/{id}/verses возвращает UserVersesPageResponse, а не Array.
+      const items = await fetchAllUserVerses({
+        telegramId,
+        status: "LEARNING",
       });
 
-      // Если backend ещё не применяет query-параметр, дополнительно фильтруем на клиенте.
-      const learningOnly = (response as Array<Verse>).filter(
-        (verse) => {
-          const status = normalizeDisplayVerseStatus(verse.status);
-          return status === VerseStatus.LEARNING || status === "REVIEW";
-        }
-      );
+      // Дополнительно фильтруем по вычисленному DisplayStatus: берём только LEARNING и REVIEW.
+      const learningOnly = (items as Array<Verse>).filter((verse) => {
+        const status = normalizeDisplayVerseStatus(verse.status);
+        return status === VerseStatus.LEARNING || status === "REVIEW";
+      });
       setTrainingVerses(learningOnly);
       return learningOnly;
     } catch (err) {
