@@ -2206,7 +2206,7 @@ export function VerseGallery({
             )}
             <Button
               variant="outline"
-              className={`gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl ${previewStatusAction ? "" : "flex-1"}`}
+              className="w-fit gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl"
               onClick={() => {
                 if (actionPending) return;
                 haptic("warning");
