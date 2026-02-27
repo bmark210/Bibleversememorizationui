@@ -22,6 +22,15 @@ async function resolveTagId(payload: ModifyTagPayload) {
   return undefined;
 }
 
+// VerseTag now references Verse.id (verseId FK), so we resolve externalVerseId → Verse first
+async function resolveVerseId(externalVerseId: string): Promise<string | null> {
+  const verse = await prisma.verse.findUnique({
+    where: { externalVerseId },
+    select: { id: true },
+  });
+  return verse?.id ?? null;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { externalVerseId } = req.query;
   if (!externalVerseId || Array.isArray(externalVerseId)) {
@@ -49,7 +58,7 @@ async function handleGet(res: NextApiResponse, externalVerseId: string) {
   // Возвращает список тегов, связанных с указанным стихом.
   try {
     const tags = await prisma.verseTag.findMany({
-      where: { externalVerseId },
+      where: { verse: { externalVerseId } },
       include: { tag: true },
     });
 
@@ -80,16 +89,21 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, externalVer
       return res.status(400).json({ error: "tagId or tagSlug is required" });
     }
 
+    const verseId = await resolveVerseId(externalVerseId);
+    if (!verseId) {
+      return res.status(404).json({ error: "Verse not found" });
+    }
+
     const link = await prisma.verseTag.upsert({
       where: {
-        externalVerseId_tagId: {
-          externalVerseId,
+        verseId_tagId: {
+          verseId,
           tagId,
         },
       },
       update: {},
       create: {
-        externalVerseId,
+        verseId,
         tagId,
       },
     });
@@ -114,10 +128,15 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
       return res.status(400).json({ error: "tagId or tagSlug is required" });
     }
 
+    const verseId = await resolveVerseId(externalVerseId);
+    if (!verseId) {
+      return res.status(404).json({ error: "Verse not found" });
+    }
+
     await prisma.verseTag.delete({
       where: {
-        externalVerseId_tagId: {
-          externalVerseId,
+        verseId_tagId: {
+          verseId,
           tagId,
         },
       },

@@ -27,51 +27,68 @@ model User {
   createdAt    DateTime    @default(now())
 
   // Количество выполненных ежедневных целей
-  dailyGoalsCompleted Int   @default(0)
+  dailyGoalsCompleted Int @default(0)
 
   // Максимальное количество дней подряд с выполнением задания
-  dailyStreak        Int    @default(0)
+  dailyStreak         Int @default(0)
 
   verses       UserVerse[]
 }
 
+// Глобальный каталог стихов — один стих существует в системе один раз,
+// независимо от того, сколько пользователей его добавили себе.
+model Verse {
+  id              String   @id @default(cuid())
+  externalVerseId String   @unique // "43-3-16" из bolls.life
+
+  createdAt       DateTime @default(now())
+
+  userVerses      UserVerse[]
+  tags            VerseTag[]
+}
+
+// Личный стих пользователя — факт что пользователь добавил стих к себе
+// + весь его индивидуальный прогресс. Удаление этой записи не затрагивает
+// глобальный Verse и прогресс других пользователей.
 model UserVerse {
-  id              Int      @id @default(autoincrement())
-  telegramId      String   // Actual Telegram ID
-  externalVerseId String   // ID стиха из внешнего API
+  id         Int    @id @default(autoincrement())
+  telegramId String // Actual Telegram ID
+  verseId    String // FK → Verse.id
 
-  status          VerseStatus @default(NEW)
+  status     VerseStatus @default(NEW)
 
-  masteryLevel        Int      @default(0)
-  repetitions         Int      @default(0)
-  lastTrainingModeId  Int?
-  lastReviewedAt      DateTime?
-  nextReviewAt        DateTime?
+  masteryLevel       Int       @default(0)
+  repetitions        Int       @default(0)
+  lastTrainingModeId Int?
+  lastReviewedAt     DateTime?
+  nextReviewAt       DateTime?
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user            User     @relation(fields: [telegramId], references: [telegramId])
+  user  User  @relation(fields: [telegramId], references: [telegramId])
+  verse Verse @relation(fields: [verseId], references: [id])
 
-  @@unique([telegramId, externalVerseId])
+  @@unique([telegramId, verseId])
 }
 
 model Tag {
-  id        String     @id @default(cuid())
-  slug      String     @unique   // faith, love, hope
-  title     String     @unique   // Вера, Любовь, Надежда
-  createdAt DateTime   @default(now())
+  id        String   @id @default(cuid())
+  slug      String   @unique // faith, love, hope
+  title     String   @unique // Вера, Любовь, Надежда
+  createdAt DateTime @default(now())
 
-  verses    VerseTag[]
+  verses VerseTag[]
 }
 
+// Теги принадлежат глобальному стиху, а не конкретному пользователю.
 model VerseTag {
-  id              String   @id @default(cuid())
-  externalVerseId String
-  tagId           String
+  id      String @id @default(cuid())
+  verseId String // FK → Verse.id
+  tagId   String
 
-  tag             Tag      @relation(fields: [tagId], references: [id])
+  verse Verse @relation(fields: [verseId], references: [id])
+  tag   Tag   @relation(fields: [tagId], references: [id])
 
-  @@unique([externalVerseId, tagId])
+  @@unique([verseId, tagId])
 }
-

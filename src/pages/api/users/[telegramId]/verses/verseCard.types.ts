@@ -7,23 +7,19 @@ export const MASTERED_REPETITIONS_MIN = 5;
 export const WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE = TRAINING_STAGE_MASTERY_MAX;
 export const WAITING_NEXT_REVIEW_DELAY_HOURS = 24;
 
-type PrismaUserVerse = Prisma.UserVerseGetPayload<Record<string, never>>;
 type PrismaTag = Prisma.TagGetPayload<Record<string, never>>;
 
-type PrismaVerseCardBaseFields = Pick<
-  PrismaUserVerse,
-  "externalVerseId" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt"
->;
+// UserVerse is now fetched with the verse relation to access externalVerseId
+type PrismaUserVerseWithVerse = Prisma.UserVerseGetPayload<{
+  include: { verse: true };
+}>;
 
 export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED";
 
 export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
 
-export interface VerseCardDto
-  extends Omit<
-    PrismaVerseCardBaseFields,
-    "status" | "masteryLevel" | "repetitions" | "lastReviewedAt" | "nextReviewAt"
-  > {
+export interface VerseCardDto {
+  externalVerseId: string;
   status: DisplayStatus;
   masteryLevel: number;
   repetitions: number;
@@ -40,9 +36,12 @@ export type UserVersesPageResponse = {
   totalCount: number;
 };
 
+// VerseTag now references Verse via verseId FK; externalVerseId comes through the verse relation
 export type VerseTagLinkWithTag = Prisma.VerseTagGetPayload<{
   select: {
-    externalVerseId: true;
+    verse: {
+      select: { externalVerseId: true };
+    };
     tag: {
       select: {
         id: true;
@@ -53,13 +52,15 @@ export type VerseTagLinkWithTag = Prisma.VerseTagGetPayload<{
   };
 }>;
 
+// externalVerseId is flattened from verse.externalVerseId at the DB fetch site
 export type UserVerseWithLegacyNullableProgress = Omit<
-  PrismaUserVerse,
+  PrismaUserVerseWithVerse,
   "masteryLevel" | "repetitions"
 > & {
+  externalVerseId: string;
   status?: VerseStatus | null;
-  masteryLevel?: PrismaUserVerse["masteryLevel"] | null;
-  repetitions?: PrismaUserVerse["repetitions"] | null;
+  masteryLevel?: PrismaUserVerseWithVerse["masteryLevel"] | null;
+  repetitions?: PrismaUserVerseWithVerse["repetitions"] | null;
   lastTrainingModeId?: number | null;
 };
 

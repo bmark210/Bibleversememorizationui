@@ -45,6 +45,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(405).json({ error: "Method Not Allowed" });
 }
 
+// Resolve the global Verse by externalVerseId, then find the user's progress record
+async function resolveUserVerse(telegramId: string, externalVerseId: string) {
+  const globalVerse = await prisma.verse.findUnique({
+    where: { externalVerseId },
+    select: { id: true },
+  });
+  if (!globalVerse) return { globalVerse: null, userVerse: null };
+
+  const userVerse = await prisma.userVerse.findUnique({
+    where: {
+      telegramId_verseId: {
+        telegramId,
+        verseId: globalVerse.id,
+      },
+    },
+  });
+
+  return { globalVerse, userVerse };
+}
+
 async function handlePatch(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -55,26 +75,19 @@ async function handlePatch(
   try {
     const body = req.body as UpdateVersePayload;
 
-    const [user, existingVerse] = await Promise.all([
+    const [user, { globalVerse, userVerse: existingVerse }] = await Promise.all([
       prisma.user.findUnique({
         where: { telegramId },
         select: { id: true },
       }),
-      prisma.userVerse.findUnique({
-        where: {
-          telegramId_externalVerseId: {
-            telegramId,
-            externalVerseId,
-          },
-        },
-      }),
+      resolveUserVerse(telegramId, externalVerseId),
     ]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (!existingVerse) {
+    if (!globalVerse || !existingVerse) {
       return res.status(404).json({ error: "Verse not found" });
     }
 
@@ -139,9 +152,9 @@ async function handlePatch(
 
     const verse = await prisma.userVerse.update({
       where: {
-        telegramId_externalVerseId: {
+        telegramId_verseId: {
           telegramId,
-          externalVerseId,
+          verseId: globalVerse.id,
         },
       },
       data: {
@@ -156,11 +169,13 @@ async function handlePatch(
           : {}),
         ...(body.status ? { status: body.status } : {}),
       },
+      include: { verse: true },
     });
 
     return res.status(200).json(
       mapUserVerseToVerseCardDto({
         ...(verse as UserVerseWithLegacyNullableProgress),
+        externalVerseId: verse.verse.externalVerseId,
         tags: [],
       })
     );
@@ -174,7 +189,7 @@ async function handlePatch(
 }
 
 async function handleDelete(res: NextApiResponse, telegramId: string, externalVerseId: string) {
-  // Удаляет стих из списка пользователя.
+  // Удаляет стих только из списка пользователя; глобальный Verse не затрагивается.
   try {
     const user = await prisma.user.findUnique({
       where: { telegramId },
@@ -185,11 +200,20 @@ async function handleDelete(res: NextApiResponse, telegramId: string, externalVe
       return res.status(404).json({ error: "User not found" });
     }
 
+    const globalVerse = await prisma.verse.findUnique({
+      where: { externalVerseId },
+      select: { id: true },
+    });
+
+    if (!globalVerse) {
+      return res.status(404).json({ error: "Verse not found" });
+    }
+
     await prisma.userVerse.delete({
       where: {
-        telegramId_externalVerseId: {
+        telegramId_verseId: {
           telegramId,
-          externalVerseId,
+          verseId: globalVerse.id,
         },
       },
     });

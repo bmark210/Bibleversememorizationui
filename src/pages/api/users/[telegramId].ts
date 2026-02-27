@@ -9,16 +9,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     if (req.method === "GET") {
-      const user = await prisma.user.findUnique({
+      // Upsert: create the user if they don't exist yet (first open / direct API call)
+      const user = await prisma.user.upsert({
         where: { telegramId },
-        include: {
-          verses: true,
-        },
+        update: {},
+        create: { telegramId },
+        include: { verses: true },
       });
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
 
       return res.status(200).json(user);
     }

@@ -260,12 +260,15 @@ async function fetchTagsForVerses(
     return new Map();
   }
 
+  // VerseTag now references Verse via verseId FK; externalVerseId lives on the Verse relation
   const links: VerseTagLinkWithTag[] = await prisma.verseTag.findMany({
     where: {
-      externalVerseId: { in: uniqueIds },
+      verse: { externalVerseId: { in: uniqueIds } },
     },
     select: {
-      externalVerseId: true,
+      verse: {
+        select: { externalVerseId: true },
+      },
       tag: {
         select: {
           id: true,
@@ -279,9 +282,10 @@ async function fetchTagsForVerses(
   const tagsByVerseId = new Map<string, VerseCardTagDto[]>();
 
   for (const link of links) {
-    const current = tagsByVerseId.get(link.externalVerseId) ?? [];
+    const key = link.verse.externalVerseId;
+    const current = tagsByVerseId.get(key) ?? [];
     current.push(link.tag);
-    tagsByVerseId.set(link.externalVerseId, current);
+    tagsByVerseId.set(key, current);
   }
 
   return tagsByVerseId;
@@ -398,6 +402,16 @@ async function enrichUserVerses(
   });
 }
 
+// Flatten externalVerseId from the verse relation so enrichUserVerses doesn't need to change
+function flattenVerseRows(
+  rows: Array<{ verse: { externalVerseId: string }; [key: string]: unknown }>
+): UserVerseWithLegacyNullableProgress[] {
+  return rows.map((row) => ({
+    ...row,
+    externalVerseId: row.verse.externalVerseId,
+  })) as UserVerseWithLegacyNullableProgress[];
+}
+
 export async function fetchEnrichedUserVerses({
   telegramId,
   where,
@@ -405,12 +419,13 @@ export async function fetchEnrichedUserVerses({
   order,
 }: FetchEnrichedUserVersesOptions): Promise<VerseCardDto[]> {
   const translation = await getUserTranslationForTelegram(telegramId);
-  const verses = (await prisma.userVerse.findMany({
+  const rawRows = await prisma.userVerse.findMany({
     where: buildUserVersesWhere(telegramId, where),
     orderBy: buildUserVersesOrderBy(orderBy, order),
-  })) as UserVerseWithLegacyNullableProgress[];
+    include: { verse: true },
+  });
 
-  return enrichUserVerses(verses, translation);
+  return enrichUserVerses(flattenVerseRows(rawRows), translation);
 }
 
 export async function fetchPaginatedEnrichedUserVerses({
@@ -428,12 +443,13 @@ export async function fetchPaginatedEnrichedUserVerses({
   const pageOffset = Math.max(0, startWith ?? 0);
 
   if (isComputedDisplayFilter(displayFilter)) {
-    const rawItems = (await prisma.userVerse.findMany({
+    const rawRows = await prisma.userVerse.findMany({
       where: prismaWhere,
       orderBy: buildUserVersesOrderBy(orderBy, order),
-    })) as UserVerseWithLegacyNullableProgress[];
+      include: { verse: true },
+    });
 
-    const enrichedItems = await enrichUserVerses(rawItems, translation);
+    const enrichedItems = await enrichUserVerses(flattenVerseRows(rawRows), translation);
     const filteredItems = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
 
     return {
@@ -442,22 +458,20 @@ export async function fetchPaginatedEnrichedUserVerses({
     };
   }
 
-  const [rawItems, totalCount] = await Promise.all([
+  const [rawRows, totalCount] = await Promise.all([
     prisma.userVerse.findMany({
       where: prismaWhere,
       orderBy: buildUserVersesOrderBy(orderBy, order),
       skip: pageOffset,
       take: pageLimit,
+      include: { verse: true },
     }),
     prisma.userVerse.count({
       where: prismaWhere,
     }),
   ]);
 
-  const enrichedItems = await enrichUserVerses(
-    rawItems as UserVerseWithLegacyNullableProgress[],
-    translation
-  );
+  const enrichedItems = await enrichUserVerses(flattenVerseRows(rawRows), translation);
 
   return {
     items: enrichedItems,

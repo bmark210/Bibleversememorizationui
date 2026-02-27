@@ -60,7 +60,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse, telegramId: string) {
-  // Создаёт новую привязку стиха к пользователю с начальными параметрами.
+  // Создаёт глобальный Verse (если его нет), затем привязывает его к пользователю с начальным прогрессом.
   try {
     const body = req.body as UpsertVersePayload;
     const { externalVerseId, masteryLevel = 0, repetitions = 0, lastReviewedAt, nextReviewAt } = body;
@@ -77,11 +77,18 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, telegramId:
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Ensure the verse exists in the global catalog; create it if it doesn't yet.
+    const globalVerse = await prisma.verse.upsert({
+      where: { externalVerseId },
+      update: {},
+      create: { externalVerseId },
+    });
+
     const existing = await prisma.userVerse.findUnique({
       where: {
-        telegramId_externalVerseId: {
+        telegramId_verseId: {
           telegramId,
-          externalVerseId,
+          verseId: globalVerse.id,
         },
       },
     });
@@ -90,10 +97,10 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, telegramId:
       return res.status(400).json({ error: "Стих уже добавлен в ваш список стихов" });
     }
 
-    const verse = await prisma.userVerse.create({
+    const userVerse = await prisma.userVerse.create({
       data: {
         telegramId,
-        externalVerseId,
+        verseId: globalVerse.id,
         masteryLevel,
         repetitions,
         lastReviewedAt: lastReviewedAt ? new Date(lastReviewedAt) : undefined,
@@ -101,7 +108,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, telegramId:
       },
     });
 
-    return res.status(201).json(verse);
+    return res.status(201).json({ ...userVerse, externalVerseId });
   } catch (error) {
     console.error("Error creating/updating verse:", error);
     return res.status(500).json({
