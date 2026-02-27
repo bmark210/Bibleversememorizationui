@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback, type RefObject, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo, type RefObject, type TouchEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -590,7 +590,7 @@ const MAX_DOTS = 12;
 const MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS = "max-w-[46vw] sm:max-w-[240px]";
 const EMULATED_DOT_COUNT = 15;
 
-function DotProgress({ total, active }: { total: number; active: number }) {
+const DotProgress = memo(function DotProgress({ total, active }: { total: number; active: number }) {
   const safeTotal = Math.max(0, total);
   const safeActive = clamp(active, 0, Math.max(0, safeTotal - 1));
   const currentValue = safeTotal > 0 ? safeActive + 1 : 0;
@@ -659,15 +659,10 @@ function DotProgress({ total, active }: { total: number; active: number }) {
             >
               {isActiveDot ? (
                 <>
-                  <motion.span
+                  <span
                     aria-hidden="true"
-                    className="absolute rounded-full bg-primary/28 blur-md pointer-events-none"
-                    animate={{
-                      width: isEmulated ? 20 : 24,
-                      height: isEmulated ? 10 : 11,
-                      opacity: [0.35, 0.5, 0.35],
-                    }}
-                    transition={{ duration: 1.25, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute rounded-full bg-primary/28 blur-md pointer-events-none animate-pulse"
+                    style={{ width: isEmulated ? 20 : 24, height: isEmulated ? 10 : 11 }}
                   />
                   <motion.div
                     layout
@@ -709,7 +704,7 @@ function DotProgress({ total, active }: { total: number; active: number }) {
       </div>
     </div>
   );
-}
+});
 const slideVariants = {
   enter: (dir: number) =>
     dir === 0
@@ -744,7 +739,7 @@ type UnifiedViewportProps = {
   dailyGoalGuideActive?: boolean;
 };
 
-function VerseGalleryUnifiedCardViewport({
+const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardViewport({
   panelMode,
   previewVerse,
   activeIndex,
@@ -1105,7 +1100,7 @@ function VerseGalleryUnifiedCardViewport({
       />
     </div>
   );
-}
+});
 
 function DailyGoalTrainingLoadingView() {
   return (
@@ -1201,7 +1196,10 @@ export function VerseGallery({
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
 
   const previewActiveVerseBase = verses[activeIndex] ?? null;
-  const previewActiveVerse = previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null;
+  const previewActiveVerse = useMemo(
+    () => previewActiveVerseBase ? mergePreviewOverrides(previewActiveVerseBase, previewOverrides) : null,
+    [previewActiveVerseBase, previewOverrides]
+  );
   const dailyGoalGuideActive = Boolean(
     dailyGoalContext?.showGuideBanner &&
       (dailyGoalContext.phase === 'learning' || dailyGoalContext.phase === 'review')
@@ -1735,6 +1733,37 @@ export function VerseGallery({
     [applyUserTrainingSubsetFilter, panelMode, startTrainingFromActiveVerse]
   );
 
+  const handleStartTraining = useCallback(() => {
+    void startTrainingFromActiveVerse();
+  }, [startTrainingFromActiveVerse]);
+
+  const handlePreviewStatusAction = useCallback(async () => {
+    if (!previewActiveVerse || actionPending) return;
+    const statusAction = getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status));
+    if (!statusAction) return;
+    try {
+      setActionPending(true);
+      const optimisticStatus: DisplayVerseStatus =
+        statusAction.nextStatus === VerseStatus.LEARNING &&
+        Number(previewActiveVerse.masteryLevel ?? 0) >= TRAINING_STAGE_MASTERY_MAX
+          ? "REVIEW"
+          : statusAction.nextStatus;
+      setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
+      const patch = await onStatusChange(previewActiveVerse, statusAction.nextStatus);
+      if (patch) {
+        setPreviewOverride(previewActiveVerse, toPreviewOverrideFromVersePatch(patch));
+      }
+      haptic("success");
+      showFeedback(statusAction.successMessage, "success");
+    } catch {
+      haptic("error");
+      setPreviewOverride(previewActiveVerse, { status: previewActiveVerse.status });
+      showFeedback("Ошибка — попробуйте ещё раз", "error");
+    } finally {
+      setActionPending(false);
+    }
+  }, [previewActiveVerse, actionPending, setPreviewOverride, onStatusChange, showFeedback]);
+
   useEffect(() => {
     if (!autoStartTrainingOnOpen) return;
     if (autoStartedTrainingRef.current) return;
@@ -1765,19 +1794,19 @@ export function VerseGallery({
     startTrainingFromActiveVerse,
   ]);
 
-  const handlePreviewTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handlePreviewTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
     previewTouchStartRef.current = createVerticalTouchSwipeStart(e);
-  };
+  }, [panelMode, isTrainingAutoStartOverlayVisible]);
 
-  const handlePreviewTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handlePreviewTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (panelMode !== "preview" || isTrainingAutoStartOverlayVisible) return;
     const start = previewTouchStartRef.current;
     previewTouchStartRef.current = null;
     const step = getVerticalTouchSwipeStep(start, e);
     if (!step) return;
     void navigatePreviewTo(step > 0 ? "next" : "prev");
-  };
+  }, [panelMode, isTrainingAutoStartOverlayVisible, navigatePreviewTo]);
   const handleTrainingRate = useCallback(async (rating: Rating) => {
     if (panelMode !== "training" || trainingModeId === null) return;
     const current = trainingVerses[trainingIndex];
@@ -2017,34 +2046,6 @@ export function VerseGallery({
     ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
     : null;
 
-  const handlePreviewStatusAction = async () => {
-    if (!previewStatusAction || !previewActiveVerse || actionPending) return;
-    try {
-      setActionPending(true);
-      // When resuming a STOPPED verse that had high mastery (masteryLevel >= threshold),
-      // the server will compute status as REVIEW (not LEARNING), so use REVIEW optimistically
-      // to avoid a green→purple flash.
-      const optimisticStatus: DisplayVerseStatus =
-        previewStatusAction.nextStatus === VerseStatus.LEARNING &&
-        Number(previewActiveVerse.masteryLevel ?? 0) >= TRAINING_STAGE_MASTERY_MAX
-          ? 'REVIEW'
-          : previewStatusAction.nextStatus;
-      setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
-      const patch = await onStatusChange(previewActiveVerse, previewStatusAction.nextStatus);
-      if (patch) {
-        setPreviewOverride(previewActiveVerse, toPreviewOverrideFromVersePatch(patch));
-      }
-      haptic("success");
-      showFeedback(previewStatusAction.successMessage, "success");
-    } catch {
-      haptic("error");
-      setPreviewOverride(previewActiveVerse, { status: previewActiveVerse.status });
-      showFeedback("Ошибка — попробуйте ещё раз", "error");
-    } finally {
-      setActionPending(false);
-    }
-  };
-
   const displayTotal = panelMode === "training" ? Math.max(trainingEligibleIndices.length, 1) : previewDisplayTotal;
   const displayActive = panelMode === "training"
     ? Math.max(0, trainingEligibleIndices.indexOf(trainingIndex))
@@ -2177,12 +2178,8 @@ export function VerseGallery({
                 trainingActiveVerse={trainingActiveVerse}
                 trainingModeId={trainingModeId}
                 trainingRendererRef={trainingRendererRef}
-                onStartTraining={() => {
-                  void startTrainingFromActiveVerse();
-                }}
-                onPreviewStatusAction={() => {
-                  void handlePreviewStatusAction();
-                }}
+                onStartTraining={handleStartTraining}
+                onPreviewStatusAction={handlePreviewStatusAction}
                 onPreviewTouchStart={handlePreviewTouchStart}
                 onPreviewTouchEnd={handlePreviewTouchEnd}
                 onTrainingSwipeStep={handleTrainingNavigationStep}
@@ -2208,7 +2205,7 @@ export function VerseGallery({
               Завершить
             </Button>
             {previewStatusAction && (
-              <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => void handlePreviewStatusAction()} disabled={actionPending} aria-label={previewStatusAction.label}>
+              <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => { void handlePreviewStatusAction(); }} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
               </Button>
             )}

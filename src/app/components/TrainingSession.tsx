@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ChevronLeft, Trophy, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -537,6 +537,8 @@ export function TrainingSession({
 }: TrainingSessionProps) {
   const [runtime, setRuntime] = useState<RuntimeState>(() => createInitialRuntime(verses, startFromVerseId));
   const touchStartRef = useRef<VerticalTouchSwipeStart | null>(null);
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
 
   useEffect(() => {
     setRuntime(createInitialRuntime(verses, startFromVerseId));
@@ -545,6 +547,7 @@ export function TrainingSession({
   const currentVerse = getCurrentVerse(runtime);
   const currentMode = runtime.currentStep ? MODE_PIPELINE[runtime.currentStep.modeId] : null;
   const isCurrentVerseReview = currentVerse ? isReviewVerse(currentVerse) : false;
+  const legacyVerse = useMemo(() => currentVerse ? asLegacyVerse(currentVerse) : null, [currentVerse]);
 
   const avgScore = runtime.history.length > 0
     ? Math.round(runtime.history.reduce((sum, item) => sum + item.score, 0) / runtime.history.length)
@@ -552,7 +555,7 @@ export function TrainingSession({
   const passedCount = runtime.history.filter((item) => item.passed).length;
   const gainedMastery = runtime.history.reduce((sum, item) => sum + Math.max(0, item.masteryAfter - item.masteryBefore), 0);
 
-  const jumpToAdjacentVerse = (delta: -1 | 1) => {
+  const jumpToAdjacentVerse = useCallback((delta: -1 | 1) => {
     setRuntime((prev) => {
       if (!prev.currentStep || prev.lastOutcome) return prev;
 
@@ -585,7 +588,7 @@ export function TrainingSession({
         lastOutcome: null,
       };
     });
-  };
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartRef.current = createVerticalTouchSwipeStart(e);
@@ -600,7 +603,8 @@ export function TrainingSession({
     jumpToAdjacentVerse(step);
   };
 
-  const handleRate = async (rating: Rating) => {
+  const handleRate = useCallback(async (rating: Rating) => {
+    const runtime = runtimeRef.current;
     if (!runtime.currentStep) return;
 
     const step = runtime.currentStep;
@@ -725,15 +729,15 @@ export function TrainingSession({
         toast.error('Не удалось сохранить прогресс по стиху');
       }
     }
-  };
+  }, [onProgressSaved]);
 
-  const handleNextStep = () => {
+  const handleNextStep = useCallback(() => {
     setRuntime((prev) => {
       if (prev.lastOutcome) return advanceRuntimeAfterOutcome(prev);
       const next = buildExerciseStep(prev);
       return { ...prev, ...next, lastOutcome: null };
     });
-  };
+  }, []);
 
   if (runtime.finished) {
     return (
@@ -815,8 +819,6 @@ export function TrainingSession({
     );
   }
 
-  const legacyVerse = asLegacyVerse(currentVerse);
-
   return (
     <div
       className="min-h-screen flex flex-col bg-background"
@@ -863,11 +865,13 @@ export function TrainingSession({
               </div>
             }
             body={
-              <TrainingModeRenderer
-                renderer={currentMode.renderer}
-                verse={legacyVerse}
-                onRate={handleRate}
-              />
+              legacyVerse ? (
+                <TrainingModeRenderer
+                  renderer={currentMode.renderer}
+                  verse={legacyVerse}
+                  onRate={handleRate}
+                />
+              ) : null
             }
             bodyScrollable
             contentClassName="pb-2"
