@@ -107,7 +107,7 @@ export type Verse = {
 
 type StartTrainingOptions = {
   returnToGallery?: boolean;
-  returnToGalleryFilter?: "all" | "learning" | "stopped" | 'my';
+  returnToGalleryFilter?: "catalog" | "learning" | "stopped" | 'my';
 };
 
 type DashboardTrainingLaunchOptions = {
@@ -116,7 +116,7 @@ type DashboardTrainingLaunchOptions = {
 
 type ReturnToGalleryContext = {
   verseId: string;
-  filter: "all" | "learning" | "stopped" | 'my';
+  filter: "catalog" | "learning" | "stopped" | 'my';
 };
 
 type Page =
@@ -824,7 +824,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           options?.returnToGallery
             ? {
                 verseId: String(verseId),
-                filter: options.returnToGalleryFilter ?? "all",
+                filter: options.returnToGalleryFilter ?? "catalog",
               }
             : null
         );

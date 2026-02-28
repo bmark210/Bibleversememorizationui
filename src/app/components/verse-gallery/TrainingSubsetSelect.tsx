@@ -3,10 +3,10 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { cn } from "../ui/utils";
 
-export type TrainingSubsetSelectValue = "learning" | "review" | "all";
+export type TrainingSubsetSelectValue = "learning" | "review" | "catalog";
 
 const TRAINING_SUBSET_OPTIONS: Array<{ key: TrainingSubsetSelectValue; label: string }> = [
-  { key: "all", label: "Все мои" },
+  { key: "catalog", label: "Все мои" },
   { key: "learning", label: "Изучение" },
   { key: "review", label: "Повторение" },
 ];
@@ -20,7 +20,7 @@ const TRAINING_SUBSET_THEME: Record<
     itemClassName: string;
   }
 > = {
-  all: {
+  catalog: {
     dotClassName: "bg-foreground/45",
     triggerClassName:
       "border-border/60 bg-background/80 text-foreground shadow-sm",

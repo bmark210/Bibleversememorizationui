@@ -100,7 +100,7 @@ export function useVersePagination({
 
   const requestVersesPage = useCallback(
     async (id: string, filter: VerseListStatusFilter, startWith?: number | null) => {
-      if (filter === 'all') {
+      if (filter === 'catalog') {
         const page = await fetchCatalogVersesPage({
           telegramId: id,
           limit: pageSize,
@@ -184,7 +184,7 @@ export function useVersePagination({
           changed = true;
 
           const keep =
-            currentFilter === 'all' ? true : matchesListFilter(merged, currentFilter);
+            currentFilter === 'catalog' ? true : matchesListFilter(merged, currentFilter);
 
           if (keep) {
             next.push(merged);

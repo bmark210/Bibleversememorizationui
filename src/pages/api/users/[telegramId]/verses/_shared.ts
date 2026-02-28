@@ -55,7 +55,7 @@ type ParsedExternalVerseId = {
 export type UserVersesOrderBy = "createdAt" | "updatedAt";
 export type UserVersesOrder = "asc" | "desc";
 export type UserVersesFilter =
-  | "all"
+  | "catalog"
   | "my"
   | "learning"
   | "review"
@@ -138,7 +138,7 @@ function parseOrder(value: string | undefined): UserVersesOrder | undefined {
 function parseFilter(value: string | undefined): UserVersesFilter | undefined {
   if (!value) return undefined;
   if (
-    value === "all" ||
+    value === "catalog" ||
     value === "my" ||
     value === "learning" ||
     value === "review" ||
@@ -184,7 +184,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
 
 export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Record<string, unknown> | undefined {
   if (query.filter) {
-    if (query.filter === "all") return undefined;
+    if (query.filter === "catalog") return undefined;
     if (query.filter === "my") return undefined; // все стихи пользователя, без фильтра по статусу
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
     if (
@@ -208,7 +208,7 @@ function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter i
 }
 
 function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
-  if (!filter || filter === "all") return verses;
+  if (!filter || filter === "catalog") return verses;
   if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
   if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
   if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");

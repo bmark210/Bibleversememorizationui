@@ -4,14 +4,13 @@ import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 export type VerseListStatusFilter =
-  | "all"
   | "catalog"
-  | 'learning'
+  | "learning"
   | "review"
   | "mastered"
   | "stopped"
   | "my";
-export type VerseStageVisualKey = Exclude<VerseListStatusFilter, "all">;
+export type VerseStageVisualKey = Exclude<VerseListStatusFilter, "catalog">;
 export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
 export type FilterVisualTheme = {
@@ -32,13 +31,6 @@ export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
 export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = 5;
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
-  all: {
-    dotClassName: 'bg-foreground/60',
-    activeTabClassName: 'border-foreground/20 bg-foreground/8 text-foreground',
-    currentBadgeClassName: 'border-foreground/15 bg-foreground/5 text-foreground/90',
-    statusBadgeClassName: 'border-border/70 bg-background/80 text-foreground/90',
-    cardClassName: 'bg-card border-border/70',
-  },
   catalog: {
     dotClassName: 'bg-gray-400',
     activeTabClassName: 'border-gray-500/30 bg-gray-500/14 text-gray-700 dark:text-gray-300',

@@ -229,8 +229,8 @@ export function useVerseActions({
         const status = (err as any)?.status ?? (err as any)?.statusCode;
         if (status !== 404) throw err;
       }
-      if (statusFilter === 'all') {
-        // В фильтре "all" карточка остаётся видимой — сбрасываем статус в CATALOG, очищаем прогресс
+      if (statusFilter === 'catalog') {
+        // В фильтре "catalog" карточка остаётся видимой — сбрасываем статус в CATALOG, очищаем прогресс
         setVerses((prev) =>
           prev.map((v) =>
             isSameVerse(v, verse)
@@ -276,7 +276,7 @@ export function useVerseActions({
     try {
       await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
-      const deleteMessage = statusFilter === 'all' ? 'Сброшено в каталог' : 'Удалено';
+      const deleteMessage = statusFilter === 'catalog' ? 'Сброшено в каталог' : 'Удалено';
       pushToast(deleteMessage, 'success');
       setAnnouncement(`${deleteTargetVerse.reference}: ${deleteMessage}`);
       setDeleteTargetVerse(null);

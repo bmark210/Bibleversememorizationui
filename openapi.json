@@ -214,7 +214,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "all",
+                "catalog",
                 "my",
                 "learning",
                 "review",

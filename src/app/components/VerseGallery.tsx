@@ -96,7 +96,7 @@ type VerseGalleryProps = {
 type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
 type PanelMode = "preview" | "training";
 type Rating = TrainingModeRating;
-type TrainingSubsetFilter = "learning" | "review" | "all";
+type TrainingSubsetFilter = "learning" | "review" | "catalog";
 
 type GalleryStatusAction = {
   nextStatus: VerseStatus;
@@ -286,7 +286,7 @@ function matchesTrainingSubsetFilter(
   verse: TrainingVerseState,
   filter: TrainingSubsetFilter
 ) {
-  if (filter === "all") return isTrainingEligibleVerse(verse);
+  if (filter === "catalog") return isTrainingEligibleVerse(verse);
   if (filter === "review") return isTrainingReviewVerse(verse) && isTrainingDueVerse(verse);
   return verse.status === VerseStatus.LEARNING;
 }
@@ -466,10 +466,10 @@ function getDailyGoalTargetKindHint(
 function getDailyGoalPreferredTrainingSubset(
   context: DailyGoalGalleryContext | undefined
 ): TrainingSubsetFilter {
-  if (!context) return "all";
+  if (!context) return "catalog";
   if (context.effectiveResumeMode === "learning") return "learning";
   if (context.effectiveResumeMode === "review") return "review";
-  return "all";
+  return "catalog";
 }
 
 function getDailyGoalResumeModeLabel(mode: DailyGoalResumeMode | null | undefined) {
@@ -1186,7 +1186,7 @@ export function VerseGallery({
   const [trainingVerses, setTrainingVerses] = useState<TrainingVerseState[]>([]);
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
-  const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("all");
+  const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("catalog");
   const [isAutoStartingTraining, setIsAutoStartingTraining] = useState(() => autoStartTrainingOnOpen);
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
   const autoStartedTrainingRef = useRef(false);
@@ -1221,7 +1221,7 @@ export function VerseGallery({
       : getDailyGoalModeFromDisplayStatus(previewActiveVerse ? normalizeVerseStatus(previewActiveVerse.status) : null);
   const dailyGoalCurrentExecutionMode: DailyGoalResumeMode | null =
     panelMode === "training"
-      ? trainingSubsetFilter === "all"
+      ? trainingSubsetFilter === "catalog"
         ? currentCardDailyGoalMode ?? dailyGoalEffectiveResumeMode
         : trainingSubsetFilter
       : currentCardDailyGoalMode ?? dailyGoalEffectiveResumeMode;
@@ -1305,11 +1305,11 @@ export function VerseGallery({
       return;
     }
 
-    if (trainingSubsetFilter !== "all") {
+    if (trainingSubsetFilter !== "catalog") {
       toast.info("Нет стихов для выбранного режима", {
         description: "Переключаем обратно на «Все».",
       });
-      setTrainingSubsetFilter("all");
+      setTrainingSubsetFilter("catalog");
       return;
     }
 
@@ -1326,11 +1326,11 @@ export function VerseGallery({
   useEffect(() => {
     if (panelMode !== "training") return;
     if (!dailyGoalGuideActive) return;
-    if (dailyGoalPreferredTrainingSubset === "all") return;
+    if (dailyGoalPreferredTrainingSubset === "catalog") return;
     if (hasUserChosenTrainingSubsetRef.current) return;
     if (hasAutoAppliedDailyGoalSubsetRef.current) return;
     // Do not override an explicit subset chosen by the user (or selected card at start).
-    if (trainingSubsetFilter !== "all") return;
+    if (trainingSubsetFilter !== "catalog") return;
     hasAutoAppliedDailyGoalSubsetRef.current = true;
     setTrainingSubsetFilter(dailyGoalPreferredTrainingSubset);
     // toast.info(
@@ -1538,8 +1538,8 @@ export function VerseGallery({
         .map(({ index }) => index);
       if (fallbackEligible.length > 0) {
         nextIndex = delta > 0 ? (fallbackEligible[0] ?? 0) : (fallbackEligible[fallbackEligible.length - 1] ?? 0);
-        if (trainingSubsetFilter !== "all") {
-          setTrainingSubsetFilter("all");
+        if (trainingSubsetFilter !== "catalog") {
+          setTrainingSubsetFilter("catalog");
         }
       } else {
         nextIndex = Math.min(Math.max(delta > 0 ? trainingIndex : trainingIndex - 1, 0), nextList.length - 1);
@@ -1659,24 +1659,24 @@ export function VerseGallery({
           ? "review"
           : activeDisplayStatus === VerseStatus.LEARNING
             ? "learning"
-            : "all";
+            : "catalog";
       const preferredSubset: TrainingSubsetFilter =
         forcedSubset === "learning" || forcedSubset === "review"
           ? forcedSubset
-          : selectedSubsetHint !== "all"
+          : selectedSubsetHint !== "catalog"
           ? selectedSubsetHint
-          : dailyGoalGuideActive && dailyGoalPreferredTrainingSubset !== "all"
+          : dailyGoalGuideActive && dailyGoalPreferredTrainingSubset !== "catalog"
             ? dailyGoalPreferredTrainingSubset
-            : "all";
+            : "catalog";
       const activeVerseMatchesPreferred =
-        preferredSubset === "all"
+        preferredSubset === "catalog"
           ? true
           : normalized.some(
               (v) => v.key === startKey && matchesTrainingSubsetFilter(v, preferredSubset)
             );
 
       const preferredEligibleIndex =
-        preferredSubset === "all"
+        preferredSubset === "catalog"
           ? -1
           : normalized.findIndex((v) => matchesTrainingSubsetFilter(v, preferredSubset));
 
@@ -1686,7 +1686,7 @@ export function VerseGallery({
       const startIndex = rawStartIndex >= 0 ? rawStartIndex : Math.max(0, normalized.findIndex((v) => v.key === startKey));
       const startState = normalized[startIndex] ?? normalized[0];
       hasUserChosenTrainingSubsetRef.current = false;
-      hasAutoAppliedDailyGoalSubsetRef.current = preferredSubset !== "all";
+      hasAutoAppliedDailyGoalSubsetRef.current = preferredSubset !== "catalog";
       setTrainingVerses(normalized);
       setTrainingSubsetFilter(preferredSubset);
       if (preferredSubset === "learning" || preferredSubset === "review") {
@@ -1886,11 +1886,11 @@ export function VerseGallery({
         ? nextMode
         : chooseModeId(updated);
 
-    if (trainingSubsetFilter !== "all" && !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)) {
+    if (trainingSubsetFilter !== "catalog" && !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)) {
       toast.info("Стих вышел из текущего фильтра", {
         description: "Фильтр переключен на «Все», вы остаетесь на текущем стихе.",
       });
-      setTrainingSubsetFilter("all");
+      setTrainingSubsetFilter("catalog");
     }
 
     setTrainingModeId(nextModeForCurrentVerse);

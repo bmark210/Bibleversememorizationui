@@ -549,7 +549,7 @@ toTrainingStageMasteryLevel(rawMasteryLevel: number): number
 ### 8.3 GET `/verses` — параметры фильтрации
 
 ```
-filter: "all" | 'my' | "learning" | "waiting" | "review" | "mastered" | "stopped"
+filter: "catalog" | 'my' | "learning" | "waiting" | "review" | "mastered" | "stopped"
 status: "MY" | "LEARNING" | "STOPPED"   (DB-уровень)
 orderBy: "createdAt" | "updatedAt"
 order: "asc" | "desc"

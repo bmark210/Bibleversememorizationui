@@ -49,9 +49,9 @@ export function useVerseListController({
   }, []);
 
   const [searchQuery] = useState('');
-  const [testamentFilter] = useState<'all' | 'OT' | 'NT'>('all');
-  const [masteryFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
-  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'all');
+  const [testamentFilter] = useState<'catalog' | 'OT' | 'NT'>('catalog');
+  const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
+  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'catalog');
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const lastHandledExternalSyncVersionRef = useRef<number | null>(
@@ -80,7 +80,7 @@ export function useVerseListController({
   const matchesListFilter = useCallback(
     (verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
       const status = normalizeDisplayVerseStatus(verse.status);
-      if (filter === 'all') return true;
+      if (filter === 'catalog') return true;
       if (filter === 'learning') {
         return status === VerseStatus.LEARNING;
       }
@@ -191,9 +191,9 @@ export function useVerseListController({
     return pagination.verses.filter((v) => {
       const matchStatus = matchesListFilter(v, statusFilter);
       const matchSearch = !q || v.reference.toLowerCase().includes(q) || v.text.toLowerCase().includes(q);
-      const matchTestament = testamentFilter === 'all' || (v as any).testament === testamentFilter;
+      const matchTestament = testamentFilter === 'catalog' || (v as any).testament === testamentFilter;
       const matchMastery =
-        masteryFilter === 'all' ||
+        masteryFilter === 'catalog' ||
         (masteryFilter === 'low' && (v as any).masteryLevel < 40) ||
         (masteryFilter === 'medium' &&
           (v as any).masteryLevel >= 40 &&
@@ -204,7 +204,7 @@ export function useVerseListController({
   }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter]);
 
   const hasLocalClientFiltersActive =
-    searchQuery.trim().length > 0 || testamentFilter !== 'all' || masteryFilter !== 'all';
+    searchQuery.trim().length > 0 || testamentFilter !== 'catalog' || masteryFilter !== 'catalog';
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
   const masteredVerses = useMemo(
@@ -223,7 +223,7 @@ export function useVerseListController({
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
     () => [
-      { key: 'all', label: 'Все' },
+      { key: 'catalog', label: 'Все' },
       { key: 'my', label: 'Мои' },
       { key: 'learning', label: 'Изучаю' },
       { key: 'review', label: 'Повторяю' },
@@ -332,7 +332,7 @@ export function useVerseListController({
   }, [statusFilter]);
 
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
-    if (statusFilter === 'all') return null;
+    if (statusFilter === 'catalog') return null;
     if (statusFilter === 'learning') {
       return {
         items: learningVerses,
@@ -398,7 +398,7 @@ export function useVerseListController({
     };
   }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);
 
-  const listItems = statusFilter === 'all'
+  const listItems = statusFilter === 'catalog'
     ? hasLocalClientFiltersActive
       ? filteredVerses
       : pagination.verses

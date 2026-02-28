@@ -67,7 +67,7 @@ export function VerseList({
 
   const reveal = vm.view.getRevealProps;
   const shouldReduceMotion = vm.ui.shouldReduceMotion;
-  const isAllMode = vm.filters.statusFilter === 'all';
+  const isAllMode = vm.filters.statusFilter === 'catalog';
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
 
   const listContent =
@@ -187,7 +187,7 @@ export function VerseList({
         <motion.div {...reveal(0.05)}>
           <VerseListEmptyState
             currentFilterLabel={vm.ui.currentFilterLabel}
-            isAllFilter={vm.filters.statusFilter === 'all'}
+            isAllFilter={vm.filters.statusFilter === 'catalog'}
           />
         </motion.div>
       ) : isAllMode ? (
