@@ -390,7 +390,7 @@ export function useVerseListController({
       config: {
         headingId: 'my-verses-heading',
         title: 'Мои стихи',
-        subtitle: 'Все стихи, добавленнуе в свой список',
+        subtitle: 'Все стихи, добавленные в мой список',
         dotClassName: 'bg-sky-500',
         borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
         tintClassName: 'bg-sky-500/5',

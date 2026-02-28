@@ -205,7 +205,7 @@ function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction
     return { nextStatus: VerseStatus.MY, label: "Добавить в мои", icon: Plus, successMessage: "Добавлено в мои стихи" };
   }
   if (status === VerseStatus.MY) {
-    return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
+    return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Brain, successMessage: "Добавлено в изучение" };
   }
   if (status === VerseStatus.LEARNING || status === "REVIEW") {
     return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };
@@ -823,9 +823,9 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
           }
         : previewStatus === VerseStatus.MY
         ? {
-            label: "Добавить в мои",
-            ariaLabel: "Добавить стих в мои",
-            icon: Plus,
+            label: "Добавить в изучение",
+            ariaLabel: "Добавить стих в изучение",
+            icon: Brain,
             onClick: () => void onPreviewStatusAction(),
             className:
               "border border-sky-500/25 bg-gradient-to-r from-sky-500/18 to-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:text-sky-300",
