@@ -6,7 +6,7 @@ import { cn } from "../ui/utils";
 export type TrainingSubsetSelectValue = "learning" | "review" | "catalog";
 
 const TRAINING_SUBSET_OPTIONS: Array<{ key: TrainingSubsetSelectValue; label: string }> = [
-  { key: "catalog", label: "Все мои" },
+  { key: "catalog", label: "Каталог" },
   { key: "learning", label: "Изучение" },
   { key: "review", label: "Повторение" },
 ];

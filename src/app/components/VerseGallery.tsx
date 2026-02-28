@@ -1307,7 +1307,7 @@ export function VerseGallery({
 
     if (trainingSubsetFilter !== "catalog") {
       toast.info("Нет стихов для выбранного режима", {
-        description: "Переключаем обратно на «Все».",
+        description: "Переключаем обратно в каталог.",
       });
       setTrainingSubsetFilter("catalog");
       return;
@@ -1888,7 +1888,7 @@ export function VerseGallery({
 
     if (trainingSubsetFilter !== "catalog" && !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)) {
       toast.info("Стих вышел из текущего фильтра", {
-        description: "Фильтр переключен на «Все», вы остаетесь на текущем стихе.",
+        description: "Фильтр переключен на «Каталог», вы остаетесь на текущем стихе.",
       });
       setTrainingSubsetFilter("catalog");
     }

@@ -223,7 +223,7 @@ export function useVerseListController({
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
     () => [
-      { key: 'catalog', label: 'Все' },
+      { key: 'catalog', label: 'Каталог' },
       { key: 'my', label: 'Мои' },
       { key: 'learning', label: 'Изучаю' },
       { key: 'review', label: 'Повторяю' },
@@ -239,7 +239,7 @@ export function useVerseListController({
   const isEmptyFiltered =
     pagination.hasFetchedVersesOnce && !pagination.isFetchingVerses && filteredVerses.length === 0;
   const currentFilterLabel =
-    filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Все';
+    filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Каталог';
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
 
@@ -390,7 +390,7 @@ export function useVerseListController({
       config: {
         headingId: 'my-verses-heading',
         title: 'Мои стихи',
-        subtitle: 'Все стихи, добавленные в мой список',
+        subtitle: 'Стихи, добавленные в мой список',
         dotClassName: 'bg-sky-500',
         borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
         tintClassName: 'bg-sky-500/5',
