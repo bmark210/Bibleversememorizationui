@@ -207,10 +207,10 @@ function computeUiState(
   if (!isEmpty) {
     if (learningRequired && learningStageBlocked) {
       phase = 'learning';
-      nextTargetKind = 'new';
+      nextTargetKind = 'my';
     } else if (!learningPhaseDone) {
       phase = 'learning';
-      nextTargetKind = 'new';
+      nextTargetKind = 'my';
     } else if (reviewRequired && (reviewStageWillBeSkipped || !hasReviewTargets)) {
       // Lax behavior: if there are no REVIEW verses today, the goal is considered complete after learning stage.
       phase = 'completed';
@@ -467,7 +467,7 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       if (isReviewLike && !isLearningLike) {
         targetKind = 'review';
       } else if (isLearningLike) {
-        targetKind = 'new';
+        targetKind = 'my';
       } else if (isReviewLike) {
         targetKind = 'review';
       }
@@ -476,7 +476,7 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       // Daily goal progress is intentionally stricter than generic training progress:
       // - learning counts only after masteryLevel reaches >= 7 (REVIEW threshold)
       // - review counts only after completing "typing first letters" mode
-      if (targetKind === 'new') {
+      if (targetKind === 'my') {
         if (!(Number(event.after.masteryLevel ?? 0) >= 7)) {
           return { completedNow: false };
         }
@@ -492,12 +492,12 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       const skippedReview = toUniqueSet(current.progress.skippedVerseIds?.review);
 
       const wasAlreadyCompleted =
-        targetKind === 'new' ? completedNew.has(targetId) : completedReview.has(targetId);
+        targetKind === 'my' ? completedNew.has(targetId) : completedReview.has(targetId);
       if (wasAlreadyCompleted) {
         return { completedNow: false };
       }
 
-      if (targetKind === 'new') {
+      if (targetKind === 'my') {
         completedNew.add(targetId);
         skippedNew.delete(targetId);
       } else {

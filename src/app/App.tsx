@@ -107,7 +107,7 @@ export type Verse = {
 
 type StartTrainingOptions = {
   returnToGallery?: boolean;
-  returnToGalleryFilter?: "all" | "learning" | "stopped" | "new";
+  returnToGalleryFilter?: "all" | "learning" | "stopped" | 'my';
 };
 
 type DashboardTrainingLaunchOptions = {
@@ -116,7 +116,7 @@ type DashboardTrainingLaunchOptions = {
 
 type ReturnToGalleryContext = {
   verseId: string;
-  filter: "all" | "learning" | "stopped" | "new";
+  filter: "all" | "learning" | "stopped" | 'my';
 };
 
 type Page =
@@ -141,7 +141,7 @@ type AppProps = {
 };
 
 const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
-const NEW_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
+const MY_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
 const REVIEW_VERSE_COUNT_OPTIONS = [3, 5, 10, 15] as const;
 const DEFAULT_TRAINING_BATCH_PREFERENCES: TrainingBatchPreferences = {
   newVersesCount: 1,
@@ -1052,7 +1052,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               <div className="space-y-3">
                 <div className="text-sm font-medium">Стихов в изучении за раз</div>
                 <div className="grid grid-cols-4 gap-2">
-                  {NEW_VERSE_COUNT_OPTIONS.map((value) => (
+                  {MY_VERSE_COUNT_OPTIONS.map((value) => (
                     <Button
                       key={`new-${value}`}
                       type="button"

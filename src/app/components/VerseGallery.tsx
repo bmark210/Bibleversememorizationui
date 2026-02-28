@@ -201,7 +201,7 @@ function haptic(style: HapticStyle) {
 }
 
 function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {
-  if (status === VerseStatus.NEW) {
+  if (status === VerseStatus.MY) {
     return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
   if (status === VerseStatus.LEARNING || status === "REVIEW") {
@@ -313,7 +313,7 @@ function deriveTrainingDisplayStatus(params: {
   nextReviewAt: Date | null;
 }): DisplayVerseStatus {
   const { baseStatus, masteryLevel, repetitions, nextReviewAt } = params;
-  if (baseStatus === VerseStatus.NEW) return VerseStatus.NEW;
+  if (baseStatus === VerseStatus.MY) return VerseStatus.MY;
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
   if (repetitions >= REPEAT_THRESHOLD_FOR_MASTERED) return "MASTERED";
   if (masteryLevel >= MAX_MASTERY_LEVEL) return "REVIEW";
@@ -384,9 +384,9 @@ function getTelegramId(): string | null {
   return tgUserId ? String(tgUserId) : null;
 }
 
-function patchStatusForTrainingVerse(verse: TrainingVerseState): "NEW" | "LEARNING" | "STOPPED" {
+function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
   if (verse.status === VerseStatus.STOPPED) return "STOPPED";
-  return verse.rawMasteryLevel > 0 ? "LEARNING" : "NEW";
+  return verse.rawMasteryLevel > 0 ? "LEARNING" : "MY";
 }
 
 async function persistTrainingVerseProgress(
@@ -453,9 +453,9 @@ function getDailyGoalPhaseLabel(phase: DailyGoalGalleryContext['phase']) {
 
 function getDailyGoalTargetKindHint(
   context: DailyGoalGalleryContext | undefined
-): 'new' | 'review' | null {
+): 'my' | 'review' | null {
   if (!context) return null;
-  if (context.phase === 'learning') return 'new';
+  if (context.phase === 'learning') return 'my';
   if (context.phase === 'review') return 'review';
   return null;
 }
@@ -769,8 +769,8 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const previewTotalProgress = Math.min(previewRawMasteryLevel + previewRepetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
   const previewTotalProgressPercent = Math.round((previewTotalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
   const previewTone: VerseCardPreviewTone | undefined = preview
-    ? previewStatus === VerseStatus.NEW
-      ? "new"
+    ? previewStatus === VerseStatus.MY
+      ? "my"
       : previewStatus === VerseStatus.STOPPED
         ? "stopped"
         : previewStatus === "MASTERED"
@@ -797,7 +797,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const isTrainingStartPrimaryAction = Boolean(
     preview &&
       previewStatus &&
-      previewStatus !== VerseStatus.NEW &&
+      previewStatus !== VerseStatus.MY &&
       previewStatus !== VerseStatus.STOPPED &&
       previewStatus !== "MASTERED" &&
       !isPreviewNotYetDue
@@ -805,7 +805,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const previewPrimaryAction =
     !preview || !previewStatus
       ? null
-      : previewStatus === VerseStatus.NEW
+      : previewStatus === VerseStatus.MY
         ? {
             label: "Добавить в мои",
             ariaLabel: "Добавить стих в мои",
@@ -1040,7 +1040,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
           ) : null
         }
         footer={
-          isPreview && preview && previewStatus !== VerseStatus.NEW ? (
+          isPreview && preview && previewStatus !== VerseStatus.MY ? (
             <motion.div
               key={`preview-status-footer-${preview.id}-${previewStatus}-${previewTotalProgress}`}
               initial={{ opacity: 0, y: 6, scale: 0.985 }}
@@ -1621,7 +1621,7 @@ export function VerseGallery({
       const activeDisplayStatus = normalizeVerseStatus(previewActiveVerse.status);
       if (
         !preservePreviewCard &&
-        (activeDisplayStatus === VerseStatus.NEW || activeDisplayStatus === VerseStatus.STOPPED)
+        (activeDisplayStatus === VerseStatus.MY || activeDisplayStatus === VerseStatus.STOPPED)
       ) {
         await onStatusChange(previewActiveVerse, VerseStatus.LEARNING);
         setPreviewOverride(previewActiveVerse, { status: VerseStatus.LEARNING });
@@ -1831,7 +1831,7 @@ export function VerseGallery({
         ? VerseStatus.STOPPED
         : rawMasteryAfter > 0
           ? (nextRepetitions >= 5 ? "MASTERED" : graduatesToReview ? "REVIEW" : VerseStatus.LEARNING)
-          : VerseStatus.NEW;
+          : VerseStatus.MY;
 
     const updated: TrainingVerseState = {
       ...current,

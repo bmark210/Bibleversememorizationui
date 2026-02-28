@@ -9,7 +9,7 @@ export type DebugInfiniteScroll = (event: string, payload?: Record<string, unkno
 export type VerseListLoadRange = { startIndex: number; stopIndex: number };
 
 export type VerseCardLayoutSignature =
-  | 'new'
+  | 'my'
   | 'learning-progress'
   | 'review-pill'
   | 'stopped-progress'

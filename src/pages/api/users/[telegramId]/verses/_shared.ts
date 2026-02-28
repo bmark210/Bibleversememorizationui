@@ -56,7 +56,7 @@ export type UserVersesOrderBy = "createdAt" | "updatedAt";
 export type UserVersesOrder = "asc" | "desc";
 export type UserVersesFilter =
   | "all"
-  | "new"
+  | "my"
   | "learning"
   | "review"
   | "mastered"
@@ -119,7 +119,7 @@ function getSingleQueryValue(query: ParsedUrlQuery, key: string): string | undef
 
 function parseStatus(value: string | undefined): VerseStatus | undefined {
   if (!value) return undefined;
-  if (value === VerseStatus.NEW) return VerseStatus.NEW;
+  if (value === VerseStatus.MY) return VerseStatus.MY;
   if (value === VerseStatus.LEARNING) return VerseStatus.LEARNING;
   if (value === VerseStatus.STOPPED) return VerseStatus.STOPPED;
   return undefined;
@@ -139,7 +139,7 @@ function parseFilter(value: string | undefined): UserVersesFilter | undefined {
   if (!value) return undefined;
   if (
     value === "all" ||
-    value === "new" ||
+    value === "my" ||
     value === "learning" ||
     value === "review" ||
     value === "mastered" ||
@@ -185,7 +185,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
 export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Record<string, unknown> | undefined {
   if (query.filter) {
     if (query.filter === "all") return undefined;
-    if (query.filter === "new") return { status: VerseStatus.NEW };
+    if (query.filter === "my") return undefined; // все UserVerse текущего пользователя, без фильтра по статусу
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
     if (
       query.filter === "learning" ||
@@ -208,11 +208,10 @@ function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter i
 }
 
 function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
-  if (!filter || filter === "all") return verses;
+  if (!filter || filter === "all" || filter === "my") return verses; // my = все стихи пользователя
   if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
   if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
   if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");
-  if (filter === "new") return verses.filter((verse) => verse.status === VerseStatus.NEW);
   if (filter === "stopped") return verses.filter((verse) => verse.status === VerseStatus.STOPPED);
   return verses;
 }

@@ -87,7 +87,7 @@ export function useVerseListController({
       if (filter === 'review') return isReviewVerse(verse);
       if (filter === 'mastered') return isMasteredVerse(verse);
       if (filter === 'stopped') return status === VerseStatus.STOPPED;
-      return status === VerseStatus.NEW;
+      return true; // 'my' = все стихи пользователя, серверная фильтрация по telegramId
     },
     [isMasteredVerse, isReviewVerse]
   );
@@ -217,19 +217,16 @@ export function useVerseListController({
     () => filteredVerses.filter((v) => v.status === VerseStatus.STOPPED),
     [filteredVerses]
   );
-  const newVerses = useMemo(
-    () => filteredVerses.filter((v) => v.status === VerseStatus.NEW),
-    [filteredVerses]
-  );
+
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
     () => [
       { key: 'all', label: 'Все' },
+      { key: 'my', label: 'Мои' },
       { key: 'learning', label: 'Изучаю' },
       { key: 'review', label: 'Повторяю' },
       { key: 'mastered', label: 'Выучены' },
       { key: 'stopped', label: 'На паузе' },
-      { key: 'new', label: 'Новые' },
     ],
     []
   );
@@ -337,8 +334,7 @@ export function useVerseListController({
         config: {
           headingId: 'learning-verses-heading',
           title: 'Изучение',
-          subtitle:
-            dueNowCount > 0 ? `${dueNowCount} стих(а) ждут повторения` : 'Активные стихи в изучении',
+          subtitle: 'Стихи, которые вы изучаете',
           dotClassName: 'bg-emerald-500',
           borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
           tintClassName: 'bg-emerald-500/5',
@@ -351,7 +347,7 @@ export function useVerseListController({
         config: {
           headingId: 'review-verses-heading',
           title: 'Повторение',
-          subtitle: 'Стихи в статусе REVIEW',
+          subtitle: 'Ваши стихи для повторения',
           dotClassName: 'bg-violet-500',
           borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
           tintClassName: 'bg-violet-500/5',
@@ -364,7 +360,7 @@ export function useVerseListController({
         config: {
           headingId: 'mastered-verses-heading',
           title: 'Выученные',
-          subtitle: 'Стихи в статусе MASTERED',
+          subtitle: 'Ваши выученные стихи',
           dotClassName: 'bg-amber-500',
           borderClassName: 'bg-gradient-to-b from-amber-500/8 to-background',
           tintClassName: 'bg-amber-500/8',
@@ -377,7 +373,7 @@ export function useVerseListController({
         config: {
           headingId: 'stopped-verses-heading',
           title: 'На паузе',
-          subtitle: 'Можно возобновить в один тап с карточки',
+          subtitle: 'Ваши стихи на паузе',
           dotClassName: 'bg-rose-500',
           borderClassName: 'bg-gradient-to-b from-rose-500/5 to-background',
           tintClassName: 'bg-rose-500/5',
@@ -385,17 +381,17 @@ export function useVerseListController({
       };
     }
     return {
-      items: newVerses,
+      items: filteredVerses,
       config: {
-        headingId: 'new-verses-heading',
-        title: 'Новые',
-        subtitle: 'Добавленные стихи, которые ещё не переведены в изучение',
+        headingId: 'my-verses-heading',
+        title: 'Мои стихи',
+        subtitle: 'Все стихи, добавленнуе в свой список',
         dotClassName: 'bg-sky-500',
         borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
         tintClassName: 'bg-sky-500/5',
       },
     };
-  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, newVerses]);
+  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);
 
   const listItems = statusFilter === 'all'
     ? hasLocalClientFiltersActive

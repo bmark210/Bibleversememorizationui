@@ -15,7 +15,7 @@ enum Translation {
 }
 
 enum VerseStatus {
-  NEW
+  MY
   LEARNING
   STOPPED
 }
@@ -55,7 +55,7 @@ model UserVerse {
   telegramId String // Actual Telegram ID
   verseId    String // FK → Verse.id
 
-  status     VerseStatus @default(NEW)
+  status     VerseStatus @default(MY)
 
   masteryLevel       Int       @default(0)
   repetitions        Int       @default(0)

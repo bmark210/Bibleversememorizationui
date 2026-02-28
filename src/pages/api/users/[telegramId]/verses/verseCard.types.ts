@@ -80,7 +80,7 @@ export function normalizeProgressValue(value: number | null | undefined): number
 export function normalizeBaseStatus(status: VerseStatus | null | undefined): VerseStatus {
   if (status === VerseStatus.LEARNING) return VerseStatus.LEARNING;
   if (status === VerseStatus.STOPPED) return VerseStatus.STOPPED;
-  return VerseStatus.NEW;
+  return VerseStatus.MY;
 }
 
 export function computeDisplayStatus(
@@ -92,7 +92,7 @@ export function computeDisplayStatus(
   const masteryLevel = normalizeProgressValue(masteryLevelInput);
   const repetitions = normalizeProgressValue(repetitionsInput);
 
-  if (baseStatus === VerseStatus.NEW) return VerseStatus.NEW;
+  if (baseStatus === VerseStatus.MY) return VerseStatus.MY;
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
 
   if (repetitions >= MASTERED_REPETITIONS_MIN) return "MASTERED";
@@ -133,9 +133,9 @@ function toIsoStringOrNull(value: Date | string | null | undefined): string | nu
 export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): VerseCardDto {
   const baseStatus = normalizeBaseStatus(verse.status);
   const masteryLevel =
-    baseStatus === VerseStatus.NEW ? 0 : normalizeProgressValue(verse.masteryLevel);
+    baseStatus === VerseStatus.MY ? 0 : normalizeProgressValue(verse.masteryLevel);
   const repetitions =
-    baseStatus === VerseStatus.NEW ? 0 : normalizeProgressValue(verse.repetitions);
+    baseStatus === VerseStatus.MY ? 0 : normalizeProgressValue(verse.repetitions);
 
   return {
     externalVerseId: verse.externalVerseId,

@@ -6,7 +6,7 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 
 const getMasteryColor = (status: DisplayVerseStatus) => {
   if (status === VerseStatus.STOPPED) return "text-destructive";
-  if (status === VerseStatus.NEW) return "text-sky-600";
+  if (status === VerseStatus.MY) return "text-sky-600";
   if (status === "MASTERED") return "text-emerald-600";
   if (status === "REVIEW") return "text-violet-600";
   if (status === VerseStatus.LEARNING) return "text-orange-500";
@@ -15,7 +15,7 @@ const getMasteryColor = (status: DisplayVerseStatus) => {
 
 const getMasteryLabel = (status: DisplayVerseStatus) => {
   if (status === VerseStatus.STOPPED) return "Остановлено";
-  if (status === VerseStatus.NEW) return "Новый";
+  if (status === VerseStatus.MY) return "Новый";
   if (status === "REVIEW") return "Повторение";
   if (status === "MASTERED") return "Освоено";
   return "Изучение";

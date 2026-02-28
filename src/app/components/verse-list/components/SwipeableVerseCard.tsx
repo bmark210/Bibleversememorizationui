@@ -74,7 +74,7 @@ export const SwipeableVerseCard = ({
   };
 
   const renderActions = () => {
-    if (displayStatus === VerseStatus.NEW) {
+    if (displayStatus === VerseStatus.MY) {
       return (
         <>
           <Button
@@ -252,7 +252,7 @@ export const SwipeableVerseCard = ({
     };
   })();
 
-  const statusMetaContent = displayStatus === VerseStatus.NEW ? null : (
+  const statusMetaContent = displayStatus === VerseStatus.MY ? null : (
     <div className={cn('relative rounded-xl border overflow-hidden', statusTone.wrapperClass)}>
       <div
         className={cn('absolute inset-y-0 left-0 transition-[width] duration-700 ease-out', statusTone.bgFillClass)}

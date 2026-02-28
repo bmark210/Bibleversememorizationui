@@ -95,7 +95,7 @@ const swaggerDoc = {
             name: "status",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["NEW", "LEARNING", "STOPPED"] },
+            schema: { type: "string", enum: ["MY", "LEARNING", "STOPPED"] },
           },
           {
             name: "orderBy",
@@ -113,7 +113,7 @@ const swaggerDoc = {
             name: "filter",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["all", "new", "learning", "review", "mastered", "stopped"] },
+            schema: { type: "string", enum: ["all", 'my', "learning", "review", "mastered", "stopped"] },
           },
           {
             name: "limit",
@@ -219,7 +219,7 @@ const swaggerDoc = {
                   nextReviewAt: { type: "string", format: "date-time" },
                   status: {
                     type: "string",
-                    enum: ["NEW", "LEARNING", "STOPPED"],
+                    enum: ["MY", "LEARNING", "STOPPED"],
                   },
                 },
               },

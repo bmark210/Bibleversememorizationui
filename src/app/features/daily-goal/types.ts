@@ -1,7 +1,7 @@
 export type DailyGoalPhase = 'learning' | 'review' | 'completed' | 'empty';
 export type DailyGoalResumeMode = 'learning' | 'review';
 
-export type DailyGoalTargetKind = 'new' | 'review';
+export type DailyGoalTargetKind = 'my' | 'review';
 
 export type DailyGoalReadinessResponse = {
   requested: {

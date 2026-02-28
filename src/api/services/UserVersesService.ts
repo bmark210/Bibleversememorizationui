@@ -22,10 +22,10 @@ export class UserVersesService {
      */
     public static getApiUsersVerses(
         telegramId: string,
-        status?: 'NEW' | 'LEARNING' | 'STOPPED',
+        status?: 'MY' | 'LEARNING' | 'STOPPED',
         orderBy?: 'createdAt' | 'updatedAt',
         order?: 'asc' | 'desc',
-        filter?: 'all' | 'new' | 'learning' | 'review' | 'mastered' | 'stopped',
+        filter?: 'all' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
         limit?: number,
         startWith?: number,
     ): CancelablePromise<UserVersesPageResponse> {
@@ -117,7 +117,7 @@ export class UserVersesService {
             lastReviewedAt?: string;
             nextReviewAt?: string;
             lastTrainingModeId?: number | null;
-            status?: 'NEW' | 'LEARNING' | 'STOPPED';
+            status?: 'MY' | 'LEARNING' | 'STOPPED';
         },
     ): CancelablePromise<UserVerse> {
         return __request(OpenAPI, {

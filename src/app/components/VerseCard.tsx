@@ -12,7 +12,7 @@ import { cn } from "./ui/utils";
 
 type VerseCardMinHeight = "auto" | "preview" | "training";
 export type VerseCardPreviewTone =
-  | "new"
+  | "my"
   | "learning"
   | "review"
   | "mastered"
@@ -61,7 +61,7 @@ const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
 };
 
 const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
-  new: "border-sky-500/20 bg-gradient-to-br from-sky-500/8 via-card to-card/85",
+  my: "border-sky-500/20 bg-gradient-to-br from-sky-500/8 via-card to-card/85",
   learning: "border-emerald-500/20 bg-gradient-to-br from-emerald-500/8 via-card to-card/85",
   review: "border-violet-500/22 bg-gradient-to-br from-violet-500/10 via-card to-card/85",
   mastered: "border-amber-500/28 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/8",
@@ -69,7 +69,7 @@ const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
 };
 
 const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
-  new: "bg-sky-500/18",
+  my: "bg-sky-500/18",
   learning: "bg-emerald-500/16",
   review: "bg-violet-500/18",
   mastered: "bg-amber-400/22",
@@ -77,7 +77,7 @@ const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
 };
 
 const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
-  new: "from-sky-500/0 via-sky-500/35 to-sky-500/0",
+  my: "from-sky-500/0 via-sky-500/35 to-sky-500/0",
   learning: "from-emerald-500/0 via-emerald-500/35 to-emerald-500/0",
   review: "from-violet-500/0 via-violet-500/35 to-violet-500/0",
   mastered: "from-amber-500/0 via-amber-500/45 to-amber-500/0",

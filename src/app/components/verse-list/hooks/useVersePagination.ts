@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
+import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
 import { Verse } from '@/app/App';
 import type { VerseListStatusFilter } from '../constants';
 import type { VersePatchEvent } from '@/app/types/verseSync';
@@ -99,6 +100,18 @@ export function useVersePagination({
 
   const requestVersesPage = useCallback(
     async (id: string, filter: VerseListStatusFilter, startWith?: number | null) => {
+      if (filter === 'all') {
+        const page = await fetchCatalogVersesPage({
+          telegramId: id,
+          limit: pageSize,
+          startWith: startWith ?? undefined,
+        });
+        return {
+          ...page,
+          items: page.items as Array<Verse>,
+        };
+      }
+
       const page = await fetchUserVersesPage({
         telegramId: id,
         orderBy: 'createdAt',

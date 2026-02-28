@@ -88,7 +88,7 @@ export function useVerseActions({
 
   const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
     const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
-    if (prevStatus === VerseStatus.NEW && nextStatus === VerseStatus.LEARNING) {
+    if (prevStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
       return 'Добавлено в изучение';
     }
     if (prevStatus === VerseStatus.STOPPED && nextStatus === VerseStatus.LEARNING) {
@@ -117,8 +117,29 @@ export function useVerseActions({
     [telegramId]
   );
 
+  // POST /api/users/:id/verses — добавляет стих в коллекцию пользователя.
+  // Если стих уже добавлен (400), ошибку игнорируем.
+  const addVerseToCollection = useCallback(
+    async (externalVerseId: string): Promise<void> => {
+      if (!telegramId) throw new Error('No telegramId');
+      const response = await fetch(`/api/users/${encodeURIComponent(telegramId)}/verses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ externalVerseId }),
+      });
+      if (!response.ok && response.status !== 400) {
+        throw new Error(`Failed to add verse to collection: ${response.status}`);
+      }
+    },
+    [telegramId]
+  );
+
   const handleStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
+      // В режиме каталога (all) UserVerse может ещё не существовать — создаём через POST
+      if (statusFilter === 'all') {
+        await addVerseToCollection(verse.externalVerseId);
+      }
       const patch = await patchVerseStatusOnServer(verse, status);
       applyVersePatch(
         { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
@@ -128,6 +149,7 @@ export function useVerseActions({
       return patch;
     },
     [
+      addVerseToCollection,
       applyVersePatch,
       matchesListFilter,
       onVerseMutationCommitted,
@@ -149,6 +171,10 @@ export function useVerseActions({
 
       markVersePending(verse, true);
       try {
+        // В режиме каталога (all) UserVerse может ещё не существовать — создаём через POST
+        if (statusFilter === 'all') {
+          await addVerseToCollection(verse.externalVerseId);
+        }
         const patch = await patchVerseStatusOnServer(verse, nextStatus);
         applyVersePatch(
           { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
@@ -179,6 +205,7 @@ export function useVerseActions({
       matchesListFilter,
       statusFilter,
       setTotalCount,
+      addVerseToCollection,
       patchVerseStatusOnServer,
       setAnnouncement,
       resetAndFetchFirstPage,
@@ -197,7 +224,13 @@ export function useVerseActions({
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
-      await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
+      try {
+        await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
+      } catch (err: unknown) {
+        // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
+        const status = (err as any)?.status ?? (err as any)?.statusCode;
+        if (status !== 404) throw err;
+      }
       setVerses((prev) => {
         const hadVerse = prev.some((v) => isSameVerse(v, verse));
         const updated = prev.filter((v) => !isSameVerse(v, verse));

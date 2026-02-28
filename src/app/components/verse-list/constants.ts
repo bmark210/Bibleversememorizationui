@@ -9,7 +9,7 @@ export type VerseListStatusFilter =
   | 'review'
   | 'mastered'
   | 'stopped'
-  | 'new';
+  | 'my';
 export type VerseStageVisualKey = Exclude<VerseListStatusFilter, 'all'>;
 export type StoppedVerseStageKind = 'progress' | 'review' | 'mastered';
 
@@ -78,7 +78,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     cardClassName: 'border-rose-500/18 bg-gradient-to-br from-rose-500/6 via-card to-card',
   },
-  new: {
+  my: {
     dotClassName: 'bg-sky-400',
     activeTabClassName: 'border-sky-500/30 bg-sky-500/14 text-sky-700 dark:text-sky-300',
     currentBadgeClassName:
@@ -113,8 +113,8 @@ export function getVerseStageVisual(
   label: string;
 } {
   const status = normalizeDisplayVerseStatus(verse.status);
-  if (status === VerseStatus.NEW) {
-    return { key: 'new', label: 'Новый' };
+  if (status === VerseStatus.MY) {
+    return { key: 'my', label: 'Новый' };
   }
 
   if (status === VerseStatus.STOPPED) {
@@ -142,7 +142,7 @@ export function getVerseStageVisual(
 export function getVerseCardLayoutSignature(
   verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
 ):
-  | 'new'
+  | 'my'
   | 'learning-progress'
   | 'review-pill'
   | 'stopped-progress'
@@ -150,8 +150,8 @@ export function getVerseCardLayoutSignature(
   | 'stopped-mastered' {
   const status = normalizeDisplayVerseStatus(verse.status);
 
-  if (status === VerseStatus.NEW) {
-    return 'new';
+  if (status === VerseStatus.MY) {
+    return 'my';
   }
 
   if (status === VerseStatus.LEARNING) {

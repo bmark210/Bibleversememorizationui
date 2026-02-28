@@ -177,7 +177,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "NEW",
+                "MY",
                 "LEARNING",
                 "STOPPED"
               ]
@@ -215,7 +215,7 @@
               "type": "string",
               "enum": [
                 "all",
-                "new",
+                "my",
                 "learning",
                 "review",
                 "stopped"
@@ -430,7 +430,7 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "NEW",
+                      "MY",
                       "LEARNING",
                       "STOPPED"
                     ]

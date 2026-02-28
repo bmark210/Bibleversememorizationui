@@ -46,6 +46,9 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
       limit: query.limit,
       startWith: query.startWith,
     });
+
+    
+    
     return res.status(200).json(page);
   } catch (error) {
     if (error instanceof UserVersesApiError) {

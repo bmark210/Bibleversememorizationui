@@ -475,9 +475,9 @@ function getTelegramId(): string | null {
   return tgUserId ? String(tgUserId) : null;
 }
 
-function patchStatusForVerse(verse: SessionVerse): 'NEW' | 'LEARNING' | 'STOPPED' {
+function patchStatusForVerse(verse: SessionVerse): 'LEARNING' | 'STOPPED' | 'MY' {
   if (verse.status === VerseStatus.STOPPED) return 'STOPPED';
-  return verse.rawMasteryLevel > 0 ? 'LEARNING' : 'NEW';
+  return verse.rawMasteryLevel > 0 ? 'LEARNING' : 'MY';
 }
 
 async function persistVerseProgress(
@@ -648,7 +648,7 @@ export function TrainingSession({
             ? (nextRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED
                 ? 'MASTERED'
                 : (graduatesToReview ? 'REVIEW' : VerseStatus.LEARNING))
-            : VerseStatus.NEW),
+            : VerseStatus.MY),
     };
 
     const updatedVerses = [...runtime.verses];

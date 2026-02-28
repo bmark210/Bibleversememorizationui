@@ -7,7 +7,7 @@
 // Note: POST /verses returns a raw Prisma record — its response is not stored by the frontend.
 export type UserVerse = {
     externalVerseId: string;
-    status: 'NEW' | 'LEARNING' | 'STOPPED' | 'REVIEW' | 'MASTERED';
+    status: 'MY' | 'LEARNING' | 'STOPPED' | 'REVIEW' | 'MASTERED';
     masteryLevel: number;
     repetitions: number;
     lastReviewedAt?: string | null;

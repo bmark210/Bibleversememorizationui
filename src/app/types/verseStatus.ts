@@ -7,7 +7,7 @@ export function normalizeDisplayVerseStatus(value: unknown): DisplayVerseStatus 
   if (value === "MASTERED") return "MASTERED";
   if (value === VerseStatus.LEARNING || value === "LEARNING") return VerseStatus.LEARNING;
   if (value === VerseStatus.STOPPED || value === "STOPPED") return VerseStatus.STOPPED;
-  return VerseStatus.NEW;
+  return VerseStatus.MY;
 }
 
 export function isActiveLearningLikeStatus(status: DisplayVerseStatus): boolean {
