@@ -10,7 +10,7 @@ export type VerseListStatusFilter =
   | "mastered"
   | "stopped"
   | "my";
-export type VerseStageVisualKey = Exclude<VerseListStatusFilter, "catalog">;
+export type VerseStageVisualKey = VerseListStatusFilter;
 export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
 export type FilterVisualTheme = {
