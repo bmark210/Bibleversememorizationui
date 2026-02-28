@@ -111,7 +111,7 @@ export const SwipeableVerseCard = ({
               onAddToLearning(verse);
             }}
           >
-            <Plus className="w-4 h-4" />
+            <Brain className="w-4 h-4" />
           </Button>
           <Button
             type="button"

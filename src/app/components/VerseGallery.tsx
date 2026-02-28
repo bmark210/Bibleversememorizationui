@@ -201,6 +201,9 @@ function haptic(style: HapticStyle) {
 }
 
 function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {
+  if (status === "CATALOG") {
+    return { nextStatus: VerseStatus.MY, label: "Добавить в мои", icon: Plus, successMessage: "Добавлено в мои стихи" };
+  }
   if (status === VerseStatus.MY) {
     return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
@@ -769,15 +772,17 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const previewTotalProgress = Math.min(previewRawMasteryLevel + previewRepetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
   const previewTotalProgressPercent = Math.round((previewTotalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
   const previewTone: VerseCardPreviewTone | undefined = preview
-    ? previewStatus === VerseStatus.MY
-      ? "my"
-      : previewStatus === VerseStatus.STOPPED
-        ? "stopped"
-        : previewStatus === "MASTERED"
-          ? "mastered"
-          : isPreviewReviewStage
-          ? "review"
-          : "learning"
+    ? previewStatus === "CATALOG"
+      ? "catalog"
+      : previewStatus === VerseStatus.MY
+        ? "my"
+        : previewStatus === VerseStatus.STOPPED
+          ? "stopped"
+          : previewStatus === "MASTERED"
+            ? "mastered"
+            : isPreviewReviewStage
+            ? "review"
+            : "learning"
     : undefined;
   const isTrainingReviewStage = trainingVerse
     ? trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED"
@@ -797,15 +802,26 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
   const isTrainingStartPrimaryAction = Boolean(
     preview &&
       previewStatus &&
+      previewStatus !== "CATALOG" &&
       previewStatus !== VerseStatus.MY &&
       previewStatus !== VerseStatus.STOPPED &&
       previewStatus !== "MASTERED" &&
       !isPreviewNotYetDue
   );
+  
   const previewPrimaryAction =
     !preview || !previewStatus
       ? null
-      : previewStatus === VerseStatus.MY
+      : previewStatus === "CATALOG"
+        ? {
+            label: "Добавить в мои",
+            ariaLabel: "Добавить стих в мои стихи",
+            icon: Plus,
+            onClick: () => void onPreviewStatusAction(),
+            className:
+              "border border-slate-500/25 bg-gradient-to-r from-slate-500/14 to-slate-500/8 text-slate-700 hover:bg-slate-500/18 dark:text-slate-300",
+          }
+        : previewStatus === VerseStatus.MY
         ? {
             label: "Добавить в мои",
             ariaLabel: "Добавить стих в мои",
@@ -855,7 +871,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
             : {
                 label: "Учить",
                 ariaLabel: "Учить этот стих",
-                icon: Play,
+                icon: Brain,
                 onClick: () => void onStartTraining(),
                 className:
                   "border border-emerald-500/25 bg-gradient-to-r from-emerald-500/18 to-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
@@ -1040,7 +1056,7 @@ const VerseGalleryUnifiedCardViewport = memo(function VerseGalleryUnifiedCardVie
           ) : null
         }
         footer={
-          isPreview && preview && previewStatus !== VerseStatus.MY ? (
+          isPreview && preview && previewStatus !== "CATALOG" && previewStatus !== VerseStatus.MY ? (
             <motion.div
               key={`preview-status-footer-${preview.id}-${previewStatus}-${previewTotalProgress}`}
               initial={{ opacity: 0, y: 6, scale: 0.985 }}
@@ -2191,7 +2207,7 @@ export function VerseGallery({
           <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
             <Button
               variant="outline"
-              className="gap-2 backdrop-blur-xl rounded-2xl"
+              className="flex gap-2 backdrop-blur-xl rounded-2xl"
               ref={closeButtonRef}
               onClick={onClose}
               disabled={actionPending}
@@ -2200,7 +2216,7 @@ export function VerseGallery({
               Завершить
             </Button>
             {previewStatusAction && (
-              <Button variant="secondary" className=" gap-2 backdrop-blur-xl rounded-2xl" onClick={() => { void handlePreviewStatusAction(); }} disabled={actionPending} aria-label={previewStatusAction.label}>
+              <Button variant="outline" className="flex gap-2 backdrop-blur-xl rounded-2xl" onClick={() => { void handlePreviewStatusAction(); }} disabled={actionPending} aria-label={previewStatusAction.label}>
                 <previewStatusAction.icon className="h-4 w-4" />
               </Button>
             )}
