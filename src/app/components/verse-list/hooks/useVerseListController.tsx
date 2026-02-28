@@ -87,7 +87,9 @@ export function useVerseListController({
       if (filter === 'review') return isReviewVerse(verse);
       if (filter === 'mastered') return isMasteredVerse(verse);
       if (filter === 'stopped') return status === VerseStatus.STOPPED;
-      return true; // 'my' = все стихи пользователя, серверная фильтрация по telegramId
+      if (filter === 'my') return status !== 'CATALOG';
+      if (filter === 'catalog') return status === 'CATALOG';
+      return true;
     },
     [isMasteredVerse, isReviewVerse]
   );
@@ -278,7 +280,10 @@ export function useVerseListController({
       <SwipeableVerseCard
         verse={verse}
         onOpen={() => openVerseInGallery(verse)}
-        onAddToLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.LEARNING)}
+        onAddToLearning={(v) => {
+          const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
+          void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
+        }}
         onPauseLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.STOPPED)}
         onResumeLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.LEARNING)}
         onRequestDelete={actions.confirmDeleteVerse}

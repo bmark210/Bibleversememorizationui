@@ -117,17 +117,15 @@ export function useVerseActions({
     [telegramId]
   );
 
-  // POST /api/users/:id/verses — добавляет стих в коллекцию пользователя.
-  // Если стих уже добавлен (400), ошибку игнорируем.
+  // PUT /api/users/:id/verses/:externalVerseId — создаёт UserVerse (статус MY) если ещё нет.
   const addVerseToCollection = useCallback(
     async (externalVerseId: string): Promise<void> => {
       if (!telegramId) throw new Error('No telegramId');
-      const response = await fetch(`/api/users/${encodeURIComponent(telegramId)}/verses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ externalVerseId }),
-      });
-      if (!response.ok && response.status !== 400) {
+      const response = await fetch(
+        `/api/users/${encodeURIComponent(telegramId)}/verses/${encodeURIComponent(externalVerseId)}`,
+        { method: 'PUT' }
+      );
+      if (!response.ok) {
         throw new Error(`Failed to add verse to collection: ${response.status}`);
       }
     },
@@ -136,8 +134,8 @@ export function useVerseActions({
 
   const handleStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
-      // В режиме каталога (all) UserVerse может ещё не существовать — создаём через POST
-      if (statusFilter === 'all') {
+      // CATALOG-стих не имеет UserVerse — создаём перед изменением статуса
+      if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
         await addVerseToCollection(verse.externalVerseId);
       }
       const patch = await patchVerseStatusOnServer(verse, status);
@@ -171,8 +169,8 @@ export function useVerseActions({
 
       markVersePending(verse, true);
       try {
-        // В режиме каталога (all) UserVerse может ещё не существовать — создаём через POST
-        if (statusFilter === 'all') {
+        // CATALOG-стих не имеет UserVerse — создаём перед изменением статуса
+        if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
           await addVerseToCollection(verse.externalVerseId);
         }
         const patch = await patchVerseStatusOnServer(verse, nextStatus);
@@ -231,21 +229,32 @@ export function useVerseActions({
         const status = (err as any)?.status ?? (err as any)?.statusCode;
         if (status !== 404) throw err;
       }
-      setVerses((prev) => {
-        const hadVerse = prev.some((v) => isSameVerse(v, verse));
-        const updated = prev.filter((v) => !isSameVerse(v, verse));
-        if (hadVerse) {
-          setTotalCount((count) => Math.max(0, count - 1));
-        }
-        setGalleryIndex((cur) => {
-          if (updated.length === 0 || cur === null) return null;
-          return cur >= updated.length ? updated.length - 1 : cur;
+      if (statusFilter === 'all') {
+        // В фильтре "all" карточка остаётся видимой — сбрасываем статус в CATALOG, очищаем прогресс
+        setVerses((prev) =>
+          prev.map((v) =>
+            isSameVerse(v, verse)
+              ? { ...v, status: 'CATALOG' as const, masteryLevel: 0, repetitions: 0, lastReviewedAt: null, nextReviewAt: null }
+              : v
+          )
+        );
+      } else {
+        setVerses((prev) => {
+          const hadVerse = prev.some((v) => isSameVerse(v, verse));
+          const updated = prev.filter((v) => !isSameVerse(v, verse));
+          if (hadVerse) {
+            setTotalCount((count) => Math.max(0, count - 1));
+          }
+          setGalleryIndex((cur) => {
+            if (updated.length === 0 || cur === null) return null;
+            return cur >= updated.length ? updated.length - 1 : cur;
+          });
+          return updated;
         });
-        return updated;
-      });
+      }
       onVerseMutationCommitted?.();
     },
-    [telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
+    [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
   );
 
   const confirmDeleteVerse = useCallback((verse: Verse) => {
@@ -267,8 +276,9 @@ export function useVerseActions({
     try {
       await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
-      pushToast('Удалено', 'success');
-      setAnnouncement(`${deleteTargetVerse.reference}: Удалено`);
+      const deleteMessage = statusFilter === 'all' ? 'Сброшено в каталог' : 'Удалено';
+      pushToast(deleteMessage, 'success');
+      setAnnouncement(`${deleteTargetVerse.reference}: ${deleteMessage}`);
       setDeleteTargetVerse(null);
     } catch (err) {
       console.error('Не удалось удалить стих:', err);
@@ -281,6 +291,7 @@ export function useVerseActions({
   }, [
     deleteTargetVerse,
     telegramId,
+    statusFilter,
     pushToast,
     markVersePending,
     handleDeleteVerse,

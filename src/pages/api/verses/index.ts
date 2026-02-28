@@ -37,7 +37,7 @@ function normalizeProgress(value: number | null | undefined): number {
   return Math.max(0, Math.trunc(value));
 }
 
-type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED";
+type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 
 function computeDisplayStatus(
   status: VerseStatus | null | undefined,
@@ -219,10 +219,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         };
       }
 
-      // Verse not in the user's collection — catalog default
+      // Verse not in the user's collection — catalog item (no user progress)
       return {
         externalVerseId: verse.externalVerseId,
-        status: VerseStatus.MY as DisplayStatus,
+        status: "CATALOG" as DisplayStatus,
         masteryLevel: 0,
         repetitions: 0,
         lastTrainingModeId: null,

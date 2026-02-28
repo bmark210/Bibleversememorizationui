@@ -74,6 +74,27 @@ export const SwipeableVerseCard = ({
   };
 
   const renderActions = () => {
+    // Глобальный стих, не добавленный пользователем — только кнопка "Добавить"
+    if (displayStatus === 'CATALOG') {
+      return (
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          title="Добавить в мои стихи"
+          aria-label="Добавить стих в список своих"
+          disabled={isPending}
+          className="rounded-lg"
+          onClick={(e) => {
+            stopCardOpen(e);
+            onAddToLearning(verse);
+          }}
+        >
+          <Plus className="w-4 h-4" />
+        </Button>
+      );
+    }
+
     if (displayStatus === VerseStatus.MY) {
       return (
         <>
@@ -252,7 +273,7 @@ export const SwipeableVerseCard = ({
     };
   })();
 
-  const statusMetaContent = displayStatus === VerseStatus.MY ? null : (
+  const statusMetaContent = (displayStatus === VerseStatus.MY || displayStatus === 'CATALOG') ? null : (
     <div className={cn('relative rounded-xl border overflow-hidden', statusTone.wrapperClass)}>
       <div
         className={cn('absolute inset-y-0 left-0 transition-[width] duration-700 ease-out', statusTone.bgFillClass)}

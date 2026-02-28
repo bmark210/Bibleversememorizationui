@@ -14,7 +14,7 @@ type PrismaUserVerseWithVerse = Prisma.UserVerseGetPayload<{
   include: { verse: true };
 }>;
 
-export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED";
+export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 
 export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
 
@@ -121,7 +121,7 @@ export function canMutateRepetitionsByMastery(
   );
 }
 
-function toIsoStringOrNull(value: Date | string | null | undefined): string | null {
+export function toIsoStringOrNull(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
 

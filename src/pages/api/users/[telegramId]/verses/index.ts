@@ -7,13 +7,6 @@ import {
   UserVersesApiError,
 } from "./_shared";
 
-type UpsertVersePayload = {
-  externalVerseId?: string;
-  masteryLevel?: number;
-  repetitions?: number;
-  lastReviewedAt?: string;
-  nextReviewAt?: string;
-};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
@@ -26,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "POST") {
-    return handlePost(req, res, telegramId);
+    return handlePost(req, res);
   }
 
   res.setHeader("Allow", "GET, POST");
@@ -62,58 +55,25 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
   }
 }
 
-async function handlePost(req: NextApiRequest, res: NextApiResponse, telegramId: string) {
-  // Создаёт глобальный Verse (если его нет), затем привязывает его к пользователю с начальным прогрессом.
+async function handlePost(req: NextApiRequest, res: NextApiResponse) {
+  // Добавляет стих в глобальный каталог без привязки к пользователю.
   try {
-    const body = req.body as UpsertVersePayload;
-    const { externalVerseId, masteryLevel = 0, repetitions = 0, lastReviewedAt, nextReviewAt } = body;
+    const body = req.body as { externalVerseId?: string };
+    const { externalVerseId } = body;
 
     if (!externalVerseId) {
       return res.status(400).json({ error: "externalVerseId is required" });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Ensure the verse exists in the global catalog; create it if it doesn't yet.
     const globalVerse = await prisma.verse.upsert({
       where: { externalVerseId },
       update: {},
       create: { externalVerseId },
     });
 
-    const existing = await prisma.userVerse.findUnique({
-      where: {
-        telegramId_verseId: {
-          telegramId,
-          verseId: globalVerse.id,
-        },
-      },
-    });
-
-    if (existing) {
-      return res.status(400).json({ error: "Стих уже добавлен в ваш список стихов" });
-    }
-
-    const userVerse = await prisma.userVerse.create({
-      data: {
-        telegramId,
-        verseId: globalVerse.id,
-        masteryLevel,
-        repetitions,
-        lastReviewedAt: lastReviewedAt ? new Date(lastReviewedAt) : undefined,
-        nextReviewAt: nextReviewAt ? new Date(nextReviewAt) : undefined,
-      },
-    });
-
-    return res.status(201).json({ ...userVerse, externalVerseId });
+    return res.status(201).json({ externalVerseId: globalVerse.externalVerseId, id: globalVerse.id });
   } catch (error) {
-    console.error("Error creating/updating verse:", error);
+    console.error("Error creating verse:", error);
     return res.status(500).json({
       error: "Internal Server Error",
       details: error instanceof Error ? error.message : String(error),

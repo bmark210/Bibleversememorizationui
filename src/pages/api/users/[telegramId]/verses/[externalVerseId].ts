@@ -32,6 +32,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "telegramId and externalVerseId are required" });
   }
 
+  if (req.method === "PUT") {
+    return handlePut(res, telegramId, externalVerseId);
+  }
+
   // Поддерживает обновление и удаление прогресса по конкретному стиху.
   if (req.method === "PATCH") {
     return handlePatch(req, res, telegramId, externalVerseId);
@@ -41,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleDelete(res, telegramId, externalVerseId);
   }
 
-  res.setHeader("Allow", "PATCH, DELETE");
+  res.setHeader("Allow", "PUT, PATCH, DELETE");
   return res.status(405).json({ error: "Method Not Allowed" });
 }
 
@@ -63,6 +67,40 @@ async function resolveUserVerse(telegramId: string, externalVerseId: string) {
   });
 
   return { globalVerse, userVerse };
+}
+
+async function handlePut(res: NextApiResponse, telegramId: string, externalVerseId: string) {
+  // Добавляет стих в коллекцию пользователя (создаёт UserVerse со статусом MY, если нет).
+  try {
+    const [user, globalVerse] = await Promise.all([
+      prisma.user.findUnique({ where: { telegramId }, select: { id: true } }),
+      prisma.verse.findUnique({ where: { externalVerseId }, select: { id: true } }),
+    ]);
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!globalVerse) return res.status(404).json({ error: "Verse not found in catalog" });
+
+    const userVerse = await prisma.userVerse.upsert({
+      where: { telegramId_verseId: { telegramId, verseId: globalVerse.id } },
+      update: {},
+      create: { telegramId, verseId: globalVerse.id, status: VerseStatus.MY },
+      include: { verse: true },
+    });
+
+    return res.status(200).json(
+      mapUserVerseToVerseCardDto({
+        ...(userVerse as UserVerseWithLegacyNullableProgress),
+        externalVerseId: userVerse.verse.externalVerseId,
+        tags: [],
+      })
+    );
+  } catch (error) {
+    console.error("Error adding verse to collection:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function handlePatch(

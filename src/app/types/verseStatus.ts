@@ -1,8 +1,9 @@
 import { VerseStatus } from "@/generated/prisma";
 
-export type DisplayVerseStatus = VerseStatus | "REVIEW" | "MASTERED";
+export type DisplayVerseStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 
 export function normalizeDisplayVerseStatus(value: unknown): DisplayVerseStatus {
+  if (value === "CATALOG") return "CATALOG";
   if (value === "WAITING" || value === "REVIEW") return "REVIEW";
   if (value === "MASTERED") return "MASTERED";
   if (value === VerseStatus.LEARNING || value === "LEARNING") return VerseStatus.LEARNING;

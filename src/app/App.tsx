@@ -766,38 +766,22 @@ export default function App({ onInitialContentReady }: AppProps) {
     tags: string[];
   }): Promise<void> => {
     const telegramId = localStorage.getItem("telegramId") ?? "";
-    let addedSuccessfully = false;
 
     try {
       await UserVersesService.postApiUsersVerses(telegramId, {
         externalVerseId: verse.externalVerseId,
-        masteryLevel: 0,
-        repetitions: 0,
-        lastReviewedAt: undefined,
-        nextReviewAt: undefined,
       });
 
-      // Обновляем данные пользователя после добавления стиха
-      const updatedUser = await UsersService.getApiUsers(telegramId);
-      setUser(updatedUser);
       setVerseListExternalSyncVersion((prev) => prev + 1);
-      addedSuccessfully = true;
 
-      toast.success("Стих успешно добавлен", {
-        description: `${verse.reference} добавлен в ваш список стихов.`,
+      toast.success("Стих добавлен в каталог", {
+        description: `${verse.reference} добавлен в каталог.`,
       });
     } catch (err) {
       const errorMessage = (err as ApiError)?.body?.error as string;
       console.error("Не удалось добавить стих:", errorMessage);
       toast.error(errorMessage ?? "Не удалось добавить стих");
       throw err;
-    }
-
-    if (addedSuccessfully && telegramId && trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
-        force: true,
-      });
     }
   };
 

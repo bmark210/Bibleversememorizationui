@@ -4,14 +4,15 @@ import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 export type VerseListStatusFilter =
-  | 'all'
+  | "all"
+  | "catalog"
   | 'learning'
-  | 'review'
-  | 'mastered'
-  | 'stopped'
-  | 'my';
-export type VerseStageVisualKey = Exclude<VerseListStatusFilter, 'all'>;
-export type StoppedVerseStageKind = 'progress' | 'review' | 'mastered';
+  | "review"
+  | "mastered"
+  | "stopped"
+  | "my";
+export type VerseStageVisualKey = Exclude<VerseListStatusFilter, "all">;
+export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
 export type FilterVisualTheme = {
   dotClassName: string;
@@ -37,6 +38,13 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     currentBadgeClassName: 'border-foreground/15 bg-foreground/5 text-foreground/90',
     statusBadgeClassName: 'border-border/70 bg-background/80 text-foreground/90',
     cardClassName: 'bg-card border-border/70',
+  },
+  catalog: {
+    dotClassName: 'bg-gray-400',
+    activeTabClassName: 'border-gray-500/30 bg-gray-500/14 text-gray-700 dark:text-gray-300',
+    currentBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
+    statusBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
+    cardClassName: 'border-gray-500/20 bg-gradient-to-br from-gray-500/7 via-card to-card',
   },
   learning: {
     dotClassName: 'bg-emerald-400',
@@ -113,8 +121,12 @@ export function getVerseStageVisual(
   label: string;
 } {
   const status = normalizeDisplayVerseStatus(verse.status);
+  if (status === "CATALOG") {
+    return { key: "catalog", label: "Каталог" };
+  }
+
   if (status === VerseStatus.MY) {
-    return { key: 'my', label: 'Новый' };
+    return { key: "my", label: "Мой" };
   }
 
   if (status === VerseStatus.STOPPED) {
@@ -142,6 +154,7 @@ export function getVerseStageVisual(
 export function getVerseCardLayoutSignature(
   verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
 ):
+  | 'catalog'
   | 'my'
   | 'learning-progress'
   | 'review-pill'
@@ -149,6 +162,10 @@ export function getVerseCardLayoutSignature(
   | 'stopped-repeat'
   | 'stopped-mastered' {
   const status = normalizeDisplayVerseStatus(verse.status);
+
+  if (status === 'CATALOG') {
+    return 'catalog';
+  }
 
   if (status === VerseStatus.MY) {
     return 'my';

@@ -185,7 +185,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
 export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Record<string, unknown> | undefined {
   if (query.filter) {
     if (query.filter === "all") return undefined;
-    if (query.filter === "my") return undefined; // все UserVerse текущего пользователя, без фильтра по статусу
+    if (query.filter === "my") return undefined; // все стихи пользователя, без фильтра по статусу
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
     if (
       query.filter === "learning" ||
@@ -208,10 +208,11 @@ function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter i
 }
 
 function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
-  if (!filter || filter === "all" || filter === "my") return verses; // my = все стихи пользователя
+  if (!filter || filter === "all") return verses;
   if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
   if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
   if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");
+  if (filter === "my") return verses.filter((verse) => verse.status === VerseStatus.MY);
   if (filter === "stopped") return verses.filter((verse) => verse.status === VerseStatus.STOPPED);
   return verses;
 }
@@ -238,7 +239,7 @@ function buildUserVersesOrderBy(
   ];
 }
 
-async function getUserTranslationForTelegram(telegramId: string) {
+export async function getUserTranslationForTelegram(telegramId: string) {
   const user = await prisma.user.findUnique({
     where: { telegramId },
     select: { id: true, translation: true },
@@ -425,6 +426,107 @@ export async function fetchEnrichedUserVerses({
   });
 
   return enrichUserVerses(flattenVerseRows(rawRows), translation);
+}
+
+export type EnrichedExternalVerse = {
+  externalVerseId: string;
+  text: string;
+  reference: string;
+  tags: VerseCardTagDto[];
+};
+
+export async function enrichExternalVerseIds(
+  externalVerseIds: string[],
+  translation: string
+): Promise<Map<string, EnrichedExternalVerse>> {
+  const unique = Array.from(new Set(externalVerseIds.filter(Boolean)));
+  if (unique.length === 0) return new Map();
+
+  const requestGroups = new Map<
+    string,
+    { translation: string; book: number; chapter: number; verses: number[] }
+  >();
+
+  for (const id of unique) {
+    const parsed = parseExternalVerseId(id);
+    if (!parsed) continue;
+    const key = buildGroupKey(translation, parsed.book, parsed.chapter);
+    const existing = requestGroups.get(key);
+    if (existing) {
+      existing.verses.push(parsed.verse);
+    } else {
+      requestGroups.set(key, { translation, book: parsed.book, chapter: parsed.chapter, verses: [parsed.verse] });
+    }
+  }
+
+  const groupedRequests = Array.from(requestGroups.values());
+  const textsMap = new Map<string, Map<number, string>>();
+  const tagsByVerseIdPromise = fetchTagsForVerses(unique);
+
+  groupedRequests.forEach((req) => {
+    req.verses = Array.from(new Set(req.verses));
+  });
+
+  const missingRequests = groupedRequests
+    .map((req) => {
+      const key = buildGroupKey(req.translation, req.book, req.chapter);
+      const cached = getCachedBollsChapter(key);
+      if (cached) {
+        textsMap.set(key, new Map(cached.verses));
+        const missingVerses = req.verses.filter((v) => !cached.verses.has(v));
+        return missingVerses.length > 0 ? { ...req, verses: missingVerses } : null;
+      }
+      textsMap.set(key, new Map());
+      return req;
+    })
+    .filter((req): req is { translation: string; book: number; chapter: number; verses: number[] } => Boolean(req));
+
+  if (missingRequests.length > 0) {
+    const response = await fetch(BOLLS_BATCH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(missingRequests),
+    });
+    if (response.ok) {
+      const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
+      payload.forEach((items, index) => {
+        const request = missingRequests[index];
+        if (!request) return;
+        const key = buildGroupKey(request.translation, request.book, request.chapter);
+        const map = textsMap.get(key) ?? new Map<number, string>();
+        items?.forEach((item) => {
+          if (typeof item?.verse === "number" && typeof item?.text === "string") {
+            map.set(item.verse, item.text);
+            upsertCachedBollsVerse(key, item.verse, item.text);
+          }
+        });
+        textsMap.set(key, map);
+      });
+    } else {
+      console.warn("Не удалось получить тексты от Bolls:", response.status);
+    }
+  }
+
+  const tagsByVerseId = await tagsByVerseIdPromise;
+  const result = new Map<string, EnrichedExternalVerse>();
+
+  for (const id of unique) {
+    const parsed = parseExternalVerseId(id);
+    const text = parsed
+      ? textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter))?.get(parsed.verse)
+      : undefined;
+    const reference = parsed
+      ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`
+      : undefined;
+    result.set(id, {
+      externalVerseId: id,
+      text: text ?? "",
+      reference: reference ?? id,
+      tags: tagsByVerseId.get(id) ?? [],
+    });
+  }
+
+  return result;
 }
 
 export async function fetchPaginatedEnrichedUserVerses({
