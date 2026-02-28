@@ -1,0 +1,118 @@
+import type { RefObject } from "react";
+import { cn } from "@/app/components/ui/utils";
+import { VerseCard } from "@/app/components/VerseCard";
+import {
+  TrainingModeRenderer,
+  type TrainingModeRendererHandle,
+} from "@/app/components/training-session/TrainingModeRenderer";
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { MODE_PIPELINE } from "../constants";
+import { asLegacyVerse, computeTotalProgressPercent } from "../utils";
+import type { TrainingVerseState, ModeId, Rating } from "../types";
+
+type Props = {
+  trainingVerse: TrainingVerseState;
+  modeId: ModeId;
+  rendererRef: RefObject<TrainingModeRendererHandle | null>;
+  onSwipeStep: (step: 1 | -1) => void;
+  onRate: (rating: Rating) => void | Promise<void>;
+};
+
+export function TrainingCard({
+  trainingVerse,
+  modeId,
+  rendererRef,
+  onSwipeStep,
+  onRate,
+}: Props) {
+  const isReviewStage =
+    trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED";
+  const totalProgressPercent = computeTotalProgressPercent(
+    trainingVerse.rawMasteryLevel,
+    trainingVerse.repetitions
+  );
+  const legacyVerse = asLegacyVerse(trainingVerse);
+
+  return (
+    <div className="w-full">
+      <VerseCard
+        isActive
+        minHeight="training"
+        onVerticalSwipeStep={onSwipeStep}
+        header={
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">
+              {trainingVerse.raw.reference}
+            </h2>
+            <div className="mx-auto">
+              {/* Training badge — plain div, no motion wrapper */}
+              <div
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur-sm",
+                  isReviewStage
+                    ? "border-violet-500/25 bg-violet-500/10"
+                    : "border-emerald-500/25 bg-emerald-500/10"
+                )}
+              >
+                <span
+                  className={cn(
+                    "text-[9px] font-semibold uppercase tracking-[0.14em]",
+                    isReviewStage
+                      ? "text-violet-700/85 dark:text-violet-300/90"
+                      : "text-emerald-700/80 dark:text-emerald-300/90"
+                  )}
+                >
+                  {isReviewStage ? "Повторение" : "Освоение"}
+                </span>
+
+                {/* Progress bar — CSS transition */}
+                <div
+                  role="progressbar"
+                  aria-label="Прогресс изучения"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={totalProgressPercent}
+                  className={cn(
+                    "relative h-1 w-16 overflow-hidden rounded-full",
+                    isReviewStage ? "bg-violet-500/15" : "bg-emerald-500/15"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out",
+                      isReviewStage ? "bg-violet-500" : "bg-emerald-500"
+                    )}
+                    style={{ width: `${totalProgressPercent}%` }}
+                  />
+                </div>
+
+                <span
+                  className={cn(
+                    "text-[11px] font-semibold tabular-nums",
+                    isReviewStage
+                      ? "text-violet-700 dark:text-violet-300"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  )}
+                >
+                  {totalProgressPercent}%
+                </span>
+              </div>
+            </div>
+          </div>
+        }
+        body={
+          <div className="relative h-full">
+            <TrainingModeRenderer
+              ref={rendererRef as RefObject<TrainingModeRendererHandle>}
+              renderer={MODE_PIPELINE[modeId].renderer}
+              verse={legacyVerse}
+              onRate={onRate}
+            />
+          </div>
+        }
+        bodyScrollable
+        contentClassName="pb-2"
+      />
+    </div>
+  );
+}

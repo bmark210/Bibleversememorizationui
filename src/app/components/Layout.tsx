@@ -184,7 +184,6 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     { id: 'collections', label: 'Коллекции', icon: Library },
-    { id: 'stats', label: 'Статистика', icon: BarChart3 },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 

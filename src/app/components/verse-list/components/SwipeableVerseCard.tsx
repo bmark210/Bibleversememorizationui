@@ -324,18 +324,18 @@ export const SwipeableVerseCard = ({
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold">{verse.reference}</h3>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge
+            {/* <div className="flex items-center gap-2"> */}
+              {/* <Badge
                 variant="outline"
                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${stageVisualTheme.statusBadgeClassName}`}
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${stageVisualTheme.dotClassName}`} />
                 {stageVisual.label}
-              </Badge>
-              <Badge variant="secondary" className="text-[11px]">
+              </Badge> */}
+              {/* <Badge variant="secondary" className="text-[11px]">
                 SYNOD
-              </Badge>
-            </div>
+              </Badge> */}
+            {/* </div> */}
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             <AnimatePresence initial={false}>
               {statusMetaContent ? (

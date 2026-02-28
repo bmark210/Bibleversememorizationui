@@ -1,0 +1,28 @@
+type Props = {
+  displayActive: number;
+  displayTotal: number;
+  topInset: number;
+};
+
+export function GalleryHeader({ displayActive, displayTotal, topInset }: Props) {
+  return (
+    <div
+      className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40"
+      style={{ paddingTop: `${topInset}px` }}
+    >
+      <div className="max-w-4xl mx-auto px-4 py-2">
+        <div className="flex justify-center">
+          <div
+            role="status"
+            aria-label={`Стих ${Math.min(displayActive + 1, displayTotal)} из ${displayTotal}`}
+            className="px-3 py-1 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg max-w-[46vw] sm:max-w-[240px]"
+          >
+            <span className="block truncate text-sm font-semibold tabular-nums text-center">
+              {Math.min(displayActive + 1, displayTotal)} / {displayTotal}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
