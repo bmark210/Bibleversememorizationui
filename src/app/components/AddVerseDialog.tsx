@@ -491,14 +491,14 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                 )}
               </div>
             </div>
-            <DialogFooter className="flex-shrink-0 flex flex-row gap-2 px-4 py-3 bg-background border-t border-border/40">
-              <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting} className="flex-1 rounded-xl">
+            <DialogFooter  className="flex-shrink-0 flex flex-row  items-center gap-2 bg-background border-t border-border/40">
+             <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting} className="flex-1 rounded-xl px-3 py-2">
                 Отмена
               </Button>
               <Button
                 type="submit"
                 disabled={!newTagTitle.trim() || !newTagSlug || submitting}
-                className="flex-1 rounded-xl gap-2"
+                className="flex-1 rounded-xl gap-2 px-3 py-2"
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {submitting ? 'Создаём...' : 'Создать тег'}
@@ -806,21 +806,21 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
           {/* ── Футер ──────────────────────────────────────────────────────────── */}
           <DialogFooter 
-        style={{ paddingBottom: `${bottomInset}px` }}
-        className="flex-shrink-0 flex flex-row gap-2 px-4 py-3 bg-background border-t border-border/40">
+        style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
+        className="flex-shrink-0 flex flex-row items-center gap-2 p-2 py-2.5 bg-background border-t border-border/40">
             <Button
               type="button"
               variant="ghost"
               onClick={handleClose}
               disabled={submitting}
-              className="flex-1 rounded-xl"
+              className="flex-1 rounded-xl px-3 py-2"
             >
               Отмена
             </Button>
             <Button
               type="submit"
               disabled={!canSubmit}
-              className="flex-1 rounded-xl gap-2"
+              className="flex-1 rounded-xl gap-2 px-3 py-2"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {submitting ? "Добавляем..." : "Добавить"}

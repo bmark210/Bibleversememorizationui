@@ -484,7 +484,7 @@ export function VerseGallery({
       />
 
       {/* Bottom navigation row */}
-      <div
+      {/* <div
         className="shrink-0 flex items-center justify-center gap-2 sm:gap-3 pt-3 z-40 px-2 sm:px-4"
         style={{ paddingBottom: `${Math.max(bottomInset, 10)}px` }}
       >
@@ -540,7 +540,7 @@ export function VerseGallery({
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
-      </div>
+      </div> */}
 
       {!training.isAutoStartingTraining && <SwipeHint panelMode={training.panelMode} />}
 

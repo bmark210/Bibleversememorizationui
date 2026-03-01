@@ -4,6 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { TrainingSubsetSelect } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import { haptic } from "../utils";
 import type { PanelMode, TrainingSubsetFilter, GalleryStatusAction } from "../types";
+import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 
 type Props = {
   panelMode: PanelMode;
@@ -36,9 +37,12 @@ export function GalleryFooter({
 }: Props) {
   if (isTrainingAutoStartOverlayVisible) return null;
 
+  const { contentSafeAreaInset } = useTelegramSafeArea();
+  const bottomInset = contentSafeAreaInset.bottom;
+
   if (panelMode === "preview") {
     return (
-      <div className="shrink-0 px-4 sm:px-6 z-40">
+      <div style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }} className="shrink-0 px-4 sm:px-6 z-40">
         <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
           <Button
             variant="outline"
@@ -82,7 +86,7 @@ export function GalleryFooter({
   }
 
   return (
-    <div className="shrink-0 px-4 sm:px-6 pt-3 z-40">
+    <div style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }} className="shrink-0 px-4 sm:px-6 pt-3 z-40">
       <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
         <Button
           type="button"
