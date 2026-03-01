@@ -17,6 +17,7 @@ import { request as apiRequest } from "@/api/core/request";
 import { fetchDailyGoalReadiness } from "@/api/services/dailyGoalReadiness";
 import { mockCollections, mockStats } from "./data/mockData";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import { VerseStatus } from "@/generated/prisma";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
@@ -47,22 +48,22 @@ const VerseList = dynamic(
   }
 );
 
-const Collections = dynamic(
-  () => import("./components/Collections").then((m) => m.Collections),
-  {
-    loading: () => <div className="min-h-[60vh]" />,
-  }
-);
+// const Collections = dynamic(
+//   () => import("./components/Collections").then((m) => m.Collections),
+//   {
+//     loading: () => <div className="min-h-[60vh]" />,
+//   }
+// );
 
-const Statistics = dynamic(
-  () => import("./components/Statistics").then((m) => m.Statistics),
-  {
-    loading: () => <div className="min-h-[60vh]" />,
-  }
-);
+// const Statistics = dynamic(
+//   () => import("./components/Statistics").then((m) => m.Statistics),
+//   {
+//     loading: () => <div className="min-h-[60vh]" />,
+//   }
+// );
 
-const Settings = dynamic(
-  () => import("./components/Settings").then((m) => m.Settings),
+const Profile = dynamic(
+  () => import("./components/Profile").then((m) => m.Profile),
   {
     loading: () => <div className="min-h-[60vh]" />,
   }
@@ -122,10 +123,10 @@ type ReturnToGalleryContext = {
 type Page =
   | "dashboard"
   | "verses"
-  | "collections"
-  | "stats"
-  | "settings"
-  | "training";
+  // | "collections"
+  // | "stats"
+  | "profile"
+  // | "training";
 
 type TrainingBatchPreferences = {
   newVersesCount: number;
@@ -763,7 +764,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleVerseAdded = async (verse: {
     externalVerseId: string;
     reference: string;
-    tags: string[];
+    tags: string[]; // tag slugs
   }): Promise<void> => {
     const telegramId = localStorage.getItem("telegramId") ?? "";
 
@@ -771,6 +772,15 @@ export default function App({ onInitialContentReady }: AppProps) {
       await UserVersesService.postApiUsersVerses(telegramId, {
         externalVerseId: verse.externalVerseId,
       });
+
+      // Attach selected tags (non-blocking per tag — best-effort)
+      if (verse.tags.length > 0) {
+        await Promise.allSettled(
+          verse.tags.map((slug) =>
+            TagsService.postApiVersesTags(verse.externalVerseId, { tagSlug: slug })
+          )
+        );
+      }
 
       setVerseListExternalSyncVersion((prev) => prev + 1);
 
@@ -962,7 +972,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
           {currentPage === "verses" && (
             <VerseList
-              onAddVerse={handleAddVerse}
+              onVerseAdded={handleVerseAdded}
               reopenGalleryVerseId={!isTraining ? returnToGalleryContext?.verseId ?? null : null}
               reopenGalleryStatusFilter={!isTraining ? returnToGalleryContext?.filter ?? null : null}
               onReopenGalleryHandled={() => setReturnToGalleryContext(null)}
@@ -981,17 +991,17 @@ export default function App({ onInitialContentReady }: AppProps) {
             />
           )}
 
-          {currentPage === "collections" && (
+          {/* {currentPage === "collections" && (
             <Collections
               collections={mockCollections}
               onCreateCollection={handleCreateCollection}
               onSelectCollection={handleSelectCollection}
             />
-          )}
+          )} */}
 
-          {currentPage === "stats" && <Statistics stats={mockStats} />}
+          {/* {currentPage === "stats" && <Statistics stats={mockStats} />} */}
 
-          {currentPage === "settings" && <Settings />}
+          {currentPage === "profile" && <Profile />}
         </Layout>
       </div>
 

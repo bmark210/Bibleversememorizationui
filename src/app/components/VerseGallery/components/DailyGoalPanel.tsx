@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/app/components/ui/utils";
 import type { DailyGoalGalleryContext, DailyGoalResumeMode } from "@/app/features/daily-goal/types";
 import type { PanelMode, DailyGoalPillMeta } from "../types";
@@ -22,29 +22,27 @@ export function DailyGoalPanel({
 }: Props) {
   return (
     <div className="shrink-0 px-4 sm:px-6 pt-3 z-30">
-      <div className="flex flex-col gap-2.5">
-        {dailyGoalContext.learningStageBlocked ? (
-          <div className="mt-1 text-xs sm:text-sm text-amber-700 dark:text-amber-300">
-            Чтобы начать цель, добавьте стих или переведите стих в режим изучения (LEARNING).
-          </div>
-        ) : null}
+      {dailyGoalContext.learningStageBlocked ? (
+        <p className="mb-2 text-[11px] text-amber-600/80 dark:text-amber-400/70">
+          Добавьте стих или переведите его в режим изучения, чтобы начать.
+        </p>
+      ) : null}
 
-        <div className="flex flex-row md:flex-col gap-2 h-full">
-          {learningPill ? (
-            <PillButton
-              pill={learningPill}
-              isPressed={panelMode === "training" && currentExecutionMode === "learning"}
-              onClick={() => onPillClick("learning")}
-            />
-          ) : null}
-          {reviewPill ? (
-            <PillButton
-              pill={reviewPill}
-              isPressed={panelMode === "training" && currentExecutionMode === "review"}
-              onClick={() => onPillClick("review")}
-            />
-          ) : null}
-        </div>
+      <div className="flex gap-2">
+        {learningPill ? (
+          <PillButton
+            pill={learningPill}
+            isPressed={panelMode === "training" && currentExecutionMode === "learning"}
+            onClick={() => onPillClick("learning")}
+          />
+        ) : null}
+        {reviewPill ? (
+          <PillButton
+            pill={reviewPill}
+            isPressed={panelMode === "training" && currentExecutionMode === "review"}
+            onClick={() => onPillClick("review")}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -65,23 +63,22 @@ function PillButton({
       onClick={onClick}
       aria-pressed={isPressed}
       className={cn(
-        "flex-1 rounded-xl border px-3 py-2.5 backdrop-blur-sm text-left transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-        "hover:bg-background/70",
+        "group relative flex-1 min-w-0 rounded-2xl border px-3 py-2 text-left",
+        "transition-all duration-150 backdrop-blur-sm",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        isPressed ? "scale-[0.97]" : "hover:scale-[1.02] active:scale-[0.97]",
         pill.className
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {pill.completed ? (
-            <CheckCircle2 className={cn("h-4 w-4 shrink-0", pill.iconClassName)} />
-          ) : (
-            <Clock3 className={cn("h-4 w-4 shrink-0", pill.iconClassName)} />
-          )}
-          <span className="font-medium truncate text-sm">{pill.title}</span>
-        </div>
-        <span className="text-xs tabular-nums font-semibold shrink-0">{pill.progress}</span>
+      <div className="flex items-center justify-between gap-1.5">
+        <span className="text-xs font-medium truncate opacity-80">{pill.title}</span>
+        {pill.completed && (
+          <CheckCircle2 className={cn("h-3.5 w-3.5 shrink-0", pill.iconClassName)} />
+        )}
       </div>
-    </button>
+      <span className={cn("text-base font-bold tabular-nums leading-tight", pill.iconClassName)}>
+        {pill.progress}
+      </span>
+      </button>
   );
 }

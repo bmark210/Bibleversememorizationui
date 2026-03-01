@@ -55,7 +55,7 @@ export function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatu
     return { nextStatus: VerseStatus.MY, label: "Добавить в мои", icon: Plus, successMessage: "Добавлено в мои стихи" };
   }
   if (status === VerseStatus.MY) {
-    return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Brain, successMessage: "Добавлено в изучение" };
+    return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
   }
   if (status === VerseStatus.LEARNING || status === "REVIEW") {
     return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };

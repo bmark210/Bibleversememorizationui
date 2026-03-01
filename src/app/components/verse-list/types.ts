@@ -4,6 +4,7 @@ import type { VerseStatus } from '@/generated/prisma';
 import type { FilterVisualTheme, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
+import type { Tag } from '@/api/models/Tag';
 
 export type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
 export type VerseListLoadRange = { startIndex: number; stopIndex: number };
@@ -44,6 +45,20 @@ export type VerseListController = {
   filters: {
     statusFilter: VerseListStatusFilter;
     filterOptions: VerseListFilterOption[];
+  };
+  search: {
+    searchQuery: string;
+    setSearchQuery: (q: string) => void;
+  };
+  tagFilter: {
+    allTags: Tag[];
+    selectedTagSlugs: Set<string>;
+    hasActiveTags: boolean;
+    isLoadingTags: boolean;
+    onTagClick: (slug: string) => void;
+    onClearTags: () => void;
+    createTag: (title: string, slug: string) => Promise<void>;
+    deleteTag: (id: string, slug: string) => Promise<void>;
   };
   pagination: {
     verses: Verse[];

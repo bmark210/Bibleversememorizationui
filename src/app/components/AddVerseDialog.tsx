@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Download, Loader2, RefreshCw, Search, Tag } from "lucide-react";
+import { BookOpen, Check, Download, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -31,6 +31,9 @@ import {
   searchBollsVerses,
 } from "../services/bollsApi";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
+import { TagsService } from "@/api/services/TagsService";
+import type { Tag } from "@/api/models/Tag";
+import { toast } from "sonner";
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -58,14 +61,30 @@ const toInt = (v: string) => {
   return isFinite(n) && n > 0 ? n : null;
 };
 
+// ─── Slug helper ──────────────────────────────────────────────────────────────
+
+const CYR_MAP: Record<string, string> = {
+  а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'y',
+  к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',
+  х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya',
+};
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .split('')
+    .map((c) => CYR_MAP[c] ?? c)
+    .join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 // ─── Константы ───────────────────────────────────────────────────────────────
 
 const TRANSLATION_KEY = "bibleTranslation";
 const MODE_KEY = "addVerseDialogMode";
 const PAGE_SIZE = 20;
 
-// Книги в каноническом порядке один раз при загрузке модуля.
-// Запись через функцию защищает от undefined при HMR-перезагрузке.
 const getCanonicalBooks = () =>
   Object.values(BIBLE_BOOKS).sort((a, b) => a.id - b.id);
 
@@ -74,11 +93,13 @@ const getCanonicalBooks = () =>
 interface AddVerseDialogProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (verse: {
+  mode?: 'verse' | 'tag';
+  onAdd?: (verse: {
     externalVerseId: string;
     reference: string;
     tags: string[];
   }) => Promise<void>;
+  onCreateTag?: (title: string, slug: string) => Promise<void>;
 }
 
 type SearchResult = {
@@ -99,16 +120,23 @@ type SelectedVerse = {
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
 
-export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
+export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateTag }: AddVerseDialogProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
+  const bottomInset = contentSafeAreaInset.bottom;
 
-  const [mode, setMode] = useState<"search" | "manual">("search");
+  const [inputMode, setInputMode] = useState<"search" | "manual">("search");
   const [translation, setTranslation] = useState(DEFAULT_BOLLS_TRANSLATION);
   const [selectedVerse, setSelectedVerse] = useState<SelectedVerse | null>(null);
-  const [tags, setTags] = useState("");
-  const [showTags, setShowTags] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Tags ─────────────────────────────────────────────────────────────────────
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(new Set());
+  const [createTagMode, setCreateTagMode] = useState(false);
+  const [newTagTitle, setNewTagTitle] = useState("");
+  const [creatingTag, setCreatingTag] = useState(false);
 
   // ── Ручной выбор ────────────────────────────────────────────────────────────
   const [bookId, setBookId] = useState("");
@@ -117,7 +145,6 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Стихи в главе (кэш + состояние)
   const verseCountCache = useRef<Map<string, number>>(new Map());
   const [verseCount, setVerseCount] = useState<number | null>(null);
   const [verseCountLoading, setVerseCountLoading] = useState(false);
@@ -147,6 +174,20 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   const canFetch = Boolean(toInt(bookId) && toInt(chapterNo) && toInt(verseNo));
   const canSubmit = Boolean(selectedVerse && !submitting);
+  const newTagSlug = slugify(newTagTitle);
+
+  // ── Загружаем теги при открытии ───────────────────────────────────────────
+
+  useEffect(() => {
+    if (!open) return;
+    setTagsLoading(true);
+    const req = TagsService.getApiTags();
+    req
+      .then((tags) => setAllTags(tags))
+      .catch(() => {})
+      .finally(() => setTagsLoading(false));
+    return () => req.cancel();
+  }, [open]);
 
   // ── Читаем перевод и режим из localStorage ──────────────────────────────────
 
@@ -155,12 +196,12 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     const t = localStorage.getItem(TRANSLATION_KEY);
     if (t) setTranslation(t);
     const m = localStorage.getItem(MODE_KEY);
-    if (m === "search" || m === "manual") setMode(m);
+    if (m === "search" || m === "manual") setInputMode(m);
   }, [open]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem(MODE_KEY, mode);
-  }, [mode]);
+    if (typeof window !== "undefined") localStorage.setItem(MODE_KEY, inputMode);
+  }, [inputMode]);
 
   // ── Загружаем количество стихов при выборе главы ────────────────────────────
 
@@ -197,23 +238,45 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     return () => { cancelled = true; };
   }, [translation, bookId, chapterNo]);
 
-  // ── Сброс при смене режима ───────────────────────────────────────────────────
-
   useEffect(() => {
-    if (mode === "search") setFetchError(null);
+    if (inputMode === "search") setFetchError(null);
     else setSearchErr(null);
-  }, [mode]);
-
-  // ── Cleanup ──────────────────────────────────────────────────────────────────
+  }, [inputMode]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   // ── Функции ──────────────────────────────────────────────────────────────────
 
+  const toggleTag = useCallback((slug: string) => {
+    setSelectedTagSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }, []);
+
+  const handleCreateTag = async () => {
+    if (!newTagTitle.trim() || !newTagSlug || creatingTag) return;
+    setCreatingTag(true);
+    try {
+      const newTag = await TagsService.postApiTags({ title: newTagTitle.trim(), slug: newTagSlug });
+      setAllTags((prev) => [...prev, newTag]);
+      if (newTag.slug) setSelectedTagSlugs((prev) => new Set([...prev, newTag.slug!]));
+      setNewTagTitle("");
+      setCreateTagMode(false);
+    } catch {
+      toast.error("Не удалось создать тег");
+    } finally {
+      setCreatingTag(false);
+    }
+  };
+
   const resetDraft = useCallback(() => {
     setSelectedVerse(null);
-    setTags("");
-    setShowTags(false);
+    setSelectedTagSlugs(new Set());
+    setCreateTagMode(false);
+    setNewTagTitle("");
     setSubmitting(false);
     setBookId("");
     setChapterNo("");
@@ -323,12 +386,25 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
   };
 
   const selectResult = (r: SearchResult) => {
-    // Устанавливаем selectedVerse до смены book/chapter/verse,
-    // и не используем useEffect-сброс при их изменении.
     setSelectedVerse({ book: r.book, chapter: r.chapter, verse: r.verse, reference: r.reference, text: r.text });
     setBookId(r.book.toString());
     setChapterNo(r.chapter.toString());
     setVerseNo(r.verse.toString());
+  };
+
+  const handleTagSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTagTitle.trim() || !newTagSlug || submitting) return;
+    setSubmitting(true);
+    try {
+      await onCreateTag?.(newTagTitle.trim(), newTagSlug);
+      toast.success(`Тег «${newTagTitle.trim()}» создан`);
+      handleClose();
+    } catch {
+      toast.error('Не удалось создать тег');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -336,10 +412,10 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
     if (!selectedVerse || submitting) return;
     setSubmitting(true);
     try {
-      await onAdd({
+      await onAdd?.({
         externalVerseId: `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`,
         reference: selectedVerse.reference,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: Array.from(selectedTagSlugs),
       });
       handleClose();
     } catch { /* toast показывается выше */ } finally { setSubmitting(false); }
@@ -349,87 +425,129 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="w-screen h-screen max-w-full sm:h-[88vh] sm:max-w-[680px] max-h-screen overflow-hidden sm:rounded-2xl rounded-none px-0 py-0 flex flex-col border-border/80">
+      <DialogContent className="w-screen h-screen max-w-full sm:h-[90vh] sm:max-w-[600px] max-h-screen overflow-hidden sm:rounded-3xl rounded-none px-0 py-0 flex flex-col border-border/50">
 
-        {/* ── Шапка ─────────────────────────────────────────────────────────── */}
+        {/* ── Шапка ──────────────────────────────────────────────────────────── */}
         <DialogHeader
-          className="px-6 pb-4 border-b bg-gradient-to-b from-card to-card/80 flex-shrink-0"
-          style={{ paddingTop: `${Math.max(topInset, 24)}px` }}
+        style={{ paddingTop: `${Math.max(topInset, 20)}px` }}
+          className="px-5 pb-4 border-b border-border/40 flex-shrink-0 sticky top-0 bg-background z-10"
         >
-          <DialogTitle className="text-center text-lg font-semibold mb-1">
-            Добавить стих
+          <DialogTitle className="text-center text-base font-semibold mb-3">
+            {mode === 'tag' ? 'Создать тег' : 'Добавить стих'}
           </DialogTitle>
 
-          {/* Описание + переключатель режима — НЕ внутри <p> */}
-          <div className="space-y-3">
-            <p className="text-center text-xs text-muted-foreground">
-              Найдите стих по тексту или выберите по адресу
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
+          {/* Segmented mode toggle — verse mode only */}
+          {mode === 'verse' && (
+            <div className="flex items-center bg-muted/60 rounded-xl p-1 gap-1">
+              <button
                 type="button"
-                variant={mode === "search" ? "default" : "secondary"}
-                onClick={() => setMode("search")}
-                className="gap-2"
+                onClick={() => setInputMode("search")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  inputMode === "search"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <Search className="h-4 w-4" />
+                <Search className="h-3.5 w-3.5" />
                 Поиск
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant={mode === "manual" ? "default" : "secondary"}
-                onClick={() => setMode("manual")}
-                className="gap-2"
+                onClick={() => setInputMode("manual")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  inputMode === "manual"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <BookOpen className="h-4 w-4" />
+                <BookOpen className="h-3.5 w-3.5" />
                 По адресу
-              </Button>
+              </button>
             </div>
-          </div>
+          )}
         </DialogHeader>
 
-        {/* ── Форма ─────────────────────────────────────────────────────────── */}
-        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
-          <div className="space-y-3 p-5 overflow-y-auto min-h-0 flex-1">
+        {/* ── Тег-режим ──────────────────────────────────────────────────────── */}
+        {mode === 'tag' && (
+          <form onSubmit={(e) => void handleTagSubmit(e)} className="flex flex-col h-full min-h-0">
+            <div className="px-5 py-6 flex-1 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Название</Label>
+                <Input
+                  value={newTagTitle}
+                  onChange={(e) => setNewTagTitle(e.target.value)}
+                  placeholder="Вера, Любовь, Надежда..."
+                  className="rounded-xl"
+                  autoFocus
+                  disabled={submitting}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); void handleTagSubmit(e as unknown as React.FormEvent); }
+                  }}
+                />
+                {newTagSlug && (
+                  <p className="text-[11px] text-muted-foreground/45 px-0.5">
+                    slug: <span className="font-mono">{newTagSlug}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex-shrink-0 flex flex-row gap-2 px-4 py-3 bg-background border-t border-border/40">
+              <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting} className="flex-1 rounded-xl">
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={!newTagTitle.trim() || !newTagSlug || submitting}
+                className="flex-1 rounded-xl gap-2"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? 'Создаём...' : 'Создать тег'}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
 
-            {/* ── Поиск по тексту ─────────────────────────────────────────── */}
-            {mode === "search" && (
-              <div className="rounded-xl border bg-muted/40 p-4 space-y-3 shadow-sm">
+        {/* ── Стих-режим ─────────────────────────────────────────────────────── */}
+        {mode === 'verse' && (
+        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+          <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
+
+            {/* ── Поиск по тексту ────────────────────────────────────────────── */}
+            {inputMode === "search" && (
+              <div className="space-y-2.5">
                 <div className="flex gap-2">
-                  <Input
-                    id="search-query"
-                    name="search-query"
-                    placeholder="Введите часть текста стиха..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); handleSearch(); (e.target as HTMLElement).blur(); }
-                    }}
-                  />
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
+                    <Input
+                      id="search-query"
+                      name="search-query"
+                      placeholder="Введите часть текста стиха..."
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); handleSearch(); (e.target as HTMLElement).blur(); }
+                      }}
+                      className="pl-9 rounded-xl"
+                    />
+                  </div>
                   <Button
                     type="button"
                     onClick={handleSearch}
                     disabled={searching || query.trim().length < 3}
                     variant="outline"
-                    className="gap-1.5 shrink-0"
+                    className="gap-1.5 shrink-0 rounded-xl"
                   >
-                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4" />Найти</>}
+                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Найти"}
                   </Button>
                 </div>
 
-                {searching && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Ищем...
-                  </div>
-                )}
-
                 {searchErr && (
-                  <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{searchErr}</p>
+                  <p className="text-sm text-destructive bg-destructive/8 px-3 py-2 rounded-xl">{searchErr}</p>
                 )}
 
                 {results.length > 0 && (
-                  <div onScroll={onScroll} className="space-y-1.5 max-h-[340px] overflow-y-auto pr-0.5">
-                    <p className="text-xs text-muted-foreground">
+                  <div onScroll={onScroll} className="space-y-1.5 max-h-[280px] overflow-y-auto">
+                    <p className="text-[11px] text-muted-foreground/50 px-0.5">
                       Найдено: {results.length}{hasMore ? "+" : ""}
                     </p>
                     {results.map((r, i) => {
@@ -439,18 +557,26 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                           key={`${r.reference}-${i}`}
                           type="button"
                           onClick={() => selectResult(r)}
-                          className={`w-full text-left p-3 border rounded-xl transition-all ${sel ? "border-primary bg-primary/5 ring-1 ring-primary/30" : "border-border hover:border-primary/40 hover:bg-accent/40"}`}
+                          className={`w-full text-left p-3 border rounded-xl transition-all ${
+                            sel
+                              ? "border-primary/30 bg-gradient-to-br from-primary/6 to-primary/3 ring-1 ring-primary/20"
+                              : "border-border/50 hover:border-primary/25 hover:bg-muted/30"
+                          }`}
                         >
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-semibold text-sm text-primary">{r.reference}</span>
-                            {sel && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary text-primary-foreground">Выбрано</span>}
+                            <span className="font-semibold text-xs text-primary">{r.reference}</span>
+                            {sel && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                <Check className="h-2.5 w-2.5" /> Выбрано
+                              </span>
+                            )}
                           </div>
-                          <HighlightedText text={r.text} className="text-sm text-foreground/80 line-clamp-2 leading-relaxed" />
+                          <HighlightedText text={r.text} className="text-sm text-foreground/70 line-clamp-2 leading-relaxed" />
                         </button>
                       );
                     })}
                     {loadingMore && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 justify-center">
                         <Loader2 className="h-3 w-3 animate-spin" /> Загружаем ещё...
                       </div>
                     )}
@@ -459,13 +585,11 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
               </div>
             )}
 
-            {/* ── Выбор по адресу ─────────────────────────────────────────── */}
-            {mode === "manual" && (
-              <div className="rounded-xl border bg-muted/40 p-4 space-y-3 shadow-sm">
-
-                {/* Книга */}
+            {/* ── Выбор по адресу ───────────────────────────────────────────── */}
+            {inputMode === "manual" && (
+              <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="book-select" className="text-sm font-medium">Книга</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Книга</Label>
                   <Select
                     name="book-select"
                     value={bookId}
@@ -477,7 +601,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       setVerseCount(null);
                     }}
                   >
-                    <SelectTrigger id="book-select" className="w-full">
+                    <SelectTrigger className="w-full rounded-xl">
                       <SelectValue placeholder="Выберите книгу" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
@@ -490,10 +614,9 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                   </Select>
                 </div>
 
-                {/* Глава + Стих */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="chapter-select" className="text-sm font-medium">Глава</Label>
+                    <Label className="text-xs font-medium text-muted-foreground">Глава</Label>
                     <Select
                       name="chapter-select"
                       value={chapterNo}
@@ -504,7 +627,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       }}
                       disabled={!bookId || chaptersCount === 0}
                     >
-                      <SelectTrigger id="chapter-select">
+                      <SelectTrigger className="rounded-xl">
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[240px]">
@@ -516,9 +639,9 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="verse-select" className="text-sm font-medium flex items-center gap-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                       Стих
-                      {verseCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      {verseCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/60" />}
                     </Label>
                     <Select
                       name="verse-select"
@@ -529,7 +652,7 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                       }}
                       disabled={!chapterNo}
                     >
-                      <SelectTrigger id="verse-select">
+                      <SelectTrigger className="rounded-xl">
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[240px]">
@@ -541,85 +664,170 @@ export function AddVerseDialog({ open, onClose, onAdd }: AddVerseDialogProps) {
                   </div>
                 </div>
 
-                {verseCount !== null && chapterNo && !verseCountLoading && (
-                  <p className="text-xs text-muted-foreground">
-                    Глава {chapterNo}: {verseCount} {verseCount === 1 ? "стих" : verseCount < 5 ? "стиха" : "стихов"}
-                  </p>
-                )}
-
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleFetchVerse}
                   disabled={!canFetch || fetchLoading}
-                  className="w-full gap-2"
+                  className="w-full gap-2 rounded-xl"
                 >
                   {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   {fetchLoading ? "Загружаем..." : "Загрузить стих"}
                 </Button>
 
                 {fetchError && (
-                  <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{fetchError}</p>
+                  <p className="text-sm text-destructive bg-destructive/8 px-3 py-2 rounded-xl">{fetchError}</p>
                 )}
               </div>
             )}
 
-            {/* ── Предпросмотр ─────────────────────────────────────────────── */}
+            {/* ── Предпросмотр выбранного стиха ─────────────────────────────── */}
             {selectedVerse && (
-              <>
-                <div className="rounded-xl border bg-gradient-to-b from-secondary/60 to-secondary/30 p-4 space-y-3 shadow-sm">
+              <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/6 via-background/80 to-violet-500/5 shadow-sm overflow-hidden">
+                <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Выбранный стих</span>
-                    <Button
-                      type="button" variant="ghost" size="sm"
-                      className="h-6 px-2 text-xs text-muted-foreground gap-1"
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                      Выбранный стих
+                    </span>
+                    <button
+                      type="button"
                       onClick={() => setSelectedVerse(null)}
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                     >
-                      <RefreshCw className="h-3 w-3" /> Сменить
-                    </Button>
+                      <RefreshCw className="h-3 w-3" />
+                      Сменить
+                    </button>
                   </div>
-                  <p className="text-base leading-relaxed text-foreground">{stripMarkTags(selectedVerse.text)}</p>
-                  <p className="text-sm text-right text-primary font-medium">{selectedVerse.reference}</p>
+                  <p className="text-[15px] leading-relaxed text-foreground/90">
+                    {stripMarkTags(selectedVerse.text)}
+                  </p>
+                  <p className="text-xs font-semibold text-primary/80 text-right tracking-wide">
+                    — {selectedVerse.reference}
+                  </p>
                 </div>
-
-                {!showTags ? (
-                  <Button type="button" variant="outline" className="self-end ml-auto flex items-center gap-2 h-8 text-sm" onClick={() => setShowTags(true)}>
-                    <Tag className="h-3.5 w-3.5" /> Добавить теги
-                  </Button>
-                ) : (
-                  <div className="rounded-xl border bg-muted/20 p-3 space-y-1.5">
-                    <Label htmlFor="tags-input" className="text-sm">Теги (через запятую)</Label>
-                    <Input
-                      id="tags-input"
-                      name="tags"
-                      placeholder="например: Евангелие, Спасение, Любовь"
-                      value={tags}
-                      onChange={(e) => setTags(e.target.value)}
-                    />
-                    {tags && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
-                          <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
+              </div>
             )}
+
+            {/* ── Теги ──────────────────────────────────────────────────────── */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Теги
+                  {selectedTagSlugs.size > 0 && (
+                    <span className="ml-1.5 text-[10px] text-primary font-semibold">
+                      {selectedTagSlugs.size}
+                    </span>
+                  )}
+                </span>
+                {!createTagMode && (
+                  <button
+                    type="button"
+                    onClick={() => setCreateTagMode(true)}
+                    className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Создать тег
+                  </button>
+                )}
+              </div>
+
+              {/* Inline create tag */}
+              {createTagMode && (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    value={newTagTitle}
+                    onChange={(e) => setNewTagTitle(e.target.value)}
+                    placeholder="Название тега..."
+                    className="rounded-xl h-8 text-sm flex-1"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); void handleCreateTag(); }
+                      if (e.key === "Escape") { setCreateTagMode(false); setNewTagTitle(""); }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateTag()}
+                    disabled={!newTagTitle.trim() || !newTagSlug || creatingTag}
+                    className="shrink-0 h-8 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-medium disabled:opacity-40 transition-opacity flex items-center"
+                  >
+                    {creatingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : "Создать"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCreateTagMode(false); setNewTagTitle(""); }}
+                    className="shrink-0 h-8 w-8 rounded-xl border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Tags list */}
+              {tagsLoading ? (
+                <div className="flex gap-1.5 py-0.5">
+                  {[56, 72, 48, 80, 60].map((w) => (
+                    <div key={w} className="h-6 rounded-full bg-muted/60 animate-pulse shrink-0" style={{ width: w }} />
+                  ))}
+                </div>
+              ) : allTags.length > 0 ? (
+                <div
+                  className="flex gap-1.5 overflow-x-auto py-0.5"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+                >
+                  {allTags.map((tag) => {
+                    const slug = tag.slug ?? "";
+                    const active = selectedTagSlugs.has(slug);
+                    return (
+                      <button
+                        key={slug}
+                        type="button"
+                        onClick={() => toggleTag(slug)}
+                        className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
+                          active
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border/50 bg-muted/20 text-muted-foreground hover:border-primary/25 hover:text-foreground"
+                        }`}
+                      >
+                        {active
+                          ? <Check className="h-2.5 w-2.5 shrink-0" />
+                          : <span className="text-[10px] text-muted-foreground/35">#</span>
+                        }
+                        {tag.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground/35 italic">Нет тегов — создайте первый</p>
+              )}
+            </div>
           </div>
 
-          {/* ── Футер ──────────────────────────────────────────────────────── */}
-          <DialogFooter className="flex-shrink-0 flex flex-row justify-between gap-2 px-5 py-4 bg-background border-t">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={submitting} className="flex-1">
+          {/* ── Футер ──────────────────────────────────────────────────────────── */}
+          <DialogFooter 
+        style={{ paddingBottom: `${bottomInset}px` }}
+        className="flex-shrink-0 flex flex-row gap-2 px-4 py-3 bg-background border-t border-border/40">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleClose}
+              disabled={submitting}
+              className="flex-1 rounded-xl"
+            >
               Отмена
             </Button>
-            <Button type="submit" disabled={!canSubmit} className="flex-1 gap-2">
+            <Button
+              type="submit"
+              disabled={!canSubmit}
+              className="flex-1 rounded-xl gap-2"
+            >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Добавляем..." : "Добавить стих"}
+              {submitting ? "Добавляем..." : "Добавить"}
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

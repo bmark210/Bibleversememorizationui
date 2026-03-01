@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon, Copy, X } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon, Copy, X, User } from 'lucide-react';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useTelegram } from '../contexts/TelegramContext';
@@ -183,8 +183,8 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
-    { id: 'collections', label: 'Коллекции', icon: Library },
-    { id: 'settings', label: 'Настройки', icon: Settings },
+    // { id: 'collections', label: 'Коллекции', icon: Library },
+    { id: 'profile', label: 'Профиль', icon: User },
   ];
 
   return (

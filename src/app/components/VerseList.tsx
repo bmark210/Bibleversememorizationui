@@ -1,8 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
+
+const AddVerseDialog = dynamic(
+  () => import('./AddVerseDialog').then((m) => m.AddVerseDialog),
+  { ssr: false }
+);
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { VerseGallery } from './VerseGallery';
@@ -26,7 +32,7 @@ import type {
 } from '@/app/features/daily-goal/types';
 
 interface VerseListProps {
-  onAddVerse: () => void;
+  onVerseAdded: (verse: { externalVerseId: string; reference: string; tags: string[] }) => Promise<void>;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -43,7 +49,7 @@ interface VerseListProps {
 }
 
 export function VerseList({
-  onAddVerse,
+  onVerseAdded,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -56,8 +62,11 @@ export function VerseList({
   onDailyGoalJumpToVerseRequest,
   onDailyGoalPreferredResumeModeChange,
 }: VerseListProps) {
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addDialogMode, setAddDialogMode] = useState<'verse' | 'tag'>('verse');
+
   const vm = useVerseListController({
-    onAddVerse,
+    onAddVerse: () => { setAddDialogMode('verse'); setAddDialogOpen(true); },
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
@@ -176,6 +185,16 @@ export function VerseList({
           statusFilter={vm.filters.statusFilter}
           filterOptions={vm.filters.filterOptions}
           onTabClick={vm.filterTabs.onTabClick}
+          searchQuery={vm.search.searchQuery}
+          onSearchChange={vm.search.setSearchQuery}
+          allTags={vm.tagFilter.allTags}
+          isLoadingTags={vm.tagFilter.isLoadingTags}
+          selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
+          hasActiveTags={vm.tagFilter.hasActiveTags}
+          onTagClick={vm.tagFilter.onTagClick}
+          onClearTags={vm.tagFilter.onClearTags}
+          onCreateTagDialogOpen={() => { setAddDialogMode('tag'); setAddDialogOpen(true); }}
+          onDeleteTag={vm.tagFilter.deleteTag}
         />
       </motion.div>
 
@@ -215,6 +234,14 @@ export function VerseList({
           }}
         />
       </motion.div>
+
+      <AddVerseDialog
+        open={addDialogOpen}
+        mode={addDialogMode}
+        onClose={() => setAddDialogOpen(false)}
+        onAdd={onVerseAdded}
+        onCreateTag={vm.tagFilter.createTag}
+      />
 
       <ConfirmDeleteModal
         verse={vm.modal.deleteTargetVerse}

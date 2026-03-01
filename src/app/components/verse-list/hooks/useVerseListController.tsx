@@ -16,6 +16,7 @@ import { SwipeableVerseCard } from '../components/SwipeableVerseCard';
 import { useTelegramId } from './useTelegramId';
 import { useVerseActions } from './useVerseActions';
 import { useVersePagination } from './useVersePagination';
+import { useTagFilter } from './useTagFilter';
 import type {
   DebugInfiniteScroll,
   VerseListController,
@@ -48,9 +49,10 @@ export function useVerseListController({
     console.log('[VerseList][infinite]', event, payload ?? {});
   }, []);
 
-  const [searchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [testamentFilter] = useState<'catalog' | 'OT' | 'NT'>('catalog');
   const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
+  const tagFilter = useTagFilter();
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'catalog');
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -199,12 +201,13 @@ export function useVerseListController({
           (v as any).masteryLevel >= 40 &&
           (v as any).masteryLevel < 75) ||
         (masteryFilter === 'high' && (v as any).masteryLevel >= 75);
-      return matchStatus && matchSearch && matchTestament && matchMastery;
+      const matchTag = tagFilter.matchesTagFilter(v);
+      return matchStatus && matchSearch && matchTestament && matchMastery && matchTag;
     });
-  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter]);
+  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter, tagFilter.matchesTagFilter]);
 
   const hasLocalClientFiltersActive =
-    searchQuery.trim().length > 0 || testamentFilter !== 'catalog' || masteryFilter !== 'catalog';
+    searchQuery.trim().length > 0 || testamentFilter !== 'catalog' || masteryFilter !== 'catalog' || tagFilter.hasActiveTags;
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
   const masteredVerses = useMemo(
@@ -418,6 +421,20 @@ export function useVerseListController({
     filters: {
       statusFilter,
       filterOptions,
+    },
+    search: {
+      searchQuery,
+      setSearchQuery,
+    },
+    tagFilter: {
+      allTags: tagFilter.allTags,
+      selectedTagSlugs: tagFilter.selectedTagSlugs,
+      hasActiveTags: tagFilter.hasActiveTags,
+      isLoadingTags: tagFilter.isLoadingTags,
+      onTagClick: tagFilter.toggleTag,
+      onClearTags: tagFilter.clearTags,
+      createTag: tagFilter.createTag,
+      deleteTag: tagFilter.deleteTag,
     },
     pagination: {
       verses: pagination.verses,

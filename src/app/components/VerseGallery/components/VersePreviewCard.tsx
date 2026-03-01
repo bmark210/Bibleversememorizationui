@@ -243,7 +243,7 @@ function buildPrimaryAction(params: {
     return {
       label: "Добавить в изучение",
       ariaLabel: "Добавить стих в изучение",
-      icon: Brain,
+      icon: Play,
       onClick: onStatusAction,
       className:
         "border border-sky-500/25 bg-gradient-to-r from-sky-500/18 to-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:text-sky-300",

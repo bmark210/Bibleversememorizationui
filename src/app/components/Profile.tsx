@@ -24,7 +24,7 @@ const MAIN_TRANSLATIONS: BollsTranslationInfo[] = [
   { short_name: 'BTI', full_name: 'Библия под ред. М.П. Кулакова и М.М. Кулакова, 2015', updated: 1635446313426 },
 ];
 
-export function Settings() {
+export function Profile() {
   const [translations, setTranslations] = useState<BollsTranslationInfo[]>([]);
   const [loadingTranslations, setLoadingTranslations] = useState(true);
   const [translationsError, setTranslationsError] = useState<string | null>(null);
@@ -78,9 +78,9 @@ export function Settings() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="mb-1">Настройки</h1>
+        <h1 className="mb-1">Профиль</h1>
         <p className="text-muted-foreground">
-          Настройте свой опыт обучения
+          Настройте свой профиль
         </p>
       </div>
 

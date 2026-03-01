@@ -111,7 +111,7 @@ export const SwipeableVerseCard = ({
               onAddToLearning(verse);
             }}
           >
-            <Brain className="w-4 h-4" />
+            <Play className="w-4 h-4" />
           </Button>
           <Button
             type="button"
@@ -324,19 +324,25 @@ export const SwipeableVerseCard = ({
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold">{verse.reference}</h3>
             </div>
-            {/* <div className="flex items-center gap-2"> */}
-              {/* <Badge
-                variant="outline"
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${stageVisualTheme.statusBadgeClassName}`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${stageVisualTheme.dotClassName}`} />
-                {stageVisual.label}
-              </Badge> */}
-              {/* <Badge variant="secondary" className="text-[11px]">
-                SYNOD
-              </Badge> */}
-            {/* </div> */}
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
+            {verse.tags && verse.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {verse.tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag.slug}
+                    className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70"
+                  >
+                    <span className="opacity-50">#</span>
+                    {tag.title}
+                  </span>
+                ))}
+                {verse.tags.length > 3 && (
+                  <span className="text-[10px] text-muted-foreground/45 self-center">
+                    +{verse.tags.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
             <AnimatePresence initial={false}>
               {statusMetaContent ? (
                 <motion.div
