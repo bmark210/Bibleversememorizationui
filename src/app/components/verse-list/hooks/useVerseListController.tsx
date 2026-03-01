@@ -54,6 +54,11 @@ export function useVerseListController({
   const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
   const tagFilter = useTagFilter();
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'catalog');
+  const selectedTagSlugsForServer = useMemo(
+    () => Array.from(tagFilter.selectedTagSlugs).sort(),
+    [tagFilter.selectedTagSlugs]
+  );
+  const searchQueryForServer = statusFilter === 'catalog' ? '' : searchQuery;
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const lastHandledExternalSyncVersionRef = useRef<number | null>(
@@ -65,6 +70,8 @@ export function useVerseListController({
   const pagination = useVersePagination({
     telegramId,
     statusFilter,
+    searchQuery: searchQueryForServer,
+    tagSlugs: selectedTagSlugsForServer,
     pageSize: VERSE_LIST_PAGE_SIZE,
     loadMoreSkeletonDelayMs: LOAD_MORE_SKELETON_DELAY_MS,
   });
@@ -190,9 +197,14 @@ export function useVerseListController({
 
   const filteredVerses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const useClientTextSearch = statusFilter === 'catalog';
     return pagination.verses.filter((v) => {
       const matchStatus = matchesListFilter(v, statusFilter);
-      const matchSearch = !q || v.reference.toLowerCase().includes(q) || v.text.toLowerCase().includes(q);
+      const matchSearch =
+        !q ||
+        !useClientTextSearch ||
+        v.reference.toLowerCase().includes(q) ||
+        v.text.toLowerCase().includes(q);
       const matchTestament = testamentFilter === 'catalog' || (v as any).testament === testamentFilter;
       const matchMastery =
         masteryFilter === 'catalog' ||
@@ -201,13 +213,15 @@ export function useVerseListController({
           (v as any).masteryLevel >= 40 &&
           (v as any).masteryLevel < 75) ||
         (masteryFilter === 'high' && (v as any).masteryLevel >= 75);
-      const matchTag = tagFilter.matchesTagFilter(v);
-      return matchStatus && matchSearch && matchTestament && matchMastery && matchTag;
+      return matchStatus && matchSearch && matchTestament && matchMastery;
     });
-  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter, tagFilter.matchesTagFilter]);
+  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter]);
 
+  const hasLocalClientSearchActive = statusFilter === 'catalog' && searchQuery.trim().length > 0;
   const hasLocalClientFiltersActive =
-    searchQuery.trim().length > 0 || testamentFilter !== 'catalog' || masteryFilter !== 'catalog' || tagFilter.hasActiveTags;
+    hasLocalClientSearchActive ||
+    testamentFilter !== 'catalog' ||
+    masteryFilter !== 'catalog';
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
   const masteredVerses = useMemo(

@@ -50,7 +50,22 @@ export function useTagFilter() {
 
   const deleteTag = useCallback(async (id: string, slug: string) => {
     const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Не удалось удалить тег');
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; linksCount?: number }
+        | null;
+
+      if (res.status === 409) {
+        const linksCount = payload?.linksCount;
+        throw new Error(
+          typeof linksCount === 'number' && linksCount > 0
+            ? `Тег используется в ${linksCount} стихах`
+            : 'Тег нельзя удалить, пока он связан со стихами'
+        );
+      }
+
+      throw new Error(payload?.error || 'Не удалось удалить тег');
+    }
     setAllTags((prev) => prev.filter((t) => t.id !== id));
     setSelectedTagSlugs((prev) => {
       if (!prev.has(slug)) return prev;

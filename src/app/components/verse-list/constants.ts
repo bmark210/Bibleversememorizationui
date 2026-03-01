@@ -21,12 +21,12 @@ export type FilterVisualTheme = {
   cardClassName: string;
 };
 
-export const VERSE_LIST_PAGE_SIZE = 5;
-export const SCROLL_ACTIVATION_DELTA_PX = 0;
+export const VERSE_LIST_PAGE_SIZE = 20;
+export const SCROLL_ACTIVATION_DELTA_PX = 8;
 export const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 0;
-export const PREFETCH_ROWS = 0;
+export const PREFETCH_ROWS = 6;
 // Minimum time to keep the list skeleton visible (initial fetch and load-more requests).
-export const LOAD_MORE_SKELETON_DELAY_MS = 500;
+export const LOAD_MORE_SKELETON_DELAY_MS = 250;
 export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
 export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = 5;
 

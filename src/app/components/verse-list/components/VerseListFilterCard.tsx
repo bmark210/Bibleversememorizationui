@@ -98,8 +98,8 @@ export function VerseListFilterCard({
     try {
       await onDeleteTag?.(tag.id, tag.slug);
       toast.success(`Тег «${tag.title}» удалён`);
-    } catch {
-      toast.error('Не удалось удалить тег');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить тег');
     } finally {
       setDeletingTagId(null);
     }
@@ -151,7 +151,7 @@ export function VerseListFilterCard({
                   ref={searchRef}
                   value={searchQuery}
                   onChange={(e) => onSearchChange?.(e.target.value)}
-                  placeholder="Поиск по ссылке или тексту..."
+                  placeholder="Поиск по ссылке, тексту или тегу..."
                   className="rounded-xl pl-9 pr-9 h-9 text-sm"
                 />
                 {searchQuery && (
@@ -214,12 +214,12 @@ export function VerseListFilterCard({
               transition={PANEL_TRANSITION}
               className="overflow-hidden"
             >
-              <div className="border-t border-border/25 pt-2.5 px-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">
+              <div className="border-t border-border/25 pt-2.5">
+                <div className="flex items-center justify-between px-4">
+                  <span className="text-[11px] px-2 sm:px-4 font-medium text-muted-foreground">
                     {hasActiveTags ? `Выбрано ${selectedTagSlugs.size}` : 'Все темы'}
                   </span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 px-4">
                     {hasActiveTags && (
                       <button
                         type="button"
@@ -243,7 +243,7 @@ export function VerseListFilterCard({
                 </div>
 
                 {isLoadingTags ? (
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-2 px-4">
                     {[56, 72, 48, 64].map((w) => (
                       <Skeleton key={w} className="h-6 rounded-full shrink-0" style={{ width: w }} />
                     ))}
@@ -265,7 +265,7 @@ export function VerseListFilterCard({
                               duration: 0.18,
                               ease: [0.22, 1, 0.36, 1],
                             }}
-                            className="shrink-0 group/tag relative"
+                            className="shrink-0 first:ml-4 last:mr-4 group/tag relative"
                           >
                             <button
                               type="button"
@@ -307,7 +307,7 @@ export function VerseListFilterCard({
                     </ScrollRow>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground/45 italic mt-2">
+                  <p className="text-xs text-muted-foreground/45 italic mt-2 px-4">
                     Нет тегов — создайте первый
                   </p>
                 )}

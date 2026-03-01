@@ -325,37 +325,37 @@ export const SwipeableVerseCard = ({
               <h3 className="text-base font-semibold">{verse.reference}</h3>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
-            {verse.tags && verse.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {verse.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag.slug}
-                    className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70"
-                  >
-                    <span className="opacity-50">#</span>
-                    {tag.title}
-                  </span>
-                ))}
-                {verse.tags.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground/45 self-center">
-                    +{verse.tags.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
             <AnimatePresence initial={false}>
               {statusMetaContent ? (
                 <motion.div
-                  key={layoutSignature}
-                  initial={{ height: 0, opacity: 0, y: -4 }}
-                  animate={{ height: 'auto', opacity: 1, y: 0 }}
-                  exit={{ height: 0, opacity: 0, y: -4 }}
-                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                  className="overflow-hidden"
+                key={layoutSignature}
+                initial={{ height: 0, opacity: 0, y: -4 }}
+                animate={{ height: 'auto', opacity: 1, y: 0 }}
+                exit={{ height: 0, opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
                 >
                   <div className="pt-0.5">{statusMetaContent}</div>
                 </motion.div>
               ) : null}
+              {verse.tags && verse.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {verse.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag.slug}
+                      className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70"
+                    >
+                      <span className="opacity-50">#</span>
+                      {tag.title}
+                    </span>
+                  ))}
+                  {verse.tags.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground/45 self-center">
+                      +{verse.tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
             </AnimatePresence>
           </div>
 

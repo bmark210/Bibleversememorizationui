@@ -21,7 +21,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function handleDelete(res: NextApiResponse, id: string) {
   try {
-    // VerseTag records cascade via Prisma — the relation will be cleaned up.
+    const linksCount = await prisma.verseTag.count({
+      where: { tagId: id },
+    });
+
+    if (linksCount > 0) {
+      return res.status(409).json({
+        error: "Tag is linked to one or more verses",
+        linksCount,
+      });
+    }
+
     await prisma.tag.delete({ where: { id } });
     return res.status(200).json({ ok: true });
   } catch (error) {

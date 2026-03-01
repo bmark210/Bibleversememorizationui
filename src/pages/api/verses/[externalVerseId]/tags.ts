@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 type ModifyTagPayload = {
   tagId?: string;
   tagSlug?: string;
+  deleteTagIfUnused?: boolean;
 };
 
 async function resolveTagId(payload: ModifyTagPayload) {
@@ -119,13 +120,41 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, externalVer
 }
 
 async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalVerseId: string) {
-  // Удаляет привязку тега к стиху.
+  // Удаляет привязку тега к стиху или удаляет сам тег, если это безопасно.
   try {
     const body = req.body as ModifyTagPayload;
     const tagId = await resolveTagId(body ?? {});
 
     if (!tagId) {
       return res.status(400).json({ error: "tagId or tagSlug is required" });
+    }
+
+    if (body?.deleteTagIfUnused) {
+      const linksCount = await prisma.verseTag.count({
+        where: { tagId },
+      });
+
+      if (linksCount > 0) {
+        return res.status(409).json({
+          error: "Tag is linked to one or more verses",
+          linksCount,
+        });
+      }
+
+      try {
+        await prisma.tag.delete({
+          where: { id: tagId },
+        });
+        return res.status(200).json({ ok: true, deletedTagId: tagId });
+      } catch (deleteError) {
+        const isNotFound =
+          deleteError instanceof Error &&
+          deleteError.message.includes("Record to delete does not exist");
+        if (isNotFound) {
+          return res.status(404).json({ error: "Tag not found" });
+        }
+        throw deleteError;
+      }
     }
 
     const verseId = await resolveVerseId(externalVerseId);

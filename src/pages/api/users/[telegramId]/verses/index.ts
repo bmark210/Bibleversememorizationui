@@ -34,6 +34,8 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
       telegramId,
       where: buildWhereForUserVersesListQuery(query),
       displayFilter: query.filter,
+      search: query.search,
+      tagSlugs: query.tagSlugs,
       orderBy: query.orderBy,
       order: query.order,
       limit: query.limit,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Check, Download, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
+import { BookOpen, Check, Download, Loader2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -84,6 +84,7 @@ function slugify(str: string): string {
 const TRANSLATION_KEY = "bibleTranslation";
 const MODE_KEY = "addVerseDialogMode";
 const PAGE_SIZE = 20;
+const GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID = "__global__";
 
 const getCanonicalBooks = () =>
   Object.values(BIBLE_BOOKS).sort((a, b) => a.id - b.id);
@@ -124,6 +125,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
+  const isTagMode = mode === "tag";
+  const isVerseMode = mode === "verse";
 
   const [inputMode, setInputMode] = useState<"search" | "manual">("search");
   const [translation, setTranslation] = useState(DEFAULT_BOLLS_TRANSLATION);
@@ -137,6 +140,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [createTagMode, setCreateTagMode] = useState(false);
   const [newTagTitle, setNewTagTitle] = useState("");
   const [creatingTag, setCreatingTag] = useState(false);
+  const [tagDeleteMode, setTagDeleteMode] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
   // ── Ручной выбор ────────────────────────────────────────────────────────────
   const [bookId, setBookId] = useState("");
@@ -258,11 +263,21 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
   const handleCreateTag = async () => {
     if (!newTagTitle.trim() || !newTagSlug || creatingTag) return;
+    const title = newTagTitle.trim();
     setCreatingTag(true);
     try {
-      const newTag = await TagsService.postApiTags({ title: newTagTitle.trim(), slug: newTagSlug });
-      setAllTags((prev) => [...prev, newTag]);
-      if (newTag.slug) setSelectedTagSlugs((prev) => new Set([...prev, newTag.slug!]));
+      if (onCreateTag) {
+        await onCreateTag(title, newTagSlug);
+        const refreshedTags = await TagsService.getApiTags();
+        setAllTags(refreshedTags);
+      } else {
+        const newTag = await TagsService.postApiTags({ title, slug: newTagSlug });
+        setAllTags((prev) => [...prev, newTag]);
+      }
+
+      if (!isTagMode) {
+        setSelectedTagSlugs((prev) => new Set([...prev, newTagSlug]));
+      }
       setNewTagTitle("");
       setCreateTagMode(false);
     } catch {
@@ -272,11 +287,68 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     }
   };
 
+  const handleDeleteTag = async (tag: Tag) => {
+    if (!tag.id) return;
+    setDeletingTagId(tag.id);
+    try {
+      const response = await fetch(`/api/verses/${GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID}/tags`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tagId: tag.id,
+          deleteTagIfUnused: true,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null) as
+        | {
+            error?: string;
+            linksCount?: number;
+          }
+        | null;
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          const linksCount = payload?.linksCount;
+          toast.error(
+            typeof linksCount === "number" && linksCount > 0
+              ? `Тег «${tag.title}» используется в ${linksCount} стихах`
+              : `Тег «${tag.title}» нельзя удалить, пока он связан со стихами`
+          );
+          return;
+        }
+
+        toast.error(payload?.error || "Не удалось удалить тег");
+        return;
+      }
+
+      setAllTags((prev) => prev.filter((item) => item.id !== tag.id));
+      const slug = tag.slug;
+      if (slug) {
+        setSelectedTagSlugs((prev) => {
+          if (!prev.has(slug)) return prev;
+          const next = new Set(prev);
+          next.delete(slug);
+          return next;
+        });
+      }
+      toast.success(`Тег «${tag.title}» удалён`);
+    } catch {
+      toast.error("Не удалось удалить тег");
+    } finally {
+      setDeletingTagId(null);
+    }
+  };
+
   const resetDraft = useCallback(() => {
     setSelectedVerse(null);
     setSelectedTagSlugs(new Set());
     setCreateTagMode(false);
+    setTagDeleteMode(false);
     setNewTagTitle("");
+    setDeletingTagId(null);
     setSubmitting(false);
     setBookId("");
     setChapterNo("");
@@ -392,21 +464,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setVerseNo(r.verse.toString());
   };
 
-  const handleTagSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTagTitle.trim() || !newTagSlug || submitting) return;
-    setSubmitting(true);
-    try {
-      await onCreateTag?.(newTagTitle.trim(), newTagSlug);
-      toast.success(`Тег «${newTagTitle.trim()}» создан`);
-      handleClose();
-    } catch {
-      toast.error('Не удалось создать тег');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVerse || submitting) return;
@@ -421,24 +478,182 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     } catch { /* toast показывается выше */ } finally { setSubmitting(false); }
   };
 
+  const renderTagManager = (manageOnly: boolean) => (
+    <div className="space-y-2.5 pt-1.5 rounded-2xl border border-border/45 bg-gradient-to-br from-background/95 to-muted/20 p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground/90">
+          Темы
+        </span>
+        <div className="flex items-center gap-3">
+          {!manageOnly && selectedTagSlugs.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedTagSlugs(new Set())}
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Сбросить
+            </button>
+          )}
+          {!createTagMode && allTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTagDeleteMode((prev) => !prev)}
+              disabled={creatingTag || deletingTagId !== null}
+              className={`inline-flex items-center gap-0.5 text-[11px] transition-colors disabled:opacity-50 ${
+                tagDeleteMode
+                  ? "text-destructive hover:text-destructive/85"
+                  : "text-muted-foreground hover:text-destructive"
+              }`}
+            >
+              {tagDeleteMode ? <Check className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
+              {tagDeleteMode ? "Готово" : "Удаление"}
+            </button>
+          )}
+          {!createTagMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setTagDeleteMode(false);
+                setCreateTagMode(true);
+              }}
+              className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              Создать
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!manageOnly && (
+        <p className="text-[11px] text-muted-foreground/75">
+          Выбрано: <span className="font-semibold text-primary">{selectedTagSlugs.size}</span>
+        </p>
+      )}
+
+      {createTagMode && (
+        <div className="flex gap-2 items-center">
+          <Input
+            value={newTagTitle}
+            onChange={(e) => setNewTagTitle(e.target.value)}
+            placeholder="Название тега..."
+            className="rounded-xl h-8 text-sm flex-1 bg-background/75"
+            autoFocus
+            disabled={creatingTag}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); void handleCreateTag(); }
+              if (e.key === "Escape") { setCreateTagMode(false); setNewTagTitle(""); }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void handleCreateTag()}
+            disabled={!newTagTitle.trim() || !newTagSlug || creatingTag}
+            className="shrink-0 h-8 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-medium disabled:opacity-40 transition-opacity flex items-center"
+          >
+            {creatingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : "Создать"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setCreateTagMode(false); setNewTagTitle(""); }}
+            className="shrink-0 h-8 w-8 rounded-xl border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {tagsLoading ? (
+        <div className="flex gap-1.5 py-0.5">
+          {[56, 72, 48, 80, 60].map((w) => (
+            <div key={w} className="h-6 rounded-full bg-muted/60 animate-pulse shrink-0" style={{ width: w }} />
+          ))}
+        </div>
+      ) : allTags.length > 0 ? (
+        <div className="relative">
+          <div
+            className="flex gap-1.5 overflow-x-auto py-1 pr-6"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+          >
+            {allTags.map((tag) => {
+              const slug = tag.slug ?? "";
+              const canToggle = !manageOnly && !tagDeleteMode && Boolean(slug);
+              const active = canToggle && selectedTagSlugs.has(slug);
+              const isDeleting = deletingTagId === tag.id;
+              return (
+                <div key={tag.id ?? slug} className="shrink-0 group/tag relative">
+                  <button
+                    type="button"
+                    onClick={() => canToggle && toggleTag(slug)}
+                    disabled={isDeleting || !canToggle}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
+                      active
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border/50 bg-muted/20 text-muted-foreground hover:border-primary/25 hover:text-foreground"
+                    } ${isDeleting ? "opacity-45 pointer-events-none" : ""}`}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" />
+                    ) : active ? (
+                      <Check className="h-2.5 w-2.5 shrink-0" />
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/35">#</span>
+                    )}
+                    {tag.title}
+                  </button>
+
+                  {tagDeleteMode && tag.id && (
+                    <button
+                      type="button"
+                      aria-label={`Удалить тег ${tag.title}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDeleteTag(tag);
+                      }}
+                      disabled={isDeleting}
+                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground transition-opacity flex items-center justify-center disabled:opacity-50"
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/45 italic">Нет тегов — создайте первый</p>
+      )}
+    </div>
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="w-screen h-screen max-w-full sm:h-[90vh] sm:max-w-[600px] max-h-screen overflow-hidden sm:rounded-3xl rounded-none px-0 py-0 flex flex-col border-border/50">
+      <DialogContent className="w-screen h-screen max-w-full sm:h-[90vh] sm:max-w-[600px] max-h-screen overflow-hidden sm:rounded-3xl rounded-none px-0 py-0 flex flex-col border-border/60 bg-gradient-to-b from-background via-background to-muted/20">
 
         {/* ── Шапка ──────────────────────────────────────────────────────────── */}
         <DialogHeader
-        style={{ paddingTop: `${Math.max(topInset, 20)}px` }}
-          className="px-5 pb-4 border-b border-border/40 flex-shrink-0 sticky top-0 bg-background z-10"
+          style={{ paddingTop: `${Math.max(topInset, 20)}px` }}
+          className="px-5 pb-4 border-b border-border/40 flex-shrink-0 sticky top-0 bg-gradient-to-b from-background via-background to-background/95 backdrop-blur z-10"
         >
-          <DialogTitle className="text-center text-base font-semibold mb-3">
-            {mode === 'tag' ? 'Создать тег' : 'Добавить стих'}
+          <DialogTitle className="text-center text-base font-semibold">
+            {isTagMode ? "Управление темами" : "Добавить стих"}
           </DialogTitle>
+          <p className="text-center text-[11px] text-muted-foreground/70 mt-1 mb-3">
+            {/* {isTagMode
+              ? "Создавайте и удаляйте темы в одном блоке"
+              : "Выберите стих и добавьте к нему подходящие теги"} */}
+          </p>
 
           {/* Segmented mode toggle — verse mode only */}
-          {mode === 'verse' && (
-            <div className="flex items-center bg-muted/60 rounded-xl p-1 gap-1">
+          {isVerseMode && (
+            <div className="flex items-center bg-muted/65 rounded-xl p-1 gap-1">
               <button
                 type="button"
                 onClick={() => setInputMode("search")}
@@ -468,47 +683,28 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         </DialogHeader>
 
         {/* ── Тег-режим ──────────────────────────────────────────────────────── */}
-        {mode === 'tag' && (
-          <form onSubmit={(e) => void handleTagSubmit(e)} className="flex flex-col h-full min-h-0">
-            <div className="px-5 py-6 flex-1 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Название</Label>
-                <Input
-                  value={newTagTitle}
-                  onChange={(e) => setNewTagTitle(e.target.value)}
-                  placeholder="Вера, Любовь, Надежда..."
-                  className="rounded-xl"
-                  autoFocus
-                  disabled={submitting}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); void handleTagSubmit(e as unknown as React.FormEvent); }
-                  }}
-                />
-                {newTagSlug && (
-                  <p className="text-[11px] text-muted-foreground/45 px-0.5">
-                    slug: <span className="font-mono">{newTagSlug}</span>
-                  </p>
-                )}
-              </div>
+        {isTagMode && (
+          <div className="flex flex-col h-full min-h-0">
+            <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
+              {renderTagManager(true)}
             </div>
-            <DialogFooter  className="flex-shrink-0 flex flex-row  items-center gap-2 bg-background border-t border-border/40">
-             <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting} className="flex-1 rounded-xl px-3 py-2">
-                Отмена
-              </Button>
+            <DialogFooter
+              style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
+              className="flex-shrink-0 flex flex-row items-center gap-2 p-2 py-2.5 bg-background border-t border-border/40"
+            >
               <Button
-                type="submit"
-                disabled={!newTagTitle.trim() || !newTagSlug || submitting}
-                className="flex-1 rounded-xl gap-2 px-3 py-2"
+                type="button"
+                onClick={handleClose}
+                className="w-full rounded-xl px-3 py-2"
               >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {submitting ? 'Создаём...' : 'Создать тег'}
+                Готово
               </Button>
             </DialogFooter>
-          </form>
+          </div>
         )}
 
         {/* ── Стих-режим ─────────────────────────────────────────────────────── */}
-        {mode === 'verse' && (
+        {isVerseMode && (
         <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
           <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
 
@@ -683,7 +879,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
             {/* ── Предпросмотр выбранного стиха ─────────────────────────────── */}
             {selectedVerse && (
-              <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/6 via-background/80 to-violet-500/5 shadow-sm overflow-hidden">
+              <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/6 via-background/80 to-amber-500/10 shadow-sm overflow-hidden">
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
@@ -709,99 +905,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
             )}
 
             {/* ── Теги ──────────────────────────────────────────────────────── */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Теги
-                  {selectedTagSlugs.size > 0 && (
-                    <span className="ml-1.5 text-[10px] text-primary font-semibold">
-                      {selectedTagSlugs.size}
-                    </span>
-                  )}
-                </span>
-                {!createTagMode && (
-                  <button
-                    type="button"
-                    onClick={() => setCreateTagMode(true)}
-                    className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Создать тег
-                  </button>
-                )}
-              </div>
-
-              {/* Inline create tag */}
-              {createTagMode && (
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value={newTagTitle}
-                    onChange={(e) => setNewTagTitle(e.target.value)}
-                    placeholder="Название тега..."
-                    className="rounded-xl h-8 text-sm flex-1"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); void handleCreateTag(); }
-                      if (e.key === "Escape") { setCreateTagMode(false); setNewTagTitle(""); }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateTag()}
-                    disabled={!newTagTitle.trim() || !newTagSlug || creatingTag}
-                    className="shrink-0 h-8 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-medium disabled:opacity-40 transition-opacity flex items-center"
-                  >
-                    {creatingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : "Создать"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setCreateTagMode(false); setNewTagTitle(""); }}
-                    className="shrink-0 h-8 w-8 rounded-xl border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-
-              {/* Tags list */}
-              {tagsLoading ? (
-                <div className="flex gap-1.5 py-0.5">
-                  {[56, 72, 48, 80, 60].map((w) => (
-                    <div key={w} className="h-6 rounded-full bg-muted/60 animate-pulse shrink-0" style={{ width: w }} />
-                  ))}
-                </div>
-              ) : allTags.length > 0 ? (
-                <div
-                  className="flex gap-1.5 overflow-x-auto py-0.5"
-                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
-                >
-                  {allTags.map((tag) => {
-                    const slug = tag.slug ?? "";
-                    const active = selectedTagSlugs.has(slug);
-                    return (
-                      <button
-                        key={slug}
-                        type="button"
-                        onClick={() => toggleTag(slug)}
-                        className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
-                          active
-                            ? "border-primary/40 bg-primary/10 text-primary"
-                            : "border-border/50 bg-muted/20 text-muted-foreground hover:border-primary/25 hover:text-foreground"
-                        }`}
-                      >
-                        {active
-                          ? <Check className="h-2.5 w-2.5 shrink-0" />
-                          : <span className="text-[10px] text-muted-foreground/35">#</span>
-                        }
-                        {tag.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground/35 italic">Нет тегов — создайте первый</p>
-              )}
-            </div>
+            {selectedVerse && renderTagManager(false)}
           </div>
 
           {/* ── Футер ──────────────────────────────────────────────────────────── */}

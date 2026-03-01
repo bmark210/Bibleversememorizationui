@@ -1,6 +1,5 @@
 import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
 import type { UserVerse } from "../models/UserVerse";
-import { UserVersesService } from "./UserVersesService";
 
 type GetApiUsersVersesParams = {
   telegramId: string;
@@ -8,6 +7,8 @@ type GetApiUsersVersesParams = {
   orderBy?: "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   filter?: "catalog" | 'my' | "learning" | "review" | "mastered" | "stopped";
+  search?: string;
+  tagSlugs?: string[];
   limit?: number;
   startWith?: number;
 };
@@ -19,15 +20,26 @@ type FetchAllUserVersesParams = Omit<GetApiUsersVersesParams, "startWith"> & {
 export async function fetchUserVersesPage(
   params: GetApiUsersVersesParams
 ): Promise<UserVersesPageResponse> {
-  return UserVersesService.getApiUsersVerses(
-    params.telegramId,
-    params.status,
-    params.orderBy,
-    params.order,
-    params.filter,
-    params.limit,
-    params.startWith
-  );
+  const searchParams = new URLSearchParams();
+  if (params.status) searchParams.set("status", params.status);
+  if (params.orderBy) searchParams.set("orderBy", params.orderBy);
+  if (params.order) searchParams.set("order", params.order);
+  if (params.filter) searchParams.set("filter", params.filter);
+  if (params.search?.trim()) searchParams.set("search", params.search.trim());
+  if (params.tagSlugs && params.tagSlugs.length > 0) {
+    searchParams.set("tagSlugs", params.tagSlugs.join(","));
+  }
+  if (params.limit != null) searchParams.set("limit", String(params.limit));
+  if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
+
+  const url = `/api/users/${encodeURIComponent(params.telegramId)}/verses?${searchParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || `Failed to fetch user verses: ${response.status}`);
+  }
+
+  return response.json() as Promise<UserVersesPageResponse>;
 }
 
 export async function fetchAllUserVerses(

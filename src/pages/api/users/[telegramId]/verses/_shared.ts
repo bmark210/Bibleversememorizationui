@@ -67,6 +67,8 @@ export type UserVersesListQuery = {
   orderBy?: UserVersesOrderBy;
   order?: UserVersesOrder;
   filter?: UserVersesFilter;
+  search?: string;
+  tagSlugs?: string[];
   limit?: number;
   startWith?: number;
 };
@@ -80,12 +82,16 @@ type FetchEnrichedUserVersesOptions = {
 
 type FetchPaginatedEnrichedUserVersesOptions = FetchEnrichedUserVersesOptions & {
   displayFilter?: UserVersesFilter;
+  search?: string;
+  tagSlugs?: string[];
   limit?: number;
   startWith?: number;
 };
 
 const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
 const MAX_USER_VERSES_PAGE_LIMIT = 50;
+const MAX_USER_VERSES_SEARCH_LENGTH = 100;
+const MAX_USER_VERSES_TAG_FILTER_SIZE = 30;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -171,12 +177,49 @@ function parseStartWith(value: string | undefined): number | undefined {
   return parsed;
 }
 
+function parseSearch(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  if (normalized.length > MAX_USER_VERSES_SEARCH_LENGTH) {
+    throw new UserVersesApiError(
+      400,
+      `search must be at most ${MAX_USER_VERSES_SEARCH_LENGTH} characters`
+    );
+  }
+  return normalized;
+}
+
+function parseTagSlugs(value: string | string[] | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const chunks = Array.isArray(value) ? value : [value];
+  const normalized = chunks
+    .flatMap((chunk) => chunk.split(","))
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.toLowerCase());
+
+  if (normalized.length === 0) return undefined;
+
+  const unique = Array.from(new Set(normalized));
+  if (unique.length > MAX_USER_VERSES_TAG_FILTER_SIZE) {
+    throw new UserVersesApiError(
+      400,
+      `tagSlugs must contain at most ${MAX_USER_VERSES_TAG_FILTER_SIZE} values`
+    );
+  }
+
+  return unique;
+}
+
 export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQuery {
   return {
     status: parseStatus(getSingleQueryValue(query, "status")),
     orderBy: parseOrderBy(getSingleQueryValue(query, "orderBy")),
     order: parseOrder(getSingleQueryValue(query, "order")),
     filter: parseFilter(getSingleQueryValue(query, "filter")),
+    search: parseSearch(getSingleQueryValue(query, "search")),
+    tagSlugs: parseTagSlugs(query.tagSlugs),
     limit: parsePageLimit(getSingleQueryValue(query, "limit")),
     startWith: parseStartWith(getSingleQueryValue(query, "startWith")),
   };
@@ -217,6 +260,29 @@ function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVer
   return verses;
 }
 
+function normalizeSearchTerm(search: string | undefined): string | undefined {
+  if (!search) return undefined;
+  const normalized = search.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function matchesVerseCardSearch(verse: VerseCardDto, search: string): boolean {
+  if (verse.externalVerseId.toLowerCase().includes(search)) return true;
+  if ((verse.reference ?? "").toLowerCase().includes(search)) return true;
+  if ((verse.text ?? "").toLowerCase().includes(search)) return true;
+  return verse.tags.some(
+    (tag) =>
+      tag.slug.toLowerCase().includes(search) ||
+      tag.title.toLowerCase().includes(search)
+  );
+}
+
+function filterVerseCardsBySearch(verses: VerseCardDto[], search: string | undefined): VerseCardDto[] {
+  const normalizedSearch = normalizeSearchTerm(search);
+  if (!normalizedSearch) return verses;
+  return verses.filter((verse) => matchesVerseCardSearch(verse, normalizedSearch));
+}
+
 function buildUserVersesWhere(
   telegramId: string,
   where?: Record<string, unknown>
@@ -225,6 +291,32 @@ function buildUserVersesWhere(
     telegramId,
     ...(where ?? {}),
   } as Prisma.UserVerseWhereInput;
+}
+
+function applyTagFilterToUserVersesWhere(
+  where: Prisma.UserVerseWhereInput,
+  tagSlugs?: string[]
+): Prisma.UserVerseWhereInput {
+  if (!tagSlugs || tagSlugs.length === 0) return where;
+
+  return {
+    AND: [
+      where,
+      {
+        verse: {
+          tags: {
+            some: {
+              tag: {
+                slug: {
+                  in: tagSlugs,
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  } satisfies Prisma.UserVerseWhereInput;
 }
 
 function buildUserVersesOrderBy(
@@ -535,15 +627,21 @@ export async function fetchPaginatedEnrichedUserVerses({
   orderBy,
   order,
   displayFilter,
+  search,
+  tagSlugs,
   limit,
   startWith,
 }: FetchPaginatedEnrichedUserVersesOptions): Promise<UserVersesPageResponse> {
   const pageLimit = limit ?? DEFAULT_USER_VERSES_PAGE_LIMIT;
   const translation = await getUserTranslationForTelegram(telegramId);
-  const prismaWhere = buildUserVersesWhere(telegramId, where);
+  const prismaWhere = applyTagFilterToUserVersesWhere(
+    buildUserVersesWhere(telegramId, where),
+    tagSlugs
+  );
   const pageOffset = Math.max(0, startWith ?? 0);
+  const hasSearch = Boolean(normalizeSearchTerm(search));
 
-  if (isComputedDisplayFilter(displayFilter)) {
+  if (isComputedDisplayFilter(displayFilter) || hasSearch) {
     const rawRows = await prisma.userVerse.findMany({
       where: prismaWhere,
       orderBy: buildUserVersesOrderBy(orderBy, order),
@@ -551,7 +649,8 @@ export async function fetchPaginatedEnrichedUserVerses({
     });
 
     const enrichedItems = await enrichUserVerses(flattenVerseRows(rawRows), translation);
-    const filteredItems = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
+    const filteredByDisplay = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
+    const filteredItems = filterVerseCardsBySearch(filteredByDisplay, search);
 
     return {
       items: filteredItems.slice(pageOffset, pageOffset + pageLimit),

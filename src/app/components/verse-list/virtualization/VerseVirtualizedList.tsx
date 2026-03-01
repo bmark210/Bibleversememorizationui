@@ -36,6 +36,8 @@ type VerseVirtualizedListProps = {
 
 const DEFAULT_INLINE_SKELETON_COUNT = 4;
 const DEFAULT_ITEM_HEIGHT_ESTIMATE = 176;
+const SCROLL_SEEK_ENTER_VELOCITY = 720;
+const SCROLL_SEEK_EXIT_VELOCITY = 140;
 
 function InlineLoadMoreSkeleton({
   count,
@@ -71,6 +73,18 @@ function InlineLoadMoreSkeleton({
           </div>
         ))}
       </motion.div>
+    </div>
+  );
+}
+
+function ScrollSeekItemPlaceholder({ height }: { height: number; index: number }) {
+  const resolvedHeight = Number.isFinite(height) && height > 0 ? height : DEFAULT_ITEM_HEIGHT_ESTIMATE;
+  return (
+    <div className="pb-3" aria-hidden="true">
+      <div
+        className="rounded-2xl border border-border/60 bg-card/55 animate-pulse"
+        style={{ minHeight: resolvedHeight }}
+      />
     </div>
   );
 }
@@ -351,6 +365,7 @@ export function VerseVirtualizedList({
     enableInfiniteLoader && hasMoreItems && isFetchingMore && showDelayedLoadMoreSkeleton
       ? Math.max(1, Math.min(skeletonCount, pageSize))
       : 0;
+  const shouldEnableScrollSeek = items.length > Math.max(80, pageSize * 3);
 
   const FooterComponent = useMemo(() => {
     const Footer = () => (
@@ -364,7 +379,10 @@ export function VerseVirtualizedList({
   }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
 
   const virtuosoComponents = useMemo(
-    () => ({ Footer: FooterComponent }),
+    () => ({
+      Footer: FooterComponent,
+      ScrollSeekPlaceholder: ScrollSeekItemPlaceholder,
+    }),
     [FooterComponent]
   );
 
@@ -391,12 +409,20 @@ export function VerseVirtualizedList({
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
         endReached={handleEndReached}
         rangeChanged={handleRangeChanged}
+        scrollSeekConfiguration={
+          shouldEnableScrollSeek
+            ? {
+                enter: (velocity: number) => Math.abs(velocity) > SCROLL_SEEK_ENTER_VELOCITY,
+                exit: (velocity: number) => Math.abs(velocity) < SCROLL_SEEK_EXIT_VELOCITY,
+              }
+            : undefined
+        }
         increaseViewportBy={{
           top: 0,
-          bottom: Math.max(240, Math.max(0, prefetchRows) * 140),
+          bottom: Math.max(180, Math.max(0, prefetchRows) * 120),
         }}
         minOverscanItemCount={{
-          top: 2,
+          top: 1,
           bottom: Math.max(2, Math.max(0, prefetchRows)),
         }}
         itemContent={(index, verse) => {

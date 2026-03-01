@@ -11,8 +11,25 @@ const DEFAULT_TRANSLATION = "SYNOD";
 const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
+const MAX_TAG_SLUGS = 30;
 
 type ParsedVerseId = { book: number; chapter: number; verse: number };
+
+function parseTagSlugs(value: string | string[] | undefined): string[] {
+  if (!value) return [];
+  const chunks = Array.isArray(value) ? value : [value];
+  const normalized = chunks
+    .flatMap((chunk) => chunk.split(","))
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.toLowerCase());
+
+  const unique = Array.from(new Set(normalized));
+  if (unique.length > MAX_TAG_SLUGS) {
+    throw new Error(`tagSlugs must contain at most ${MAX_TAG_SLUGS} values`);
+  }
+  return unique;
+}
 
 function parseExternalVerseId(value: string): ParsedVerseId | null {
   const parts = value.split("-").map(Number);
@@ -113,17 +130,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const translationOverride = Array.isArray(req.query.translation)
     ? req.query.translation[0]
     : req.query.translation;
+  let tagSlugs: string[] = [];
+  try {
+    tagSlugs = parseTagSlugs(req.query.tagSlugs);
+  } catch (error) {
+    return res.status(400).json({
+      error: error instanceof Error ? error.message : "Invalid tagSlugs query",
+    });
+  }
 
   try {
+    const verseWhere =
+      tagSlugs.length > 0
+        ? {
+            tags: {
+              some: {
+                tag: {
+                  slug: {
+                    in: tagSlugs,
+                  },
+                },
+              },
+            },
+          }
+        : undefined;
+
     // Fetch verses page, total count, and user's translation preference in parallel
     const [verses, totalCount, userRecord] = await Promise.all([
       prisma.verse.findMany({
+        where: verseWhere,
         orderBy: { createdAt: "desc" },
         skip: startWith,
         take: limit,
         include: { tags: { include: { tag: true } } },
       }),
-      prisma.verse.count(),
+      prisma.verse.count({
+        where: verseWhere,
+      }),
       telegramIdParam
         ? prisma.user.findUnique({
             where: { telegramId: telegramIdParam },
