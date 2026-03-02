@@ -131,17 +131,26 @@ export function VerseList({
 
       {vm.ui.isListLoading ? (
         <motion.div className="space-y-4 h-full" {...reveal(0.05)}>
+          <VerseListSectionShell config={vm.list.sectionConfig ?? {
+            headingId: 'my-verses-heading',
+            title: 'Загрузка...',
+            subtitle: 'Загрузка...',
+            dotClassName: 'bg-gray-400',
+            borderClassName: 'bg-gradient-to-b from-gray-500/5 to-background',
+            tintClassName: 'bg-gray-500/5'
+          }} count={0}>
           <VerseListSkeletonCards count={3} />
+          </VerseListSectionShell>
         </motion.div>
       ) : vm.ui.isEmptyFiltered ? (
-        <motion.div className="h-full" {...reveal(0.05)}>
+        <motion.div {...reveal(0.05)}>
           <VerseListEmptyState
             currentFilterLabel={vm.ui.currentFilterLabel}
             isAllFilter={vm.filters.statusFilter === 'catalog'}
           />
         </motion.div>
       ) : vm.list.sectionConfig ? (
-        <motion.div className="h-full" {...reveal(0.06)}>
+        <motion.div {...reveal(0.06)}>
           <VerseListSectionShell config={vm.list.sectionConfig} count={vm.list.sectionItems.length}>
             {listContent}
           </VerseListSectionShell>

@@ -11,8 +11,10 @@ type VerseListSectionShellProps = {
 
 export function VerseListSectionShell({ config, count, children }: VerseListSectionShellProps) {
   return (
-    <section className="space-y-3 h-full" aria-labelledby={config.headingId}>
-      <Card className={`gap-0 overflow-hidden border-border/70 rounded-3xl ${config.borderClassName}`}>
+    <section className="h-full min-h-0" aria-labelledby={config.headingId}>
+      <Card
+        className={`gap-0 overflow-hidden border-border/70 rounded-3xl min-h-0 flex flex-col ${config.borderClassName}`}
+      >
         <div className={`border-b border-border/70 p-4 sm:p-5 ${config.tintClassName}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -30,9 +32,12 @@ export function VerseListSectionShell({ config, count, children }: VerseListSect
           </div>
         </div>
 
-        <div className="p-3 sm:p-4">{children}</div>
+        <div className="px-3 sm:px-4 min-h-0">
+          <div className="h-[clamp(20rem,56dvh,40rem)] min-h-0">
+            {children}
+          </div>
+        </div>
       </Card>
     </section>
   );
 }
-

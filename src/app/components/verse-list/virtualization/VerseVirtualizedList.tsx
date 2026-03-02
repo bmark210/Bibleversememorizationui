@@ -1,17 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Virtuoso, type ListRange } from 'react-virtuoso';
 import { Verse } from '@/app/App';
-import {
-  SCROLL_ACTIVATION_DELTA_PX,
-  type VerseListStatusFilter,
-} from '../constants';
+import type { VerseListStatusFilter } from '../constants';
 import type { AppendRevealRange } from '../hooks/useVersePagination';
 import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
-type WindowScrollerElement = HTMLElement | (Window & typeof globalThis);
-type ScrollMode = 'window' | 'container';
 type RangeLike = VerseListLoadRange;
 
 type VerseVirtualizedListProps = {
@@ -30,7 +25,6 @@ type VerseVirtualizedListProps = {
   pageSize: number;
   prefetchRows: number;
   skeletonCount?: number;
-  scrollActivationDeltaPx?: number;
   debugInfiniteScroll?: DebugInfiniteScroll;
 };
 
@@ -105,71 +99,28 @@ export function VerseVirtualizedList({
   pageSize,
   prefetchRows,
   skeletonCount = DEFAULT_INLINE_SKELETON_COUNT,
-  scrollActivationDeltaPx = SCROLL_ACTIVATION_DELTA_PX,
   debugInfiniteScroll,
 }: VerseVirtualizedListProps) {
   const shouldReduceMotion = useReducedMotion();
-  const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [scrollElement, setScrollElement] = useState<WindowScrollerElement | undefined>(undefined);
-  const [scrollMode, setScrollMode] = useState<ScrollMode>('window');
-
-  const hasUserInteractedRef = useRef(false);
-  const userScrollArmedRef = useRef(false);
-  const scrollBaselineRef = useRef(0);
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
   const lastVisibleRangeRef = useRef<RangeLike | null>(null);
-  const maybeTriggerAutoLoadMoreRef = useRef<(range: RangeLike) => void>(() => {});
-
   const debug = debugInfiniteScroll ?? (() => {});
 
-  const getScrollParent = useCallback((node: HTMLElement | null): HTMLElement | null => {
-    if (!node || typeof window === 'undefined') return null;
-    let current = node.parentElement;
-    let fallback: HTMLElement | null = null;
-    while (current && current !== document.body) {
-      const style = window.getComputedStyle(current);
-      const overflowY = style.overflowY;
-      const canScroll = overflowY === 'auto' || overflowY === 'scroll';
-      if (canScroll) {
-        if (!fallback) fallback = current;
-        if (current.scrollHeight > current.clientHeight + 1) {
-          return current;
-        }
-      }
-      current = current.parentElement;
-    }
-    return fallback;
-  }, []);
-
-  const resolveScrollElement = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    const parent = getScrollParent(scrollAnchorRef.current);
-    setScrollElement(parent ?? (window as Window & typeof globalThis));
-    setScrollMode(parent ? 'container' : 'window');
-  }, [getScrollParent]);
-
-  const getCurrentScrollTop = useCallback(() => {
-    if (typeof window === 'undefined') return 0;
-    if (scrollElement && scrollElement !== (window as Window & typeof globalThis)) {
-      return (scrollElement as HTMLElement).scrollTop;
-    }
-    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-  }, [scrollElement]);
-
   const maybeTriggerAutoLoadMore = useCallback(
-    (range: RangeLike) => {
+    (range: RangeLike, source: 'range' | 'end') => {
       if (!enableInfiniteLoader) return;
       if (!hasMoreItems) return;
       if (isFetchingMore) return;
-      if (!hasUserInteractedRef.current) return;
       if (items.length === 0) return;
 
+      const normalizedPrefetchRows = Math.max(0, prefetchRows);
       const lastRealIndex = items.length - 1;
-      const triggerIndex = Math.max(0, lastRealIndex - Math.max(0, prefetchRows));
+      const triggerIndex = Math.max(0, lastRealIndex - normalizedPrefetchRows);
       if (range.stopIndex < triggerIndex) return;
 
       if (autoLoadTriggeredForItemsLengthRef.current === items.length) {
         debug('virtuoso-autoLoad-skip:already-triggered', {
+          source,
           itemsLength: items.length,
           range,
           triggerIndex,
@@ -184,6 +135,7 @@ export function VerseVirtualizedList({
       };
 
       debug('virtuoso-autoLoad-trigger', {
+        source,
         visibleRange: range,
         requestRange: nextRange,
         itemsLength: items.length,
@@ -206,114 +158,24 @@ export function VerseVirtualizedList({
     ]
   );
 
-  maybeTriggerAutoLoadMoreRef.current = maybeTriggerAutoLoadMore;
-
-  const openInteractionGate = useCallback(
-    (event: string, payload?: Record<string, unknown>) => {
-      if (hasUserInteractedRef.current) return;
-      hasUserInteractedRef.current = true;
-      debug(event, payload);
-
-      const lastRange = lastVisibleRangeRef.current;
-      if (lastRange) {
-        maybeTriggerAutoLoadMoreRef.current(lastRange);
-      }
-    },
-    [debug]
-  );
-
   useEffect(() => {
-    resolveScrollElement();
-  }, [resolveScrollElement, statusFilter, items.length]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const onViewportChange = () => resolveScrollElement();
-    window.addEventListener('resize', onViewportChange, { passive: true });
-    window.addEventListener('orientationchange', onViewportChange);
-    return () => {
-      window.removeEventListener('resize', onViewportChange);
-      window.removeEventListener('orientationchange', onViewportChange);
-    };
-  }, [resolveScrollElement]);
-
-  useEffect(() => {
-    hasUserInteractedRef.current = false;
-    userScrollArmedRef.current = false;
-    scrollBaselineRef.current = 0;
     autoLoadTriggeredForItemsLengthRef.current = null;
     lastVisibleRangeRef.current = null;
   }, [statusFilter]);
 
   useEffect(() => {
     if (items.length !== 0) return;
-    hasUserInteractedRef.current = false;
-    userScrollArmedRef.current = false;
-    scrollBaselineRef.current = 0;
     autoLoadTriggeredForItemsLengthRef.current = null;
     lastVisibleRangeRef.current = null;
   }, [items.length]);
 
   useEffect(() => {
     autoLoadTriggeredForItemsLengthRef.current = null;
-  }, [items.length]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const target = (scrollElement ?? (window as Window & typeof globalThis)) as Window | HTMLElement;
-    scrollBaselineRef.current = getCurrentScrollTop();
-    userScrollArmedRef.current = true;
-
-    const onScroll = () => {
-      if (hasUserInteractedRef.current) return;
-      const currentTop = getCurrentScrollTop();
-      if (!userScrollArmedRef.current) {
-        scrollBaselineRef.current = currentTop;
-        userScrollArmedRef.current = true;
-      }
-      const delta = Math.abs(currentTop - scrollBaselineRef.current);
-      if (delta > scrollActivationDeltaPx) {
-        openInteractionGate('virtuoso-user-scroll-armed', {
-          delta,
-          threshold: scrollActivationDeltaPx,
-          mode: scrollMode,
-        });
-      }
-    };
-
-    const onWheel = () => {
-      openInteractionGate('virtuoso-user-scroll-armed:wheel', { mode: scrollMode });
-    };
-
-    const onTouchMove = () => {
-      openInteractionGate('virtuoso-user-scroll-armed:touchmove', { mode: scrollMode });
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const scrollKeys = new Set(['ArrowDown', 'PageDown', 'End', ' ', 'Spacebar']);
-      if (!scrollKeys.has(event.key)) return;
-      openInteractionGate('virtuoso-user-scroll-armed:keydown', { key: event.key, mode: scrollMode });
-    };
-
-    target.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('wheel', onWheel, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      target.removeEventListener('scroll', onScroll);
-      window.removeEventListener('wheel', onWheel);
-      document.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [
-    getCurrentScrollTop,
-    openInteractionGate,
-    scrollActivationDeltaPx,
-    scrollElement,
-    scrollMode,
-  ]);
+    const lastRange = lastVisibleRangeRef.current;
+    if (lastRange) {
+      maybeTriggerAutoLoadMore(lastRange, 'range');
+    }
+  }, [items.length, maybeTriggerAutoLoadMore]);
 
   const handleRangeChanged = useCallback(
     (range: ListRange) => {
@@ -333,7 +195,7 @@ export function VerseVirtualizedList({
           visibleRange.stopIndex >= Math.max(0, items.length - 1 - Math.max(0, prefetchRows)),
       });
 
-      maybeTriggerAutoLoadMore(visibleRange);
+      maybeTriggerAutoLoadMore(visibleRange, 'range');
     },
     [debug, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
   );
@@ -353,10 +215,9 @@ export function VerseVirtualizedList({
         totalCount,
         isFetchingMore,
         hasMoreItems,
-        hasUserInteracted: hasUserInteractedRef.current,
       });
 
-      maybeTriggerAutoLoadMore(range);
+      maybeTriggerAutoLoadMore(range, 'end');
     },
     [debug, hasMoreItems, isFetchingMore, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
   );
@@ -386,24 +247,15 @@ export function VerseVirtualizedList({
     [FooterComponent]
   );
 
-  const customScrollParent =
-    scrollElement && scrollElement !== (typeof window !== 'undefined' ? (window as Window & typeof globalThis) : undefined)
-      ? (scrollElement as HTMLElement)
-      : undefined;
-
-  const scrollProps =
-    scrollMode === 'window' || !customScrollParent
-      ? ({ useWindowScroll: true } as const)
-      : ({ customScrollParent } as const);
-
   if (items.length === 0) return null;
 
   return (
-    <div ref={scrollAnchorRef} className="w-full">
+    <div className="h-full w-full">
       <Virtuoso<Verse>
-        key={`verse-virtuoso-${scrollMode}-${statusFilter}`}
+        key={`verse-virtuoso-${statusFilter}`}
         data={items}
-        className="w-full"
+        className="h-full w-full"
+        style={{ height: '100%' }}
         components={virtuosoComponents}
         computeItemKey={(_, verse) => getItemKey(verse)}
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
@@ -435,20 +287,19 @@ export function VerseVirtualizedList({
             index <= appendRevealRange.end;
 
           const content = (
-            <div data-layout-signature={layoutSignature} className="h-full">
+            <div style={{ marginTop: index === 0 ? '1rem' : '0' }} data-layout-signature={layoutSignature} className="h-full">
               {renderRow(verse)}
             </div>
           );
 
           return (
-            <div className="pb-3 h-full">
+            <div className="pb-3">
               {shouldAnimateAppend ? (
                 <motion.div
                   key={`${itemKey}:${layoutSignature}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="h-full"
                 >
                   {content}
                 </motion.div>
@@ -458,7 +309,6 @@ export function VerseVirtualizedList({
             </div>
           );
         }}
-        {...scrollProps}
       />
     </div>
   );
