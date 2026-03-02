@@ -690,7 +690,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           />
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground/45 italic">Нет тегов — создайте первый</p>
+        <p className="px-4 pb-5 text-xs text-muted-foreground/45 italic">Нет тегов — создайте первый</p>
       )}
     </div>
   );

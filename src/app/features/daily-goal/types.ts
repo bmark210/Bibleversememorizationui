@@ -78,6 +78,91 @@ export interface DailyGoalSession {
   progress: DailyGoalProgress;
 }
 
+export interface DailyGoalServerStateV2 {
+  version: 2;
+  dayKey: string;
+  timezone: string;
+  plan: {
+    requestedCounts: {
+      new: number;
+      review: number;
+    };
+  };
+  progress: {
+    completedVerseIds: {
+      new: string[];
+      review: string[];
+    };
+    skippedVerseIds: {
+      new: string[];
+      review: string[];
+    };
+    startedAt: string | null;
+    completedAt: string | null;
+    lastActivePhase: DailyGoalPhase;
+    preferredResumeMode: DailyGoalResumeMode | null;
+  };
+  meta: {
+    updatedAt: string;
+  };
+}
+
+export interface DailyGoalStateResponse {
+  dayKey: string;
+  timezone: string;
+  stateRev: number;
+  state: DailyGoalServerStateV2;
+  readiness: DailyGoalReadinessResponse;
+}
+
+export type DailyGoalEventAction =
+  | {
+      kind: 'progress_event';
+      event: DailyGoalProgressEvent;
+    }
+  | {
+      kind: 'mark_started';
+      startedAt?: string | null;
+    }
+  | {
+      kind: 'set_preferred_resume_mode';
+      mode: DailyGoalResumeMode | null;
+    }
+  | {
+      kind: 'mark_completed';
+      completedAt?: string | null;
+    };
+
+export interface DailyGoalEventRequest {
+  expectedStateRev: number;
+  newVersesCount: number;
+  reviewVersesCount: number;
+  timezone?: string;
+  dayKey?: string;
+  action: DailyGoalEventAction;
+}
+
+export interface DailyGoalSkipRequest {
+  expectedStateRev: number;
+  newVersesCount: number;
+  reviewVersesCount: number;
+  timezone?: string;
+  dayKey?: string;
+  externalVerseId: string;
+  targetKind: DailyGoalTargetKind;
+}
+
+export interface DailyGoalMutationInfo {
+  applied: boolean;
+  conflict: boolean;
+  completedNow: boolean;
+  completionCounterIncremented: boolean;
+}
+
+export interface DailyGoalMutationResponse extends DailyGoalStateResponse {
+  mutation: DailyGoalMutationInfo;
+}
+
 export interface DailyGoalUiState {
   phase: DailyGoalPhase;
   nextTargetKind: DailyGoalTargetKind | null;

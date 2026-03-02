@@ -12,9 +12,11 @@ import { Card } from "./components/ui/card";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
-import { OpenAPI } from "@/api/core/OpenAPI";
-import { request as apiRequest } from "@/api/core/request";
-import { fetchDailyGoalReadiness } from "@/api/services/dailyGoalReadiness";
+import { fetchDailyGoalState } from "@/api/services/dailyGoalState";
+import {
+  postDailyGoalEvent,
+  postDailyGoalSkip,
+} from "@/api/services/dailyGoalMutations";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
@@ -28,14 +30,16 @@ import {
   pickMutableVersePatchFromApiResponse,
 } from "@/app/utils/versePatch";
 import { useDailyGoalController } from "@/app/features/daily-goal/useDailyGoalController";
-import {
-  getLocalDayKey,
-  readDailyGoalSession,
-} from "@/app/features/daily-goal/storage";
+import { getLocalDayKey } from "@/app/features/daily-goal/storage";
 import type {
+  DailyGoalEventAction,
+  DailyGoalMutationResponse,
+  DailyGoalServerStateV2,
   DailyGoalReadinessResponse,
   DailyGoalResumeMode,
   DailyGoalProgressEvent,
+  DailyGoalStateResponse,
+  DailyGoalTargetKind,
   DailyGoalVerseListReminder,
 } from "@/app/features/daily-goal/types";
 
@@ -115,7 +119,7 @@ type TrainingBatchPreferences = {
   reviewVersesCount: number;
 };
 
-type RefreshDailyGoalReadinessOptions = {
+type RefreshDailyGoalStateOptions = {
   force?: boolean;
 };
 
@@ -135,6 +139,12 @@ function parseDateValue(value: unknown): Date | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getClientTimezone(): string {
+  if (typeof window === "undefined") return "UTC";
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return typeof tz === "string" && tz.length > 0 ? tz : "UTC";
 }
 
 function readTrainingBatchPreferences(): TrainingBatchPreferences | null {
@@ -217,6 +227,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
+  const [dailyGoalServerState, setDailyGoalServerState] = useState<DailyGoalServerStateV2 | null>(null);
+  const [dailyGoalStateRev, setDailyGoalStateRev] = useState<number | null>(null);
   const [dailyGoalReadiness, setDailyGoalReadiness] = useState<DailyGoalReadinessResponse | null>(null);
   const [isDailyGoalReadinessLoading, setIsDailyGoalReadinessLoading] = useState(false);
   const [isTrainingBatchPromptOpen, setIsTrainingBatchPromptOpen] = useState(false);
@@ -226,20 +238,20 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
-  const dailyGoalCompletionSyncRef = useRef<Set<string>>(new Set());
   const hasNotifiedInitialContentReadyRef = useRef(false);
-  const dailyGoalReadinessRequestIdRef = useRef(0);
-  const dailyGoalReadinessInFlightRef = useRef<{
+  const dailyGoalStateRequestIdRef = useRef(0);
+  const dailyGoalStateInFlightRef = useRef<{
     key: string;
     requestId: number;
-    promise: Promise<DailyGoalReadinessResponse | null>;
+    promise: Promise<DailyGoalStateResponse | null>;
   } | null>(null);
-  const dailyGoalReadinessLastSuccessKeyRef = useRef<string | null>(null);
+  const dailyGoalStateLastSuccessKeyRef = useRef<string | null>(null);
   const dailyGoal = useDailyGoalController({
     telegramId,
     trainingBatchPreferences,
     todayVerses: dailyGoalVersePool,
     hasAnyUserVerses: user ? (user.verses?.length ?? 0) > 0 : undefined,
+    dailyGoalServerState,
     dailyGoalReadiness,
     isDailyGoalReadinessLoading,
   });
@@ -350,92 +362,197 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
-  const refreshDailyGoalReadiness = async (
+  const applyDailyGoalSnapshot = (
+    snapshot: {
+      state: DailyGoalServerStateV2;
+      stateRev: number;
+      readiness: DailyGoalReadinessResponse;
+    } | null
+  ) => {
+    if (!snapshot) {
+      setDailyGoalServerState(null);
+      setDailyGoalStateRev(null);
+      setDailyGoalReadiness(null);
+      return;
+    }
+    setDailyGoalServerState(snapshot.state);
+    setDailyGoalStateRev(snapshot.stateRev);
+    setDailyGoalReadiness(snapshot.readiness);
+  };
+
+  const extractConflictMutation = (error: unknown): DailyGoalMutationResponse | null => {
+    const apiError = error as ApiError | undefined;
+    if (!apiError || apiError.status !== 409) return null;
+    const body = apiError.body as unknown;
+    if (!body || typeof body !== "object") return null;
+    if (!("stateRev" in (body as Record<string, unknown>))) return null;
+    return body as DailyGoalMutationResponse;
+  };
+
+  const refreshDailyGoalState = async (
     telegramIdValue: string,
     prefs: TrainingBatchPreferences,
-    options?: RefreshDailyGoalReadinessOptions
+    options?: RefreshDailyGoalStateOptions
   ) => {
     const todayKey = getLocalDayKey();
-    const activeSession = dailyGoal.session;
-    const isCompletedTodayInActiveSession = Boolean(
-      activeSession &&
-        activeSession.telegramId === telegramIdValue &&
-        activeSession.dayKey === todayKey &&
-        activeSession.progress.completedAt
-    );
-    const isCompletedTodayInStorage =
-      !isCompletedTodayInActiveSession &&
-      (() => {
-        const stored = readDailyGoalSession();
-        return Boolean(
-          stored &&
-            stored.telegramId === telegramIdValue &&
-            stored.dayKey === todayKey &&
-            stored.progress?.completedAt
-        );
-      })();
-
-    if (isCompletedTodayInActiveSession || isCompletedTodayInStorage) {
-      setIsDailyGoalReadinessLoading(false);
-      return dailyGoalReadiness;
-    }
-
-    const requestKey = `${telegramIdValue}:${prefs.newVersesCount}:${prefs.reviewVersesCount}:${todayKey}`;
+    const timezone = getClientTimezone();
+    const requestKey = `${telegramIdValue}:${prefs.newVersesCount}:${prefs.reviewVersesCount}:${todayKey}:${timezone}`;
     const force = options?.force === true;
 
     if (!force) {
-      const inFlight = dailyGoalReadinessInFlightRef.current;
+      const inFlight = dailyGoalStateInFlightRef.current;
       if (inFlight?.key === requestKey) {
         return inFlight.promise;
       }
       if (
-        dailyGoalReadinessLastSuccessKeyRef.current === requestKey &&
-        dailyGoalReadiness !== null
+        dailyGoalStateLastSuccessKeyRef.current === requestKey &&
+        dailyGoalReadiness !== null &&
+        dailyGoalServerState !== null &&
+        dailyGoalStateRev !== null
       ) {
-        return dailyGoalReadiness;
+        return {
+          state: dailyGoalServerState,
+          stateRev: dailyGoalStateRev,
+          readiness: dailyGoalReadiness,
+          dayKey: todayKey,
+          timezone,
+        } as DailyGoalStateResponse;
       }
     }
 
-    const requestId = ++dailyGoalReadinessRequestIdRef.current;
+    const requestId = ++dailyGoalStateRequestIdRef.current;
     setIsDailyGoalReadinessLoading(true);
 
     const requestPromise = (async () => {
       try {
-        const snapshot = await fetchDailyGoalReadiness({
+        const snapshot = await fetchDailyGoalState({
           telegramId: telegramIdValue,
           newVersesCount: prefs.newVersesCount,
           reviewVersesCount: prefs.reviewVersesCount,
+          dayKey: todayKey,
+          timezone,
         });
-        if (dailyGoalReadinessRequestIdRef.current !== requestId) return null;
-        dailyGoalReadinessLastSuccessKeyRef.current = requestKey;
-        setDailyGoalReadiness(snapshot);
+        if (dailyGoalStateRequestIdRef.current !== requestId) return null;
+        dailyGoalStateLastSuccessKeyRef.current = requestKey;
+        applyDailyGoalSnapshot(snapshot);
         return snapshot;
       } catch (error) {
-        if (dailyGoalReadinessRequestIdRef.current === requestId) {
-          setDailyGoalReadiness(null);
+        if (dailyGoalStateRequestIdRef.current === requestId) {
+          applyDailyGoalSnapshot(null);
         }
-        console.error("Не удалось получить readiness ежедневной цели:", error);
+        console.error("Не удалось получить состояние ежедневной цели:", error);
         return null;
       } finally {
-        if (dailyGoalReadinessRequestIdRef.current === requestId) {
+        if (dailyGoalStateRequestIdRef.current === requestId) {
           setIsDailyGoalReadinessLoading(false);
         }
         if (
-          dailyGoalReadinessInFlightRef.current?.key === requestKey &&
-          dailyGoalReadinessInFlightRef.current?.requestId === requestId
+          dailyGoalStateInFlightRef.current?.key === requestKey &&
+          dailyGoalStateInFlightRef.current?.requestId === requestId
         ) {
-          dailyGoalReadinessInFlightRef.current = null;
+          dailyGoalStateInFlightRef.current = null;
         }
       }
     })();
 
-    dailyGoalReadinessInFlightRef.current = {
+    dailyGoalStateInFlightRef.current = {
       key: requestKey,
       requestId,
       promise: requestPromise,
     };
 
     return requestPromise;
+  };
+
+  const ensureDailyGoalStateRev = async (
+    telegramIdValue: string,
+    prefs: TrainingBatchPreferences
+  ) => {
+    if (dailyGoalStateRev != null) return dailyGoalStateRev;
+    const snapshot = await refreshDailyGoalState(telegramIdValue, prefs, { force: true });
+    return snapshot?.stateRev ?? null;
+  };
+
+  const mutateDailyGoalEventWithRetry = async (params: {
+    telegramIdValue: string;
+    prefs: TrainingBatchPreferences;
+    action: DailyGoalEventAction;
+  }): Promise<DailyGoalMutationResponse | null> => {
+    const timezone = getClientTimezone();
+    const dayKey = getLocalDayKey();
+    const initialRev = await ensureDailyGoalStateRev(params.telegramIdValue, params.prefs);
+    if (initialRev == null) return null;
+
+    const send = async (
+      expectedStateRev: number,
+      attempt: number
+    ): Promise<DailyGoalMutationResponse | null> => {
+      try {
+        const response = await postDailyGoalEvent({
+          telegramId: params.telegramIdValue,
+          body: {
+            expectedStateRev,
+            newVersesCount: params.prefs.newVersesCount,
+            reviewVersesCount: params.prefs.reviewVersesCount,
+            dayKey,
+            timezone,
+            action: params.action,
+          },
+        });
+        applyDailyGoalSnapshot(response);
+        return response;
+      } catch (error) {
+        const conflict = extractConflictMutation(error);
+        if (!conflict) throw error;
+        applyDailyGoalSnapshot(conflict);
+        if (attempt >= 1) return conflict;
+        return send(conflict.stateRev, attempt + 1);
+      }
+    };
+
+    return send(initialRev, 0);
+  };
+
+  const mutateDailyGoalSkipWithRetry = async (params: {
+    telegramIdValue: string;
+    prefs: TrainingBatchPreferences;
+    externalVerseId: string;
+    targetKind: DailyGoalTargetKind;
+  }): Promise<DailyGoalMutationResponse | null> => {
+    const timezone = getClientTimezone();
+    const dayKey = getLocalDayKey();
+    const initialRev = await ensureDailyGoalStateRev(params.telegramIdValue, params.prefs);
+    if (initialRev == null) return null;
+
+    const send = async (
+      expectedStateRev: number,
+      attempt: number
+    ): Promise<DailyGoalMutationResponse | null> => {
+      try {
+        const response = await postDailyGoalSkip({
+          telegramId: params.telegramIdValue,
+          body: {
+            expectedStateRev,
+            newVersesCount: params.prefs.newVersesCount,
+            reviewVersesCount: params.prefs.reviewVersesCount,
+            dayKey,
+            timezone,
+            externalVerseId: params.externalVerseId,
+            targetKind: params.targetKind,
+          },
+        });
+        applyDailyGoalSnapshot(response);
+        return response;
+      } catch (error) {
+        const conflict = extractConflictMutation(error);
+        if (!conflict) throw error;
+        applyDailyGoalSnapshot(conflict);
+        if (attempt >= 1) return conflict;
+        return send(conflict.stateRev, attempt + 1);
+      }
+    };
+
+    return send(initialRev, 0);
   };
 
   const getVerseKey = (verse: Pick<Verse, "id" | "externalVerseId">) =>
@@ -502,7 +619,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+      void refreshDailyGoalState(telegramIdValue, trainingBatchPreferences, {
         force: true,
       });
     }
@@ -524,7 +641,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+      void refreshDailyGoalState(telegramIdValue, trainingBatchPreferences, {
         force: true,
       });
     }
@@ -553,7 +670,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     // The returned snapshot is not yet in React state, so getNextTargetVerseId()
     // below reads from the pre-refresh UI. This is acceptable: the gallery opens
     // immediately with existing verses, then a background refresh corrects the list.
-    await refreshDailyGoalReadiness(telegramIdValue, trainingBatchPreferences, {
+    await refreshDailyGoalState(telegramIdValue, trainingBatchPreferences, {
       force: true,
     });
 
@@ -573,6 +690,13 @@ export default function App({ onInitialContentReady }: AppProps) {
         : -1;
       setDashboardGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
       dailyGoal.markDailyGoalStarted();
+      void mutateDailyGoalEventWithRetry({
+        telegramIdValue,
+        prefs: trainingBatchPreferences,
+        action: { kind: "mark_started" },
+      }).catch((error) => {
+        console.error("Не удалось отметить старт daily goal:", error);
+      });
       dailyGoal.markOnboardingSeen("dashboardIntro");
       dailyGoal.markOnboardingSeen("galleryIntro");
       return true;
@@ -630,15 +754,30 @@ export default function App({ onInitialContentReady }: AppProps) {
       dailyGoal.markOnboardingSeen("galleryIntro");
       dailyGoal.markOnboardingSeen("trainingIntro");
     }
-    const result = dailyGoal.applyProgressEvent(event);
-    if (telegramId && trainingBatchPreferences) {
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
-        force: true,
-      });
-    }
-    if (result.completedNow) {
-      void syncDailyGoalCompletionToServer();
-    }
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue || !trainingBatchPreferences) return;
+    void (async () => {
+      try {
+        const response = await mutateDailyGoalEventWithRetry({
+          telegramIdValue,
+          prefs: trainingBatchPreferences,
+          action: {
+            kind: "progress_event",
+            event,
+          },
+        });
+        if (response?.mutation.completedNow && response.mutation.completionCounterIncremented) {
+          toast.success("Ежедневная цель выполнена", {
+            description: "Прогресс сохранён. Счётчик выполненных целей обновлён.",
+          });
+        }
+      } catch (error) {
+        console.error("Не удалось отправить progress event daily goal:", error);
+        void refreshDailyGoalState(telegramIdValue, trainingBatchPreferences, {
+          force: true,
+        });
+      }
+    })();
   };
 
   const handleDailyGoalJumpToVerseRequest = (externalVerseId: string) => {
@@ -655,8 +794,24 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleVerseListMutationCommitted = () => {
     if (!telegramId || !trainingBatchPreferences) return;
     void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-    void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
+    void refreshDailyGoalState(telegramId, trainingBatchPreferences, {
       force: true,
+    });
+  };
+
+  const handleDailyGoalPreferredResumeModeChange = (mode: DailyGoalResumeMode) => {
+    dailyGoal.setPreferredResumeMode(mode);
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue || !trainingBatchPreferences) return;
+    void mutateDailyGoalEventWithRetry({
+      telegramIdValue,
+      prefs: trainingBatchPreferences,
+      action: {
+        kind: "set_preferred_resume_mode",
+        mode,
+      },
+    }).catch((error) => {
+      console.error("Не удалось сохранить preferredResumeMode daily goal:", error);
     });
   };
 
@@ -676,6 +831,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     try {
       setIsLoading(true);
       await loadPlannedVersesForDashboard(telegramIdValue, nextPreferences);
+      await refreshDailyGoalState(telegramIdValue, nextPreferences, { force: true });
       toast.success("План тренировки сохранён", {
         description: `В изучении: ${nextPreferences.newVersesCount}, повторений: ${nextPreferences.reviewVersesCount}.`,
       });
@@ -741,48 +897,14 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (!telegramId || !trainingBatchPreferences) {
+      setDailyGoalServerState(null);
+      setDailyGoalStateRev(null);
       setDailyGoalReadiness(null);
       setIsDailyGoalReadinessLoading(false);
       return;
     }
-    void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences);
+    void refreshDailyGoalState(telegramId, trainingBatchPreferences);
   }, [telegramId, trainingBatchPreferences]);
-
-  const syncDailyGoalCompletionToServer = async () => {
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    const session = dailyGoal.session;
-    if (!telegramIdValue || !session) return;
-    if (!dailyGoal.hasUnsyncedCompletionCounter) return;
-
-    const syncKey = `${telegramIdValue}:${session.dayKey}`;
-    if (dailyGoalCompletionSyncRef.current.has(syncKey)) {
-      return;
-    }
-    dailyGoalCompletionSyncRef.current.add(syncKey);
-
-    try {
-      await apiRequest(OpenAPI, {
-        method: "PATCH",
-        url: "/api/users/{telegramId}",
-        path: { telegramId: telegramIdValue },
-        body: { action: "incrementDailyGoalsCompleted" },
-        mediaType: "application/json",
-      });
-      dailyGoal.markCompletionCounterSynced();
-      toast.success("Ежедневная цель выполнена", {
-        description: "Прогресс сохранён. Счётчик выполненных целей обновлён.",
-      });
-    } catch (error) {
-      console.error("Не удалось увеличить dailyGoalsCompleted:", error);
-      dailyGoalCompletionSyncRef.current.delete(syncKey);
-      toast.error("Не удалось обновить счётчик ежедневных целей");
-    }
-  };
-
-  useEffect(() => {
-    if (!dailyGoal.hasUnsyncedCompletionCounter) return;
-    void syncDailyGoalCompletionToServer();
-  }, [dailyGoal.hasUnsyncedCompletionCounter, dailyGoal.session?.dayKey, telegramId]);
 
   useEffect(() => {
     if (isBootstrapping || hasNotifiedInitialContentReadyRef.current) return;
@@ -840,9 +962,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               }
               onDailyGoalProgressEvent={handleDailyGoalProgressEvent}
               onDailyGoalJumpToVerseRequest={handleDailyGoalJumpToVerseRequest}
-              onDailyGoalPreferredResumeModeChange={(mode: DailyGoalResumeMode) =>
-                dailyGoal.setPreferredResumeMode(mode)
-              }
+              onDailyGoalPreferredResumeModeChange={handleDailyGoalPreferredResumeModeChange}
             />
           )}
 
@@ -881,9 +1001,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           }
           onDailyGoalProgressEvent={handleDailyGoalProgressEvent}
           onDailyGoalJumpToVerseRequest={handleDailyGoalJumpToVerseRequest}
-          onDailyGoalPreferredResumeModeChange={(mode: DailyGoalResumeMode) =>
-            dailyGoal.setPreferredResumeMode(mode)
-          }
+          onDailyGoalPreferredResumeModeChange={handleDailyGoalPreferredResumeModeChange}
         />
       )}
 

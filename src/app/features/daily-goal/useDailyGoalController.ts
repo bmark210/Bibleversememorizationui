@@ -8,6 +8,7 @@ import type {
   DailyGoalProgressEvent,
   DailyGoalReadinessResponse,
   DailyGoalResumeMode,
+  DailyGoalServerStateV2,
   DailyGoalSession,
   DailyGoalTargetKind,
   DailyGoalTrainingStartDecision,
@@ -33,6 +34,7 @@ type UseDailyGoalControllerParams<TVerse extends DailyGoalVerseSource> = {
   trainingBatchPreferences: TrainingBatchPreferencesLike | null;
   todayVerses: TVerse[];
   hasAnyUserVerses?: boolean;
+  dailyGoalServerState?: DailyGoalServerStateV2 | null;
   dailyGoalReadiness?: DailyGoalReadinessResponse | null;
   isDailyGoalReadinessLoading?: boolean;
 };
@@ -304,11 +306,66 @@ function createSession(
   };
 }
 
+function createSessionFromServerState(
+  telegramId: string,
+  serverState: DailyGoalServerStateV2,
+  prefs: TrainingBatchPreferencesLike,
+  todayVerses: DailyGoalVerseSource[],
+  readiness?: DailyGoalReadinessResponse | null
+): DailyGoalSession {
+  const derivedPlan = buildDailyGoalPlan(todayVerses, prefs, { dayKey: serverState.dayKey });
+  const requestedNew = Math.max(0, Number(serverState.plan.requestedCounts.new ?? 0));
+  const requestedReview = Math.max(0, Number(serverState.plan.requestedCounts.review ?? 0));
+  const availableNew = Math.max(
+    0,
+    readiness?.available.learning ?? derivedPlan.availableCounts.new
+  );
+  const availableReview = Math.max(
+    0,
+    readiness?.available.review ?? derivedPlan.availableCounts.review
+  );
+
+  return {
+    version: 1,
+    telegramId,
+    dayKey: serverState.dayKey,
+    plan: {
+      dayKey: serverState.dayKey,
+      prefsSnapshot: {
+        newVersesCount: requestedNew,
+        reviewVersesCount: requestedReview,
+      },
+      requestedCounts: { new: requestedNew, review: requestedReview },
+      availableCounts: { new: availableNew, review: availableReview },
+      shortages: {
+        new: Math.max(0, requestedNew - availableNew),
+        review: Math.max(0, requestedReview - availableReview),
+      },
+    },
+    progress: {
+      completedVerseIds: {
+        new: uniqueList(serverState.progress.completedVerseIds.new ?? []),
+        review: uniqueList(serverState.progress.completedVerseIds.review ?? []),
+      },
+      skippedVerseIds: {
+        new: uniqueList(serverState.progress.skippedVerseIds.new ?? []),
+        review: uniqueList(serverState.progress.skippedVerseIds.review ?? []),
+      },
+      startedAt: serverState.progress.startedAt ?? null,
+      completedAt: serverState.progress.completedAt ?? null,
+      completionCounterSyncedAt: serverState.progress.completedAt ?? null,
+      lastActivePhase: serverState.progress.lastActivePhase,
+      preferredResumeMode: normalizePreferredResumeMode(serverState.progress.preferredResumeMode),
+    },
+  };
+}
+
 export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
   telegramId,
   trainingBatchPreferences,
   todayVerses,
   hasAnyUserVerses,
+  dailyGoalServerState,
   dailyGoalReadiness,
   isDailyGoalReadinessLoading = false,
 }: UseDailyGoalControllerParams<TVerse>): UseDailyGoalControllerResult {
@@ -327,6 +384,19 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
   useEffect(() => {
     if (!telegramId || !trainingBatchPreferences) {
       persistSession(null);
+      return;
+    }
+
+    if (dailyGoalServerState) {
+      persistSession(
+        createSessionFromServerState(
+          telegramId,
+          dailyGoalServerState,
+          trainingBatchPreferences,
+          todayVerses,
+          dailyGoalReadiness
+        )
+      );
       return;
     }
 
@@ -372,7 +442,14 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       todayVerses
     );
     persistSession(rebuilt);
-  }, [telegramId, trainingBatchPreferences, todayVerses, persistSession]);
+  }, [
+    telegramId,
+    trainingBatchPreferences,
+    todayVerses,
+    persistSession,
+    dailyGoalServerState,
+    dailyGoalReadiness,
+  ]);
 
   const ui = useMemo(() => computeUiState(session, dailyGoalReadiness), [session, dailyGoalReadiness]);
 
@@ -756,8 +833,14 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
   }, [session, ui]);
 
   const hasUnsyncedCompletionCounter = useMemo(
-    () => Boolean(session?.progress.completedAt && !session?.progress.completionCounterSyncedAt),
-    [session?.progress.completedAt, session?.progress.completionCounterSyncedAt]
+    () =>
+      !dailyGoalServerState &&
+      Boolean(session?.progress.completedAt && !session?.progress.completionCounterSyncedAt),
+    [
+      dailyGoalServerState,
+      session?.progress.completedAt,
+      session?.progress.completionCounterSyncedAt,
+    ]
   );
 
   return {

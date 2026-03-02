@@ -216,7 +216,7 @@ export function VerseListFilterCard({
             >
               <div className="border-t border-border/25 pt-2.5">
                 <div className="flex items-center justify-between px-4">
-                  <span className="text-[11px] px-2 sm:px-4 font-medium text-muted-foreground">
+                  <span className="text-[11px] font-medium text-muted-foreground">
                     {hasActiveTags ? `Выбрано ${selectedTagSlugs.size}` : 'Все темы'}
                   </span>
                   <div className="flex items-center gap-3">
