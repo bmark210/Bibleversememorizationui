@@ -58,19 +58,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(res: NextApiResponse, externalVerseId: string) {
   // Возвращает список тегов, связанных с указанным стихом.
   try {
-    const tags = await prisma.verseTag.findMany({
-      where: { verse: { externalVerseId } },
-      include: { tag: true },
+    const tags = await prisma.tag.findMany({
+      where: {
+        verses: {
+          some: {
+            verse: { externalVerseId },
+          },
+        },
+      },
+      orderBy: { title: "asc" },
     });
 
-    return res.status(200).json(
-      tags.map((v) => ({
-        id: v.tag.id,
-        slug: v.tag.slug,
-        title: v.tag.title,
-        createdAt: v.tag.createdAt,
-      }))
-    );
+    const collator = new Intl.Collator(["ru", "en"], {
+      sensitivity: "base",
+      numeric: true,
+    });
+
+    tags.sort((a, b) => collator.compare(a.title, b.title));
+
+    return res.status(200).json(tags);
   } catch (error) {
     console.error("Error fetching verse tags:", error);
     return res.status(500).json({

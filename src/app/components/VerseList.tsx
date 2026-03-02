@@ -262,6 +262,7 @@ export function VerseList({
           <VerseGallery
             verses={vm.pagination.verses}
             initialIndex={vm.gallery.galleryIndex}
+            launchMode="preview"
             onClose={vm.gallery.onClose}
             onStatusChange={vm.gallery.onStatusChange}
             onVersePatched={vm.gallery.onVersePatched}

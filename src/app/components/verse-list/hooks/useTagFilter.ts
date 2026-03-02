@@ -3,6 +3,16 @@ import { TagsService } from '@/api/services/TagsService';
 import type { Tag } from '@/api/models/Tag';
 import type { Verse } from '@/app/App';
 
+const TAG_TITLE_COLLATOR = new Intl.Collator(['ru', 'en'], {
+  sensitivity: 'base',
+  numeric: true,
+});
+
+const sortTagsByTitle = (tags: Tag[]) =>
+  [...tags].sort((a, b) =>
+    TAG_TITLE_COLLATOR.compare((a.title ?? '').trim(), (b.title ?? '').trim())
+  );
+
 export function useTagFilter() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(new Set());
@@ -12,7 +22,7 @@ export function useTagFilter() {
     setIsLoadingTags(true);
     const req = TagsService.getApiTags();
     req
-      .then((tags) => setAllTags(tags))
+      .then((tags) => setAllTags(sortTagsByTitle(tags)))
       .catch(() => {})
       .finally(() => setIsLoadingTags(false));
     return () => req.cancel();
@@ -45,7 +55,7 @@ export function useTagFilter() {
 
   const createTag = useCallback(async (title: string, slug: string) => {
     const newTag = await TagsService.postApiTags({ slug, title });
-    setAllTags((prev) => [newTag, ...prev]);
+    setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
   }, []);
 
   const deleteTag = useCallback(async (id: string, slug: string) => {

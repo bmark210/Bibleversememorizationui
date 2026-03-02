@@ -238,15 +238,17 @@ export function asLegacyVerse(verse: TrainingVerseState): LegacyVerse {
   const progress = masteryToProgress(verse.stageMasteryLevel);
   return {
     id: verse.key,
+    externalVerseId: verse.externalVerseId,
+    status: verse.status,
     reference: verse.raw.reference,
     text: verse.raw.text,
-    translation: ((verse.raw as Record<string, unknown>).translation as string) ?? "SYNOD",
-    testament: "NT",
-    tags: [],
+    translation: String((verse.raw as Record<string, unknown>).translation ?? "SYNOD"),
     masteryLevel: progress,
-    nextReview: verse.nextReviewAt ?? new Date(),
-    totalReviews: verse.repetitions,
-    correctReviews: Math.round((progress / 100) * Math.max(1, verse.repetitions)),
+    repetitions: verse.repetitions,
+    lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,
+    nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
+    nextReview: verse.nextReviewAt?.toISOString() ?? null,
+    tags: [],
   };
 }
 

@@ -21,11 +21,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGet(res: NextApiResponse) {
-  // Находится и возвращает список всех тегов, отсортированных по дате.
+  // Находится и возвращает список всех тегов, отсортированных по названию.
   try {
     const tags = await prisma.tag.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: { title: "asc" },
     });
+
+    const collator = new Intl.Collator(["ru", "en"], {
+      sensitivity: "base",
+      numeric: true,
+    });
+
+    tags.sort((a, b) => collator.compare(a.title.trim(), b.title.trim()));
+
     return res.status(200).json(tags);
   } catch (error) {
     console.error("Error fetching tags:", error);

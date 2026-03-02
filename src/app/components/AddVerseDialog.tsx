@@ -89,6 +89,16 @@ const GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID = "__global__";
 const getCanonicalBooks = () =>
   Object.values(BIBLE_BOOKS).sort((a, b) => a.id - b.id);
 
+const TAG_TITLE_COLLATOR = new Intl.Collator(["ru", "en"], {
+  sensitivity: "base",
+  numeric: true,
+});
+
+const sortTagsByTitle = (tags: Tag[]) =>
+  [...tags].sort((a, b) =>
+    TAG_TITLE_COLLATOR.compare((a.title ?? "").trim(), (b.title ?? "").trim())
+  );
+
 // ─── Типы ─────────────────────────────────────────────────────────────────────
 
 interface AddVerseDialogProps {
@@ -142,6 +152,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [creatingTag, setCreatingTag] = useState(false);
   const [tagDeleteMode, setTagDeleteMode] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+  const [tagListShadows, setTagListShadows] = useState({ top: false, bottom: false });
 
   // ── Ручной выбор ────────────────────────────────────────────────────────────
   const [bookId, setBookId] = useState("");
@@ -167,6 +178,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const searchingRef = useRef(false);
   const lastQueryRef = useRef("");
   const reqIdRef = useRef(0);
+  const tagListScrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Производные ──────────────────────────────────────────────────────────────
 
@@ -188,7 +200,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setTagsLoading(true);
     const req = TagsService.getApiTags();
     req
-      .then((tags) => setAllTags(tags))
+      .then((tags) => setAllTags(sortTagsByTitle(tags)))
       .catch(() => {})
       .finally(() => setTagsLoading(false));
     return () => req.cancel();
@@ -250,6 +262,43 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
+  const updateTagListShadows = useCallback((node: HTMLDivElement | null) => {
+    if (!node) {
+      setTagListShadows({ top: false, bottom: false });
+      return;
+    }
+
+    const maxScrollTop = node.scrollHeight - node.clientHeight;
+    if (maxScrollTop <= 1) {
+      setTagListShadows({ top: false, bottom: false });
+      return;
+    }
+
+    const top = node.scrollTop > 2;
+    const bottom = node.scrollTop < maxScrollTop - 2;
+
+    setTagListShadows((prev) => (
+      prev.top === top && prev.bottom === bottom ? prev : { top, bottom }
+    ));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const rafId = window.requestAnimationFrame(() => {
+      updateTagListShadows(tagListScrollRef.current);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [
+    open,
+    mode,
+    tagsLoading,
+    createTagMode,
+    tagDeleteMode,
+    allTags.length,
+    selectedVerse?.reference,
+    updateTagListShadows,
+  ]);
+
   // ── Функции ──────────────────────────────────────────────────────────────────
 
   const toggleTag = useCallback((slug: string) => {
@@ -269,10 +318,10 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       if (onCreateTag) {
         await onCreateTag(title, newTagSlug);
         const refreshedTags = await TagsService.getApiTags();
-        setAllTags(refreshedTags);
+        setAllTags(sortTagsByTitle(refreshedTags));
       } else {
         const newTag = await TagsService.postApiTags({ title, slug: newTagSlug });
-        setAllTags((prev) => [...prev, newTag]);
+        setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
       }
 
       if (!isTagMode) {
@@ -347,6 +396,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setSelectedTagSlugs(new Set());
     setCreateTagMode(false);
     setTagDeleteMode(false);
+    setTagListShadows({ top: false, bottom: false });
     setNewTagTitle("");
     setDeletingTagId(null);
     setSubmitting(false);
@@ -457,6 +507,10 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     if (scrollHeight - scrollTop - clientHeight < 80) loadMore();
   };
 
+  const onTagListScroll: React.UIEventHandler<HTMLDivElement> = useCallback((e) => {
+    updateTagListShadows(e.currentTarget);
+  }, [updateTagListShadows]);
+
   const selectResult = (r: SearchResult) => {
     setSelectedVerse({ book: r.book, chapter: r.chapter, verse: r.verse, reference: r.reference, text: r.text });
     setBookId(r.book.toString());
@@ -479,8 +533,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   };
 
   const renderTagManager = (manageOnly: boolean) => (
-    <div className="space-y-2.5 pt-1.5 rounded-2xl border border-border/45 bg-gradient-to-br from-background/95 to-muted/20 p-3.5">
-      <div className="flex items-center justify-between gap-2">
+    <div className="space-y-2.5 pt-3 rounded-2xl border border-border/45 bg-gradient-to-br from-background/95 to-muted/20">
+      <div className="flex items-center justify-between gap-2 px-4">
         <span className="text-xs font-semibold tracking-wide text-muted-foreground/90">
           Темы
         </span>
@@ -526,13 +580,13 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       </div>
 
       {!manageOnly && (
-        <p className="text-[11px] text-muted-foreground/75">
+        <p className="text-[11px] text-muted-foreground/75 px-4">
           Выбрано: <span className="font-semibold text-primary">{selectedTagSlugs.size}</span>
         </p>
       )}
 
       {createTagMode && (
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center px-4">
           <Input
             value={newTagTitle}
             onChange={(e) => setNewTagTitle(e.target.value)}
@@ -570,9 +624,11 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           ))}
         </div>
       ) : allTags.length > 0 ? (
-        <div className="relative">
+        <div className="relative rounded-xl">
           <div
-            className="flex gap-1.5 overflow-x-auto py-1 pr-6"
+            ref={tagListScrollRef}
+            onScroll={onTagListScroll}
+            className="inline-flex gap-1.5 pt-1 px-4 pb-3 flex-wrap max-h-[150px] overflow-y-auto"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
           >
             {allTags.map((tag) => {
@@ -622,7 +678,15 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           </div>
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
+            className={`pointer-events-none absolute inset-x-0 top-0 h-6 rounded-t-xl bg-gradient-to-b from-background/95 via-background/65 to-transparent shadow-[0_10px_14px_-14px_rgba(0,0,0,0.45)] transition-opacity duration-200 ${
+              tagListShadows.top ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-background/95 via-background/65 to-transparent shadow-[0_-10px_14px_-14px_rgba(0,0,0,0.45)] transition-opacity duration-200 ${
+              tagListShadows.bottom ? "opacity-100" : "opacity-0"
+            }`}
           />
         </div>
       ) : (
@@ -898,7 +962,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                     {stripMarkTags(selectedVerse.text)}
                   </p>
                   <p className="text-xs font-semibold text-primary/80 text-right tracking-wide">
-                    — {selectedVerse.reference}
+                    {selectedVerse.reference}
                   </p>
                 </div>
               </div>

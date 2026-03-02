@@ -146,7 +146,7 @@ export type DailyGoalTrainingStartDecision =
   | { kind: 'warn'; phase: 'learning' | 'review'; message: string };
 
 export interface DailyGoalProgressEvent {
-  source: 'verse-gallery' | 'training-session';
+  source: 'verse-gallery';
   externalVerseId: string;
   reference: string;
   targetKindHint: DailyGoalTargetKind | null;

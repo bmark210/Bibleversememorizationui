@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Pencil, Plus, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Button } from '@/app/components/ui/button';
@@ -219,7 +219,7 @@ export function VerseListFilterCard({
                   <span className="text-[11px] px-2 sm:px-4 font-medium text-muted-foreground">
                     {hasActiveTags ? `Выбрано ${selectedTagSlugs.size}` : 'Все темы'}
                   </span>
-                  <div className="flex items-center gap-3 px-4">
+                  <div className="flex items-center gap-3">
                     {hasActiveTags && (
                       <button
                         type="button"
@@ -235,8 +235,8 @@ export function VerseListFilterCard({
                         onClick={onCreateTagDialogOpen}
                         className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors"
                       >
-                        <Plus className="h-3 w-3" />
-                        Создать
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Редактировать
                       </button>
                     )}
                   </div>

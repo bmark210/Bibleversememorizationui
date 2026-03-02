@@ -44,7 +44,7 @@ import {
   getDailyGoalPhasePillMeta,
 } from "./dailyGoalUtils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
-import type { VerseGalleryProps, TrainingSubsetFilter } from "./types";
+import type { VerseGalleryProps, TrainingSubsetFilter, VerseGalleryLaunchMode } from "./types";
 
 // Card slide animation — only animation kept intentionally
 const slideVariants = {
@@ -75,7 +75,7 @@ const slideVariants = {
 export function VerseGallery({
   verses,
   initialIndex,
-  autoStartTrainingOnOpen = false,
+  launchMode = "preview",
   onClose,
   onStatusChange,
   onVersePatched,
@@ -129,17 +129,19 @@ export function VerseGallery({
       (dailyGoalContext.phase === "learning" || dailyGoalContext.phase === "review")
   );
   const dailyGoalPreferredTrainingSubset = getDailyGoalPreferredTrainingSubset(dailyGoalContext);
-  const closeTrainingGoesToPreview = !autoStartTrainingOnOpen;
+  const resolvedLaunchMode: VerseGalleryLaunchMode = launchMode;
+  const shouldAutoStartTrainingOnOpen = resolvedLaunchMode === "training";
+  const closeTrainingGoesToPreview =
+    resolvedLaunchMode === "preview" && !shouldAutoStartTrainingOnOpen;
 
   // ── Training flow ────────────────────────────────────────────────────────────
   const training = useTrainingFlow({
     verses,
     previewActiveVerse,
     activeIndex: nav.activeIndex,
-    autoStartTrainingOnOpen,
+    autoStartInTraining: shouldAutoStartTrainingOnOpen,
     closeTrainingGoesToPreview,
     onClose,
-    onStatusChange,
     onVersePatched,
     onDailyGoalProgressEvent,
     onBeforeStartTrainingFromGalleryVerse,

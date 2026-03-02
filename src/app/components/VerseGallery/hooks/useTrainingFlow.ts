@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { VerseStatus } from "@/generated/prisma";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import type { Verse } from "@/app/App";
-import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
+import type { VersePatchEvent } from "@/app/types/verseSync";
 import type {
   DailyGoalGalleryContext,
   DailyGoalProgressEvent,
@@ -64,10 +64,9 @@ type Params = {
   verses: Verse[];
   previewActiveVerse: Verse | null;
   activeIndex: number;
-  autoStartTrainingOnOpen: boolean;
+  autoStartInTraining: boolean;
   closeTrainingGoesToPreview: boolean;
   onClose: () => void;
-  onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
   onVersePatched?: (event: VersePatchEvent) => void;
   onDailyGoalProgressEvent?: (event: DailyGoalProgressEvent) => void;
   onBeforeStartTrainingFromGalleryVerse?: (
@@ -113,10 +112,9 @@ export function useTrainingFlow({
   verses,
   previewActiveVerse,
   activeIndex,
-  autoStartTrainingOnOpen,
+  autoStartInTraining,
   closeTrainingGoesToPreview,
   onClose,
-  onStatusChange,
   onVersePatched,
   onDailyGoalProgressEvent,
   onBeforeStartTrainingFromGalleryVerse,
@@ -139,7 +137,7 @@ export function useTrainingFlow({
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(null);
   const [trainingSubsetFilter, setTrainingSubsetFilter] = useState<TrainingSubsetFilter>("catalog");
   const [isAutoStartingTraining, setIsAutoStartingTraining] = useState(
-    () => autoStartTrainingOnOpen
+    () => autoStartInTraining
   );
 
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
@@ -462,18 +460,8 @@ export function useTrainingFlow({
 
       try {
         setActionPending(true);
-        let startVerse = previewActiveVerse;
+        const startVerse = previewActiveVerse;
         const activeDisplayStatus = normalizeVerseStatus(previewActiveVerse.status);
-
-        if (
-          !preservePreviewCard &&
-          (activeDisplayStatus === VerseStatus.MY ||
-            activeDisplayStatus === VerseStatus.STOPPED)
-        ) {
-          await onStatusChange(previewActiveVerse, VerseStatus.LEARNING);
-          setPreviewOverride(previewActiveVerse, { status: VerseStatus.LEARNING });
-          startVerse = { ...previewActiveVerse, status: VerseStatus.LEARNING } as Verse;
-        }
 
         let learningRaw = await fetchLearningVersesForTraining();
         let normalized = learningRaw
@@ -491,8 +479,13 @@ export function useTrainingFlow({
           }
         }
 
-        if (!normalized.some((v) => v.status === VerseStatus.LEARNING || v.status === "REVIEW")) {
-          showFeedback("Нет стихов в изучении", "error");
+        const eligibleIndices = normalized
+          .map((verse, index) => ({ verse, index }))
+          .filter(({ verse }) => isTrainingEligibleVerse(verse))
+          .map(({ index }) => index);
+
+        if (eligibleIndices.length === 0) {
+          showFeedback("Нет доступных стихов LEARNING/REVIEW", "error");
           return false;
         }
 
@@ -512,37 +505,42 @@ export function useTrainingFlow({
                 ? dailyGoalPreferredTrainingSubset
                 : "catalog";
 
-        const activeVerseMatchesPreferred =
-          preferredSubset === "catalog"
-            ? true
-            : normalized.some(
-                (v) => v.key === startKey && matchesTrainingSubsetFilter(v, preferredSubset)
-              );
+        const getEligibleIndicesByFilter = (filter: TrainingSubsetFilter) =>
+          normalized
+            .map((verse, index) => ({ verse, index }))
+            .filter(({ verse }) => matchesTrainingSubsetFilter(verse, filter))
+            .map(({ index }) => index);
 
-        const preferredEligibleIndex =
-          preferredSubset === "catalog"
-            ? -1
-            : normalized.findIndex((v) => matchesTrainingSubsetFilter(v, preferredSubset));
+        let effectiveSubset = preferredSubset;
+        let preferredEligibleIndices = getEligibleIndicesByFilter(effectiveSubset);
+        if (preferredEligibleIndices.length === 0 && effectiveSubset !== "catalog") {
+          effectiveSubset = "catalog";
+          preferredEligibleIndices = getEligibleIndicesByFilter("catalog");
+        }
 
-        const rawStartIndex = activeVerseMatchesPreferred
-          ? normalized.findIndex((v) => v.key === startKey)
-          : preferredEligibleIndex;
+        const activePreferredIndex = normalized.findIndex(
+          (v) => v.key === startKey && matchesTrainingSubsetFilter(v, effectiveSubset)
+        );
 
         const startIndex =
-          rawStartIndex >= 0
-            ? rawStartIndex
-            : Math.max(0, normalized.findIndex((v) => v.key === startKey));
+          activePreferredIndex >= 0
+            ? activePreferredIndex
+            : (preferredEligibleIndices[0] ?? eligibleIndices[0] ?? -1);
+        if (startIndex < 0) {
+          showFeedback("Нет доступных стихов LEARNING/REVIEW", "error");
+          return false;
+        }
 
         const startState = normalized[startIndex] ?? normalized[0];
 
         hasUserChosenTrainingSubsetRef.current = false;
-        hasAutoAppliedDailyGoalSubsetRef.current = preferredSubset !== "catalog";
+        hasAutoAppliedDailyGoalSubsetRef.current = effectiveSubset !== "catalog";
 
         setTrainingVerses(normalized);
-        setTrainingSubsetFilter(preferredSubset);
+        setTrainingSubsetFilter(effectiveSubset);
 
-        if (preferredSubset === "learning" || preferredSubset === "review") {
-          onDailyGoalPreferredResumeModeChange?.(preferredSubset);
+        if (effectiveSubset === "learning" || effectiveSubset === "review") {
+          onDailyGoalPreferredResumeModeChange?.(effectiveSubset);
         }
 
         if (preservePreviewCard) {
@@ -574,12 +572,10 @@ export function useTrainingFlow({
       onClose,
       onDailyGoalJumpToVerseRequest,
       onDailyGoalPreferredResumeModeChange,
-      onStatusChange,
       previewActiveVerse,
       setActionPending,
       setNavActiveIndex,
       setNavDirection,
-      setPreviewOverride,
       showFeedback,
       verses,
     ]
@@ -590,6 +586,11 @@ export function useTrainingFlow({
       if (panelMode !== "training" || trainingModeId === null) return;
       const current = trainingVerses[trainingIndex];
       if (!current) return;
+      if (!isTrainingEligibleVerse(current)) {
+        haptic("warning");
+        showFeedback("Стих сейчас недоступен для тренировки", "error");
+        return;
+      }
 
       const wasReviewExercise = isTrainingReviewVerse(current);
       const rawMasteryBefore = current.rawMasteryLevel;
@@ -822,9 +823,9 @@ export function useTrainingFlow({
     ]
   );
 
-  // Auto-start training on open
+  // Auto-start training when gallery opens directly in training mode
   useEffect(() => {
-    if (!autoStartTrainingOnOpen) return;
+    if (!autoStartInTraining) return;
     if (autoStartedTrainingRef.current) return;
     if (panelMode !== "preview") return;
     if (!previewActiveVerse) return;
@@ -846,7 +847,7 @@ export function useTrainingFlow({
       cancelled = true;
     };
   }, [
-    autoStartTrainingOnOpen,
+    autoStartInTraining,
     panelMode,
     previewActiveVerse,
     actionPending,

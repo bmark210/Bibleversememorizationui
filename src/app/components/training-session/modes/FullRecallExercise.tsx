@@ -11,7 +11,7 @@ import {
   MobileRuKeyboardOverlay,
   MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT,
 } from './MobileRuKeyboardOverlay';
-import { Verse } from '../../../data/mockData';
+import type { Verse } from '../../../data/mockData';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   applyMobileFullRecallKey,

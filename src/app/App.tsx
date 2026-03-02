@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { toast } from "sonner";
@@ -15,7 +15,6 @@ import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
 import { fetchDailyGoalReadiness } from "@/api/services/dailyGoalReadiness";
-import { mockCollections, mockStats } from "./data/mockData";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
@@ -39,7 +38,6 @@ import type {
   DailyGoalProgressEvent,
   DailyGoalVerseListReminder,
 } from "@/app/features/daily-goal/types";
-import { cn } from "./components/ui/utils";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -83,13 +81,6 @@ const VerseGallery = dynamic(
   }
 );
 
-const TrainingSession = dynamic(
-  () => import("./components/TrainingSession").then((m) => m.TrainingSession),
-  {
-    loading: () => <div className="min-h-screen" />,
-  }
-);
-
 // Frontend verse model — matches the VerseCardDto shape returned by the API.
 // externalVerseId is the primary identifier (bolls.life format "book-chapter-verse").
 export type Verse = {
@@ -106,18 +97,9 @@ export type Verse = {
   reference: string;
 };
 
-type StartTrainingOptions = {
-  returnToGallery?: boolean;
-  returnToGalleryFilter?: "catalog" | "learning" | "stopped" | 'my';
-};
-
 type DashboardTrainingLaunchOptions = {
-  autoStartInGallery?: boolean;
-};
-
-type ReturnToGalleryContext = {
-  verseId: string;
-  filter: "catalog" | "learning" | "stopped" | 'my';
+  launchMode?: "preview" | "training";
+  preferredVerseId?: string | null;
 };
 
 type Page =
@@ -223,18 +205,14 @@ function buildTrainingBatchVerses(
 export default function App({ onInitialContentReady }: AppProps) {
   const shouldReduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
-  const [isTraining, setIsTraining] = useState(false);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [user, setUser] = useState<UserWithVerses | null>(null);
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [dailyGoalVersePool, setDailyGoalVersePool] = useState<Array<Verse>>([]);
-  const [trainingVerses, setTrainingVerses] = useState<Array<Verse>>([]);
-  const [trainingStartVerseId, setTrainingStartVerseId] = useState<string | null>(null);
-  const [returnToGalleryContext, setReturnToGalleryContext] = useState<ReturnToGalleryContext | null>(null);
   const [dashboardGalleryVerses, setDashboardGalleryVerses] = useState<Array<Verse>>([]);
   const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
-  const [dashboardGalleryAutoStartTraining, setDashboardGalleryAutoStartTraining] = useState(false);
+  const [dashboardGalleryLaunchMode, setDashboardGalleryLaunchMode] = useState<"preview" | "training">("preview");
   const [isLoading, setIsLoading] = useState(true);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [telegramId, setTelegramId] = useState<string | null>(null);
@@ -348,12 +326,9 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
-    setIsTraining(false);
-    setTrainingStartVerseId(null);
-    setReturnToGalleryContext(null);
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
-    setDashboardGalleryAutoStartTraining(false);
+    setDashboardGalleryLaunchMode("preview");
   };
 
   const loadPlannedVersesForDashboard = async (
@@ -479,7 +454,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleDashboardGalleryClose = () => {
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
-    setDashboardGalleryAutoStartTraining(false);
+    setDashboardGalleryLaunchMode("preview");
 
     if (
       dailyGoal.ui.phase === "learning" ||
@@ -555,29 +530,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
-  const getLearningVerses = async (telegramId: string) => {
-    try {
-      // Используем fetchAllUserVerses (пагинированный) вместо raw apiRequest —
-      // /api/users/{id}/verses возвращает UserVersesPageResponse, а не Array.
-      const items = await fetchAllUserVerses({
-        telegramId,
-        status: "LEARNING",
-      });
-
-      // Дополнительно фильтруем по вычисленному DisplayStatus: берём только LEARNING и REVIEW.
-      const learningOnly = (items as Array<Verse>).filter((verse) => {
-        const status = normalizeDisplayVerseStatus(verse.status);
-        return status === VerseStatus.LEARNING || status === "REVIEW";
-      });
-      setTrainingVerses(learningOnly);
-      return learningOnly;
-    } catch (err) {
-      console.error("Не удалось получить стихи LEARNING:", err);
-      setTrainingVerses([]);
-      throw err;
-    }
-  };
-
   const handleStartTraining = async (launchOptions?: DashboardTrainingLaunchOptions) => {
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) {
@@ -605,20 +557,19 @@ export default function App({ onInitialContentReady }: AppProps) {
       force: true,
     });
 
-    const preferredTargetVerseId = null;
+    const launchMode = launchOptions?.launchMode ?? "preview";
+    const preferredTargetVerseId = launchOptions?.preferredVerseId ?? null;
     const openDashboardGallery = (
       plannedList: Array<Verse>,
       preferredVerseId?: string | null
     ) => {
       if (plannedList.length === 0) return false;
-      setIsTraining(false);
-      setReturnToGalleryContext(null);
-      setDashboardGalleryAutoStartTraining(Boolean(launchOptions?.autoStartInGallery));
+      setDashboardGalleryLaunchMode(launchMode);
       setDashboardGalleryVerses(plannedList);
       const nextIndex = preferredVerseId
         ? plannedList.findIndex(
-            (verse) => String(verse.externalVerseId ?? verse.id) === String(preferredVerseId)
-          )
+          (verse) => String(verse.externalVerseId ?? verse.id) === String(preferredVerseId)
+        )
         : -1;
       setDashboardGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
       dailyGoal.markDailyGoalStarted();
@@ -666,34 +617,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
-  const handleCompleteTraining = () => {
-    setIsTraining(false);
-    setTrainingVerses([]);
-    setTrainingStartVerseId(null);
-    setReturnToGalleryContext(null);
-    setCurrentPage("dashboard");
-    if (telegramId && trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-      void refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
-        force: true,
-      });
-    }
-    toast.success("Тренировка завершена!", {
-      description: "Отличная работа! Ваш прогресс сохранён.",
-    });
-  };
-
-  const handleExitTraining = () => {
-    setIsTraining(false);
-    setTrainingVerses([]);
-    setTrainingStartVerseId(null);
-    if (returnToGalleryContext) {
-      setCurrentPage("verses");
-      return;
-    }
-    setCurrentPage("dashboard");
-  };
-
   const handleAddVerse = () => {
     setShowAddVerseDialog(true);
   };
@@ -705,7 +628,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleDailyGoalProgressEvent = (event: DailyGoalProgressEvent) => {
     if (event.source === "verse-gallery") {
       dailyGoal.markOnboardingSeen("galleryIntro");
-    } else if (event.source === "training-session") {
       dailyGoal.markOnboardingSeen("trainingIntro");
     }
     const result = dailyGoal.applyProgressEvent(event);
@@ -723,8 +645,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     setCurrentPage("dashboard");
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
-    setDashboardGalleryAutoStartTraining(false);
-    void handleStartTraining({ autoStartInGallery: true });
+    setDashboardGalleryLaunchMode("preview");
+    void handleStartTraining({
+      launchMode: "training",
+      preferredVerseId: externalVerseId,
+    });
   };
 
   const handleVerseListMutationCommitted = () => {
@@ -795,73 +720,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
-  const handleStartTrainingFromVerse = async (
-    verseId: string,
-    options?: StartTrainingOptions
-  ) => {
-    const telegramId = localStorage.getItem("telegramId") ?? "";
-    if (!telegramId) {
-      toast.error("Не найден telegramId");
-      return;
-    }
-
-    try {
-      if (trainingBatchPreferences) {
-        await refreshDailyGoalReadiness(telegramId, trainingBatchPreferences, {
-          force: true,
-        });
-      }
-      const decision = dailyGoal.decideStartFromVerse(String(verseId));
-      if (decision.kind === "redirect") {
-        toast.info(decision.message);
-        setCurrentPage("dashboard");
-        void handleStartTraining();
-        return;
-      }
-      if (decision.kind === "warn") {
-        toast.info(decision.message);
-      }
-
-      const learningVerses = await getLearningVerses(telegramId);
-      const verse = learningVerses.find(
-        (v) => String(v.id) === String(verseId) || v.externalVerseId === verseId
-      );
-      if (verse) {
-        dailyGoal.markDailyGoalStarted();
-        dailyGoal.markOnboardingSeen("trainingIntro");
-        setTrainingStartVerseId(String(verse.externalVerseId ?? verse.id));
-        setReturnToGalleryContext(
-          options?.returnToGallery
-            ? {
-                verseId: String(verseId),
-                filter: options.returnToGalleryFilter ?? "catalog",
-              }
-            : null
-        );
-        setIsTraining(true);
-        return;
-      }
-
-      toast.info("Стих не в статусе LEARNING", {
-        description: "Тренировка запускается только по стихам в изучении.",
-      });
-    } catch {
-      toast.error("Не удалось загрузить стихи для тренировки");
-    }
-  };
-
-  const handleSelectCollection = (collectionId: string) => {
-    toast.info("Коллекция выбрана", {
-      description: "Здесь будут показаны стихи из выбранной коллекции.",
-    });
-  };
-
-  const handleCreateCollection = () => {
-    toast.info("Создать коллекцию", {
-      description: "Здесь откроется диалог для создания новой коллекции.",
-    });
-  };
-
   const verseListDailyGoalReminder: DailyGoalVerseListReminder | undefined =
     dailyGoal.reminder && dailyGoal.reminder.visible
       ? {
@@ -870,7 +728,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           progressLabel: dailyGoal.reminder.progressLabel,
           onResume: () => {
             dailyGoal.markOnboardingSeen("verseListReminderIntro");
-            void handleStartTraining({ autoStartInGallery: true });
+            void handleStartTraining({ launchMode: "training" });
           },
           onShowHowToAddFirstVerse: dailyGoal.reminder.needsFirstVerse ? handleAddVerse : undefined,
         }
@@ -935,7 +793,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   return (
     <>
       <div
-        aria-hidden={isTraining || dashboardGalleryIndex !== null}
+        aria-hidden={dashboardGalleryIndex !== null}
         className="min-h-screen transition-colors"
       >
         <Layout currentPage={currentPage} onNavigate={handleNavigate} isContentReady={!isBootstrapping}>
@@ -958,11 +816,11 @@ export default function App({ onInitialContentReady }: AppProps) {
                 dailyGoal={dailyGoal.dashboardCard}
                 onStartDailyGoal={() => {
                   dailyGoal.markOnboardingSeen("dashboardIntro");
-                  void handleStartTraining({ autoStartInGallery: true });
+                  void handleStartTraining({ launchMode: "training" });
                 }}
                 onResumeDailyGoal={() => {
                   dailyGoal.markOnboardingSeen("dashboardIntro");
-                  void handleStartTraining({ autoStartInGallery: true });
+                  void handleStartTraining({ launchMode: "training" });
                 }}
                 onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
                 isInitializingData={isBootstrapping}
@@ -973,9 +831,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           {currentPage === "verses" && (
             <VerseList
               onVerseAdded={handleVerseAdded}
-              reopenGalleryVerseId={!isTraining ? returnToGalleryContext?.verseId ?? null : null}
-              reopenGalleryStatusFilter={!isTraining ? returnToGalleryContext?.filter ?? null : null}
-              onReopenGalleryHandled={() => setReturnToGalleryContext(null)}
               verseListExternalSyncVersion={verseListExternalSyncVersion}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
               dailyGoalReminder={verseListDailyGoalReminder}
@@ -1015,7 +870,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         <VerseGallery
           verses={dashboardGalleryVerses}
           initialIndex={dashboardGalleryIndex}
-          autoStartTrainingOnOpen={dashboardGalleryAutoStartTraining}
+          launchMode={dashboardGalleryLaunchMode}
           onClose={handleDashboardGalleryClose}
           onStatusChange={handleDashboardGalleryStatusChange}
           onVersePatched={handleDashboardGalleryVersePatched}
@@ -1084,45 +939,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           </Card>
         </div>
       )}
-
-      <AnimatePresence mode="wait">
-        {isTraining && (
-          <motion.div
-            key="training-overlay"
-            className="fixed inset-0 z-[400]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <motion.div
-              aria-hidden="true"
-              className="absolute inset-0 bg-background/60 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.22 }}
-            />
-
-            <motion.div
-              className="relative h-full"
-              initial={{ opacity: 0, y: 28, scale: 0.995 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.995 }}
-              transition={{ type: "spring", stiffness: 260, damping: 28 }}
-            >
-              <TrainingSession
-                verses={trainingVerses}
-                allVerses={trainingVerses}
-                startFromVerseId={trainingStartVerseId}
-                onComplete={handleCompleteTraining}
-                onExit={handleExitTraining}
-                onProgressSaved={handleDailyGoalProgressEvent}
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <Toaster />
     </>

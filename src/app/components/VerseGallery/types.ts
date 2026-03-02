@@ -15,6 +15,7 @@ import type { TrainingModeRating } from "@/app/components/training-session/modes
 
 export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
 export type PanelMode = "preview" | "training";
+export type VerseGalleryLaunchMode = "preview" | "training";
 export type Rating = TrainingModeRating;
 export type TrainingSubsetFilter = "learning" | "review" | "catalog";
 export type ModeId = TrainingModeId;
@@ -57,7 +58,7 @@ export type TrainingVerseState = {
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
-  autoStartTrainingOnOpen?: boolean;
+  launchMode?: VerseGalleryLaunchMode;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
   onVersePatched?: (event: VersePatchEvent) => void;
