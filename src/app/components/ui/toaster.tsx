@@ -1,23 +1,29 @@
 "use client";
 
-import { Toaster as HotToaster, type ToasterProps } from "react-hot-toast";
+import { Toaster as SonnerToaster } from "sonner";
+import type { ToasterProps } from "sonner";
 import { APP_TOASTER_ID } from "@/app/lib/toast";
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
   return (
-    <HotToaster
-      toasterId={APP_TOASTER_ID}
+    <SonnerToaster
+      id={id}
       position="top-center"
-      gutter={8}
-      containerStyle={{ zIndex: 2147483647 }}
+      richColors
+      closeButton
+      gap={8}
+      style={
+        {
+          "--normal-bg": "var(--popover)",
+          "--normal-border": "var(--border)",
+          "--normal-text": "var(--popover-foreground)",
+        } as React.CSSProperties
+      }
       toastOptions={{
-        duration: 4000,
-        style: {
-          background: "var(--popover)",
-          color: "var(--popover-foreground)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
+        classNames: {
+          toast: "rounded-xl! shadow-lg! backdrop-blur!",
+          description: "text-xs! leading-tight!",
+          closeButton: "rounded-lg!",
         },
       }}
       {...props}

@@ -19,7 +19,6 @@ import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import { VerseStatus } from "@/generated/prisma";
-import { TrainingCompletionToastCard } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
@@ -99,7 +98,7 @@ export function VerseGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ── Aux state (pending, overrides, feedback, completion popup) ──────────────
+  // ── Aux state (pending, overrides, feedback, milestone toast) ───────────────
   const aux = useGalleryAux();
 
   // ── Preview navigation ───────────────────────────────────────────────────────
@@ -275,9 +274,6 @@ export function VerseGallery({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (aux.deleteDialogOpen) return;
-      if (aux.trainingMilestonePopup) {
-        return;
-      }
       if (e.key === "Escape") {
         e.preventDefault();
         if (training.panelMode === "training") {
@@ -304,7 +300,6 @@ export function VerseGallery({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     aux.deleteDialogOpen,
-    aux.trainingMilestonePopup,
     closeTrainingGoesToPreview,
     nav,
     onClose,
@@ -387,26 +382,33 @@ export function VerseGallery({
       : null;
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={
-        training.isAutoStartingTraining
-          ? "Подготовка режима обучения"
-          : training.panelMode === "training"
-            ? "Режим обучения"
-            : "Просмотр стиха"
-      }
-      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
-    >
+    <>
+      {/*
+        Toaster is rendered OUTSIDE the gallery div on purpose.
+        The gallery has backdrop-filter:blur which — per CSS spec — creates a new
+        containing block for position:fixed children (Sonner renders in-place, no
+        createPortal). Placing <Toaster> here as a sibling keeps it in a normal
+        stacking context so its position:fixed resolves against the viewport.
+      */}
       <Toaster
-        toasterId={GALLERY_TOASTER_ID}
-        containerStyle={{
-          zIndex: 2147483647,
-          top: `${Math.max(topInset, 0) + 12}px`,
-        }}
+        id={GALLERY_TOASTER_ID}
+        offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
+        style={{ zIndex: 2147483647 }}
       />
+
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={
+          training.isAutoStartingTraining
+            ? "Подготовка режима обучения"
+            : training.panelMode === "training"
+              ? "Режим обучения"
+              : "Просмотр стиха"
+        }
+        className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+      >
 
       {/* Accessibility announcements */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -560,11 +562,6 @@ export function VerseGallery({
 
       {!training.isAutoStartingTraining && <SwipeHint panelMode={training.panelMode} />}
 
-      <TrainingCompletionToastCard
-        payload={aux.trainingMilestonePopup}
-        onClose={aux.dismissTrainingMilestonePopup}
-      />
-
       <AlertDialog open={aux.deleteDialogOpen} onOpenChange={aux.setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -590,6 +587,7 @@ export function VerseGallery({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }
 

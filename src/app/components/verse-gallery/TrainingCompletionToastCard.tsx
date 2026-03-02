@@ -1,24 +1,9 @@
 'use client';
 
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Clock3,
-  Minus,
-  Repeat,
-  Trophy,
-} from 'lucide-react';
-import { toast } from '@/app/lib/toast';
+import { Clock3, Repeat, Trophy } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '../ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../ui/alert-dialog';
+import { Button } from '../ui/button';
 import { cn } from '../ui/utils';
 import type { DisplayVerseStatus } from '@/app/types/verseStatus';
 import {
@@ -47,76 +32,45 @@ export type TrainingCompletionToastCardPayload = {
   repetitions: number;
 };
 
-type TrainingCompletionToastCardProps = {
-  payload: TrainingCompletionToastCardPayload | null;
-  onClose: () => void;
-};
-
 const TRAINING_CONTACT_TOAST_ID = 'verse-gallery-training-contact';
+const TRAINING_MILESTONE_TOAST_ID = 'verse-gallery-training-milestone';
 const DEFAULT_TOAST_DURATION_MS = 3200;
+const DEFAULT_MILESTONE_TOAST_DURATION_MS = 10000;
 
-function getContactToneTheme(tone: TrainingContactToastPayload['tone']) {
-  if (tone === 'positive') {
-    return {
-      Icon: ArrowUpRight,
-      icon: 'text-emerald-700 dark:text-emerald-300',
-      shell: 'border-emerald-500/25 bg-emerald-500/8',
-    } as const;
-  }
-  if (tone === 'negative') {
-    return {
-      Icon: ArrowDownRight,
-      icon: 'text-rose-700 dark:text-rose-300',
-      shell: 'border-rose-500/25 bg-rose-500/8',
-    } as const;
-  }
-  return {
-    Icon: Minus,
-    icon: 'text-muted-foreground',
-    shell: 'border-border/70 bg-background/95',
-  } as const;
-}
+// ─── Contact toast ────────────────────────────────────────────────────────────
+// Fully library-driven: Sonner handles enter/exit animation, auto-dismiss,
+// swipe-to-dismiss and stacking. tone maps to success / error / neutral.
 
 export function showTrainingContactToast(
   payload: TrainingContactToastPayload,
   options?: { durationMs?: number; toasterId?: string }
 ) {
   const durationMs = options?.durationMs ?? DEFAULT_TOAST_DURATION_MS;
-  const theme = getContactToneTheme(payload.tone);
-  const Icon = theme.Icon;
+  const description = payload.hint
+    ? `${payload.reference}  ·  ${payload.hint}`
+    : payload.reference;
+
+  const shared = {
+    id: TRAINING_CONTACT_TOAST_ID,
+    description,
+    duration: durationMs,
+    toasterId: options?.toasterId,
+  } as const;
 
   toast.dismiss(TRAINING_CONTACT_TOAST_ID);
-  toast.custom(
-    () => (
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className={cn(
-          'w-[min(92vw,24rem)] rounded-xl border px-3 py-2.5 shadow-lg backdrop-blur',
-          theme.shell
-        )}
-      >
-        <div className="flex items-start gap-2.5">
-          <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', theme.icon)} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] text-muted-foreground">{payload.reference}</div>
-            <div className="mt-0.5 text-sm font-medium leading-tight">{payload.message}</div>
-            {payload.hint ? (
-              <div className="mt-0.5 text-xs leading-tight text-muted-foreground">{payload.hint}</div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    ),
-    {
-      id: TRAINING_CONTACT_TOAST_ID,
-      position: 'top-center',
-      duration: durationMs,
-      toasterId: options?.toasterId,
-    }
-  );
+
+  if (payload.tone === 'positive') {
+    toast.success(payload.message, shared);
+  } else if (payload.tone === 'negative') {
+    toast.error(payload.message, shared);
+  } else {
+    toast(payload.message, shared);
+  }
 }
+
+// ─── Milestone toast ──────────────────────────────────────────────────────────
+// Uses toast.custom() so the card is fully bespoke, while Sonner still handles
+// enter/exit animations, auto-dismiss, swipe-to-dismiss and stacking.
 
 function getMilestoneTheme(status: DisplayVerseStatus) {
   if (status === 'MASTERED') {
@@ -138,9 +92,13 @@ function getMilestoneTheme(status: DisplayVerseStatus) {
   } as const;
 }
 
-export function TrainingCompletionToastCard({ payload, onClose }: TrainingCompletionToastCardProps) {
-  if (!payload) return null;
-
+function TrainingMilestoneCard({
+  payload,
+  onClose,
+}: {
+  payload: TrainingCompletionToastCardPayload;
+  onClose: () => void;
+}) {
   const theme = getMilestoneTheme(payload.status);
   const Icon = theme.Icon;
   const progressDelta = payload.afterProgressPercent - payload.beforeProgressPercent;
@@ -153,15 +111,14 @@ export function TrainingCompletionToastCard({ payload, onClose }: TrainingComple
   const outcomeLabel = payload.outcome === 'success' ? 'Прогресс есть' : 'Без прогресса';
 
   return (
-    <AlertDialog open={true}>
-      <AlertDialogContent
-        aria-label="Ключевой этап завершён"
-        className={cn(
-          'z-[120] sm:max-w-[40rem] border shadow-2xl',
-          theme.content
-        )}
-      >
-        <AlertDialogHeader className="pb-1">
+    <div
+      className={cn(
+        'w-[min(94vw,40rem)] rounded-2xl border px-4 py-3 shadow-xl backdrop-blur',
+        theme.content
+      )}
+    >
+      <div className="space-y-3">
+        <div className="pb-1">
           <div className="flex items-start gap-3">
             <div
               className={cn(
@@ -175,7 +132,10 @@ export function TrainingCompletionToastCard({ payload, onClose }: TrainingComple
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
-                  className={cn('rounded-full px-3 py-1 text-xs font-medium', outcomeBadgeClassName)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-xs font-medium',
+                    outcomeBadgeClassName
+                  )}
                 >
                   {outcomeLabel}
                 </Badge>
@@ -186,15 +146,13 @@ export function TrainingCompletionToastCard({ payload, onClose }: TrainingComple
                   {theme.label}
                 </Badge>
               </div>
-              <AlertDialogTitle className="text-left text-lg leading-snug">
-                {payload.title}
-              </AlertDialogTitle>
-              <AlertDialogDescription className="mt-1 text-left text-sm leading-relaxed">
+              <div className="text-left text-lg font-semibold leading-snug">{payload.title}</div>
+              <div className="mt-1 text-left text-sm leading-relaxed text-muted-foreground">
                 {payload.description}
-              </AlertDialogDescription>
+              </div>
             </div>
           </div>
-        </AlertDialogHeader>
+        </div>
 
         <div className="space-y-3">
           <div className="rounded-xl border border-border/60 bg-background/65 px-3 py-2">
@@ -224,12 +182,33 @@ export function TrainingCompletionToastCard({ payload, onClose }: TrainingComple
           ) : null}
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogAction type="button" className="w-full sm:w-auto" onClick={onClose}>
+        <div className="flex justify-end">
+          <Button type="button" size="sm" className="h-8 px-3" onClick={onClose}>
             Понятно
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function showTrainingMilestoneToast(
+  payload: TrainingCompletionToastCardPayload,
+  options?: { durationMs?: number; toasterId?: string }
+) {
+  const durationMs = options?.durationMs ?? DEFAULT_MILESTONE_TOAST_DURATION_MS;
+  toast.dismiss(TRAINING_MILESTONE_TOAST_ID);
+  toast.custom(
+    (toastId) => (
+      <TrainingMilestoneCard
+        payload={payload}
+        onClose={() => toast.dismiss(toastId)}
+      />
+    ),
+    {
+      id: TRAINING_MILESTONE_TOAST_ID,
+      duration: durationMs,
+      toasterId: options?.toasterId,
+    }
   );
 }

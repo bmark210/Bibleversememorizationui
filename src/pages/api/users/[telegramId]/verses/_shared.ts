@@ -52,6 +52,13 @@ type ParsedExternalVerseId = {
   verse: number;
 };
 
+type BollsBatchRequest = {
+  translation: string;
+  book: number;
+  chapter: number;
+  verses: number[];
+};
+
 export type UserVersesOrderBy = "createdAt" | "updatedAt";
 export type UserVersesOrder = "asc" | "desc";
 export type UserVersesFilter =
@@ -116,6 +123,51 @@ const parseExternalVerseId = (value?: string): ParsedExternalVerseId | null => {
 
 const buildGroupKey = (translation: string, book: number, chapter: number) =>
   `${translation}|${book}|${chapter}`;
+
+function applyBollsBatchPayload(
+  payload: Array<Array<{ verse: number; text: string }>>,
+  requests: BollsBatchRequest[],
+  textsMap: Map<string, Map<number, string>>
+) {
+  payload.forEach((items, index) => {
+    const request = requests[index];
+    if (!request) return;
+    const key = buildGroupKey(request.translation, request.book, request.chapter);
+    const map = textsMap.get(key) ?? new Map<number, string>();
+    items?.forEach((item) => {
+      if (typeof item?.verse === "number" && typeof item?.text === "string") {
+        map.set(item.verse, item.text);
+        upsertCachedBollsVerse(key, item.verse, item.text);
+      }
+    });
+    textsMap.set(key, map);
+  });
+}
+
+async function fetchBollsBatchToTextsMap(
+  requests: BollsBatchRequest[],
+  textsMap: Map<string, Map<number, string>>
+) {
+  if (requests.length === 0) return;
+
+  try {
+    const response = await fetch(BOLLS_BATCH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requests),
+    });
+
+    if (!response.ok) {
+      console.warn("Не удалось получить тексты от Bolls:", response.status);
+      return;
+    }
+
+    const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
+    applyBollsBatchPayload(payload, requests, textsMap);
+  } catch (error) {
+    console.warn("Не удалось получить тексты от Bolls:", error);
+  }
+}
 
 function getSingleQueryValue(query: ParsedUrlQuery, key: string): string | undefined {
   const value = query[key];
@@ -393,12 +445,7 @@ async function enrichUserVerses(
 
   const requestGroups = new Map<
     string,
-    {
-      translation: string;
-      book: number;
-      chapter: number;
-      verses: number[];
-    }
+    BollsBatchRequest
   >();
 
   for (const verse of verses) {
@@ -442,35 +489,9 @@ async function enrichUserVerses(
       textsMap.set(key, new Map());
       return req;
     })
-    .filter((req): req is { translation: string; book: number; chapter: number; verses: number[] } => Boolean(req));
+    .filter((req): req is BollsBatchRequest => Boolean(req));
 
-  if (missingRequests.length > 0) {
-    const response = await fetch(BOLLS_BATCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(missingRequests),
-    });
-
-    if (response.ok) {
-      const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
-
-      payload.forEach((items, index) => {
-        const request = missingRequests[index];
-        if (!request) return;
-        const key = buildGroupKey(request.translation, request.book, request.chapter);
-        const map = textsMap.get(key) ?? new Map<number, string>();
-        items?.forEach((item) => {
-          if (typeof item?.verse === "number" && typeof item?.text === "string") {
-            map.set(item.verse, item.text);
-            upsertCachedBollsVerse(key, item.verse, item.text);
-          }
-        });
-        textsMap.set(key, map);
-      });
-    } else {
-      console.warn("Не удалось получить тексты от Bolls:", response.status);
-    }
-  }
+  await fetchBollsBatchToTextsMap(missingRequests, textsMap);
 
   const tagsByVerseId = await tagsByVerseIdPromise;
 
@@ -536,7 +557,7 @@ export async function enrichExternalVerseIds(
 
   const requestGroups = new Map<
     string,
-    { translation: string; book: number; chapter: number; verses: number[] }
+    BollsBatchRequest
   >();
 
   for (const id of unique) {
@@ -571,33 +592,9 @@ export async function enrichExternalVerseIds(
       textsMap.set(key, new Map());
       return req;
     })
-    .filter((req): req is { translation: string; book: number; chapter: number; verses: number[] } => Boolean(req));
+    .filter((req): req is BollsBatchRequest => Boolean(req));
 
-  if (missingRequests.length > 0) {
-    const response = await fetch(BOLLS_BATCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(missingRequests),
-    });
-    if (response.ok) {
-      const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
-      payload.forEach((items, index) => {
-        const request = missingRequests[index];
-        if (!request) return;
-        const key = buildGroupKey(request.translation, request.book, request.chapter);
-        const map = textsMap.get(key) ?? new Map<number, string>();
-        items?.forEach((item) => {
-          if (typeof item?.verse === "number" && typeof item?.text === "string") {
-            map.set(item.verse, item.text);
-            upsertCachedBollsVerse(key, item.verse, item.text);
-          }
-        });
-        textsMap.set(key, map);
-      });
-    } else {
-      console.warn("Не удалось получить тексты от Bolls:", response.status);
-    }
-  }
+  await fetchBollsBatchToTextsMap(missingRequests, textsMap);
 
   const tagsByVerseId = await tagsByVerseIdPromise;
   const result = new Map<string, EnrichedExternalVerse>();

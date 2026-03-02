@@ -3,6 +3,7 @@ import type { Verse } from "@/app/App";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import {
   showTrainingContactToast as showTrainingContactHotToast,
+  showTrainingMilestoneToast as showTrainingMilestoneHotToast,
   type TrainingContactToastPayload,
   type TrainingCompletionToastCardPayload,
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
@@ -18,8 +19,6 @@ export type UseGalleryAuxReturn = {
   setDeleteDialogOpen: (v: boolean) => void;
   feedbackMessage: string;
   showFeedback: (message: string, type?: "success" | "error" | "info") => void;
-  trainingMilestonePopup: TrainingCompletionToastCardPayload | null;
-  dismissTrainingMilestonePopup: () => void;
   showTrainingContactToast: (payload: TrainingContactToastPayload) => void;
   showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => void;
   slideAnnouncement: string;
@@ -34,8 +33,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
-  const [trainingMilestonePopup, setTrainingMilestonePopup] =
-    useState<TrainingCompletionToastCardPayload | null>(null);
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -63,14 +60,13 @@ export function useGalleryAux(): UseGalleryAuxReturn {
 
   const showTrainingMilestonePopup = useCallback(
     (payload: TrainingCompletionToastCardPayload) => {
-      setTrainingMilestonePopup(payload);
+      showTrainingMilestoneHotToast(payload, {
+        durationMs: 10000,
+        toasterId: GALLERY_TOASTER_ID,
+      });
     },
     []
   );
-
-  const dismissTrainingMilestonePopup = useCallback(() => {
-    setTrainingMilestonePopup(null);
-  }, []);
 
   return {
     actionPending,
@@ -81,8 +77,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     setDeleteDialogOpen,
     feedbackMessage,
     showFeedback,
-    trainingMilestonePopup,
-    dismissTrainingMilestonePopup,
     showTrainingContactToast,
     showTrainingMilestonePopup,
     slideAnnouncement,
