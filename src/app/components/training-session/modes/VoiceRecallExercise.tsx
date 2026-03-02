@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, MicOff, Lightbulb, RefreshCcw } from 'lucide-react';
-import { toast } from '@/app/lib/toast';
+import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
@@ -140,7 +140,10 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const handleStartListening = () => {
     const recognition = ensureRecognition();
     if (!recognition) {
-      toast.error('Голосовой ввод недоступен в этом браузере');
+      toast.error('Голосовой ввод недоступен в этом браузере', {
+        toasterId: GALLERY_TOASTER_ID,
+        size: 'compact',
+      });
       return;
     }
     try {
@@ -170,17 +173,26 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
-      toast.error('Сначала продиктуйте стих');
+      toast.error('Сначала продиктуйте стих', {
+        toasterId: GALLERY_TOASTER_ID,
+        size: 'compact',
+      });
       return;
     }
 
     if (comparable === targetComparableText) {
       setIsChecked(true);
-      toast.success('Отлично! Стих распознан верно');
+      toast.success('Отлично! Стих распознан верно', {
+        toasterId: GALLERY_TOASTER_ID,
+        size: 'compact',
+      });
       return;
     }
 
-    toast.error('Есть расхождения, попробуйте ещё раз или откройте подсказку');
+    toast.error('Есть расхождения, попробуйте ещё раз или откройте подсказку', {
+      toasterId: GALLERY_TOASTER_ID,
+      size: 'compact',
+    });
   };
 
   const transcriptWordsCount = tokenizeComparableWords(transcript).length;

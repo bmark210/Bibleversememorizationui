@@ -15,7 +15,9 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
+import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import { VerseStatus } from "@/generated/prisma";
 import { TrainingCompletionToastCard } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 
@@ -274,10 +276,6 @@ export function VerseGallery({
     const onKey = (e: KeyboardEvent) => {
       if (aux.deleteDialogOpen) return;
       if (aux.trainingMilestonePopup) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          aux.dismissTrainingMilestonePopup();
-        }
         return;
       }
       if (e.key === "Escape") {
@@ -306,7 +304,6 @@ export function VerseGallery({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     aux.deleteDialogOpen,
-    aux.dismissTrainingMilestonePopup,
     aux.trainingMilestonePopup,
     closeTrainingGoesToPreview,
     nav,
@@ -403,6 +400,14 @@ export function VerseGallery({
       }
       className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
     >
+      <Toaster
+        toasterId={GALLERY_TOASTER_ID}
+        containerStyle={{
+          zIndex: 2147483647,
+          top: `${Math.max(topInset, 0) + 12}px`,
+        }}
+      />
+
       {/* Accessibility announcements */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {aux.feedbackMessage}

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type { Verse } from "@/app/App";
+import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import {
   showTrainingContactToast as showTrainingContactHotToast,
   type TrainingContactToastPayload,
@@ -52,7 +53,10 @@ export function useGalleryAux(): UseGalleryAuxReturn {
 
   const showTrainingContactToast = useCallback(
     (payload: TrainingContactToastPayload) => {
-      showTrainingContactHotToast(payload, { durationMs: 3200 });
+      showTrainingContactHotToast(payload, {
+        durationMs: 3200,
+        toasterId: GALLERY_TOASTER_ID,
+      });
     },
     []
   );

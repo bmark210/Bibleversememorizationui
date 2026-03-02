@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from '@/app/lib/toast';
+import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -139,7 +139,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     }
 
     setMistakes((prev) => prev + 1);
-    toast.error('Неверное слово. Последовательность сброшена, попробуйте снова.');
+    toast.error('Неверное слово. Последовательность сброшена, попробуйте снова.', {
+      toasterId: GALLERY_TOASTER_ID,
+      size: 'compact',
+    });
     setSelectedTokenIds([]);
     setErrorFlashWord(word);
 

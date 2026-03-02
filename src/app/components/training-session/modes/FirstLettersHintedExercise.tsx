@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from '@/app/lib/toast';
+import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -207,7 +207,10 @@ export function ModeFirstLettersHintedExercise({
 
     setMistakes((prev) => prev + 1);
     setSelectedChoiceIds([]);
-    toast.error('Неверная буква. Последовательность скрытых слов сброшена, попробуйте снова.');
+    toast.error('Неверная буква. Последовательность скрытых слов сброшена, попробуйте снова.', {
+      toasterId: GALLERY_TOASTER_ID,
+      size: 'compact',
+    });
     setErrorFlashChoiceId(choice.id);
 
     if (clearFlashTimeoutRef.current) {

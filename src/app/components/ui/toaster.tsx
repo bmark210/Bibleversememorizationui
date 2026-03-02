@@ -1,13 +1,15 @@
 "use client";
 
 import { Toaster as HotToaster, type ToasterProps } from "react-hot-toast";
+import { APP_TOASTER_ID } from "@/app/lib/toast";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <HotToaster
+      toasterId={APP_TOASTER_ID}
       position="top-center"
       gutter={8}
-      containerStyle={{ zIndex: 9999 }}
+      containerStyle={{ zIndex: 2147483647 }}
       toastOptions={{
         duration: 4000,
         style: {
@@ -24,4 +26,3 @@ const Toaster = ({ ...props }: ToasterProps) => {
 };
 
 export { Toaster };
-
