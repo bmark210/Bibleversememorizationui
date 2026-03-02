@@ -6,9 +6,12 @@ import {
   TRAINING_STAGE_MASTERY_MAX,
   REPEAT_THRESHOLD_FOR_MASTERED,
 } from "@/shared/training/constants";
+import {
+  getHelloaoChapterVerseMap,
+  normalizeHelloaoTranslation,
+} from "@/shared/bible/helloao";
 
-const DEFAULT_TRANSLATION = "SYNOD";
-const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
+const DEFAULT_TRANSLATION = "rus_syn";
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
 const MAX_TAG_SLUGS = 30;
@@ -79,34 +82,35 @@ type UserVerseRow = {
   nextReviewAt: Date | null;
 };
 
-async function fetchBollsTexts(
+async function fetchHelloaoTexts(
   groupedRequests: Array<{ translation: string; book: number; chapter: number; verses: number[] }>
 ): Promise<Map<string, Map<number, string>>> {
   const textsMap = new Map<string, Map<number, string>>();
   if (groupedRequests.length === 0) return textsMap;
-  try {
-    const response = await fetch(BOLLS_BATCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(groupedRequests),
-    });
-    if (!response.ok) return textsMap;
-    const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
-    payload.forEach((items, index) => {
-      const req = groupedRequests[index];
-      if (!req) return;
+
+  await Promise.all(
+    groupedRequests.map(async (req) => {
       const key = buildGroupKey(req.translation, req.book, req.chapter);
-      const map = textsMap.get(key) ?? new Map<number, string>();
-      items?.forEach((item) => {
-        if (typeof item?.verse === "number" && typeof item?.text === "string") {
-          map.set(item.verse, item.text);
-        }
-      });
-      textsMap.set(key, map);
-    });
-  } catch {
-    // Proceed without text if Bolls is unavailable
-  }
+      try {
+        const chapterMap = await getHelloaoChapterVerseMap({
+          translation: req.translation,
+          book: req.book,
+          chapter: req.chapter,
+        });
+        const map = textsMap.get(key) ?? new Map<number, string>();
+        req.verses.forEach((verse) => {
+          const text = chapterMap.get(verse);
+          if (typeof text === "string") {
+            map.set(verse, text);
+          }
+        });
+        textsMap.set(key, map);
+      } catch {
+        // Proceed without text if helloao is unavailable
+      }
+    })
+  );
+
   return textsMap;
 }
 
@@ -175,9 +179,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : null,
     ]);
 
-    const translation = translationOverride ?? userRecord?.translation ?? DEFAULT_TRANSLATION;
+    const translation = normalizeHelloaoTranslation(
+      translationOverride ?? userRecord?.translation ?? DEFAULT_TRANSLATION
+    );
 
-    // Build Bolls batch request groups
+    // Build helloao chapter request groups
     const requestGroups = new Map<
       string,
       { translation: string; book: number; chapter: number; verses: number[] }
@@ -200,9 +206,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const verseIds = verses.map((v) => v.id);
 
-    // Fetch Bolls texts and user's UserVerse rows in parallel
+    // Fetch helloao texts and user's UserVerse rows in parallel
     const [textsMap, userVerseRows] = await Promise.all([
-      fetchBollsTexts(groupedRequests),
+      fetchHelloaoTexts(groupedRequests),
       telegramIdParam && verseIds.length > 0
         ? prisma.userVerse.findMany({
             where: { telegramId: telegramIdParam, verseId: { in: verseIds } },

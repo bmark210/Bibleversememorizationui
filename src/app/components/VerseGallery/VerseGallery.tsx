@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -97,6 +98,9 @@ export function VerseGallery({
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // ── Aux state (pending, overrides, feedback, milestone toast) ───────────────
   const aux = useGalleryAux();
@@ -384,17 +388,18 @@ export function VerseGallery({
   return (
     <>
       {/*
-        Toaster is rendered OUTSIDE the gallery div on purpose.
-        The gallery has backdrop-filter:blur which — per CSS spec — creates a new
-        containing block for position:fixed children (Sonner renders in-place, no
-        createPortal). Placing <Toaster> here as a sibling keeps it in a normal
-        stacking context so its position:fixed resolves against the viewport.
+        Portal to document.body so the Toaster is completely outside the gallery's
+        stacking context. The gallery creates position:fixed + backdrop-filter which
+        traps any in-tree position:fixed descendants. Portaling to body bypasses all
+        parent stacking contexts — the Sonner <ol> renders at the top of the DOM.
       */}
-      <Toaster
-        id={GALLERY_TOASTER_ID}
-        offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
-        style={{ zIndex: 2147483647 }}
-      />
+      {mounted && createPortal(
+        <Toaster
+          id={GALLERY_TOASTER_ID}
+          offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
+        />,
+        document.body
+      )}
 
       <div
         ref={dialogRef}
@@ -477,7 +482,7 @@ export function VerseGallery({
                   modeId={training.trainingModeId}
                   rendererRef={training.trainingRendererRef}
                   onSwipeStep={training.handleTrainingNavigationStep}
-                  onRate={(rating) => void training.handleTrainingRate(rating)}
+                  onRate={training.handleTrainingRate}
                 />
               ) : null}
             </motion.div>

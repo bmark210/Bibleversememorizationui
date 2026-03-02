@@ -15,17 +15,23 @@ import {
   SelectValue,
 } from './ui/select';
 import { Separator } from './ui/separator';
-import { BollsTranslationInfo, DEFAULT_BOLLS_TRANSLATION, getBollsTranslations } from '../services/bollsApi';
+import {
+  HelloaoTranslationInfo,
+  DEFAULT_HELLOAO_TRANSLATION,
+  getHelloaoTranslations,
+} from '../services/helloaoBibleApi';
 
-const MAIN_TRANSLATIONS: BollsTranslationInfo[] = [
-  { short_name: 'NRT', full_name: 'Новый русский Перевод (НРП)', updated: 1635446313426 },
-  { short_name: 'SYNOD', full_name: 'русский Синодальный Перевод', updated: 1591185595149 },
-  { short_name: 'RBS2', full_name: 'Современный русский перевод, 2015', updated: 1635446313426 },
-  { short_name: 'BTI', full_name: 'Библия под ред. М.П. Кулакова и М.М. Кулакова, 2015', updated: 1635446313426 },
+const MAIN_TRANSLATIONS: HelloaoTranslationInfo[] = [
+  {
+    id: DEFAULT_HELLOAO_TRANSLATION,
+    name: 'Синодальный перевод',
+    shortName: 'SYN',
+    language: 'rus',
+  },
 ];
 
 export function Profile() {
-  const [translations, setTranslations] = useState<BollsTranslationInfo[]>([]);
+  const [translations, setTranslations] = useState<HelloaoTranslationInfo[]>([]);
   const [loadingTranslations, setLoadingTranslations] = useState(true);
   const [translationsError, setTranslationsError] = useState<string | null>(null);
 
@@ -35,19 +41,11 @@ export function Profile() {
     const loadTranslations = async () => {
       try {
         setTranslationsError(null);
-        const data = await getBollsTranslations();
+        const data = await getHelloaoTranslations();
         if (!isMounted) return;
 
-        // Оставляем только основные переводы и упорядочиваем их как в MAIN_TRANSLATIONS
-        const mainShortNames = new Set(MAIN_TRANSLATIONS.map((t) => t.short_name));
-        const filtered = data.filter((t) => mainShortNames.has(t.short_name));
-
-        const ordered =
-          filtered.length > 0
-            ? MAIN_TRANSLATIONS.map(
-                (main) => filtered.find((t) => t.short_name === main.short_name) ?? main
-              )
-            : MAIN_TRANSLATIONS;
+        const filtered = data.filter((t) => t.id === DEFAULT_HELLOAO_TRANSLATION);
+        const ordered = filtered.length > 0 ? filtered : MAIN_TRANSLATIONS;
 
         if (isMounted) {
           setTranslations(ordered);
@@ -93,7 +91,7 @@ export function Profile() {
             <div className="space-y-2">
               <Label htmlFor="translation">Перевод по умолчанию</Label>
               <Select
-                defaultValue={DEFAULT_BOLLS_TRANSLATION}
+                defaultValue={DEFAULT_HELLOAO_TRANSLATION}
                 disabled={loadingTranslations || !!translationsError}
               >
                 <SelectTrigger id="translation">
@@ -110,9 +108,9 @@ export function Profile() {
                     </SelectItem>
                   )}
                   {!loadingTranslations &&
-                    translations.map((translation: BollsTranslationInfo) => (
-                      <SelectItem key={translation.short_name} value={translation.short_name}>
-                        {translation.short_name} — {translation.full_name}
+                    translations.map((translation: HelloaoTranslationInfo) => (
+                      <SelectItem key={translation.id} value={translation.id}>
+                        {translation.id} — {translation.name}
                       </SelectItem>
                     ))}
                   {!loadingTranslations && !translations.length && !translationsError && (

@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: string) {
-  // Возвращает все стихи для конкретного пользователя вместе с текстами из Bolls.
+  // Возвращает все стихи для конкретного пользователя вместе с текстами из helloao.
   try {
     const query = parseUserVersesListQuery(req.query);
     const page = await fetchPaginatedEnrichedUserVerses({

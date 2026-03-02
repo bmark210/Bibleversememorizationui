@@ -92,7 +92,7 @@ const VerseGallery = dynamic(
 );
 
 // Frontend verse model — matches the VerseCardDto shape returned by the API.
-// externalVerseId is the primary identifier (bolls.life format "book-chapter-verse").
+// externalVerseId is the primary identifier ("book-chapter-verse").
 export type Verse = {
   id?: string | number;
   externalVerseId: string;

@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { memo, useMemo, type RefObject } from "react";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
 import {
@@ -36,7 +36,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): LegacyVerse {
     status: verse.status,
     reference: verse.raw.reference,
     text: verse.raw.text,
-    translation: String((verse.raw as Record<string, unknown>).translation ?? "SYNOD"),
+    translation: String((verse.raw as Record<string, unknown>).translation ?? "rus_syn"),
     masteryLevel: progressPercent,
     repetitions: verse.repetitions,
     lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,
@@ -46,20 +46,39 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): LegacyVerse {
   };
 }
 
-export function TrainingCard({
+export const TrainingCard = memo(function TrainingCard({
   trainingVerse,
   modeId,
   rendererRef,
   onSwipeStep,
   onRate,
 }: Props) {
+  const renderer = MODE_PIPELINE[modeId].renderer;
   const isReviewStage =
     trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED";
-  const totalProgressPercent = computeTotalProgressPercent(
-    trainingVerse.rawMasteryLevel,
-    trainingVerse.repetitions
+  const totalProgressPercent = useMemo(
+    () =>
+      computeTotalProgressPercent(
+        trainingVerse.rawMasteryLevel,
+        trainingVerse.repetitions
+      ),
+    [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
   );
-  const legacyVerse = asLegacyVerseForRenderer(trainingVerse);
+  const legacyVerse = useMemo(
+    () => asLegacyVerseForRenderer(trainingVerse),
+    [
+      trainingVerse.key,
+      trainingVerse.externalVerseId,
+      trainingVerse.status,
+      trainingVerse.raw.reference,
+      trainingVerse.raw.text,
+      (trainingVerse.raw as Record<string, unknown>).translation,
+      trainingVerse.stageMasteryLevel,
+      trainingVerse.repetitions,
+      trainingVerse.lastReviewedAt?.getTime(),
+      trainingVerse.nextReviewAt?.getTime(),
+    ]
+  );
 
   return (
     <div className="w-full">
@@ -132,7 +151,7 @@ export function TrainingCard({
           <div className="relative h-full">
             <TrainingModeRenderer
               ref={rendererRef as RefObject<TrainingModeRendererHandle>}
-              renderer={MODE_PIPELINE[modeId].renderer}
+              renderer={renderer}
               verse={legacyVerse}
               onRate={onRate}
             />
@@ -143,4 +162,4 @@ export function TrainingCard({
       />
     </div>
   );
-}
+});

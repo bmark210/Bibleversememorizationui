@@ -1,5 +1,5 @@
 /**
- * Enum для книг Библии с ID, соответствующими Bolls API (SYNOD/NRT/RBS2/BTI)
+ * Enum для книг Библии в формате "book-chapter-verse"
  */
 export enum BibleBook {
   Genesis = 1,
@@ -68,7 +68,7 @@ export enum BibleBook {
   John3 = 64,
   Jude = 65,
   Revelation = 66,
-  // Неканонические книги (SYNOD)
+  // Неканонические книги
   Ezra2 = 67,
   Tobit = 68,
   Judith = 69,
@@ -176,10 +176,10 @@ export const BIBLE_BOOKS: Record<number, BibleBookInfo> = {
 };
 
 /**
- * Интерфейсы Bolls API
+ * Интерфейсы Bible API
  */
 
-export interface BollsVerse {
+export interface BibleApiVerse {
   pk: number;
   translation: string;
   book: number;
@@ -188,13 +188,13 @@ export interface BollsVerse {
   text: string;
 }
 
-export interface BollsTranslation {
+export interface BibleApiTranslation {
   short_name: string;
   full_name: string;
   updated: number;
 }
 
-export interface BollsBook {
+export interface BibleApiBook {
   bookid: number;
   chronorder: number;
   name: string;

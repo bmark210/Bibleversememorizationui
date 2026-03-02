@@ -25,11 +25,12 @@ import {
   formatVerseReference,
 } from "@/app/types/bible";
 import {
-  DEFAULT_BOLLS_TRANSLATION,
-  getBollsChapter,
-  getBollsVerse,
-  searchBollsVerses,
-} from "../services/bollsApi";
+  DEFAULT_HELLOAO_TRANSLATION,
+  getHelloaoChapter,
+  getHelloaoVerse,
+  normalizeHelloaoTranslation,
+  searchHelloaoVerses,
+} from "../services/helloaoBibleApi";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { TagsService } from "@/api/services/TagsService";
 import type { Tag } from "@/api/models/Tag";
@@ -139,7 +140,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const isVerseMode = mode === "verse";
 
   const [inputMode, setInputMode] = useState<"search" | "manual">("search");
-  const [translation, setTranslation] = useState(DEFAULT_BOLLS_TRANSLATION);
+  const [translation, setTranslation] = useState(DEFAULT_HELLOAO_TRANSLATION);
   const [selectedVerse, setSelectedVerse] = useState<SelectedVerse | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -211,7 +212,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   useEffect(() => {
     if (typeof window === "undefined") return;
     const t = localStorage.getItem(TRANSLATION_KEY);
-    if (t) setTranslation(t);
+    setTranslation(normalizeHelloaoTranslation(t));
     const m = localStorage.getItem(MODE_KEY);
     if (m === "search" || m === "manual") setInputMode(m);
   }, [open]);
@@ -242,7 +243,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setVerseCountLoading(true);
     setVerseCount(null);
 
-    getBollsChapter({ translation, book: bid as BibleBook, chapter: ch })
+    getHelloaoChapter({ translation, book: bid as BibleBook, chapter: ch })
       .then((verses) => {
         if (cancelled) return;
         const count = verses.length;
@@ -432,7 +433,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setFetchError(null);
 
     try {
-      const res = await getBollsVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
+      const res = await getHelloaoVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
       if (!res?.text) throw new Error("Стих не найден");
       setSelectedVerse({
         book: bid as BibleBook,
@@ -467,7 +468,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     lastQueryRef.current = q;
 
     try {
-      const resp = await searchBollsVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
+      const resp = await searchHelloaoVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
       if (ctrl.signal.aborted || reqIdRef.current !== rid) return;
       const items = (resp.results ?? []).map((it) => ({
         book: it.book as BibleBook,
@@ -491,7 +492,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     const nextPage = page + 1;
     setLoadingMore(true);
     try {
-      const resp = await searchBollsVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
+      const resp = await searchHelloaoVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
       const items = (resp.results ?? []).map((it) => ({
         book: it.book as BibleBook, chapter: it.chapter, verse: it.verse, text: it.text,
         reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),

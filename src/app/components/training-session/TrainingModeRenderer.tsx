@@ -2,9 +2,11 @@
 
 import {
   forwardRef,
+  memo,
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { Verse as LegacyVerse } from '../../data/mockData';
@@ -153,17 +155,24 @@ export interface TrainingModeRendererHandle {
   openTutorial: () => boolean;
 }
 
-export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
+const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
   onRate,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(() => {
+    const seen = readSeenModeTutorials();
+    return !seen[renderer];
+  });
+  const previousRendererRef = useRef(renderer);
 
   useEffect(() => {
+    if (previousRendererRef.current === renderer) return;
+    previousRendererRef.current = renderer;
     const seen = readSeenModeTutorials();
-    setTutorialOpen(!seen[renderer]);
+    const nextOpen = !seen[renderer];
+    setTutorialOpen((prev) => (prev === nextOpen ? prev : nextOpen));
   }, [renderer]);
 
   useImperativeHandle(ref, () => ({
@@ -256,3 +265,7 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
     </>
   );
 });
+
+TrainingModeRendererComponent.displayName = 'TrainingModeRenderer';
+
+export const TrainingModeRenderer = memo(TrainingModeRendererComponent);

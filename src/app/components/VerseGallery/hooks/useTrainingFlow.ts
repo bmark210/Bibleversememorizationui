@@ -89,6 +89,16 @@ type Params = {
   setNavDirection: (dir: number) => void;
 };
 
+function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
+  const fnRef = useRef(fn);
+
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+
+  return useCallback(((...args: Parameters<T>) => fnRef.current(...args)) as T, []);
+}
+
 export type UseTrainingFlowReturn = {
   panelMode: PanelMode;
   trainingActiveVerse: TrainingVerseState | null;
@@ -869,6 +879,11 @@ export function useTrainingFlow({
     ]
   );
 
+  const stableStartTrainingFromActiveVerse = useEventCallback(startTrainingFromActiveVerse);
+  const stableHandleTrainingRate = useEventCallback(handleTrainingRate);
+  const stableHandleTrainingNavigationStep = useEventCallback(handleTrainingNavigationStep);
+  const stableHandleTrainingBackAction = useEventCallback(handleTrainingBackAction);
+
   // Auto-start training when gallery opens directly in training mode
   useEffect(() => {
     if (!autoStartInTraining) return;
@@ -883,7 +898,7 @@ export function useTrainingFlow({
 
     void (async () => {
       try {
-        await startTrainingFromActiveVerse();
+        await stableStartTrainingFromActiveVerse();
       } finally {
         if (!cancelled) setIsAutoStartingTraining(false);
       }
@@ -897,7 +912,7 @@ export function useTrainingFlow({
     panelMode,
     previewActiveVerse,
     actionPending,
-    startTrainingFromActiveVerse,
+    stableStartTrainingFromActiveVerse,
   ]);
 
   return {
@@ -909,11 +924,11 @@ export function useTrainingFlow({
     trainingEligibleIndices,
     isAutoStartingTraining,
     trainingRendererRef,
-    startTrainingFromActiveVerse,
-    handleTrainingRate,
-    handleTrainingNavigationStep,
+    startTrainingFromActiveVerse: stableStartTrainingFromActiveVerse,
+    handleTrainingRate: stableHandleTrainingRate,
+    handleTrainingNavigationStep: stableHandleTrainingNavigationStep,
     exitTrainingMode,
-    handleTrainingBackAction,
+    handleTrainingBackAction: stableHandleTrainingBackAction,
     applyUserTrainingSubsetFilter,
   };
 }

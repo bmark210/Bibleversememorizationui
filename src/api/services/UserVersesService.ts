@@ -58,6 +58,7 @@ export class UserVersesService {
             externalVerseId: string;
             masteryLevel?: number;
             repetitions?: number;
+            lastTrainingModeId?: number | null;
             lastReviewedAt?: string;
             nextReviewAt?: string;
         },
@@ -114,9 +115,9 @@ export class UserVersesService {
         requestBody: {
             masteryLevel?: number;
             repetitions?: number;
+            lastTrainingModeId?: number | null;
             lastReviewedAt?: string;
             nextReviewAt?: string;
-            lastTrainingModeId?: number | null;
             status?: 'MY' | 'LEARNING' | 'STOPPED';
         },
     ): CancelablePromise<UserVerse> {

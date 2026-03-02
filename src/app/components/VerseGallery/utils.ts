@@ -399,7 +399,7 @@ export function asLegacyVerse(verse: TrainingVerseState): LegacyVerse {
     status: verse.status,
     reference: verse.raw.reference,
     text: verse.raw.text,
-    translation: String((verse.raw as Record<string, unknown>).translation ?? "SYNOD"),
+    translation: String((verse.raw as Record<string, unknown>).translation ?? "rus_syn"),
     masteryLevel: progress,
     repetitions: verse.repetitions,
     lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,

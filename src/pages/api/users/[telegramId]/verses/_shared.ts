@@ -4,6 +4,10 @@ import { getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  getHelloaoChapterVerseMap,
+  normalizeHelloaoTranslation,
+} from "@/shared/bible/helloao";
+import {
   mapUserVerseToVerseCardDto,
   type UserVerseWithLegacyNullableProgress,
   type UserVersesPageResponse,
@@ -12,36 +16,35 @@ import {
   type VerseTagLinkWithTag,
 } from "./verseCard.types";
 
-const DEFAULT_BOLLS_TRANSLATION = "SYNOD";
-const BOLLS_BATCH_URL = "https://bolls.life/get-verses/";
+const DEFAULT_HELLOAO_TRANSLATION = "rus_syn";
 
-type CachedBollsChapter = {
+type CachedHelloaoChapter = {
   expiresAt: number;
   verses: Map<number, string>;
 };
 
-const BOLLS_CHAPTER_TEXT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
-const bollsChapterTextCache = new Map<string, CachedBollsChapter>();
+const HELLOAO_CHAPTER_TEXT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+const helloaoChapterTextCache = new Map<string, CachedHelloaoChapter>();
 
-function getCachedBollsChapter(key: string): CachedBollsChapter | null {
-  const cached = bollsChapterTextCache.get(key);
+function getCachedHelloaoChapter(key: string): CachedHelloaoChapter | null {
+  const cached = helloaoChapterTextCache.get(key);
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
-    bollsChapterTextCache.delete(key);
+    helloaoChapterTextCache.delete(key);
     return null;
   }
   return cached;
 }
 
-function upsertCachedBollsVerse(key: string, verse: number, text: string) {
+function upsertCachedHelloaoVerse(key: string, verse: number, text: string) {
   const now = Date.now();
-  const cached = getCachedBollsChapter(key);
+  const cached = getCachedHelloaoChapter(key);
   if (cached) {
     cached.verses.set(verse, text);
     return;
   }
-  bollsChapterTextCache.set(key, {
-    expiresAt: now + BOLLS_CHAPTER_TEXT_CACHE_TTL_MS,
+  helloaoChapterTextCache.set(key, {
+    expiresAt: now + HELLOAO_CHAPTER_TEXT_CACHE_TTL_MS,
     verses: new Map([[verse, text]]),
   });
 }
@@ -52,7 +55,7 @@ type ParsedExternalVerseId = {
   verse: number;
 };
 
-type BollsBatchRequest = {
+type HelloaoChapterRequest = {
   translation: string;
   book: number;
   chapter: number;
@@ -124,49 +127,37 @@ const parseExternalVerseId = (value?: string): ParsedExternalVerseId | null => {
 const buildGroupKey = (translation: string, book: number, chapter: number) =>
   `${translation}|${book}|${chapter}`;
 
-function applyBollsBatchPayload(
-  payload: Array<Array<{ verse: number; text: string }>>,
-  requests: BollsBatchRequest[],
-  textsMap: Map<string, Map<number, string>>
-) {
-  payload.forEach((items, index) => {
-    const request = requests[index];
-    if (!request) return;
-    const key = buildGroupKey(request.translation, request.book, request.chapter);
-    const map = textsMap.get(key) ?? new Map<number, string>();
-    items?.forEach((item) => {
-      if (typeof item?.verse === "number" && typeof item?.text === "string") {
-        map.set(item.verse, item.text);
-        upsertCachedBollsVerse(key, item.verse, item.text);
-      }
-    });
-    textsMap.set(key, map);
-  });
-}
-
-async function fetchBollsBatchToTextsMap(
-  requests: BollsBatchRequest[],
+async function fetchHelloaoBatchToTextsMap(
+  requests: HelloaoChapterRequest[],
   textsMap: Map<string, Map<number, string>>
 ) {
   if (requests.length === 0) return;
 
-  try {
-    const response = await fetch(BOLLS_BATCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requests),
-    });
+  await Promise.all(
+    requests.map(async (request) => {
+      try {
+        const key = buildGroupKey(request.translation, request.book, request.chapter);
+        const map = textsMap.get(key) ?? new Map<number, string>();
+        const chapterMap = await getHelloaoChapterVerseMap({
+          translation: request.translation,
+          book: request.book,
+          chapter: request.chapter,
+        });
 
-    if (!response.ok) {
-      console.warn("Не удалось получить тексты от Bolls:", response.status);
-      return;
-    }
+        request.verses.forEach((verse) => {
+          const text = chapterMap.get(verse);
+          if (typeof text === "string") {
+            map.set(verse, text);
+            upsertCachedHelloaoVerse(key, verse, text);
+          }
+        });
 
-    const payload = (await response.json()) as Array<Array<{ verse: number; text: string }>>;
-    applyBollsBatchPayload(payload, requests, textsMap);
-  } catch (error) {
-    console.warn("Не удалось получить тексты от Bolls:", error);
-  }
+        textsMap.set(key, map);
+      } catch (error) {
+        console.warn("Не удалось получить тексты от helloao:", error);
+      }
+    })
+  );
 }
 
 function getSingleQueryValue(query: ParsedUrlQuery, key: string): string | undefined {
@@ -393,7 +384,7 @@ export async function getUserTranslationForTelegram(telegramId: string) {
     throw new UserVersesApiError(404, "User not found");
   }
 
-  return user.translation ?? DEFAULT_BOLLS_TRANSLATION;
+  return normalizeHelloaoTranslation(user.translation ?? DEFAULT_HELLOAO_TRANSLATION);
 }
 
 async function fetchTagsForVerses(
@@ -442,23 +433,24 @@ async function enrichUserVerses(
   if (verses.length === 0) {
     return [];
   }
+  const normalizedTranslation = normalizeHelloaoTranslation(translation);
 
   const requestGroups = new Map<
     string,
-    BollsBatchRequest
+    HelloaoChapterRequest
   >();
 
   for (const verse of verses) {
     const parsed = parseExternalVerseId(verse.externalVerseId);
     if (!parsed) continue;
 
-    const key = buildGroupKey(translation, parsed.book, parsed.chapter);
+    const key = buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter);
     const existing = requestGroups.get(key);
     if (existing) {
       existing.verses.push(parsed.verse);
     } else {
       requestGroups.set(key, {
-        translation,
+        translation: normalizedTranslation,
         book: parsed.book,
         chapter: parsed.chapter,
         verses: [parsed.verse],
@@ -475,11 +467,11 @@ async function enrichUserVerses(
     req.verses = Array.from(new Set(req.verses));
   });
 
-  // Используем in-memory TTL cache по главам, чтобы не дергать Bolls повторно при листании/рендерах.
+  // Используем in-memory TTL cache по главам, чтобы не дергать helloao повторно при листании/рендерах.
   const missingRequests = groupedRequests
     .map((req) => {
       const key = buildGroupKey(req.translation, req.book, req.chapter);
-      const cached = getCachedBollsChapter(key);
+      const cached = getCachedHelloaoChapter(key);
       if (cached) {
         // Подкладываем всё, что уже есть.
         textsMap.set(key, new Map(cached.verses));
@@ -489,9 +481,9 @@ async function enrichUserVerses(
       textsMap.set(key, new Map());
       return req;
     })
-    .filter((req): req is BollsBatchRequest => Boolean(req));
+    .filter((req): req is HelloaoChapterRequest => Boolean(req));
 
-  await fetchBollsBatchToTextsMap(missingRequests, textsMap);
+  await fetchHelloaoBatchToTextsMap(missingRequests, textsMap);
 
   const tagsByVerseId = await tagsByVerseIdPromise;
 
@@ -499,7 +491,7 @@ async function enrichUserVerses(
     const parsed = parseExternalVerseId(verse.externalVerseId);
     const text =
       parsed !== null
-        ? textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter))?.get(parsed.verse)
+        ? textsMap.get(buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter))?.get(parsed.verse)
         : undefined;
     const reference =
       parsed !== null
@@ -554,21 +546,27 @@ export async function enrichExternalVerseIds(
 ): Promise<Map<string, EnrichedExternalVerse>> {
   const unique = Array.from(new Set(externalVerseIds.filter(Boolean)));
   if (unique.length === 0) return new Map();
+  const normalizedTranslation = normalizeHelloaoTranslation(translation);
 
   const requestGroups = new Map<
     string,
-    BollsBatchRequest
+    HelloaoChapterRequest
   >();
 
   for (const id of unique) {
     const parsed = parseExternalVerseId(id);
     if (!parsed) continue;
-    const key = buildGroupKey(translation, parsed.book, parsed.chapter);
+    const key = buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter);
     const existing = requestGroups.get(key);
     if (existing) {
       existing.verses.push(parsed.verse);
     } else {
-      requestGroups.set(key, { translation, book: parsed.book, chapter: parsed.chapter, verses: [parsed.verse] });
+      requestGroups.set(key, {
+        translation: normalizedTranslation,
+        book: parsed.book,
+        chapter: parsed.chapter,
+        verses: [parsed.verse],
+      });
     }
   }
 
@@ -583,7 +581,7 @@ export async function enrichExternalVerseIds(
   const missingRequests = groupedRequests
     .map((req) => {
       const key = buildGroupKey(req.translation, req.book, req.chapter);
-      const cached = getCachedBollsChapter(key);
+      const cached = getCachedHelloaoChapter(key);
       if (cached) {
         textsMap.set(key, new Map(cached.verses));
         const missingVerses = req.verses.filter((v) => !cached.verses.has(v));
@@ -592,9 +590,9 @@ export async function enrichExternalVerseIds(
       textsMap.set(key, new Map());
       return req;
     })
-    .filter((req): req is BollsBatchRequest => Boolean(req));
+    .filter((req): req is HelloaoChapterRequest => Boolean(req));
 
-  await fetchBollsBatchToTextsMap(missingRequests, textsMap);
+  await fetchHelloaoBatchToTextsMap(missingRequests, textsMap);
 
   const tagsByVerseId = await tagsByVerseIdPromise;
   const result = new Map<string, EnrichedExternalVerse>();
@@ -602,7 +600,7 @@ export async function enrichExternalVerseIds(
   for (const id of unique) {
     const parsed = parseExternalVerseId(id);
     const text = parsed
-      ? textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter))?.get(parsed.verse)
+      ? textsMap.get(buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter))?.get(parsed.verse)
       : undefined;
     const reference = parsed
       ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`

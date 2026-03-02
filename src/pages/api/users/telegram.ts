@@ -14,6 +14,21 @@ const VALID_TRANSLATIONS: Translation[] = [
   Translation.BTI,
 ];
 
+const TRANSLATION_ALIASES: Record<string, Translation> = {
+  RUS_SYN: Translation.SYNOD,
+};
+
+function normalizeTranslationInput(value?: string): Translation | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  const aliasValue = TRANSLATION_ALIASES[normalized.toUpperCase()];
+  if (aliasValue) return aliasValue;
+  if (VALID_TRANSLATIONS.includes(normalized as Translation)) {
+    return normalized as Translation;
+  }
+  return undefined;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Инициализирует пользователя при входе из Telegram, позволяет указать перевод.
   if (req.method !== "POST") {
@@ -39,11 +54,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let validTranslation: Translation | undefined;
     if (translation) {
-      if (VALID_TRANSLATIONS.includes(translation as Translation)) {
-        validTranslation = translation as Translation;
+      const normalizedTranslation = normalizeTranslationInput(translation);
+      if (normalizedTranslation) {
+        validTranslation = normalizedTranslation;
       } else {
         return res.status(400).json({
-          error: `Invalid translation. Must be one of: ${VALID_TRANSLATIONS.join(", ")}`,
+          error: `Invalid translation. Must be one of: ${VALID_TRANSLATIONS.join(", ")}, RUS_SYN`,
         });
       }
     }

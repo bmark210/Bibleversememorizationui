@@ -8,10 +8,17 @@ type CreateUserPayload = {
 };
 
 const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
+const TRANSLATION_ALIASES: Record<string, Translation> = {
+  RUS_SYN: Translation.SYNOD,
+};
+
 const normalizeTranslation = (value?: string): Translation | undefined => {
-  if (!value) return undefined;
-  return ALLOWED_TRANSLATIONS.includes(value as Translation)
-    ? (value as Translation)
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  const aliasValue = TRANSLATION_ALIASES[normalized.toUpperCase()];
+  if (aliasValue) return aliasValue;
+  return ALLOWED_TRANSLATIONS.includes(normalized as Translation)
+    ? (normalized as Translation)
     : undefined;
 };
 

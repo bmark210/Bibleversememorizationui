@@ -57,8 +57,9 @@ export function showTrainingContactToast(
     toasterId: options?.toasterId,
   } as const;
 
-  toast.dismiss(TRAINING_CONTACT_TOAST_ID);
-
+  // No explicit dismiss — Sonner updates the existing toast in-place when the
+  // same id is reused. Calling dismiss first starts an exit animation that
+  // sweeps the newly created toast away before it can settle.
   if (payload.tone === 'positive') {
     toast.success(payload.message, shared);
   } else if (payload.tone === 'negative') {
@@ -197,7 +198,6 @@ export function showTrainingMilestoneToast(
   options?: { durationMs?: number; toasterId?: string }
 ) {
   const durationMs = options?.durationMs ?? DEFAULT_MILESTONE_TOAST_DURATION_MS;
-  toast.dismiss(TRAINING_MILESTONE_TOAST_ID);
   toast.custom(
     (toastId) => (
       <TrainingMilestoneCard

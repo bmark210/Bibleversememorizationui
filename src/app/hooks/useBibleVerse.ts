@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { BibleBook } from '../types/bible';
 import {
-  DEFAULT_BOLLS_TRANSLATION,
-  BollsVerse,
-  getBollsVerse,
-  getBollsChapter,
-} from '../services/bollsApi';
+  DEFAULT_HELLOAO_TRANSLATION,
+  HelloaoVerse,
+  getHelloaoVerse,
+  getHelloaoChapter,
+} from '../services/helloaoBibleApi';
 
 /**
  * Параметры запроса стиха
@@ -55,8 +55,8 @@ export interface BibleVerseState<T> {
  * const { data, loading, error } = useBibleVerse({
  *   book: BibleBook.John,
  *   chapter: 3,
- *   verse: 16,
- *   translation: BibleTranslation.SYNOD
+  *   verse: 16,
+ *   translation: "rus_syn"
  * });
  */
 export function useBibleVerse(params: GetVerseParams | null) {
@@ -78,8 +78,8 @@ export function useBibleVerse(params: GetVerseParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const verse = await getBollsVerse({
-          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+        const verse = await getHelloaoVerse({
+          translation: params.translation ?? DEFAULT_HELLOAO_TRANSLATION,
           book: params.book,
           chapter: params.chapter,
           verse: params.verse,
@@ -116,7 +116,7 @@ export function useBibleVerse(params: GetVerseParams | null) {
  * const { data, loading, error } = useBibleChapter({
  *   book: BibleBook.Psalms,
  *   chapter: 23,
- *   translation: BibleTranslation.RBS2
+ *   translation: "rus_syn"
  * });
  */
 export function useBibleChapter(params: GetChapterParams | null) {
@@ -138,14 +138,14 @@ export function useBibleChapter(params: GetChapterParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const chapterVerses = await getBollsChapter({
-          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+        const chapterVerses = await getHelloaoChapter({
+          translation: params.translation ?? DEFAULT_HELLOAO_TRANSLATION,
           book: params.book,
           chapter: params.chapter,
         });
 
         const chapter: Record<number, string> = {};
-        chapterVerses.forEach((v: BollsVerse) => {
+        chapterVerses.forEach((v: HelloaoVerse) => {
           chapter[v.verse] = v.text;
         });
         
@@ -182,7 +182,7 @@ export function useBibleChapter(params: GetChapterParams | null) {
  *   chapter: 1,
  *   verseStart: 1,
  *   verseEnd: 3,
- *   translation: BibleTranslation.NRT
+ *   translation: "rus_syn"
  * });
  */
 export function useBibleVerseRange(params: GetVerseRangeParams | null) {
@@ -204,14 +204,14 @@ export function useBibleVerseRange(params: GetVerseRangeParams | null) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        const chapterVerses = await getBollsChapter({
-          translation: params.translation ?? DEFAULT_BOLLS_TRANSLATION,
+        const chapterVerses = await getHelloaoChapter({
+          translation: params.translation ?? DEFAULT_HELLOAO_TRANSLATION,
           book: params.book,
           chapter: params.chapter,
         });
 
         const verses: Record<number, string> = {};
-        chapterVerses.forEach((v: BollsVerse) => {
+        chapterVerses.forEach((v: HelloaoVerse) => {
           if (v.verse >= params.verseStart && v.verse <= params.verseEnd) {
             verses[v.verse] = v.text;
           }
