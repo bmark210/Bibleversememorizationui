@@ -5,12 +5,6 @@ import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 import type { Verse } from "@/app/App";
 import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
-import type {
-  DailyGoalGalleryContext,
-  DailyGoalProgressEvent,
-  DailyGoalResumeMode,
-  DailyGoalTrainingStartDecision,
-} from "@/app/features/daily-goal/types";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
 
 export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
@@ -67,23 +61,4 @@ export type VerseGalleryProps = {
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;
   onRequestMorePreviewVerses?: () => Promise<boolean>;
-  dailyGoalContext?: DailyGoalGalleryContext;
-  onBeforeStartTrainingFromGalleryVerse?: (
-    verse: Verse
-  ) => Promise<DailyGoalTrainingStartDecision> | DailyGoalTrainingStartDecision;
-  onDailyGoalProgressEvent?: (event: DailyGoalProgressEvent) => void;
-  onDailyGoalJumpToVerseRequest?: (externalVerseId: string) => void;
-  onDailyGoalPreferredResumeModeChange?: (mode: DailyGoalResumeMode) => void;
-};
-
-export type DailyGoalPillMeta = {
-  mode: DailyGoalResumeMode;
-  title: string;
-  progress: string;
-  planCount: number;
-  className: string;
-  completed: boolean;
-  isCurrentMode: boolean;
-  chipClassName: string;
-  iconClassName: string;
 };

@@ -11,11 +11,6 @@ import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type {
-  DailyGoalProgressEvent,
-  DailyGoalResumeMode,
-  DailyGoalTrainingStartDecision,
-} from "@/app/features/daily-goal/types";
-import type {
   TrainingContactToastPayload,
   TrainingCompletionToastCardPayload,
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
@@ -69,14 +64,6 @@ type Params = {
   closeTrainingGoesToPreview: boolean;
   onClose: () => void;
   onVersePatched?: (event: VersePatchEvent) => void;
-  onDailyGoalProgressEvent?: (event: DailyGoalProgressEvent) => void;
-  onBeforeStartTrainingFromGalleryVerse?: (
-    verse: Verse
-  ) => Promise<DailyGoalTrainingStartDecision> | DailyGoalTrainingStartDecision;
-  onDailyGoalJumpToVerseRequest?: (externalVerseId: string) => void;
-  onDailyGoalPreferredResumeModeChange?: (mode: DailyGoalResumeMode) => void;
-  dailyGoalGuideActive: boolean;
-  dailyGoalPreferredTrainingSubset: TrainingSubsetFilter;
   // from useGalleryAux
   actionPending: boolean;
   setActionPending: (v: boolean) => void;
@@ -109,7 +96,7 @@ export type UseTrainingFlowReturn = {
   isAutoStartingTraining: boolean;
   trainingRendererRef: RefObject<TrainingModeRendererHandle | null>;
   startTrainingFromActiveVerse: (
-    forcedSubset?: DailyGoalResumeMode,
+    forcedSubset?: "learning" | "review",
     options?: { preservePreviewCard?: boolean }
   ) => Promise<boolean>;
   handleTrainingRate: (rating: Rating) => Promise<void>;
@@ -127,12 +114,6 @@ export function useTrainingFlow({
   closeTrainingGoesToPreview,
   onClose,
   onVersePatched,
-  onDailyGoalProgressEvent,
-  onBeforeStartTrainingFromGalleryVerse,
-  onDailyGoalJumpToVerseRequest,
-  onDailyGoalPreferredResumeModeChange,
-  dailyGoalGuideActive,
-  dailyGoalPreferredTrainingSubset,
   actionPending,
   setActionPending,
   setPreviewOverride,
@@ -154,7 +135,6 @@ export function useTrainingFlow({
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
   const autoStartedTrainingRef = useRef(false);
   const hasUserChosenTrainingSubsetRef = useRef(false);
-  const hasAutoAppliedDailyGoalSubsetRef = useRef(false);
   const preservedPreviewVerseKeyOnTrainingExitRef = useRef<string | null>(null);
 
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
@@ -207,18 +187,6 @@ export function useTrainingFlow({
     }
   }, [panelMode, trainingEligibleIndices, trainingIndex, trainingSubsetFilter, trainingVerses]);
 
-  // Auto-apply daily goal subset when training starts
-  useEffect(() => {
-    if (panelMode !== "training") return;
-    if (!dailyGoalGuideActive) return;
-    if (dailyGoalPreferredTrainingSubset === "catalog") return;
-    if (hasUserChosenTrainingSubsetRef.current) return;
-    if (hasAutoAppliedDailyGoalSubsetRef.current) return;
-    if (trainingSubsetFilter !== "catalog") return;
-    hasAutoAppliedDailyGoalSubsetRef.current = true;
-    setTrainingSubsetFilter(dailyGoalPreferredTrainingSubset);
-  }, [panelMode, dailyGoalGuideActive, dailyGoalPreferredTrainingSubset, trainingSubsetFilter]);
-
   // Clear auto-starting overlay when training starts
   useEffect(() => {
     if (panelMode === "training") {
@@ -262,13 +230,9 @@ export function useTrainingFlow({
   const applyUserTrainingSubsetFilter = useCallback(
     (nextFilter: TrainingSubsetFilter) => {
       hasUserChosenTrainingSubsetRef.current = true;
-      hasAutoAppliedDailyGoalSubsetRef.current = true;
       setTrainingSubsetFilter((prev) => (prev === nextFilter ? prev : nextFilter));
-      if (nextFilter === "learning" || nextFilter === "review") {
-        onDailyGoalPreferredResumeModeChange?.(nextFilter);
-      }
     },
-    [onDailyGoalPreferredResumeModeChange]
+    []
   );
 
   const exitTrainingMode = useCallback(
@@ -439,33 +403,12 @@ export function useTrainingFlow({
 
   const startTrainingFromActiveVerse = useCallback(
     async (
-      forcedSubset?: DailyGoalResumeMode,
+      forcedSubset?: "learning" | "review",
       options?: { preservePreviewCard?: boolean }
     ): Promise<boolean> => {
       if (actionPending || !previewActiveVerse) return false;
       const preservePreviewCard = options?.preservePreviewCard === true;
       preservedPreviewVerseKeyOnTrainingExitRef.current = null;
-
-      if (onBeforeStartTrainingFromGalleryVerse) {
-        const decision = await onBeforeStartTrainingFromGalleryVerse(previewActiveVerse);
-        if (decision.kind === "redirect") {
-          showFeedback(decision.message, "info");
-          const targetIndex = verses.findIndex(
-            (verse) => getVerseIdentity(verse) === String(decision.targetVerseId)
-          );
-          if (targetIndex >= 0) {
-            setNavDirection(targetIndex > activeIndex ? 1 : -1);
-            setNavActiveIndex(targetIndex);
-          } else {
-            onDailyGoalJumpToVerseRequest?.(decision.targetVerseId);
-            onClose();
-          }
-          return false;
-        }
-        if (decision.kind === "warn") {
-          showFeedback(decision.message, "info");
-        }
-      }
 
       try {
         setActionPending(true);
@@ -510,9 +453,7 @@ export function useTrainingFlow({
             ? forcedSubset
             : selectedSubsetHint !== "catalog"
               ? selectedSubsetHint
-              : dailyGoalGuideActive && dailyGoalPreferredTrainingSubset !== "catalog"
-                ? dailyGoalPreferredTrainingSubset
-                : "catalog";
+              : "catalog";
 
         const getEligibleIndicesByFilter = (filter: TrainingSubsetFilter) =>
           normalized
@@ -543,14 +484,9 @@ export function useTrainingFlow({
         const startState = normalized[startIndex] ?? normalized[0];
 
         hasUserChosenTrainingSubsetRef.current = false;
-        hasAutoAppliedDailyGoalSubsetRef.current = effectiveSubset !== "catalog";
 
         setTrainingVerses(normalized);
         setTrainingSubsetFilter(effectiveSubset);
-
-        if (effectiveSubset === "learning" || effectiveSubset === "review") {
-          onDailyGoalPreferredResumeModeChange?.(effectiveSubset);
-        }
 
         if (preservePreviewCard) {
           preservedPreviewVerseKeyOnTrainingExitRef.current = getVerseIdentity(previewActiveVerse);
@@ -573,17 +509,9 @@ export function useTrainingFlow({
     },
     [
       actionPending,
-      activeIndex,
-      dailyGoalGuideActive,
-      dailyGoalPreferredTrainingSubset,
       fetchLearningVersesForTraining,
-      onBeforeStartTrainingFromGalleryVerse,
-      onClose,
-      onDailyGoalJumpToVerseRequest,
-      onDailyGoalPreferredResumeModeChange,
       previewActiveVerse,
       setActionPending,
-      setNavActiveIndex,
       setNavDirection,
       showFeedback,
       verses,
@@ -823,30 +751,6 @@ export function useTrainingFlow({
           afterRepetitions: persistedUpdated.repetitions,
         });
 
-        onDailyGoalProgressEvent?.({
-          source: "verse-gallery",
-          externalVerseId: persistedUpdated.externalVerseId,
-          reference: persistedUpdated.raw.reference,
-          saved: true,
-          before: {
-            status: String(current.status),
-            masteryLevel: Number(current.rawMasteryLevel ?? 0),
-            repetitions: Number(current.repetitions ?? 0),
-            lastReviewedAt: current.lastReviewedAt
-              ? current.lastReviewedAt.toISOString()
-              : null,
-          },
-          after: {
-            status: String(persistedUpdated.status),
-            masteryLevel: Number(persistedUpdated.rawMasteryLevel ?? 0),
-            repetitions: Number(persistedUpdated.repetitions ?? 0),
-            lastReviewedAt: persistedUpdated.lastReviewedAt
-              ? persistedUpdated.lastReviewedAt.toISOString()
-              : null,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-
         showTrainingContactToast(contactToast);
         if (milestonePopup) {
           showTrainingMilestonePopup(milestonePopup);
@@ -864,7 +768,6 @@ export function useTrainingFlow({
       }
     },
     [
-      onDailyGoalProgressEvent,
       onVersePatched,
       panelMode,
       removeCompletedTrainingVerseAndNavigate,

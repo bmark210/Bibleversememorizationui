@@ -23,7 +23,6 @@ import { VerseStatus } from "@/generated/prisma";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
-import { DailyGoalPanel } from "./components/DailyGoalPanel";
 import { DotProgress } from "./components/DotProgress";
 import { SwipeHint } from "./components/SwipeHint";
 import { VersePreviewCard } from "./components/VersePreviewCard";
@@ -40,11 +39,6 @@ import {
   haptic,
   clamp,
 } from "./utils";
-import {
-  getDailyGoalPreferredTrainingSubset,
-  getDailyGoalModeFromDisplayStatus,
-  getDailyGoalPhasePillMeta,
-} from "./dailyGoalUtils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
 import type { VerseGalleryProps, TrainingSubsetFilter, VerseGalleryLaunchMode } from "./types";
 
@@ -86,11 +80,6 @@ export function VerseGallery({
   previewHasMore = false,
   previewIsLoadingMore = false,
   onRequestMorePreviewVerses,
-  dailyGoalContext,
-  onBeforeStartTrainingFromGalleryVerse,
-  onDailyGoalProgressEvent,
-  onDailyGoalJumpToVerseRequest,
-  onDailyGoalPreferredResumeModeChange,
 }: VerseGalleryProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -128,12 +117,6 @@ export function VerseGallery({
 
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
 
-  // ── Daily goal derived ───────────────────────────────────────────────────────
-  const dailyGoalGuideActive = Boolean(
-    dailyGoalContext?.showGuideBanner &&
-      (dailyGoalContext.phase === "learning" || dailyGoalContext.phase === "review")
-  );
-  const dailyGoalPreferredTrainingSubset = getDailyGoalPreferredTrainingSubset(dailyGoalContext);
   const resolvedLaunchMode: VerseGalleryLaunchMode = launchMode;
   const shouldAutoStartTrainingOnOpen = resolvedLaunchMode === "training";
   const closeTrainingGoesToPreview =
@@ -148,12 +131,6 @@ export function VerseGallery({
     closeTrainingGoesToPreview,
     onClose,
     onVersePatched,
-    onDailyGoalProgressEvent,
-    onBeforeStartTrainingFromGalleryVerse,
-    onDailyGoalJumpToVerseRequest,
-    onDailyGoalPreferredResumeModeChange,
-    dailyGoalGuideActive,
-    dailyGoalPreferredTrainingSubset,
     actionPending: aux.actionPending,
     setActionPending: aux.setActionPending,
     setPreviewOverride: aux.setPreviewOverride,
@@ -215,64 +192,6 @@ export function VerseGallery({
     }
     aux.setDeleteDialogOpen(false);
   }, [previewActiveVerse, aux, onDelete, verses.length, nav, onClose]);
-
-  // ── Daily goal pills ─────────────────────────────────────────────────────────
-  const currentCardDailyGoalMode =
-    training.panelMode === "training"
-      ? getDailyGoalModeFromDisplayStatus(training.trainingActiveVerse?.status ?? null)
-      : getDailyGoalModeFromDisplayStatus(
-          previewActiveVerse ? normalizeVerseStatus(previewActiveVerse.status) : null
-        );
-
-  const dailyGoalCurrentExecutionMode =
-    training.panelMode === "training"
-      ? training.trainingSubsetFilter === "catalog"
-        ? currentCardDailyGoalMode ?? (dailyGoalContext?.effectiveResumeMode ?? null)
-        : training.trainingSubsetFilter
-      : currentCardDailyGoalMode ?? (dailyGoalContext?.effectiveResumeMode ?? null);
-
-  const dailyGoalShowReviewStage = Boolean(dailyGoalContext?.phaseStates.review.enabled);
-
-  const dailyGoalLearningPill = dailyGoalContext
-    ? getDailyGoalPhasePillMeta({
-        mode: "learning",
-        title: "Изучение",
-        done: dailyGoalContext.phaseStates.learning.done,
-        total: dailyGoalContext.phaseStates.learning.total,
-        completed: dailyGoalContext.phaseStates.learning.completed,
-        isCurrentMode:
-          training.panelMode === "training" &&
-          dailyGoalCurrentExecutionMode === "learning" &&
-          !dailyGoalContext.phaseStates.learning.completed,
-      })
-    : null;
-
-  const dailyGoalReviewPill =
-    dailyGoalContext && dailyGoalShowReviewStage
-      ? getDailyGoalPhasePillMeta({
-          mode: "review",
-          title: "Повторение",
-          done: dailyGoalContext.phaseStates.review.done,
-          total: dailyGoalContext.phaseStates.review.total,
-          completed: dailyGoalContext.phaseStates.review.completed,
-          isCurrentMode:
-            training.panelMode === "training" &&
-            dailyGoalCurrentExecutionMode === "review" &&
-            !dailyGoalContext.phaseStates.review.completed,
-        })
-      : null;
-
-  const handleDailyGoalPillClick = useCallback(
-    async (mode: "learning" | "review") => {
-      haptic("light");
-      if (training.panelMode === "preview") {
-        await training.startTrainingFromActiveVerse(mode, { preservePreviewCard: true });
-        return;
-      }
-      training.applyUserTrainingSubsetFilter(mode);
-    },
-    [training]
-  );
 
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -429,17 +348,6 @@ export function VerseGallery({
         topInset={topInset}
       />
 
-      {dailyGoalGuideActive && dailyGoalContext ? (
-        <DailyGoalPanel
-          dailyGoalContext={dailyGoalContext}
-          learningPill={dailyGoalLearningPill}
-          reviewPill={dailyGoalReviewPill}
-          panelMode={training.panelMode}
-          currentExecutionMode={dailyGoalCurrentExecutionMode}
-          onPillClick={(mode) => void handleDailyGoalPillClick(mode)}
-        />
-      ) : null}
-
       {/* Card area */}
       <div
         className="flex-1 relative grid place-items-center px-4 sm:px-6"
@@ -471,7 +379,6 @@ export function VerseGallery({
                     actionPending={aux.actionPending}
                     onStartTraining={() => void training.startTrainingFromActiveVerse()}
                     onStatusAction={() => void handlePreviewStatusAction()}
-                    dailyGoalGuideActive={dailyGoalGuideActive}
                   />
                 </div>
               ) : training.panelMode === "training" &&

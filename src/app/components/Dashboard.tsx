@@ -5,9 +5,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { Flame, Repeat, Sparkles, Target } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
-import type { DashboardDailyGoalCardModel } from '@/app/features/daily-goal/types'
 import {
-  DashboardDailyGoalCard,
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
@@ -18,9 +16,6 @@ interface DashboardProps {
   onStartTraining: () => void
   onAddVerse: () => void
   onViewAll: () => void
-  dailyGoal: DashboardDailyGoalCardModel
-  onStartDailyGoal: () => void
-  onResumeDailyGoal: () => void
   onOpenTrainingPlanSettings: () => void
   isInitializingData?: boolean
 }
@@ -38,12 +33,9 @@ export function toMasteryPercent(masteryLevel: number) {
 export function Dashboard({
   todayVerses,
   onStartTraining: _onStartTraining,
-  onAddVerse,
-  onViewAll,
-  dailyGoal,
-  onStartDailyGoal,
-  onResumeDailyGoal,
-  onOpenTrainingPlanSettings,
+  onAddVerse: _onAddVerse,
+  onViewAll: _onViewAll,
+  onOpenTrainingPlanSettings: _onOpenTrainingPlanSettings,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
@@ -160,22 +152,6 @@ export function Dashboard({
     },
   }
 
-  const dailyGoalProgressPercent =
-    dailyGoal.ui.progressCounts.newTotal + dailyGoal.ui.progressCounts.reviewTotal > 0
-      ? clampPercent(
-          ((dailyGoal.ui.progressCounts.newDone + dailyGoal.ui.progressCounts.reviewDone) /
-            Math.max(
-              1,
-              dailyGoal.ui.progressCounts.newTotal + dailyGoal.ui.progressCounts.reviewTotal
-            )) *
-            100
-        )
-      : 0
-
-  const dailyGoalActionLabel = dailyGoal.ui.isActive ? 'Продолжить цель' : 'Начать ежедневную цель'
-  const dailyGoalActionHandler = dailyGoal.ui.isActive ? onResumeDailyGoal : onStartDailyGoal
-  const showDailyGoalReviewStage = Boolean(dailyGoal.ui.phaseStates.review.enabled)
-
   if (isInitializingData) {
     return <div className="min-h-[60vh]" />
   }
@@ -195,18 +171,6 @@ export function Dashboard({
           <DashboardWelcomeSection
             user={user}
             todayVersesCount={todayVerses.length}
-            sectionVariants={sectionVariants}
-          />
-
-          <DashboardDailyGoalCard
-            dailyGoal={dailyGoal}
-            dailyGoalProgressPercent={dailyGoalProgressPercent}
-            showDailyGoalReviewStage={showDailyGoalReviewStage}
-            dailyGoalActionLabel={dailyGoalActionLabel}
-            dailyGoalActionHandler={dailyGoalActionHandler}
-            onAddVerse={onAddVerse}
-            onViewAll={onViewAll}
-            onOpenTrainingPlanSettings={onOpenTrainingPlanSettings}
             sectionVariants={sectionVariants}
           />
 

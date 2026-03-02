@@ -133,22 +133,6 @@ export function Profile() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="daily-goal">Цель на день</Label>
-              <Input
-                id="daily-goal"
-                type="number"
-                defaultValue="5"
-                min="1"
-                max="50"
-              />
-              <p className="text-sm text-muted-foreground">
-                Количество стихов для повторения каждый день
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
               <Label htmlFor="training-mode">Режим тренировки по умолчанию</Label>
               <Select defaultValue="flashcard">
                 <SelectTrigger id="training-mode">

@@ -25,7 +25,6 @@ type Props = {
   actionPending: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
-  dailyGoalGuideActive?: boolean;
 };
 
 export function VersePreviewCard({
@@ -33,7 +32,6 @@ export function VersePreviewCard({
   actionPending,
   onStartTraining,
   onStatusAction,
-  dailyGoalGuideActive = false,
 }: Props) {
   const status = normalizeVerseStatus(verse.status);
   const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
@@ -63,15 +61,6 @@ export function VersePreviewCard({
             : isReviewStage
               ? "review"
               : "learning";
-
-  const isTrainingStartPrimaryAction = Boolean(
-    status &&
-      status !== "CATALOG" &&
-      status !== VerseStatus.MY &&
-      status !== VerseStatus.STOPPED &&
-      status !== "MASTERED" &&
-      !isNotYetDue
-  );
 
   const primaryAction = buildPrimaryAction({
     status,
@@ -124,11 +113,6 @@ export function VersePreviewCard({
             onClick={primaryAction?.onClick}
             disabled={actionPending || Boolean(primaryAction?.disabled)}
             aria-label={primaryAction?.ariaLabel}
-            data-tour-id={
-              dailyGoalGuideActive && isTrainingStartPrimaryAction
-                ? "daily-goal-gallery-train-button"
-                : undefined
-            }
           >
             {primaryAction ? <primaryAction.icon className="h-4 w-4" /> : null}
             {primaryAction?.label}

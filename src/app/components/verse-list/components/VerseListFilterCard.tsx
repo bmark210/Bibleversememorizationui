@@ -30,7 +30,7 @@ function ScrollRow({children, className}: {
       </div>
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent"
+        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-muted/20 via-card/50 to-transparent"
       />
     </div>
   );
@@ -59,8 +59,8 @@ type VerseListFilterCardProps = {
 };
 
 const ROOT_TABS = [
-  { key: 'catalog', label: 'Каталог', Icon: BookOpen },
-  { key: 'my', label: 'Мои стихи', Icon: User },
+  { key: 'catalog', label: 'Каталог' },
+  { key: 'my', label: 'Мои стихи' },
 ] as const;
 
 export function VerseListFilterCard({
@@ -103,13 +103,9 @@ export function VerseListFilterCard({
 
   return (
     <div className="mb-6">
-      <Card className="gap-0 rounded-3xl border-border/70 bg-gradient-to-br from-card via-card to-muted/20">
-        <div
-          role="tablist"
-          aria-label="Основной фильтр списка стихов"
-          className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/55 mx-3 my-2 p-1.5 border border-border/35"
-        >
-          {ROOT_TABS.map(({ key, label, Icon }) => {
+      <Card className="gap-0 rounded-3xl border-border/70 bg-card">
+        <div role="tablist" aria-label="Основной фильтр списка стихов" className="grid grid-cols-2 gap-1 rounded-2xl mx-3 mt-3 p-1  border border-border/35">
+          {ROOT_TABS.map(({ key, label }) => {
             const isActive = key === 'catalog' ? isCatalogMode : isMyMode;
             return (
               <button
@@ -121,39 +117,21 @@ export function VerseListFilterCard({
                 className={cn(
                   'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-primary/12 text-primary border-primary/30 border'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span>{label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* <div className="mt-3 flex items-center justify-between gap-3 px-1">
-          <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <span className={cn('h-1.5 w-1.5 rounded-full', currentFilterTheme.dotClassName)} />
-            {currentFilterLabel}
-          </span>
-          <span className="text-xs text-muted-foreground/90">{visibleCountLabel}</span>
-        </div> */}
-
-        <AnimatePresence initial={false}>
           {isMyMode && (
-            <motion.div
-              key="status-tabs"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={PANEL_TRANSITION}
-              className="overflow-hidden"
-            >
               <div
                 role="tablist"
                 aria-label="Подфильтр моих стихов"
-                className="pt-2"
+                className="mt-2"
               >
                 <ScrollRow>
                   {filterOptions.map((option) => {
@@ -189,9 +167,7 @@ export function VerseListFilterCard({
                   })}
                 </ScrollRow>
               </div>
-            </motion.div>
           )}
-        </AnimatePresence>
 
         <AnimatePresence initial={false}>
           <motion.div
@@ -201,8 +177,8 @@ export function VerseListFilterCard({
             exit={{ height: 0, opacity: 0 }}
             transition={PANEL_TRANSITION}
           >
-        <div className="overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between gap-2 border-b border-border/35 px-3.5 py-2.5 sm:px-4">
+        <div className="overflow-hidden rounded-2xl my-2">
+          <div className="flex items-center justify-between gap-2 border-b border-border/35 px-3.5 pt-2 pb-2.5 sm:px-4">
             <span className="text-[11px] font-medium text-muted-foreground">
               {hasActiveTags ? `Темы: ${selectedTagSlugs.size}` : 'Все темы'}
             </span>
@@ -230,7 +206,7 @@ export function VerseListFilterCard({
           </div>
 
           {isLoadingTags ? (
-            <div className="flex gap-2 px-3.5 py-2.5 sm:px-4">
+            <div className="flex gap-2 px-3.5 my-2.5">
               {[56, 72, 48, 64].map((w) => (
                 <Skeleton key={w} className="h-6 rounded-full shrink-0" style={{ width: w }} />
               ))}

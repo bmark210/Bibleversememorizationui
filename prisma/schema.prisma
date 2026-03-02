@@ -26,18 +26,8 @@ model User {
   translation  Translation @default(SYNOD)
   createdAt    DateTime    @default(now())
 
-  // Количество выполненных ежедневных целей
-  dailyGoalsCompleted Int @default(0)
-
   // Максимальное количество дней подряд с выполнением задания
   dailyStreak         Int @default(0)
-
-  // Серверное состояние daily goal за текущий день (источник истины)
-  dailyGoalState      Json?
-  // Ключ последнего дня, за который уже начислен completed-counter
-  dailyGoalLastCompletedDay String?
-  // Версия server-state для optimistic concurrency (next stages)
-  dailyGoalStateRev   Int @default(0)
 
   verses       UserVerse[]
 }
