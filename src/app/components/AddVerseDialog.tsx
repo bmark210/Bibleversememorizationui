@@ -700,7 +700,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="w-screen h-screen max-w-full sm:h-[90vh] sm:max-w-[600px] max-h-screen overflow-hidden sm:rounded-3xl rounded-none px-0 py-0 flex flex-col border-border/60 bg-gradient-to-b from-background via-background to-muted/20">
+      <DialogContent className="w-screen max-w-full h-[100dvh] max-h-[100dvh] sm:h-[90dvh] sm:max-h-[90dvh] sm:max-w-[600px] overflow-hidden sm:rounded-3xl rounded-none !p-0 !gap-0 !flex !flex-col border-border/60 bg-gradient-to-b from-background via-background to-muted/20">
 
         {/* ── Шапка ──────────────────────────────────────────────────────────── */}
         <DialogHeader
@@ -751,8 +751,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
         {/* ── Тег-режим ──────────────────────────────────────────────────────── */}
         {isTagMode && (
-          <div className="flex flex-col h-full min-h-0">
-            <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
+          <div className="flex flex-1 flex-col min-h-0">
+            <div className="space-y-3 px-4 py-4 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] min-h-0 flex-1">
               {renderTagManager(true)}
             </div>
             <DialogFooter
@@ -772,8 +772,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
         {/* ── Стих-режим ─────────────────────────────────────────────────────── */}
         {isVerseMode && (
-        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
-          <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col min-h-0">
+          <div className="space-y-3 px-4 py-4 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] min-h-0 flex-1">
 
             {/* ── Поиск по тексту ────────────────────────────────────────────── */}
             {/* {inputMode === "search" && (
@@ -867,7 +867,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                     <SelectTrigger className="w-full rounded-xl">
                       <SelectValue placeholder="Выберите книгу" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
+                    <SelectContent position="item-aligned" className="max-h-[min(52dvh,300px)]">
                       {canonicalBooks.map((b) => (
                         <SelectItem key={b.id} value={String(b.id)}>
                           {b.nameRu}
@@ -893,7 +893,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       <SelectTrigger className="rounded-xl">
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[240px]">
+                      <SelectContent position="item-aligned" className="max-h-[min(48dvh,240px)]">
                         {chaptersCount > 0 && Array.from({ length: chaptersCount }, (_, i) => (
                           <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
                         ))}
@@ -918,7 +918,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       <SelectTrigger className="rounded-xl">
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[240px]">
+                      <SelectContent position="item-aligned" className="max-h-[min(48dvh,240px)]">
                         {chapterNo && Array.from({ length: verseCount ?? 176 }, (_, i) => (
                           <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
                         ))}
