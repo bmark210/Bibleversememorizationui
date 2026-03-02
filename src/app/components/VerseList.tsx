@@ -90,7 +90,7 @@ export function VerseList({
 
   return (
     <motion.div
-      className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto"
+      className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto h-full"
       {...(shouldReduceMotion
         ? {}
         : {
@@ -130,29 +130,25 @@ export function VerseList({
       </motion.div>
 
       {vm.ui.isListLoading ? (
-        <motion.div className="space-y-4" {...reveal(0.05)}>
+        <motion.div className="space-y-4 h-full" {...reveal(0.05)}>
           <VerseListSkeletonCards count={3} />
         </motion.div>
       ) : vm.ui.isEmptyFiltered ? (
-        <motion.div {...reveal(0.05)}>
+        <motion.div className="h-full" {...reveal(0.05)}>
           <VerseListEmptyState
             currentFilterLabel={vm.ui.currentFilterLabel}
             isAllFilter={vm.filters.statusFilter === 'catalog'}
           />
         </motion.div>
-      ) : isAllMode ? (
-        <motion.div className="space-y-3" {...reveal(0.06)}>
-          {listContent}
-        </motion.div>
       ) : vm.list.sectionConfig ? (
-        <motion.div {...reveal(0.06)}>
+        <motion.div className="h-full" {...reveal(0.06)}>
           <VerseListSectionShell config={vm.list.sectionConfig} count={vm.list.sectionItems.length}>
             {listContent}
           </VerseListSectionShell>
         </motion.div>
       ) : null}
 
-      <motion.div {...reveal(0.08)}>
+      {/* <motion.div {...reveal(0.08)}>
         <VerseListLoadMoreFooter
           visible={footerVisible}
           isFetchingMore={vm.pagination.isFetchingMoreVerses}
@@ -164,7 +160,7 @@ export function VerseList({
             void vm.footerLoadState.onRetryLoadMore();
           }}
         />
-      </motion.div>
+      </motion.div> */}
 
       <AddVerseDialog
         open={addDialogOpen}

@@ -435,19 +435,20 @@ export function VerseVirtualizedList({
             index <= appendRevealRange.end;
 
           const content = (
-            <div data-layout-signature={layoutSignature}>
+            <div data-layout-signature={layoutSignature} className="h-full">
               {renderRow(verse)}
             </div>
           );
 
           return (
-            <div className="pb-3">
+            <div className="pb-3 h-full">
               {shouldAnimateAppend ? (
                 <motion.div
                   key={`${itemKey}:${layoutSignature}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="h-full"
                 >
                   {content}
                 </motion.div>

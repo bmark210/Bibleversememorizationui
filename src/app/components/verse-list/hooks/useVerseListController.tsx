@@ -350,7 +350,17 @@ export function useVerseListController({
   }, [statusFilter]);
 
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
-    if (statusFilter === 'catalog') return null;
+    if (statusFilter === 'catalog') return {
+      items: filteredVerses,
+      config: {
+        headingId: 'my-verses-heading',
+        title: 'Каталог',
+        subtitle: 'Глобальный каталог стихов',
+        dotClassName: 'bg-gray-400',
+        borderClassName: 'bg-gradient-to-b from-gray-500/5 to-background',
+        tintClassName: 'bg-gray-500/5',
+      },
+    };
     if (statusFilter === 'learning') {
       return {
         items: learningVerses,
