@@ -194,6 +194,8 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
     const reviewStageWillBeSkipped =
       dailyGoalReadiness?.summary.reviewStageWillBeSkipped ??
       (requestedCounts.review > 0 && availableCounts.review === 0);
+    const reviewStagePendingNotDue =
+      dailyGoalReadiness?.summary.reviewStagePendingNotDue ?? false;
 
     return {
       ui,
@@ -209,6 +211,7 @@ export function useDailyGoalController<TVerse extends DailyGoalVerseSource>({
       onboardingPending: !onboardingSeen.dashboardIntro,
       needsLearningVersesForGoal,
       reviewStageWillBeSkipped,
+      reviewStagePendingNotDue,
       readiness: dailyGoalReadiness ?? null,
       isReadinessLoading: isDailyGoalReadinessLoading,
     };

@@ -13,6 +13,7 @@ export type DailyGoalCompletionPopupPayload = {
   reviewDone: number;
   reviewTotal: number;
   reviewSkipped: boolean;
+  reviewPending: boolean;
 };
 
 type DailyGoalCompletionPopupProps = {
@@ -129,8 +130,8 @@ export function DailyGoalCompletionPopup({
                   className="border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
                 />
                 <StatPill
-                  title={popup.reviewSkipped ? "Повторение (пропущено)" : "Повторение"}
-                  value={popup.reviewSkipped ? "Пропущено" : `${popup.reviewDone}/${popup.reviewTotal}`}
+                  title={popup.reviewSkipped ? "Повторение (пропущено)" : popup.reviewPending ? "Повторение (не готово)" : "Повторение"}
+                  value={popup.reviewSkipped ? "Пропущено" : popup.reviewPending ? "Позже" : `${popup.reviewDone}/${popup.reviewTotal}`}
                   className="border-violet-500/25 bg-violet-500/10 text-violet-800 dark:text-violet-200"
                 />
               </div>

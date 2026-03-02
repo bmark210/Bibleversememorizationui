@@ -29,7 +29,7 @@ export type DailyGoalReadinessResponse = {
       enabled: boolean;
       skipped: boolean;
       missingCount: number;
-      status: 'ready' | 'insufficient' | 'skipped' | 'disabled';
+      status: 'ready' | 'insufficient' | 'skipped' | 'pending' | 'disabled';
       userAction: 'none';
       message: string | null;
     };
@@ -38,8 +38,9 @@ export type DailyGoalReadinessResponse = {
     hasAnyUserVerses: boolean;
     canStartDailyGoal: boolean;
     reviewStageWillBeSkipped: boolean;
+    reviewStagePendingNotDue: boolean;
     hasAllCardsForRequestedGoal: boolean;
-    mode: 'ready' | 'ready_with_review_skip' | 'blocked_no_learning' | 'empty';
+    mode: 'ready' | 'ready_with_review_skip' | 'ready_with_review_pending' | 'blocked_no_learning' | 'empty';
   };
 };
 
@@ -145,6 +146,7 @@ export interface DailyGoalUiState {
   effectiveResumeMode: DailyGoalResumeMode | null;
   canStartDailyGoal: boolean;
   reviewStageWillBeSkipped: boolean;
+  reviewStagePendingNotDue: boolean;
   learningStageBlocked: boolean;
   phaseStates: {
     learning: {
@@ -178,6 +180,7 @@ export interface DashboardDailyGoalCardModel {
   onboardingPending: boolean;
   needsLearningVersesForGoal: boolean;
   reviewStageWillBeSkipped: boolean;
+  reviewStagePendingNotDue: boolean;
   readiness: DailyGoalReadinessResponse | null;
   isReadinessLoading: boolean;
 }

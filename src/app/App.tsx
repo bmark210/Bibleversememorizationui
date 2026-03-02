@@ -5,14 +5,11 @@ import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
-import { toast } from "@/app/lib/toast";
+import { GALLERY_TOASTER_ID, toast } from "@/app/lib/toast";
 import { Toaster } from "./components/ui/toaster";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
-import {
-  DailyGoalCompletionPopup,
-  type DailyGoalCompletionPopupPayload,
-} from "./components/daily-goal/DailyGoalCompletionPopup";
+import { showDailyGoalCompletionToast } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
 import { UsersService } from "@/api/services/UsersService";
@@ -218,6 +215,22 @@ function buildTrainingBatchVerses(
   });
 }
 
+function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse> {
+  const source = userData?.verses ?? [];
+  return source.map((verse) => ({
+    externalVerseId: String(verse.externalVerseId ?? ""),
+    status: normalizeDisplayVerseStatus(verse.status),
+    masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
+    repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+    lastTrainingModeId: verse.lastTrainingModeId ?? null,
+    lastReviewedAt: verse.lastReviewedAt ?? null,
+    nextReviewAt: verse.nextReviewAt ?? null,
+    tags: verse.tags ?? [],
+    text: String(verse.text ?? ""),
+    reference: String(verse.reference ?? verse.externalVerseId ?? ""),
+  }));
+}
+
 export default function App({ onInitialContentReady }: AppProps) {
   const shouldReduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -245,8 +258,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
-  const [dailyGoalCompletionPopup, setDailyGoalCompletionPopup] =
-    useState<DailyGoalCompletionPopupPayload | null>(null);
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dailyGoalStateRequestIdRef = useRef(0);
   const dailyGoalStateInFlightRef = useRef<{
@@ -318,12 +329,21 @@ export default function App({ onInitialContentReady }: AppProps) {
           setIsLoading(true);
           const userData = await UsersService.getApiUsers(telegramId);
           setUser(userData);
+          const userVerses = mapUserVersesToAppVerses(userData);
+          setDailyGoalVersePool(userVerses);
+          if (savedPreferences) {
+            setVerses(buildTrainingBatchVerses(userVerses, savedPreferences));
+          } else {
+            setVerses([]);
+          }
         } catch (err) {
           const status = (err as ApiError)?.status;
           if (status === 404) {
             try {
               const newUser = await UsersService.postApiUsers({ telegramId });
               setUser({ ...newUser, verses: [] });
+              setDailyGoalVersePool([]);
+              setVerses([]);
             } catch (createErr) {
               console.error("Не удалось создать пользователя:", createErr);
               toast.error("Ошибка при создании профиля");
@@ -331,19 +351,15 @@ export default function App({ onInitialContentReady }: AppProps) {
           } else {
             console.error("Не удалось получить пользователя:", err);
             toast.error("Ошибка при подключении к базе данных");
+            setDailyGoalVersePool([]);
+            setVerses([]);
           }
         } finally {
           setIsLoading(false);
         }
       };
 
-      const startupTasks: Array<Promise<unknown>> = [fetchUser()];
-      if (savedPreferences) {
-        startupTasks.push(loadPlannedVersesForDashboard(telegramId, savedPreferences));
-      } else {
-        setVerses([]);
-      }
-      await Promise.allSettled(startupTasks);
+      await fetchUser();
       finishBootstrapping();
     })();
 
@@ -784,13 +800,24 @@ export default function App({ onInitialContentReady }: AppProps) {
           },
         });
         if (response?.mutation.completedNow && response.mutation.completionCounterIncremented) {
-          setDailyGoalCompletionPopup({
+          const completionPayload = {
             dayKey: response.dayKey,
             learningDone: response.state.progress.completedVerseIds.new.length,
             learningTotal: response.readiness.effective.learning,
             reviewDone: response.state.progress.completedVerseIds.review.length,
             reviewTotal: response.readiness.effective.review,
-            reviewSkipped: response.readiness.summary.reviewStageWillBeSkipped,
+            reviewSkipped: response.readiness.summary.reviewStageWillBeSkipped && !response.readiness.summary.reviewStagePendingNotDue,
+            reviewPending: response.readiness.summary.reviewStagePendingNotDue,
+          } as const;
+
+          const toasterId =
+            dashboardGalleryIndex !== null || currentPage === "verses"
+              ? GALLERY_TOASTER_ID
+              : undefined;
+
+          showDailyGoalCompletionToast(completionPayload, {
+            durationMs: 12000,
+            toasterId,
           });
         }
       } catch (error) {
@@ -958,11 +985,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   useEffect(() => {
-    if (!telegramId || !trainingBatchPreferences) return;
-    void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-  }, [telegramId, trainingBatchPreferences, localDayKey]);
-
-  useEffect(() => {
     if (!telegramId || !trainingBatchPreferences) {
       setDailyGoalServerState(null);
       setDailyGoalStateRev(null);
@@ -1124,11 +1146,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           </Card>
         </div>
       )}
-
-      <DailyGoalCompletionPopup
-        popup={dailyGoalCompletionPopup}
-        onClose={() => setDailyGoalCompletionPopup(null)}
-      />
 
       <Toaster />
     </>

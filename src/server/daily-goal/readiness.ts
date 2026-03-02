@@ -106,6 +106,7 @@ export function getDayKeyInTimezone(timezone: string, date = new Date()): string
 export function countReadinessAvailability(verses: DailyGoalReadinessVerseInput[]) {
   let learning = 0;
   let review = 0;
+  let reviewPending = 0;
 
   for (const verse of verses) {
     const displayStatus = computeDisplayStatus(verse.status, verse.masteryLevel, verse.repetitions);
@@ -113,12 +114,16 @@ export function countReadinessAvailability(verses: DailyGoalReadinessVerseInput[
       learning += 1;
       continue;
     }
-    if (displayStatus === "REVIEW" && isDueForReview(verse.nextReviewAt)) {
-      review += 1;
+    if (displayStatus === "REVIEW") {
+      if (isDueForReview(verse.nextReviewAt)) {
+        review += 1;
+      } else {
+        reviewPending += 1;
+      }
     }
   }
 
-  return { learning, review };
+  return { learning, review, reviewPending };
 }
 
 export function buildDailyGoalReadiness(params: {
@@ -131,6 +136,8 @@ export function buildDailyGoalReadiness(params: {
   const hasAnyUserVerses = verses.length > 0;
 
   const reviewStageWillBeSkipped = requestedReview > 0 && available.review === 0;
+  const reviewStagePendingNotDue =
+    reviewStageWillBeSkipped && available.reviewPending > 0;
   const learningEnabled = requestedLearning > 0;
   const reviewRequested = requestedReview > 0;
   const learningCanStart = !learningEnabled || available.learning > 0;
@@ -158,9 +165,11 @@ export function buildDailyGoalReadiness(params: {
       ? "blocked_no_learning"
       : !hasAnyTargets
         ? "empty"
-      : reviewStageWillBeSkipped
-        ? "ready_with_review_skip"
-        : "ready";
+        : reviewStagePendingNotDue
+          ? "ready_with_review_pending"
+          : reviewStageWillBeSkipped
+            ? "ready_with_review_skip"
+            : "ready";
 
   return {
     requested: {
@@ -193,21 +202,26 @@ export function buildDailyGoalReadiness(params: {
         missingCount: reviewMissingCount,
         status: !reviewRequested
           ? "disabled"
-          : reviewStageWillBeSkipped
-            ? "skipped"
-            : reviewMissingCount > 0
-              ? "insufficient"
-              : "ready",
+          : reviewStagePendingNotDue
+            ? "pending"
+            : reviewStageWillBeSkipped
+              ? "skipped"
+              : reviewMissingCount > 0
+                ? "insufficient"
+                : "ready",
         userAction: "none",
-        message: reviewStageWillBeSkipped
-          ? "Этап повторения будет пропущен: сейчас нет карточек для повторения."
-          : null,
+        message: reviewStagePendingNotDue
+          ? "Стихи для повторения есть, но по расписанию ещё не готовы. Продолжайте изучение — повторение появится позже."
+          : reviewStageWillBeSkipped
+            ? "Этап повторения будет пропущен: нет стихов в статусе REVIEW."
+            : null,
       },
     },
     summary: {
       hasAnyUserVerses,
       canStartDailyGoal,
       reviewStageWillBeSkipped,
+      reviewStagePendingNotDue,
       hasAllCardsForRequestedGoal,
       mode,
     },

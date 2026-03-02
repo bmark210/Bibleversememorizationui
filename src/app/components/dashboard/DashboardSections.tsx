@@ -165,13 +165,13 @@ export function DashboardDailyGoalCard({
                 {dailyGoal.needsFirstVerse
                   ? 'Добавьте первый стих, чтобы начать ежедневную цель и получить персональную тренировку.'
                   : dailyGoal.needsLearningVersesForGoal
-                    ? 'Для выполнения ежедневной цели нужны стихи в статусе LEARNING. Добавьте новый стих или переведите существующий в изучение.'
+                    ? 'Для выполнения ежедневной цели нужны стихи в статусе "Изучение". Добавьте новый стих или переведите существующий в изучение.'
                     : dailyGoal.ui.isCompleted
                       ? 'Отличная работа. Сегодняшняя цель закрыта.'
                       : dailyGoal.ui.isEmpty
                         ? 'Сегодня нет доступных стихов для полной цели. Можно скорректировать план или добавить новый стих.'
                         : dailyGoal.reviewStageWillBeSkipped
-                          ? 'Сегодня этап повторения будет пропущен: нет стихов в статусе REVIEW. Достаточно завершить этап изучения.'
+                          ? 'Сегодня этап повторения будет пропущен: нет стихов в статусе "Повторение". Достаточно завершить этап изучения.'
                           : 'Идём по шагам: сначала стихи в изучении, затем повторение.'}
               </p>
             </div>
@@ -183,10 +183,10 @@ export function DashboardDailyGoalCard({
                 <div className="min-w-0">
                   <div className="text-sm font-medium">Выполнение цели</div>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-right">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    Прогресс
-                  </div>
+                <div className="text-right">
+                  {/* <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground"> */}
+                    {dailyGoalProgressPercent}%
+                  {/* </div> */}
                 </div>
               </div>
               <Progress value={dailyGoalProgressPercent} className="h-2.5" />
@@ -254,7 +254,7 @@ export function DashboardDailyGoalCard({
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
             {dailyGoal.needsFirstVerse ? (
               <>
-                <Button
+                {/* <Button
                   type="button"
                   onClick={onAddVerse}
                   className="flex-1 sm:flex-initial rounded-2xl gap-2"
@@ -262,7 +262,7 @@ export function DashboardDailyGoalCard({
                 >
                   <BookPlus className="w-4 h-4" />
                   Добавить первый стих
-                </Button>
+                </Button> */}
                 <Button
                   type="button"
                   variant="outline"

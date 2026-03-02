@@ -38,6 +38,7 @@ function createEmptyUiState(): DailyGoalUiState {
     effectiveResumeMode: null,
     canStartDailyGoal: false,
     reviewStageWillBeSkipped: false,
+    reviewStagePendingNotDue: false,
     learningStageBlocked: false,
     phaseStates: {
       learning: {
@@ -84,6 +85,9 @@ export function computeDailyGoalUiState(input: ProjectionInput): DailyGoalUiStat
   const reviewStageWillBeSkipped =
     Boolean(readiness?.summary.reviewStageWillBeSkipped) ||
     (requestedReview > 0 && availableReview === 0);
+  const reviewStagePendingNotDue = readiness != null
+    ? Boolean(readiness.summary.reviewStagePendingNotDue)
+    : false;
   const learningStageBlocked =
     readiness?.summary.mode === "blocked_no_learning" ||
     (requestedLearning > 0 && availableLearning === 0);
@@ -177,6 +181,7 @@ export function computeDailyGoalUiState(input: ProjectionInput): DailyGoalUiStat
     effectiveResumeMode,
     canStartDailyGoal,
     reviewStageWillBeSkipped,
+    reviewStagePendingNotDue,
     learningStageBlocked,
     phaseStates: {
       learning: {

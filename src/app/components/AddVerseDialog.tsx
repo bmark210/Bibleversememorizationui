@@ -139,7 +139,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const isTagMode = mode === "tag";
   const isVerseMode = mode === "verse";
 
-  const [inputMode, setInputMode] = useState<"search" | "manual">("search");
+  const [inputMode, setInputMode] = useState<"search" | "manual">("manual");
   const [translation, setTranslation] = useState(DEFAULT_HELLOAO_TRANSLATION);
   const [selectedVerse, setSelectedVerse] = useState<SelectedVerse | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -167,18 +167,18 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [verseCountLoading, setVerseCountLoading] = useState(false);
 
   // ── Поиск ───────────────────────────────────────────────────────────────────
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searchErr, setSearchErr] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // const [query, setQuery] = useState("");
+  // const [searching, setSearching] = useState(false);
+  // const [results, setResults] = useState<SearchResult[]>([]);
+  // const [searchErr, setSearchErr] = useState<string | null>(null);
+  // const [page, setPage] = useState(1);
+  // const [hasMore, setHasMore] = useState(false);
+  // const [loadingMore, setLoadingMore] = useState(false);
 
-  const abortRef = useRef<AbortController | null>(null);
-  const searchingRef = useRef(false);
-  const lastQueryRef = useRef("");
-  const reqIdRef = useRef(0);
+  // const abortRef = useRef<AbortController | null>(null);
+  // const searchingRef = useRef(false);
+  // const lastQueryRef = useRef("");
+  // const reqIdRef = useRef(0);
   const tagListScrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Производные ──────────────────────────────────────────────────────────────
@@ -256,12 +256,12 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     return () => { cancelled = true; };
   }, [translation, bookId, chapterNo]);
 
-  useEffect(() => {
-    if (inputMode === "search") setFetchError(null);
-    else setSearchErr(null);
-  }, [inputMode]);
+  // useEffect(() => {
+  //   if (inputMode === "search") setFetchError(null);
+  //   else setSearchErr(null);
+  // }, [inputMode]);
 
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  // useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const updateTagListShadows = useCallback((node: HTMLDivElement | null) => {
     if (!node) {
@@ -405,17 +405,17 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setChapterNo("");
     setVerseNo("");
     setFetchError(null);
-    setQuery("");
-    setResults([]);
-    setSearchErr(null);
-    setPage(1);
-    setHasMore(false);
-    setLoadingMore(false);
+    // setQuery("");
+    // setResults([]);
+    // setSearchErr(null);
+    // setPage(1);
+    // setHasMore(false);
+    // setLoadingMore(false);
     setVerseCount(null);
-    searchingRef.current = false;
-    lastQueryRef.current = "";
-    abortRef.current?.abort();
-    abortRef.current = null;
+    // searchingRef.current = false;
+    // lastQueryRef.current = "";
+    // abortRef.current?.abort();
+    // abortRef.current = null;
   }, []);
 
   const handleClose = useCallback(() => {
@@ -449,64 +449,64 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     }
   };
 
-  const handleSearch = async () => {
-    if (searchingRef.current) return;
-    const q = query.trim();
-    if (q.length < 3) { setSearchErr("Введите минимум 3 символа"); return; }
+  // const handleSearch = async () => {
+  //   if (searchingRef.current) return;
+  //   const q = query.trim();
+  //   if (q.length < 3) { setSearchErr("Введите минимум 3 символа"); return; }
 
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    const rid = ++reqIdRef.current;
+  //   abortRef.current?.abort();
+  //   const ctrl = new AbortController();
+  //   abortRef.current = ctrl;
+  //   const rid = ++reqIdRef.current;
 
-    searchingRef.current = true;
-    setSearching(true);
-    setSearchErr(null);
-    setResults([]);
-    setPage(1);
-    setHasMore(false);
-    lastQueryRef.current = q;
+  //   searchingRef.current = true;
+  //   setSearching(true);
+  //   setSearchErr(null);
+  //   setResults([]);
+  //   setPage(1);
+  //   setHasMore(false);
+  //   lastQueryRef.current = q;
 
-    try {
-      const resp = await searchHelloaoVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
-      if (ctrl.signal.aborted || reqIdRef.current !== rid) return;
-      const items = (resp.results ?? []).map((it) => ({
-        book: it.book as BibleBook,
-        chapter: it.chapter,
-        verse: it.verse,
-        text: it.text,
-        reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
-      }));
-      if (!items.length) setSearchErr("Стихи не найдены.");
-      else { setResults(items); setHasMore(items.length < (resp.total ?? items.length)); }
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError"))
-        setSearchErr(err instanceof Error ? err.message : "Ошибка поиска");
-    } finally {
-      if (reqIdRef.current === rid) { searchingRef.current = false; setSearching(false); abortRef.current = null; }
-    }
-  };
+  //   try {
+  //     const resp = await searchHelloaoVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
+  //     if (ctrl.signal.aborted || reqIdRef.current !== rid) return;
+  //     const items = (resp.results ?? []).map((it) => ({
+  //       book: it.book as BibleBook,
+  //       chapter: it.chapter,
+  //       verse: it.verse,
+  //       text: it.text,
+  //       reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
+  //     }));
+  //     if (!items.length) setSearchErr("Стихи не найдены.");
+  //     else { setResults(items); setHasMore(items.length < (resp.total ?? items.length)); }
+  //   } catch (err) {
+  //     if (!(err instanceof DOMException && err.name === "AbortError"))
+  //       setSearchErr(err instanceof Error ? err.message : "Ошибка поиска");
+  //   } finally {
+  //     if (reqIdRef.current === rid) { searchingRef.current = false; setSearching(false); abortRef.current = null; }
+  //   }
+  // };
 
-  const loadMore = async () => {
-    if (loadingMore || searching || !hasMore || !lastQueryRef.current) return;
-    const nextPage = page + 1;
-    setLoadingMore(true);
-    try {
-      const resp = await searchHelloaoVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
-      const items = (resp.results ?? []).map((it) => ({
-        book: it.book as BibleBook, chapter: it.chapter, verse: it.verse, text: it.text,
-        reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
-      }));
-      const total = resp.total ?? 0;
-      setResults((prev) => { const m = [...prev, ...items]; setHasMore(m.length < total && items.length > 0); return m; });
-      setPage(nextPage);
-    } catch { /* ignore */ } finally { setLoadingMore(false); }
-  };
+  // const loadMore = async () => {
+  //   if (loadingMore || searching || !hasMore || !lastQueryRef.current) return;
+  //   const nextPage = page + 1;
+  //   setLoadingMore(true);
+  //   try {
+  //     const resp = await searchHelloaoVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
+  //     const items = (resp.results ?? []).map((it) => ({
+  //       book: it.book as BibleBook, chapter: it.chapter, verse: it.verse, text: it.text,
+  //       reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
+  //     }));
+  //     const total = resp.total ?? 0;
+  //     setResults((prev) => { const m = [...prev, ...items]; setHasMore(m.length < total && items.length > 0); return m; });
+  //     setPage(nextPage);
+  //   } catch { /* ignore */ } finally { setLoadingMore(false); }
+  // };
 
-  const onScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop - clientHeight < 80) loadMore();
-  };
+  // const onScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+  //   const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+  //   if (scrollHeight - scrollTop - clientHeight < 80) loadMore();
+  // };
 
   const onTagListScroll: React.UIEventHandler<HTMLDivElement> = useCallback((e) => {
     updateTagListShadows(e.currentTarget);
@@ -619,7 +619,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       )}
 
       {tagsLoading ? (
-        <div className="flex gap-1.5 py-0.5">
+        <div className="flex gap-1.5 px-4 pb-5">
           {[56, 72, 48, 80, 60].map((w) => (
             <div key={w} className="h-6 rounded-full bg-muted/60 animate-pulse shrink-0" style={{ width: w }} />
           ))}
@@ -677,18 +677,18 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
               );
             })}
           </div>
-          <div
+          {/* <div
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 top-0 h-6 rounded-t-xl bg-gradient-to-b from-background/95 via-background/65 to-transparent shadow-[0_10px_14px_-14px_rgba(0,0,0,0.45)] transition-opacity duration-200 ${
               tagListShadows.top ? "opacity-100" : "opacity-0"
             }`}
-          />
-          <div
+          /> */}
+          {/* <div
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-background/95 via-background/65 to-transparent shadow-[0_-10px_14px_-14px_rgba(0,0,0,0.45)] transition-opacity duration-200 ${
               tagListShadows.bottom ? "opacity-100" : "opacity-0"
             }`}
-          />
+          /> */}
         </div>
       ) : (
         <p className="px-4 pb-5 text-xs text-muted-foreground/45 italic">Нет тегов — создайте первый</p>
@@ -707,17 +707,19 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           style={{ paddingTop: `${Math.max(topInset, 20)}px` }}
           className="px-5 pb-4 border-b border-border/40 flex-shrink-0 sticky top-0 bg-gradient-to-b from-background via-background to-background/95 backdrop-blur z-10"
         >
-          <DialogTitle className="text-center text-base font-semibold">
-            {isTagMode ? "Управление темами" : "Добавить стих"}
+          <DialogTitle className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
+            <span className="flex items-center justify-center h-10">
+              {isTagMode ? "Управление темами" : "Добавить стих"}
+            </span>
           </DialogTitle>
-          <p className="text-center text-[11px] text-muted-foreground/70 mt-1 mb-3">
+          {/* <p className="text-center text-[11px] text-muted-foreground/70 mt-1 mb-3"> */}
             {/* {isTagMode
               ? "Создавайте и удаляйте темы в одном блоке"
               : "Выберите стих и добавьте к нему подходящие теги"} */}
-          </p>
+          {/* </p> */}
 
           {/* Segmented mode toggle — verse mode only */}
-          {isVerseMode && (
+          {/* {isVerseMode && (
             <div className="flex items-center bg-muted/65 rounded-xl p-1 gap-1">
               <button
                 type="button"
@@ -744,7 +746,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                 По адресу
               </button>
             </div>
-          )}
+          )} */}
         </DialogHeader>
 
         {/* ── Тег-режим ──────────────────────────────────────────────────────── */}
@@ -774,7 +776,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           <div className="space-y-3 px-4 py-4 overflow-y-auto min-h-0 flex-1">
 
             {/* ── Поиск по тексту ────────────────────────────────────────────── */}
-            {inputMode === "search" && (
+            {/* {inputMode === "search" && (
               <div className="space-y-2.5">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -844,7 +846,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                   </div>
                 )}
               </div>
-            )}
+            )} */}
 
             {/* ── Выбор по адресу ───────────────────────────────────────────── */}
             {inputMode === "manual" && (

@@ -240,8 +240,8 @@ export function useVerseListController({
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
     () => [
-      { key: 'catalog', label: 'Каталог' },
-      { key: 'my', label: 'Мои' },
+      // { key: 'catalog', label: 'Каталог' },
+      // { key: 'my', label: 'Мои' },
       { key: 'learning', label: 'Изучаю' },
       { key: 'review', label: 'Повторяю' },
       { key: 'mastered', label: 'Выучены' },
@@ -344,7 +344,8 @@ export function useVerseListController({
   const onTabClick = useCallback((filter: VerseListStatusFilter, label: string) => {
     if (statusFilter === filter) return;
     haptic('light');
-    setStatusFilter(filter);
+    console.log('onTabClick', filter, label, statusFilter);
+    statusFilter === filter ? setStatusFilter('catalog') : setStatusFilter(filter);
     setAnnouncement(`Фильтр: ${label}`);
   }, [statusFilter]);
 
