@@ -1,7 +1,7 @@
 import type { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
-import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 
 export type VerseListStatusFilter =
   | "catalog"
@@ -28,7 +28,7 @@ export const PREFETCH_ROWS = 6;
 // Minimum time to keep the list skeleton visible (initial fetch and load-more requests).
 export const LOAD_MORE_SKELETON_DELAY_MS = 250;
 export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
-export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = 5;
+export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = REPEAT_THRESHOLD_FOR_MASTERED;
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
   catalog: {

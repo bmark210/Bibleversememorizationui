@@ -144,16 +144,20 @@ export function buildDailyGoalReadiness(params: {
   const reviewMissingCount = reviewStageWillBeSkipped
     ? 0
     : Math.max(0, requestedReview - available.review);
+  const effectiveTotal = effective.learning + effective.review;
+  const hasAnyTargets = effectiveTotal > 0;
 
   const hasAllCardsForRequestedGoal =
     available.learning >= requestedLearning && available.review >= requestedReview;
 
-  const canStartDailyGoal = learningCanStart && (learningEnabled || reviewRequested || hasAnyUserVerses);
+  const canStartDailyGoal = hasAnyUserVerses && learningCanStart && hasAnyTargets;
 
   const mode: DailyGoalReadinessResponse["summary"]["mode"] = !hasAnyUserVerses
     ? "empty"
     : !learningCanStart && learningEnabled
       ? "blocked_no_learning"
+      : !hasAnyTargets
+        ? "empty"
       : reviewStageWillBeSkipped
         ? "ready_with_review_skip"
         : "ready";

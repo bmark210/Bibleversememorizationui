@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
+import {
+  TrainingRatingButtons,
+  resolveTrainingRatingStage,
+} from './TrainingRatingButtons';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersHintedExerciseProps {
@@ -128,52 +132,11 @@ function buildExercise(text: string) {
   };
 }
 
-function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
-      <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button
-          onClick={() => onRate(0)}
-          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-          size="lg"
-        >
-          Забыл
-        </Button>
-        <Button
-          onClick={() => onRate(1)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          size="lg"
-        >
-          Сложно
-        </Button>
-        <Button
-          onClick={() => onRate(2)}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          size="lg"
-        >
-          Норм
-        </Button>
-        <Button
-          onClick={() => onRate(3)}
-          className="bg-[#059669] hover:bg-[#047857] text-white"
-          size="lg"
-        >
-          Отлично
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
 export function ModeFirstLettersHintedExercise({
   verse,
   onRate,
 }: FirstLettersHintedExerciseProps) {
+  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choices, setChoices] = useState<LetterChoice[]>([]);
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
@@ -237,7 +200,7 @@ export function ModeFirstLettersHintedExercise({
 
       if (next.length === totalHidden) {
         setIsCompleted(true);
-        toast.success('Отлично! Вы восстановили скрытые слова по первым буквам в правильной последовательности.');
+        // toast.success('Отлично! Вы восстановили скрытые слова по первым буквам в правильной последовательности.');
       }
       return;
     }
@@ -359,7 +322,7 @@ export function ModeFirstLettersHintedExercise({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+          {/* <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
             <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
               Собранные буквы
             </div>
@@ -381,7 +344,7 @@ export function ModeFirstLettersHintedExercise({
                 Ввод появится здесь
               </p>
             )}
-          </div>
+          </div> */}
 
           {!choices.every((choice) => selectedChoiceIds.includes(choice.id)) && (
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
@@ -468,7 +431,11 @@ export function ModeFirstLettersHintedExercise({
 
         {isCompleted && (
           <TrainingRatingFooter>
-            <RatingButtons onRate={onRate} />
+            <TrainingRatingButtons
+              stage={ratingStage}
+              mode="first-letters"
+              onRate={onRate}
+            />
           </TrainingRatingFooter>
         )}
       </div>

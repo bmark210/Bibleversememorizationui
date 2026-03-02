@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
+import {
+  TrainingRatingButtons,
+  resolveTrainingRatingStage,
+} from './TrainingRatingButtons';
 import type { Verse } from '../../../data/mockData';
 
 interface ClickChunksExerciseProps {
@@ -75,49 +79,8 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
-      <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button
-          onClick={() => onRate(0)}
-          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-          size="lg"
-        >
-          Забыл
-        </Button>
-        <Button
-          onClick={() => onRate(1)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          size="lg"
-        >
-          Сложно
-        </Button>
-        <Button
-          onClick={() => onRate(2)}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          size="lg"
-        >
-          Норм
-        </Button>
-        <Button
-          onClick={() => onRate(3)}
-          className="bg-[#059669] hover:bg-[#047857] text-white"
-          size="lg"
-        >
-          Отлично
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
 export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExerciseProps) {
+  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
@@ -173,7 +136,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
       if (expectedOrder + 1 === totalChunks) {
         setIsCompleted(true);
-        toast.success('Отлично! Вы собрали стих по кускам в правильной последовательности.');
+        // toast.success('Отлично! Вы собрали стих по кускам в правильной последовательности.');
       }
       return;
     }
@@ -354,7 +317,11 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
         {isCompleted && (
           <TrainingRatingFooter>
-            <RatingButtons onRate={onRate} />
+            <TrainingRatingButtons
+              stage={ratingStage}
+              mode="default"
+              onRate={onRate}
+            />
           </TrainingRatingFooter>
         )}
       </div>

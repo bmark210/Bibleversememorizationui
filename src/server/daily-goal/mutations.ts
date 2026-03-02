@@ -1,13 +1,12 @@
 import type {
   DailyGoalEventAction,
-  DailyGoalPhase,
   DailyGoalProgressEvent,
   DailyGoalReadinessResponse,
   DailyGoalResumeMode,
   DailyGoalServerStateV2,
   DailyGoalTargetKind,
 } from "@/app/features/daily-goal/types";
-import { TrainingModeId } from "@/shared/training/modeEngine";
+import { computeDailyGoalPhase } from "@/app/features/daily-goal/projection";
 
 function uniqueList(list: Iterable<string>) {
   return Array.from(new Set(Array.from(list).filter(Boolean)));
@@ -34,65 +33,10 @@ function normalizePreferredResumeMode(value: unknown): DailyGoalResumeMode | nul
   return null;
 }
 
-function computePhase(params: {
-  state: DailyGoalServerStateV2;
-  readiness: DailyGoalReadinessResponse;
-}): {
-  phase: DailyGoalPhase;
-} {
-  const { state, readiness } = params;
-
-  const completedNew = toUniqueSet(state.progress.completedVerseIds.new);
-  const completedReview = toUniqueSet(state.progress.completedVerseIds.review);
-  const skippedNew = toUniqueSet(state.progress.skippedVerseIds.new);
-  const skippedReview = toUniqueSet(state.progress.skippedVerseIds.review);
-
-  const requestedLearning = Math.max(0, readiness.requested.learning);
-  const requestedReview = Math.max(0, readiness.requested.review);
-  const availableLearning = Math.max(0, readiness.available.learning);
-  const availableReview = Math.max(0, readiness.available.review);
-  const reviewStageWillBeSkipped =
-    readiness.summary.reviewStageWillBeSkipped ||
-    (requestedReview > 0 && availableReview === 0);
-  const learningStageBlocked =
-    readiness.summary.mode === "blocked_no_learning" ||
-    (requestedLearning > 0 && availableLearning === 0);
-
-  const newTotal = Math.max(0, readiness.effective.learning);
-  const reviewTotal = Math.max(
-    0,
-    reviewStageWillBeSkipped ? 0 : readiness.effective.review
-  );
-
-  const newDone = Math.min(newTotal, new Set([...completedNew, ...skippedNew]).size);
-  const reviewDone = Math.min(
-    reviewTotal,
-    new Set([...completedReview, ...skippedReview]).size
-  );
-
-  const isEmpty = newTotal + reviewTotal === 0;
-  const learningPhaseDone = newDone >= newTotal;
-  const reviewPhaseDone = reviewDone >= reviewTotal;
-  const learningRequired = requestedLearning > 0;
-  const reviewRequired = requestedReview > 0;
-  const hasReviewTargets = reviewTotal > 0;
-
-  let phase: DailyGoalPhase = "empty";
-  if (!isEmpty) {
-    if (learningRequired && learningStageBlocked) {
-      phase = "learning";
-    } else if (!learningPhaseDone) {
-      phase = "learning";
-    } else if (reviewRequired && (reviewStageWillBeSkipped || !hasReviewTargets)) {
-      phase = "completed";
-    } else if (!reviewPhaseDone) {
-      phase = "review";
-    } else {
-      phase = "completed";
-    }
-  }
-
-  return { phase };
+function normalizeProgressValue(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.trunc(parsed));
 }
 
 function applyProgressEvent(params: {
@@ -132,8 +76,13 @@ function applyProgressEvent(params: {
     if (!(Number(event.after.masteryLevel ?? 0) >= 7)) {
       return { nextState: state, applied: false };
     }
-  } else if (Number(event.trainingModeId ?? 0) !== TrainingModeId.FirstLettersTyping) {
-    return { nextState: state, applied: false };
+  } else {
+    const beforeRepetitions = normalizeProgressValue(event.before.repetitions);
+    const afterRepetitions = normalizeProgressValue(event.after.repetitions);
+    const reviewWasSuccessful = afterRepetitions > beforeRepetitions;
+    if (!reviewWasSuccessful) {
+      return { nextState: state, applied: false };
+    }
   }
 
   const completedNew = toUniqueSet(state.progress.completedVerseIds.new);
@@ -361,7 +310,10 @@ export function finalizeDailyGoalState(params: {
   nextDailyStreak: number;
 } {
   const nowIso = params.nowIso ?? new Date().toISOString();
-  const phase = computePhase({ state: params.state, readiness: params.readiness }).phase;
+  const phase = computeDailyGoalPhase({
+    state: params.state,
+    readiness: params.readiness,
+  });
   const current = params.state;
 
   let changed = false;

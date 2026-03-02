@@ -15,6 +15,7 @@ import { ModeFirstLettersHintedExercise } from './modes/FirstLettersHintedExerci
 import { ModeFirstLettersKeyboardExercise } from './modes/FirstLettersKeyboardExercise';
 import { ModeFirstLettersTapExercise } from './modes/FirstLettersTapExercise';
 import { ModeFullRecallExercise } from './modes/FullRecallExercise';
+import { ModeVoiceRecallExercise } from './modes/VoiceRecallExercise';
 import type { TrainingModeRating } from './modes/types';
 import {
   AlertDialog,
@@ -34,6 +35,7 @@ export enum TrainingModeRendererKey {
   Order = 'order',
   LettersHints = 'letters-hints',
   Typing = 'typing',
+  VoiceTyping = 'voice-typing',
 }
 
 type ModeTutorialSpec = {
@@ -106,6 +108,15 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
       'Сначала введите стих без подсказок.',
       'Можно открыть подсказку, если застряли.',
       'После проверки оцените, насколько уверенно вы его воспроизвели.',
+    ],
+  },
+  [TrainingModeRendererKey.VoiceTyping]: {
+    title: 'Режим: Голосовой ввод',
+    summary: 'Проговорите стих вслух и проверьте распознанный текст.',
+    bullets: [
+      'Нажмите кнопку записи и продиктуйте стих полностью.',
+      'Проверьте распознавание, при необходимости повторите попытку.',
+      'Оценка влияет на точность следующего интервала повторения.',
     ],
   },
 };
@@ -198,6 +209,10 @@ export const TrainingModeRenderer = forwardRef<TrainingModeRendererHandle, Train
 
   if (renderer === TrainingModeRendererKey.LettersHints) {
     return <ModeFirstLettersHintedExercise verse={verse} onRate={onRate} />;
+  }
+
+  if (renderer === TrainingModeRendererKey.VoiceTyping) {
+    return <ModeVoiceRecallExercise verse={verse} onRate={onRate} />;
   }
 
   return <ModeFullRecallExercise verse={verse} onRate={onRate} />;

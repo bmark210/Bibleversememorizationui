@@ -1,9 +1,12 @@
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import {
+  REPEAT_THRESHOLD_FOR_MASTERED,
+  TRAINING_STAGE_MASTERY_MAX,
+} from "@/shared/training/constants";
 
 export const REVIEW_MASTERY_LEVEL_MIN = TRAINING_STAGE_MASTERY_MAX;
-export const MASTERED_REPETITIONS_MIN = 5;
+export const MASTERED_REPETITIONS_MIN = REPEAT_THRESHOLD_FOR_MASTERED;
 export const WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE = TRAINING_STAGE_MASTERY_MAX;
 export const WAITING_NEXT_REVIEW_DELAY_HOURS = 24;
 

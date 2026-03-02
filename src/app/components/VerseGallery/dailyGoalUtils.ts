@@ -3,15 +3,6 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/generated/prisma";
 import type { DailyGoalPillMeta, TrainingSubsetFilter } from "./types";
 
-export function getDailyGoalTargetKindHint(
-  context: DailyGoalGalleryContext | undefined
-): "my" | "review" | null {
-  if (!context) return null;
-  if (context.phase === "learning") return "my";
-  if (context.phase === "review") return "review";
-  return null;
-}
-
 export function getDailyGoalPreferredTrainingSubset(
   context: DailyGoalGalleryContext | undefined
 ): TrainingSubsetFilter {

@@ -43,41 +43,6 @@ export type DailyGoalReadinessResponse = {
   };
 };
 
-export interface DailyGoalPlan {
-  dayKey: string;
-  prefsSnapshot: { newVersesCount: number; reviewVersesCount: number };
-  requestedCounts: { new: number; review: number };
-  availableCounts: { new: number; review: number };
-  shortages: {
-    new: number;
-    review: number;
-  };
-}
-
-export interface DailyGoalProgress {
-  completedVerseIds: {
-    new: string[];
-    review: string[];
-  };
-  skippedVerseIds?: {
-    new: string[];
-    review: string[];
-  };
-  startedAt: string | null;
-  completedAt: string | null;
-  completionCounterSyncedAt?: string | null;
-  lastActivePhase: DailyGoalPhase;
-  preferredResumeMode?: DailyGoalResumeMode | null;
-}
-
-export interface DailyGoalSession {
-  version: 1;
-  telegramId: string;
-  dayKey: string;
-  plan: DailyGoalPlan;
-  progress: DailyGoalProgress;
-}
-
 export interface DailyGoalServerStateV2 {
   version: 2;
   dayKey: string;
@@ -234,10 +199,7 @@ export interface DailyGoalProgressEvent {
   source: 'verse-gallery';
   externalVerseId: string;
   reference: string;
-  targetKindHint: DailyGoalTargetKind | null;
   saved: boolean;
-  rating?: number;
-  trainingModeId?: number | null;
   before: {
     status: string;
     masteryLevel: number;

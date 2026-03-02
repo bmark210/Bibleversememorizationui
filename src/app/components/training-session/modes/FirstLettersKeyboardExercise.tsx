@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -13,6 +13,10 @@ import {
   MobileRuKeyboardOverlay,
   MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT,
 } from './MobileRuKeyboardOverlay';
+import {
+  TrainingRatingButtons,
+  resolveTrainingRatingStage,
+} from './TrainingRatingButtons';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersKeyboardExerciseProps {
@@ -72,52 +76,11 @@ function removeLastMeaningfulChar(rawValue: string) {
   return chars.join('');
 }
 
-function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
-      <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button
-          onClick={() => onRate(0)}
-          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-          size="lg"
-        >
-          Забыл
-        </Button>
-        <Button
-          onClick={() => onRate(1)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          size="lg"
-        >
-          Сложно
-        </Button>
-        <Button
-          onClick={() => onRate(2)}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          size="lg"
-        >
-          Норм
-        </Button>
-        <Button
-          onClick={() => onRate(3)}
-          className="bg-[#059669] hover:bg-[#047857] text-white"
-          size="lg"
-        >
-          Отлично
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
 export function ModeFirstLettersKeyboardExercise({
   verse,
   onRate,
 }: FirstLettersKeyboardExerciseProps) {
+  const ratingStage = resolveTrainingRatingStage(verse.status);
   const isMobile = useIsMobile();
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -185,7 +148,7 @@ export function ModeFirstLettersKeyboardExercise({
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
         setIsCompleted(true);
-        toast.success('Отлично! Вы ввели первые буквы слов в правильной последовательности.');
+        // toast.success('Отлично! Вы ввели первые буквы слов в правильной последовательности.');
       }
       return;
     }
@@ -342,11 +305,15 @@ export function ModeFirstLettersKeyboardExercise({
             )}
           </AnimatePresence>
 
-          {isCompleted && (
-            <TrainingRatingFooter>
-              <RatingButtons onRate={onRate} />
-            </TrainingRatingFooter>
-          )}
+        {isCompleted && (
+          <TrainingRatingFooter>
+            <TrainingRatingButtons
+              stage={ratingStage}
+              mode="first-letters"
+              onRate={onRate}
+            />
+          </TrainingRatingFooter>
+        )}
 
           {isMobile && (
             <div

@@ -6,30 +6,30 @@ import {
   useMemo,
   type RefObject,
 } from "react";
-import { toast } from "sonner";
 import { VerseStatus } from "@/generated/prisma";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type {
-  DailyGoalGalleryContext,
   DailyGoalProgressEvent,
   DailyGoalResumeMode,
   DailyGoalTrainingStartDecision,
 } from "@/app/features/daily-goal/types";
-import type { TrainingCompletionToastCardPayload } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
+import type {
+  TrainingContactToastPayload,
+  TrainingCompletionToastCardPayload,
+} from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import {
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
 import {
   applyMasteryDelta,
-  shouldCountTrainingRepetition,
 } from "@/shared/training/modeEngine";
 import {
   MASTERY_DELTA_BY_RATING,
   MODE_SHIFT_BY_RATING,
   SCORE_BY_RATING,
-  MAX_MASTERY_LEVEL,
+  REPEAT_THRESHOLD_FOR_MASTERED,
 } from "../constants";
 import {
   haptic,
@@ -44,12 +44,13 @@ import {
   chooseModeId,
   getModeByShiftInProgressOrder,
   calcNextReviewAt,
+  calcNextReviewAtForReviewRepetition,
   deriveTrainingDisplayStatus,
-  getTrainingCompletionToastPayload,
+  getTrainingContactToastPayload,
+  getTrainingMilestonePopupPayload,
   sortByCreatedAtDesc,
   parseDate,
 } from "../utils";
-import { getDailyGoalTargetKindHint } from "../dailyGoalUtils";
 import { getTelegramId, persistTrainingVerseProgress } from "../trainingApi";
 import type {
   PanelMode,
@@ -74,15 +75,15 @@ type Params = {
   ) => Promise<DailyGoalTrainingStartDecision> | DailyGoalTrainingStartDecision;
   onDailyGoalJumpToVerseRequest?: (externalVerseId: string) => void;
   onDailyGoalPreferredResumeModeChange?: (mode: DailyGoalResumeMode) => void;
-  dailyGoalContext?: DailyGoalGalleryContext;
   dailyGoalGuideActive: boolean;
   dailyGoalPreferredTrainingSubset: TrainingSubsetFilter;
   // from useGalleryAux
   actionPending: boolean;
   setActionPending: (v: boolean) => void;
   setPreviewOverride: (verse: Verse, patch: VersePreviewOverride) => void;
-  showFeedback: (message: string, type?: "success" | "error") => void;
-  showTrainingCompletionToast: (payload: TrainingCompletionToastCardPayload) => void;
+  showFeedback: (message: string, type?: "success" | "error" | "info") => void;
+  showTrainingContactToast: (payload: TrainingContactToastPayload) => void;
+  showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => void;
   // from usePreviewNavigation
   setNavActiveIndex: (index: number) => void;
   setNavDirection: (dir: number) => void;
@@ -120,14 +121,14 @@ export function useTrainingFlow({
   onBeforeStartTrainingFromGalleryVerse,
   onDailyGoalJumpToVerseRequest,
   onDailyGoalPreferredResumeModeChange,
-  dailyGoalContext,
   dailyGoalGuideActive,
   dailyGoalPreferredTrainingSubset,
   actionPending,
   setActionPending,
   setPreviewOverride,
   showFeedback,
-  showTrainingCompletionToast,
+  showTrainingContactToast,
+  showTrainingMilestonePopup,
   setNavActiveIndex,
   setNavDirection,
 }: Params): UseTrainingFlowReturn {
@@ -181,9 +182,7 @@ export function useTrainingFlow({
     }
 
     if (trainingSubsetFilter !== "catalog") {
-      toast.info("Нет стихов для выбранного режима", {
-        description: "Переключаем обратно в каталог.",
-      });
+      showFeedback("Нет стихов для выбранного режима. Переключаем обратно в каталог.", "info");
       setTrainingSubsetFilter("catalog");
       return;
     }
@@ -440,7 +439,7 @@ export function useTrainingFlow({
       if (onBeforeStartTrainingFromGalleryVerse) {
         const decision = await onBeforeStartTrainingFromGalleryVerse(previewActiveVerse);
         if (decision.kind === "redirect") {
-          toast.info(decision.message);
+          showFeedback(decision.message, "info");
           const targetIndex = verses.findIndex(
             (verse) => getVerseIdentity(verse) === String(decision.targetVerseId)
           );
@@ -454,7 +453,7 @@ export function useTrainingFlow({
           return false;
         }
         if (decision.kind === "warn") {
-          toast.info(decision.message);
+          showFeedback(decision.message, "info");
         }
       }
 
@@ -594,32 +593,55 @@ export function useTrainingFlow({
 
       const wasReviewExercise = isTrainingReviewVerse(current);
       const rawMasteryBefore = current.rawMasteryLevel;
-      const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
       const isLearningVerse = current.status === VerseStatus.LEARNING;
-
-      const { rawMasteryAfter, graduatesToReview } = applyMasteryDelta({
-        isLearningVerse,
-        rawMasteryBefore,
-        masteryDelta,
-      });
-
-      const canUpdateRepetitions = current.status === "REVIEW";
-      const shouldIncrementRepetitions =
-        canUpdateRepetitions && shouldCountTrainingRepetition(rating);
-      const nextRepetitions = current.repetitions + (shouldIncrementRepetitions ? 1 : 0);
-      const stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
       const now = new Date();
-      const score = SCORE_BY_RATING[rating];
-      const nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
+
+      let rawMasteryAfter = rawMasteryBefore;
+      let stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
+      let graduatesToReview = false;
+      let reviewWasSuccessful = false;
+      const canUpdateRepetitions = wasReviewExercise;
+      let nextRepetitions = current.repetitions;
+      let nextReviewAt: Date | null = current.nextReviewAt;
+
+      if (wasReviewExercise) {
+        // Review has two outcomes only:
+        // 1) successful attempt -> move to next review stage (+1 repetition)
+        // 2) failed attempt -> stay on current review stage
+        const shouldIncrementRepetitions = rating >= 2;
+        reviewWasSuccessful = shouldIncrementRepetitions;
+        nextRepetitions = current.repetitions + (shouldIncrementRepetitions ? 1 : 0);
+        nextReviewAt = calcNextReviewAtForReviewRepetition(nextRepetitions);
+      } else {
+        const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
+        const masteryResult = applyMasteryDelta({
+          isLearningVerse,
+          rawMasteryBefore,
+          masteryDelta,
+        });
+
+        rawMasteryAfter = masteryResult.rawMasteryAfter;
+        graduatesToReview = masteryResult.graduatesToReview;
+        stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
+
+        if (graduatesToReview) {
+          // First review repetition becomes due on the next day.
+          nextReviewAt = calcNextReviewAtForReviewRepetition(0);
+        } else {
+          const score = SCORE_BY_RATING[rating];
+          nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
+        }
+      }
+
       const becameLearned = graduatesToReview;
 
       const nextStatus =
         current.status === VerseStatus.STOPPED
           ? VerseStatus.STOPPED
           : rawMasteryAfter > 0
-            ? nextRepetitions >= 5
+            ? nextRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED
               ? "MASTERED"
-              : graduatesToReview
+              : graduatesToReview || wasReviewExercise
                 ? "REVIEW"
                 : VerseStatus.LEARNING
             : VerseStatus.MY;
@@ -636,7 +658,8 @@ export function useTrainingFlow({
         stageMasteryLevel: stageMasteryAfter,
         repetitions: nextRepetitions,
         status: nextStatus,
-        lastModeId: trainingModeId,
+        // When a verse graduates to REVIEW, reset review rotation to the first review mode.
+        lastModeId: !wasReviewExercise && graduatesToReview ? null : trainingModeId,
         lastReviewedAt: now,
         nextReviewAt,
       };
@@ -660,15 +683,20 @@ export function useTrainingFlow({
         MODE_SHIFT_BY_RATING[rating] ?? 1
       );
       const nextModeForCurrentVerse =
-        !wasReviewExercise && nextMode ? nextMode : chooseModeId(updated);
+        becameLearned
+          ? chooseModeId(updated)
+          : !wasReviewExercise && nextMode
+            ? nextMode
+            : chooseModeId(updated);
 
       if (
         trainingSubsetFilter !== "catalog" &&
         !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)
       ) {
-        toast.info("Стих вышел из текущего фильтра", {
-          description: "Фильтр переключен на «Каталог», вы остаетесь на текущем стихе.",
-        });
+        showFeedback(
+          "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
+          "info"
+        );
         setTrainingSubsetFilter("catalog");
       }
 
@@ -763,21 +791,33 @@ export function useTrainingFlow({
           },
         });
 
-        const completionToast = getTrainingCompletionToastPayload({
+        const contactToast = getTrainingContactToastPayload({
           wasReviewExercise,
-          becameLearned,
+          reviewWasSuccessful,
+          reference: persistedUpdated.raw.reference,
+          finalStatus: persistedUpdated.status,
+          nextReviewAt: persistedUpdated.nextReviewAt,
+          beforeRawMasteryLevel: current.rawMasteryLevel,
+          afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
+        });
+
+        const milestonePopup = getTrainingMilestonePopupPayload({
+          wasReviewExercise,
+          beforeStatus: current.status,
           finalStatus: persistedUpdated.status,
           reference: persistedUpdated.raw.reference,
+          nextReviewAt: persistedUpdated.nextReviewAt,
+          beforeRawMasteryLevel: current.rawMasteryLevel,
+          beforeRepetitions: current.repetitions,
+          afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
+          afterRepetitions: persistedUpdated.repetitions,
         });
 
         onDailyGoalProgressEvent?.({
           source: "verse-gallery",
           externalVerseId: persistedUpdated.externalVerseId,
           reference: persistedUpdated.raw.reference,
-          targetKindHint: getDailyGoalTargetKindHint(dailyGoalContext),
           saved: true,
-          rating,
-          trainingModeId,
           before: {
             status: String(current.status),
             masteryLevel: Number(current.rawMasteryLevel ?? 0),
@@ -797,8 +837,14 @@ export function useTrainingFlow({
           occurredAt: new Date().toISOString(),
         });
 
-        if (completionToast) {
-          showTrainingCompletionToast(completionToast);
+        showTrainingContactToast(contactToast);
+        if (milestonePopup) {
+          showTrainingMilestonePopup(milestonePopup);
+        }
+
+        const shouldMoveToNextVerse =
+          wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
+        if (shouldMoveToNextVerse) {
           removeCompletedTrainingVerseAndNavigate(1);
         }
       } catch (error) {
@@ -808,14 +854,14 @@ export function useTrainingFlow({
       }
     },
     [
-      dailyGoalContext,
       onDailyGoalProgressEvent,
       onVersePatched,
       panelMode,
       removeCompletedTrainingVerseAndNavigate,
       setPreviewOverride,
       showFeedback,
-      showTrainingCompletionToast,
+      showTrainingContactToast,
+      showTrainingMilestonePopup,
       trainingIndex,
       trainingModeId,
       trainingSubsetFilter,

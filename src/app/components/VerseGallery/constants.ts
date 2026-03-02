@@ -59,6 +59,12 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     renderer: TrainingModeRendererKey.Typing,
     badgeClass: "border-rose-500/30 bg-rose-500/10 text-rose-700",
   },
+  [TrainingModeId.VoiceRecall]: {
+    label: "Голосовой ввод",
+    description: "Проговорите стих и проверьте распознавание.",
+    renderer: TrainingModeRendererKey.VoiceTyping,
+    badgeClass: "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700",
+  },
 };
 
 export const SCORE_BY_RATING: Record<Rating, number> = { 0: 35, 1: 60, 2: 84, 3: 96 };

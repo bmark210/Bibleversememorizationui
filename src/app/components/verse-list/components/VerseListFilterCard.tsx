@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { Pencil, Plus, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 import { Button } from '@/app/components/ui/button';
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';

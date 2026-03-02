@@ -11,6 +11,10 @@ import {
   MobileRuKeyboardOverlay,
   MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT,
 } from './MobileRuKeyboardOverlay';
+import {
+  TrainingRatingButtons,
+  resolveTrainingRatingStage,
+} from './TrainingRatingButtons';
 import type { Verse } from '../../../data/mockData';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
@@ -24,50 +28,9 @@ interface TypingModeProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
-function RatingButtons({ verse, onRate }: { verse: Verse, onRate: (rating: 0 | 1 | 2 | 3) => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
-      <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button
-          onClick={() => onRate(0)}
-          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-          size="lg"
-        >
-          Забыл
-        </Button>
-        <Button
-          onClick={() => onRate(1)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          size="lg"
-        >
-          Повторить
-        </Button>
-        {/* <Button
-          onClick={() => onRate(2)}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          size="lg"
-        >
-          Норм
-        </Button> */}
-        <Button
-          onClick={() => onRate(verse.masteryLevel >= TRAINING_STAGE_MASTERY_MAX ? 3 : 2)}
-          className="bg-[#059669] hover:bg-[#047857] text-white"
-          size="lg"
-        >
-          Завершить стих
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
 export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
   const MOBILE_HARD_ERROR_RESET_THRESHOLD = 7;
+  const ratingStage = resolveTrainingRatingStage(verse.status);
   const isMobile = useIsMobile();
   const [userInput, setUserInput] = useState('');
   const [showHint, setShowHint] = useState(false);
@@ -323,7 +286,21 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
 
           {isChecked && (
             <TrainingRatingFooter>
-              <RatingButtons verse={verse} onRate={onRate} />
+              <TrainingRatingButtons
+                stage={ratingStage}
+                mode="full-recall"
+                onRate={(rating) => {
+                  if (
+                    rating === 3 &&
+                    ratingStage === 'learning' &&
+                    verse.masteryLevel < TRAINING_STAGE_MASTERY_MAX
+                  ) {
+                    onRate(2);
+                    return;
+                  }
+                  onRate(rating);
+                }}
+              />
             </TrainingRatingFooter>
           )}
 

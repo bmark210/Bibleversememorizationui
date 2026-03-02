@@ -10,6 +10,7 @@ export enum TrainingModeId {
   FirstLettersTapNoHints = 5,
   FirstLettersTyping = 6,
   FullRecall = 7,
+  VoiceRecall = 8,
 }
 
 export type TrainingModeIdValue = TrainingModeId;
@@ -24,17 +25,18 @@ export const TRAINING_MODE_PROGRESS_ORDER: TrainingModeId[] = [
   TrainingModeId.FullRecall,
 ];
 
+export const REVIEW_TRAINING_MODE_ROTATION: TrainingModeId[] = [
+  TrainingModeId.FirstLettersTyping,
+  TrainingModeId.FullRecall,
+  TrainingModeId.VoiceRecall,
+];
+
 export const TRAINING_MODE_SHIFT_BY_RATING: Record<TrainingModeRating, number> = {
   0: -1,
   1: 0,
   2: 1,
   3: 2,
 };
-
-export function shouldCountTrainingRepetition(rating: TrainingModeRating): boolean {
-  // "Забыл" = attempt does not count as a successful repetition for repetition stats.
-  return rating !== 0;
-}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -99,8 +101,13 @@ export function chooseTrainingModeId(params: {
   const { rawMasteryLevel, stageMasteryLevel, lastModeId } = params;
 
   if (isTrainingReviewRawMastery(rawMasteryLevel)) {
-    // Review mode is fixed to keyboard input of first letters.
-    return TrainingModeId.FirstLettersTyping;
+    if (!lastModeId || !REVIEW_TRAINING_MODE_ROTATION.includes(lastModeId)) {
+      return REVIEW_TRAINING_MODE_ROTATION[0];
+    }
+    const index = REVIEW_TRAINING_MODE_ROTATION.indexOf(lastModeId);
+    return REVIEW_TRAINING_MODE_ROTATION[
+      (index + 1) % REVIEW_TRAINING_MODE_ROTATION.length
+    ];
   }
 
   const base = getBaseTrainingModeForMastery(stageMasteryLevel);
@@ -130,7 +137,9 @@ export function getRemainingTrainingModesCount(params: {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
 }): number {
-  if (isTrainingReviewRawMastery(params.rawMasteryLevel)) return 1;
+  if (isTrainingReviewRawMastery(params.rawMasteryLevel)) {
+    return REVIEW_TRAINING_MODE_ROTATION.length;
+  }
 
   const base = getBaseTrainingModeForMastery(params.stageMasteryLevel);
   const baseIndex = TRAINING_MODE_PROGRESS_ORDER.indexOf(base);

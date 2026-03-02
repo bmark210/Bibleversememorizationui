@@ -1,19 +1,13 @@
-import {
-  Brain,
-  Pause,
-  Play,
-  Plus,
-  Repeat,
-  Clock3,
-  Trophy,
-} from "lucide-react";
+import { Pause, Play, Plus } from "lucide-react";
 import { VerseStatus } from "@/generated/prisma";
 import {
   normalizeDisplayVerseStatus,
   type DisplayVerseStatus,
 } from "@/app/types/verseStatus";
 import {
+  REVIEW_REPETITION_INTERVAL_DAYS,
   REPEAT_THRESHOLD_FOR_MASTERED,
+  TRAINING_STAGE_MASTERY_MAX,
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
 import {
@@ -25,13 +19,11 @@ import {
 import type { Verse } from "@/app/App";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type {
+  TrainingContactToastPayload,
   TrainingCompletionToastCardPayload,
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import type { Verse as LegacyVerse } from "@/app/data/mockData";
-import {
-  MAX_MASTERY_LEVEL,
-  SPACED_REPETITION_MS,
-} from "./constants";
+import { MAX_MASTERY_LEVEL, SPACED_REPETITION_MS } from "./constants";
 import type {
   HapticStyle,
   GalleryStatusAction,
@@ -43,25 +35,59 @@ import type {
 
 export function haptic(style: HapticStyle) {
   try {
-    const tg = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { notificationOccurred: (s: string) => void; impactOccurred: (s: string) => void } } } }).Telegram?.WebApp?.HapticFeedback;
+    const tg = (
+      window as unknown as {
+        Telegram?: {
+          WebApp?: {
+            HapticFeedback?: {
+              notificationOccurred: (s: string) => void;
+              impactOccurred: (s: string) => void;
+            };
+          };
+        };
+      }
+    ).Telegram?.WebApp?.HapticFeedback;
     if (!tg) return;
-    if (style === "success" || style === "error" || style === "warning") tg.notificationOccurred(style);
-    else tg.impactOccurred(style);
+    if (style === "success" || style === "error" || style === "warning") {
+      tg.notificationOccurred(style);
+      return;
+    }
+    tg.impactOccurred(style);
   } catch {}
 }
 
 export function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {
   if (status === "CATALOG") {
-    return { nextStatus: VerseStatus.MY, label: "Добавить в мои", icon: Plus, successMessage: "Добавлено в мои стихи" };
+    return {
+      nextStatus: VerseStatus.MY,
+      label: "Добавить в мои",
+      icon: Plus,
+      successMessage: "Добавлено в мои стихи",
+    };
   }
   if (status === VerseStatus.MY) {
-    return { nextStatus: VerseStatus.LEARNING, label: "Добавить в изучение", icon: Plus, successMessage: "Добавлено в изучение" };
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      label: "Добавить в изучение",
+      icon: Plus,
+      successMessage: "Добавлено в изучение",
+    };
   }
   if (status === VerseStatus.LEARNING || status === "REVIEW") {
-    return { nextStatus: VerseStatus.STOPPED, label: "Поставить на паузу", icon: Pause, successMessage: "Пауза включена" };
+    return {
+      nextStatus: VerseStatus.STOPPED,
+      label: "Поставить на паузу",
+      icon: Pause,
+      successMessage: "Пауза включена",
+    };
   }
   if (status === VerseStatus.STOPPED) {
-    return { nextStatus: VerseStatus.LEARNING, label: "Возобновить изучение", icon: Play, successMessage: "Возобновлено" };
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      label: "Возобновить изучение",
+      icon: Play,
+      successMessage: "Возобновлено",
+    };
   }
   return null;
 }
@@ -71,8 +97,8 @@ export const clamp = (value: number, min: number, max: number) =>
 
 export function parseDate(value: unknown): Date | null {
   if (!value) return null;
-  const d = value instanceof Date ? value : new Date(String(value));
-  return Number.isNaN(d.getTime()) ? null : d;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function normalizeVerseStatus(status: Verse["status"]): DisplayVerseStatus {
@@ -88,7 +114,9 @@ export function toStageMasteryLevel(rawMasteryLevel: number) {
 }
 
 export function masteryToProgress(stageMasteryLevel: number) {
-  return Math.round((clamp(stageMasteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100);
+  return Math.round(
+    (clamp(stageMasteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100
+  );
 }
 
 export function getVerseIdentity(verse: Pick<Verse, "id" | "externalVerseId">) {
@@ -99,12 +127,14 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   const externalVerseId = String(verse.externalVerseId ?? verse.id ?? "").trim();
   const text = String(verse.text ?? "").trim();
   if (!externalVerseId || !text) return null;
+
   const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel);
   const rawLastModeId = (verse as Record<string, unknown>).lastTrainingModeId;
   const lastModeId =
-    typeof rawLastModeId === "number" && rawLastModeId >= 1 && rawLastModeId <= 7
+    typeof rawLastModeId === "number" && rawLastModeId >= 1 && rawLastModeId <= 8
       ? (rawLastModeId as ModeId)
       : null;
+
   return {
     raw: verse,
     key: getVerseIdentity(verse),
@@ -167,10 +197,25 @@ export function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): Mo
 
 export function calcNextReviewAt(masteryLevel: number, score: number): Date {
   const base =
-    SPACED_REPETITION_MS[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ?? SPACED_REPETITION_MS[0];
-  const multiplier =
-    score >= 92 ? 1.25 : score >= 80 ? 1 : score >= 65 ? 0.75 : 0.5;
+    SPACED_REPETITION_MS[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ??
+    SPACED_REPETITION_MS[0];
+  const multiplier = score >= 92 ? 1.25 : score >= 80 ? 1 : score >= 65 ? 0.75 : 0.5;
   return new Date(Date.now() + Math.round(base * multiplier));
+}
+
+export function calcNextReviewAtForReviewRepetition(
+  successfulRepetitions: number
+): Date | null {
+  if (successfulRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED) {
+    return null;
+  }
+  const clampedIndex = clamp(
+    successfulRepetitions,
+    0,
+    REVIEW_REPETITION_INTERVAL_DAYS.length - 1
+  );
+  const intervalDays = REVIEW_REPETITION_INTERVAL_DAYS[clampedIndex] ?? 1;
+  return new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000);
 }
 
 export function deriveTrainingDisplayStatus(params: {
@@ -187,50 +232,162 @@ export function deriveTrainingDisplayStatus(params: {
   return VerseStatus.LEARNING;
 }
 
-export function getTrainingCompletionToastPayload(params: {
+function toHumanWaitLabel(nextReviewAt: Date | null): string | null {
+  if (!nextReviewAt) return null;
+  const diffMs = nextReviewAt.getTime() - Date.now();
+  if (diffMs <= 0) return "повтор доступен сейчас";
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const minuteMs = 60 * 1000;
+
+  if (diffMs >= dayMs) {
+    const days = Math.max(1, Math.round(diffMs / dayMs));
+    return `следующий повтор через ${days} дн.`;
+  }
+  if (diffMs >= hourMs) {
+    const hours = Math.max(1, Math.round(diffMs / hourMs));
+    return `следующий повтор через ${hours} ч.`;
+  }
+  const minutes = Math.max(1, Math.round(diffMs / minuteMs));
+  return `следующий повтор через ${minutes} мин.`;
+}
+
+export function getTrainingContactToastPayload(params: {
   wasReviewExercise: boolean;
-  becameLearned: boolean;
-  finalStatus: DisplayVerseStatus;
+  reviewWasSuccessful: boolean;
   reference: string;
-}): TrainingCompletionToastCardPayload | null {
-  const { wasReviewExercise, becameLearned, finalStatus, reference } = params;
+  finalStatus: DisplayVerseStatus;
+  nextReviewAt: Date | null;
+  beforeRawMasteryLevel: number;
+  afterRawMasteryLevel: number;
+}): TrainingContactToastPayload {
+  const {
+    wasReviewExercise,
+    reviewWasSuccessful,
+    reference,
+    finalStatus,
+    nextReviewAt,
+    beforeRawMasteryLevel,
+    afterRawMasteryLevel,
+  } = params;
 
   if (wasReviewExercise) {
+    if (!reviewWasSuccessful) {
+      return {
+        id: Date.now(),
+        reference,
+        tone: "negative",
+        message: "Повтор не засчитан",
+        hint: "Этап повторения без прогресса",
+      };
+    }
     if (finalStatus === "MASTERED") {
       return {
         id: Date.now(),
         reference,
-        status: "MASTERED",
-        title: "Стих выучен полностью",
-        description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
+        tone: "positive",
+        message: "Повтор +1",
+        hint: "Стих завершён",
       };
     }
     return {
       id: Date.now(),
       reference,
-      status: finalStatus,
-      title: "Стих повторён",
-      description: "Повторение сохранено. Можно продолжать тренировку.",
+      tone: "positive",
+      message: "Повтор засчитан",
+      hint: toHumanWaitLabel(nextReviewAt) ?? "стих отправлен на ожидание",
     };
   }
 
-  if (!becameLearned) return null;
+  const masteryDelta = afterRawMasteryLevel - beforeRawMasteryLevel;
+  const tone: TrainingContactToastPayload["tone"] =
+    masteryDelta > 0 ? "positive" : masteryDelta < 0 ? "negative" : "neutral";
+  const message =
+    masteryDelta > 0
+      ? `Рейтинг +${masteryDelta}`
+      : masteryDelta < 0
+        ? `Рейтинг ${masteryDelta}`
+        : "Рейтинг без изменений";
 
-  if (finalStatus === "MASTERED") {
+  return {
+    id: Date.now(),
+    reference,
+    tone,
+    message,
+    hint: `Уровень ${Math.max(0, afterRawMasteryLevel)}/${TRAINING_STAGE_MASTERY_MAX}`,
+  };
+}
+
+export function getTrainingMilestonePopupPayload(params: {
+  wasReviewExercise: boolean;
+  beforeStatus: DisplayVerseStatus;
+  finalStatus: DisplayVerseStatus;
+  reference: string;
+  nextReviewAt: Date | null;
+  beforeRawMasteryLevel: number;
+  beforeRepetitions: number;
+  afterRawMasteryLevel: number;
+  afterRepetitions: number;
+}): TrainingCompletionToastCardPayload | null {
+  const {
+    wasReviewExercise,
+    beforeStatus,
+    finalStatus,
+    reference,
+    nextReviewAt,
+    beforeRawMasteryLevel,
+    beforeRepetitions,
+    afterRawMasteryLevel,
+    afterRepetitions,
+  } = params;
+
+  const beforeProgressPercent = computeTotalProgressPercent(
+    beforeRawMasteryLevel,
+    beforeRepetitions
+  );
+  const afterProgressPercent = computeTotalProgressPercent(
+    afterRawMasteryLevel,
+    afterRepetitions
+  );
+
+  const movedToMastered =
+    wasReviewExercise && beforeStatus === "REVIEW" && finalStatus === "MASTERED";
+  if (movedToMastered) {
     return {
       id: Date.now(),
       reference,
       status: "MASTERED",
       title: "Стих выучен полностью",
-      description: "Стих полностью завершен. Посмотреть можно в главном списке стихов.",
+      description: "Этап повторения завершён. Стих перешёл в список завершённых.",
+      outcome: "success",
+      beforeProgressPercent,
+      afterProgressPercent,
+      masteryLevel: Math.max(0, afterRawMasteryLevel),
+      repetitions: Math.max(0, afterRepetitions),
     };
   }
+
+  const movedToReview =
+    !wasReviewExercise &&
+    beforeStatus === VerseStatus.LEARNING &&
+    finalStatus === "REVIEW";
+  if (!movedToReview) return null;
+
+  const reviewHint = toHumanWaitLabel(nextReviewAt);
   return {
     id: Date.now(),
     reference,
-    status: "LEARNING",
-    title: "Стих изучен",
-    description: "Этап изучения сохранён. Переходите к следующему стиху.",
+    status: "REVIEW",
+    title: "Этап изучения завершён",
+    description: reviewHint
+      ? `Стих переведён в повторение, ${reviewHint}.`
+      : "Стих переведён в повторение. Теперь он закрепляется по интервальным повторам.",
+    outcome: "success",
+    beforeProgressPercent,
+    afterProgressPercent,
+    masteryLevel: Math.max(0, afterRawMasteryLevel),
+    repetitions: Math.max(0, afterRepetitions),
   };
 }
 
@@ -278,7 +435,6 @@ export function toPreviewOverrideFromVersePatch(patch: VerseMutablePatch): Verse
   return next;
 }
 
-// Convenience: compute total progress for display
 export function computeTotalProgressPercent(
   rawMasteryLevel: number,
   repetitions: number

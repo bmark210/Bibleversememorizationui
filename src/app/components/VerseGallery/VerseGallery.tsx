@@ -15,9 +15,9 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
-import { TrainingCompletionToastCard } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { VerseStatus } from "@/generated/prisma";
+import { TrainingCompletionToastCard } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
@@ -97,7 +97,7 @@ export function VerseGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ── Aux state (pending, overrides, feedback, toasts) ────────────────────────
+  // ── Aux state (pending, overrides, feedback, completion popup) ──────────────
   const aux = useGalleryAux();
 
   // ── Preview navigation ───────────────────────────────────────────────────────
@@ -147,14 +147,14 @@ export function VerseGallery({
     onBeforeStartTrainingFromGalleryVerse,
     onDailyGoalJumpToVerseRequest,
     onDailyGoalPreferredResumeModeChange,
-    dailyGoalContext,
     dailyGoalGuideActive,
     dailyGoalPreferredTrainingSubset,
     actionPending: aux.actionPending,
     setActionPending: aux.setActionPending,
     setPreviewOverride: aux.setPreviewOverride,
     showFeedback: aux.showFeedback,
-    showTrainingCompletionToast: aux.showTrainingCompletionToast,
+    showTrainingContactToast: aux.showTrainingContactToast,
+    showTrainingMilestonePopup: aux.showTrainingMilestonePopup,
     setNavActiveIndex: nav.setActiveIndex,
     setNavDirection: nav.setDirection,
   });
@@ -273,6 +273,13 @@ export function VerseGallery({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (aux.deleteDialogOpen) return;
+      if (aux.trainingMilestonePopup) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          aux.dismissTrainingMilestonePopup();
+        }
+        return;
+      }
       if (e.key === "Escape") {
         e.preventDefault();
         if (training.panelMode === "training") {
@@ -299,6 +306,8 @@ export function VerseGallery({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     aux.deleteDialogOpen,
+    aux.dismissTrainingMilestonePopup,
+    aux.trainingMilestonePopup,
     closeTrainingGoesToPreview,
     nav,
     onClose,
@@ -547,10 +556,8 @@ export function VerseGallery({
       {!training.isAutoStartingTraining && <SwipeHint panelMode={training.panelMode} />}
 
       <TrainingCompletionToastCard
-        toast={aux.trainingCompletionToast}
-        onDismiss={aux.dismissTrainingCompletionToast}
-        bottomOffset={Math.max(bottomInset, 10) + 84}
-        durationMs={10000}
+        payload={aux.trainingMilestonePopup}
+        onClose={aux.dismissTrainingMilestonePopup}
       />
 
       <AlertDialog open={aux.deleteDialogOpen} onOpenChange={aux.setDeleteDialogOpen}>

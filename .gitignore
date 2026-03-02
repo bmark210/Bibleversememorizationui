@@ -22,3 +22,5 @@ node_modules
 .next/cache/react-refresh-runtime-client
 
 src/generated/prisma
+
+package-lock.json

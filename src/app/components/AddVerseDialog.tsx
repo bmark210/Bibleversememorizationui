@@ -33,7 +33,7 @@ import {
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { TagsService } from "@/api/services/TagsService";
 import type { Tag } from "@/api/models/Tag";
-import { toast } from "sonner";
+import { toast } from "@/app/lib/toast";
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';

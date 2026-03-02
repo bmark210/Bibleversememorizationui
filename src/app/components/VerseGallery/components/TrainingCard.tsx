@@ -6,8 +6,8 @@ import {
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import { MODE_PIPELINE } from "../constants";
-import { asLegacyVerse, computeTotalProgressPercent } from "../utils";
+import type { Verse as LegacyVerse } from "@/app/data/mockData";
+import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
 
 type Props = {
@@ -17,6 +17,34 @@ type Props = {
   onSwipeStep: (step: 1 | -1) => void;
   onRate: (rating: Rating) => void | Promise<void>;
 };
+
+function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
+  const total = Math.min(
+    rawMasteryLevel + repetitions,
+    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
+  );
+  return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+}
+
+function asLegacyVerseForRenderer(verse: TrainingVerseState): LegacyVerse {
+  const progressPercent = Math.round(
+    (Math.max(0, verse.stageMasteryLevel) / MAX_MASTERY_LEVEL) * 100
+  );
+  return {
+    id: verse.key,
+    externalVerseId: verse.externalVerseId,
+    status: verse.status,
+    reference: verse.raw.reference,
+    text: verse.raw.text,
+    translation: String((verse.raw as Record<string, unknown>).translation ?? "SYNOD"),
+    masteryLevel: progressPercent,
+    repetitions: verse.repetitions,
+    lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,
+    nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
+    nextReview: verse.nextReviewAt?.toISOString() ?? null,
+    tags: [],
+  };
+}
 
 export function TrainingCard({
   trainingVerse,
@@ -31,7 +59,7 @@ export function TrainingCard({
     trainingVerse.rawMasteryLevel,
     trainingVerse.repetitions
   );
-  const legacyVerse = asLegacyVerse(trainingVerse);
+  const legacyVerse = asLegacyVerseForRenderer(trainingVerse);
 
   return (
     <div className="w-full">

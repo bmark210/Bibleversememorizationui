@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
+import { toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
+import {
+  TrainingRatingButtons,
+  resolveTrainingRatingStage,
+} from './TrainingRatingButtons';
 import type { Verse } from '../../../data/mockData';
 
 interface FirstLettersTapExerciseProps {
@@ -53,52 +57,11 @@ function shuffleTokens(letters: string[]): LetterToken[] {
   return shuffled;
 }
 
-function RatingButtons({ onRate }: { onRate: (rating: 0 | 1 | 2 | 3) => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
-      <p className="text-sm text-muted-foreground text-center">Оцените своё запоминание:</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button
-          onClick={() => onRate(0)}
-          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-          size="lg" 
-        >
-          Забыл
-        </Button>
-        <Button
-          onClick={() => onRate(1)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          size="lg"
-        >
-          Сложно
-        </Button>
-        <Button
-          onClick={() => onRate(2)}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-          size="lg"
-        >
-          Норм
-        </Button>
-        <Button
-          onClick={() => onRate(3)}
-          className="bg-[#059669] hover:bg-[#047857] text-white"
-          size="lg"
-        >
-          Отлично
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
 export function ModeFirstLettersTapExercise({
   verse,
   onRate,
 }: FirstLettersTapExerciseProps) {
+  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
@@ -172,7 +135,7 @@ export function ModeFirstLettersTapExercise({
 
       if (expectedOrder + 1 === total) {
         setIsCompleted(true);
-        toast.success('Отлично! Последовательность первых букв собрана верно.');
+        // toast.success('Отлично! Последовательность первых букв собрана верно.');
       }
       return;
     }
@@ -336,7 +299,11 @@ export function ModeFirstLettersTapExercise({
 
         {isCompleted && (
           <TrainingRatingFooter>
-            <RatingButtons onRate={onRate} />
+            <TrainingRatingButtons
+              stage={ratingStage}
+              mode="first-letters"
+              onRate={onRate}
+            />
           </TrainingRatingFooter>
         )}
       </div>

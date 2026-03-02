@@ -5,10 +5,16 @@ import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
-import { toast } from "sonner";
-import { Toaster } from "./components/ui/sonner";
+import { toast } from "@/app/lib/toast";
+import { Toaster } from "./components/ui/toaster";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import {
+  DailyGoalCompletionPopup,
+  type DailyGoalCompletionPopupPayload,
+} from "./components/daily-goal/DailyGoalCompletionPopup";
+import { OpenAPI } from "@/api/core/OpenAPI";
+import { request as apiRequest } from "@/api/core/request";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
@@ -226,6 +232,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [localDayKey, setLocalDayKey] = useState<string>(() => getLocalDayKey());
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
   const [dailyGoalServerState, setDailyGoalServerState] = useState<DailyGoalServerStateV2 | null>(null);
   const [dailyGoalStateRev, setDailyGoalStateRev] = useState<number | null>(null);
@@ -238,6 +245,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
+  const [dailyGoalCompletionPopup, setDailyGoalCompletionPopup] =
+    useState<DailyGoalCompletionPopupPayload | null>(null);
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dailyGoalStateRequestIdRef = useRef(0);
   const dailyGoalStateInFlightRef = useRef<{
@@ -246,11 +255,18 @@ export default function App({ onInitialContentReady }: AppProps) {
     promise: Promise<DailyGoalStateResponse | null>;
   } | null>(null);
   const dailyGoalStateLastSuccessKeyRef = useRef<string | null>(null);
+  const hasAnyUserVerses =
+    dailyGoalReadiness?.summary.hasAnyUserVerses ??
+    (dailyGoalVersePool.length > 0
+      ? true
+      : user
+        ? (user.verses?.length ?? 0) > 0
+        : undefined);
   const dailyGoal = useDailyGoalController({
     telegramId,
     trainingBatchPreferences,
     todayVerses: dailyGoalVersePool,
-    hasAnyUserVerses: user ? (user.verses?.length ?? 0) > 0 : undefined,
+    hasAnyUserVerses,
     dailyGoalServerState,
     dailyGoalReadiness,
     isDailyGoalReadinessLoading,
@@ -343,20 +359,29 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardGalleryLaunchMode("preview");
   };
 
+  const loadAllVersesForDailyGoalPool = async (telegramIdValue: string) => {
+    try {
+      const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
+      const allVerses = response as Array<Verse>;
+      setDailyGoalVersePool(allVerses);
+      return allVerses;
+    } catch (err) {
+      console.error("Не удалось получить стихи для дневной подборки:", err);
+      setDailyGoalVersePool([]);
+      throw err;
+    }
+  };
+
   const loadPlannedVersesForDashboard = async (
     telegramIdValue: string,
     prefs: TrainingBatchPreferences
   ) => {
     try {
-      const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
-      const allVerses = response as Array<Verse>;
-      setDailyGoalVersePool(allVerses);
+      const allVerses = await loadAllVersesForDailyGoalPool(telegramIdValue);
       const planned = buildTrainingBatchVerses(allVerses, prefs);
       setVerses(planned);
       return planned;
     } catch (err) {
-      console.error("Не удалось получить стихи для дневной подборки:", err);
-      setDailyGoalVersePool([]);
       setVerses([]);
       throw err;
     }
@@ -662,14 +687,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       return;
     }
 
-    // Ensure the session exists BEFORE refreshing readiness, since session creation
-    // depends only on todayVerses/preferences — not on the readiness API response.
-    dailyGoal.ensureSessionForToday();
-
-    // Refresh readiness from the server (force=true bypasses deduplication cache).
-    // The returned snapshot is not yet in React state, so getNextTargetVerseId()
-    // below reads from the pre-refresh UI. This is acceptable: the gallery opens
-    // immediately with existing verses, then a background refresh corrects the list.
+    // Refresh daily-goal snapshot from the server (force=true bypasses dedup cache).
     await refreshDailyGoalState(telegramIdValue, trainingBatchPreferences, {
       force: true,
     });
@@ -689,7 +707,6 @@ export default function App({ onInitialContentReady }: AppProps) {
         )
         : -1;
       setDashboardGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
-      dailyGoal.markDailyGoalStarted();
       void mutateDailyGoalEventWithRetry({
         telegramIdValue,
         prefs: trainingBatchPreferences,
@@ -767,8 +784,13 @@ export default function App({ onInitialContentReady }: AppProps) {
           },
         });
         if (response?.mutation.completedNow && response.mutation.completionCounterIncremented) {
-          toast.success("Ежедневная цель выполнена", {
-            description: "Прогресс сохранён. Счётчик выполненных целей обновлён.",
+          setDailyGoalCompletionPopup({
+            dayKey: response.dayKey,
+            learningDone: response.state.progress.completedVerseIds.new.length,
+            learningTotal: response.readiness.effective.learning,
+            reviewDone: response.state.progress.completedVerseIds.review.length,
+            reviewTotal: response.readiness.effective.review,
+            reviewSkipped: response.readiness.summary.reviewStageWillBeSkipped,
           });
         }
       } catch (error) {
@@ -850,9 +872,34 @@ export default function App({ onInitialContentReady }: AppProps) {
     const telegramId = localStorage.getItem("telegramId") ?? "";
 
     try {
+      // 1) Ensure verse exists in global catalog.
       await UserVersesService.postApiUsersVerses(telegramId, {
         externalVerseId: verse.externalVerseId,
       });
+
+      // 2) Ensure verse is attached to current user progress (MY by default).
+      await apiRequest(OpenAPI, {
+        method: "PUT",
+        url: "/api/users/{telegramId}/verses/{externalVerseId}",
+        path: {
+          telegramId,
+          externalVerseId: verse.externalVerseId,
+        },
+      });
+
+      // 3) If daily goal is blocked by missing LEARNING verses, auto-promote new verse to LEARNING.
+      // This makes the dashboard message/reactivity match the user action "Добавить стих".
+      let movedToLearningForDailyGoal = false;
+      if (dailyGoal.ui.learningStageBlocked) {
+        try {
+          await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, {
+            status: VerseStatus.LEARNING,
+          });
+          movedToLearningForDailyGoal = true;
+        } catch (error) {
+          console.warn("Не удалось автоматически перевести стих в LEARNING:", error);
+        }
+      }
 
       // Attach selected tags (non-blocking per tag — best-effort)
       if (verse.tags.length > 0) {
@@ -863,10 +910,22 @@ export default function App({ onInitialContentReady }: AppProps) {
         );
       }
 
+      const effectivePreferences =
+        trainingBatchPreferences ?? readTrainingBatchPreferences();
+
+      if (effectivePreferences) {
+        await loadPlannedVersesForDashboard(telegramId, effectivePreferences);
+        await refreshDailyGoalState(telegramId, effectivePreferences, { force: true });
+      } else {
+        await loadAllVersesForDailyGoalPool(telegramId);
+      }
+
       setVerseListExternalSyncVersion((prev) => prev + 1);
 
-      toast.success("Стих добавлен в каталог", {
-        description: `${verse.reference} добавлен в каталог.`,
+      toast.success("Стих добавлен", {
+        description: movedToLearningForDailyGoal
+          ? `${verse.reference} добавлен и переведён в изучение (LEARNING).`
+          : `${verse.reference} добавлен в ваши стихи.`,
       });
     } catch (err) {
       const errorMessage = (err as ApiError)?.body?.error as string;
@@ -891,9 +950,17 @@ export default function App({ onInitialContentReady }: AppProps) {
       : undefined;
 
   useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const nextDayKey = getLocalDayKey();
+      setLocalDayKey((prev) => (prev === nextDayKey ? prev : nextDayKey));
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     if (!telegramId || !trainingBatchPreferences) return;
     void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-  }, [telegramId, trainingBatchPreferences, dailyGoal.session?.dayKey]);
+  }, [telegramId, trainingBatchPreferences, localDayKey]);
 
   useEffect(() => {
     if (!telegramId || !trainingBatchPreferences) {
@@ -904,7 +971,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       return;
     }
     void refreshDailyGoalState(telegramId, trainingBatchPreferences);
-  }, [telegramId, trainingBatchPreferences]);
+  }, [telegramId, trainingBatchPreferences, localDayKey]);
 
   useEffect(() => {
     if (isBootstrapping || hasNotifiedInitialContentReadyRef.current) return;
@@ -1057,6 +1124,11 @@ export default function App({ onInitialContentReady }: AppProps) {
           </Card>
         </div>
       )}
+
+      <DailyGoalCompletionPopup
+        popup={dailyGoalCompletionPopup}
+        onClose={() => setDailyGoalCompletionPopup(null)}
+      />
 
       <Toaster />
     </>
