@@ -5,6 +5,9 @@ import { Translation } from "@/generated/prisma";
 type CreateUserPayload = {
   telegramId?: string;
   translation?: string;
+  name?: string;
+  nickname?: string;
+  avatarUrl?: string;
 };
 
 const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
@@ -22,6 +25,11 @@ const normalizeTranslation = (value?: string): Translation | undefined => {
     : undefined;
 };
 
+const normalizeOptionalString = (value?: string): string | undefined => {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -34,8 +42,11 @@ export default async function handler(
 
   try {
     const body = req.body as CreateUserPayload;
-    const { telegramId, translation } = body ?? {};
+    const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
     const translationValue = normalizeTranslation(translation);
+    const nameValue = normalizeOptionalString(name);
+    const nicknameValue = normalizeOptionalString(nickname);
+    const avatarUrlValue = normalizeOptionalString(avatarUrl);
 
     if (!telegramId) {
       return res.status(400).json({ error: "telegramId is required" });
@@ -45,10 +56,16 @@ export default async function handler(
       where: { telegramId },
       update: {
         ...(translationValue ? { translation: translationValue } : {}),
+        ...(nameValue ? { name: nameValue } : {}),
+        ...(nicknameValue ? { nickname: nicknameValue } : {}),
+        ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
       },
       create: {
         telegramId,
         ...(translationValue ? { translation: translationValue } : {}),
+        ...(nameValue ? { name: nameValue } : {}),
+        ...(nicknameValue ? { nickname: nicknameValue } : {}),
+        ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
       },
     });
 

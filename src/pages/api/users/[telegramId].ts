@@ -9,11 +9,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     if (req.method === "GET") {
+      const fallbackName = `Участник #${telegramId.slice(-4) || telegramId}`;
+
       // Upsert: create the user if they don't exist yet (first open / direct API call)
       const user = await prisma.user.upsert({
         where: { telegramId },
         update: {},
-        create: { telegramId },
+        create: { telegramId, name: fallbackName },
         include: { verses: true },
       });
 

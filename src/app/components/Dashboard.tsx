@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { Brain, Flame, Play, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
+import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
 import { Button } from './ui/button'
@@ -18,6 +19,8 @@ interface DashboardProps {
   todayVerses: Array<Verse>
   dashboardStats?: UserDashboardStats | null
   isDashboardStatsLoading?: boolean
+  dashboardLeaderboard?: DashboardLeaderboardData | null
+  isDashboardLeaderboardLoading?: boolean
   onStartTraining: () => void
   onAddVerse: () => void
   onViewAll: () => void
@@ -41,6 +44,8 @@ export function Dashboard({
   todayVerses,
   dashboardStats = null,
   isDashboardStatsLoading = false,
+  dashboardLeaderboard = null,
+  isDashboardLeaderboardLoading = false,
   onStartTraining,
   onAddVerse: _onAddVerse,
   onViewAll: _onViewAll,
@@ -244,6 +249,8 @@ export function Dashboard({
             />
             <DashboardLeaderboardCard
               avgMasteryPercent={avgMasteryPercent}
+              leaderboard={dashboardLeaderboard}
+              isLeaderboardLoading={isDashboardLeaderboardLoading}
               cardItemVariants={cardItemVariants}
               groupStaggerVariants={groupStaggerVariants}
             />

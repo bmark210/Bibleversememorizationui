@@ -28,6 +28,9 @@ const swaggerDoc = {
                 properties: {
                   telegramId: { type: "string" },
                   translation: { type: "string" },
+                  name: { type: "string" },
+                  nickname: { type: "string" },
+                  avatarUrl: { type: "string" },
                 },
               },
             },
@@ -60,6 +63,19 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/users/leaderboard": {
+      get: {
+        tags: ["Users"],
+        summary: "Таблица лидеров для главной страницы",
+        parameters: [
+          { name: "telegramId", in: "query", required: false, schema: { type: "string" } },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 25 } },
+        ],
+        responses: {
+          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserLeaderboardResponse" } } } },
+        },
+      },
+    },
     "/api/users/telegram": {
       post: {
         tags: ["Users"],
@@ -74,6 +90,9 @@ const swaggerDoc = {
                 properties: {
                   telegramId: { type: "string" },
                   translation: { type: "string" },
+                  name: { type: "string" },
+                  nickname: { type: "string" },
+                  avatarUrl: { type: "string" },
                 },
               },
             },
@@ -383,6 +402,9 @@ const swaggerDoc = {
         properties: {
           id: { type: "string" },
           telegramId: { type: "string" },
+          name: { type: "string", nullable: true },
+          nickname: { type: "string", nullable: true },
+          avatarUrl: { type: "string", nullable: true },
           translation: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
         },
@@ -446,6 +468,66 @@ const swaggerDoc = {
           averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
           bestVerseReference: { type: "string", nullable: true },
           dailyStreak: { type: "integer", minimum: 0 },
+        },
+      },
+      UserLeaderboardEntry: {
+        type: "object",
+        required: [
+          "rank",
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "score",
+          "streakDays",
+          "weeklyRepetitions",
+          "isCurrentUser",
+        ],
+        properties: {
+          rank: { type: "integer", minimum: 1 },
+          telegramId: { type: "string" },
+          name: { type: "string" },
+          avatarUrl: { type: "string", nullable: true },
+          score: { type: "integer", minimum: 0, maximum: 100 },
+          streakDays: { type: "integer", minimum: 0 },
+          weeklyRepetitions: { type: "integer", minimum: 0 },
+          isCurrentUser: { type: "boolean" },
+        },
+      },
+      UserLeaderboardCurrentUser: {
+        type: "object",
+        required: [
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "rank",
+          "score",
+          "streakDays",
+          "weeklyRepetitions",
+        ],
+        properties: {
+          telegramId: { type: "string" },
+          name: { type: "string" },
+          avatarUrl: { type: "string", nullable: true },
+          rank: { type: "integer", minimum: 1, nullable: true },
+          score: { type: "integer", minimum: 0, maximum: 100 },
+          streakDays: { type: "integer", minimum: 0 },
+          weeklyRepetitions: { type: "integer", minimum: 0 },
+        },
+      },
+      UserLeaderboardResponse: {
+        type: "object",
+        required: ["generatedAt", "totalParticipants", "entries", "currentUser"],
+        properties: {
+          generatedAt: { type: "string", format: "date-time" },
+          totalParticipants: { type: "integer", minimum: 0 },
+          entries: {
+            type: "array",
+            items: { $ref: "#/components/schemas/UserLeaderboardEntry" },
+          },
+          currentUser: {
+            nullable: true,
+            allOf: [{ $ref: "#/components/schemas/UserLeaderboardCurrentUser" }],
+          },
         },
       },
       Tag: {

@@ -3,25 +3,20 @@
 import React from 'react'
 import { motion } from 'motion/react'
 import type { Variants } from 'motion/react'
-import { Compass, Crown, Medal, Trophy } from 'lucide-react'
+import { Crown, Medal, Trophy } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Card } from '../ui/card'
-import { Progress } from '../ui/progress'
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar'
 import { Badge } from '../ui/badge'
+import type {
+  DashboardLeaderboard as DashboardLeaderboardData,
+  LeaderboardEntry,
+} from '@/api/services/leaderboard'
 
 type DashboardUser = {
   firstName: string
   photoUrl?: string | null
 } | null
-
-type LeaderboardEntry = {
-  id: string
-  name: string
-  score: number
-  streakDays: number
-  weeklyRepetitions: number
-}
 
 type StatsCardItem = {
   key: string
@@ -32,13 +27,6 @@ type StatsCardItem = {
   iconColor: string
   accent: string
 }
-
-const MOCK_LEADERBOARD: Array<LeaderboardEntry> = [
-  { id: '1', name: 'Алексей Джи', score: 98, streakDays: 37, weeklyRepetitions: 142 },
-  { id: '2', name: 'Анна К.', score: 94, streakDays: 28, weeklyRepetitions: 128 },
-  { id: '3', name: 'Павел М.', score: 91, streakDays: 21, weeklyRepetitions: 117 },
-  { id: '4', name: 'Елена Т.', score: 88, streakDays: 16, weeklyRepetitions: 95 },
-]
 
 function getInitials(name: string) {
   return name
@@ -197,47 +185,67 @@ export function DashboardTrainingStatsCard({
 
 type DashboardLeaderboardCardProps = {
   avgMasteryPercent: number
+  leaderboard?: DashboardLeaderboardData | null
+  isLeaderboardLoading?: boolean
   cardItemVariants: Variants
   groupStaggerVariants: Variants
 }
 
 export function DashboardLeaderboardCard({
   avgMasteryPercent,
+  leaderboard = null,
+  isLeaderboardLoading = false,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardLeaderboardCardProps) {
+  const entries = leaderboard?.entries ?? []
+  const currentUser = leaderboard?.currentUser ?? null
+  const totalParticipants = leaderboard?.totalParticipants ?? entries.length
+
+  const footerTitle = currentUser?.rank
+    ? `Ваша позиция: #${currentUser.rank} из ${Math.max(totalParticipants, currentUser.rank)}`
+    : totalParticipants > 0
+      ? 'Вы пока вне рейтинга'
+      : 'Рейтинг заполняется'
+
+  const footerHint = currentUser
+    ? `${currentUser.weeklyRepetitions} повторений за неделю · серия ${currentUser.streakDays} дн.`
+    : 'Тренируйтесь регулярно, чтобы подняться в таблице лидеров.'
+
+  const footerScore = currentUser ? `${currentUser.score}%` : `${Math.max(0, Math.min(100, avgMasteryPercent))}%`
+
   return (
     <motion.div variants={cardItemVariants}>
       <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-primary/5">
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                Рейтинг
-              </Badge>
-              <Badge className="rounded-full px-3 py-1">Топ недели</Badge>
-            </div>
             <h2 className="text-lg sm:text-xl font-semibold">Лучшие игроки</h2>
             <p className="text-sm text-muted-foreground mt-1">
               По точности и регулярности тренировок.
             </p>
           </div>
-          <div className="rounded-xl border border-border/70 bg-background/70 p-2.5">
-            <Trophy className="h-5 w-5 text-primary" />
-          </div>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline" className="rounded-full px-3 py-1">
+                Рейтинг
+              </Badge>
+            </div>
         </div>
 
         <motion.div className="space-y-3" variants={groupStaggerVariants}>
-          {MOCK_LEADERBOARD.map((entry, index) => {
-            const rank = index + 1
+          {entries.length > 0 ? entries.map((entry) => {
+            const rank = entry.rank
             const rankBadge = getRankBadge(rank)
             const RankIcon = rankBadge.icon
 
             return (
               <motion.div
-                key={entry.id}
+                key={entry.telegramId}
                 variants={cardItemVariants}
-                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/70 p-3 transition-colors hover:bg-accent/40"
+                className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
+                  entry.isCurrentUser
+                    ? 'border-primary/40 bg-primary/10'
+                    : 'border-border/70 bg-background/70 hover:bg-accent/40'
+                }`}
               >
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${rankBadge.className}`}
@@ -247,6 +255,9 @@ export function DashboardLeaderboardCard({
                 </div>
 
                 <Avatar className="h-10 w-10 border border-border/60">
+                  {entry.avatarUrl ? (
+                    <AvatarImage src={entry.avatarUrl} alt={entry.name} />
+                  ) : null}
                   <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
                     {getInitials(entry.name)}
                   </AvatarFallback>
@@ -267,24 +278,33 @@ export function DashboardLeaderboardCard({
 
                 <div className="text-right">
                   <div className="text-lg font-semibold leading-none">{entry.score}%</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">точность</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">рейтинг</div>
                 </div>
               </motion.div>
             )
-          })}
+          }) : (
+            <motion.div
+              variants={cardItemVariants}
+              className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground"
+            >
+              {isLeaderboardLoading
+                ? 'Обновляем рейтинг...'
+                : 'Пока нет данных для таблицы лидеров. Добавьте стихи и начните тренировки.'}
+            </motion.div>
+          )}
         </motion.div>
 
-        {/* <motion.div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4" variants={cardItemVariants}>
+        <motion.div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4" variants={cardItemVariants}>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">Ваш шанс подняться в топ</div>
+              <div className="text-sm font-medium">{footerTitle}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Завершите сегодняшнюю тренировку без ошибок для роста рейтинга.
+                {footerHint}
               </div>
             </div>
-            <Badge className="rounded-full px-3 py-1">{Math.max(55, avgMasteryPercent)} pts</Badge>
+            <Badge className="rounded-full px-3 py-1">{footerScore}</Badge>
           </div>
-        </motion.div> */}
+        </motion.div>
       </Card>
     </motion.div>
   )

@@ -18,6 +18,10 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import {
+  fetchDashboardLeaderboard,
+  type DashboardLeaderboard,
+} from "@/api/services/leaderboard";
+import {
   fetchUserDashboardStats,
   type UserDashboardStats,
 } from "@/api/services/userStats";
@@ -226,6 +230,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
+  const [dashboardLeaderboard, setDashboardLeaderboard] = useState<DashboardLeaderboard | null>(null);
+  const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
   const [isTrainingBatchPromptOpen, setIsTrainingBatchPromptOpen] = useState(false);
@@ -237,6 +243,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   );
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
+  const dashboardLeaderboardRequestIdRef = useRef(0);
 
   const loadDashboardStats = async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
@@ -263,6 +270,34 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
+  const loadDashboardLeaderboard = async (telegramIdValue: string) => {
+    if (!telegramIdValue) return null;
+
+    const requestId = ++dashboardLeaderboardRequestIdRef.current;
+    setIsDashboardLeaderboardLoading(true);
+
+    try {
+      const nextLeaderboard = await fetchDashboardLeaderboard({
+        telegramId: telegramIdValue,
+        limit: 4,
+      });
+      if (dashboardLeaderboardRequestIdRef.current === requestId) {
+        setDashboardLeaderboard(nextLeaderboard);
+      }
+      return nextLeaderboard;
+    } catch (error) {
+      console.error("Не удалось получить лидерборд:", error);
+      if (dashboardLeaderboardRequestIdRef.current === requestId) {
+        setDashboardLeaderboard(null);
+      }
+      return null;
+    } finally {
+      if (dashboardLeaderboardRequestIdRef.current === requestId) {
+        setIsDashboardLeaderboardLoading(false);
+      }
+    }
+  };
+
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
     let isMounted = true;
@@ -274,24 +309,51 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
 
     void (async () => {
-      const telegramId =
+      const telegramWebUser =
         typeof window !== "undefined"
-          ? (
-              window as any
-            )?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
-            process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
-            localStorage.getItem("telegramId") ??
-            undefined
+          ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user
           : undefined;
+      const telegramId =
+        telegramWebUser?.id?.toString() ??
+        process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
+        localStorage.getItem("telegramId") ??
+        undefined;
+
+      const telegramName = [telegramWebUser?.first_name, telegramWebUser?.last_name]
+        .map((part: unknown) => String(part ?? "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const telegramNickname = String(telegramWebUser?.username ?? "").trim();
+      const telegramAvatarUrl = String(telegramWebUser?.photo_url ?? "").trim();
 
       if (!telegramId) {
         setIsLoading(false);
         setDashboardStats(null);
+        setDashboardLeaderboard(null);
         finishBootstrapping();
         return;
       }
       setTelegramId(telegramId);
       localStorage.setItem("telegramId", telegramId);
+
+      if (telegramWebUser?.id) {
+        try {
+          await apiRequest(OpenAPI, {
+            method: "POST",
+            url: "/api/users/telegram",
+            body: {
+              telegramId,
+              ...(telegramName ? { name: telegramName } : {}),
+              ...(telegramNickname ? { nickname: telegramNickname } : {}),
+              ...(telegramAvatarUrl ? { avatarUrl: telegramAvatarUrl } : {}),
+            },
+            mediaType: "application/json",
+          });
+        } catch (error) {
+          console.warn("Не удалось синхронизировать профиль Telegram:", error);
+        }
+      }
 
       const savedPreferences = readTrainingBatchPreferences();
       if (savedPreferences) {
@@ -311,6 +373,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           const [userData] = await Promise.all([
             UsersService.getApiUsers(telegramId),
             loadDashboardStats(telegramId),
+            loadDashboardLeaderboard(telegramId),
           ]);
           setUser(userData);
           const userVerses = mapUserVersesToAppVerses(userData);
@@ -326,7 +389,10 @@ export default function App({ onInitialContentReady }: AppProps) {
               const newUser = await UsersService.postApiUsers({ telegramId });
               setUser({ ...newUser, verses: [] });
               setVerses([]);
-              await loadDashboardStats(telegramId);
+              await Promise.all([
+                loadDashboardStats(telegramId),
+                loadDashboardLeaderboard(telegramId),
+              ]);
             } catch (createErr) {
               console.error("Не удалось создать пользователя:", createErr);
               toast.error("Ошибка при создании профиля");
@@ -408,6 +474,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
     if (telegramIdValue) {
       void loadDashboardStats(telegramIdValue);
+      void loadDashboardLeaderboard(telegramIdValue);
     }
   };
 
@@ -431,6 +498,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
     void loadDashboardStats(telegramIdValue);
+    void loadDashboardLeaderboard(telegramIdValue);
 
     return patch;
   };
@@ -451,6 +519,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
     void loadDashboardStats(telegramIdValue);
+    void loadDashboardLeaderboard(telegramIdValue);
   };
 
   const handleStartTraining = async (launchOptions?: DashboardTrainingLaunchOptions) => {
@@ -539,6 +608,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
     }
     void loadDashboardStats(telegramId);
+    void loadDashboardLeaderboard(telegramId);
   };
 
   const handleSaveTrainingBatchPreferences = async () => {
@@ -607,7 +677,10 @@ export default function App({ onInitialContentReady }: AppProps) {
       } else {
         await loadAllUserVerses(telegramId);
       }
-      await loadDashboardStats(telegramId);
+      await Promise.all([
+        loadDashboardStats(telegramId),
+        loadDashboardLeaderboard(telegramId),
+      ]);
 
       setVerseListExternalSyncVersion((prev) => prev + 1);
 
@@ -651,6 +724,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                 todayVerses={verses}
                 dashboardStats={dashboardStats}
                 isDashboardStatsLoading={isDashboardStatsLoading}
+                dashboardLeaderboard={dashboardLeaderboard}
+                isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 onStartTraining={handleStartTraining}
                 onAddVerse={handleAddVerse}
                 onViewAll={() => setCurrentPage("verses")}

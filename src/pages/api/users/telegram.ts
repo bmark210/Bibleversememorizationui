@@ -5,6 +5,9 @@ import { Translation } from "@/generated/prisma";
 type TelegramInitPayload = {
   telegramId?: string;
   translation?: string;
+  name?: string;
+  nickname?: string;
+  avatarUrl?: string;
 };
 
 const VALID_TRANSLATIONS: Translation[] = [
@@ -29,6 +32,11 @@ function normalizeTranslationInput(value?: string): Translation | undefined {
   return undefined;
 }
 
+function normalizeOptionalString(value?: string): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Инициализирует пользователя при входе из Telegram, позволяет указать перевод.
   if (req.method !== "POST") {
@@ -38,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as TelegramInitPayload;
-    const { telegramId, translation } = body ?? {};
+    const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
 
     if (!telegramId) {
       return res.status(400).json({ error: "telegramId is required" });
@@ -64,9 +72,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    const nameValue = normalizeOptionalString(name);
+    const nicknameValue = normalizeOptionalString(nickname);
+    const avatarUrlValue = normalizeOptionalString(avatarUrl);
+
     const payload = {
       telegramId,
       ...(validTranslation ? { translation: validTranslation } : {}),
+      ...(nameValue ? { name: nameValue } : {}),
+      ...(nicknameValue ? { nickname: nicknameValue } : {}),
+      ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
     };
 
     const created = await prisma.user.create({ data: payload });

@@ -39,7 +39,7 @@ const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "relative overflow-hidden rounded-[1.1rem]! border! px-4! py-3! backdrop-blur-xl! shadow-[0_24px_50px_-24px_rgba(34,24,14,0.6)]!",
+            "relative rounded-[1.1rem]! border! px-4! pb-3! !mt-10 backdrop-blur-xl! shadow-[0_24px_50px_-24px_rgba(34,24,14,0.6)]!",
           title: "text-[0.94rem]! leading-tight! font-semibold!",
           description: "mt-0.5 text-[0.78rem]! leading-relaxed!",
           content: "gap-1.5!",
