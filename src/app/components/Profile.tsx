@@ -51,6 +51,7 @@ export function Profile({
   const [reminderSchedule, setReminderSchedule] = useState('Ежедневно в 20:00 UTC');
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [isRunningDryRun, setIsRunningDryRun] = useState(false);
 
   const applyNotificationState = useCallback((payload: {
     reminderEnabled: boolean;
@@ -125,6 +126,45 @@ export function Profile({
       );
     } finally {
       setIsSavingNotifications(false);
+    }
+  };
+
+  const handleRunDryRun = async () => {
+    setIsRunningDryRun(true);
+    try {
+      const response = await fetch('/api/cron/telegram-reminders-dry-run', {
+        method: 'POST',
+      });
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        payload?: {
+          processed?: number;
+          sent?: number;
+          skipped?: number;
+          errors?: number;
+        };
+      } | null;
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error ?? 'Не удалось выполнить dry-run');
+      }
+
+      const processed = Number(data?.payload?.processed ?? 0);
+      const sent = Number(data?.payload?.sent ?? 0);
+      const skipped = Number(data?.payload?.skipped ?? 0);
+      const errors = Number(data?.payload?.errors ?? 0);
+
+      toast.success('Dry-run выполнен', {
+        description: `Обработано: ${processed}, отправлено: ${sent}, пропущено: ${skipped}, ошибок: ${errors}.`,
+      });
+    } catch (error) {
+      console.error('Не удалось выполнить dry-run cron:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Не удалось выполнить dry-run'
+      );
+    } finally {
+      setIsRunningDryRun(false);
     }
   };
 
@@ -295,17 +335,27 @@ export function Profile({
                 </div> */}
 
                 <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => void handleSaveNotifications()}
-                    disabled={isBusy || !telegramId}
-                  >
-                    {isSavingNotifications
-                      ? 'Сохраняем...'
-                      : isLoadingNotifications
-                        ? 'Загрузка...'
-                        : 'Сохранить'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleRunDryRun()}
+                      disabled={isBusy || isRunningDryRun}
+                    >
+                      {isRunningDryRun ? 'Тестируем...' : 'Тест dry-run'}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => void handleSaveNotifications()}
+                      disabled={isBusy || !telegramId}
+                    >
+                      {isSavingNotifications
+                        ? 'Сохраняем...'
+                        : isLoadingNotifications
+                          ? 'Загрузка...'
+                          : 'Сохранить'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
