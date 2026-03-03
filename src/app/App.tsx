@@ -87,6 +87,8 @@ export type Verse = {
   repetitions: number;
   lastTrainingModeId?: number | null;
   lastReviewedAt: string | null;
+  translation?: string;
+  nextReview?: string | null;
   nextReviewAt: string | null;
   tags?: Array<{ id: string; slug: string; title: string }>;
   text: string;

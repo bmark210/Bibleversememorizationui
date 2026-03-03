@@ -22,7 +22,6 @@ import type {
   TrainingContactToastPayload,
   TrainingCompletionToastCardPayload,
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
-import type { Verse as LegacyVerse } from "@/app/data/mockData";
 import { MAX_MASTERY_LEVEL, SPACED_REPETITION_MS } from "./constants";
 import type {
   HapticStyle,
@@ -391,7 +390,7 @@ export function getTrainingMilestonePopupPayload(params: {
   };
 }
 
-export function asLegacyVerse(verse: TrainingVerseState): LegacyVerse {
+export function asLegacyVerse(verse: TrainingVerseState): Verse {
   const progress = masteryToProgress(verse.stageMasteryLevel);
   return {
     id: verse.key,
