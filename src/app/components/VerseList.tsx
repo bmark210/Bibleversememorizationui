@@ -144,10 +144,19 @@ export function VerseList({
         </motion.div>
       ) : vm.ui.isEmptyFiltered ? (
         <motion.div {...reveal(0.05)}>
+          <VerseListSectionShell config={{
+            headingId: 'empty-verse-list-heading',
+            title: vm.ui.currentFilterLabel,
+            subtitle: `По фильтру «${vm.ui.currentFilterLabel}» сейчас нет карточек.`,
+            dotClassName: 'bg-gray-400',
+            borderClassName: 'bg-gradient-to-b from-gray-500/5 to-background',
+            tintClassName: 'bg-gray-500/5'
+          }} count={vm.pagination.totalCount} contentHeightMode="auto">
           <VerseListEmptyState
             currentFilterLabel={vm.ui.currentFilterLabel}
             isAllFilter={vm.filters.statusFilter === 'catalog'}
           />
+          </VerseListSectionShell>
         </motion.div>
       ) : vm.list.sectionConfig ? (
         <motion.div {...reveal(0.06)}>

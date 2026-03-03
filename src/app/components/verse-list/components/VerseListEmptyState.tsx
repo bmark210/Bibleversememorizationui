@@ -17,7 +17,7 @@ export function VerseListEmptyState({
     : `По фильтру «${currentFilterLabel}» сейчас нет карточек. Попробуйте переключить фильтр.`;
 
   return (
-    <Card className="relative overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-background via-background to-muted/30 p-7 sm:p-8 text-center gap-4">
+    <Card className="relative my-4 overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-background via-background to-muted/30 p-7 sm:p-8 text-center gap-4">
       <div className="pointer-events-none absolute inset-0 opacity-40">
         <div className="absolute -left-10 top-4 h-24 w-24 rounded-full bg-foreground/5 blur-2xl" />
         <div className="absolute -right-6 bottom-3 h-20 w-20 rounded-full bg-foreground/5 blur-2xl" />

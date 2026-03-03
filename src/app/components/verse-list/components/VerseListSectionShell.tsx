@@ -6,10 +6,24 @@ import type { VerseListSectionConfig } from '../types';
 type VerseListSectionShellProps = {
   config: VerseListSectionConfig;
   count: number;
+  contentHeightMode?: 'virtualized' | 'auto';
   children: React.ReactNode;
 };
 
-export function VerseListSectionShell({ config, count, children }: VerseListSectionShellProps) {
+export function VerseListSectionShell({
+  config,
+  count,
+  contentHeightMode = 'virtualized',
+  children,
+}: VerseListSectionShellProps) {
+  const maxViewportHeight = 'clamp(20rem,56dvh,40rem)';
+  const estimatedRows = count > 0 ? count : 3;
+  const viewportHeight = `min(calc(${estimatedRows} * 11rem), ${maxViewportHeight})`;
+  const shouldUseVirtualizedViewport = contentHeightMode === 'virtualized';
+  const contentStyle = shouldUseVirtualizedViewport
+    ? { height: viewportHeight, maxHeight: maxViewportHeight }
+    : undefined;
+
   return (
     <section className="min-h-0" aria-labelledby={config.headingId}>
       <Card
@@ -33,7 +47,7 @@ export function VerseListSectionShell({ config, count, children }: VerseListSect
         </div>
 
         <div className="px-3 sm:px-4 min-h-0">
-          <div className="h-[clamp(20rem,56dvh,40rem)] min-h-0">
+          <div className={shouldUseVirtualizedViewport ? 'min-h-0' : 'h-fit'} style={contentStyle}>
             {children}
           </div>
         </div>
