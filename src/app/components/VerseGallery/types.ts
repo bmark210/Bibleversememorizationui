@@ -52,6 +52,7 @@ export type TrainingVerseState = {
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
+  activeTagSlugs?: Iterable<string> | null;
   launchMode?: VerseGalleryLaunchMode;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;

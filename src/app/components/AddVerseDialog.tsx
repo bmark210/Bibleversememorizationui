@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Check, Download, Loader2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { BookOpen, Check, Download, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -36,6 +36,7 @@ import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { TagsService } from "@/api/services/TagsService";
 import type { Tag } from "@/api/models/Tag";
 import { toast } from "@/app/lib/toast";
+import { isAdminTelegramId } from "@/lib/admins";
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ interface AddVerseDialogProps {
     externalVerseId: string;
     reference: string;
     tags: string[];
+    replaceTags?: boolean;
   }) => Promise<void>;
   onCreateTag?: (title: string, slug: string) => Promise<void>;
 }
@@ -129,6 +131,13 @@ type SelectedVerse = {
   verse: number;
   reference: string;
   text: string;
+};
+
+type VerseAdminSummary = {
+  externalVerseId: string;
+  userLinksCount: number;
+  tagLinksCount: number;
+  canDelete: boolean;
 };
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
@@ -155,6 +164,14 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [tagDeleteMode, setTagDeleteMode] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
   const [tagListShadows, setTagListShadows] = useState({ top: false, bottom: false });
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagTitle, setEditingTagTitle] = useState("");
+  const [savingTagId, setSavingTagId] = useState<string | null>(null);
+
+  const [viewerTelegramId, setViewerTelegramId] = useState<string>("");
+  const [adminVerseSummary, setAdminVerseSummary] = useState<VerseAdminSummary | null>(null);
+  const [adminVerseSummaryLoading, setAdminVerseSummaryLoading] = useState(false);
+  const [isDeletingVerseFromCatalog, setIsDeletingVerseFromCatalog] = useState(false);
 
   // ── Ручной выбор ────────────────────────────────────────────────────────────
   const [bookId, setBookId] = useState("");
@@ -166,6 +183,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const verseCountCache = useRef<Map<string, number>>(new Map());
   const [verseCount, setVerseCount] = useState<number | null>(null);
   const [verseCountLoading, setVerseCountLoading] = useState(false);
+  const [verseTagsLoaded, setVerseTagsLoaded] = useState(false);
 
   // ── Поиск ───────────────────────────────────────────────────────────────────
   // const [query, setQuery] = useState("");
@@ -194,6 +212,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const canFetch = Boolean(toInt(bookId) && toInt(chapterNo) && toInt(verseNo));
   const canSubmit = Boolean(selectedVerse && !submitting);
   const newTagSlug = slugify(newTagTitle);
+  const isAdmin = isAdminTelegramId(viewerTelegramId);
 
   // ── Загружаем теги при открытии ───────────────────────────────────────────
 
@@ -228,6 +247,15 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     }
     localStorage.setItem(MODE_KEY, inputMode);
   }, [inputMode]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+
+    const fromTelegram = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const fromStorage = window.localStorage.getItem("telegramId");
+    const resolved = String(fromTelegram ?? fromStorage ?? "").trim();
+    setViewerTelegramId(resolved);
+  }, [open]);
 
   // ── Загружаем количество стихов при выборе главы ────────────────────────────
 
@@ -308,6 +336,52 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     updateTagListShadows,
   ]);
 
+  useEffect(() => {
+    if (!open || !selectedVerse || !isAdmin || !viewerTelegramId) {
+      setAdminVerseSummary(null);
+      setAdminVerseSummaryLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const externalVerseId = `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`;
+
+    setAdminVerseSummaryLoading(true);
+    void fetch(
+      `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`
+    )
+      .then(async (response) => {
+        if (cancelled) return;
+        if (response.status === 404) {
+          setAdminVerseSummary(null);
+          return;
+        }
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(payload?.error || "Не удалось получить статус стиха");
+        }
+        const payload = await response.json() as VerseAdminSummary;
+        if (!cancelled) {
+          setAdminVerseSummary(payload);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAdminVerseSummary(null);
+          console.error("Не удалось загрузить admin summary стиха:", error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAdminVerseSummaryLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedVerse, isAdmin, viewerTelegramId]);
+
   // ── Функции ──────────────────────────────────────────────────────────────────
 
   const toggleTag = useCallback((slug: string) => {
@@ -318,6 +392,119 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       return next;
     });
   }, []);
+
+  const loadSelectedVerseTags = useCallback(async (externalVerseId: string) => {
+    setVerseTagsLoaded(false);
+    try {
+      const tags = await TagsService.getApiVersesTags(externalVerseId);
+      const slugs = tags
+        .map((tag) => tag.slug ?? "")
+        .filter(Boolean);
+      setSelectedTagSlugs(new Set(slugs));
+      setVerseTagsLoaded(true);
+    } catch (error) {
+      console.error("Не удалось загрузить теги стиха:", error);
+      setSelectedTagSlugs(new Set());
+      setVerseTagsLoaded(false);
+    }
+  }, []);
+
+  const beginTagRename = useCallback((tag: Tag) => {
+    if (!tag.id) return;
+    setEditingTagId(tag.id);
+    setEditingTagTitle((tag.title ?? "").trim());
+    setTagDeleteMode(false);
+  }, []);
+
+  const cancelTagRename = useCallback(() => {
+    setEditingTagId(null);
+    setEditingTagTitle("");
+  }, []);
+
+  const handleRenameTag = useCallback(async () => {
+    const tagId = editingTagId;
+    const nextTitle = editingTagTitle.trim();
+    if (!tagId || !nextTitle) return;
+
+    setSavingTagId(tagId);
+    try {
+      const response = await fetch(`/api/tags/${tagId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+
+      const payload = await response.json().catch(() => null) as
+        | { id?: string; title?: string; error?: string }
+        | null;
+
+      if (!response.ok) {
+        toast.error(payload?.error || "Не удалось переименовать тег");
+        return;
+      }
+
+      setAllTags((prev) => {
+        const next = prev.map((tag) =>
+          tag.id === tagId
+            ? { ...tag, title: payload?.title ?? nextTitle }
+            : tag
+        );
+        return sortTagsByTitle(next);
+      });
+
+      setEditingTagId(null);
+      setEditingTagTitle("");
+      toast.success("Название тега обновлено");
+    } catch {
+      toast.error("Не удалось переименовать тег");
+    } finally {
+      setSavingTagId(null);
+    }
+  }, [editingTagId, editingTagTitle]);
+
+  const handleDeleteVerseFromCatalog = useCallback(async () => {
+    if (!selectedVerse || !isAdmin || !viewerTelegramId) return;
+    const externalVerseId = `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`;
+
+    const confirmed = window.confirm(
+      "Удалить стих из общей базы? Это возможно только если стих не связан ни с одним пользователем."
+    );
+    if (!confirmed) return;
+
+    setIsDeletingVerseFromCatalog(true);
+    try {
+      const response = await fetch(
+        `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json().catch(() => null) as
+        | { error?: string; userLinksCount?: number }
+        | null;
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          const links = payload?.userLinksCount;
+          toast.error(
+            typeof links === "number" && links > 0
+              ? `Стих используется у ${links} пользователей`
+              : "Стих ещё используется пользователями"
+          );
+          return;
+        }
+        toast.error(payload?.error || "Не удалось удалить стих из базы");
+        return;
+      }
+
+      setAdminVerseSummary(null);
+      setSelectedTagSlugs(new Set());
+      toast.success("Стих удалён из общей базы");
+    } catch (error) {
+      console.error("Не удалось удалить стих из общей базы:", error);
+      toast.error("Не удалось удалить стих из базы");
+    } finally {
+      setIsDeletingVerseFromCatalog(false);
+    }
+  }, [isAdmin, selectedVerse, viewerTelegramId]);
 
   const handleCreateTag = async () => {
     if (!newTagTitle.trim() || !newTagSlug || creatingTag) return;
@@ -405,10 +592,17 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setSelectedTagSlugs(new Set());
     setCreateTagMode(false);
     setTagDeleteMode(false);
+    setEditingTagId(null);
+    setEditingTagTitle("");
+    setSavingTagId(null);
     setTagListShadows({ top: false, bottom: false });
     setNewTagTitle("");
     setDeletingTagId(null);
+    setAdminVerseSummary(null);
+    setAdminVerseSummaryLoading(false);
+    setIsDeletingVerseFromCatalog(false);
     setSubmitting(false);
+    setVerseTagsLoaded(false);
     setBookId("");
     setChapterNo("");
     setVerseNo("");
@@ -443,6 +637,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     try {
       const res = await getHelloaoVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
       if (!res || !Number.isFinite(Number(res.verse))) throw new Error("Стих не найден");
+      const externalVerseId = `${bid}-${ch}-${v}`;
+      await loadSelectedVerseTags(externalVerseId);
       setSelectedVerse({
         book: bid as BibleBook,
         chapter: ch,
@@ -521,6 +717,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   }, [updateTagListShadows]);
 
   const selectResult = (r: SearchResult) => {
+    void loadSelectedVerseTags(`${r.book}-${r.chapter}-${r.verse}`);
     setSelectedVerse({ book: r.book, chapter: r.chapter, verse: r.verse, reference: r.reference, text: r.text });
     setBookId(r.book.toString());
     setChapterNo(r.chapter.toString());
@@ -536,6 +733,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         externalVerseId: `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`,
         reference: selectedVerse.reference,
         tags: Array.from(selectedTagSlugs),
+        replaceTags: verseTagsLoaded,
       });
       handleClose();
     } catch { /* toast показывается выше */ } finally { setSubmitting(false); }
@@ -594,6 +792,12 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         </p>
       )}
 
+      {manageOnly && !createTagMode && !tagDeleteMode && allTags.length > 0 && (
+        <p className="px-4 text-[11px] text-muted-foreground/75">
+          Нажмите на тег, чтобы переименовать
+        </p>
+      )}
+
       {createTagMode && (
         <div className="flex gap-2 items-center px-4">
           <Input
@@ -643,14 +847,65 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
             {allTags.map((tag) => {
               const slug = tag.slug ?? "";
               const canToggle = !manageOnly && !tagDeleteMode && Boolean(slug);
+              const canRename = manageOnly && !tagDeleteMode && !createTagMode && Boolean(tag.id);
               const active = canToggle && selectedTagSlugs.has(slug);
               const isDeleting = deletingTagId === tag.id;
+              const isEditing = manageOnly && editingTagId === tag.id;
+              const isSaving = savingTagId === tag.id;
+
+              if (isEditing && tag.id) {
+                return (
+                  <div key={tag.id} className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/80 px-2 py-1">
+                    <Input
+                      value={editingTagTitle}
+                      onChange={(e) => setEditingTagTitle(e.target.value)}
+                      className="h-7 min-w-[140px] rounded-lg text-xs"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleRenameTag();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelTagRename();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleRenameTag()}
+                      disabled={!editingTagTitle.trim() || isSaving}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-primary/12 text-primary disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelTagRename}
+                      disabled={isSaving}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground disabled:opacity-50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              }
+
               return (
                 <div key={tag.id ?? slug} className="shrink-0 group/tag relative">
                   <button
                     type="button"
-                    onClick={() => canToggle && toggleTag(slug)}
-                    disabled={isDeleting || !canToggle}
+                    onClick={() => {
+                      if (canToggle) {
+                        toggleTag(slug);
+                        return;
+                      }
+                      if (canRename) {
+                        beginTagRename(tag);
+                      }
+                    }}
+                    disabled={isDeleting || (!canToggle && !canRename)}
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${
                       active
                         ? "border-primary/40 bg-primary/10 text-primary"
@@ -661,6 +916,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" />
                     ) : active ? (
                       <Check className="h-2.5 w-2.5 shrink-0" />
+                    ) : canRename ? (
+                      <Pencil className="h-2.5 w-2.5 shrink-0" />
                     ) : (
                       <span className="text-[10px] text-muted-foreground/35">#</span>
                     )}
@@ -874,6 +1131,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       setChapterNo("");
                       setVerseNo("");
                       setSelectedVerse(null);
+                      setVerseTagsLoaded(false);
                       setVerseCount(null);
                     }}
                   >
@@ -900,6 +1158,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                         setChapterNo(v);
                         setVerseNo("");
                         setSelectedVerse(null);
+                        setVerseTagsLoaded(false);
                       }}
                       disabled={!bookId || chaptersCount === 0}
                     >
@@ -925,6 +1184,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       onValueChange={(v) => {
                         setVerseNo(v);
                         setSelectedVerse(null);
+                        setVerseTagsLoaded(false);
                       }}
                       disabled={!chapterNo}
                     >
@@ -967,7 +1227,10 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                     </span>
                     <button
                       type="button"
-                      onClick={() => setSelectedVerse(null)}
+                      onClick={() => {
+                        setSelectedVerse(null);
+                        setVerseTagsLoaded(false);
+                      }}
                       className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                     >
                       <RefreshCw className="h-3 w-3" />
@@ -984,7 +1247,66 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
               </div>
             )}
 
+            {selectedVerse && isAdmin && (
+              <div className="rounded-2xl border border-destructive/25 bg-gradient-to-b from-background to-destructive/5 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Админ: каталог стиха
+                    </p>
+                    {adminVerseSummaryLoading ? (
+                      <p className="text-xs text-muted-foreground">Проверяем связи стиха...</p>
+                    ) : adminVerseSummary ? (
+                      <p className="text-xs text-muted-foreground">
+                        Связей с пользователями: <span className="font-semibold text-foreground">{adminVerseSummary.userLinksCount}</span>
+                        {" · "}
+                        Тегов: <span className="font-semibold text-foreground">{adminVerseSummary.tagLinksCount}</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Стих ещё не в общей базе. Сначала добавьте его пользователю.
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => void handleDeleteVerseFromCatalog()}
+                    disabled={
+                      isDeletingVerseFromCatalog ||
+                      adminVerseSummaryLoading ||
+                      !adminVerseSummary?.canDelete
+                    }
+                    className="rounded-xl"
+                  >
+                    {isDeletingVerseFromCatalog ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Удаляем...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Удалить стих
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {adminVerseSummary && !adminVerseSummary.canDelete && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Удаление недоступно: стих используется у пользователей.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* ── Теги ──────────────────────────────────────────────────────── */}
+            {selectedVerse && !verseTagsLoaded && (
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                Не удалось синхронизировать текущие теги стиха. При сохранении будут добавлены только выбранные теги.
+              </p>
+            )}
             {selectedVerse && renderTagManager(false)}
           </div>
 

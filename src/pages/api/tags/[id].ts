@@ -51,12 +51,26 @@ async function handleDelete(res: NextApiResponse, id: string) {
 async function handlePatch(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
     const { title } = (req.body ?? {}) as { title?: string };
-    if (!title?.trim()) {
+    const normalizedTitle = title?.trim();
+    if (!normalizedTitle) {
       return res.status(400).json({ error: "title is required" });
     }
+
+    const duplicate = await prisma.tag.findFirst({
+      where: {
+        title: normalizedTitle,
+        NOT: { id },
+      },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      return res.status(409).json({ error: "Tag with this title already exists" });
+    }
+
     const updated = await prisma.tag.update({
       where: { id },
-      data: { title: title.trim() },
+      data: { title: normalizedTitle },
     });
     return res.status(200).json(updated);
   } catch (error) {

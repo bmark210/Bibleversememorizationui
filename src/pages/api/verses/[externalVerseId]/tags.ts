@@ -7,6 +7,11 @@ type ModifyTagPayload = {
   deleteTagIfUnused?: boolean;
 };
 
+type ReplaceVerseTagsPayload = {
+  tagIds?: string[];
+  tagSlugs?: string[];
+};
+
 async function resolveTagId(payload: ModifyTagPayload) {
   if (payload.tagId) {
     return payload.tagId;
@@ -51,7 +56,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleDelete(req, res, externalVerseId);
   }
 
-  res.setHeader("Allow", "GET, POST, DELETE");
+  if (req.method === "PUT") {
+    return handlePut(req, res, externalVerseId);
+  }
+
+  res.setHeader("Allow", "GET, POST, DELETE, PUT");
   return res.status(405).json({ error: "Method Not Allowed" });
 }
 
@@ -180,6 +189,108 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error("Error deleting verse tag:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+}
+
+async function resolveTagIdsForReplace(payload: ReplaceVerseTagsPayload): Promise<{
+  tagIds: string[];
+  missingTagIds: string[];
+  missingTagSlugs: string[];
+}> {
+  const tagIdsFromBody = Array.from(new Set(normalizeStringArray(payload.tagIds)));
+  const tagSlugsFromBody = Array.from(new Set(normalizeStringArray(payload.tagSlugs)));
+
+  const resolvedTagIds = new Set<string>();
+  let missingTagIds: string[] = [];
+  let missingTagSlugs: string[] = [];
+
+  if (tagIdsFromBody.length > 0) {
+    const byIds = await prisma.tag.findMany({
+      where: { id: { in: tagIdsFromBody } },
+      select: { id: true },
+    });
+    byIds.forEach((tag) => resolvedTagIds.add(tag.id));
+    const existingIds = new Set(byIds.map((tag) => tag.id));
+    missingTagIds = tagIdsFromBody.filter((id) => !existingIds.has(id));
+  }
+
+  if (tagSlugsFromBody.length > 0) {
+    const bySlugs = await prisma.tag.findMany({
+      where: { slug: { in: tagSlugsFromBody } },
+      select: { id: true, slug: true },
+    });
+    bySlugs.forEach((tag) => resolvedTagIds.add(tag.id));
+    const existingSlugs = new Set(bySlugs.map((tag) => tag.slug));
+    missingTagSlugs = tagSlugsFromBody.filter((slug) => !existingSlugs.has(slug));
+  }
+
+  return {
+    tagIds: Array.from(resolvedTagIds),
+    missingTagIds,
+    missingTagSlugs,
+  };
+}
+
+async function handlePut(req: NextApiRequest, res: NextApiResponse, externalVerseId: string) {
+  // Полностью заменяет набор тегов стиха.
+  try {
+    const body = (req.body ?? {}) as ReplaceVerseTagsPayload;
+    const verseId = await resolveVerseId(externalVerseId);
+    if (!verseId) {
+      return res.status(404).json({ error: "Verse not found" });
+    }
+
+    const { tagIds, missingTagIds, missingTagSlugs } = await resolveTagIdsForReplace(body);
+    if (missingTagIds.length > 0 || missingTagSlugs.length > 0) {
+      return res.status(400).json({
+        error: "Some tags were not found",
+        missingTagIds,
+        missingTagSlugs,
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.verseTag.deleteMany({
+        where: { verseId },
+      });
+
+      if (tagIds.length > 0) {
+        await tx.verseTag.createMany({
+          data: tagIds.map((tagId) => ({
+            verseId,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    });
+
+    const tags = await prisma.tag.findMany({
+      where: {
+        verses: {
+          some: { verseId },
+        },
+      },
+      orderBy: { title: "asc" },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      tags,
+    });
+  } catch (error) {
+    console.error("Error replacing verse tags:", error);
     return res.status(500).json({
       error: "Internal Server Error",
       details: error instanceof Error ? error.message : String(error),

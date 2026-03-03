@@ -23,6 +23,7 @@ import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
 type Props = {
   verse: Verse;
   actionPending: boolean;
+  activeTagSlugs?: Iterable<string> | null;
   onStartTraining: () => void;
   onStatusAction: () => void;
 };
@@ -30,6 +31,7 @@ type Props = {
 export function VersePreviewCard({
   verse,
   actionPending,
+  activeTagSlugs = null,
   onStartTraining,
   onStatusAction,
 }: Props) {
@@ -83,22 +85,24 @@ export function VersePreviewCard({
     status !== "CATALOG" && status !== VerseStatus.MY;
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
         isActive
         minHeight="training"
         previewTone={tone}
+        tags={verse.tags ?? []}
+        activeTagSlugs={activeTagSlugs}
         header={
-          <div className="flex-shrink-0 text-center space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic">
+          <div className="w-full min-w-0 flex-shrink-0 text-center space-y-3">
+            <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic break-words [overflow-wrap:anywhere]">
               {verse.reference}
             </h2>
             <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
           </div>
         }
         body={
-          <div className="h-full flex items-center justify-center overflow-hidden px-2">
-            <p className="text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center line-clamp-[9] font-light">
+          <div className="h-full min-w-0 flex items-center justify-center overflow-hidden px-2">
+            <p className="max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center line-clamp-[9] font-light break-words [overflow-wrap:anywhere]">
               «{verse.text}»
             </p>
           </div>
@@ -107,7 +111,7 @@ export function VersePreviewCard({
           <Button
             variant="secondary"
             className={cn(
-              "gap-2 min-w-[200px] shadow-lg rounded-2xl backdrop-blur-sm",
+              "gap-2 min-w-[200px] max-w-full shadow-lg rounded-2xl backdrop-blur-sm",
               primaryAction?.className
             )}
             onClick={primaryAction?.onClick}
@@ -115,7 +119,7 @@ export function VersePreviewCard({
             aria-label={primaryAction?.ariaLabel}
           >
             {primaryAction ? <primaryAction.icon className="h-4 w-4" /> : null}
-            {primaryAction?.label}
+            <span className="min-w-0 truncate">{primaryAction?.label}</span>
           </Button>
         }
         footer={

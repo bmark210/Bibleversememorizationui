@@ -15,7 +15,6 @@ import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import { UserVersesService } from "@/api/services/UserVersesService";
-import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import {
   fetchDashboardLeaderboard,
@@ -777,6 +776,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     externalVerseId: string;
     reference: string;
     tags: string[]; // tag slugs
+    replaceTags?: boolean;
   }): Promise<void> => {
     const telegramId = localStorage.getItem("telegramId") ?? "";
 
@@ -796,13 +796,37 @@ export default function App({ onInitialContentReady }: AppProps) {
         },
       });
 
-      // Attach selected tags (non-blocking per tag — best-effort)
-      if (verse.tags.length > 0) {
-        await Promise.allSettled(
-          verse.tags.map((slug) =>
-            TagsService.postApiVersesTags(verse.externalVerseId, { tagSlug: slug })
-          )
-        );
+      if (verse.replaceTags === false) {
+        if (verse.tags.length > 0) {
+          await Promise.allSettled(
+            verse.tags.map((slug) =>
+              apiRequest(OpenAPI, {
+                method: "POST",
+                url: "/api/verses/{externalVerseId}/tags",
+                path: {
+                  externalVerseId: verse.externalVerseId,
+                },
+                body: {
+                  tagSlug: slug,
+                },
+                mediaType: "application/json",
+              })
+            )
+          );
+        }
+      } else {
+        // Replace verse tags with the exact selection from the modal.
+        await apiRequest(OpenAPI, {
+          method: "PUT",
+          url: "/api/verses/{externalVerseId}/tags",
+          path: {
+            externalVerseId: verse.externalVerseId,
+          },
+          body: {
+            tagSlugs: verse.tags,
+          },
+          mediaType: "application/json",
+        });
       }
 
       const effectivePreferences =
@@ -916,7 +940,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         />
       )}
 
-      {isTrainingBatchPromptOpen && (
+      {/* {isTrainingBatchPromptOpen && (
         <div className="fixed inset-0 z-[450] bg-background/70 backdrop-blur-sm p-4 flex items-center justify-center">
           <Card className="w-full max-w-lg p-6 sm:p-7 border-border/70 shadow-xl">
             <div className="space-y-6">
@@ -967,7 +991,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             </div>
           </Card>
         </div>
-      )}
+      )} */}
 
       <Toaster />
     </>

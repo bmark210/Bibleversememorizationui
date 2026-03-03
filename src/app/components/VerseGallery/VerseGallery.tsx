@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
@@ -20,6 +20,11 @@ import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import { VerseStatus } from "@/generated/prisma";
+import {
+  createVerticalTouchSwipeStart,
+  getVerticalTouchSwipeStep,
+  type VerticalTouchSwipeStart,
+} from "@/shared/ui/verticalTouchSwipe";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
@@ -71,6 +76,7 @@ const slideVariants = {
 export function VerseGallery({
   verses,
   initialIndex,
+  activeTagSlugs = null,
   launchMode = "preview",
   onClose,
   onStatusChange,
@@ -87,6 +93,7 @@ export function VerseGallery({
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const previewTouchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -272,10 +279,28 @@ export function VerseGallery({
         void nav.navigatePreviewTo(my < 0 ? "next" : "prev");
       }
     },
-    { axis: "y", filterTaps: true, pointer: { touch: true }, threshold: 10 }
+    { axis: "y", filterTaps: true, pointer: { touch: false }, threshold: 10 }
   );
   const previewSwipeHandlers =
     training.panelMode === "preview" ? previewSwipeBind() : undefined;
+
+  const handlePreviewTouchStart = useCallback((e: ReactTouchEvent<HTMLDivElement>) => {
+    if (training.panelMode !== "preview" || training.isAutoStartingTraining) return;
+    previewTouchSwipeStartRef.current = createVerticalTouchSwipeStart(e);
+  }, [training.panelMode, training.isAutoStartingTraining]);
+
+  const handlePreviewTouchEnd = useCallback((e: ReactTouchEvent<HTMLDivElement>) => {
+    if (training.panelMode !== "preview" || training.isAutoStartingTraining) return;
+
+    const step = getVerticalTouchSwipeStep(
+      previewTouchSwipeStartRef.current,
+      e,
+      { minVerticalDistance: 48, verticalDominanceRatio: 1.05 }
+    );
+    previewTouchSwipeStartRef.current = null;
+    if (!step) return;
+    void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
+  }, [nav, training.panelMode, training.isAutoStartingTraining]);
 
   // ── Display values ───────────────────────────────────────────────────────────
   const displayVerse =
@@ -331,7 +356,7 @@ export function VerseGallery({
               ? "Режим обучения"
               : "Просмотр стиха"
         }
-        className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
       >
 
       {/* Accessibility announcements */}
@@ -368,15 +393,22 @@ export function VerseGallery({
               initial="enter"
               animate="center"
               exit="exit"
-              className="col-start-1 row-start-1 w-full max-w-4xl focus-visible:outline-none"
+              className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
               tabIndex={-1}
             >
               {training.panelMode === "preview" && previewActiveVerse ? (
                 // Swipe wrapper with touch-action:none so @use-gesture works on touch devices
-                <div {...previewSwipeHandlers} style={{ touchAction: "none" }}>
+                <div
+                  {...previewSwipeHandlers}
+                  className="w-full min-w-0 overflow-x-hidden"
+                  style={{ touchAction: "none" }}
+                  onTouchStart={handlePreviewTouchStart}
+                  onTouchEnd={handlePreviewTouchEnd}
+                >
                   <VersePreviewCard
                     verse={previewActiveVerse}
                     actionPending={aux.actionPending}
+                    activeTagSlugs={activeTagSlugs}
                     onStartTraining={() => void training.startTrainingFromActiveVerse()}
                     onStatusAction={() => void handlePreviewStatusAction()}
                   />

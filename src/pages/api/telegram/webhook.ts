@@ -33,15 +33,14 @@ function normalizeCommand(rawText: string): { command: string; payload: string }
 function buildWelcomeText(firstName: string | undefined, appUrl: string) {
   const userName = firstName?.trim() || "друг";
   const appLine = appUrl
-    ? "Откройте приложение кнопкой ниже."
+    ? "Откройте приложение."
     : "Приложение сейчас недоступно.";
 
   return [
     `Привет, ${userName}! 🌟`,
     "",
     "Я бот-помощник для приложения Bible Memory 📖",
-    "Нажмите кнопку ниже, чтобы открыть приложение.",
-    "",
+    "Приложение поможет вам запоминать стихи из Библии",
     appLine,
   ].join("\n");
 }

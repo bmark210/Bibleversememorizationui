@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { motion } from "motion/react";
 import {
   createVerticalTouchSwipeStart,
@@ -19,6 +19,12 @@ export type VerseCardPreviewTone =
   | "mastered"
   | "stopped";
 
+export type VerseCardTag = {
+  id?: string;
+  slug?: string;
+  title: string;
+};
+
 export interface VerseCardProps {
   isActive?: boolean;
   header?: ReactNode;
@@ -30,6 +36,8 @@ export interface VerseCardProps {
   minHeight?: VerseCardMinHeight;
   bodyScrollable?: boolean;
   previewTone?: VerseCardPreviewTone;
+  tags?: VerseCardTag[];
+  activeTagSlugs?: Iterable<string> | null;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
 }
 
@@ -54,6 +62,7 @@ const SWIPE_SCROLL_MIN_STEP_PX = 112;
 const SWIPE_TINY_OVERFLOW_MAX_SCROLL_PX = 56;
 const MIN_SCROLLABLE_OVERFLOW_PX = 0.5;
 const SWIPE_MIN_DISTANCE_DEFAULT_PX = 70;
+const MAX_VISIBLE_TAGS = 2;
 
 const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   auto: "",
@@ -62,12 +71,21 @@ const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
 };
 
 const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "border-sky-500/20 bg-gradient-to-br from-sky-500/8 via-card to-card/85",
-  catalog: "border-slate-500/20 bg-gradient-to-br from-slate-500/6 via-card to-card/85",
-  learning: "border-emerald-500/20 bg-gradient-to-br from-emerald-500/8 via-card to-card/85",
-  review: "border-violet-500/22 bg-gradient-to-br from-violet-500/10 via-card to-card/85",
-  mastered: "border-amber-500/28 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/8",
-  stopped: "border-rose-500/20 bg-gradient-to-br from-rose-500/8 via-card to-card/85",
+  my: "bg-gradient-to-br from-sky-500/8 via-card to-card",
+  catalog: "bg-gradient-to-br from-slate-500/6 via-card to-card",
+  learning: "bg-gradient-to-br from-emerald-500/8 via-card to-card",
+  review: "bg-gradient-to-br from-violet-500/10 via-card to-card",
+  mastered: "bg-gradient-to-br from-amber-400/14 via-card to-card",
+  stopped: "bg-gradient-to-br from-rose-500/8 via-card to-card",
+};
+
+const PREVIEW_TONE_FRAME_CLASS: Record<VerseCardPreviewTone, string> = {
+  my: "bg-sky-500/28",
+  catalog: "bg-slate-500/24",
+  learning: "bg-emerald-500/26",
+  review: "bg-violet-500/30",
+  mastered: "bg-amber-500/34",
+  stopped: "bg-rose-500/26",
 };
 
 const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
@@ -88,6 +106,15 @@ const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
   stopped: "from-rose-500/0 via-rose-500/35 to-rose-500/0",
 };
 
+const PREVIEW_TONE_TAG_CLASS: Record<VerseCardPreviewTone, string> = {
+  my: "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300",
+  catalog: "border-slate-500/30 bg-slate-500/10 text-slate-800 dark:text-slate-300",
+  learning: "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300",
+  review: "border-violet-500/32 bg-violet-500/10 text-violet-800 dark:text-violet-300",
+  mastered: "border-amber-500/35 bg-amber-500/12 text-amber-900 dark:text-amber-300",
+  stopped: "border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-300",
+};
+
 export function VerseCard({
   isActive = true,
   header,
@@ -99,6 +126,8 @@ export function VerseCard({
   minHeight = "training",
   bodyScrollable = false,
   previewTone,
+  tags,
+  activeTagSlugs = null,
   onVerticalSwipeStep,
 }: VerseCardProps) {
   const enableTapScale = !bodyScrollable;
@@ -108,6 +137,46 @@ export function VerseCard({
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const touchGestureRef = useRef<CardTouchGestureContext | null>(null);
   const stepScrollTargetTopRef = useRef<number | null>(null);
+  const activeTagSlugSet = useMemo(() => {
+    const next = new Set<string>();
+    if (!activeTagSlugs) return next;
+    for (const rawSlug of activeTagSlugs) {
+      const slug = String(rawSlug ?? "").trim();
+      if (!slug) continue;
+      next.add(slug);
+    }
+    return next;
+  }, [activeTagSlugs]);
+  const normalizedTags = useMemo(() => {
+    if (!Array.isArray(tags) || tags.length === 0) return [] as VerseCardTag[];
+    const seen = new Set<string>();
+    const next: VerseCardTag[] = [];
+    for (const tag of tags) {
+      const title = String(tag?.title ?? "").trim();
+      if (!title) continue;
+      const key = String(tag?.id ?? tag?.slug ?? title.toLowerCase());
+      if (seen.has(key)) continue;
+      seen.add(key);
+      next.push({
+        id: tag?.id,
+        slug: tag?.slug,
+        title,
+      });
+    }
+    return next;
+  }, [tags]);
+  const displayedTags = useMemo(() => {
+    if (activeTagSlugSet.size === 0) return normalizedTags;
+    return normalizedTags.filter((tag) => {
+      const slug = String(tag.slug ?? "").trim();
+      return Boolean(slug) && activeTagSlugSet.has(slug);
+    });
+  }, [normalizedTags, activeTagSlugSet]);
+  const visibleTags = useMemo(
+    () => displayedTags.slice(0, MAX_VISIBLE_TAGS),
+    [displayedTags]
+  );
+  const hiddenTagsCount = Math.max(0, displayedTags.length - visibleTags.length);
   const [scrollFadeState, setScrollFadeState] = useState<ScrollFadeState>({
     canScroll: false,
     showTop: false,
@@ -363,22 +432,30 @@ export function VerseCard({
   }, [bodyScrollable, body, contentClassName, header, footer, centerAction, minHeight, updateScrollFadeState]);
 
   return (
-    <div className={cn("relative w-full max-w-2xl mx-auto select-none", shellClassName)}>
+    <div className={cn("relative mx-auto w-full min-w-0 max-w-2xl select-none overflow-x-hidden", shellClassName)}>
       <motion.div
         whileTap={enableTapScale ? { scale: 0.985 } : undefined}
         onTouchStart={onVerticalSwipeStep ? handleTouchStart : undefined}
         onTouchEnd={onVerticalSwipeStep ? handleTouchEnd : undefined}
         className={cn(
-          "relative z-10 w-full bg-gradient-to-br from-card to-card/80",
-          "backdrop-blur-sm rounded-[3rem] border-2 border-border/50",
-          "shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
-          "p-6 sm:p-10 flex flex-col overflow-hidden",
+          "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)]",
+          "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
+          "shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]",
+          isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border/50",
           "transition-[opacity,transform] duration-300",
-          isPreviewToneActive && PREVIEW_TONE_CARD_CLASS[tone],
           MIN_HEIGHT_CLASS_BY_KIND[minHeight],
           isActive ? "opacity-100 scale-100" : "opacity-60 scale-95"
         )}
       >
+        <div
+          className={cn(
+            "relative h-full min-w-0 rounded-[calc(3rem-1px)] bg-card overflow-hidden overflow-x-hidden",
+            "p-6 sm:p-10 flex flex-col",
+            "transition-[opacity,transform] duration-300",
+            isPreviewToneActive && PREVIEW_TONE_CARD_CLASS[tone],
+            "[background-clip:padding-box]"
+          )}
+        >
         {isPreviewToneActive && (
           <>
             <div
@@ -398,9 +475,45 @@ export function VerseCard({
           </>
         )}
 
-        {header ? <div className="flex-shrink-0 mb-2">{header}</div> : null}
+        {header ? <div className="mb-2 min-w-0 flex-shrink-0">{header}</div> : null}
 
-        <div className="relative flex-1 min-h-0">
+        {visibleTags.length > 0 ? (
+          <div className="mb-3 min-w-0 flex-shrink-0">
+            <div className="relative w-full overflow-hidden rounded-xl">
+              <div className="flex w-full items-center justify-center gap-1.5 overflow-hidden px-1 py-0.5">
+                {visibleTags.map((tag, index) => (
+                  <span
+                    key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                    title={tag.title}
+                    className={cn(
+                      "inline-flex min-w-0 max-w-[min(44vw,11rem)] shrink items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide overflow-hidden",
+                      isPreviewToneActive
+                        ? PREVIEW_TONE_TAG_CLASS[tone]
+                        : "border-border/60 bg-muted/35 text-muted-foreground"
+                    )}
+                  >
+                    <span className="block w-full truncate overflow-hidden">#{tag.title}</span>
+                  </span>
+                ))}
+                {hiddenTagsCount > 0 ? (
+                  <span
+                    aria-label={`еще ${hiddenTagsCount} тегов`}
+                    className={cn(
+                      "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
+                      isPreviewToneActive
+                        ? PREVIEW_TONE_TAG_CLASS[tone]
+                        : "border-border/60 bg-muted/35 text-muted-foreground"
+                    )}
+                  >
+                    +{hiddenTagsCount}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="relative flex-1 min-h-0 min-w-0">
           <div
             ref={bodyScrollRef}
             data-verse-card-scroll-body={bodyScrollable ? "true" : undefined}
@@ -451,10 +564,11 @@ export function VerseCard({
         </div>
 
         {centerAction ? (
-          <div className="flex-shrink-0 mt-4 mb-2 flex justify-center">{centerAction}</div>
+          <div className="mt-4 mb-2 flex min-w-0 flex-shrink-0 justify-center overflow-hidden">{centerAction}</div>
         ) : null}
 
-        {footer ? <div className="flex-shrink-0 mt-6">{footer}</div> : null}
+        {footer ? <div className="mt-6 min-w-0 flex-shrink-0">{footer}</div> : null}
+        </div>
       </motion.div>
     </div>
   );

@@ -22,7 +22,12 @@ import { useVerseListController } from './verse-list/hooks/useVerseListControlle
 import { VerseVirtualizedList } from './verse-list/virtualization/VerseVirtualizedList';
 
 interface VerseListProps {
-  onVerseAdded: (verse: { externalVerseId: string; reference: string; tags: string[] }) => Promise<void>;
+  onVerseAdded: (verse: {
+    externalVerseId: string;
+    reference: string;
+    tags: string[];
+    replaceTags?: boolean;
+  }) => Promise<void>;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -203,6 +208,7 @@ export function VerseList({
           <VerseGallery
             verses={vm.pagination.verses}
             initialIndex={vm.gallery.galleryIndex}
+            activeTagSlugs={vm.tagFilter.selectedTagSlugs}
             launchMode="preview"
             onClose={vm.gallery.onClose}
             onStatusChange={vm.gallery.onStatusChange}

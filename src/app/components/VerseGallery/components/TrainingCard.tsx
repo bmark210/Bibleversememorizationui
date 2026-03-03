@@ -82,7 +82,7 @@ export const TrainingCard = memo(function TrainingCard({
   );
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
         isActive
         minHeight="training"
