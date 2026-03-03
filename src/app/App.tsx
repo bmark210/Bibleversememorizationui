@@ -781,7 +781,6 @@ export default function App({ onInitialContentReady }: AppProps) {
 
           {currentPage === "profile" && (
             <Profile
-              telegramId={telegramId}
               theme={theme}
               onToggleTheme={handleToggleTheme}
             />

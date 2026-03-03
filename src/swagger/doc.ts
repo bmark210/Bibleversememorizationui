@@ -63,34 +63,6 @@ const swaggerDoc = {
         },
       },
     },
-    "/api/users/{telegramId}/notifications": {
-      get: {
-        tags: ["Users"],
-        summary: "Получить настройки уведомлений пользователя",
-        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
-        responses: {
-          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserNotificationSettings" } } } },
-          404: { description: "Не найден" },
-        },
-      },
-      patch: {
-        tags: ["Users"],
-        summary: "Обновить настройки уведомлений пользователя",
-        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateUserNotificationSettingsPayload" },
-            },
-          },
-        },
-        responses: {
-          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserNotificationSettings" } } } },
-          400: { description: "Некорректные данные" },
-        },
-      },
-    },
     "/api/users/leaderboard": {
       get: {
         tags: ["Users"],
@@ -496,37 +468,6 @@ const swaggerDoc = {
           averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
           bestVerseReference: { type: "string", nullable: true },
           dailyStreak: { type: "integer", minimum: 0 },
-        },
-      },
-      UserNotificationSettings: {
-        type: "object",
-        required: [
-          "telegramId",
-          "reminderEnabled",
-          "weeklyGoal",
-          "botConnected",
-          "botStartLink",
-          "openAppUrl",
-          "reminderSchedule",
-        ],
-        properties: {
-          telegramId: { type: "string" },
-          reminderEnabled: { type: "boolean" },
-          weeklyGoal: { type: "integer", minimum: 1, maximum: 500 },
-          botConnected: { type: "boolean" },
-          botStartLink: { type: "string", nullable: true },
-          openAppUrl: { type: "string" },
-          reminderSchedule: {
-            type: "string",
-            example: "Ежедневно в 20:00 UTC",
-          },
-        },
-      },
-      UpdateUserNotificationSettingsPayload: {
-        type: "object",
-        properties: {
-          reminderEnabled: { type: "boolean" },
-          weeklyGoal: { type: "integer", minimum: 1, maximum: 500 },
         },
       },
       UserLeaderboardEntry: {

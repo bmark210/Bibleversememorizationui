@@ -33,14 +33,15 @@ function normalizeCommand(rawText: string): { command: string; payload: string }
 function buildWelcomeText(firstName: string | undefined, appUrl: string) {
   const userName = firstName?.trim() || "друг";
   const appLine = appUrl
-    ? "Нажмите кнопку ниже, чтобы открыть приложение."
+    ? "Откройте приложение кнопкой ниже."
     : "Приложение сейчас недоступно.";
 
   return [
     `Привет, ${userName}! 🌟`,
     "",
-    "Я бот-помощник для приложения Bible Verse Memory 📖",
-    "Напоминания выключены по умолчанию: если хотите, их включить, откройте раздел «Профиль»",
+    "Я бот-помощник для приложения Bible Memory 📖",
+    "Нажмите кнопку ниже, чтобы открыть приложение.",
+    "",
     appLine,
   ].join("\n");
 }
@@ -99,17 +100,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await prisma.user.upsert({
         where: { telegramId },
         update: {
-          botChatId: chatId,
-          botSubscribedAt: new Date(),
-          botBlockedAt: null,
           ...(firstName ? { name: firstName } : {}),
         },
         create: {
           telegramId,
           name: fallbackName,
-          botChatId: chatId,
-          botSubscribedAt: new Date(),
-          botBlockedAt: null,
         },
       });
 

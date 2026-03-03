@@ -1,172 +1,21 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Bell, Moon, Palette, Sun } from 'lucide-react';
+import { Moon, Palette, Sun } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Separator } from './ui/separator';
-import { Switch } from './ui/switch';
-import { toast } from '@/app/lib/toast';
-import {
-  fetchUserNotificationSettings,
-  updateUserNotificationSettings,
-} from '@/api/services/userNotifications';
 
 type Theme = 'light' | 'dark';
 
 interface ProfileProps {
-  telegramId?: string | null;
   theme: Theme;
   onToggleTheme: () => void;
 }
 
-const WEEKLY_GOAL_OPTIONS = [5, 10, 15, 20, 30, 50] as const;
-
-function extractBotHandle(startLink: string | null): string | null {
-  if (!startLink) return null;
-  const match = startLink.match(/t\.me\/([A-Za-z0-9_]+)/i);
-  if (!match?.[1]) return null;
-  return `@${match[1]}`;
-}
-
-export function Profile({
-  telegramId,
-  theme,
-  onToggleTheme,
-}: ProfileProps) {
+export function Profile({ theme, onToggleTheme }: ProfileProps) {
   const shouldReduceMotion = useReducedMotion();
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [weeklyGoal, setWeeklyGoal] = useState<string>('5');
-  const [botConnected, setBotConnected] = useState(false);
-  const [botStartLink, setBotStartLink] = useState<string | null>(null);
-  const [reminderSchedule, setReminderSchedule] = useState('Ежедневно в 20:00 UTC');
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
-  const [isRunningDryRun, setIsRunningDryRun] = useState(false);
-
-  const applyNotificationState = useCallback((payload: {
-    reminderEnabled: boolean;
-    weeklyGoal: number;
-    botConnected: boolean;
-    botStartLink: string | null;
-    reminderSchedule: string;
-  }) => {
-    setRemindersEnabled(payload.reminderEnabled);
-    setWeeklyGoal(String(payload.weeklyGoal));
-    setBotConnected(payload.botConnected);
-    setBotStartLink(payload.botStartLink);
-    setReminderSchedule(payload.reminderSchedule);
-  }, []);
-
-  useEffect(() => {
-    if (!telegramId) {
-      applyNotificationState({
-        reminderEnabled: false,
-        weeklyGoal: 5,
-        botConnected: false,
-        botStartLink: null,
-        reminderSchedule: 'Ежедневно в 20:00 UTC',
-      });
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingNotifications(true);
-
-    void (async () => {
-      try {
-        const settings = await fetchUserNotificationSettings(telegramId);
-        if (!isMounted) return;
-        applyNotificationState(settings);
-      } catch (error) {
-        console.error('Не удалось загрузить настройки уведомлений:', error);
-        if (!isMounted) return;
-        toast.error('Не удалось загрузить настройки профиля');
-      } finally {
-        if (isMounted) {
-          setIsLoadingNotifications(false);
-        }
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [telegramId, applyNotificationState]);
-
-  const handleSaveNotifications = async () => {
-    if (!telegramId) {
-      toast.error('Telegram ID не найден');
-      return;
-    }
-
-    setIsSavingNotifications(true);
-    try {
-      const settings = await updateUserNotificationSettings(telegramId, {
-        reminderEnabled: remindersEnabled,
-        weeklyGoal: Number(weeklyGoal),
-      });
-      applyNotificationState(settings);
-      toast.success('Настройки сохранены', {
-        description: 'Ежедневные напоминания обновлены.',
-      });
-    } catch (error) {
-      console.error('Не удалось сохранить настройки уведомлений:', error);
-      toast.error(
-        error instanceof Error ? error.message : 'Не удалось сохранить настройки'
-      );
-    } finally {
-      setIsSavingNotifications(false);
-    }
-  };
-
-  const handleRunDryRun = async () => {
-    setIsRunningDryRun(true);
-    try {
-      const response = await fetch('/api/cron/telegram-reminders-dry-run', {
-        method: 'POST',
-      });
-      const data = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        payload?: {
-          processed?: number;
-          sent?: number;
-          skipped?: number;
-          errors?: number;
-        };
-      } | null;
-
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.error ?? 'Не удалось выполнить dry-run');
-      }
-
-      const processed = Number(data?.payload?.processed ?? 0);
-      const sent = Number(data?.payload?.sent ?? 0);
-      const skipped = Number(data?.payload?.skipped ?? 0);
-      const errors = Number(data?.payload?.errors ?? 0);
-
-      toast.success('Dry-run выполнен', {
-        description: `Обработано: ${processed}, отправлено: ${sent}, пропущено: ${skipped}, ошибок: ${errors}.`,
-      });
-    } catch (error) {
-      console.error('Не удалось выполнить dry-run cron:', error);
-      toast.error(
-        error instanceof Error ? error.message : 'Не удалось выполнить dry-run'
-      );
-    } finally {
-      setIsRunningDryRun(false);
-    }
-  };
 
   const sectionVariants = {
     hidden: {
@@ -182,9 +31,6 @@ export function Profile({
       },
     },
   };
-
-  const isBusy = isLoadingNotifications || isSavingNotifications;
-  const botHandle = extractBotHandle(botStartLink);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -211,11 +57,9 @@ export function Profile({
           }}
           className="space-y-6"
         >
-          <motion.div className="mb-3" variants={sectionVariants}>
+          <motion.div className="mb-2" variants={sectionVariants}>
             <h1 className="mb-1">Профиль</h1>
-            <p className="text-muted-foreground">
-              Оформление приложения и ежедневные Telegram-напоминания.
-            </p>
+            <p className="text-muted-foreground">Настройки внешнего вида приложения.</p>
           </motion.div>
 
           <motion.div variants={sectionVariants}>
@@ -251,111 +95,6 @@ export function Profile({
                     <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
                     <span>{theme === 'dark' ? 'Тёмная' : 'Светлая'}</span>
                   </Button>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-
-          <motion.div variants={sectionVariants}>
-            <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-emerald-500/5">
-              <div className="flex items-start justify-between gap-3 mb-5">
-                <div>
-                  <h3 className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-primary" />
-                    Напоминания и цели
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Бот проверяет активность раз в день: если сегодня вы уже тренировались, напоминание не придёт.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-border/70 bg-background/65 p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-muted-foreground">
-                      Статус бота:{' '}
-                      <span className={botConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-                        {botConnected ? 'Подключен' : 'Не подключен'}
-                      </span>
-                    </div>
-                  </div>
-                  {/* <p className="mt-2 text-xs text-muted-foreground">
-                    Рассылка: {reminderSchedule}. Для всех пользователей одинаково (Hobby-режим).
-                  </p> */}
-                  {/* {!botConnected ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Для подключения бота отправьте команду <code>/start</code>{' '}
-                      {botHandle ? <>в чате {botHandle}</> : <>в чате вашего Telegram-бота</>}.
-                    </p>
-                  ) : null} */}
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm">Ежедневные напоминания</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Если в этот день активности не было, бот напомнит вам о тренировке.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={remindersEnabled}
-                    onCheckedChange={setRemindersEnabled}
-                    disabled={isBusy}
-                    aria-label="Включить ежедневные напоминания"
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="weekly-goal" className="text-sm">
-                    Цель повторений на неделю
-                  </Label>
-                  <Select
-                    value={weeklyGoal}
-                    onValueChange={setWeeklyGoal}
-                    disabled={isBusy}
-                  >
-                    <SelectTrigger id="weekly-goal" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WEEKLY_GOAL_OPTIONS.map((value) => (
-                        <SelectItem key={value} value={String(value)}>
-                          {value} повторений
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* <div className="rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground">
-                  Напоминания отправляются не чаще одного раза в день и только тем, кто не был активен сегодня.
-                </div> */}
-
-                <div className="flex justify-end">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void handleRunDryRun()}
-                      disabled={isBusy || isRunningDryRun}
-                    >
-                      {isRunningDryRun ? 'Тестируем...' : 'Тест dry-run'}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleSaveNotifications()}
-                      disabled={isBusy || !telegramId}
-                    >
-                      {isSavingNotifications
-                        ? 'Сохраняем...'
-                        : isLoadingNotifications
-                          ? 'Загрузка...'
-                          : 'Сохранить'}
-                    </Button>
-                  </div>
                 </div>
               </div>
             </Card>
