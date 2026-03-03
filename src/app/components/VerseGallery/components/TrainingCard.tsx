@@ -162,7 +162,7 @@ export const TrainingCard = memo(function TrainingCard({
               </div>
             </div>
           </div>
-        }
+        } 
         body={
           <div className="relative h-full">
             <TrainingModeRenderer
