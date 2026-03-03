@@ -14,7 +14,7 @@ export function VerseListHeader({ onAddVerseClick }: VerseListHeaderProps) {
             type="button"
             variant="default"
             onClick={onAddVerseClick}
-            className="flex items-center justify-center gap-2 rounded-2xl overflow-hidden"
+            className="flex bg-primary/10 text-primary items-center justify-center gap-2 rounded-2xl overflow-hidden"
           >
             <Plus className="w-4 h-4" />
             Добавить
