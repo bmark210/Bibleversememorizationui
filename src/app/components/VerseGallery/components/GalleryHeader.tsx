@@ -17,7 +17,7 @@ export function GalleryHeader({ displayActive, displayTotal, topInset }: Props) 
             aria-label={`Стих ${Math.min(displayActive + 1, displayTotal)} из ${displayTotal}`}
             className="px-3 py-1 rounded-full bg-background/90 backdrop-blur-md border border-border/50 shadow-lg max-w-[46vw] sm:max-w-[240px]"
           >
-            <span className="block truncate text-sm font-semibold tabular-nums text-center">
+            <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
               {Math.min(displayActive + 1, displayTotal)} / {displayTotal}
             </span>
           </div>

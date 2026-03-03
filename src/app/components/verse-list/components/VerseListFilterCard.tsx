@@ -118,7 +118,7 @@ export function VerseListFilterCard({
                   'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-primary/12 text-primary border-primary/30 border'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : 'text-muted-foreground '
                 )}
               >
                 <span>{label}</span>
@@ -149,10 +149,10 @@ export function VerseListFilterCard({
                             : onTabClick(option.key, option.label)
                         }
                         className={cn(
-                          'first:ml-3 last:mr-3 inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
+                          'first:ml-3 last:mr-3 text-foreground/75 inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
                           isActive
                             ? optionTheme.activeTabClassName
-                            : 'border-border/65 bg-background/55 text-foreground/80 hover:bg-muted/65 hover:text-foreground'
+                            : 'border-border/65 bg-background/55 text-foreground/80 hover:bg-muted/65 '
                         )}
                       >
                         <span
@@ -187,7 +187,7 @@ export function VerseListFilterCard({
                 <button
                   type="button"
                   onClick={onClearTags}
-                  className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-[11px] text-muted-foreground transition-colors "
                 >
                   Сбросить
                 </button>
@@ -196,7 +196,7 @@ export function VerseListFilterCard({
                 <button
                   type="button"
                   onClick={onCreateTagDialogOpen}
-                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors "
                 >
                   <Pencil className="h-3 w-3" />
                   Редактировать
@@ -244,7 +244,7 @@ export function VerseListFilterCard({
                           'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
                           isActive
                             ? 'border-primary/40 bg-primary/12 text-primary'
-                            : 'border-border/60 bg-background/55 text-foreground/75 hover:bg-muted/60 hover:text-foreground',
+                            : 'border-border/60 bg-background/55 text-foreground/75 hover:bg-muted/60 ',
                           !canToggle && 'pointer-events-none opacity-40'
                         )}
                       >

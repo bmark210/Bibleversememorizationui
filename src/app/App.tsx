@@ -121,9 +121,9 @@ const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.
 const THEME_STORAGE_KEY = "theme";
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
   light: {
-    background: "#fdfbf7",
-    header: "#fffefb",
-    bottomBar: "#fffefb",
+    background: "#ede3d2",
+    header: "#f2e8d8",
+    bottomBar: "#f2e8d8",
   },
   dark: {
     background: "#1a1410",

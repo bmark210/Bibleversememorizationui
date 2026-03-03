@@ -90,7 +90,7 @@ export function VersePreviewCard({
         previewTone={tone}
         header={
           <div className="flex-shrink-0 text-center space-y-3">
-            <h2 className="text-3xl sm:text-4xl italic text-primary/90 font-bold">
+            <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic">
               {verse.reference}
             </h2>
             <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />

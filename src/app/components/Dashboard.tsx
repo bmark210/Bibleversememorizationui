@@ -112,6 +112,7 @@ export function Dashboard({
       icon: Target,
       accent: 'from-primary/35 to-primary/10',
       iconColor: 'text-primary',
+      textColor: 'text-primary/70',
     },
     {
       key: 'reps',
@@ -121,6 +122,7 @@ export function Dashboard({
       icon: Repeat,
       accent: 'from-violet-500/30 to-violet-500/10',
       iconColor: 'text-violet-500',
+      textColor: 'text-violet-500/70',
     },
     {
       key: 'mastery',
@@ -134,6 +136,7 @@ export function Dashboard({
       icon: Brain,
       accent: 'from-success/35 to-success/10',
       iconColor: 'text-success',
+      textColor: 'text-success/70',
     },
     {
       key: 'mastered',
@@ -143,6 +146,7 @@ export function Dashboard({
       icon: Trophy,
       accent: 'from-amber-500/35 to-amber-500/10',
       iconColor: 'text-amber-600 dark:text-amber-300',
+      textColor: 'text-amber-500/70',
     },
     {
       key: 'streak',
@@ -152,6 +156,7 @@ export function Dashboard({
       icon: Flame,
       accent: 'from-rose-500/30 to-rose-500/10',
       iconColor: 'text-rose-500',
+      textColor: 'text-rose-400/70',
     },
   ] as const
 
@@ -230,7 +235,7 @@ export function Dashboard({
           />
 
           <motion.div className="mb-6" variants={sectionVariants}>
-            <Button type="button" size="lg" onClick={onStartTraining} className="w-full text-foregroun sm:w-auto border border-primary/10 bg-gradient-to-r from-primary/35 to-primary/10 rounded-2xl">
+            <Button type="button" size="lg" onClick={onStartTraining} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
               <Brain className="h-4 w-4" />
               Начать изучение
             </Button>

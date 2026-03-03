@@ -9,12 +9,12 @@ type VerseListHeaderProps = {
 export function VerseListHeader({ onAddVerseClick }: VerseListHeaderProps) {
   return (
     <div className="mb-4 flex justify-between items-start gap-3">
-          <h1 className="mb-1">Cтихи</h1>
+          <h1 className="mb-1 text-primary">Cтихи</h1>
           <Button
             type="button"
             variant="default"
             onClick={onAddVerseClick}
-            className="flex bg-primary/10 text-primary items-center justify-center gap-2 rounded-2xl overflow-hidden"
+            className="flex bg-primary/10 text-primary border border-primary/10 items-center justify-center gap-2 rounded-2xl overflow-hidden"
           >
             <Plus className="w-4 h-4" />
             Добавить

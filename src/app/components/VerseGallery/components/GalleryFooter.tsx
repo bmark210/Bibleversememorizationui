@@ -46,7 +46,7 @@ export function GalleryFooter({
         <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
           <Button
             variant="outline"
-            className="flex gap-2 backdrop-blur-xl rounded-2xl"
+            className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75"
             ref={closeButtonRef}
             onClick={onClose}
             disabled={actionPending}
@@ -58,7 +58,7 @@ export function GalleryFooter({
           {previewStatusAction ? (
             <Button
               variant="outline"
-              className="flex gap-2 backdrop-blur-xl rounded-2xl"
+              className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75"
               onClick={onPreviewStatusAction}
               disabled={actionPending}
               aria-label={previewStatusAction.label}
@@ -69,7 +69,7 @@ export function GalleryFooter({
 
           <Button
             variant="outline"
-            className="w-fit gap-2 text-destructive hover:text-destructive backdrop-blur-xl rounded-2xl"
+            className="w-fit gap-2 text-destructive backdrop-blur-xl rounded-2xl"
             onClick={() => {
               if (actionPending) return;
               haptic("warning");

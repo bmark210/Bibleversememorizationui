@@ -32,8 +32,8 @@ export function VerseListEmptyState({
       </div>
 
       <div className="relative">
-        <div className="text-lg font-semibold tracking-tight">{title}</div>
-        <p className="mt-2 text-sm text-muted-foreground leading-6">{description}</p>
+        <div className="text-lg font-semibold tracking-tight text-primary">{title}</div>
+        <p className="mt-2 text-sm text-foreground/75 leading-6">{description}</p>
       </div>
     </Card>
   );

@@ -84,13 +84,13 @@ export const SwipeableVerseCard = ({
           title="Добавить в мои стихи"
           aria-label="Добавить стих в список своих"
           disabled={isPending}
-          className="rounded-lg"
+          className="rounded-lg bg-primary/5"
           onClick={(e) => {
             stopCardOpen(e);
             onAddToLearning(verse);
           }}
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 text-foreground/75" />
         </Button>
       );
     }
@@ -105,13 +105,13 @@ export const SwipeableVerseCard = ({
             title="Добавить в изучение"
             aria-label="Добавить стих в изучение"
             disabled={isPending}
-            className="rounded-lg"
+            className="rounded-lg bg-primary/5"
             onClick={(e) => {
               stopCardOpen(e);
               onAddToLearning(verse);
             }}
           >
-            <Play className="w-4 h-4" />
+            <Play className="w-4 h-4 text-foreground/75" />
           </Button>
           <Button
             type="button"
@@ -120,13 +120,13 @@ export const SwipeableVerseCard = ({
             title="Удалить стих"
             aria-label="Удалить стих"
             disabled={isPending}
-            className="rounded-lg text-destructive hover:text-destructive backdrop-blur-xl"
+            className="rounded-lg bg-primary/5"
             onClick={(e) => {
               stopCardOpen(e);
               onRequestDelete(verse);
             }}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-destructive/75" />
           </Button>
         </>
       );
@@ -146,13 +146,13 @@ export const SwipeableVerseCard = ({
             title="Поставить на паузу"
             aria-label="Поставить стих на паузу"
             disabled={isPending}
-            className="rounded-lg"
+            className="rounded-lg bg-primary/5"
             onClick={(e) => {
               stopCardOpen(e);
               onPauseLearning(verse);
             }}
           >
-            <Pause className="w-4 h-4" />
+            <Pause className="w-4 h-4 text-foreground/75" />
           </Button>
           <Button
             type="button"
@@ -161,13 +161,13 @@ export const SwipeableVerseCard = ({
             title="Удалить стих"
             aria-label="Удалить стих"
             disabled={isPending}
-            className="rounded-lg text-destructive hover:text-destructive"
+            className="rounded-lg bg-primary/5"
             onClick={(e) => {
               stopCardOpen(e);
               onRequestDelete(verse);
             }}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-destructive/75" />
           </Button>
         </>
       );
@@ -182,13 +182,13 @@ export const SwipeableVerseCard = ({
           title="Возобновить изучение"
           aria-label="Возобновить изучение стиха"
           disabled={isPending}
-          className="rounded-lg"
+          className="rounded-lg bg-primary/5"
           onClick={(e) => {
             stopCardOpen(e);
             onResumeLearning(verse);
           }}
         >
-          <Play className="w-4 h-4" />
+          <Play className="w-4 h-4 text-foreground/75" />
         </Button>
         <Button
           type="button"
@@ -197,13 +197,13 @@ export const SwipeableVerseCard = ({
           title="Удалить стих"
           aria-label="Удалить стих"
           disabled={isPending}
-          className="rounded-lg text-destructive hover:text-destructive"
+          className="rounded-lg bg-primary/5 text-destructive hover:text-destructive"
           onClick={(e) => {
             stopCardOpen(e);
             onRequestDelete(verse);
           }}
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-4 h-4 text-destructive/75" />
         </Button>
       </>
     );
@@ -322,7 +322,7 @@ export const SwipeableVerseCard = ({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold">{verse.reference}</h3>
+              <h3 className="font-serif text-primary">{verse.reference}</h3>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             <AnimatePresence initial={false}>

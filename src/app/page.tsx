@@ -86,7 +86,7 @@ export default function Page() {
                 <BookOpen className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
             </div>
-              <div className="mt-2.5 relative h-2 overflow-hidden rounded-full bg-muted/35">
+              <div className="mt-2.5 relative h-2 overflow-hidden rounded-full bg-muted">
                 <motion.div
                   aria-hidden="true"
                   className="absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"

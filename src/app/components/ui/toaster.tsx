@@ -45,16 +45,16 @@ const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
           content: "gap-1.5!",
           icon: "opacity-95!",
           closeButton:
-            "rounded-full! border border-border/70! bg-background/80! text-foreground/80! backdrop-blur-md! transition-colors hover:bg-primary/12! hover:text-primary!",
+            "rounded-full! border border-border/70! bg-background/80! text-foreground/80! backdrop-blur-md! transition-colors !",
           default: "shadow-[0_18px_42px_-24px_rgba(139,105,20,0.72)]!",
           success: "shadow-[0_18px_42px_-24px_rgba(22,163,74,0.75)]!",
           info: "shadow-[0_18px_42px_-24px_rgba(180,131,59,0.7)]!",
           warning: "shadow-[0_18px_42px_-24px_rgba(202,138,4,0.75)]!",
           error: "shadow-[0_18px_42px_-24px_rgba(220,38,38,0.75)]!",
           actionButton:
-            "rounded-lg! border border-border/60! bg-background/70! text-foreground! hover:bg-primary/12!",
+            "rounded-lg! border border-border/60! bg-background/70! text-foreground! ",
           cancelButton:
-            "rounded-lg! border border-border/60! bg-background/70! text-muted-foreground! hover:bg-muted/70!",
+            "rounded-lg! border border-border/60! bg-background/70! text-muted-foreground! ",
         },
       }}
       {...props}

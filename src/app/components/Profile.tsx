@@ -57,27 +57,27 @@ export function Profile({ theme, onToggleTheme }: ProfileProps) {
           }}
           className="space-y-6"
         >
-          <motion.div className="mb-2" variants={sectionVariants}>
-            <h1 className="mb-1">Профиль</h1>
-            <p className="text-muted-foreground">Настройки внешнего вида приложения.</p>
+          <motion.div className="mb-4" variants={sectionVariants}>
+            <h1 className="mb-1 text-primary">Профиль</h1>
+            <p className="text-foreground/75">Настройки внешнего вида приложения.</p>
           </motion.div>
 
           <motion.div variants={sectionVariants}>
-            <Card className="relative overflow-hidden border-border/70 rounded-3xl bg-gradient-to-br from-primary/10 via-background to-amber-500/5 p-5 sm:p-6 gap-0">
-              <div className="pointer-events-none absolute inset-0 opacity-65">
+            <Card className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-background to-amber-500/5 p-5 sm:p-6 gap-0">
+              <div className="pointer-events-none absolute inset-0 opacity-60">
                 <div className="absolute -top-20 -right-14 h-48 w-48 rounded-full bg-primary/15 blur-2xl" />
                 <div className="absolute -bottom-16 left-0 h-36 w-36 rounded-full bg-amber-500/10 blur-2xl" />
               </div>
 
               <div className="relative space-y-4">
-                <h3 className="flex items-center gap-2">
+                <h3 className="flex items-center gap-2 text-primary">
                   <Palette className="h-4 w-4 text-primary" />
                   Оформление
                 </h3>
 
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background/70 p-4">
                   <div className="space-y-1">
-                    <Label className="text-sm">Тема приложения</Label>
+                    <Label className="text-sm text-foreground/75">Тема приложения</Label>
                     <p className="text-sm text-muted-foreground">
                       Сейчас активна {theme === 'dark' ? 'тёмная' : 'светлая'} тема.
                     </p>
@@ -88,7 +88,7 @@ export function Profile({ theme, onToggleTheme }: ProfileProps) {
                     variant="outline"
                     size="sm"
                     onClick={onToggleTheme}
-                    className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
+                    className="gap-2 text-foreground/75 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
                     aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
                   >
                     <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />

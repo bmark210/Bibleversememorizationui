@@ -29,7 +29,7 @@ export function VerseListSectionShell({
       <Card
         className={`gap-0 overflow-hidden border-border/70 rounded-3xl min-h-0 flex flex-col ${config.borderClassName}`}
       >
-        <div className={`border-b border-border/70 p-4 sm:p-5 ${config.tintClassName}`}>
+        <div className={`border-b border-border/70 p-4 sm:p-5 text-foreground/75 ${config.tintClassName}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm">

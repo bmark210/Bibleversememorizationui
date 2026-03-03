@@ -25,6 +25,7 @@ type StatsCardItem = {
   hint: string;
   icon: LucideIcon;
   iconColor: string;
+  textColor: string;
   accent: string;
 };
 
@@ -87,11 +88,11 @@ export function DashboardWelcomeSection({
             )}
           </Avatar>
           <div>
-            <h1 className="mb-1">С возвращением, {user.firstName}!</h1>
+            <h1 className="mb-1 text-primary">С возвращением, {user.firstName}!</h1>
           </div>
         </div>
       ) : (
-        <h1 className="mb-2">С возвращением!</h1>
+        <h1 className="mb-2 text-primary">С возвращением!</h1>
       )}
       <p className="text-muted-foreground">
         У вас {todayVersesCount}{" "}
@@ -138,10 +139,10 @@ export function DashboardTrainingStatsCard({
                   Сегодня
                 </Badge> */}
               </div>
-              <h2 className="text-lg sm:text-xl font-semibold">
+              <h2 className="text-lg sm:text-xl font-semibold text-primary">
                 Статистика сегодня
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-foreground/75 mt-1">
                 Короткий обзор по подборке на текущую сессию.
               </p>
             </div>
@@ -167,10 +168,10 @@ export function DashboardTrainingStatsCard({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      <div className="text-xs uppercase tracking-[0.16em] text-foreground/70">
                         {item.label}
                       </div>
-                      <div className="mt-2 text-2xl font-semibold">
+                      <div className={`mt-2 text-2xl font-semibold dark:text-foreground/75  ${item.textColor}`}>
                         {item.value}
                       </div>
                     </div>
@@ -178,7 +179,7 @@ export function DashboardTrainingStatsCard({
                       <Icon className={`h-4 w-4 ${item.iconColor}`} />
                     </div>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                  <p className={`mt-3 text-xs dark:text-foreground/75 ${item.textColor} leading-relaxed`}>
                     {item.hint}
                   </p>
                 </motion.div>
@@ -239,13 +240,13 @@ export function DashboardLeaderboardCard({
       <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-primary/5">
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold">Лучшие игроки</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h2 className="text-lg sm:text-xl font-semibold text-primary">Лучшие игроки</h2>
+            <p className="text-sm text-foreground/75 mt-1">
               По точности и регулярности тренировок.
             </p>
           </div>
           <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="rounded-full px-3 py-1">
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
               Рейтинг
             </Badge>
           </div>
@@ -265,17 +266,17 @@ export function DashboardLeaderboardCard({
                   className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
                     entry.isCurrentUser
                       ? "border-primary/40 bg-primary/10"
-                      : "border-border/70 bg-background/70 hover:bg-accent/40"
+                      : "border-border/70 bg-background/70 "
                   }`}
                 >
-                  <div
+                  {/* <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${rankBadge.className}`}
                     aria-hidden="true"
                   >
                     <RankIcon className="h-4 w-4" />
-                  </div>
+                  </div> */}
 
-                  <Avatar className="h-10 w-10 border border-border/60">
+                  <Avatar className="h-10 w-10 !border-3 border-border/60 bg-background/70 shadow-lg">
                     {entry.avatarUrl ? (
                       <AvatarImage src={entry.avatarUrl} alt={entry.name} />
                     ) : null}
@@ -286,7 +287,7 @@ export function DashboardLeaderboardCard({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="truncate font-medium">{entry.name}</div>
+                      <div className="truncate font-medium text-muted-foreground">{entry.name}</div>
                       <Badge
                         variant="outline"
                         className={`rounded-full px-2 py-0.5 text-[10px] ${rankBadge.chipClassName}`}
@@ -303,10 +304,10 @@ export function DashboardLeaderboardCard({
                   </div>
 
                   <div className="text-right">
-                    <div className="text-lg font-semibold leading-none">
+                    <div className="text-lg font-semibold leading-none text-primary">
                       {entry.score}%
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-1">
+                    <div className="text-[11px] text-card-foreground/50 mt-1">
                       рейтинг
                     </div>
                   </div>
@@ -325,7 +326,7 @@ export function DashboardLeaderboardCard({
           )}
         </motion.div>
 
-        <motion.div
+        {/* <motion.div
           className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4"
           variants={cardItemVariants}
         >
@@ -338,7 +339,7 @@ export function DashboardLeaderboardCard({
             </div>
             <Badge className="rounded-full px-3 py-1">{footerScore}</Badge>
           </div>
-        </motion.div>
+        </motion.div> */}
       </Card>
     </motion.div>
   );
