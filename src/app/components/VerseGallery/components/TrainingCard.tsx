@@ -6,9 +6,24 @@ import {
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import type { Verse as LegacyVerse } from "@/app/data/mockData";
 import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
+
+/** Тип стиха для TrainingModeRenderer (LegacyVerse) */
+type LegacyVerse = {
+  id: string;
+  externalVerseId: string;
+  status: string;
+  reference: string;
+  text: string;
+  translation: string;
+  masteryLevel: number;
+  repetitions: number;
+  lastReviewedAt: string | null;
+  nextReviewAt: string | null;
+  nextReview?: string | null;
+  tags: string[];
+};
 
 type Props = {
   trainingVerse: TrainingVerseState;
@@ -31,7 +46,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): LegacyVerse {
     (Math.max(0, verse.stageMasteryLevel) / MAX_MASTERY_LEVEL) * 100
   );
   return {
-    id: verse.key,
+    id: String(verse.key),
     externalVerseId: verse.externalVerseId,
     status: verse.status,
     reference: verse.raw.reference,
