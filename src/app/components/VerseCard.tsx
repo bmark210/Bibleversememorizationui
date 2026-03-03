@@ -487,9 +487,7 @@ export function VerseCard({
                     title={tag.title}
                     className={cn(
                       "inline-flex min-w-0 max-w-[min(44vw,11rem)] shrink items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide overflow-hidden",
-                      isPreviewToneActive
-                        ? PREVIEW_TONE_TAG_CLASS[tone]
-                        : "border-border/60 bg-muted/35 text-muted-foreground"
+                      "border-border/60 bg-muted/35 text-muted-foreground"
                     )}
                   >
                     <span className="block w-full truncate overflow-hidden">#{tag.title}</span>
@@ -500,9 +498,7 @@ export function VerseCard({
                     aria-label={`еще ${hiddenTagsCount} тегов`}
                     className={cn(
                       "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
-                      isPreviewToneActive
-                        ? PREVIEW_TONE_TAG_CLASS[tone]
-                        : "border-border/60 bg-muted/35 text-muted-foreground"
+                      "border-border/60 bg-muted/35 text-muted-foreground"
                     )}
                   >
                     +{hiddenTagsCount}
