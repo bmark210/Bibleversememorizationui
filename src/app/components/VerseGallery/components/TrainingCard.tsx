@@ -8,6 +8,7 @@ import {
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
+import { Verse } from "@/app/App";
 
 /** Тип стиха для TrainingModeRenderer (LegacyVerse) */
 type LegacyVerse = {
@@ -41,7 +42,7 @@ function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: numbe
   return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
 }
 
-function asLegacyVerseForRenderer(verse: TrainingVerseState): LegacyVerse {
+function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
   const progressPercent = Math.round(
     (Math.max(0, verse.stageMasteryLevel) / MAX_MASTERY_LEVEL) * 100
   );
@@ -79,7 +80,7 @@ export const TrainingCard = memo(function TrainingCard({
       ),
     [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
   );
-  const legacyVerse = useMemo(
+  const verse = useMemo(
     () => asLegacyVerseForRenderer(trainingVerse),
     [
       trainingVerse.key,
@@ -167,7 +168,7 @@ export const TrainingCard = memo(function TrainingCard({
             <TrainingModeRenderer
               ref={rendererRef as RefObject<TrainingModeRendererHandle>}
               renderer={renderer}
-              verse={legacyVerse}
+              verse={verse}
               onRate={onRate}
             />
           </div>
