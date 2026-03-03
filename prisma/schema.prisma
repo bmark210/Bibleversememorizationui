@@ -26,7 +26,7 @@ model User {
   translation  Translation @default(SYNOD)
   createdAt    DateTime    @default(now())
 
-  // Максимальное количество дней подряд с выполнением задания
+  // Максимальное количество дней
   dailyStreak         Int @default(0)
 
   verses       UserVerse[]

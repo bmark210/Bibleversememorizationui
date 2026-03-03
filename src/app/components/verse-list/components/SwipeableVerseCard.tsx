@@ -326,18 +326,6 @@ export const SwipeableVerseCard = ({
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             <AnimatePresence initial={false}>
-              {statusMetaContent ? (
-                <motion.div
-                key={layoutSignature}
-                initial={{ height: 0, opacity: 0, y: -4 }}
-                animate={{ height: 'auto', opacity: 1, y: 0 }}
-                exit={{ height: 0, opacity: 0, y: -4 }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
-                >
-                  <div className="pt-0.5">{statusMetaContent}</div>
-                </motion.div>
-              ) : null}
               {verse.tags && verse.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {verse.tags.slice(0, 3).map((tag) => (
@@ -356,6 +344,18 @@ export const SwipeableVerseCard = ({
                   )}
                 </div>
               )}
+              {statusMetaContent ? (
+                <motion.div
+                key={layoutSignature}
+                initial={{ height: 0, opacity: 0, y: -4 }}
+                animate={{ height: 'auto', opacity: 1, y: 0 }}
+                exit={{ height: 0, opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+                >
+                  <div className="pt-0.5">{statusMetaContent}</div>
+                </motion.div>
+              ) : null}
             </AnimatePresence>
           </div>
 

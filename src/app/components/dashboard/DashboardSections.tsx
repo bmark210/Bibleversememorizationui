@@ -29,6 +29,7 @@ type StatsCardItem = {
   value: string
   hint: string
   icon: LucideIcon
+  iconColor: string
   accent: string
 }
 
@@ -135,22 +136,22 @@ export function DashboardTrainingStatsCard({
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Badge className="rounded-full px-3 py-1">Краткая статистика</Badge>
-                <Badge variant="outline" className="rounded-full px-3 py-1">
+                {/* <Badge className="rounded-full px-3 py-1">Краткая статистика</Badge> */}
+                {/* <Badge variant="outline" className="rounded-full px-3 py-1">
                   Сегодня
-                </Badge>
+                </Badge> */}
               </div>
-              <h2 className="text-lg sm:text-xl font-semibold">Ваш тренировочный план</h2>
+              <h2 className="text-lg sm:text-xl font-semibold">Статистика сегодня</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Короткий обзор по подборке на текущую сессию.
               </p>
             </div>
-            <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
+            {/* <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Среднее освоение
               </div>
               <div className="text-2xl font-semibold mt-1">{avgMasteryPercent}%</div>
-            </div>
+            </div> */}
           </div>
 
           <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={groupStaggerVariants}>
@@ -170,7 +171,7 @@ export function DashboardTrainingStatsCard({
                       <div className="mt-2 text-2xl font-semibold">{item.value}</div>
                     </div>
                     <div className="rounded-xl border border-border/70 bg-background/70 p-2">
-                      <Icon className="h-4 w-4 text-primary" />
+                      <Icon className={`h-4 w-4 ${item.iconColor}`} />
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{item.hint}</p>
@@ -179,7 +180,7 @@ export function DashboardTrainingStatsCard({
             })}
           </motion.div>
 
-          <motion.div className="mt-5 rounded-2xl border border-border/70 bg-background/60 p-4" variants={cardItemVariants}>
+          {/* <motion.div className="mt-5 rounded-2xl border border-border/70 bg-background/60 p-4" variants={cardItemVariants}>
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="text-sm font-medium">Подготовка к тренировке</div>
               <div className="text-xs text-muted-foreground">
@@ -187,7 +188,7 @@ export function DashboardTrainingStatsCard({
               </div>
             </div>
             <Progress value={todayVersesCount === 0 ? 0 : Math.min(100, 25 + todayVersesCount * 8)} className="h-2.5" />
-          </motion.div>
+          </motion.div> */}
         </div>
       </Card>
     </motion.div>
@@ -273,7 +274,7 @@ export function DashboardLeaderboardCard({
           })}
         </motion.div>
 
-        <motion.div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4" variants={cardItemVariants}>
+        {/* <motion.div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4" variants={cardItemVariants}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium">Ваш шанс подняться в топ</div>
@@ -283,7 +284,7 @@ export function DashboardLeaderboardCard({
             </div>
             <Badge className="rounded-full px-3 py-1">{Math.max(55, avgMasteryPercent)} pts</Badge>
           </div>
-        </motion.div>
+        </motion.div> */}
       </Card>
     </motion.div>
   )

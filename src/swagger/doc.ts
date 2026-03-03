@@ -49,6 +49,17 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/users/{telegramId}/stats": {
+      get: {
+        tags: ["Users"],
+        summary: "Персональная статистика пользователя для дашборда",
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserDashboardStats" } } } },
+          404: { description: "Не найден" },
+        },
+      },
+    },
     "/api/users/telegram": {
       post: {
         tags: ["Users"],
@@ -409,6 +420,33 @@ const swaggerDoc = {
             },
           },
         ],
+      },
+      UserDashboardStats: {
+        type: "object",
+        required: [
+          "totalVerses",
+          "learningVerses",
+          "reviewVerses",
+          "masteredVerses",
+          "stoppedVerses",
+          "dueReviewVerses",
+          "totalRepetitions",
+          "averageProgressPercent",
+          "bestVerseReference",
+          "dailyStreak",
+        ],
+        properties: {
+          totalVerses: { type: "integer", minimum: 0 },
+          learningVerses: { type: "integer", minimum: 0 },
+          reviewVerses: { type: "integer", minimum: 0 },
+          masteredVerses: { type: "integer", minimum: 0 },
+          stoppedVerses: { type: "integer", minimum: 0 },
+          dueReviewVerses: { type: "integer", minimum: 0 },
+          totalRepetitions: { type: "integer", minimum: 0 },
+          averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
+          bestVerseReference: { type: "string", nullable: true },
+          dailyStreak: { type: "integer", minimum: 0 },
+        },
       },
       Tag: {
         type: "object",

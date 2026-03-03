@@ -17,6 +17,10 @@ import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { TagsService } from "@/api/services/TagsService";
 import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
+import {
+  fetchUserDashboardStats,
+  type UserDashboardStats,
+} from "@/api/services/userStats";
 import { VerseStatus } from "@/generated/prisma";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
@@ -220,6 +224,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [dashboardGalleryLaunchMode, setDashboardGalleryLaunchMode] = useState<"preview" | "training">("preview");
   const [isLoading, setIsLoading] = useState(true);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
+  const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
   const [isTrainingBatchPromptOpen, setIsTrainingBatchPromptOpen] = useState(false);
@@ -230,6 +236,32 @@ export default function App({ onInitialContentReady }: AppProps) {
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
   const hasNotifiedInitialContentReadyRef = useRef(false);
+  const dashboardStatsRequestIdRef = useRef(0);
+
+  const loadDashboardStats = async (telegramIdValue: string) => {
+    if (!telegramIdValue) return null;
+
+    const requestId = ++dashboardStatsRequestIdRef.current;
+    setIsDashboardStatsLoading(true);
+
+    try {
+      const nextStats = await fetchUserDashboardStats(telegramIdValue);
+      if (dashboardStatsRequestIdRef.current === requestId) {
+        setDashboardStats(nextStats);
+      }
+      return nextStats;
+    } catch (error) {
+      console.error("Не удалось получить статистику пользователя:", error);
+      if (dashboardStatsRequestIdRef.current === requestId) {
+        setDashboardStats(null);
+      }
+      return null;
+    } finally {
+      if (dashboardStatsRequestIdRef.current === requestId) {
+        setIsDashboardStatsLoading(false);
+      }
+    }
+  };
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
@@ -254,6 +286,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
       if (!telegramId) {
         setIsLoading(false);
+        setDashboardStats(null);
         finishBootstrapping();
         return;
       }
@@ -275,7 +308,10 @@ export default function App({ onInitialContentReady }: AppProps) {
       const fetchUser = async () => {
         try {
           setIsLoading(true);
-          const userData = await UsersService.getApiUsers(telegramId);
+          const [userData] = await Promise.all([
+            UsersService.getApiUsers(telegramId),
+            loadDashboardStats(telegramId),
+          ]);
           setUser(userData);
           const userVerses = mapUserVersesToAppVerses(userData);
                     if (savedPreferences) {
@@ -289,7 +325,8 @@ export default function App({ onInitialContentReady }: AppProps) {
             try {
               const newUser = await UsersService.postApiUsers({ telegramId });
               setUser({ ...newUser, verses: [] });
-                            setVerses([]);
+              setVerses([]);
+              await loadDashboardStats(telegramId);
             } catch (createErr) {
               console.error("Не удалось создать пользователя:", createErr);
               toast.error("Ошибка при создании профиля");
@@ -297,7 +334,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           } else {
             console.error("Не удалось получить пользователя:", err);
             toast.error("Ошибка при подключении к базе данных");
-                        setVerses([]);
+            setVerses([]);
           }
         } finally {
           setIsLoading(false);
@@ -369,6 +406,9 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (telegramIdValue && trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
+    if (telegramIdValue) {
+      void loadDashboardStats(telegramIdValue);
+    }
   };
 
   const handleDashboardGalleryStatusChange = async (
@@ -390,6 +430,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
+    void loadDashboardStats(telegramIdValue);
 
     return patch;
   };
@@ -409,6 +450,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (trainingBatchPreferences) {
       void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
     }
+    void loadDashboardStats(telegramIdValue);
   };
 
   const handleStartTraining = async (launchOptions?: DashboardTrainingLaunchOptions) => {
@@ -492,8 +534,11 @@ export default function App({ onInitialContentReady }: AppProps) {
   };
 
   const handleVerseListMutationCommitted = () => {
-    if (!telegramId || !trainingBatchPreferences) return;
-    void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
+    if (!telegramId) return;
+    if (trainingBatchPreferences) {
+      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
+    }
+    void loadDashboardStats(telegramId);
   };
 
   const handleSaveTrainingBatchPreferences = async () => {
@@ -562,6 +607,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       } else {
         await loadAllUserVerses(telegramId);
       }
+      await loadDashboardStats(telegramId);
 
       setVerseListExternalSyncVersion((prev) => prev + 1);
 
@@ -603,6 +649,8 @@ export default function App({ onInitialContentReady }: AppProps) {
             >
               <Dashboard
                 todayVerses={verses}
+                dashboardStats={dashboardStats}
+                isDashboardStatsLoading={isDashboardStatsLoading}
                 onStartTraining={handleStartTraining}
                 onAddVerse={handleAddVerse}
                 onViewAll={() => setCurrentPage("verses")}

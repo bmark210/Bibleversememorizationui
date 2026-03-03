@@ -2,9 +2,12 @@
 
 import React from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Flame, Repeat, Sparkles, Target } from 'lucide-react'
+import { Brain, Flame, Play, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
+import type { UserDashboardStats } from '@/api/services/userStats'
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
+import { Button } from './ui/button'
 import {
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
@@ -13,6 +16,8 @@ import {
 
 interface DashboardProps {
   todayVerses: Array<Verse>
+  dashboardStats?: UserDashboardStats | null
+  isDashboardStatsLoading?: boolean
   onStartTraining: () => void
   onAddVerse: () => void
   onViewAll: () => void
@@ -20,19 +25,23 @@ interface DashboardProps {
   isInitializingData?: boolean
 }
 
-const MASTERY_LEVEL_MAX = 14
-
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
-export function toMasteryPercent(masteryLevel: number) {
-  return clampPercent((masteryLevel / MASTERY_LEVEL_MAX) * 100)
+export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
+  const totalProgress = Math.min(
+    Math.max(0, Math.round(masteryLevel)) + Math.max(0, Math.round(repetitions)),
+    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
+  )
+  return clampPercent((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100)
 }
 
 export function Dashboard({
   todayVerses,
-  onStartTraining: _onStartTraining,
+  dashboardStats = null,
+  isDashboardStatsLoading = false,
+  onStartTraining,
   onAddVerse: _onAddVerse,
   onViewAll: _onViewAll,
   onOpenTrainingPlanSettings: _onOpenTrainingPlanSettings,
@@ -51,52 +60,93 @@ export function Dashboard({
     return Number.isNaN(nextReviewTime) || nextReviewTime <= now
   }).length
 
-  const totalRepetitions = todayVerses.reduce((sum, verse) => sum + (verse.repetitions ?? 0), 0)
-  const avgMasteryPercent =
+  const fallbackTotalRepetitions = todayVerses.reduce(
+    (sum, verse) => sum + (verse.repetitions ?? 0),
+    0
+  )
+  const fallbackMasteredVerses = todayVerses.filter(
+    (verse) => verse.status === 'MASTERED'
+  ).length
+  const fallbackAvgMasteryPercent =
     todayVerses.length > 0
       ? clampPercent(
-          todayVerses.reduce((sum, verse) => sum + toMasteryPercent(verse.masteryLevel), 0) /
+          todayVerses.reduce(
+            (sum, verse) =>
+              sum + toMasteryPercent(verse.masteryLevel, verse.repetitions),
+            0
+          ) /
             todayVerses.length
         )
       : 0
 
-  const bestVerse = todayVerses.reduce<Verse | null>((best, verse) => {
+  const fallbackBestVerse = todayVerses.reduce<Verse | null>((best, verse) => {
     if (!best) return verse
-    return toMasteryPercent(verse.masteryLevel) > toMasteryPercent(best.masteryLevel) ? verse : best
+    return toMasteryPercent(verse.masteryLevel, verse.repetitions) >
+      toMasteryPercent(best.masteryLevel, best.repetitions)
+      ? verse
+      : best
   }, null)
+
+  const avgMasteryPercent =
+    dashboardStats?.averageProgressPercent ?? fallbackAvgMasteryPercent
+  const totalRepetitions =
+    dashboardStats?.totalRepetitions ?? fallbackTotalRepetitions
+  const masteredVerses =
+    dashboardStats?.masteredVerses ?? fallbackMasteredVerses
+  const dueReviewVerses = dashboardStats?.dueReviewVerses ?? dueReviewCount
+  const bestVerseReference =
+    dashboardStats?.bestVerseReference ?? fallbackBestVerse?.reference ?? null
+  const dailyStreak = dashboardStats?.dailyStreak ?? 0
 
   const statsCards = [
     {
       key: 'planned',
-      label: 'В плане сегодня',
-      value: `${todayVerses.length}`,
-      hint: `${learningVersesCount} в изучении · ${reviewVersesCount} повторений`,
+      label: 'Активность',
+      value: `${todayVerses.length} ${formatWordsCount(todayVerses.length)}`,
+      hint: `${learningVersesCount} ${formatWordsCount(learningVersesCount)} в изучении, ${reviewVersesCount} ${formatWordsCount(reviewVersesCount)} к повторению`,
       icon: Target,
-      accent: 'from-primary/40 to-primary/30',
-    },
-    {
-      key: 'mastery',
-      label: 'Среднее освоение',
-      value: `${avgMasteryPercent}%`,
-      hint: bestVerse ? `Лучший стих: ${bestVerse.reference}` : 'Добавьте стихи для старта',
-      icon: Sparkles,
-      accent: 'from-emerald-500/40 to-emerald-500/30',
+      accent: 'from-primary/35 to-primary/10',
+      iconColor: 'text-primary',
     },
     {
       key: 'reps',
       label: 'Повторения в подборке',
       value: `${totalRepetitions}`,
-      hint: dueReviewCount > 0 ? `${dueReviewCount} к повторению сейчас` : 'Нет просроченных повторений',
+      hint: dueReviewVerses > 0 ? `${dueReviewVerses} к повторению сейчас` : 'Нет просроченных повторений',
       icon: Repeat,
-      accent: 'from-amber-500/40 to-amber-500/30',
+      accent: 'from-violet-500/30 to-violet-500/10',
+      iconColor: 'text-violet-500',
+    },
+    {
+      key: 'mastery',
+      label: 'Среднее освоение',
+      value: `${avgMasteryPercent}%`,
+      hint: bestVerseReference
+        ? `Лучший стих: ${bestVerseReference}`
+        : isDashboardStatsLoading
+          ? 'Загружаем вашу статистику...'
+          : 'Добавьте стихи для старта',
+      icon: Brain,
+      accent: 'from-success/35 to-success/10',
+      iconColor: 'text-success',
+    },
+    {
+      key: 'mastered',
+      label: 'Выучено',
+      value: `${masteredVerses}`,
+      hint: masteredVerses > 0 ? 'Стихи, закреплённые в долгой памяти' : 'Пока нет выученных стихов',
+      icon: Trophy,
+      accent: 'from-amber-500/35 to-amber-500/10',
+      iconColor: 'text-amber-600 dark:text-amber-300',
     },
     {
       key: 'streak',
       label: 'Серия тренировок',
-      value: `${Math.max(1, Math.min(99, 7 + todayVerses.length))} дн.`,
-      hint: 'Демо-показатель до подключения реальной статистики',
+      value: `${dailyStreak} дн.`,
+      hint: isDashboardStatsLoading ? 'Обновляем прогресс...' : 'Ваш лучший непрерывный ритм',
       icon: Flame,
-      accent: 'from-rose-500/40 to-rose-500/30',
+      accent: 'from-rose-500/30 to-rose-500/10',
+      iconColor: 'text-rose-500',
     },
   ] as const
 
@@ -174,6 +224,13 @@ export function Dashboard({
             sectionVariants={sectionVariants}
           />
 
+          <motion.div className="mb-6" variants={sectionVariants}>
+            <Button type="button" size="lg" onClick={onStartTraining} className="w-full sm:w-auto border border-primary/10 bg-gradient-to-r from-primary/35 to-primary/10 text-primary rounded-2xl">
+              <Brain className="h-4 w-4 text-primary" />
+              Начать изучение
+            </Button>
+          </motion.div>
+
           <motion.div
             className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"
             variants={groupStaggerVariants}
@@ -195,4 +252,12 @@ export function Dashboard({
       </motion.div>
     </div>
   )
+}
+
+
+function formatWordsCount(count: number) {
+  if (count === 0) return 'стихов'
+  if (count === 1) return 'стих'
+  if (count < 5) return 'стиха'
+  return 'стихов'
 }
