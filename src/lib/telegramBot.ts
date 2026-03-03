@@ -51,7 +51,6 @@ export function buildOpenAppKeyboard(openAppUrl: string): TelegramInlineKeyboard
   return {
     inline_keyboard: [
       [{ text: "Открыть приложение", web_app: { url: appUrl } }],
-      [{ text: "Открыть в браузере", url: appUrl }],
     ],
   };
 }

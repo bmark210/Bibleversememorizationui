@@ -31,6 +31,13 @@ interface ProfileProps {
 
 const WEEKLY_GOAL_OPTIONS = [5, 10, 15, 20, 30, 50] as const;
 
+function extractBotHandle(startLink: string | null): string | null {
+  if (!startLink) return null;
+  const match = startLink.match(/t\.me\/([A-Za-z0-9_]+)/i);
+  if (!match?.[1]) return null;
+  return `@${match[1]}`;
+}
+
 export function Profile({
   telegramId,
   theme,
@@ -41,7 +48,6 @@ export function Profile({
   const [weeklyGoal, setWeeklyGoal] = useState<string>('5');
   const [botConnected, setBotConnected] = useState(false);
   const [botStartLink, setBotStartLink] = useState<string | null>(null);
-  const [openAppUrl, setOpenAppUrl] = useState('');
   const [reminderSchedule, setReminderSchedule] = useState('Ежедневно в 20:00 UTC');
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
@@ -51,14 +57,12 @@ export function Profile({
     weeklyGoal: number;
     botConnected: boolean;
     botStartLink: string | null;
-    openAppUrl: string;
     reminderSchedule: string;
   }) => {
     setRemindersEnabled(payload.reminderEnabled);
     setWeeklyGoal(String(payload.weeklyGoal));
     setBotConnected(payload.botConnected);
     setBotStartLink(payload.botStartLink);
-    setOpenAppUrl(payload.openAppUrl);
     setReminderSchedule(payload.reminderSchedule);
   }, []);
 
@@ -69,7 +73,6 @@ export function Profile({
         weeklyGoal: 5,
         botConnected: false,
         botStartLink: null,
-        openAppUrl: '',
         reminderSchedule: 'Ежедневно в 20:00 UTC',
       });
       return;
@@ -141,6 +144,7 @@ export function Profile({
   };
 
   const isBusy = isLoadingNotifications || isSavingNotifications;
+  const botHandle = extractBotHandle(botStartLink);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -235,21 +239,14 @@ export function Profile({
                         {botConnected ? 'Подключен' : 'Не подключен'}
                       </span>
                     </div>
-
-                    {botStartLink ? (
-                      <Button asChild type="button" variant="outline" size="sm">
-                        <a href={botStartLink} target="_blank" rel="noreferrer">
-                          Открыть бота
-                        </a>
-                      </Button>
-                    ) : null}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Рассылка: {reminderSchedule}. Для всех пользователей одинаково (Hobby-режим).
                   </p>
-                  {!botConnected && openAppUrl ? (
+                  {!botConnected ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      После команды <code>/start</code> бот покажет кнопку открытия приложения: {openAppUrl}
+                      Для подключения бота отправьте команду <code>/start</code>{' '}
+                      {botHandle ? <>в чате {botHandle}</> : <>в чате вашего Telegram-бота</>}.
                     </p>
                   ) : null}
                 </div>

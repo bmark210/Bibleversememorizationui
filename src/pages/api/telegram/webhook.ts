@@ -32,14 +32,16 @@ function normalizeCommand(rawText: string): { command: string; payload: string }
 
 function buildWelcomeText(firstName: string | undefined, appUrl: string) {
   const userName = firstName?.trim() || "друг";
-  const appLine = appUrl ? `Открыть приложение: ${appUrl}` : "Ссылка на приложение сейчас недоступна.";
+  const appLine = appUrl
+    ? "Нажмите кнопку ниже, чтобы открыть приложение."
+    : "Приложение сейчас недоступно.";
 
   return [
     `Привет, ${userName}!`,
     "",
-    "Я бот напоминаний Bible Verse Memorization.",
-    "Напоминания выключены по умолчанию: включите их в разделе «Профиль».",
-    "Рассылка работает раз в день (20:00 UTC) и не отправляется, если вы уже были активны сегодня.",
+    "Я бот-помощник для приложения <b>Bible Verse Memorization</b>.",
+    "Напоминания выключены по умолчанию: если хотите, чтобы я напоминал вам о тренировке, включите их в разделе «Профиль».",
+    "И рассылка сработает раз в день (гдето в 20:00 вечера), но при этом не будет отправляться, если вы уже были активны сегодня.",
     appLine,
   ].join("\n");
 }
@@ -47,7 +49,7 @@ function buildWelcomeText(firstName: string | undefined, appUrl: string) {
 function buildOpenText(appUrl: string) {
   return [
     "Открывайте приложение и продолжайте тренировку.",
-    appUrl ? `Ссылка: ${appUrl}` : "Ссылка на приложение сейчас недоступна.",
+    appUrl ? "Нажмите кнопку ниже, чтобы открыть приложение." : "Приложение сейчас недоступно.",
   ].join("\n");
 }
 

@@ -62,7 +62,7 @@ function buildReminderText(params: {
   const dueLabel = pluralRu(params.dueCount, "стих", "стиха", "стихов");
   const dayLabel = pluralRu(params.inactiveDays, "день", "дня", "дней");
   const appLine = params.appUrl
-    ? `Открыть приложение: ${params.appUrl}`
+    ? "Откройте приложение кнопкой ниже."
     : "Откройте приложение и продолжайте тренировку.";
 
   const dueLine =
