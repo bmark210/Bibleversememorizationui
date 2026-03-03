@@ -114,9 +114,6 @@ export function useTelegramWebApp() {
           initDataUnsafe: WebApp.initDataUnsafe,
         });
 
-        // Устанавливаем цвет заголовка
-        WebApp.setHeaderColor('secondary_bg_color');
-
         // console.log('Telegram WebApp инициализирован:', {
         //   platform: WebApp.platform,
         //   version: WebApp.version,
@@ -276,4 +273,3 @@ export function hapticFeedbackWarning() {
     WebApp.HapticFeedback.notificationOccurred('warning');
   }
 }
-

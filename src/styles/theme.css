@@ -5,7 +5,7 @@
   --background: #fdfbf7;
   --foreground: #3d2817;
   --card: #fffefb;
-  --card-foreground: #3d2817/90; // сделай чтобы цвет был чуть светлее чем foreground для light theme, чем это #3d2817 - #3d2817/90
+  --card-foreground: #4a3421;
   --popover: #fffefb;
   --popover-foreground: #3d2817;
   --primary: #8b6914;
