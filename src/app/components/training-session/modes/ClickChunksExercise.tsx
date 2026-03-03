@@ -226,8 +226,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
               animate={{ opacity: 1, height: 'auto', y: 0 }}
               exit={{ opacity: 0, height: 0, y: -4 }}
               transition={{ duration: 0.22 }}
-              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
-            >
+              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4">
               <div className="flex items-center gap-2 text-sm">
                 <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                 <p className="text-muted-foreground">
