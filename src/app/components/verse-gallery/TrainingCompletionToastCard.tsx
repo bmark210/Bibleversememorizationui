@@ -30,10 +30,14 @@ type ToastOptions = {
 
 export function showTrainingContactToast(
   payload: TrainingContactToastPayload,
-  options?: ToastOptions
+  options?: ToastOptions,
 ) {
   const method =
-    payload.tone === "negative" ? toast.error : payload.tone === "positive" ? toast.success : toast.info;
+    payload.tone === "negative"
+      ? toast.error
+      : payload.tone === "positive"
+        ? toast.success
+        : toast.info;
   method(payload.message, {
     description: payload.hint ?? payload.reference,
     duration: options?.durationMs ?? 3200,
@@ -44,7 +48,7 @@ export function showTrainingContactToast(
 
 export function showTrainingMilestoneToast(
   payload: TrainingCompletionToastCardPayload,
-  options?: ToastOptions
+  options?: ToastOptions,
 ) {
   toast.success(payload.title, {
     description: payload.description,
