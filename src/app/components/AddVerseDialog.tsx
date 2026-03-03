@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -213,12 +214,19 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     if (typeof window === "undefined") return;
     const t = localStorage.getItem(TRANSLATION_KEY);
     setTranslation(normalizeHelloaoTranslation(t));
-    const m = localStorage.getItem(MODE_KEY);
-    if (m === "search" || m === "manual") setInputMode(m);
+    // Search-mode UI is currently disabled, so always force "manual" to avoid blank content.
+    setInputMode("manual");
+    localStorage.setItem(MODE_KEY, "manual");
   }, [open]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem(MODE_KEY, inputMode);
+    if (typeof window === "undefined") return;
+    if (inputMode !== "manual") {
+      setInputMode("manual");
+      localStorage.setItem(MODE_KEY, "manual");
+      return;
+    }
+    localStorage.setItem(MODE_KEY, inputMode);
   }, [inputMode]);
 
   // ── Загружаем количество стихов при выборе главы ────────────────────────────
@@ -712,6 +720,11 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
               {isTagMode ? "Управление темами" : "Добавить стих"}
             </span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isTagMode
+              ? "Создание и удаление тем для стихов."
+              : "Выберите книгу, главу и стих, затем добавьте его в список."}
+          </DialogDescription>
           {/* <p className="text-center text-[11px] text-muted-foreground/70 mt-1 mb-3"> */}
             {/* {isTagMode
               ? "Создавайте и удаляйте темы в одном блоке"
