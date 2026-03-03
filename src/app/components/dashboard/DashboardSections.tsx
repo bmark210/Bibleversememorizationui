@@ -157,7 +157,7 @@ export function DashboardTrainingStatsCard({
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-2 gap-3"
             variants={groupStaggerVariants}
-          >
+          > 
             {statsCards.map((item) => {
               const Icon = item.icon;
               return (
