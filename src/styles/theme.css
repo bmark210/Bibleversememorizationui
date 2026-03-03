@@ -1,6 +1,8 @@
 @custom-variant dark (&:is(.dark *));
 
-:root {
+:root,
+:root[data-theme='light'],
+body[data-theme='light'] {
   --font-size: 16px;
   --background: #ede3d2;
   --foreground: #2b2015;
@@ -14,7 +16,7 @@
   --secondary-foreground: #31261a;
   --muted: #e2d5bf;
   --muted-foreground: #5e4f3c;
-  --accent: #b6844e; // change this to #6b5a30
+  --accent: #6b5a30;
   --accent-foreground: #2f2418;
   --destructive: #b84a3a;
   --destructive-foreground: #fbf8f0;
@@ -43,7 +45,9 @@
   --sidebar-ring: #b6844e;
 }
 
-.dark {
+.dark,
+:root[data-theme='dark'],
+body[data-theme='dark'] {
   --background: #1a1410;
   --foreground: #f5ead5;
   --card: #24201a;
