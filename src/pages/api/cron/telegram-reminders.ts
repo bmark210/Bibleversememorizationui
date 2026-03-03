@@ -281,7 +281,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       ok: true,
       dryRun,
-      schedule: "daily-20:00-utc",
+      schedule: "daily-18:00-utc",
       processed: results.length,
       sent,
       skipped,
