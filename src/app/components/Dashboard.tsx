@@ -230,8 +230,8 @@ export function Dashboard({
           />
 
           <motion.div className="mb-6" variants={sectionVariants}>
-            <Button type="button" size="lg" onClick={onStartTraining} className="w-full sm:w-auto border border-primary/10 bg-gradient-to-r from-primary/35 to-primary/10 text-primary rounded-2xl">
-              <Brain className="h-4 w-4 text-primary" />
+            <Button type="button" size="lg" onClick={onStartTraining} className="w-full text-foregroun sm:w-auto border border-primary/10 bg-gradient-to-r from-primary/35 to-primary/10 rounded-2xl">
+              <Brain className="h-4 w-4" />
               Начать изучение
             </Button>
           </motion.div>

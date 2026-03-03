@@ -171,7 +171,7 @@ export function Profile({
           }}
           className="space-y-6"
         >
-          <motion.div className="mb-2" variants={sectionVariants}>
+          <motion.div className="mb-3" variants={sectionVariants}>
             <h1 className="mb-1">Профиль</h1>
             <p className="text-muted-foreground">
               Оформление приложения и ежедневные Telegram-напоминания.
@@ -240,22 +240,22 @@ export function Profile({
                       </span>
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  {/* <p className="mt-2 text-xs text-muted-foreground">
                     Рассылка: {reminderSchedule}. Для всех пользователей одинаково (Hobby-режим).
-                  </p>
-                  {!botConnected ? (
+                  </p> */}
+                  {/* {!botConnected ? (
                     <p className="mt-2 text-xs text-muted-foreground">
                       Для подключения бота отправьте команду <code>/start</code>{' '}
                       {botHandle ? <>в чате {botHandle}</> : <>в чате вашего Telegram-бота</>}.
                     </p>
-                  ) : null}
+                  ) : null} */}
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label className="text-sm">Ежедневные напоминания</Label>
                     <p className="text-sm text-muted-foreground">
-                      Если в этот день активности не было, бот отправит мягкое мотивационное сообщение.
+                      Если в этот день активности не было, бот напомнит вам о тренировке.
                     </p>
                   </div>
                   <Switch
@@ -277,7 +277,7 @@ export function Profile({
                     onValueChange={setWeeklyGoal}
                     disabled={isBusy}
                   >
-                    <SelectTrigger id="weekly-goal" className="max-w-[220px]">
+                    <SelectTrigger id="weekly-goal" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,9 +290,9 @@ export function Profile({
                   </Select>
                 </div>
 
-                <div className="rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground">
+                {/* <div className="rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground">
                   Напоминания отправляются не чаще одного раза в день и только тем, кто не был активен сегодня.
-                </div>
+                </div> */}
 
                 <div className="flex justify-end">
                   <Button
