@@ -5,7 +5,7 @@
   --background: #fdfbf7;
   --foreground: #3d2817;
   --card: #fffefb;
-  --card-foreground: #3d2817;
+  --card-foreground: #3d2817/90; // сделай чтобы цвет был чуть светлее чем foreground для light theme, чем это #3d2817 - #3d2817/90
   --popover: #fffefb;
   --popover-foreground: #3d2817;
   --primary: #8b6914;
@@ -182,7 +182,7 @@
   h1 {
     font-size: var(--text-2xl);
     font-weight: 700;
-    font-family: var(--font-heading, 'Lora', Georgia, serif);
+    font-family: var(--font-heading, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.4;
     letter-spacing: -0.01em;
   }
@@ -190,7 +190,7 @@
   h2 {
     font-size: var(--text-xl);
     font-weight: 700;
-    font-family: var(--font-heading, 'Lora', Georgia, serif);
+    font-family: var(--font-heading, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.4;
     letter-spacing: -0.01em;
   }
@@ -198,7 +198,7 @@
   h3 {
     font-size: var(--text-lg);
     font-weight: 600;
-    font-family: var(--font-heading, 'Lora', Georgia, serif);
+    font-family: var(--font-heading, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
     letter-spacing: -0.005em;
   }
@@ -206,7 +206,7 @@
   h4 {
     font-size: var(--text-base);
     font-weight: 600;
-    font-family: var(--font-heading, 'Lora', Georgia, serif);
+    font-family: var(--font-heading, 'Inter', system-ui, -apple-system, sans-serif);
     line-height: 1.5;
     letter-spacing: 0;
   }

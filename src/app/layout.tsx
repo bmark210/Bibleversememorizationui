@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import { Inter, Lora } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import Script from 'next/script'
 
 import './globals.css'
@@ -9,12 +9,6 @@ const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   display: 'swap',
   variable: '--font-inter',
-})
-
-const lora = Lora({
-  subsets: ['latin', 'cyrillic'],
-  display: 'swap',
-  variable: '--font-lora',
 })
 
 export const metadata: Metadata = {
@@ -26,7 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="ru"
-      className={`${inter.variable} ${lora.variable} dark`}
+      className={`${inter.variable} dark`}
       style={{ colorScheme: "dark" }}
     >
       <head>

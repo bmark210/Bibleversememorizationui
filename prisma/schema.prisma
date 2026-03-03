@@ -31,6 +31,14 @@ model User {
 
   // Максимальное количество дней
   dailyStreak         Int @default(0)
+  reminderEnabled     Boolean   @default(false)
+  reminderTime        String    @default("20:00")
+  reminderTimezone    String    @default("UTC")
+  weeklyGoal          Int       @default(100)
+  botChatId           String?
+  botSubscribedAt     DateTime?
+  botBlockedAt        DateTime?
+  lastReminderSentAt  DateTime?
 
   verses       UserVerse[]
 }

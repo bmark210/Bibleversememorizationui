@@ -63,6 +63,34 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/users/{telegramId}/notifications": {
+      get: {
+        tags: ["Users"],
+        summary: "Получить настройки уведомлений пользователя",
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserNotificationSettings" } } } },
+          404: { description: "Не найден" },
+        },
+      },
+      patch: {
+        tags: ["Users"],
+        summary: "Обновить настройки уведомлений пользователя",
+        parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateUserNotificationSettingsPayload" },
+            },
+          },
+        },
+        responses: {
+          200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserNotificationSettings" } } } },
+          400: { description: "Некорректные данные" },
+        },
+      },
+    },
     "/api/users/leaderboard": {
       get: {
         tags: ["Users"],
@@ -468,6 +496,45 @@ const swaggerDoc = {
           averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
           bestVerseReference: { type: "string", nullable: true },
           dailyStreak: { type: "integer", minimum: 0 },
+        },
+      },
+      UserNotificationSettings: {
+        type: "object",
+        required: [
+          "telegramId",
+          "reminderEnabled",
+          "reminderTime",
+          "reminderTimezone",
+          "weeklyGoal",
+          "botConnected",
+          "botStartLink",
+          "openAppUrl",
+        ],
+        properties: {
+          telegramId: { type: "string" },
+          reminderEnabled: { type: "boolean" },
+          reminderTime: {
+            type: "string",
+            pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
+            example: "20:00",
+          },
+          reminderTimezone: { type: "string", example: "Europe/Chisinau" },
+          weeklyGoal: { type: "integer", minimum: 10, maximum: 1000 },
+          botConnected: { type: "boolean" },
+          botStartLink: { type: "string", nullable: true },
+          openAppUrl: { type: "string" },
+        },
+      },
+      UpdateUserNotificationSettingsPayload: {
+        type: "object",
+        properties: {
+          reminderEnabled: { type: "boolean" },
+          reminderTime: {
+            type: "string",
+            pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
+          },
+          reminderTimezone: { type: "string" },
+          weeklyGoal: { type: "integer", minimum: 10, maximum: 1000 },
         },
       },
       UserLeaderboardEntry: {

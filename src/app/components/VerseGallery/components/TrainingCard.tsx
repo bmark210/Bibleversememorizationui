@@ -88,7 +88,7 @@ export const TrainingCard = memo(function TrainingCard({
         onVerticalSwipeStep={onSwipeStep}
         header={
           <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-serif italic text-primary/90 font-bold">
+            <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-bold">
               {trainingVerse.raw.reference}
             </h2>
             <div className="mx-auto">

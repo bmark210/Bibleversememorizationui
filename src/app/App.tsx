@@ -106,6 +106,8 @@ type Page =
   | "profile"
   // | "training";
 
+type Theme = "light" | "dark";
+
 type TrainingBatchPreferences = {
   newVersesCount: number;
   reviewVersesCount: number;
@@ -116,12 +118,20 @@ type AppProps = {
 };
 
 const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
+const THEME_STORAGE_KEY = "theme";
 const MY_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
 const REVIEW_VERSE_COUNT_OPTIONS = [3, 5, 10, 15] as const;
 const DEFAULT_TRAINING_BATCH_PREFERENCES: TrainingBatchPreferences = {
   newVersesCount: 1,
   reviewVersesCount: 5,
 };
+
+function getPreferredTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 function parseDateValue(value: unknown): Date | null {
   if (!value) return null;
@@ -218,6 +228,7 @@ function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse>
 
 export default function App({ onInitialContentReady }: AppProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
@@ -241,9 +252,18 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
     DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
   );
+  const [isSavingTrainingPlan, setIsSavingTrainingPlan] = useState(false);
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+    root.style.colorScheme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   const loadDashboardStats = async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
@@ -421,6 +441,10 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
     setDashboardGalleryLaunchMode("preview");
+  };
+
+  const handleToggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
   const loadAllUserVerses = async (telegramIdValue: string) => {
@@ -625,6 +649,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (!telegramIdValue) return;
 
     try {
+      setIsSavingTrainingPlan(true);
       setIsLoading(true);
       await loadPlannedVersesForDashboard(telegramIdValue, nextPreferences);
       toast.success("План тренировки сохранён", {
@@ -633,6 +658,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     } catch {
       toast.error("Не удалось загрузить стихи по новым настройкам");
     } finally {
+      setIsSavingTrainingPlan(false);
       setIsLoading(false);
     }
   };
@@ -753,7 +779,23 @@ export default function App({ onInitialContentReady }: AppProps) {
 
           {/* {currentPage === "stats" && <Statistics stats={mockStats} />} */}
 
-          {currentPage === "profile" && <Profile />}
+          {currentPage === "profile" && (
+            <Profile
+              telegramId={telegramId}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+              trainingBatchPreferences={trainingBatchPreferences}
+              selectedNewVersesCount={selectedNewVersesCount}
+              selectedReviewVersesCount={selectedReviewVersesCount}
+              newVerseOptions={MY_VERSE_COUNT_OPTIONS}
+              reviewVerseOptions={REVIEW_VERSE_COUNT_OPTIONS}
+              onNewVersesCountChange={setSelectedNewVersesCount}
+              onReviewVersesCountChange={setSelectedReviewVersesCount}
+              onSaveTrainingPlan={() => void handleSaveTrainingBatchPreferences()}
+              isSavingTrainingPlan={isSavingTrainingPlan}
+              dailyStreak={dashboardStats?.dailyStreak ?? 0}
+            />
+          )}
         </Layout>
       </div>
 

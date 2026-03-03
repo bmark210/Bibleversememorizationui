@@ -1,9 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, LayoutDashboard, Library, BarChart3, Settings, Flame, Sun, Moon, Copy, X, User } from 'lucide-react';
-import { Button } from './ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { BookOpen, LayoutDashboard, User } from 'lucide-react';
 import { useTelegram } from '../contexts/TelegramContext';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 
@@ -14,31 +12,13 @@ interface LayoutProps {
   isContentReady?: boolean;
 }
 
-type Theme = 'light' | 'dark';
-
-const getPreferredTheme = (): Theme => {
-  if (typeof window === 'undefined') return 'light';
-  const stored = window.localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
-
 export function Layout({ children, currentPage, onNavigate, isContentReady = false }: LayoutProps) {
-  const [theme, setTheme] = useState<Theme>(getPreferredTheme);
   const { user, isReady, platform } = useTelegram();
   const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    root.style.colorScheme = theme;
-    window.localStorage.setItem('theme', theme);
-  }, [theme]);
 
   // Отладка safe area
   useEffect(() => {
@@ -48,8 +28,6 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
       // console.log('🌐 Layout: Browser mode, safe area:', safeAreaInset);
     }
   }, [isInTelegram, safeAreaInset]);
-
-  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
   // Собираем все Telegram переменные
   const getTelegramDebugInfo = () => {
@@ -183,7 +161,6 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
-    // { id: 'collections', label: 'Коллекции', icon: Library },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
@@ -275,19 +252,3 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
     </div>
   );
 }
-
-
-{/* <div className="flex items-center gap-4"> */}
-{/* <Button
-  type="button"
-  variant="outline"
-  size="sm"
-  onClick={toggleTheme}
-  className="gap-2 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
-  aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
->
-  <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
-  <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
-</Button>
-*/}
-{/* </div> */}

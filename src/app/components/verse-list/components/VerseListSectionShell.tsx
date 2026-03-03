@@ -11,7 +11,7 @@ type VerseListSectionShellProps = {
 
 export function VerseListSectionShell({ config, count, children }: VerseListSectionShellProps) {
   return (
-    <section className="h-full min-h-0" aria-labelledby={config.headingId}>
+    <section className="min-h-0" aria-labelledby={config.headingId}>
       <Card
         className={`gap-0 overflow-hidden border-border/70 rounded-3xl min-h-0 flex flex-col ${config.borderClassName}`}
       >

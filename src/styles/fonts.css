@@ -1,5 +1,5 @@
 :root {
   --font-body: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-heading: var(--font-lora), Georgia, serif;
+  --font-heading: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
