@@ -8,11 +8,6 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Button } from '../../ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from '../../ui/textarea';
-import { useIsMobile } from '../../ui/use-mobile';
-import {
-  MobileRuKeyboardOverlay,
-  MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT,
-} from './MobileRuKeyboardOverlay';
 import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
@@ -64,31 +59,22 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
   return out;
 }
 
-function removeLastMeaningfulChar(rawValue: string) {
-  if (!rawValue) return '';
-  let chars = Array.from(rawValue);
-  while (chars.length > 0 && /\s/u.test(chars[chars.length - 1] ?? '')) {
-    chars.pop();
-  }
-  if (chars.length > 0) {
-    chars.pop();
-  }
-  return chars.join('');
-}
-
 export function ModeFirstLettersKeyboardExercise({
   verse,
   onRate,
 }: FirstLettersKeyboardExerciseProps) {
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const isMobile = useIsMobile();
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
+  const mobileFocusTimeoutRef = useRef<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
@@ -96,6 +82,7 @@ export function ModeFirstLettersKeyboardExercise({
     setInputValue('');
     setShowHint(false);
     setMistakes(0);
+    setMistakesSinceReset(0);
     setIsCompleted(false);
     setShakeInput(false);
 
@@ -103,6 +90,10 @@ export function ModeFirstLettersKeyboardExercise({
       if (clearShakeTimeoutRef.current) {
         window.clearTimeout(clearShakeTimeoutRef.current);
         clearShakeTimeoutRef.current = null;
+      }
+      if (mobileFocusTimeoutRef.current) {
+        window.clearTimeout(mobileFocusTimeoutRef.current);
+        mobileFocusTimeoutRef.current = null;
       }
     };
   }, [verse]);
@@ -117,13 +108,15 @@ export function ModeFirstLettersKeyboardExercise({
     [inputValue]
   );
 
-  const typedLettersList = useMemo(
-    () => Array.from(typedCompact),
-    [typedCompact]
-  );
-
   const total = expectedLetters.length;
-  const typedCount = typedLettersList.length;
+  const typedCount = typedCompact.length;
+  const progressPercent = total > 0 ? Math.round((typedCount / total) * 100) : 0;
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
 
   const triggerInputShake = () => {
     setShakeInput(true);
@@ -153,12 +146,34 @@ export function ModeFirstLettersKeyboardExercise({
       return;
     }
 
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetInput = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+
     setMistakes((prev) => prev + 1);
-    setInputValue('');
-    toast.error('Неверная буква. Ввод сброшен, попробуйте ещё раз.', {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
-    });
+    setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetInput) {
+      setInputValue('');
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Ввод сброшен, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      setInputValue(inputValue);
+      toast.error(
+        `Неверная буква. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
     triggerInputShake();
   };
 
@@ -166,12 +181,23 @@ export function ModeFirstLettersKeyboardExercise({
     applyNextInputValue(nextRaw);
   };
 
-  const handleMobileKeyPress = (letter: string) => {
-    if (isCompleted) return;
-    applyNextInputValue(`${inputValue}${letter}`);
-  };
+  const handleInputFocus = () => {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
 
-  const isMobileKeyboardVisible = Boolean(isMobile && !isCompleted);
+    if (mobileFocusTimeoutRef.current) {
+      window.clearTimeout(mobileFocusTimeoutRef.current);
+    }
+
+    mobileFocusTimeoutRef.current = window.setTimeout(() => {
+      inputRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
+      mobileFocusTimeoutRef.current = null;
+    }, 140);
+  };
 
   return (
     <motion.div
@@ -181,11 +207,14 @@ export function ModeFirstLettersKeyboardExercise({
     >
       <div className="space-y-4">
           <div className="space-y-3">
-            <div className="flex flex-col gap-3">
-              <div className="space-y-1 text-center">
-                <label className="text-sm font-medium text-foreground">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium mx-auto text-foreground/90">
                   Введите первые буквы слов
                 </label>
+                {/* <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary/85">
+                  Клавиатурный режим
+                </div> */}
               </div>
 
               {!isCompleted && (
@@ -205,70 +234,80 @@ export function ModeFirstLettersKeyboardExercise({
               )}
             </div>
 
-            {!isMobile ? (
+            {!isCompleted && (
+              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>Прогресс ввода</span>
+                  <span className="tabular-nums">{typedCount}/{total}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                  <motion.div
+                    className="h-full rounded-full bg-primary/80"
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 0.24, ease: 'easeOut' }}
+                  />
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                    Готово: {progressPercent}%
+                  </div>
+                  <div
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                      isMistakeRiskCritical
+                        ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                        : isMistakeRiskHigh
+                          ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          : 'border-border/60 bg-background/80 text-muted-foreground'
+                    }`}
+                  >
+                    До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                  </div>
+                  {/* {mistakes > 0 && (
+                    <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                      Ошибок всего: {mistakes}
+                    </div>
+                  )} */}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
               <motion.div
                 animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm ${
-                  shakeInput ? 'border-destructive/60 bg-destructive/5' : ''
+                className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm transition-colors focus-within:border-primary/40 ${
+                  shakeInput
+                    ? 'border-destructive/60 bg-destructive/5'
+                    : 'border-border/60'
                 }`}
               >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+                />
                 <Textarea
+                  ref={inputRef}
                   value={inputValue}
                   onChange={(e) => handleInputChange(e.target.value)}
+                  onFocus={handleInputFocus}
                   placeholder="Введите первые буквы слов..."
                   disabled={isCompleted}
-                  className="min-h-[184px] resize-none border-0 bg-transparent p-4 font-mono text-base tracking-[0.16em] uppercase leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="relative min-h-[clamp(9rem,28dvh,11.5rem)] resize-none border-0 bg-transparent p-4 font-mono text-base tracking-[0.16em] uppercase leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   aria-label="Поле ввода первых букв"
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
+                  enterKeyHint="done"
                 />
               </motion.div>
-            ) : (
-              <div className="space-y-2">
-                <motion.div
-                  animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm ${
-                    shakeInput ? 'border-destructive/60 bg-destructive/5' : ''
-                  }`}
-                >
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
-                  />
-                  <div className="relative space-y-2">
-                    {typedLettersList.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {typedLettersList.map((letter, index) => (
-                          <motion.span
-                            key={`${letter}-${index}`}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="inline-flex min-w-9 items-center justify-center rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 font-mono text-sm uppercase"
-                          >
-                            {letter}
-                          </motion.span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Ввод появится здесь
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
 
-                {!isCompleted && mistakes > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                      Ошибок: {mistakes}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              {/* {!isCompleted && (
+                <p className="px-1 text-xs text-muted-foreground">
+                  Разрешены пробелы между буквами. Проверяется только порядок первых букв.
+                </p>
+              )} */}
+            </div>
           </div>
 
           <AnimatePresence initial={false}>
@@ -317,27 +356,7 @@ export function ModeFirstLettersKeyboardExercise({
             />
           </TrainingRatingFooter>
         )}
-
-          {isMobile && (
-            <div
-              aria-hidden="true"
-              className="md:hidden pointer-events-none"
-              style={{
-                height: isMobileKeyboardVisible
-                  ? MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT
-                  : '0px',
-                transition: 'height 320ms cubic-bezier(0.22, 1, 0.36, 1)',
-                willChange: 'height',
-              }}
-            />
-          )}
         </div>
-
-      <MobileRuKeyboardOverlay
-        open={isMobileKeyboardVisible}
-        disabled={isCompleted}
-        onKeyPress={handleMobileKeyPress}
-      />
     </motion.div>
   );
 }

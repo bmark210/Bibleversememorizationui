@@ -103,7 +103,7 @@ export function VerseListFilterCard({
 
   return (
     <div className="mb-3">
-      <Card className="gap-0 rounded-3xl border-border/70 bg-card">
+      <Card className="gap-0 rounded-3xl border-border/70 bg-card/50">
         <div role="tablist" aria-label="Основной фильтр списка стихов" className="grid grid-cols-2 gap-1 rounded-2xl mx-3 mt-3 p-1 border border-border/35 bg-primary/5">
           {ROOT_TABS.map(({ key, label }) => {
             const isActive = key === 'catalog' ? isCatalogMode : isMyMode;

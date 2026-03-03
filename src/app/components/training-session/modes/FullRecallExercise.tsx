@@ -2,15 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
+import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { AnimatePresence, motion } from 'motion/react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
-import { useIsMobile } from '../../ui/use-mobile';
-import {
-  MobileRuKeyboardOverlay,
-  MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT,
-} from './MobileRuKeyboardOverlay';
 import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
@@ -18,7 +14,7 @@ import {
 import { Verse } from '@/app/App';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
-  applyMobileFullRecallKey,
+  analyzeGuidedInput,
   normalizeComparableText,
   tokenizeComparableWords,
 } from '@/shared/training/fullRecallTypingAssist';
@@ -28,18 +24,45 @@ interface TypingModeProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
+function isFullRecallInputPrefixValid(userInput: string, targetWords: string[]) {
+  const analysis = analyzeGuidedInput(userInput, targetWords);
+
+  if (analysis.completedWords.length > targetWords.length) {
+    return { valid: false, analysis };
+  }
+
+  for (let index = 0; index < analysis.completedWords.length; index += 1) {
+    if (analysis.completedWords[index] !== targetWords[index]) {
+      return { valid: false, analysis };
+    }
+  }
+
+  if (!analysis.currentPrefix) {
+    return { valid: true, analysis };
+  }
+
+  if (!analysis.expectedWord) {
+    return { valid: false, analysis };
+  }
+
+  return {
+    valid: analysis.expectedWord.startsWith(analysis.currentPrefix),
+    analysis,
+  };
+}
+
 export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
-  const MOBILE_HARD_ERROR_RESET_THRESHOLD = 7;
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const isMobile = useIsMobile();
   const [userInput, setUserInput] = useState('');
   const [showHint, setShowHint] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [shakeInput, setShakeInput] = useState(false);
-  const [mobileTypingFeedback, setMobileTypingFeedback] = useState<string | null>(null);
-  const [mobileHardErrorCount, setMobileHardErrorCount] = useState(0);
   const clearShakeTimeoutRef = useRef<number | null>(null);
-  const clearFeedbackTimeoutRef = useRef<number | null>(null);
+  const mobileFocusTimeoutRef = useRef<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const targetComparableWords = useMemo(
     () => tokenizeComparableWords(verse.text),
@@ -54,23 +77,23 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     setUserInput('');
     setShowHint(false);
     setIsChecked(false);
+    setMistakes(0);
+    setMistakesSinceReset(0);
     setShakeInput(false);
-    setMobileTypingFeedback(null);
-    setMobileHardErrorCount(0);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
         window.clearTimeout(clearShakeTimeoutRef.current);
         clearShakeTimeoutRef.current = null;
       }
-      if (clearFeedbackTimeoutRef.current) {
-        window.clearTimeout(clearFeedbackTimeoutRef.current);
-        clearFeedbackTimeoutRef.current = null;
+      if (mobileFocusTimeoutRef.current) {
+        window.clearTimeout(mobileFocusTimeoutRef.current);
+        mobileFocusTimeoutRef.current = null;
       }
     };
   }, [verse.id, verse.text]);
 
-  const triggerMobileInputShake = () => {
+  const triggerInputShake = () => {
     setShakeInput(true);
     if (clearShakeTimeoutRef.current) {
       window.clearTimeout(clearShakeTimeoutRef.current);
@@ -78,84 +101,90 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     clearShakeTimeoutRef.current = window.setTimeout(() => {
       setShakeInput(false);
       clearShakeTimeoutRef.current = null;
-    }, 220);
+    }, 260);
   };
 
-  const setTransientMobileFeedback = (message: string | null) => {
-    setMobileTypingFeedback(message);
-    if (clearFeedbackTimeoutRef.current) {
-      window.clearTimeout(clearFeedbackTimeoutRef.current);
-      clearFeedbackTimeoutRef.current = null;
-    }
+  const currentInputAnalysis = useMemo(
+    () => analyzeGuidedInput(userInput, targetComparableWords),
+    [userInput, targetComparableWords]
+  );
+  const typedComparableText = useMemo(
+    () => normalizeComparableText(userInput),
+    [userInput]
+  );
+  const typedWordsCount = useMemo(() => {
+    const completed = currentInputAnalysis.completedWords.length;
+    const hasCurrentWord = Boolean(currentInputAnalysis.currentPrefix);
+    return Math.min(targetComparableWords.length, completed + (hasCurrentWord ? 1 : 0));
+  }, [currentInputAnalysis, targetComparableWords.length]);
+  const progressPercent = useMemo(() => {
+    const targetLength = targetComparableText.length;
+    if (targetLength === 0) return 0;
+    return Math.min(100, Math.round((typedComparableText.length / targetLength) * 100));
+  }, [typedComparableText, targetComparableText]);
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
 
-    if (!message) return;
-    clearFeedbackTimeoutRef.current = window.setTimeout(() => {
-      setMobileTypingFeedback(null);
-      clearFeedbackTimeoutRef.current = null;
-    }, 1200);
-  };
-
-  const triggerTypingHaptic = (kind: 'light' | 'warning' = 'light') => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const tg = (window as any).Telegram?.WebApp?.HapticFeedback;
-      if (kind === 'warning' && tg?.notificationOccurred) {
-        tg.notificationOccurred('warning');
-        return;
-      }
-      if (tg?.impactOccurred) {
-        tg.impactOccurred(kind === 'warning' ? 'medium' : 'light');
-        return;
-      }
-    } catch {
-      // continue to browser fallback
-    }
-
-    try {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(kind === 'warning' ? 18 : 10);
-      }
-    } catch {
-      // ignore unsupported vibration
-    }
-  };
-
-  const registerHardMismatch = (feedback: string) => {
-    const nextErrorCount = mobileHardErrorCount + 1;
-    const shouldResetInput = nextErrorCount >= MOBILE_HARD_ERROR_RESET_THRESHOLD;
-
-    setMobileHardErrorCount(shouldResetInput ? 0 : nextErrorCount);
-    setTransientMobileFeedback(
-      shouldResetInput ? 'Слишком много ошибок — ввод сброшен' : feedback
-    );
-
-    if (shouldResetInput) {
-      setUserInput('');
-    }
-
-    triggerMobileInputShake();
-    triggerTypingHaptic('warning');
-  };
-
-  const handleMobileKeyPress = (letter: string) => {
+  const handleInputChange = (nextRaw: string) => {
     if (isChecked) return;
-    const result = applyMobileFullRecallKey({
-      userInput,
-      key: letter,
-      targetWords: targetComparableWords,
-      minAutocompletePrefixLength: 3,
-    });
 
-    if (result.kind === 'accepted' || result.kind === 'accepted_autocomplete') {
-      setUserInput(result.nextInput);
-      setTransientMobileFeedback(null);
+    const validation = isFullRecallInputPrefixValid(nextRaw, targetComparableWords);
+    if (validation.valid) {
+      setUserInput(nextRaw);
       return;
     }
 
-    if (result.kind !== 'hard_mismatch') return;
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetInput = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
 
-    registerHardMismatch('Промах — попробуйте ещё');
+    setMistakes((prev) => prev + 1);
+    setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetInput) {
+      setUserInput('');
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Ввод сброшен, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      setUserInput(userInput);
+      toast.error(
+        `Неверный фрагмент. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
+    triggerInputShake();
+  };
+
+  const handleInputFocus = () => {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
+
+    if (mobileFocusTimeoutRef.current) {
+      window.clearTimeout(mobileFocusTimeoutRef.current);
+    }
+
+    mobileFocusTimeoutRef.current = window.setTimeout(() => {
+      inputRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
+      mobileFocusTimeoutRef.current = null;
+    }, 140);
   };
 
   const isInputComplete = useMemo(() => {
@@ -169,19 +198,17 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     }
   }, [isChecked, isInputComplete]);
 
-  const isMobileKeyboardVisible = Boolean(isMobile && !isChecked);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-        <div className="space-y-4">
-          <div className="space-y-3 mb-2">
-            <div className="flex flex-col gap-3">
-              <div className="space-y-1 text-center">
-                <label className="text-sm font-medium text-foreground">
+      <div className="space-y-4">
+          <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-foreground mx-auto">
                   Напечатайте стих по памяти
                 </label>
               </div>
@@ -203,66 +230,75 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               )}
             </div>
 
-            {!isMobile ? (
-              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm">
-                <Textarea
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="Начните печатать..."
-                  rows={6}
-                  className="min-h-[184px] resize-none border-0 bg-transparent p-4 text-base leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  disabled={isChecked}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <motion.div
-                  animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm ${
-                    shakeInput ? 'border-destructive/60 bg-destructive/5' : ''
-                  }`}
-                >
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+            {!isChecked && (
+              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>Прогресс ввода</span>
+                  <span className="tabular-nums">{typedWordsCount}/{targetComparableWords.length} слов</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                  <motion.div
+                    className="h-full rounded-full bg-primary/80"
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 0.24, ease: 'easeOut' }}
                   />
-                  <div className="relative">
-                    {userInput.trim().length > 0 ? (
-                      <p className="text-base leading-relaxed whitespace-pre-wrap break-words">
-                        {userInput}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Ввод появится здесь
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
+                </div>
 
-                {!isChecked && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <AnimatePresence initial={false}>
-                      {mobileTypingFeedback && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary"
-                        >
-                          {mobileTypingFeedback}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    {mobileHardErrorCount > 0 && (
-                      <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                        Ошибок: {mobileHardErrorCount}
-                      </div>
-                    )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                    Готово: {progressPercent}%
                   </div>
-                )}
+                  <div
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                      isMistakeRiskCritical
+                        ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                        : isMistakeRiskHigh
+                          ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          : 'border-border/60 bg-background/80 text-muted-foreground'
+                    }`}
+                  >
+                    До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                  </div>
+                  {mistakes > 0 && (
+                    <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                      Ошибок всего: {mistakes}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <motion.div
+                animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm transition-colors focus-within:border-primary/40 ${
+                  shakeInput
+                    ? 'border-destructive/60 bg-destructive/5'
+                    : 'border-border/60'
+                }`}
+              >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+                />
+                <Textarea
+                  ref={inputRef}
+                  value={userInput}
+                  onChange={(event) => handleInputChange(event.target.value)}
+                  onFocus={handleInputFocus}
+                  placeholder="Начните печатать..."
+                  rows={6}
+                  className="relative min-h-[clamp(9rem,30dvh,12rem)] resize-none border-0 bg-transparent p-4 text-base leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  disabled={isChecked}
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                />
+              </motion.div>
+
+            </div>
           </div>
 
           <AnimatePresence initial={false}>
@@ -303,27 +339,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               />
             </TrainingRatingFooter>
           )}
-
-          {isMobile && (
-            <div
-              aria-hidden="true"
-              className="md:hidden pointer-events-none"
-              style={{
-                height: isMobileKeyboardVisible
-                  ? MOBILE_RU_KEYBOARD_OVERLAY_SPACER_HEIGHT
-                  : '0px',
-                transition: 'height 320ms cubic-bezier(0.22, 1, 0.36, 1)',
-                willChange: 'height',
-              }}
-            />
-          )}
         </div>
-
-      <MobileRuKeyboardOverlay
-        open={isMobileKeyboardVisible}
-        disabled={isChecked}
-        onKeyPress={handleMobileKeyPress}
-      />
     </motion.div>
   );
 }

@@ -47,7 +47,7 @@ function HighlightedText({ text, className }: { text: string; className?: string
       {parts.map((part, i) => {
         const match = part.match(/^<mark>(.*?)<\/mark>$/);
         return match ? (
-          <mark key={i} className="bg-amber-400/60 text-foreground px-0.5 rounded">{match[1]}</mark>
+          <mark key={i} className="bg-amber-400/60 text-foreground/90 px-0.5 rounded">{match[1]}</mark>
         ) : (
           <React.Fragment key={i}>{part}</React.Fragment>
         );
@@ -996,7 +996,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                 onClick={() => setInputMode("search")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   inputMode === "search"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground/90 shadow-sm"
                     : "text-muted-foreground "
                 }`}
               >
@@ -1008,7 +1008,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                 onClick={() => setInputMode("manual")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   inputMode === "manual"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground/90 shadow-sm"
                     : "text-muted-foreground "
                 }`}
               >
@@ -1032,7 +1032,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
               <Button
                 type="button"
                 onClick={handleClose}
-                className="w-full rounded-xl px-3 py-2"
+                className="w-full rounded-xl px-3 py-2 text-foreground/90 border border-border/60 bg-muted/35"
               >
                 Готово
               </Button>

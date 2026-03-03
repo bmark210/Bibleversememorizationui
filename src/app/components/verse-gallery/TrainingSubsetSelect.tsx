@@ -23,10 +23,10 @@ const TRAINING_SUBSET_THEME: Record<
   catalog: {
     dotClassName: "bg-foreground/45",
     triggerClassName:
-      "border-border/60 bg-background/80 text-foreground shadow-sm",
+      "border-border/60 bg-background/80 text-foreground/90 shadow-sm",
     contentClassName: "border-border/60 bg-background/95 backdrop-blur-xl",
     itemClassName:
-      "data-[state=checked]:bg-muted/60 data-[state=checked]:text-foreground focus:bg-muted/40",
+      "data-[state=checked]:bg-muted/60 data-[state=checked]:text-foreground/90 focus:bg-muted/40",
   },
   learning: {
     dotClassName: "bg-emerald-400",
