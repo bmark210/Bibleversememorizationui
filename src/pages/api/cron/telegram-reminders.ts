@@ -11,102 +11,74 @@ import {
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
 
-const REMINDER_TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
-const REMINDER_WINDOW_MINUTES = 15;
-
-type ZonedDateParts = {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-};
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function getSingleHeaderValue(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }
 
-function parseReminderMinutes(reminderTime: string): number | null {
-  if (!REMINDER_TIME_REGEX.test(reminderTime)) return null;
-  const [hours, minutes] = reminderTime.split(":").map((part) => Number(part));
-  return hours * 60 + minutes;
+function getUtcDayStart(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
 }
 
-function getZonedDateParts(date: Date, timeZone: string): ZonedDateParts | null {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour12: false,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).formatToParts(date);
+function getUtcDayEnd(value: Date): Date {
+  return new Date(getUtcDayStart(value).getTime() + DAY_IN_MS);
+}
 
-    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    const year = Number(byType.year);
-    const month = Number(byType.month);
-    const day = Number(byType.day);
-    const hour = Number(byType.hour);
-    const minute = Number(byType.minute);
+function isSameUtcDay(a: Date, b: Date): boolean {
+  return getUtcDayStart(a).getTime() === getUtcDayStart(b).getTime();
+}
 
-    if (
-      !Number.isFinite(year) ||
-      !Number.isFinite(month) ||
-      !Number.isFinite(day) ||
-      !Number.isFinite(hour) ||
-      !Number.isFinite(minute)
-    ) {
-      return null;
-    }
+function pluralRu(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
 
-    return { year, month, day, hour, minute };
-  } catch {
-    return null;
+function buildGentleEncouragement(inactiveDays: number): string {
+  if (inactiveDays >= 30) {
+    return "Господь милостив. Даже маленький шаг сегодня может стать началом новой доброй привычки.";
   }
+  if (inactiveDays >= 14) {
+    return "Не переживайте из-за паузы. Начните с одного стиха и двигайтесь спокойно, шаг за шагом.";
+  }
+  if (inactiveDays >= 7) {
+    return "Небольшая тренировка сегодня поможет вернуть ритм и радость от Слова.";
+  }
+  return "Даже 5 минут повторения сегодня укрепят память и внимание к Писанию.";
 }
 
-function isWithinReminderWindow(now: Date, reminderTime: string, timeZone: string): boolean {
-  const reminderMinutes = parseReminderMinutes(reminderTime);
-  if (reminderMinutes == null) return false;
-
-  const zonedNow = getZonedDateParts(now, timeZone);
-  if (!zonedNow) return false;
-
-  const currentMinutes = zonedNow.hour * 60 + zonedNow.minute;
-  const diff = currentMinutes - reminderMinutes;
-  return diff >= 0 && diff < REMINDER_WINDOW_MINUTES;
-}
-
-function isSameLocalDay(a: Date, b: Date, timeZone: string): boolean {
-  const aParts = getZonedDateParts(a, timeZone);
-  const bParts = getZonedDateParts(b, timeZone);
-  if (!aParts || !bParts) return false;
-
-  return (
-    aParts.year === bParts.year &&
-    aParts.month === bParts.month &&
-    aParts.day === bParts.day
-  );
-}
-
-function formatDueReminderText(dueCount: number, appUrl: string): string {
-  const suffix =
-    dueCount % 10 === 1 && dueCount % 100 !== 11
-      ? "стих"
-      : dueCount % 10 >= 2 &&
-          dueCount % 10 <= 4 &&
-          (dueCount % 100 < 10 || dueCount % 100 >= 20)
-        ? "стиха"
-        : "стихов";
-
-  const appLine = appUrl
-    ? `Откройте приложение: ${appUrl}`
+function buildReminderText(params: {
+  userName: string;
+  inactiveDays: number;
+  dueCount: number;
+  weeklyGoal: number;
+  dailyStreak: number;
+  appUrl: string;
+}) {
+  const dueLabel = pluralRu(params.dueCount, "стих", "стиха", "стихов");
+  const dayLabel = pluralRu(params.inactiveDays, "день", "дня", "дней");
+  const appLine = params.appUrl
+    ? `Открыть приложение: ${params.appUrl}`
     : "Откройте приложение и продолжайте тренировку.";
 
-  return [`Напоминание: к повторению ${dueCount} ${suffix}.`, appLine].join("\n");
+  const dueLine =
+    params.dueCount > 0
+      ? `Сегодня к повторению: ${params.dueCount} ${dueLabel}.`
+      : "Сегодня нет просроченных повторений, но короткая тренировка поможет держать темп.";
+
+  return [
+    `Привет, ${params.userName}!`,
+    "",
+    `Вы не были активны ${params.inactiveDays} ${dayLabel}.`,
+    dueLine,
+    `Серия: ${params.dailyStreak} дн. Цель недели: ${params.weeklyGoal} повторений.`,
+    buildGentleEncouragement(params.inactiveDays),
+    appLine,
+  ].join("\n");
 }
 
 function isAuthorizedCronRequest(req: NextApiRequest): { ok: boolean; reason?: string } {
@@ -140,6 +112,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const dryRun = req.query.dryRun === "1";
   const now = new Date();
+  const dayStartUtc = getUtcDayStart(now);
+  const dayEndUtc = getUtcDayEnd(now);
+
   const openAppUrl = String(process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
   const replyMarkup = buildOpenAppKeyboard(openAppUrl);
 
@@ -152,9 +127,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       select: {
         telegramId: true,
+        name: true,
+        createdAt: true,
         botChatId: true,
-        reminderTime: true,
-        reminderTimezone: true,
+        weeklyGoal: true,
+        dailyStreak: true,
         lastReminderSentAt: true,
       },
     });
@@ -164,48 +141,78 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: "sent" | "skip" | "error";
       reason?: string;
       dueCount?: number;
+      inactiveDays?: number;
     }> = [];
 
     for (const user of candidates) {
-      const chatId = user.botChatId;
-      if (!chatId) {
+      if (!user.botChatId) {
         results.push({ telegramId: user.telegramId, status: "skip", reason: "no-chat-id" });
         continue;
       }
 
-      const inWindow = isWithinReminderWindow(now, user.reminderTime, user.reminderTimezone);
-      if (!inWindow) {
-        results.push({ telegramId: user.telegramId, status: "skip", reason: "outside-window" });
-        continue;
-      }
-
-      if (
-        user.lastReminderSentAt &&
-        isSameLocalDay(user.lastReminderSentAt, now, user.reminderTimezone)
-      ) {
-        results.push({ telegramId: user.telegramId, status: "skip", reason: "already-sent-today" });
-        continue;
-      }
-
-      const dueCount = await prisma.userVerse.count({
-        where: {
-          telegramId: user.telegramId,
-          status: VerseStatus.LEARNING,
-          masteryLevel: { gte: TRAINING_STAGE_MASTERY_MAX },
-          repetitions: { lt: REPEAT_THRESHOLD_FOR_MASTERED },
-          OR: [{ nextReviewAt: null }, { nextReviewAt: { lte: now } }],
-        },
-      });
-
-      if (dueCount <= 0) {
+      if (user.lastReminderSentAt && isSameUtcDay(user.lastReminderSentAt, now)) {
         results.push({
           telegramId: user.telegramId,
           status: "skip",
-          reason: "no-due-verses",
-          dueCount,
+          reason: "already-sent-today",
         });
         continue;
       }
+
+      const hasActivityToday = await prisma.userVerse.findFirst({
+        where: {
+          telegramId: user.telegramId,
+          OR: [
+            { updatedAt: { gte: dayStartUtc, lt: dayEndUtc } },
+            { lastReviewedAt: { gte: dayStartUtc, lt: dayEndUtc } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (hasActivityToday) {
+        results.push({
+          telegramId: user.telegramId,
+          status: "skip",
+          reason: "active-today",
+        });
+        continue;
+      }
+
+      const [latestActivity, dueCount] = await Promise.all([
+        prisma.userVerse.findFirst({
+          where: { telegramId: user.telegramId },
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true },
+        }),
+        prisma.userVerse.count({
+          where: {
+            telegramId: user.telegramId,
+            status: VerseStatus.LEARNING,
+            masteryLevel: { gte: TRAINING_STAGE_MASTERY_MAX },
+            repetitions: { lt: REPEAT_THRESHOLD_FOR_MASTERED },
+            OR: [{ nextReviewAt: null }, { nextReviewAt: { lte: now } }],
+          },
+        }),
+      ]);
+
+      const lastActivityDate = latestActivity?.updatedAt ?? user.createdAt;
+      const inactiveDays = lastActivityDate
+        ? Math.max(
+            1,
+            Math.floor((dayStartUtc.getTime() - getUtcDayStart(lastActivityDate).getTime()) / DAY_IN_MS)
+          )
+        : 1;
+
+      const userName = user.name?.trim() || "друг";
+      const messageText = buildReminderText({
+        userName,
+        inactiveDays,
+        dueCount,
+        weeklyGoal: user.weeklyGoal,
+        dailyStreak: Math.max(0, Math.round(Number(user.dailyStreak ?? 0))),
+        appUrl: openAppUrl,
+      });
 
       if (dryRun) {
         results.push({
@@ -213,14 +220,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: "sent",
           reason: "dry-run",
           dueCount,
+          inactiveDays,
         });
         continue;
       }
 
       try {
         await sendTelegramMessage({
-          chatId,
-          text: formatDueReminderText(dueCount, openAppUrl),
+          chatId: user.botChatId,
+          text: messageText,
           replyMarkup,
         });
 
@@ -229,7 +237,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data: { lastReminderSentAt: now },
         });
 
-        results.push({ telegramId: user.telegramId, status: "sent", dueCount });
+        results.push({
+          telegramId: user.telegramId,
+          status: "sent",
+          dueCount,
+          inactiveDays,
+        });
       } catch (error) {
         if (isTelegramForbiddenError(error)) {
           await prisma.user.update({
@@ -242,6 +255,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             status: "error",
             reason: "bot-blocked",
             dueCount,
+            inactiveDays,
           });
           continue;
         }
@@ -255,6 +269,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: "error",
           reason: "send-failed",
           dueCount,
+          inactiveDays,
         });
       }
     }
@@ -266,6 +281,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       ok: true,
       dryRun,
+      schedule: "daily-20:00-utc",
       processed: results.length,
       sent,
       skipped,

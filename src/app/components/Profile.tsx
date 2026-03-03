@@ -5,7 +5,6 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Bell, Moon, Palette, Sun } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import {
   Select,
@@ -24,34 +23,13 @@ import {
 
 type Theme = 'light' | 'dark';
 
-type TrainingBatchPreferences = {
-  newVersesCount: number;
-  reviewVersesCount: number;
-};
-
 interface ProfileProps {
   telegramId?: string | null;
   theme: Theme;
   onToggleTheme: () => void;
-  trainingBatchPreferences: TrainingBatchPreferences | null;
-  selectedNewVersesCount: number;
-  selectedReviewVersesCount: number;
-  newVerseOptions: readonly number[];
-  reviewVerseOptions: readonly number[];
-  onNewVersesCountChange: (value: number) => void;
-  onReviewVersesCountChange: (value: number) => void;
-  onSaveTrainingPlan: () => void | Promise<void>;
-  isSavingTrainingPlan?: boolean;
-  dailyStreak?: number;
 }
 
-const WEEKLY_GOAL_OPTIONS = [50, 100, 150, 200, 300, 500] as const;
-
-function getClientTimezone(): string {
-  if (typeof window === 'undefined') return 'UTC';
-  const value = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return typeof value === 'string' && value.trim() ? value : 'UTC';
-}
+const WEEKLY_GOAL_OPTIONS = [5, 10, 15, 20, 30, 50] as const;
 
 export function Profile({
   telegramId,
@@ -60,39 +38,39 @@ export function Profile({
 }: ProfileProps) {
   const shouldReduceMotion = useReducedMotion();
   const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('20:00');
-  const [weeklyGoal, setWeeklyGoal] = useState<string>('100');
+  const [weeklyGoal, setWeeklyGoal] = useState<string>('5');
   const [botConnected, setBotConnected] = useState(false);
   const [botStartLink, setBotStartLink] = useState<string | null>(null);
   const [openAppUrl, setOpenAppUrl] = useState('');
+  const [reminderSchedule, setReminderSchedule] = useState('Ежедневно в 20:00 UTC');
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
 
   const applyNotificationState = useCallback((payload: {
     reminderEnabled: boolean;
-    reminderTime: string;
     weeklyGoal: number;
     botConnected: boolean;
     botStartLink: string | null;
     openAppUrl: string;
+    reminderSchedule: string;
   }) => {
     setRemindersEnabled(payload.reminderEnabled);
-    setReminderTime(payload.reminderTime);
     setWeeklyGoal(String(payload.weeklyGoal));
     setBotConnected(payload.botConnected);
     setBotStartLink(payload.botStartLink);
     setOpenAppUrl(payload.openAppUrl);
+    setReminderSchedule(payload.reminderSchedule);
   }, []);
 
   useEffect(() => {
     if (!telegramId) {
       applyNotificationState({
         reminderEnabled: false,
-        reminderTime: '20:00',
-        weeklyGoal: 100,
+        weeklyGoal: 5,
         botConnected: false,
         botStartLink: null,
         openAppUrl: '',
+        reminderSchedule: 'Ежедневно в 20:00 UTC',
       });
       return;
     }
@@ -131,13 +109,11 @@ export function Profile({
     try {
       const settings = await updateUserNotificationSettings(telegramId, {
         reminderEnabled: remindersEnabled,
-        reminderTime,
         weeklyGoal: Number(weeklyGoal),
-        reminderTimezone: getClientTimezone(),
       });
       applyNotificationState(settings);
       toast.success('Настройки сохранены', {
-        description: 'Напоминания и цель недели обновлены.',
+        description: 'Ежедневные напоминания обновлены.',
       });
     } catch (error) {
       console.error('Не удалось сохранить настройки уведомлений:', error);
@@ -194,7 +170,7 @@ export function Profile({
           <motion.div className="mb-2" variants={sectionVariants}>
             <h1 className="mb-1">Профиль</h1>
             <p className="text-muted-foreground">
-              Оформление приложения и напоминания для регулярных тренировок.
+              Оформление приложения и ежедневные Telegram-напоминания.
             </p>
           </motion.div>
 
@@ -245,7 +221,7 @@ export function Profile({
                     Напоминания и цели
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Напоминания в Telegram отправляются только для стихов, которые уже ждут повторения.
+                    Бот проверяет активность раз в день: если сегодня вы уже тренировались, напоминание не придёт.
                   </p>
                 </div>
               </div>
@@ -268,6 +244,9 @@ export function Profile({
                       </Button>
                     ) : null}
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Рассылка: {reminderSchedule}. Для всех пользователей одинаково (Hobby-режим).
+                  </p>
                   {!botConnected && openAppUrl ? (
                     <p className="mt-2 text-xs text-muted-foreground">
                       После команды <code>/start</code> бот покажет кнопку открытия приложения: {openAppUrl}
@@ -279,7 +258,7 @@ export function Profile({
                   <div className="space-y-0.5">
                     <Label className="text-sm">Ежедневные напоминания</Label>
                     <p className="text-sm text-muted-foreground">
-                      По умолчанию выключены. Включите, чтобы получать напоминания в Telegram.
+                      Если в этот день активности не было, бот отправит мягкое мотивационное сообщение.
                     </p>
                   </div>
                   <Switch
@@ -288,25 +267,6 @@ export function Profile({
                     disabled={isBusy}
                     aria-label="Включить ежедневные напоминания"
                   />
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="reminder-time" className="text-sm">
-                    Время напоминания
-                  </Label>
-                  <Input
-                    id="reminder-time"
-                    type="time"
-                    value={reminderTime}
-                    disabled={!remindersEnabled || isBusy}
-                    onChange={(event) => setReminderTime(event.target.value)}
-                    className="max-w-[180px]"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Часовой пояс будет сохранён автоматически: {getClientTimezone()}.
-                  </p>
                 </div>
 
                 <Separator />
@@ -334,7 +294,7 @@ export function Profile({
                 </div>
 
                 <div className="rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground">
-                  Напоминание придёт только когда в вашей очереди есть стихи на повторение.
+                  Напоминания отправляются не чаще одного раза в день и только тем, кто не был активен сегодня.
                 </div>
 
                 <div className="flex justify-end">

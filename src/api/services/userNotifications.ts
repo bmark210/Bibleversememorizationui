@@ -1,22 +1,17 @@
 export type UserNotificationSettings = {
   telegramId: string;
   reminderEnabled: boolean;
-  reminderTime: string;
-  reminderTimezone: string;
   weeklyGoal: number;
   botConnected: boolean;
   botStartLink: string | null;
   openAppUrl: string;
+  reminderSchedule: string;
 };
 
 export type UpdateUserNotificationSettingsPayload = {
   reminderEnabled?: boolean;
-  reminderTime?: string;
-  reminderTimezone?: string;
   weeklyGoal?: number;
 };
-
-const REMINDER_TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 function toSafeString(value: unknown, fallback = "") {
   if (typeof value !== "string") return fallback;
@@ -43,17 +38,15 @@ function toNullableString(value: unknown): string | null {
 
 export function normalizeUserNotificationSettings(value: unknown): UserNotificationSettings {
   const data = (value ?? {}) as Partial<UserNotificationSettings>;
-  const reminderTime = toSafeString(data.reminderTime, "20:00");
 
   return {
     telegramId: toSafeString(data.telegramId),
     reminderEnabled: toSafeBoolean(data.reminderEnabled, false),
-    reminderTime: REMINDER_TIME_REGEX.test(reminderTime) ? reminderTime : "20:00",
-    reminderTimezone: toSafeString(data.reminderTimezone, "UTC"),
-    weeklyGoal: Math.max(10, Math.min(1000, toSafeInteger(data.weeklyGoal, 100))),
+    weeklyGoal: Math.max(1, Math.min(500, toSafeInteger(data.weeklyGoal, 5))),
     botConnected: toSafeBoolean(data.botConnected, false),
     botStartLink: toNullableString(data.botStartLink),
     openAppUrl: toSafeString(data.openAppUrl),
+    reminderSchedule: toSafeString(data.reminderSchedule, "Ежедневно в 20:00 UTC"),
   };
 }
 

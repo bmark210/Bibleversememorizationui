@@ -39,6 +39,7 @@ function buildWelcomeText(firstName: string | undefined, appUrl: string) {
     "",
     "Я бот напоминаний Bible Verse Memorization.",
     "Напоминания выключены по умолчанию: включите их в разделе «Профиль».",
+    "Рассылка работает раз в день (20:00 UTC) и не отправляется, если вы уже были активны сегодня.",
     appLine,
   ].join("\n");
 }

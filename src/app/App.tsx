@@ -784,16 +784,6 @@ export default function App({ onInitialContentReady }: AppProps) {
               telegramId={telegramId}
               theme={theme}
               onToggleTheme={handleToggleTheme}
-              trainingBatchPreferences={trainingBatchPreferences}
-              selectedNewVersesCount={selectedNewVersesCount}
-              selectedReviewVersesCount={selectedReviewVersesCount}
-              newVerseOptions={MY_VERSE_COUNT_OPTIONS}
-              reviewVerseOptions={REVIEW_VERSE_COUNT_OPTIONS}
-              onNewVersesCountChange={setSelectedNewVersesCount}
-              onReviewVersesCountChange={setSelectedReviewVersesCount}
-              onSaveTrainingPlan={() => void handleSaveTrainingBatchPreferences()}
-              isSavingTrainingPlan={isSavingTrainingPlan}
-              dailyStreak={dashboardStats?.dailyStreak ?? 0}
             />
           )}
         </Layout>

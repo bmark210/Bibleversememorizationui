@@ -4,33 +4,21 @@ import { prisma } from "@/lib/prisma";
 type UserNotificationSettingsResponse = {
   telegramId: string;
   reminderEnabled: boolean;
-  reminderTime: string;
-  reminderTimezone: string;
   weeklyGoal: number;
   botConnected: boolean;
   botStartLink: string | null;
   openAppUrl: string;
+  reminderSchedule: string;
 };
 
 type UpdateUserNotificationSettingsPayload = {
   reminderEnabled?: boolean;
-  reminderTime?: string;
-  reminderTimezone?: string;
   weeklyGoal?: number;
 };
 
-const REMINDER_TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
-const WEEKLY_GOAL_MIN = 10;
-const WEEKLY_GOAL_MAX = 1000;
-
-function isValidTimeZone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const WEEKLY_GOAL_MIN = 1;
+const WEEKLY_GOAL_MAX = 500;
+const DAILY_REMINDER_SCHEDULE_LABEL = "Ежедневно в 20:00 UTC";
 
 function normalizeBotUsername(value: string | undefined): string | null {
   const normalized = String(value ?? "")
@@ -48,8 +36,6 @@ function buildBotStartLink(botUsername: string | undefined): string | null {
 function mapUserNotificationResponse(params: {
   telegramId: string;
   reminderEnabled: boolean;
-  reminderTime: string;
-  reminderTimezone: string;
   weeklyGoal: number;
   botChatId: string | null;
   botBlockedAt: Date | null;
@@ -57,12 +43,11 @@ function mapUserNotificationResponse(params: {
   return {
     telegramId: params.telegramId,
     reminderEnabled: params.reminderEnabled,
-    reminderTime: params.reminderTime,
-    reminderTimezone: params.reminderTimezone,
     weeklyGoal: params.weeklyGoal,
     botConnected: Boolean(params.botChatId) && params.botBlockedAt == null,
     botStartLink: buildBotStartLink(process.env.TELEGRAM_BOT_USERNAME),
     openAppUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
+    reminderSchedule: DAILY_REMINDER_SCHEDULE_LABEL,
   };
 }
 
@@ -76,8 +61,6 @@ async function ensureUser(telegramId: string) {
     select: {
       telegramId: true,
       reminderEnabled: true,
-      reminderTime: true,
-      reminderTimezone: true,
       weeklyGoal: true,
       botChatId: true,
       botBlockedAt: true,
@@ -110,8 +93,6 @@ export default async function handler(
         mapUserNotificationResponse({
           telegramId: user.telegramId,
           reminderEnabled: user.reminderEnabled,
-          reminderTime: user.reminderTime,
-          reminderTimezone: user.reminderTimezone,
           weeklyGoal: user.weeklyGoal,
           botChatId: user.botChatId,
           botBlockedAt: user.botBlockedAt,
@@ -127,24 +108,6 @@ export default async function handler(
         return res.status(400).json({ error: "reminderEnabled must be a boolean" });
       }
       updates.reminderEnabled = payload.reminderEnabled;
-    }
-
-    if (payload.reminderTime !== undefined) {
-      if (typeof payload.reminderTime !== "string" || !REMINDER_TIME_REGEX.test(payload.reminderTime)) {
-        return res.status(400).json({ error: "reminderTime must match HH:mm format" });
-      }
-      updates.reminderTime = payload.reminderTime;
-    }
-
-    if (payload.reminderTimezone !== undefined) {
-      if (
-        typeof payload.reminderTimezone !== "string" ||
-        !payload.reminderTimezone.trim() ||
-        !isValidTimeZone(payload.reminderTimezone.trim())
-      ) {
-        return res.status(400).json({ error: "reminderTimezone must be a valid IANA timezone" });
-      }
-      updates.reminderTimezone = payload.reminderTimezone.trim();
     }
 
     if (payload.weeklyGoal !== undefined) {
@@ -169,15 +132,11 @@ export default async function handler(
         telegramId,
         name: fallbackName,
         ...(updates.reminderEnabled !== undefined ? { reminderEnabled: updates.reminderEnabled } : {}),
-        ...(updates.reminderTime !== undefined ? { reminderTime: updates.reminderTime } : {}),
-        ...(updates.reminderTimezone !== undefined ? { reminderTimezone: updates.reminderTimezone } : {}),
         ...(updates.weeklyGoal !== undefined ? { weeklyGoal: updates.weeklyGoal } : {}),
       },
       select: {
         telegramId: true,
         reminderEnabled: true,
-        reminderTime: true,
-        reminderTimezone: true,
         weeklyGoal: true,
         botChatId: true,
         botBlockedAt: true,
@@ -188,8 +147,6 @@ export default async function handler(
       mapUserNotificationResponse({
         telegramId: user.telegramId,
         reminderEnabled: user.reminderEnabled,
-        reminderTime: user.reminderTime,
-        reminderTimezone: user.reminderTimezone,
         weeklyGoal: user.weeklyGoal,
         botChatId: user.botChatId,
         botBlockedAt: user.botBlockedAt,

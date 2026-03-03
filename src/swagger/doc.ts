@@ -503,38 +503,30 @@ const swaggerDoc = {
         required: [
           "telegramId",
           "reminderEnabled",
-          "reminderTime",
-          "reminderTimezone",
           "weeklyGoal",
           "botConnected",
           "botStartLink",
           "openAppUrl",
+          "reminderSchedule",
         ],
         properties: {
           telegramId: { type: "string" },
           reminderEnabled: { type: "boolean" },
-          reminderTime: {
-            type: "string",
-            pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
-            example: "20:00",
-          },
-          reminderTimezone: { type: "string", example: "Europe/Chisinau" },
-          weeklyGoal: { type: "integer", minimum: 10, maximum: 1000 },
+          weeklyGoal: { type: "integer", minimum: 1, maximum: 500 },
           botConnected: { type: "boolean" },
           botStartLink: { type: "string", nullable: true },
           openAppUrl: { type: "string" },
+          reminderSchedule: {
+            type: "string",
+            example: "Ежедневно в 20:00 UTC",
+          },
         },
       },
       UpdateUserNotificationSettingsPayload: {
         type: "object",
         properties: {
           reminderEnabled: { type: "boolean" },
-          reminderTime: {
-            type: "string",
-            pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$",
-          },
-          reminderTimezone: { type: "string" },
-          weeklyGoal: { type: "integer", minimum: 10, maximum: 1000 },
+          weeklyGoal: { type: "integer", minimum: 1, maximum: 500 },
         },
       },
       UserLeaderboardEntry: {
