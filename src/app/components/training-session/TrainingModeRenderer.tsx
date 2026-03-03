@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { Verse as LegacyVerse } from '../../data/mockData';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
 import { ModeClickWordsHintedExercise } from './modes/ClickWordsHintedExercise';
 import { ModeClickWordsExercise } from './modes/ClickWordsExercise';
@@ -28,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
+import { Verse } from '@/app/App';
 
 export enum TrainingModeRendererKey {
   ChunksOrder = 'chunks-order',
@@ -146,7 +146,7 @@ function writeSeenModeTutorials(value: Partial<Record<TrainingModeRendererKey, t
 
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
-  verse: LegacyVerse;
+  verse: Verse;
   onRate: (rating: TrainingModeRating) => void;
 }
 

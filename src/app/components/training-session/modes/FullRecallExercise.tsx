@@ -15,7 +15,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import type { Verse } from '../../../data/mockData';
+import { Verse } from '@/app/App';
 import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   applyMobileFullRecallKey,

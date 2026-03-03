@@ -11,7 +11,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import type { Verse } from '../../../data/mockData';
+import { Verse } from '@/app/App';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;

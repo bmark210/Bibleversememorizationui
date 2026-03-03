@@ -1,11 +1,11 @@
 'use client'
 
-import type { Verse as LegacyVerse } from '../../../data/mockData';
+import { Verse } from '@/app/App';
 
 export type TrainingModeRating = 0 | 1 | 2 | 3;
 
 export interface TrainingModeProps {
-  verse: LegacyVerse;
+  verse: Verse;
   onRate: (rating: TrainingModeRating) => void;
   embedded?: boolean;
 }
