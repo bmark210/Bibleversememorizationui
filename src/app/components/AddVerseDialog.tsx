@@ -442,7 +442,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
     try {
       const res = await getHelloaoVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
-      if (!res?.text) throw new Error("Стих не найден");
+      if (!res || !Number.isFinite(Number(res.verse))) throw new Error("Стих не найден");
       setSelectedVerse({
         book: bid as BibleBook,
         chapter: ch,

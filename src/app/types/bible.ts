@@ -114,7 +114,7 @@ export const BIBLE_BOOKS: Record<number, BibleBookInfo> = {
   [BibleBook.Nehemiah]: { id: BibleBook.Nehemiah, nameRu: 'Неемия', chapters: 13, chronorder: 38 },
   [BibleBook.Esther]: { id: BibleBook.Esther, nameRu: 'Есфирь', chapters: 10, chronorder: 36 },
   [BibleBook.Job]: { id: BibleBook.Job, nameRu: 'Иов', chapters: 42, chronorder: 2 },
-  [BibleBook.Psalms]: { id: BibleBook.Psalms, nameRu: 'Псалтирь', chapters: 151, chronorder: 13 },
+  [BibleBook.Psalms]: { id: BibleBook.Psalms, nameRu: 'Псалтирь', chapters: 150, chronorder: 13 },
   [BibleBook.Proverbs]: { id: BibleBook.Proverbs, nameRu: 'Притчи', chapters: 31, chronorder: 17 },
   [BibleBook.Ecclesiastes]: { id: BibleBook.Ecclesiastes, nameRu: 'Екклезиаст', chapters: 12, chronorder: 18 },
   [BibleBook.SongOfSolomon]: { id: BibleBook.SongOfSolomon, nameRu: 'Песни Песней', chapters: 8, chronorder: 14 },

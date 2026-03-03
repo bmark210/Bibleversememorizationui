@@ -174,8 +174,6 @@ function applyThemeToDocument(theme: Theme) {
 
   document.documentElement.style.colorScheme = theme;
   document.body.style.colorScheme = theme;
-  document.documentElement.style.backgroundColor = backgroundColor;
-  document.body.style.backgroundColor = backgroundColor;
   document.documentElement.style.color = foregroundColor;
   document.body.style.color = foregroundColor;
 }

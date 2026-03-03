@@ -4,21 +4,17 @@ import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Dot, Target } from 'lucide-react';
 
 const AddVerseDialog = dynamic(
   () => import('./AddVerseDialog').then((m) => m.AddVerseDialog),
   { ssr: false }
 );
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
+
 import { VerseGallery } from './VerseGallery';
-import type { Verse } from '@/app/App';
 import { ConfirmDeleteModal } from './verse-list/components/ConfirmDeleteModal';
 import { VerseListEmptyState } from './verse-list/components/VerseListEmptyState';
 import { VerseListFilterCard } from './verse-list/components/VerseListFilterCard';
 import { VerseListHeader } from './verse-list/components/VerseListHeader';
-import { VerseListLoadMoreFooter } from './verse-list/components/VerseListLoadMoreFooter';
 import { VerseListSectionShell } from './verse-list/components/VerseListSectionShell';
 import { VerseListSkeletonCards } from './verse-list/components/VerseListSkeletonCards';
 import type { VerseListStatusFilter } from './verse-list/constants';

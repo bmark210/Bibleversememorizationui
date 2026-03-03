@@ -132,17 +132,49 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function extractTextFromHelloaoNode(node: unknown): string {
+  if (typeof node === "string") {
+    return node;
+  }
+
+  if (Array.isArray(node)) {
+    return node
+      .map((item) => extractTextFromHelloaoNode(item))
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  if (!node || typeof node !== "object") {
+    return "";
+  }
+
+  const record = node as Record<string, unknown>;
+  const chunks: string[] = [];
+
+  if (typeof record.text === "string") {
+    chunks.push(record.text);
+  }
+
+  if (record.lineBreak === true) {
+    chunks.push(" ");
+  }
+
+  if ("content" in record) {
+    const nested = extractTextFromHelloaoNode(record.content);
+    if (nested) {
+      chunks.push(nested);
+    }
+  }
+
+  return chunks.join(" ");
+}
+
 function normalizeTextContent(content: unknown): string {
-  if (Array.isArray(content)) {
-    return content
-      .filter((part): part is string => typeof part === "string")
-      .join("")
-      .trim();
-  }
-  if (typeof content === "string") {
-    return content.trim();
-  }
-  return "";
+  return normalizeWhitespace(extractTextFromHelloaoNode(content));
 }
 
 function normalizeChapterContentToMap(items: HelloaoChapterContentItem[] | undefined): Map<number, string> {

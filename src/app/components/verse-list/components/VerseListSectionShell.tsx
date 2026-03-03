@@ -16,9 +16,9 @@ export function VerseListSectionShell({
   contentHeightMode = 'virtualized',
   children,
 }: VerseListSectionShellProps) {
-  const maxViewportHeight = 'clamp(20rem,56dvh,40rem)';
+  const maxViewportHeight = 'clamp(24rem,56dvh,40rem)';
   const estimatedRows = count > 0 ? count : 3;
-  const viewportHeight = `min(calc(${estimatedRows} * 11rem), ${maxViewportHeight})`;
+  const viewportHeight = `min(calc(${estimatedRows} * 13rem), ${maxViewportHeight})`;
   const shouldUseVirtualizedViewport = contentHeightMode === 'virtualized';
   const contentStyle = shouldUseVirtualizedViewport
     ? { height: viewportHeight, maxHeight: maxViewportHeight }
@@ -46,7 +46,7 @@ export function VerseListSectionShell({
           </div>
         </div>
 
-        <div className="px-3 sm:px-4 min-h-0">
+        <div className="px-3 sm:px-4 min-h-0 bg-muted/10">
           <div className={shouldUseVirtualizedViewport ? 'min-h-0' : 'h-fit'} style={contentStyle}>
             {children}
           </div>

@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         strategy="beforeInteractive"
       />
       </head>
-      <body className="bg-background text-foreground">
+      <body className="text-foreground">
         <div className="app-scroll">
           {children}
         </div>
