@@ -140,6 +140,46 @@ const DEFAULT_TRAINING_BATCH_PREFERENCES: TrainingBatchPreferences = {
   reviewVersesCount: 5,
 };
 
+function readStoredTheme(): Theme | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === "light" || stored === "dark" ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(theme: Theme) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore storage write errors in restricted webviews.
+  }
+}
+
+function applyThemeToDocument(theme: Theme) {
+  if (typeof document === "undefined") return;
+
+  const targets = [document.documentElement, document.body].filter(Boolean);
+  for (const target of targets) {
+    target.classList.remove("light", "dark");
+    target.classList.add(theme);
+    target.setAttribute("data-theme", theme);
+  }
+
+  const backgroundColor = theme === "dark" ? "#1a1410" : "#ede3d2";
+  const foregroundColor = theme === "dark" ? "#f5ead5" : "#2b2015";
+
+  document.documentElement.style.colorScheme = theme;
+  document.body.style.colorScheme = theme;
+  document.documentElement.style.backgroundColor = backgroundColor;
+  document.body.style.backgroundColor = backgroundColor;
+  document.documentElement.style.color = foregroundColor;
+  document.body.style.color = foregroundColor;
+}
+
 function getTelegramColorScheme(): Theme | null {
   if (typeof window === "undefined") return null;
   const colorScheme = (window as any)?.Telegram?.WebApp?.colorScheme;
@@ -181,8 +221,8 @@ function syncTelegramChromeTheme(theme: Theme) {
 
 function getPreferredTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
+  const stored = readStoredTheme();
+  if (stored) return stored;
   const telegramTheme = getTelegramColorScheme();
   if (telegramTheme) return telegramTheme;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -313,12 +353,28 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardLeaderboardRequestIdRef = useRef(0);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    root.style.colorScheme = theme;
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    applyThemeToDocument(theme);
+    writeStoredTheme(theme);
     syncTelegramChromeTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (!webApp || typeof webApp.onEvent !== "function" || typeof webApp.offEvent !== "function") {
+      return;
+    }
+
+    const handleTelegramThemeChanged = () => {
+      // Telegram can re-apply its own theme styles; enforce app-selected theme again.
+      applyThemeToDocument(theme);
+      syncTelegramChromeTheme(theme);
+    };
+
+    webApp.onEvent("themeChanged", handleTelegramThemeChanged);
+    return () => {
+      webApp.offEvent("themeChanged", handleTelegramThemeChanged);
+    };
   }, [theme]);
 
   const loadDashboardStats = async (telegramIdValue: string) => {
