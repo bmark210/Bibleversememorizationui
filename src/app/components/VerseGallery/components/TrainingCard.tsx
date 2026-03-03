@@ -10,22 +10,6 @@ import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
 import { Verse } from "@/app/App";
 
-/** Тип стиха для TrainingModeRenderer (LegacyVerse) */
-type LegacyVerse = {
-  id: string;
-  externalVerseId: string;
-  status: string;
-  reference: string;
-  text: string;
-  translation: string;
-  masteryLevel: number;
-  repetitions: number;
-  lastReviewedAt: string | null;
-  nextReviewAt: string | null;
-  nextReview?: string | null;
-  tags: string[];
-};
-
 type Props = {
   trainingVerse: TrainingVerseState;
   modeId: ModeId;
@@ -80,6 +64,7 @@ export const TrainingCard = memo(function TrainingCard({
       ),
     [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
   );
+
   const verse = useMemo(
     () => asLegacyVerseForRenderer(trainingVerse),
     [
