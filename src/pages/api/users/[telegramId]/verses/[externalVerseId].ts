@@ -277,23 +277,6 @@ async function handlePatch(
       });
 
       if (reviewedAt) {
-        await tx.trainingEvent.upsert({
-          where: {
-            telegramId_verseId_reviewedAt: {
-              telegramId,
-              verseId: globalVerse.id,
-              reviewedAt,
-            },
-          },
-          update: {},
-          create: {
-            telegramId,
-            verseId: globalVerse.id,
-            reviewedAt,
-            lastTrainingModeId: nextLastTrainingModeId ?? null,
-          },
-        });
-
         const streakDecision = computeNextDailyStreakOnReview({
           currentStreak: user.dailyStreak,
           latestReviewedAt: latestReviewedBeforeUpdate?.lastReviewedAt ?? null,

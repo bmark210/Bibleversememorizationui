@@ -49,7 +49,6 @@ type ComputedParticipant = {
 const DEFAULT_LIMIT = 4;
 const MAX_LIMIT = 25;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const WEEKLY_REPETITIONS_FOR_MAX_SCORE = 35;
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -107,9 +106,7 @@ function computeLeaderboardScore(params: {
   weeklyRepetitions: number;
 }): number {
   const streakScore = Math.min(100, params.streakDays * 4);
-  const weeklyScore = clampPercent(
-    (params.weeklyRepetitions / WEEKLY_REPETITIONS_FOR_MAX_SCORE) * 100
-  );
+  const weeklyScore = Math.min(100, params.weeklyRepetitions * 12);
   const rawScore =
     params.averageProgressPercent * 0.65 +
     streakScore * 0.2 +
@@ -129,9 +126,9 @@ export default async function handler(
   try {
     const limit = parseLimit(req.query.limit);
     const currentTelegramId = parseTelegramId(req.query.telegramId);
-    const weeklyCutoffDate = new Date(Date.now() - WEEK_MS);
+    const weeklyCutoff = Date.now() - WEEK_MS;
 
-    const [users, userVerses, weeklyActivityRows] = await Promise.all([
+    const [users, userVerses] = await Promise.all([
       prisma.user.findMany({
         select: {
           telegramId: true,
@@ -150,22 +147,7 @@ export default async function handler(
           lastReviewedAt: true,
         },
       }),
-      prisma.trainingEvent.groupBy({
-        by: ["telegramId"],
-        where: {
-          reviewedAt: {
-            gte: weeklyCutoffDate,
-          },
-        },
-        _count: {
-          _all: true,
-        },
-      }),
     ]);
-
-    const weeklyRepetitionsByTelegramId = new Map<string, number>(
-      weeklyActivityRows.map((row) => [row.telegramId, row._count._all])
-    );
 
     const versesByTelegramId = new Map<
       string,
@@ -187,8 +169,7 @@ export default async function handler(
       const verses = versesByTelegramId.get(user.telegramId) ?? [];
       let progressSum = 0;
       let progressCount = 0;
-      const weeklyRepetitions =
-        weeklyRepetitionsByTelegramId.get(user.telegramId) ?? 0;
+      let weeklyRepetitions = 0;
       let latestReviewedAt: Date | null = null;
 
       for (const verse of verses) {
@@ -207,6 +188,11 @@ export default async function handler(
         ) {
           progressSum += toProgressPercent(masteryLevel, repetitions);
           progressCount += 1;
+
+          const reviewedAt = verse.lastReviewedAt?.getTime() ?? Number.NaN;
+          if (!Number.isNaN(reviewedAt) && reviewedAt >= weeklyCutoff) {
+            weeklyRepetitions += 1;
+          }
         }
 
         if (
