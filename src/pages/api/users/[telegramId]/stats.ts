@@ -10,6 +10,7 @@ import {
 
 type UserDashboardStatsResponse = {
   totalVerses: number;
+  learningStatusVerses: number;
   learningVerses: number;
   reviewVerses: number;
   masteredVerses: number;
@@ -99,6 +100,7 @@ export default async function handler(
 
     const now = Date.now();
     let learningVerses = 0;
+    let learningStatusVerses = 0;
     let reviewVerses = 0;
     let masteredVerses = 0;
     let stoppedVerses = 0;
@@ -112,6 +114,9 @@ export default async function handler(
     for (const userVerse of userVerses) {
       const masteryLevel = normalizeProgressValue(userVerse.masteryLevel);
       const repetitions = normalizeProgressValue(userVerse.repetitions);
+      if (userVerse.status === VerseStatus.LEARNING) {
+        learningStatusVerses += 1;
+      }
       const displayStatus = computeDisplayStatus(
         userVerse.status,
         masteryLevel,
@@ -158,6 +163,7 @@ export default async function handler(
 
     return res.status(200).json({
       totalVerses: userVerses.length,
+      learningStatusVerses,
       learningVerses,
       reviewVerses,
       masteredVerses,

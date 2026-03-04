@@ -1,5 +1,6 @@
 export type UserDashboardStats = {
   totalVerses: number;
+  learningStatusVerses: number;
   learningVerses: number;
   reviewVerses: number;
   masteredVerses: number;
@@ -13,6 +14,7 @@ export type UserDashboardStats = {
 
 export const EMPTY_USER_DASHBOARD_STATS: UserDashboardStats = {
   totalVerses: 0,
+  learningStatusVerses: 0,
   learningVerses: 0,
   reviewVerses: 0,
   masteredVerses: 0,
@@ -41,6 +43,7 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
 
   return {
     totalVerses: toSafeNonNegativeInt(data.totalVerses),
+    learningStatusVerses: toSafeNonNegativeInt(data.learningStatusVerses),
     learningVerses: toSafeNonNegativeInt(data.learningVerses),
     reviewVerses: toSafeNonNegativeInt(data.reviewVerses),
     masteredVerses: toSafeNonNegativeInt(data.masteredVerses),

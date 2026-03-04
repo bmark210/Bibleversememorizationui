@@ -126,6 +126,7 @@ type AppProps = {
 
 const THEME_STORAGE_KEY = "theme";
 const TRAINING_GALLERY_PAGE_SIZE = 40;
+const REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT = 10;
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
   light: {
     background: "#ede3d2",
@@ -321,6 +322,9 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardTrainingStartWithRef = useRef(0);
   const dashboardTrainingTotalCountRef = useRef(0);
   const dashboardTrainingHasMoreRef = useRef(false);
+  const canAccessReferenceTrainer =
+    (dashboardStats?.learningStatusVerses ?? 0) >=
+    REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT;
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -503,11 +507,24 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const handleNavigate = (page: string) => {
+    if (page === "references" && !canAccessReferenceTrainer) {
+      toast.info("Раздел «Ссылки» пока недоступен", {
+        description: "Добавьте более 10 стихов в статусе LEARNING.",
+      });
+      setCurrentPage("dashboard");
+      return;
+    }
     setCurrentPage(page as Page);
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
     setDashboardGalleryLaunchMode("preview");
   };
+
+  useEffect(() => {
+    if (currentPage === "references" && !canAccessReferenceTrainer) {
+      setCurrentPage("dashboard");
+    }
+  }, [canAccessReferenceTrainer, currentPage]);
 
   const handleToggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
@@ -823,7 +840,12 @@ export default function App({ onInitialContentReady }: AppProps) {
         aria-hidden={dashboardGalleryIndex !== null}
         className="min-h-screen transition-colors"
       >
-        <Layout currentPage={currentPage} onNavigate={handleNavigate} isContentReady={!isBootstrapping}>
+        <Layout
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+          isContentReady={!isBootstrapping}
+          showReferencesSection={canAccessReferenceTrainer}
+        >
           {currentPage === "dashboard" && (
             <motion.div
               aria-busy={isBootstrapping}
@@ -858,7 +880,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             />
           )}
 
-          {currentPage === "references" && (
+          {currentPage === "references" && canAccessReferenceTrainer && (
             <ReferenceTrainer telegramId={telegramId} />
           )}
 

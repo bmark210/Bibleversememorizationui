@@ -423,7 +423,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const [typingAttempts, setTypingAttempts] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -663,7 +663,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
           {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
             <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
-              Нужны стихи в статусах LEARNING и MASTERED.
+              Нужны стихи в статусах Изучаемые и Выученные.
             </div>
           )}
 
@@ -823,7 +823,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
                   {canGoNext && (
                     <div className="flex justify-end">
-                      <Button type="button" size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={handleMoveNext}>
+                      <Button type="button" size="sm" className="h-8 rounded-lg px-3 text-xs bg-primary/60" onClick={handleMoveNext}>
                         Далее
                       </Button>
                     </div>

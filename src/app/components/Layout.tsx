@@ -11,9 +11,16 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
+  showReferencesSection?: boolean;
 }
 
-export function Layout({ children, currentPage, onNavigate, isContentReady = false }: LayoutProps) {
+export function Layout({
+  children,
+  currentPage,
+  onNavigate,
+  isContentReady = false,
+  showReferencesSection = false,
+}: LayoutProps) {
   const { user, isReady, platform } = useTelegram();
   const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -162,7 +169,9 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
-    { id: 'references', label: 'Ссылки', icon: Link2 },
+    ...(showReferencesSection
+      ? [{ id: 'references', label: 'Ссылки', icon: Link2 }]
+      : []),
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
