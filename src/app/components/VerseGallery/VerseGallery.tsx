@@ -685,7 +685,7 @@ export function VerseGallery({
         }}
       >
         <AlertDialogContent
-          className={`overflow-hidden rounded-3xl shadow-2xl ${milestoneTheme.contentClassName}`}
+          className={`overflow-hidden rounded-3xl backdrop-blur-xl shadow-2xl ${milestoneTheme.contentClassName}`}
         >
           <div
             aria-hidden="true"
@@ -695,15 +695,15 @@ export function VerseGallery({
             <span className={`inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${milestoneTheme.badgeClassName}`}>
               {trainingMilestonePopup?.reference}
             </span>
-            <AlertDialogTitle className="text-balance text-xl leading-tight">
+            <AlertDialogTitle className="text-balance text-xl leading-tight text-muted-foreground/90">
               {milestoneDialogContent.title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed text-foreground/85">
+            <AlertDialogDescription className="text-sm leading-relaxed text-muted-foreground/90">
               {milestoneDialogContent.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className={`relative grid gap-2 rounded-2xl border p-3 text-xs text-foreground/80 sm:grid-cols-2 bg-background/20`}>
+          <div className={`relative grid gap-2 rounded-2xl border p-3 text-xs text-foreground/80 sm:grid-cols-2 ${milestoneTheme.statCardClassName}`}>
             <div className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}>
               <span className="text-muted-foreground">Текущий этап</span>
               <div className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}>{milestoneStageLabel}</div>
@@ -718,7 +718,7 @@ export function VerseGallery({
 
           <AlertDialogFooter className="relative">
             <AlertDialogAction
-              className={`w-full rounded-full sm:w-auto bg-background/20 text-foreground/80 border`}
+              className={`w-full rounded-full sm:w-auto ${milestoneTheme.statCardClassName} ${milestoneTheme.actionClassName} `}
               onClick={aux.confirmTrainingMilestonePopup}
             >
               Понятно
