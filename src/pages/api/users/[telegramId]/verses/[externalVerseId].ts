@@ -9,6 +9,7 @@ import {
   REVIEW_FAILED_RETRY_MINUTES,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
+import { computeNextDailyStreakOnReview } from "@/shared/training/dailyStreak";
 import {
   REVIEW_MASTERY_LEVEL_MIN,
   WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
@@ -135,6 +136,10 @@ async function handlePatch(
   // Корректирует поля прогресса (мастерство, повторения, даты).
   try {
     const body = req.body as UpdateVersePayload;
+    const reviewedAt = body.lastReviewedAt ? new Date(body.lastReviewedAt) : null;
+    if (reviewedAt && Number.isNaN(reviewedAt.getTime())) {
+      return res.status(400).json({ error: "lastReviewedAt must be a valid ISO date-time string" });
+    }
     let nextLastTrainingModeId: number | null | undefined;
     if (body.lastTrainingModeId !== undefined) {
       try {
@@ -149,7 +154,7 @@ async function handlePatch(
     const [user, { globalVerse, userVerse: existingVerse }] = await Promise.all([
       prisma.user.findUnique({
         where: { telegramId },
-        select: { id: true },
+        select: { id: true, dailyStreak: true },
       }),
       resolveUserVerse(telegramId, externalVerseId),
     ]);
@@ -240,26 +245,70 @@ async function handlePatch(
       forcedReviewRetryNextReviewAt ??
       (body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt);
 
-    const verse = await prisma.userVerse.update({
-      where: {
-        telegramId_verseId: {
-          telegramId,
-          verseId: globalVerse.id,
+    const verse = await prisma.$transaction(async (tx) => {
+      const latestReviewedBeforeUpdate = reviewedAt
+        ? await tx.userVerse.findFirst({
+            where: { telegramId, lastReviewedAt: { not: null } },
+            orderBy: { lastReviewedAt: "desc" },
+            select: { lastReviewedAt: true },
+          })
+        : null;
+
+      const updatedVerse = await tx.userVerse.update({
+        where: {
+          telegramId_verseId: {
+            telegramId,
+            verseId: globalVerse.id,
+          },
         },
-      },
-      data: {
-        ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
-        ...(body.repetitions !== undefined && !isNotYetDue
-          ? { repetitions: requestedRepetitions }
-          : {}),
-        ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
-        ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
-        ...(nextLastTrainingModeId !== undefined
-          ? { lastTrainingModeId: nextLastTrainingModeId }
-          : {}),
-        ...(body.status ? { status: body.status } : {}),
-      },
-      include: { verse: true },
+        data: {
+          ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
+          ...(body.repetitions !== undefined && !isNotYetDue
+            ? { repetitions: requestedRepetitions }
+            : {}),
+          ...(reviewedAt ? { lastReviewedAt: reviewedAt } : {}),
+          ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
+          ...(nextLastTrainingModeId !== undefined
+            ? { lastTrainingModeId: nextLastTrainingModeId }
+            : {}),
+          ...(body.status ? { status: body.status } : {}),
+        },
+        include: { verse: true },
+      });
+
+      if (reviewedAt) {
+        await tx.trainingEvent.upsert({
+          where: {
+            telegramId_verseId_reviewedAt: {
+              telegramId,
+              verseId: globalVerse.id,
+              reviewedAt,
+            },
+          },
+          update: {},
+          create: {
+            telegramId,
+            verseId: globalVerse.id,
+            reviewedAt,
+            lastTrainingModeId: nextLastTrainingModeId ?? null,
+          },
+        });
+
+        const streakDecision = computeNextDailyStreakOnReview({
+          currentStreak: user.dailyStreak,
+          latestReviewedAt: latestReviewedBeforeUpdate?.lastReviewedAt ?? null,
+          reviewedAt,
+        });
+
+        if (streakDecision.shouldUpdate) {
+          await tx.user.update({
+            where: { telegramId },
+            data: { dailyStreak: streakDecision.nextStreak },
+          });
+        }
+      }
+
+      return updatedVerse;
     });
 
     return res.status(200).json(

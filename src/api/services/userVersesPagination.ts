@@ -4,7 +4,7 @@ import type { UserVerse } from "../models/UserVerse";
 type GetApiUsersVersesParams = {
   telegramId: string;
   status?: "MY" | "LEARNING" | "STOPPED";
-  orderBy?: "createdAt" | "updatedAt";
+  orderBy?: "createdAt" | "updatedAt" | "bible";
   order?: "asc" | "desc";
   filter?: "catalog" | 'my' | "learning" | "review" | "mastered" | "stopped";
   search?: string;

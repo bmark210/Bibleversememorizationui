@@ -117,6 +117,9 @@ export function VerseList({
           statusFilter={vm.filters.statusFilter}
           filterOptions={vm.filters.filterOptions}
           onTabClick={vm.filterTabs.onTabClick}
+          sortBy={vm.filters.sortBy}
+          sortOptions={vm.filters.sortOptions}
+          onSortChange={vm.filterTabs.onSortChange}
           searchQuery={vm.search.searchQuery}
           onSearchChange={vm.search.setSearchQuery}
           allTags={vm.tagFilter.allTags}

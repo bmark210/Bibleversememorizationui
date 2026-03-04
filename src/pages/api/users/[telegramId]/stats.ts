@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
 import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
@@ -76,6 +77,7 @@ export default async function handler(
         status: true,
         masteryLevel: true,
         repetitions: true,
+        lastReviewedAt: true,
         nextReviewAt: true,
         verse: {
           select: {
@@ -97,10 +99,17 @@ export default async function handler(
     let progressCount = 0;
     let bestProgressPercent = -1;
     let bestVerseReference: string | null = null;
+    let latestReviewedAt: Date | null = null;
 
     for (const userVerse of userVerses) {
       const masteryLevel = normalizeProgressValue(userVerse.masteryLevel);
       const repetitions = normalizeProgressValue(userVerse.repetitions);
+      if (
+        userVerse.lastReviewedAt &&
+        (!latestReviewedAt || userVerse.lastReviewedAt.getTime() > latestReviewedAt.getTime())
+      ) {
+        latestReviewedAt = userVerse.lastReviewedAt;
+      }
       if (userVerse.status === VerseStatus.LEARNING) {
         learningStatusVerses += 1;
       }
@@ -146,7 +155,10 @@ export default async function handler(
 
     const averageProgressPercent =
       progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
-    const dailyStreak = Math.max(0, Math.round(Number(user.dailyStreak ?? 0)));
+    const dailyStreak = computeActiveDailyStreak({
+      storedStreak: user.dailyStreak,
+      latestReviewedAt,
+    });
 
     return res.status(200).json({
       totalVerses: userVerses.length,

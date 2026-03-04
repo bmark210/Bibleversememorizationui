@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import {
   TRAINING_STAGE_MASTERY_MAX,
   REPEAT_THRESHOLD_FOR_MASTERED,
@@ -20,6 +21,11 @@ const DEFAULT_TRANSLATION = "rus_syn";
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
 const MAX_TAG_SLUGS = 30;
+const DEFAULT_CATALOG_ORDER_BY = "createdAt";
+const DEFAULT_CATALOG_ORDER = "desc";
+
+type CatalogOrderBy = "createdAt" | "bible";
+type CatalogOrder = "asc" | "desc";
 
 function parseTagSlugs(value: string | string[] | undefined): string[] {
   if (!value) return [];
@@ -35,6 +41,18 @@ function parseTagSlugs(value: string | string[] | undefined): string[] {
     throw new Error(`tagSlugs must contain at most ${MAX_TAG_SLUGS} values`);
   }
   return unique;
+}
+
+function parseCatalogOrderBy(value: string | undefined): CatalogOrderBy | null {
+  if (!value) return DEFAULT_CATALOG_ORDER_BY;
+  if (value === "createdAt" || value === "bible") return value;
+  return null;
+}
+
+function parseCatalogOrder(value: string | undefined): CatalogOrder | null {
+  if (!value) return DEFAULT_CATALOG_ORDER;
+  if (value === "asc" || value === "desc") return value;
+  return null;
 }
 
 function buildGroupKey(translation: string, book: number, chapter: number) {
@@ -161,6 +179,71 @@ function toExternalVerseTextAndReference(
   };
 }
 
+async function fetchPaginatedCatalogVerses(options: {
+  verseWhere?: Prisma.VerseWhereInput;
+  tagSlugs: string[];
+  orderBy: CatalogOrderBy;
+  order: CatalogOrder;
+  startWith: number;
+  limit: number;
+}) {
+  const { verseWhere, tagSlugs, orderBy, order, startWith, limit } = options;
+
+  if (orderBy !== "bible") {
+    return prisma.verse.findMany({
+      where: verseWhere,
+      orderBy: { createdAt: order },
+      skip: startWith,
+      take: limit,
+      include: { tags: { include: { tag: true } } },
+    });
+  }
+
+  const directionSql = order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const tagFilterSql =
+    tagSlugs.length > 0
+      ? Prisma.sql`
+          WHERE EXISTS (
+            SELECT 1
+            FROM "VerseTag" vt
+            INNER JOIN "Tag" t ON t.id = vt."tagId"
+            WHERE vt."verseId" = v.id
+              AND t.slug IN (${Prisma.join(tagSlugs)})
+          )
+        `
+      : Prisma.empty;
+
+  const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT v.id
+    FROM "Verse" v
+    ${tagFilterSql}
+    ORDER BY
+      CAST(split_part(v."externalVerseId", '-', 1) AS integer) ${directionSql},
+      CAST(split_part(v."externalVerseId", '-', 2) AS integer) ${directionSql},
+      CAST(split_part(v."externalVerseId", '-', 3) AS integer) ${directionSql},
+      COALESCE(
+        NULLIF(split_part(v."externalVerseId", '-', 4), '')::integer,
+        CAST(split_part(v."externalVerseId", '-', 3) AS integer)
+      ) ${directionSql},
+      v.id ${directionSql}
+    OFFSET ${startWith}
+    LIMIT ${limit}
+  `);
+
+  const verseIds = rawRows.map((row) => row.id);
+  if (verseIds.length === 0) return [];
+
+  const verses = await prisma.verse.findMany({
+    where: { id: { in: verseIds } },
+    include: { tags: { include: { tag: true } } },
+  });
+  const verseById = new Map(verses.map((verse) => [verse.id, verse]));
+
+  return verseIds
+    .map((id) => verseById.get(id))
+    .filter((verse): verse is (typeof verses)[number] => Boolean(verse));
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -173,6 +256,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     MAX_PAGE_LIMIT
   );
   const startWith = Math.max(0, Number(req.query.startWith ?? 0));
+  const orderByRaw = Array.isArray(req.query.orderBy)
+    ? req.query.orderBy[0]
+    : req.query.orderBy;
+  const orderRaw = Array.isArray(req.query.order)
+    ? req.query.order[0]
+    : req.query.order;
+
+  const orderBy = parseCatalogOrderBy(orderByRaw);
+  if (!orderBy) {
+    return res.status(400).json({
+      error: `orderBy must be one of: createdAt, bible`,
+    });
+  }
+
+  const order = parseCatalogOrder(orderRaw);
+  if (!order) {
+    return res.status(400).json({
+      error: `order must be one of: asc, desc`,
+    });
+  }
 
   const telegramIdParam = Array.isArray(req.query.telegramId)
     ? req.query.telegramId[0]
@@ -208,12 +311,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fetch verses page, total count, and user's translation preference in parallel
     const [verses, totalCount, userRecord] = await Promise.all([
-      prisma.verse.findMany({
-        where: verseWhere,
-        orderBy: { createdAt: "desc" },
-        skip: startWith,
-        take: limit,
-        include: { tags: { include: { tag: true } } },
+      fetchPaginatedCatalogVerses({
+        verseWhere,
+        tagSlugs,
+        orderBy,
+        order,
+        startWith,
+        limit,
       }),
       prisma.verse.count({
         where: verseWhere,

@@ -62,7 +62,7 @@ type HelloaoChapterRequest = {
   verses: number[];
 };
 
-export type UserVersesOrderBy = "createdAt" | "updatedAt";
+export type UserVersesOrderBy = "createdAt" | "updatedAt" | "bible";
 export type UserVersesOrder = "asc" | "desc";
 export type UserVersesFilter =
   | "catalog"
@@ -217,7 +217,7 @@ function parseStatus(value: string | undefined): VerseStatus | undefined {
 }
 
 function parseOrderBy(value: string | undefined): UserVersesOrderBy | undefined {
-  if (value === "createdAt" || value === "updatedAt") return value;
+  if (value === "createdAt" || value === "updatedAt" || value === "bible") return value;
   return undefined;
 }
 
@@ -407,13 +407,50 @@ function applyTagFilterToUserVersesWhere(
 function buildUserVersesOrderBy(
   orderBy?: UserVersesOrderBy,
   order?: UserVersesOrder
-): Prisma.UserVerseOrderByWithRelationInput[] {
+): Prisma.UserVerseOrderByWithRelationInput[] | undefined {
+  if (orderBy === "bible") return undefined;
   const field = orderBy ?? "createdAt";
   const direction = order ?? "desc";
   return [
     { [field]: direction } as Prisma.UserVerseOrderByWithRelationInput,
     { id: direction },
   ];
+}
+
+function compareExternalVerseIdsInBibleOrder(aId: string, bId: string): number {
+  const a = parseExternalVerseId(aId);
+  const b = parseExternalVerseId(bId);
+
+  if (!a && !b) return aId.localeCompare(bId);
+  if (!a) return 1;
+  if (!b) return -1;
+
+  if (a.book !== b.book) return a.book - b.book;
+  if (a.chapter !== b.chapter) return a.chapter - b.chapter;
+  if (a.verseStart !== b.verseStart) return a.verseStart - b.verseStart;
+  if (a.verseEnd !== b.verseEnd) return a.verseEnd - b.verseEnd;
+  return aId.localeCompare(bId);
+}
+
+type UserVerseRowWithVerse = Prisma.UserVerseGetPayload<{
+  include: { verse: true };
+}>;
+
+function sortUserVerseRowsByBibleOrder(
+  rows: UserVerseRowWithVerse[],
+  order?: UserVersesOrder
+): UserVerseRowWithVerse[] {
+  const direction = order === "desc" ? -1 : 1;
+
+  return [...rows].sort((a, b) => {
+    const byExternalVerseId =
+      compareExternalVerseIdsInBibleOrder(
+        a.verse.externalVerseId,
+        b.verse.externalVerseId
+      ) * direction;
+    if (byExternalVerseId !== 0) return byExternalVerseId;
+    return (a.id - b.id) * direction;
+  });
 }
 
 export async function getUserTranslationForTelegram(telegramId: string) {
@@ -552,13 +589,17 @@ export async function fetchEnrichedUserVerses({
   order,
 }: FetchEnrichedUserVersesOptions): Promise<VerseCardDto[]> {
   const translation = await getUserTranslationForTelegram(telegramId);
+  const prismaOrderBy = buildUserVersesOrderBy(orderBy, order);
   const rawRows = await prisma.userVerse.findMany({
     where: buildUserVersesWhere(telegramId, where),
-    orderBy: buildUserVersesOrderBy(orderBy, order),
+    orderBy: prismaOrderBy,
     include: { verse: true },
   });
 
-  return enrichUserVerses(flattenVerseRows(rawRows), translation);
+  const orderedRows =
+    orderBy === "bible" ? sortUserVerseRowsByBibleOrder(rawRows, order) : rawRows;
+
+  return enrichUserVerses(flattenVerseRows(orderedRows), translation);
 }
 
 function shuffleInPlace<T>(items: T[]): T[] {
@@ -719,11 +760,40 @@ export async function fetchPaginatedEnrichedUserVerses({
   );
   const pageOffset = Math.max(0, startWith ?? 0);
   const hasSearch = Boolean(normalizeSearchTerm(search));
+  const prismaOrderBy = buildUserVersesOrderBy(orderBy, order);
+  const useBibleOrdering = orderBy === "bible";
+
+  if (useBibleOrdering) {
+    const rawRows = await prisma.userVerse.findMany({
+      where: prismaWhere,
+      include: { verse: true },
+    });
+    const orderedRows = sortUserVerseRowsByBibleOrder(rawRows, order);
+
+    if (isComputedDisplayFilter(displayFilter) || hasSearch) {
+      const enrichedItems = await enrichUserVerses(flattenVerseRows(orderedRows), translation);
+      const filteredByDisplay = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
+      const filteredItems = filterVerseCardsBySearch(filteredByDisplay, search);
+
+      return {
+        items: filteredItems.slice(pageOffset, pageOffset + pageLimit),
+        totalCount: filteredItems.length,
+      };
+    }
+
+    const paginatedRows = orderedRows.slice(pageOffset, pageOffset + pageLimit);
+    const enrichedItems = await enrichUserVerses(flattenVerseRows(paginatedRows), translation);
+
+    return {
+      items: enrichedItems,
+      totalCount: orderedRows.length,
+    };
+  }
 
   if (isComputedDisplayFilter(displayFilter) || hasSearch) {
     const rawRows = await prisma.userVerse.findMany({
       where: prismaWhere,
-      orderBy: buildUserVersesOrderBy(orderBy, order),
+      orderBy: prismaOrderBy,
       include: { verse: true },
     });
 
@@ -740,7 +810,7 @@ export async function fetchPaginatedEnrichedUserVerses({
   const [rawRows, totalCount] = await Promise.all([
     prisma.userVerse.findMany({
       where: prismaWhere,
-      orderBy: buildUserVersesOrderBy(orderBy, order),
+      orderBy: prismaOrderBy,
       skip: pageOffset,
       take: pageLimit,
       include: { verse: true },

@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import type { Verse } from '@/app/App';
 import type { VerseStatus } from '@/generated/prisma';
-import type { FilterVisualTheme, VerseListStatusFilter } from './constants';
+import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import type { Tag } from '@/api/models/Tag';
@@ -20,6 +20,11 @@ export type VerseCardLayoutSignature =
 
 export type VerseListFilterOption = {
   key: VerseListStatusFilter;
+  label: string;
+};
+
+export type VerseListSortOption = {
+  key: VerseListSortBy;
   label: string;
 };
 
@@ -45,6 +50,8 @@ export type VerseListController = {
   filters: {
     statusFilter: VerseListStatusFilter;
     filterOptions: VerseListFilterOption[];
+    sortBy: VerseListSortBy;
+    sortOptions: VerseListSortOption[];
   };
   search: {
     searchQuery: string;
@@ -89,6 +96,7 @@ export type VerseListController = {
   };
   filterTabs: {
     onTabClick: (filter: VerseListStatusFilter, label: string) => void;
+    onSortChange: (sortBy: VerseListSortBy, label: string) => void;
   };
   footerLoadState: {
     onRetryLoadMore: () => Promise<void>;

@@ -4,11 +4,13 @@ import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
+  DEFAULT_VERSE_LIST_SORT_BY,
   FILTER_VISUAL_THEME,
   LOAD_MORE_SKELETON_DELAY_MS,
   PREFETCH_ROWS,
   VERSE_LIST_PAGE_SIZE,
   getVerseCardLayoutSignature,
+  type VerseListSortBy,
   type VerseListStatusFilter,
 } from '../constants';
 import { haptic } from '../haptics';
@@ -23,6 +25,7 @@ import type {
   VerseListFilterOption,
   VerseListLoadRange,
   VerseListSectionConfig,
+  VerseListSortOption,
 } from '../types';
 import type { VersePatchEvent } from '@/app/types/verseSync';
 
@@ -53,7 +56,8 @@ export function useVerseListController({
   const [testamentFilter] = useState<'catalog' | 'OT' | 'NT'>('catalog');
   const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
   const tagFilter = useTagFilter();
-  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'catalog');
+  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'my');
+  const [sortBy, setSortBy] = useState<VerseListSortBy>(DEFAULT_VERSE_LIST_SORT_BY);
   const selectedTagSlugsForServer = useMemo(
     () => Array.from(tagFilter.selectedTagSlugs).sort(),
     [tagFilter.selectedTagSlugs]
@@ -72,6 +76,7 @@ export function useVerseListController({
     statusFilter,
     searchQuery: searchQueryForServer,
     tagSlugs: selectedTagSlugsForServer,
+    sortBy,
     pageSize: VERSE_LIST_PAGE_SIZE,
     loadMoreSkeletonDelayMs: LOAD_MORE_SKELETON_DELAY_MS,
   });
@@ -256,7 +261,11 @@ export function useVerseListController({
   const isEmptyFiltered =
     pagination.hasFetchedVersesOnce && !pagination.isFetchingVerses && filteredVerses.length === 0;
   const currentFilterLabel =
-    filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Каталог';
+    statusFilter === 'catalog'
+      ? 'Каталог'
+      : statusFilter === 'my'
+        ? 'Мои стихи'
+        : filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Мои стихи';
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
 
@@ -344,10 +353,24 @@ export function useVerseListController({
   const onTabClick = useCallback((filter: VerseListStatusFilter, label: string) => {
     if (statusFilter === filter) return;
     haptic('light');
-    console.log('onTabClick', filter, label, statusFilter);
-    statusFilter === filter ? setStatusFilter('catalog') : setStatusFilter(filter);
+    setStatusFilter(filter);
     setAnnouncement(`Фильтр: ${label}`);
   }, [statusFilter]);
+
+  const sortOptions = useMemo<VerseListSortOption[]>(
+    () => [
+      { key: 'bible', label: 'По канону Библии' },
+      { key: 'updatedAt', label: 'По последней активности' },
+    ],
+    []
+  );
+
+  const onSortChange = useCallback((nextSortBy: VerseListSortBy, label: string) => {
+    if (sortBy === nextSortBy) return;
+    haptic('light');
+    setSortBy(nextSortBy);
+    setAnnouncement(`Сортировка: ${label}`);
+  }, [sortBy]);
 
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
     if (statusFilter === 'catalog') return {
@@ -446,6 +469,8 @@ export function useVerseListController({
     filters: {
       statusFilter,
       filterOptions,
+      sortBy,
+      sortOptions,
     },
     search: {
       searchQuery,
@@ -490,6 +515,7 @@ export function useVerseListController({
     },
     filterTabs: {
       onTabClick,
+      onSortChange,
     },
     footerLoadState: {
       onRetryLoadMore,

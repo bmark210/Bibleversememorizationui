@@ -33,6 +33,7 @@ model User {
   dailyStreak         Int @default(0)
 
   verses       UserVerse[]
+  trainingEvents TrainingEvent[]
 }
 
 // Глобальный каталог стихов — один стих существует в системе один раз,
@@ -45,6 +46,7 @@ model Verse {
 
   userVerses      UserVerse[]
   tags            VerseTag[]
+  trainingEvents  TrainingEvent[]
 }
 
 // Личный стих пользователя — факт что пользователь добавил стих к себе
@@ -91,4 +93,22 @@ model VerseTag {
   tag   Tag   @relation(fields: [tagId], references: [id])
 
   @@unique([verseId, tagId])
+}
+
+// История фактических тренировочных событий пользователя.
+// Нужна для объективного подсчета weekly repetitions на лидерборде.
+model TrainingEvent {
+  id                 Int      @id @default(autoincrement())
+  telegramId         String
+  verseId            String
+  reviewedAt         DateTime
+  lastTrainingModeId Int?
+  createdAt          DateTime @default(now())
+
+  user  User  @relation(fields: [telegramId], references: [telegramId], onDelete: Cascade)
+  verse Verse @relation(fields: [verseId], references: [id], onDelete: Cascade)
+
+  @@unique([telegramId, verseId, reviewedAt])
+  @@index([telegramId, reviewedAt])
+  @@index([reviewedAt])
 }

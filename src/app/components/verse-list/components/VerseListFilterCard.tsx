@@ -1,20 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BookOpen, Pencil, Search, User, X } from 'lucide-react';
+import { BookOpen, History, Pencil } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from '@/app/lib/toast';
 import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
 import type { Tag } from '@/api/models/Tag';
 import {
   FILTER_VISUAL_THEME,
   type FilterVisualTheme,
+  type VerseListSortBy,
   type VerseListStatusFilter,
 } from '../constants';
-import type { VerseListFilterOption } from '../types';
+import type { VerseListFilterOption, VerseListSortOption } from '../types';
 
 function ScrollRow({children, className}: {
   children: React.ReactNode;
@@ -46,6 +46,9 @@ type VerseListFilterCardProps = {
   statusFilter: VerseListStatusFilter;
   filterOptions: VerseListFilterOption[];
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
+  sortBy: VerseListSortBy;
+  sortOptions: VerseListSortOption[];
+  onSortChange: (sortBy: VerseListSortBy, label: string) => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   isLoadingTags?: boolean;
@@ -71,6 +74,9 @@ export function VerseListFilterCard({
   statusFilter,
   filterOptions,
   onTabClick,
+  sortBy,
+  sortOptions,
+  onSortChange,
   searchQuery = '',
   onSearchChange,
   allTags = [],
@@ -127,6 +133,7 @@ export function VerseListFilterCard({
           })}
         </div>
 
+
           {isMyMode && (
               <div
                 role="tablist"
@@ -168,6 +175,42 @@ export function VerseListFilterCard({
                 </ScrollRow>
               </div>
           )}
+          
+        <div className="mt-2 px-3">
+          <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
+            <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+              Сортировка
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Сортировка стихов"
+              className="grid grid-cols-2 gap-1"
+            >
+              {sortOptions.map((option) => {
+                const isActive = sortBy === option.key;
+                const Icon = option.key === 'bible' ? BookOpen : History;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => onSortChange(option.key, option.label)}
+                    className={cn(
+                      'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors',
+                      isActive
+                        ? 'border border-primary/30 bg-primary/12 text-primary'
+                        : 'border border-transparent text-muted-foreground hover:bg-background/65'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="truncate">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
         <AnimatePresence initial={false}>
           <motion.div

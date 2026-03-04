@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
 import { Verse } from '@/app/App';
-import type { VerseListStatusFilter } from '../constants';
+import type { VerseListSortBy, VerseListStatusFilter } from '../constants';
 import type { VersePatchEvent } from '@/app/types/verseSync';
 import { isSameVerseByRef, mergeVersePatch } from '@/app/utils/versePatch';
 
@@ -12,6 +12,7 @@ export type AppendRevealRange = { start: number; end: number } | null;
 type UseVersePaginationParams = {
   telegramId?: string;
   statusFilter: VerseListStatusFilter;
+  sortBy: VerseListSortBy;
   searchQuery?: string;
   tagSlugs?: string[];
   pageSize: number;
@@ -27,6 +28,7 @@ function sleep(ms: number) {
 export function useVersePagination({
   telegramId,
   statusFilter,
+  sortBy,
   searchQuery,
   tagSlugs,
   pageSize,
@@ -114,6 +116,8 @@ export function useVersePagination({
         const page = await fetchCatalogVersesPage({
           telegramId: id,
           tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
+          orderBy: sortBy === 'bible' ? 'bible' : 'createdAt',
+          order: sortBy === 'bible' ? 'asc' : 'desc',
           limit: pageSize,
           startWith: startWith ?? undefined,
         });
@@ -125,8 +129,8 @@ export function useVersePagination({
 
       const page = await fetchUserVersesPage({
         telegramId: id,
-        orderBy: 'createdAt',
-        order: 'desc',
+        orderBy: sortBy === 'bible' ? 'bible' : 'updatedAt',
+        order: sortBy === 'bible' ? 'asc' : 'desc',
         filter,
         search: normalizedSearchQuery || undefined,
         tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
@@ -139,7 +143,7 @@ export function useVersePagination({
         items: page.items as Array<Verse>,
       };
     },
-    [normalizedSearchQuery, normalizedTagSlugsKey, pageSize]
+    [normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]
   );
 
   const clearPaginationState = useCallback(() => {
@@ -302,7 +306,7 @@ export function useVersePagination({
       // We own offset computation locally: next page starts from the count of rows
       // already merged into the server-backed array.
       const startWith = loadedServerItemsCount;
-      const requestKey = `${telegramId}:${statusFilter}:${normalizedSearchQuery}:${normalizedTagSlugsKey}:${startWith}`;
+      const requestKey = `${telegramId}:${statusFilter}:${sortBy}:${normalizedSearchQuery}:${normalizedTagSlugsKey}:${startWith}`;
 
       if (source === 'auto' && lastFailedCursorRef.current === requestKey) return false;
       if (inFlightCursorRef.current === requestKey) return false;
@@ -383,6 +387,7 @@ export function useVersePagination({
     [
       telegramId,
       statusFilter,
+      sortBy,
       normalizedSearchQuery,
       normalizedTagSlugsKey,
       isFetchingVerses,

@@ -10,6 +10,7 @@ export type VerseListStatusFilter =
   | "mastered"
   | "stopped"
   | "my";
+export type VerseListSortBy = "updatedAt" | "bible";
 export type VerseStageVisualKey = VerseListStatusFilter;
 export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
@@ -29,6 +30,7 @@ export const PREFETCH_ROWS = 6;
 export const LOAD_MORE_SKELETON_DELAY_MS = 250;
 export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
 export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = REPEAT_THRESHOLD_FOR_MASTERED;
+export const DEFAULT_VERSE_LIST_SORT_BY: VerseListSortBy = "bible";
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
   catalog: {

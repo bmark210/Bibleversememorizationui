@@ -4,6 +4,8 @@ type FetchCatalogVersesPageParams = {
   telegramId?: string;
   translation?: string;
   tagSlugs?: string[];
+  orderBy?: "createdAt" | "bible";
+  order?: "asc" | "desc";
   limit?: number;
   startWith?: number;
 };
@@ -17,6 +19,8 @@ export async function fetchCatalogVersesPage(
   if (params.tagSlugs && params.tagSlugs.length > 0) {
     searchParams.set("tagSlugs", params.tagSlugs.join(","));
   }
+  if (params.orderBy) searchParams.set("orderBy", params.orderBy);
+  if (params.order) searchParams.set("order", params.order);
   if (params.limit != null) searchParams.set("limit", String(params.limit));
   if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
 
