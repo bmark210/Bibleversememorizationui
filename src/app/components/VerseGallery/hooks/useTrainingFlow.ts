@@ -48,6 +48,7 @@ import {
   deriveTrainingDisplayStatus,
   getTrainingContactToastPayload,
   getTrainingMilestonePopupPayload,
+  getTrainingLearningStartPopupPayload,
   sortByCreatedAtDesc,
   parseDate,
 } from "../utils";
@@ -77,7 +78,7 @@ type Params = {
   setPreviewOverride: (verse: Verse, patch: VersePreviewOverride) => void;
   showFeedback: (message: string, type?: "success" | "error" | "info") => void;
   showTrainingContactToast: (payload: TrainingContactToastPayload) => void;
-  showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => void;
+  showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => Promise<void>;
   // from usePreviewNavigation
   setNavActiveIndex: (index: number) => void;
   setNavDirection: (dir: number) => void;
@@ -95,6 +96,8 @@ function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
 
 const LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY =
   "bible-memory.training.quick-forget.learning-confirm.seen.v1";
+const LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX =
+  "bible-memory.training.learning-intro-popup.seen.v1";
 
 function hasLearningQuickForgetConfirmBeenSeen(): boolean {
   if (typeof window === "undefined") return false;
@@ -109,6 +112,31 @@ function markLearningQuickForgetConfirmSeen() {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY, "1");
+  } catch {
+    // ignore storage write errors in restricted webviews
+  }
+}
+
+function hasLearningStageIntroPopupBeenSeen(verseKey: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.localStorage.getItem(
+        `${LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX}:${verseKey}`
+      ) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markLearningStageIntroPopupSeen(verseKey: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX}:${verseKey}`,
+      "1"
+    );
   } catch {
     // ignore storage write errors in restricted webviews
   }
@@ -196,6 +224,7 @@ export function useTrainingFlow({
   // Auto-advance training index when eligible subset changes
   useEffect(() => {
     if (panelMode !== "training") return;
+    if (actionPending) return;
     if (trainingEligibleIndices.length > 0) {
       if (!trainingEligibleIndices.includes(trainingIndex)) {
         const nextIndex = trainingEligibleIndices[0];
@@ -221,7 +250,14 @@ export function useTrainingFlow({
         setTrainingModeId(chooseModeId(nextVerse));
       }
     }
-  }, [panelMode, trainingEligibleIndices, trainingIndex, trainingSubsetFilter, trainingVerses]);
+  }, [
+    panelMode,
+    actionPending,
+    trainingEligibleIndices,
+    trainingIndex,
+    trainingSubsetFilter,
+    trainingVerses,
+  ]);
 
   // Clear auto-starting overlay when training starts
   useEffect(() => {
@@ -540,6 +576,25 @@ export function useTrainingFlow({
         setPanelMode("training");
         setNavDirection(isSameVerse ? 0 : 1);
         haptic("medium");
+
+        const shouldShowLearningIntroPopup =
+          startState.status === VerseStatus.LEARNING &&
+          startState.rawMasteryLevel === 0 &&
+          startState.repetitions === 0 &&
+          !startState.lastReviewedAt &&
+          !hasLearningStageIntroPopupBeenSeen(startState.key);
+
+        if (shouldShowLearningIntroPopup) {
+          markLearningStageIntroPopupSeen(startState.key);
+          await showTrainingMilestonePopup(
+            getTrainingLearningStartPopupPayload({
+              reference: startState.raw.reference,
+              rawMasteryLevel: startState.rawMasteryLevel,
+              repetitions: startState.repetitions,
+            })
+          );
+        }
+
         return true;
       } catch {
         haptic("error");
@@ -556,13 +611,14 @@ export function useTrainingFlow({
       setActionPending,
       setNavDirection,
       showFeedback,
+      showTrainingMilestonePopup,
       verses,
     ]
   );
 
   const handleTrainingRate = useCallback(
     async (rating: Rating) => {
-      if (panelMode !== "training" || trainingModeId === null) return;
+      if (panelMode !== "training" || trainingModeId === null || actionPending) return;
       const current = trainingVerses[trainingIndex];
       if (!current) return;
       if (!isTrainingEligibleVerse(current)) {
@@ -571,257 +627,264 @@ export function useTrainingFlow({
         return;
       }
 
-      const wasReviewExercise = isTrainingReviewVerse(current);
-      const rawMasteryBefore = current.rawMasteryLevel;
-      const isLearningVerse = current.status === VerseStatus.LEARNING;
-      const now = new Date();
+      setActionPending(true);
+      try {
+        const wasReviewExercise = isTrainingReviewVerse(current);
+        const rawMasteryBefore = current.rawMasteryLevel;
+        const isLearningVerse = current.status === VerseStatus.LEARNING;
+        const now = new Date();
 
-      let rawMasteryAfter = rawMasteryBefore;
-      let stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
-      let graduatesToReview = false;
-      let reviewWasSuccessful = false;
-      const canUpdateRepetitions = wasReviewExercise;
-      let nextRepetitions = current.repetitions;
-      let nextReviewAt: Date | null = current.nextReviewAt;
+        let rawMasteryAfter = rawMasteryBefore;
+        let stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
+        let graduatesToReview = false;
+        let reviewWasSuccessful = false;
+        const canUpdateRepetitions = wasReviewExercise;
+        let nextRepetitions = current.repetitions;
+        let nextReviewAt: Date | null = current.nextReviewAt;
 
-      if (wasReviewExercise) {
-        // Review has two outcomes only:
-        // 1) successful attempt -> move to next review stage (+1 repetition)
-        // 2) failed attempt -> stay on current review stage
-        const shouldIncrementRepetitions = rating >= 2;
-        reviewWasSuccessful = shouldIncrementRepetitions;
-        if (shouldIncrementRepetitions) {
-          nextRepetitions = current.repetitions + 1;
-          nextReviewAt = calcNextReviewAtForReviewRepetition(nextRepetitions);
+        if (wasReviewExercise) {
+          // Review has two outcomes only:
+          // 1) successful attempt -> move to next review stage (+1 repetition)
+          // 2) failed attempt -> stay on current review stage
+          const shouldIncrementRepetitions = rating >= 2;
+          reviewWasSuccessful = shouldIncrementRepetitions;
+          if (shouldIncrementRepetitions) {
+            nextRepetitions = current.repetitions + 1;
+            nextReviewAt = calcNextReviewAtForReviewRepetition(nextRepetitions);
+          } else {
+            nextRepetitions = current.repetitions;
+            nextReviewAt = new Date(Date.now() + REVIEW_FAILED_RETRY_MINUTES * 60 * 1000);
+          }
         } else {
-          nextRepetitions = current.repetitions;
-          nextReviewAt = new Date(Date.now() + REVIEW_FAILED_RETRY_MINUTES * 60 * 1000);
+          const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
+          const masteryResult = applyMasteryDelta({
+            isLearningVerse,
+            rawMasteryBefore,
+            masteryDelta,
+          });
+
+          rawMasteryAfter = masteryResult.rawMasteryAfter;
+          graduatesToReview = masteryResult.graduatesToReview;
+
+          const isFullRecallStep = trainingModeId === TrainingModeId.FullRecall;
+          if (graduatesToReview && !isFullRecallStep) {
+            rawMasteryAfter = TRAINING_STAGE_MASTERY_MAX - 1;
+            graduatesToReview = false;
+          }
+
+          stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
+
+          if (graduatesToReview) {
+            // First review repetition becomes due on the next day.
+            nextReviewAt = calcNextReviewAtForReviewRepetition(0);
+          } else {
+            const score = SCORE_BY_RATING[rating];
+            nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
+          }
         }
-      } else {
-        const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
-        const masteryResult = applyMasteryDelta({
-          isLearningVerse,
-          rawMasteryBefore,
-          masteryDelta,
-        });
 
-        rawMasteryAfter = masteryResult.rawMasteryAfter;
-        graduatesToReview = masteryResult.graduatesToReview;
+        const becameLearned = graduatesToReview;
 
-        const isFullRecallStep = trainingModeId === TrainingModeId.FullRecall;
-        if (graduatesToReview && !isFullRecallStep) {
-          rawMasteryAfter = TRAINING_STAGE_MASTERY_MAX - 1;
-          graduatesToReview = false;
-        }
+        const nextStatus =
+          current.status === VerseStatus.STOPPED
+            ? VerseStatus.STOPPED
+            : rawMasteryAfter > 0
+              ? nextRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED
+                ? "MASTERED"
+                : graduatesToReview || wasReviewExercise
+                  ? "REVIEW"
+                  : VerseStatus.LEARNING
+              : VerseStatus.MY;
 
-        stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
-
-        if (graduatesToReview) {
-          // First review repetition becomes due on the next day.
-          nextReviewAt = calcNextReviewAtForReviewRepetition(0);
-        } else {
-          const score = SCORE_BY_RATING[rating];
-          nextReviewAt = calcNextReviewAt(stageMasteryAfter, score);
-        }
-      }
-
-      const becameLearned = graduatesToReview;
-
-      const nextStatus =
-        current.status === VerseStatus.STOPPED
-          ? VerseStatus.STOPPED
-          : rawMasteryAfter > 0
-            ? nextRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED
-              ? "MASTERED"
-              : graduatesToReview || wasReviewExercise
-                ? "REVIEW"
-                : VerseStatus.LEARNING
-            : VerseStatus.MY;
-
-      const updated: TrainingVerseState = {
-        ...current,
-        raw: {
-          ...current.raw,
-          masteryLevel: rawMasteryAfter,
+        const updated: TrainingVerseState = {
+          ...current,
+          raw: {
+            ...current.raw,
+            masteryLevel: rawMasteryAfter,
+            repetitions: nextRepetitions,
+            status: nextStatus,
+          } as Verse,
+          rawMasteryLevel: rawMasteryAfter,
+          stageMasteryLevel: stageMasteryAfter,
           repetitions: nextRepetitions,
           status: nextStatus,
-        } as Verse,
-        rawMasteryLevel: rawMasteryAfter,
-        stageMasteryLevel: stageMasteryAfter,
-        repetitions: nextRepetitions,
-        status: nextStatus,
-        // When a verse graduates to REVIEW, reset review rotation to the first review mode.
-        lastModeId: !wasReviewExercise && graduatesToReview ? null : trainingModeId,
-        lastReviewedAt: now,
-        nextReviewAt,
-      };
-
-      const updatedList = [...trainingVerses];
-      updatedList[trainingIndex] = updated;
-      setTrainingVerses(updatedList);
-      setPreviewOverride(current.raw, {
-        status: updated.status,
-        masteryLevel: rawMasteryAfter,
-        ...(canUpdateRepetitions ? { repetitions: updated.repetitions } : {}),
-      });
-
-      if (becameLearned) {
-        haptic("success");
-        showFeedback("Стих выучен", "success");
-      }
-
-      const nextMode = getModeByShiftInProgressOrder(
-        trainingModeId,
-        MODE_SHIFT_BY_RATING[rating] ?? 1
-      );
-      const nextModeForCurrentVerse =
-        becameLearned
-          ? chooseModeId(updated)
-          : !wasReviewExercise && nextMode
-            ? nextMode
-            : chooseModeId(updated);
-
-      if (
-        trainingSubsetFilter !== "catalog" &&
-        !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)
-      ) {
-        showFeedback(
-          "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
-          "info"
-        );
-        setTrainingSubsetFilter("catalog");
-      }
-
-      setTrainingModeId(nextModeForCurrentVerse);
-
-      try {
-        const persistedResponse = await persistTrainingVerseProgress(updated, {
-          includeRepetitions: canUpdateRepetitions,
-        });
-
-        const persistedStatus = normalizeVerseStatus(
-          (persistedResponse?.status as Verse["status"] | undefined) ?? updated.status
-        );
-        const persistedMasteryLevel = normalizeRawMasteryLevel(
-          (persistedResponse?.masteryLevel as number | null | undefined) ?? updated.rawMasteryLevel
-        );
-        const persistedRepetitions = Math.max(
-          0,
-          Math.round(
-            Number(
-              (persistedResponse?.repetitions as number | null | undefined) ?? updated.repetitions
-            )
-          )
-        );
-        const persistedLastReviewedAt =
-          parseDate(
-            (persistedResponse?.lastReviewedAt as string | Date | null | undefined) ??
-              updated.lastReviewedAt
-          ) ?? updated.lastReviewedAt;
-        const persistedNextReviewAt =
-          parseDate(
-            (persistedResponse?.nextReviewAt as string | Date | null | undefined) ??
-              updated.nextReviewAt
-          ) ?? null;
-
-        const persistedDisplayStatus =
-          persistedStatus === VerseStatus.LEARNING
-            ? deriveTrainingDisplayStatus({
-                baseStatus: VerseStatus.LEARNING,
-                masteryLevel: persistedMasteryLevel,
-                repetitions: persistedRepetitions,
-                nextReviewAt: persistedNextReviewAt,
-              })
-            : persistedStatus;
-
-        const persistedUpdated: TrainingVerseState = {
-          ...updated,
-          raw: {
-            ...updated.raw,
-            status: persistedDisplayStatus,
-            masteryLevel: persistedMasteryLevel,
-            repetitions: persistedRepetitions,
-            lastReviewedAt: persistedLastReviewedAt
-              ? persistedLastReviewedAt.toISOString()
-              : null,
-            nextReviewAt: persistedNextReviewAt
-              ? persistedNextReviewAt.toISOString()
-              : null,
-          } as Verse,
-          status: persistedDisplayStatus,
-          rawMasteryLevel: persistedMasteryLevel,
-          stageMasteryLevel: toStageMasteryLevel(persistedMasteryLevel),
-          repetitions: persistedRepetitions,
-          lastReviewedAt: persistedLastReviewedAt,
-          nextReviewAt: persistedNextReviewAt,
+          // When a verse graduates to REVIEW, reset review rotation to the first review mode.
+          lastModeId: !wasReviewExercise && graduatesToReview ? null : trainingModeId,
+          lastReviewedAt: now,
+          nextReviewAt,
         };
 
-        setTrainingVerses((prev) => {
-          const idx = prev.findIndex((v) => v.key === current.key);
-          if (idx < 0) return prev;
-          const next = [...prev];
-          next[idx] = persistedUpdated;
-          return next;
-        });
-
+        const updatedList = [...trainingVerses];
+        updatedList[trainingIndex] = updated;
+        setTrainingVerses(updatedList);
         setPreviewOverride(current.raw, {
-          status: persistedUpdated.status,
-          masteryLevel: persistedUpdated.rawMasteryLevel,
-          repetitions: persistedUpdated.repetitions,
-          lastReviewedAt: persistedUpdated.lastReviewedAt ?? null,
-          nextReviewAt: persistedUpdated.nextReviewAt ?? null,
+          status: updated.status,
+          masteryLevel: rawMasteryAfter,
+          ...(canUpdateRepetitions ? { repetitions: updated.repetitions } : {}),
         });
 
-        onVersePatched?.({
-          target: { id: current.raw.id, externalVerseId: current.externalVerseId },
-          patch: {
+        if (becameLearned) {
+          haptic("success");
+          showFeedback("Стих выучен", "success");
+        }
+
+        const nextMode = getModeByShiftInProgressOrder(
+          trainingModeId,
+          MODE_SHIFT_BY_RATING[rating] ?? 1
+        );
+        const nextModeForCurrentVerse =
+          becameLearned
+            ? chooseModeId(updated)
+            : !wasReviewExercise && nextMode
+              ? nextMode
+              : chooseModeId(updated);
+
+        if (
+          trainingSubsetFilter !== "catalog" &&
+          !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)
+        ) {
+          showFeedback(
+            "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
+            "info"
+          );
+          setTrainingSubsetFilter("catalog");
+        }
+
+        setTrainingModeId(nextModeForCurrentVerse);
+
+        try {
+          const persistedResponse = await persistTrainingVerseProgress(updated, {
+            includeRepetitions: canUpdateRepetitions,
+          });
+
+          const persistedStatus = normalizeVerseStatus(
+            (persistedResponse?.status as Verse["status"] | undefined) ?? updated.status
+          );
+          const persistedMasteryLevel = normalizeRawMasteryLevel(
+            (persistedResponse?.masteryLevel as number | null | undefined) ?? updated.rawMasteryLevel
+          );
+          const persistedRepetitions = Math.max(
+            0,
+            Math.round(
+              Number(
+                (persistedResponse?.repetitions as number | null | undefined) ?? updated.repetitions
+              )
+            )
+          );
+          const persistedLastReviewedAt =
+            parseDate(
+              (persistedResponse?.lastReviewedAt as string | Date | null | undefined) ??
+                updated.lastReviewedAt
+            ) ?? updated.lastReviewedAt;
+          const persistedNextReviewAt =
+            parseDate(
+              (persistedResponse?.nextReviewAt as string | Date | null | undefined) ??
+                updated.nextReviewAt
+            ) ?? null;
+
+          const persistedDisplayStatus =
+            persistedStatus === VerseStatus.LEARNING
+              ? deriveTrainingDisplayStatus({
+                  baseStatus: VerseStatus.LEARNING,
+                  masteryLevel: persistedMasteryLevel,
+                  repetitions: persistedRepetitions,
+                  nextReviewAt: persistedNextReviewAt,
+                })
+              : persistedStatus;
+
+          const persistedUpdated: TrainingVerseState = {
+            ...updated,
+            raw: {
+              ...updated.raw,
+              status: persistedDisplayStatus,
+              masteryLevel: persistedMasteryLevel,
+              repetitions: persistedRepetitions,
+              lastReviewedAt: persistedLastReviewedAt
+                ? persistedLastReviewedAt.toISOString()
+                : null,
+              nextReviewAt: persistedNextReviewAt
+                ? persistedNextReviewAt.toISOString()
+                : null,
+            } as Verse,
+            status: persistedDisplayStatus,
+            rawMasteryLevel: persistedMasteryLevel,
+            stageMasteryLevel: toStageMasteryLevel(persistedMasteryLevel),
+            repetitions: persistedRepetitions,
+            lastReviewedAt: persistedLastReviewedAt,
+            nextReviewAt: persistedNextReviewAt,
+          };
+
+          setTrainingVerses((prev) => {
+            const idx = prev.findIndex((v) => v.key === current.key);
+            if (idx < 0) return prev;
+            const next = [...prev];
+            next[idx] = persistedUpdated;
+            return next;
+          });
+
+          setPreviewOverride(current.raw, {
             status: persistedUpdated.status,
             masteryLevel: persistedUpdated.rawMasteryLevel,
             repetitions: persistedUpdated.repetitions,
-            lastReviewedAt: persistedUpdated.lastReviewedAt?.toISOString() ?? null,
-            nextReviewAt: persistedUpdated.nextReviewAt?.toISOString() ?? null,
-          },
-        });
+            lastReviewedAt: persistedUpdated.lastReviewedAt ?? null,
+            nextReviewAt: persistedUpdated.nextReviewAt ?? null,
+          });
 
-        const contactToast = getTrainingContactToastPayload({
-          wasReviewExercise,
-          reviewWasSuccessful,
-          reference: persistedUpdated.raw.reference,
-          finalStatus: persistedUpdated.status,
-          nextReviewAt: persistedUpdated.nextReviewAt,
-          beforeRawMasteryLevel: current.rawMasteryLevel,
-          afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
-        });
+          onVersePatched?.({
+            target: { id: current.raw.id, externalVerseId: current.externalVerseId },
+            patch: {
+              status: persistedUpdated.status,
+              masteryLevel: persistedUpdated.rawMasteryLevel,
+              repetitions: persistedUpdated.repetitions,
+              lastReviewedAt: persistedUpdated.lastReviewedAt?.toISOString() ?? null,
+              nextReviewAt: persistedUpdated.nextReviewAt?.toISOString() ?? null,
+            },
+          });
 
-        const milestonePopup = getTrainingMilestonePopupPayload({
-          wasReviewExercise,
-          beforeStatus: current.status,
-          finalStatus: persistedUpdated.status,
-          reference: persistedUpdated.raw.reference,
-          nextReviewAt: persistedUpdated.nextReviewAt,
-          beforeRawMasteryLevel: current.rawMasteryLevel,
-          beforeRepetitions: current.repetitions,
-          afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
-          afterRepetitions: persistedUpdated.repetitions,
-        });
+          const contactToast = getTrainingContactToastPayload({
+            wasReviewExercise,
+            reviewWasSuccessful,
+            reference: persistedUpdated.raw.reference,
+            finalStatus: persistedUpdated.status,
+            nextReviewAt: persistedUpdated.nextReviewAt,
+            beforeRawMasteryLevel: current.rawMasteryLevel,
+            afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
+          });
 
-        showTrainingContactToast(contactToast);
-        if (milestonePopup) {
-          showTrainingMilestonePopup(milestonePopup);
+          const milestonePopup = getTrainingMilestonePopupPayload({
+            wasReviewExercise,
+            beforeStatus: current.status,
+            finalStatus: persistedUpdated.status,
+            reference: persistedUpdated.raw.reference,
+            nextReviewAt: persistedUpdated.nextReviewAt,
+            beforeRawMasteryLevel: current.rawMasteryLevel,
+            beforeRepetitions: current.repetitions,
+            afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
+            afterRepetitions: persistedUpdated.repetitions,
+          });
+
+          showTrainingContactToast(contactToast);
+          if (milestonePopup) {
+            await showTrainingMilestonePopup(milestonePopup);
+          }
+
+          const shouldMoveToNextVerse =
+            wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
+          if (shouldMoveToNextVerse) {
+            removeCompletedTrainingVerseAndNavigate(1);
+          }
+        } catch (error) {
+          console.error("Failed to persist training progress", error);
+          haptic("error");
+          showFeedback("Ошибка — попробуйте ещё раз", "error");
         }
-
-        const shouldMoveToNextVerse =
-          wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
-        if (shouldMoveToNextVerse) {
-          removeCompletedTrainingVerseAndNavigate(1);
-        }
-      } catch (error) {
-        console.error("Failed to persist training progress", error);
-        haptic("error");
-        showFeedback("Ошибка — попробуйте ещё раз", "error");
+      } finally {
+        setActionPending(false);
       }
     },
     [
+      actionPending,
+      setActionPending,
       onVersePatched,
       panelMode,
       removeCompletedTrainingVerseAndNavigate,

@@ -358,9 +358,8 @@ export function getTrainingMilestonePopupPayload(params: {
       id: Date.now(),
       reference,
       status: "MASTERED",
-      title: "Стих выучен полностью",
-      description: "Этап повторения завершён. Стих перешёл в список завершённых.",
-      outcome: "success",
+      milestoneKind: "review_to_mastered",
+      nextReviewHint: null,
       beforeProgressPercent,
       afterProgressPercent,
       masteryLevel: Math.max(0, afterRawMasteryLevel),
@@ -368,26 +367,64 @@ export function getTrainingMilestonePopupPayload(params: {
     };
   }
 
-  const movedToReview =
+  const movedWithinReview =
+    wasReviewExercise &&
+    beforeStatus === "REVIEW" &&
+    finalStatus === "REVIEW" &&
+    afterRepetitions > beforeRepetitions;
+  if (movedWithinReview) {
+    const nextReviewHint = toHumanWaitLabel(nextReviewAt);
+    return {
+      id: Date.now(),
+      reference,
+      status: "REVIEW",
+      milestoneKind: "review_progress",
+      nextReviewHint,
+      beforeProgressPercent,
+      afterProgressPercent,
+      masteryLevel: Math.max(0, afterRawMasteryLevel),
+      repetitions: Math.max(0, afterRepetitions),
+    };
+  }
+
+  const movedToReviewFromLearning =
     !wasReviewExercise &&
     beforeStatus === VerseStatus.LEARNING &&
     finalStatus === "REVIEW";
-  if (!movedToReview) return null;
+  if (!movedToReviewFromLearning) return null;
 
-  const reviewHint = toHumanWaitLabel(nextReviewAt);
+  const nextReviewHint = toHumanWaitLabel(nextReviewAt);
   return {
     id: Date.now(),
     reference,
     status: "REVIEW",
-    title: "Этап изучения завершён",
-    description: reviewHint
-      ? `Стих переведён в повторение, ${reviewHint}.`
-      : "Стих переведён в повторение. Теперь он закрепляется по интервальным повторам.",
-    outcome: "success",
+    milestoneKind: "learning_to_review",
+    nextReviewHint,
     beforeProgressPercent,
     afterProgressPercent,
     masteryLevel: Math.max(0, afterRawMasteryLevel),
     repetitions: Math.max(0, afterRepetitions),
+  };
+}
+
+export function getTrainingLearningStartPopupPayload(params: {
+  reference: string;
+  rawMasteryLevel: number;
+  repetitions: number;
+}): TrainingCompletionToastCardPayload {
+  const { reference, rawMasteryLevel, repetitions } = params;
+  const progress = computeTotalProgressPercent(rawMasteryLevel, repetitions);
+
+  return {
+    id: Date.now(),
+    reference,
+    status: "LEARNING",
+    milestoneKind: "learning_start",
+    nextReviewHint: null,
+    beforeProgressPercent: progress,
+    afterProgressPercent: progress,
+    masteryLevel: Math.max(0, rawMasteryLevel),
+    repetitions: Math.max(0, repetitions),
   };
 }
 

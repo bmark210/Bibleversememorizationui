@@ -25,7 +25,7 @@ export function ConfirmDeleteModal({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-3xl">
         <AlertDialogHeader>
           <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -34,10 +34,10 @@ export function ConfirmDeleteModal({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>Отмена</AlertDialogCancel>
+          <AlertDialogCancel disabled={isSubmitting} className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">Отмена</AlertDialogCancel>
           <AlertDialogAction
             disabled={isSubmitting}
-            className="bg-destructive hover:bg-destructive/90 text-white"
+            className=" rounded-full border border-border/60 bg-muted/35 text-foreground/90"
             onClick={(e) => {
               e.preventDefault();
               void onConfirm();

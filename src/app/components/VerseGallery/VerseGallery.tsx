@@ -132,6 +132,12 @@ function unlockScrollOnElement(element: HTMLElement) {
   element.dataset[GALLERY_SCROLL_LOCK_COUNT_DATA_KEY] = String(lockCount - 1);
 }
 
+function toReadableSentence(text: string | null): string | null {
+  if (!text) return null;
+  const normalized = text.charAt(0).toUpperCase() + text.slice(1);
+  return normalized.endsWith(".") ? normalized : `${normalized}.`;
+}
+
 export function VerseGallery({
   verses,
   initialIndex,
@@ -173,7 +179,7 @@ export function VerseGallery({
     };
   }, []);
 
-  // ── Aux state (pending, overrides, feedback, milestone toast) ───────────────
+  // ── Aux state (pending, overrides, feedback, milestone popup) ───────────────
   const aux = useGalleryAux();
 
   // ── Preview navigation ───────────────────────────────────────────────────────
@@ -278,7 +284,13 @@ export function VerseGallery({
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (aux.deleteDialogOpen) return;
+      if (
+        aux.deleteDialogOpen ||
+        aux.trainingMilestonePopup !== null ||
+        training.quickForgetConfirmStage !== null
+      ) {
+        return;
+      }
       if (e.key === "Escape") {
         e.preventDefault();
         if (training.panelMode === "training") {
@@ -305,6 +317,7 @@ export function VerseGallery({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     aux.deleteDialogOpen,
+    aux.trainingMilestonePopup,
     closeTrainingGoesToPreview,
     nav,
     onClose,
@@ -403,6 +416,85 @@ export function VerseGallery({
     training.panelMode === "preview" && previewActiveVerse
       ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
       : null;
+
+  const trainingMilestonePopup = aux.trainingMilestonePopup;
+  const milestoneStageLabel =
+    trainingMilestonePopup?.status === "MASTERED"
+      ? "Завершение"
+      : trainingMilestonePopup?.status === "REVIEW"
+        ? "Повторение"
+        : trainingMilestonePopup?.status === "LEARNING"
+          ? "Изучение"
+          : "Этап";
+
+  const milestoneTheme =
+    trainingMilestonePopup?.status === "MASTERED"
+      ? {
+          contentClassName:
+            "border-amber-500/25 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6",
+          glowClassName:
+            "bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.22),transparent_56%),radial-gradient(circle_at_bottom_left,rgba(250,204,21,0.2),transparent_52%)]",
+          badgeClassName:
+            "border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300",
+          statCardClassName: "border-amber-500/25 bg-amber-500/[0.08]",
+          valueClassName: "text-amber-800 dark:text-amber-300",
+          actionClassName:
+            "bg-gradient-to-r from-amber-500 to-yellow-400 text-amber-950 hover:from-amber-500/95 hover:to-yellow-400/95",
+        }
+      : trainingMilestonePopup?.status === "REVIEW"
+        ? {
+            contentClassName:
+              "border-violet-500/20 bg-gradient-to-br from-violet-500/9 via-card to-card",
+            glowClassName:
+              "bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.24),transparent_56%),radial-gradient(circle_at_bottom_left,rgba(167,139,250,0.2),transparent_52%)]",
+            badgeClassName:
+              "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+            statCardClassName: "border-violet-500/25 bg-violet-500/[0.08]",
+            valueClassName: "text-violet-700 dark:text-violet-300",
+            actionClassName:
+              "bg-gradient-to-r from-violet-500 to-violet-400 text-white hover:from-violet-500/95 hover:to-violet-400/95",
+          }
+        : {
+            contentClassName:
+              "border-emerald-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-card",
+            glowClassName:
+              "bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.22),transparent_56%),radial-gradient(circle_at_bottom_left,rgba(52,211,153,0.2),transparent_52%)]",
+            badgeClassName:
+              "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+            statCardClassName: "border-emerald-500/25 bg-emerald-500/[0.08]",
+            valueClassName: "text-emerald-700 dark:text-emerald-300",
+            actionClassName:
+              "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-500/95 hover:to-emerald-400/95",
+          };
+  const milestoneNextReviewSentence = toReadableSentence(
+    trainingMilestonePopup?.nextReviewHint ?? null
+  );
+
+  const milestoneDialogContent =
+    trainingMilestonePopup?.milestoneKind === "review_to_mastered"
+      ? {
+          title: "Стих выучен полностью",
+          description: "Этап повторения завершён. Стих перешёл в список завершённых.",
+        }
+      : trainingMilestonePopup?.milestoneKind === "review_progress"
+        ? {
+            title: "Этап повторения обновлён",
+            description: milestoneNextReviewSentence
+              ? `Повтор засчитан. ${milestoneNextReviewSentence}`
+              : "Повтор засчитан. Стих остаётся на этапе повторения по интервальному графику.",
+          }
+        : trainingMilestonePopup?.milestoneKind === "learning_to_review"
+          ? {
+              title: "Переход к этапу повторения",
+              description: milestoneNextReviewSentence
+                ? `Этап изучения завершён. ${milestoneNextReviewSentence}`
+                : "Стих переведён в повторение. Теперь он закрепляется по интервальным повторам.",
+            }
+          : {
+              title: "Стих переведён в этап изучения",
+              description:
+                "Это первый этап изучения. После завершения этапа изучения стих перейдёт в интервальное повторение.",
+            };
 
   return (
     <>
@@ -584,8 +676,57 @@ export function VerseGallery({
 
       {!training.isAutoStartingTraining && <SwipeHint panelMode={training.panelMode} />}
 
+      <AlertDialog
+        open={trainingMilestonePopup !== null}
+        onOpenChange={() => {
+          // Popup can be closed only via explicit confirmation button.
+        }}
+      >
+        <AlertDialogContent
+          className={`overflow-hidden rounded-3xl shadow-2xl ${milestoneTheme.contentClassName}`}
+        >
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 backdrop-blur-lg ${milestoneTheme.glowClassName}`}
+          />
+          <AlertDialogHeader className="relative gap-3">
+            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${milestoneTheme.badgeClassName}`}>
+              {trainingMilestonePopup?.reference}
+            </span>
+            <AlertDialogTitle className="text-balance text-xl leading-tight">
+              {milestoneDialogContent.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed text-foreground/85">
+              {milestoneDialogContent.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className={`relative grid gap-2 rounded-2xl border p-3 text-xs text-foreground/80 sm:grid-cols-2 bg-background/20`}>
+            <div className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}>
+              <span className="text-muted-foreground">Текущий этап</span>
+              <div className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}>{milestoneStageLabel}</div>
+            </div>
+            <div className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}>
+              <span className="text-muted-foreground">Прогресс</span>
+              <div className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}>
+                {trainingMilestonePopup?.beforeProgressPercent}% → {trainingMilestonePopup?.afterProgressPercent}%
+              </div>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="relative">
+            <AlertDialogAction
+              className={`w-full rounded-full sm:w-auto bg-background/20 text-foreground/80 border`}
+              onClick={aux.confirmTrainingMilestonePopup}
+            >
+              Понятно
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={aux.deleteDialogOpen} onOpenChange={aux.setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -593,14 +734,14 @@ export function VerseGallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">Отмена</AlertDialogCancel>
             <AlertDialogAction
               disabled={
                 aux.actionPending ||
                 training.panelMode !== "preview" ||
                 !previewActiveVerse
               }
-              className="bg-destructive hover:bg-destructive/90 text-white"
+              className="rounded-full border border-border/60 bg-muted/35 text-foreground/90"
               onClick={() => void handleDelete()}
             >
               Удалить

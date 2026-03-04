@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { Verse } from "@/app/App";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import {
@@ -20,7 +20,9 @@ export type UseGalleryAuxReturn = {
   feedbackMessage: string;
   showFeedback: (message: string, type?: "success" | "error" | "info") => void;
   showTrainingContactToast: (payload: TrainingContactToastPayload) => void;
-  showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => void;
+  showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => Promise<void>;
+  trainingMilestonePopup: TrainingCompletionToastCardPayload | null;
+  confirmTrainingMilestonePopup: () => void;
   slideAnnouncement: string;
   setSlideAnnouncement: (text: string) => void;
 };
@@ -33,6 +35,9 @@ export function useGalleryAux(): UseGalleryAuxReturn {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
+  const [trainingMilestonePopup, setTrainingMilestonePopup] =
+    useState<TrainingCompletionToastCardPayload | null>(null);
+  const trainingMilestoneResolveRef = useRef<(() => void) | null>(null);
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -59,11 +64,32 @@ export function useGalleryAux(): UseGalleryAuxReturn {
   );
 
   const showTrainingMilestonePopup = useCallback(
-    (payload: TrainingCompletionToastCardPayload) => {
-      showTrainingMilestoneHotToast(payload, {
-        durationMs: 10000,
-        toasterId: GALLERY_TOASTER_ID,
-      });
+    (payload: TrainingCompletionToastCardPayload) =>
+      new Promise<void>((resolve) => {
+        showTrainingMilestoneHotToast(payload, {
+          durationMs: 5000,
+          toasterId: GALLERY_TOASTER_ID,
+        });
+        // Resolve previous pending promise defensively to avoid dangling await chains.
+        trainingMilestoneResolveRef.current?.();
+        trainingMilestoneResolveRef.current = resolve;
+        setTrainingMilestonePopup(payload);
+      }),
+    []
+  );
+
+  const confirmTrainingMilestonePopup = useCallback(() => {
+    setTrainingMilestonePopup(null);
+    const resolve = trainingMilestoneResolveRef.current;
+    trainingMilestoneResolveRef.current = null;
+    resolve?.();
+  }, []);
+
+  useEffect(
+    () => () => {
+      // Resolve pending promise during unmount to prevent hanging awaits.
+      trainingMilestoneResolveRef.current?.();
+      trainingMilestoneResolveRef.current = null;
     },
     []
   );
@@ -79,6 +105,8 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     showFeedback,
     showTrainingContactToast,
     showTrainingMilestonePopup,
+    trainingMilestonePopup,
+    confirmTrainingMilestonePopup,
     slideAnnouncement,
     setSlideAnnouncement,
   };
