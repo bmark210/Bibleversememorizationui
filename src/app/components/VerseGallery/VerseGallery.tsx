@@ -758,7 +758,7 @@ export function VerseGallery({
           if (!open) training.cancelQuickForget();
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {training.quickForgetConfirmStage === "review"

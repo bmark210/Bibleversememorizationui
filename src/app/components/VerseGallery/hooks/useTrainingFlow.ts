@@ -96,8 +96,125 @@ function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
 
 const LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY =
   "bible-memory.training.quick-forget.learning-confirm.seen.v1";
-const LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX =
+const LEARNING_STAGE_INTRO_POPUP_LEGACY_SEEN_STORAGE_KEY_PREFIX =
   "bible-memory.training.learning-intro-popup.seen.v1";
+const LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY =
+  "bible-memory.training.learning-intro-popup.seen.v2";
+const LEARNING_STAGE_INTRO_POPUP_SEEN_MAX_ENTRIES = 256;
+
+type LearningStageIntroPopupSeenMap = Record<string, number>;
+let learningStageIntroPopupLegacyMigrated = false;
+
+function isLearningStageIntroPopupCandidate(params: {
+  status: string;
+  rawMasteryLevel: number;
+  repetitions: number;
+  lastReviewedAt: Date | null;
+}): boolean {
+  return (
+    params.status === VerseStatus.LEARNING &&
+    params.rawMasteryLevel === 0 &&
+    params.repetitions === 0 &&
+    !params.lastReviewedAt
+  );
+}
+
+function normalizeLearningStageIntroPopupSeenMap(
+  raw: unknown
+): LearningStageIntroPopupSeenMap {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const source = raw as Record<string, unknown>;
+  const normalized: LearningStageIntroPopupSeenMap = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (!key) continue;
+    const stamp = Number(value);
+    if (!Number.isFinite(stamp) || stamp <= 0) continue;
+    normalized[key] = Math.round(stamp);
+  }
+  return normalized;
+}
+
+function trimLearningStageIntroPopupSeenMap(
+  map: LearningStageIntroPopupSeenMap
+): LearningStageIntroPopupSeenMap {
+  const entries = Object.entries(map);
+  if (entries.length <= LEARNING_STAGE_INTRO_POPUP_SEEN_MAX_ENTRIES) return map;
+  const trimmed: LearningStageIntroPopupSeenMap = {};
+  const sorted = [...entries].sort((a, b) => b[1] - a[1]);
+  for (const [key, stamp] of sorted.slice(0, LEARNING_STAGE_INTRO_POPUP_SEEN_MAX_ENTRIES)) {
+    trimmed[key] = stamp;
+  }
+  return trimmed;
+}
+
+function readLearningStageIntroPopupSeenMapFromStorage(
+  storage: Storage
+): LearningStageIntroPopupSeenMap {
+  const raw = storage.getItem(LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    return normalizeLearningStageIntroPopupSeenMap(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+function writeLearningStageIntroPopupSeenMapToStorage(
+  storage: Storage,
+  map: LearningStageIntroPopupSeenMap
+) {
+  const trimmed = trimLearningStageIntroPopupSeenMap(map);
+  if (Object.keys(trimmed).length === 0) {
+    storage.removeItem(LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY);
+    return;
+  }
+  storage.setItem(LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY, JSON.stringify(trimmed));
+}
+
+function ensureLearningStageIntroPopupLegacyMigration() {
+  if (learningStageIntroPopupLegacyMigrated) return;
+  if (typeof window === "undefined") return;
+  learningStageIntroPopupLegacyMigrated = true;
+  try {
+    const storage = window.localStorage;
+    const prefix = `${LEARNING_STAGE_INTRO_POPUP_LEGACY_SEEN_STORAGE_KEY_PREFIX}:`;
+    const seenMap = readLearningStageIntroPopupSeenMapFromStorage(storage);
+    const keysToRemove: string[] = [];
+    let didChange = false;
+
+    for (let i = 0; i < storage.length; i += 1) {
+      const storageKey = storage.key(i);
+      if (!storageKey || !storageKey.startsWith(prefix)) continue;
+      keysToRemove.push(storageKey);
+      const verseKey = storageKey.slice(prefix.length);
+      if (!verseKey) continue;
+      if (storage.getItem(storageKey) !== "1") continue;
+      if (seenMap[verseKey]) continue;
+      seenMap[verseKey] = Date.now();
+      didChange = true;
+    }
+
+    for (const storageKey of keysToRemove) {
+      storage.removeItem(storageKey);
+    }
+
+    if (didChange || keysToRemove.length > 0) {
+      writeLearningStageIntroPopupSeenMapToStorage(storage, seenMap);
+    }
+  } catch {
+    // ignore migration errors in restricted webviews
+  }
+}
+
+function readLearningStageIntroPopupSeenMap(): LearningStageIntroPopupSeenMap {
+  if (typeof window === "undefined") return {};
+  ensureLearningStageIntroPopupLegacyMigration();
+  try {
+    return readLearningStageIntroPopupSeenMapFromStorage(window.localStorage);
+  } catch {
+    return {};
+  }
+}
 
 function hasLearningQuickForgetConfirmBeenSeen(): boolean {
   if (typeof window === "undefined") return false;
@@ -120,11 +237,8 @@ function markLearningQuickForgetConfirmSeen() {
 function hasLearningStageIntroPopupBeenSeen(verseKey: string): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return (
-      window.localStorage.getItem(
-        `${LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX}:${verseKey}`
-      ) === "1"
-    );
+    const seenMap = readLearningStageIntroPopupSeenMap();
+    return Boolean(seenMap[verseKey]);
   } catch {
     return false;
   }
@@ -133,10 +247,52 @@ function hasLearningStageIntroPopupBeenSeen(verseKey: string): boolean {
 function markLearningStageIntroPopupSeen(verseKey: string) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(
-      `${LEARNING_STAGE_INTRO_POPUP_SEEN_STORAGE_KEY_PREFIX}:${verseKey}`,
-      "1"
-    );
+    const seenMap = readLearningStageIntroPopupSeenMap();
+    seenMap[verseKey] = Date.now();
+    writeLearningStageIntroPopupSeenMapToStorage(window.localStorage, seenMap);
+  } catch {
+    // ignore storage write errors in restricted webviews
+  }
+}
+
+function clearLearningStageIntroPopupSeen(verseKey: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const seenMap = readLearningStageIntroPopupSeenMap();
+    if (!seenMap[verseKey]) return;
+    delete seenMap[verseKey];
+    writeLearningStageIntroPopupSeenMapToStorage(window.localStorage, seenMap);
+  } catch {
+    // ignore storage write errors in restricted webviews
+  }
+}
+
+function cleanupLearningStageIntroPopupSeenForVisibleVerses(verses: Verse[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const seenMap = readLearningStageIntroPopupSeenMap();
+    if (Object.keys(seenMap).length === 0) return;
+
+    let didChange = false;
+    for (const verse of verses) {
+      const verseKey = getVerseIdentity(verse);
+      if (!seenMap[verseKey]) continue;
+
+      const shouldKeepFlag = isLearningStageIntroPopupCandidate({
+        status: normalizeVerseStatus(verse.status),
+        rawMasteryLevel: normalizeRawMasteryLevel(verse.masteryLevel),
+        repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+        lastReviewedAt: parseDate((verse as Record<string, unknown>).lastReviewedAt),
+      });
+
+      if (shouldKeepFlag) continue;
+      delete seenMap[verseKey];
+      didChange = true;
+    }
+
+    if (didChange) {
+      writeLearningStageIntroPopupSeenMapToStorage(window.localStorage, seenMap);
+    }
   } catch {
     // ignore storage write errors in restricted webviews
   }
@@ -199,6 +355,7 @@ export function useTrainingFlow({
   const autoStartedTrainingRef = useRef(false);
   const hasUserChosenTrainingSubsetRef = useRef(false);
   const preservedPreviewVerseKeyOnTrainingExitRef = useRef<string | null>(null);
+  const previousVisibleVerseKeysRef = useRef<Set<string>>(new Set());
 
   const trainingActiveVerse = panelMode === "training" ? trainingVerses[trainingIndex] ?? null : null;
 
@@ -271,6 +428,22 @@ export function useTrainingFlow({
       setQuickForgetConfirmStage(null);
     }
   }, [panelMode]);
+
+  useEffect(() => {
+    const nextVisibleKeys = new Set<string>();
+    for (const verse of verses) {
+      nextVisibleKeys.add(getVerseIdentity(verse));
+    }
+
+    for (const prevKey of previousVisibleVerseKeysRef.current) {
+      if (!nextVisibleKeys.has(prevKey)) {
+        clearLearningStageIntroPopupSeen(prevKey);
+      }
+    }
+
+    cleanupLearningStageIntroPopupSeenForVisibleVerses(verses);
+    previousVisibleVerseKeysRef.current = nextVisibleKeys;
+  }, [verses]);
 
   const fetchLearningVersesForTraining = useCallback(async (): Promise<Verse[]> => {
     const telegramId = getTelegramId();
@@ -573,14 +746,14 @@ export function useTrainingFlow({
         haptic("medium");
 
         const shouldShowLearningIntroPopup =
-          startState.status === VerseStatus.LEARNING &&
-          startState.rawMasteryLevel === 0 &&
-          startState.repetitions === 0 &&
-          !startState.lastReviewedAt &&
-          !hasLearningStageIntroPopupBeenSeen(startState.key);
+          isLearningStageIntroPopupCandidate({
+            status: startState.status,
+            rawMasteryLevel: startState.rawMasteryLevel,
+            repetitions: startState.repetitions,
+            lastReviewedAt: startState.lastReviewedAt,
+          }) && !hasLearningStageIntroPopupBeenSeen(startState.key);
 
         if (shouldShowLearningIntroPopup) {
-          markLearningStageIntroPopupSeen(startState.key);
           await showTrainingMilestonePopup(
             getTrainingLearningStartPopupPayload({
               reference: startState.raw.reference,
@@ -588,6 +761,7 @@ export function useTrainingFlow({
               repetitions: startState.repetitions,
             })
           );
+          markLearningStageIntroPopupSeen(startState.key);
         }
 
         return true;
@@ -817,6 +991,17 @@ export function useTrainingFlow({
             lastReviewedAt: persistedLastReviewedAt,
             nextReviewAt: persistedNextReviewAt,
           };
+
+          if (
+            !isLearningStageIntroPopupCandidate({
+              status: persistedUpdated.status,
+              rawMasteryLevel: persistedUpdated.rawMasteryLevel,
+              repetitions: persistedUpdated.repetitions,
+              lastReviewedAt: persistedUpdated.lastReviewedAt,
+            })
+          ) {
+            clearLearningStageIntroPopupSeen(persistedUpdated.key);
+          }
 
           const finalShouldMoveToNextVerse =
             wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
