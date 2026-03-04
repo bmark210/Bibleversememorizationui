@@ -1,5 +1,13 @@
 const serverUrl = process.env.NEXT_PUBLIC_APP_URL;
 
+const externalVerseIdSchema = {
+  type: "string",
+  pattern: "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+  description:
+    'ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).',
+  examples: ["43-3-16", "43-3-16-18"],
+} as const;
+
 const swaggerDoc = {
   openapi: "3.0.3",
   info: {
@@ -180,7 +188,7 @@ const swaggerDoc = {
                 type: "object",
                 required: ["externalVerseId"],
                 properties: {
-                  externalVerseId: { type: "string" },
+                  externalVerseId: externalVerseIdSchema,
                   masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
                   repetitions: { type: "integer", minimum: 0 },
                   lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
@@ -193,7 +201,7 @@ const swaggerDoc = {
         },
         responses: {
           201: { description: "Создан/обновлён", content: { "application/json": { schema: { $ref: "#/components/schemas/UserVerse" } } } },
-          400: { description: "externalVerseId обязателен" },
+          400: { description: "externalVerseId обязателен или имеет неверный формат" },
         },
       },
     },
@@ -236,7 +244,7 @@ const swaggerDoc = {
           "Обновить прогресс по стиху (сервер защищает инварианты mastery/review и валидирует lastTrainingModeId)",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
-          { name: "externalVerseId", in: "path", required: true, schema: { type: "string" } },
+          { name: "externalVerseId", in: "path", required: true, schema: externalVerseIdSchema },
         ],
         requestBody: {
           required: true,
@@ -268,7 +276,7 @@ const swaggerDoc = {
         summary: "Удалить прогресс по стиху",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
-          { name: "externalVerseId", in: "path", required: true, schema: { type: "string" } },
+          { name: "externalVerseId", in: "path", required: true, schema: externalVerseIdSchema },
         ],
         responses: { 200: { description: "Удалено" } },
       },
@@ -332,7 +340,7 @@ const swaggerDoc = {
       get: {
         tags: ["Tags"],
         summary: "Получить теги, привязанные к стиху",
-        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: externalVerseIdSchema }],
         responses: {
           200: {
             description: "OK",
@@ -347,7 +355,7 @@ const swaggerDoc = {
       post: {
         tags: ["Tags"],
         summary: "Привязать тег к стиху",
-        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: externalVerseIdSchema }],
         requestBody: {
           required: true,
           content: {
@@ -374,7 +382,7 @@ const swaggerDoc = {
       delete: {
         tags: ["Tags"],
         summary: "Отвязать тег от стиха",
-        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [{ name: "externalVerseId", in: "path", required: true, schema: externalVerseIdSchema }],
         requestBody: {
           required: true,
           content: {
@@ -413,14 +421,39 @@ const swaggerDoc = {
       },
       UserVerse: {
         type: "object",
+        required: [
+          "externalVerseId",
+          "status",
+          "masteryLevel",
+          "repetitions",
+          "lastReviewedAt",
+          "nextReviewAt",
+        ],
         properties: {
-          id: { type: "string" },
-          telegramId: { type: "string" },
-          externalVerseId: { type: "string" },
+          externalVerseId: externalVerseIdSchema,
+          status: {
+            type: "string",
+            enum: ["MY", "LEARNING", "STOPPED", "REVIEW", "MASTERED", "CATALOG"],
+          },
           masteryLevel: { type: "integer" },
           repetitions: { type: "integer" },
+          lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
           lastReviewedAt: { type: "string", format: "date-time", nullable: true },
           nextReviewAt: { type: "string", format: "date-time", nullable: true },
+          tags: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "slug", "title"],
+              properties: {
+                id: { type: "string" },
+                slug: { type: "string" },
+                title: { type: "string" },
+              },
+            },
+          },
+          text: { type: "string" },
+          reference: { type: "string" },
         },
       },
       UserVersesPageResponse: {
@@ -545,7 +578,7 @@ const swaggerDoc = {
         type: "object",
         properties: {
           id: { type: "string" },
-          externalVerseId: { type: "string" },
+          externalVerseId: externalVerseIdSchema,
           tagId: { type: "string" },
         },
       },

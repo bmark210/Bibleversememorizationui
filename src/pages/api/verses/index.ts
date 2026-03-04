@@ -10,13 +10,16 @@ import {
   getHelloaoChapterVerseMap,
   normalizeHelloaoTranslation,
 } from "@/shared/bible/helloao";
+import {
+  expandParsedExternalVerseNumbers,
+  formatParsedExternalVerseReference,
+  parseExternalVerseId,
+} from "@/shared/bible/externalVerseId";
 
 const DEFAULT_TRANSLATION = "rus_syn";
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
 const MAX_TAG_SLUGS = 30;
-
-type ParsedVerseId = { book: number; chapter: number; verse: number };
 
 function parseTagSlugs(value: string | string[] | undefined): string[] {
   if (!value) return [];
@@ -32,14 +35,6 @@ function parseTagSlugs(value: string | string[] | undefined): string[] {
     throw new Error(`tagSlugs must contain at most ${MAX_TAG_SLUGS} values`);
   }
   return unique;
-}
-
-function parseExternalVerseId(value: string): ParsedVerseId | null {
-  const parts = value.split("-").map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
-  const [book, chapter, verse] = parts;
-  if (!book || !chapter || !verse) return null;
-  return { book, chapter, verse };
 }
 
 function buildGroupKey(translation: string, book: number, chapter: number) {
@@ -112,6 +107,58 @@ async function fetchHelloaoTexts(
   );
 
   return textsMap;
+}
+
+function appendParsedVersesToRequestGroup(
+  requestGroups: Map<
+    string,
+    { translation: string; book: number; chapter: number; verses: number[] }
+  >,
+  translation: string,
+  externalVerseId: string
+) {
+  const parsed = parseExternalVerseId(externalVerseId);
+  if (!parsed) return;
+
+  const key = buildGroupKey(translation, parsed.book, parsed.chapter);
+  const existing = requestGroups.get(key);
+  const verses = expandParsedExternalVerseNumbers(parsed);
+
+  if (existing) {
+    existing.verses.push(...verses);
+    return;
+  }
+
+  requestGroups.set(key, {
+    translation,
+    book: parsed.book,
+    chapter: parsed.chapter,
+    verses,
+  });
+}
+
+function toExternalVerseTextAndReference(
+  externalVerseId: string,
+  translation: string,
+  textsMap: Map<string, Map<number, string>>
+): { text?: string; reference?: string } {
+  const parsed = parseExternalVerseId(externalVerseId);
+  if (!parsed) return {};
+
+  const chapterMap = textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter));
+  const text = expandParsedExternalVerseNumbers(parsed)
+    .map((verse) => chapterMap?.get(verse))
+    .filter((chunk): chunk is string => typeof chunk === "string" && chunk.length > 0)
+    .join(" ")
+    .trim();
+
+  return {
+    text: text || undefined,
+    reference: formatParsedExternalVerseReference(
+      parsed,
+      getBibleBookNameRu(parsed.book)
+    ),
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -189,15 +236,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { translation: string; book: number; chapter: number; verses: number[] }
     >();
     for (const verse of verses) {
-      const parsed = parseExternalVerseId(verse.externalVerseId);
-      if (!parsed) continue;
-      const key = buildGroupKey(translation, parsed.book, parsed.chapter);
-      const existing = requestGroups.get(key);
-      if (existing) {
-        existing.verses.push(parsed.verse);
-      } else {
-        requestGroups.set(key, { translation, book: parsed.book, chapter: parsed.chapter, verses: [parsed.verse] });
-      }
+      appendParsedVersesToRequestGroup(requestGroups, translation, verse.externalVerseId);
     }
     const groupedRequests = Array.from(requestGroups.values()).map((g) => ({
       ...g,
@@ -232,15 +271,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const items = verses.map((verse) => {
-      const parsed = parseExternalVerseId(verse.externalVerseId);
-      const text =
-        parsed !== null
-          ? textsMap.get(buildGroupKey(translation, parsed.book, parsed.chapter))?.get(parsed.verse)
-          : undefined;
-      const reference =
-        parsed !== null
-          ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`
-          : undefined;
+      const enriched = toExternalVerseTextAndReference(
+        verse.externalVerseId,
+        translation,
+        textsMap
+      );
       const tags = verse.tags.map((vt) => ({
         id: vt.tag.id,
         slug: vt.tag.slug,
@@ -263,8 +298,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastReviewedAt: toIsoOrNull(uv.lastReviewedAt),
           nextReviewAt: toIsoOrNull(uv.nextReviewAt),
           tags,
-          text: text ?? "",
-          reference: reference ?? verse.externalVerseId,
+          text: enriched.text ?? "",
+          reference: enriched.reference ?? verse.externalVerseId,
         };
       }
 
@@ -278,8 +313,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastReviewedAt: null,
         nextReviewAt: null,
         tags,
-        text: text ?? "",
-        reference: reference ?? verse.externalVerseId,
+        text: enriched.text ?? "",
+        reference: enriched.reference ?? verse.externalVerseId,
       };
     });
 

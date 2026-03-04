@@ -55,6 +55,9 @@ export class UserVersesService {
     public static postApiUsersVerses(
         telegramId: string,
         requestBody: {
+            /**
+             * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
+             */
             externalVerseId: string;
             masteryLevel?: number;
             repetitions?: number;
@@ -72,7 +75,7 @@ export class UserVersesService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `externalVerseId обязателен`,
+                400: `externalVerseId обязателен или имеет неверный формат`,
             },
         });
     }

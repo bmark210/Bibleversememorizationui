@@ -87,7 +87,9 @@ const ReferenceTrainer = dynamic(
 );
 
 // Frontend verse model — matches the VerseCardDto shape returned by the API.
-// externalVerseId is the primary identifier ("book-chapter-verse").
+// externalVerseId is the primary identifier:
+// - single verse: "book-chapter-verse"
+// - chapter range: "book-chapter-verseStart-verseEnd"
 export type Verse = {
   id?: string | number;
   externalVerseId: string;

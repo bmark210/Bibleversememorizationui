@@ -1,5 +1,7 @@
 /**
- * Enum для книг Библии в формате "book-chapter-verse"
+ * Enum для книг Библии в формате externalVerseId:
+ * - single: "book-chapter-verse"
+ * - chapter range: "book-chapter-verseStart-verseEnd"
  */
 export enum BibleBook {
   Genesis = 1,

@@ -1,12 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import {
+  canonicalizeExternalVerseId,
+  MAX_EXTERNAL_VERSE_RANGE_SIZE,
+} from "@/shared/bible/externalVerseId";
+import {
   buildWhereForUserVersesListQuery,
   fetchPaginatedEnrichedUserVerses,
   parseUserVersesListQuery,
   UserVersesApiError,
 } from "./_shared";
 
+const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
+  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
@@ -42,8 +48,6 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, telegramId: 
       startWith: query.startWith,
     });
 
-    
-    
     return res.status(200).json(page);
   } catch (error) {
     if (error instanceof UserVersesApiError) {
@@ -67,10 +71,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "externalVerseId is required" });
     }
 
+    const canonicalExternalVerseId = canonicalizeExternalVerseId(externalVerseId);
+    if (!canonicalExternalVerseId) {
+      return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
+    }
+
     const globalVerse = await prisma.verse.upsert({
-      where: { externalVerseId },
+      where: { externalVerseId: canonicalExternalVerseId },
       update: {},
-      create: { externalVerseId },
+      create: { externalVerseId: canonicalExternalVerseId },
     });
 
     return res.status(201).json({ externalVerseId: globalVerse.externalVerseId, id: globalVerse.id });

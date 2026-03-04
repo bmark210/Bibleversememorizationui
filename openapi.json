@@ -369,7 +369,13 @@
                 ],
                 "properties": {
                   "externalVerseId": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+                    "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+                    "examples": [
+                      "43-3-16",
+                      "43-3-16-18"
+                    ]
                   },
                   "masteryLevel": {
                     "type": "integer",
@@ -411,7 +417,7 @@
             }
           },
           "400": {
-            "description": "externalVerseId обязателен"
+            "description": "externalVerseId обязателен или имеет неверный формат"
           }
         }
       }
@@ -493,7 +499,13 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+              "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+              "examples": [
+                "43-3-16",
+                "43-3-16-18"
+              ]
             }
           }
         ],
@@ -572,7 +584,13 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+              "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+              "examples": [
+                "43-3-16",
+                "43-3-16-18"
+              ]
             }
           }
         ],
@@ -681,7 +699,13 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+              "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+              "examples": [
+                "43-3-16",
+                "43-3-16-18"
+              ]
             }
           }
         ],
@@ -712,7 +736,13 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+              "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+              "examples": [
+                "43-3-16",
+                "43-3-16-18"
+              ]
             }
           }
         ],
@@ -773,7 +803,13 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+              "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+              "examples": [
+                "43-3-16",
+                "43-3-16-18"
+              ]
             }
           }
         ],
@@ -852,21 +888,46 @@
       },
       "UserVerse": {
         "type": "object",
+        "required": [
+          "externalVerseId",
+          "status",
+          "masteryLevel",
+          "repetitions",
+          "lastReviewedAt",
+          "nextReviewAt"
+        ],
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "telegramId": {
-            "type": "string"
-          },
           "externalVerseId": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+            "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+            "examples": [
+              "43-3-16",
+              "43-3-16-18"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "MY",
+              "LEARNING",
+              "STOPPED",
+              "REVIEW",
+              "MASTERED",
+              "CATALOG"
+            ]
           },
           "masteryLevel": {
             "type": "integer"
           },
           "repetitions": {
             "type": "integer"
+          },
+          "lastTrainingModeId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8,
+            "nullable": true
           },
           "lastReviewedAt": {
             "type": "string",
@@ -877,6 +938,34 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "slug",
+                "title"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
           }
         }
       },
@@ -1120,7 +1209,13 @@
             "type": "string"
           },
           "externalVerseId": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+            "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+            "examples": [
+              "43-3-16",
+              "43-3-16-18"
+            ]
           },
           "tagId": {
             "type": "string"

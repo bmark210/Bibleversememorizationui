@@ -1,5 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
+import {
+  canonicalizeExternalVerseId,
+  MAX_EXTERNAL_VERSE_RANGE_SIZE,
+} from "@/shared/bible/externalVerseId";
 
 type ModifyTagPayload = {
   tagId?: string;
@@ -11,6 +15,9 @@ type ReplaceVerseTagsPayload = {
   tagIds?: string[];
   tagSlugs?: string[];
 };
+
+const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
+  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
 
 async function resolveTagId(payload: ModifyTagPayload) {
   if (payload.tagId) {
@@ -42,22 +49,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!externalVerseId || Array.isArray(externalVerseId)) {
     return res.status(400).json({ error: "externalVerseId is required" });
   }
+  const isGlobalTagManagement = externalVerseId === "__global__";
+  const canonicalExternalVerseId = isGlobalTagManagement
+    ? externalVerseId
+    : canonicalizeExternalVerseId(externalVerseId);
+  if (!canonicalExternalVerseId) {
+    return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
+  }
 
   // Управляет привязками тегов к стихам (список, добавление, удаление).
   if (req.method === "GET") {
-    return handleGet(res, externalVerseId);
+    return handleGet(res, canonicalExternalVerseId);
   }
 
   if (req.method === "POST") {
-    return handlePost(req, res, externalVerseId);
+    return handlePost(req, res, canonicalExternalVerseId);
   }
 
   if (req.method === "DELETE") {
-    return handleDelete(req, res, externalVerseId);
+    return handleDelete(req, res, canonicalExternalVerseId);
   }
 
   if (req.method === "PUT") {
-    return handlePut(req, res, externalVerseId);
+    return handlePut(req, res, canonicalExternalVerseId);
   }
 
   res.setHeader("Allow", "GET, POST, DELETE, PUT");

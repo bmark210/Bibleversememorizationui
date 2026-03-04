@@ -8,6 +8,11 @@ import {
   normalizeHelloaoTranslation,
 } from "@/shared/bible/helloao";
 import {
+  expandParsedExternalVerseNumbers,
+  formatParsedExternalVerseReference,
+  parseExternalVerseId,
+} from "@/shared/bible/externalVerseId";
+import {
   computeDisplayStatus,
   mapUserVerseToVerseCardDto,
   type UserVerseWithLegacyNullableProgress,
@@ -49,12 +54,6 @@ function upsertCachedHelloaoVerse(key: string, verse: number, text: string) {
     verses: new Map([[verse, text]]),
   });
 }
-
-type ParsedExternalVerseId = {
-  book: number;
-  chapter: number;
-  verse: number;
-};
 
 type HelloaoChapterRequest = {
   translation: string;
@@ -115,17 +114,6 @@ export class UserVersesApiError extends Error {
   }
 }
 
-const parseExternalVerseId = (value?: string): ParsedExternalVerseId | null => {
-  if (!value) return null;
-  const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
-    return null;
-  }
-  const [book, chapter, verse] = parts;
-  if (!book || !chapter || !verse) return null;
-  return { book, chapter, verse };
-};
-
 const buildGroupKey = (translation: string, book: number, chapter: number) =>
   `${translation}|${book}|${chapter}`;
 
@@ -160,6 +148,58 @@ async function fetchHelloaoBatchToTextsMap(
       }
     })
   );
+}
+
+function appendParsedVersesToRequestGroup(
+  requestGroups: Map<string, HelloaoChapterRequest>,
+  normalizedTranslation: string,
+  externalVerseId: string
+) {
+  const parsed = parseExternalVerseId(externalVerseId);
+  if (!parsed) return;
+
+  const key = buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter);
+  const existing = requestGroups.get(key);
+  const verses = expandParsedExternalVerseNumbers(parsed);
+
+  if (existing) {
+    existing.verses.push(...verses);
+    return;
+  }
+
+  requestGroups.set(key, {
+    translation: normalizedTranslation,
+    book: parsed.book,
+    chapter: parsed.chapter,
+    verses,
+  });
+}
+
+function toExternalVerseTextAndReference(
+  externalVerseId: string,
+  normalizedTranslation: string,
+  textsMap: Map<string, Map<number, string>>
+): { text?: string; reference?: string } {
+  const parsed = parseExternalVerseId(externalVerseId);
+  if (!parsed) return {};
+
+  const chapterMap = textsMap.get(
+    buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter)
+  );
+  const verseNumbers = expandParsedExternalVerseNumbers(parsed);
+  const text = verseNumbers
+    .map((verse) => chapterMap?.get(verse))
+    .filter((chunk): chunk is string => typeof chunk === "string" && chunk.length > 0)
+    .join(" ")
+    .trim();
+
+  return {
+    text: text || undefined,
+    reference: formatParsedExternalVerseReference(
+      parsed,
+      getBibleBookNameRu(parsed.book)
+    ),
+  };
 }
 
 function getSingleQueryValue(query: ParsedUrlQuery, key: string): string | undefined {
@@ -443,21 +483,11 @@ async function enrichUserVerses(
   >();
 
   for (const verse of verses) {
-    const parsed = parseExternalVerseId(verse.externalVerseId);
-    if (!parsed) continue;
-
-    const key = buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter);
-    const existing = requestGroups.get(key);
-    if (existing) {
-      existing.verses.push(parsed.verse);
-    } else {
-      requestGroups.set(key, {
-        translation: normalizedTranslation,
-        book: parsed.book,
-        chapter: parsed.chapter,
-        verses: [parsed.verse],
-      });
-    }
+    appendParsedVersesToRequestGroup(
+      requestGroups,
+      normalizedTranslation,
+      verse.externalVerseId
+    );
   }
 
   const groupedRequests = Array.from(requestGroups.values());
@@ -490,20 +520,16 @@ async function enrichUserVerses(
   const tagsByVerseId = await tagsByVerseIdPromise;
 
   return verses.map((verse) => {
-    const parsed = parseExternalVerseId(verse.externalVerseId);
-    const text =
-      parsed !== null
-        ? textsMap.get(buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter))?.get(parsed.verse)
-        : undefined;
-    const reference =
-      parsed !== null
-        ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`
-        : undefined;
+    const enriched = toExternalVerseTextAndReference(
+      verse.externalVerseId,
+      normalizedTranslation,
+      textsMap
+    );
 
     return mapUserVerseToVerseCardDto({
       ...verse,
-      text,
-      reference,
+      text: enriched.text,
+      reference: enriched.reference,
       tags: tagsByVerseId.get(verse.externalVerseId) ?? [],
     });
   });
@@ -627,20 +653,7 @@ export async function enrichExternalVerseIds(
   >();
 
   for (const id of unique) {
-    const parsed = parseExternalVerseId(id);
-    if (!parsed) continue;
-    const key = buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter);
-    const existing = requestGroups.get(key);
-    if (existing) {
-      existing.verses.push(parsed.verse);
-    } else {
-      requestGroups.set(key, {
-        translation: normalizedTranslation,
-        book: parsed.book,
-        chapter: parsed.chapter,
-        verses: [parsed.verse],
-      });
-    }
+    appendParsedVersesToRequestGroup(requestGroups, normalizedTranslation, id);
   }
 
   const groupedRequests = Array.from(requestGroups.values());
@@ -671,17 +684,15 @@ export async function enrichExternalVerseIds(
   const result = new Map<string, EnrichedExternalVerse>();
 
   for (const id of unique) {
-    const parsed = parseExternalVerseId(id);
-    const text = parsed
-      ? textsMap.get(buildGroupKey(normalizedTranslation, parsed.book, parsed.chapter))?.get(parsed.verse)
-      : undefined;
-    const reference = parsed
-      ? `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`
-      : undefined;
+    const enriched = toExternalVerseTextAndReference(
+      id,
+      normalizedTranslation,
+      textsMap
+    );
     result.set(id, {
       externalVerseId: id,
-      text: text ?? "",
-      reference: reference ?? id,
+      text: enriched.text ?? "",
+      reference: enriched.reference ?? id,
       tags: tagsByVerseId.get(id) ?? [],
     });
   }

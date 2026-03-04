@@ -5,6 +5,9 @@
 export type User = {
     id?: string;
     telegramId?: string;
+    name?: string | null;
+    nickname?: string | null;
+    avatarUrl?: string | null;
     translation?: string;
     createdAt?: string;
 };

@@ -4,6 +4,10 @@ import { VerseStatus } from "@/generated/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
+  formatParsedExternalVerseReference,
+  parseExternalVerseId,
+} from "@/shared/bible/externalVerseId";
+import {
   computeDisplayStatus,
   normalizeProgressValue,
 } from "./verses/verseCard.types";
@@ -22,12 +26,6 @@ type UserDashboardStatsResponse = {
   dailyStreak: number;
 };
 
-type ParsedExternalVerseId = {
-  book: number;
-  chapter: number;
-  verse: number;
-};
-
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -42,21 +40,10 @@ function toProgressPercent(masteryLevel: number, repetitions: number) {
   );
 }
 
-function parseExternalVerseId(value?: string): ParsedExternalVerseId | null {
-  if (!value) return null;
-  const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-    return null;
-  }
-  const [book, chapter, verse] = parts;
-  if (!book || !chapter || !verse) return null;
-  return { book, chapter, verse };
-}
-
 function formatVerseReference(externalVerseId: string): string {
   const parsed = parseExternalVerseId(externalVerseId);
   if (!parsed) return externalVerseId;
-  return `${getBibleBookNameRu(parsed.book)} ${parsed.chapter}:${parsed.verse}`;
+  return formatParsedExternalVerseReference(parsed, getBibleBookNameRu(parsed.book));
 }
 
 export default async function handler(

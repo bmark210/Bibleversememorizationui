@@ -2,18 +2,33 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
-// Matches VerseCardDto returned by GET /verses, PATCH /verses/{id}, and GET /verses/review.
-// Note: POST /verses returns a raw Prisma record — its response is not stored by the frontend.
 export type UserVerse = {
+    /**
+     * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
+     */
     externalVerseId: string;
-    status: 'MY' | 'LEARNING' | 'STOPPED' | 'REVIEW' | 'MASTERED';
+    status: UserVerse.status;
     masteryLevel: number;
     repetitions: number;
-    lastReviewedAt?: string | null;
-    nextReviewAt?: string | null;
     lastTrainingModeId?: number | null;
-    tags?: Array<{ id: string; slug: string; title: string }>;
+    lastReviewedAt: string | null;
+    nextReviewAt: string | null;
+    tags?: Array<{
+        id: string;
+        slug: string;
+        title: string;
+    }>;
     text?: string;
     reference?: string;
 };
+export namespace UserVerse {
+    export enum status {
+        MY = 'MY',
+        LEARNING = 'LEARNING',
+        STOPPED = 'STOPPED',
+        REVIEW = 'REVIEW',
+        MASTERED = 'MASTERED',
+        CATALOG = 'CATALOG',
+    }
+}
+

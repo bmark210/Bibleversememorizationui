@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { isAdminTelegramId } from "@/lib/admins";
+import {
+  canonicalizeExternalVerseId,
+  MAX_EXTERNAL_VERSE_RANGE_SIZE,
+} from "@/shared/bible/externalVerseId";
 
 type VerseAdminSummary = {
   externalVerseId: string;
@@ -8,6 +12,9 @@ type VerseAdminSummary = {
   tagLinksCount: number;
   canDelete: boolean;
 };
+
+const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
+  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
 
 function getSingleValue(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -53,6 +60,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!externalVerseId || Array.isArray(externalVerseId)) {
     return res.status(400).json({ error: "externalVerseId is required" });
   }
+  const canonicalExternalVerseId = canonicalizeExternalVerseId(externalVerseId);
+  if (!canonicalExternalVerseId) {
+    return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
+  }
 
   const requesterTelegramId = resolveRequesterTelegramId(req);
   if (!isAdminTelegramId(requesterTelegramId)) {
@@ -60,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "GET") {
-    const summary = await getVerseSummary(externalVerseId);
+    const summary = await getVerseSummary(canonicalExternalVerseId);
     if (!summary) {
       return res.status(404).json({ error: "Verse not found" });
     }
@@ -69,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === "DELETE") {
     try {
-      const summary = await getVerseSummary(externalVerseId);
+      const summary = await getVerseSummary(canonicalExternalVerseId);
       if (!summary) {
         return res.status(404).json({ error: "Verse not found" });
       }
@@ -83,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await prisma.$transaction(async (tx) => {
         const verse = await tx.verse.findUnique({
-          where: { externalVerseId },
+          where: { externalVerseId: canonicalExternalVerseId },
           select: { id: true },
         });
         if (!verse) return;
@@ -97,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       });
 
-      return res.status(200).json({ ok: true, deletedExternalVerseId: externalVerseId });
+      return res.status(200).json({ ok: true, deletedExternalVerseId: canonicalExternalVerseId });
     } catch (error) {
       console.error("Error deleting verse from catalog:", error);
       return res.status(500).json({
@@ -110,4 +121,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader("Allow", "GET, DELETE");
   return res.status(405).json({ error: "Method Not Allowed" });
 }
-

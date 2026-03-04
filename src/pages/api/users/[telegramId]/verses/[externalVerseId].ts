@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import {
+  canonicalizeExternalVerseId,
+  MAX_EXTERNAL_VERSE_RANGE_SIZE,
+} from "@/shared/bible/externalVerseId";
+import {
   REVIEW_FAILED_RETRY_MINUTES,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
@@ -16,6 +20,9 @@ import {
   normalizeProgressValue,
   type UserVerseWithLegacyNullableProgress,
 } from "./verseCard.types";
+
+const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
+  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
 
 function clampMasteryForLearning(value: number): number {
   return Math.max(1, Math.min(TRAINING_STAGE_MASTERY_MAX, Math.round(value)));
@@ -43,18 +50,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!telegramId || Array.isArray(telegramId) || !externalVerseId || Array.isArray(externalVerseId)) {
     return res.status(400).json({ error: "telegramId and externalVerseId are required" });
   }
+  const canonicalExternalVerseId = canonicalizeExternalVerseId(externalVerseId);
+  if (!canonicalExternalVerseId) {
+    return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
+  }
 
   if (req.method === "PUT") {
-    return handlePut(res, telegramId, externalVerseId);
+    return handlePut(res, telegramId, canonicalExternalVerseId);
   }
 
   // Поддерживает обновление и удаление прогресса по конкретному стиху.
   if (req.method === "PATCH") {
-    return handlePatch(req, res, telegramId, externalVerseId);
+    return handlePatch(req, res, telegramId, canonicalExternalVerseId);
   }
 
   if (req.method === "DELETE") {
-    return handleDelete(res, telegramId, externalVerseId);
+    return handleDelete(res, telegramId, canonicalExternalVerseId);
   }
 
   res.setHeader("Allow", "PUT, PATCH, DELETE");

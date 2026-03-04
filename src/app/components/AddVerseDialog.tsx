@@ -8,7 +8,10 @@ import { Label } from "./ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
@@ -23,12 +26,11 @@ import {
 import {
   BibleBook,
   BIBLE_BOOKS,
-  formatVerseReference,
+  getBibleBookNameRu,
 } from "@/app/types/bible";
 import {
   DEFAULT_HELLOAO_TRANSLATION,
   getHelloaoChapter,
-  getHelloaoVerse,
   normalizeHelloaoTranslation,
   searchHelloaoVerses,
 } from "../services/helloaoBibleApi";
@@ -37,6 +39,12 @@ import { TagsService } from "@/api/services/TagsService";
 import type { Tag } from "@/api/models/Tag";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
+import {
+  MAX_EXTERNAL_VERSE_RANGE_SIZE,
+  formatParsedExternalVerseReference,
+  toCanonicalExternalVerseId,
+  type ParsedExternalVerseId,
+} from "@/shared/bible/externalVerseId";
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -64,6 +72,20 @@ const toInt = (v: string) => {
   return isFinite(n) && n > 0 ? n : null;
 };
 
+function buildParsedExternalVerseId(params: {
+  book: number;
+  chapter: number;
+  verseStart: number;
+  verseEnd: number;
+}): ParsedExternalVerseId {
+  return {
+    book: params.book,
+    chapter: params.chapter,
+    verseStart: params.verseStart,
+    verseEnd: params.verseEnd,
+  };
+}
+
 // ─── Slug helper ──────────────────────────────────────────────────────────────
 
 const CYR_MAP: Record<string, string> = {
@@ -90,7 +112,15 @@ const PAGE_SIZE = 20;
 const GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID = "__global__";
 
 const getCanonicalBooks = () =>
-  Object.values(BIBLE_BOOKS).sort((a, b) => a.id - b.id);
+  Object.values(BIBLE_BOOKS)
+    .filter((book) => book.id <= BibleBook.Revelation)
+    .sort((a, b) => a.id - b.id);
+
+const SOFT_SELECT_TRIGGER_CLASS =
+  "h-10 w-full min-w-0 rounded-xl border-border/50 bg-muted/25 text-foreground/80 hover:bg-muted/35";
+
+const SOFT_SELECT_CONTENT_CLASS =
+  "max-h-[min(42dvh,220px)] backdrop-blur-xl overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-xl border-border/50 bg-background/95 text-foreground/80 shadow-lg";
 
 const TAG_TITLE_COLLATOR = new Intl.Collator(["ru", "en"], {
   sensitivity: "base",
@@ -128,7 +158,9 @@ type SearchResult = {
 type SelectedVerse = {
   book: BibleBook;
   chapter: number;
-  verse: number;
+  verseStart: number;
+  verseEnd: number;
+  externalVerseId: string;
   reference: string;
   text: string;
 };
@@ -176,7 +208,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   // ── Ручной выбор ────────────────────────────────────────────────────────────
   const [bookId, setBookId] = useState("");
   const [chapterNo, setChapterNo] = useState("");
-  const [verseNo, setVerseNo] = useState("");
+  const [verseStartNo, setVerseStartNo] = useState("");
+  const [verseEndNo, setVerseEndNo] = useState("");
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -203,13 +236,42 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   // ── Производные ──────────────────────────────────────────────────────────────
 
   const canonicalBooks = useMemo(getCanonicalBooks, []);
+  const oldTestamentBooks = useMemo(
+    () => canonicalBooks.filter((book) => book.id <= BibleBook.Malachi),
+    [canonicalBooks]
+  );
+  const newTestamentBooks = useMemo(
+    () => canonicalBooks.filter((book) => book.id >= BibleBook.Matthew),
+    [canonicalBooks]
+  );
 
   const chaptersCount = useMemo(() => {
     const id = toInt(bookId);
-    return id ? (BIBLE_BOOKS[id]?.chapters ?? 0) : 0;
+    if (!id || id > BibleBook.Revelation) return 0;
+    return BIBLE_BOOKS[id]?.chapters ?? 0;
   }, [bookId]);
 
-  const canFetch = Boolean(toInt(bookId) && toInt(chapterNo) && toInt(verseNo));
+  const selectedBookId = toInt(bookId);
+  const selectedChapterNo = toInt(chapterNo);
+  const verseStartValue = toInt(verseStartNo);
+  const verseEndValue = toInt(verseEndNo);
+  const effectiveVerseEndValue = verseEndValue ?? verseStartValue;
+  const verseOptionsCount = verseCount ?? 176;
+  const maxVerseEndForStart =
+    verseStartValue === null
+      ? null
+      : Math.min(
+          verseOptionsCount,
+          verseStartValue + MAX_EXTERNAL_VERSE_RANGE_SIZE - 1
+        );
+  const isCanonicalBookSelected =
+    selectedBookId !== null && selectedBookId <= BibleBook.Revelation;
+  const hasValidRange =
+    verseStartValue !== null &&
+    effectiveVerseEndValue !== null &&
+    effectiveVerseEndValue >= verseStartValue &&
+    effectiveVerseEndValue - verseStartValue + 1 <= MAX_EXTERNAL_VERSE_RANGE_SIZE;
+  const canFetch = Boolean(isCanonicalBookSelected && selectedChapterNo && hasValidRange);
   const canSubmit = Boolean(selectedVerse && !submitting);
   const newTagSlug = slugify(newTagTitle);
   const isAdmin = isAdminTelegramId(viewerTelegramId);
@@ -344,7 +406,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     }
 
     let cancelled = false;
-    const externalVerseId = `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`;
+    const { externalVerseId } = selectedVerse;
 
     setAdminVerseSummaryLoading(true);
     void fetch(
@@ -464,7 +526,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
   const handleDeleteVerseFromCatalog = useCallback(async () => {
     if (!selectedVerse || !isAdmin || !viewerTelegramId) return;
-    const externalVerseId = `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`;
+    const { externalVerseId } = selectedVerse;
 
     const confirmed = window.confirm(
       "Удалить стих из общей базы? Это возможно только если стих не связан ни с одним пользователем."
@@ -605,7 +667,8 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setVerseTagsLoaded(false);
     setBookId("");
     setChapterNo("");
-    setVerseNo("");
+    setVerseStartNo("");
+    setVerseEndNo("");
     setFetchError(null);
     // setQuery("");
     // setResults([]);
@@ -628,23 +691,64 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const handleFetchVerse = async () => {
     const bid = toInt(bookId);
     const ch = toInt(chapterNo);
-    const v = toInt(verseNo);
-    if (!bid || !ch || !v) { setFetchError("Заполните все поля"); return; }
+    const verseStart = toInt(verseStartNo);
+    const verseEnd = toInt(verseEndNo) ?? verseStart;
+    if (!bid || bid > BibleBook.Revelation || !ch || !verseStart || !verseEnd) {
+      setFetchError("Выберите каноническую книгу, главу и стих «от»");
+      return;
+    }
+    if (verseEnd < verseStart) {
+      setFetchError("Конец диапазона не может быть раньше начала.");
+      return;
+    }
+    if (verseEnd - verseStart + 1 > MAX_EXTERNAL_VERSE_RANGE_SIZE) {
+      setFetchError(`Диапазон может содержать максимум ${MAX_EXTERNAL_VERSE_RANGE_SIZE} стихов.`);
+      return;
+    }
 
     setFetchLoading(true);
     setFetchError(null);
 
     try {
-      const res = await getHelloaoVerse({ translation, book: bid as BibleBook, chapter: ch, verse: v });
-      if (!res || !Number.isFinite(Number(res.verse))) throw new Error("Стих не найден");
-      const externalVerseId = `${bid}-${ch}-${v}`;
+      const chapterVerses = await getHelloaoChapter({
+        translation,
+        book: bid as BibleBook,
+        chapter: ch,
+      });
+      const verseMap = new Map<number, string>();
+      chapterVerses.forEach((item) => {
+        if (!Number.isFinite(Number(item.verse))) return;
+        verseMap.set(Number(item.verse), item.text ?? "");
+      });
+      const texts: string[] = [];
+      for (let verse = verseStart; verse <= verseEnd; verse += 1) {
+        const text = verseMap.get(verse);
+        if (typeof text !== "string" || text.trim().length === 0) {
+          throw new Error("Не удалось получить полный диапазон стихов.");
+        }
+        texts.push(text.trim());
+      }
+
+      const parsed = buildParsedExternalVerseId({
+        book: bid,
+        chapter: ch,
+        verseStart,
+        verseEnd,
+      });
+      const externalVerseId = toCanonicalExternalVerseId(parsed);
+      const canonicalVerseEnd = parsed.verseEnd;
       await loadSelectedVerseTags(externalVerseId);
       setSelectedVerse({
         book: bid as BibleBook,
         chapter: ch,
-        verse: v,
-        text: res.text,
-        reference: formatVerseReference(bid as BibleBook, ch, v),
+        verseStart: parsed.verseStart,
+        verseEnd: canonicalVerseEnd,
+        externalVerseId,
+        text: texts.join(" ").trim(),
+        reference: formatParsedExternalVerseReference(
+          parsed,
+          getBibleBookNameRu(parsed.book)
+        ),
       });
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Не удалось загрузить стих");
@@ -717,11 +821,27 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   }, [updateTagListShadows]);
 
   const selectResult = (r: SearchResult) => {
-    void loadSelectedVerseTags(`${r.book}-${r.chapter}-${r.verse}`);
-    setSelectedVerse({ book: r.book, chapter: r.chapter, verse: r.verse, reference: r.reference, text: r.text });
+    const parsed = buildParsedExternalVerseId({
+      book: Number(r.book),
+      chapter: r.chapter,
+      verseStart: r.verse,
+      verseEnd: r.verse,
+    });
+    const externalVerseId = toCanonicalExternalVerseId(parsed);
+    void loadSelectedVerseTags(externalVerseId);
+    setSelectedVerse({
+      book: r.book,
+      chapter: r.chapter,
+      verseStart: r.verse,
+      verseEnd: r.verse,
+      externalVerseId,
+      reference: formatParsedExternalVerseReference(parsed, getBibleBookNameRu(parsed.book)),
+      text: r.text,
+    });
     setBookId(r.book.toString());
     setChapterNo(r.chapter.toString());
-    setVerseNo(r.verse.toString());
+    setVerseStartNo(r.verse.toString());
+    setVerseEndNo(r.verse.toString());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -730,7 +850,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setSubmitting(true);
     try {
       await onAdd?.({
-        externalVerseId: `${selectedVerse.book}-${selectedVerse.chapter}-${selectedVerse.verse}`,
+        externalVerseId: selectedVerse.externalVerseId,
         reference: selectedVerse.reference,
         tags: Array.from(selectedTagSlugs),
         replaceTags: verseTagsLoaded,
@@ -1129,26 +1249,43 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                     onValueChange={(v) => {
                       setBookId(v);
                       setChapterNo("");
-                      setVerseNo("");
+                      setVerseStartNo("");
+                      setVerseEndNo("");
                       setSelectedVerse(null);
                       setVerseTagsLoaded(false);
                       setVerseCount(null);
                     }}
                   >
-                    <SelectTrigger className="w-full rounded-xl text-foreground/75">
+                    <SelectTrigger className={SOFT_SELECT_TRIGGER_CLASS}>
                       <SelectValue placeholder="Выберите книгу" />
                     </SelectTrigger>
-                    <SelectContent position="item-aligned" className="max-h-[min(52dvh,300px)]">
-                      {canonicalBooks.map((b) => (
-                        <SelectItem key={b.id} value={String(b.id)}>
-                          {b.nameRu}
-                        </SelectItem>
-                      ))}
+                    <SelectContent position="popper" className={SOFT_SELECT_CONTENT_CLASS}>
+                      <SelectGroup>
+                        <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+                          Ветхий Завет
+                        </SelectLabel>
+                        {oldTestamentBooks.map((b) => (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.nameRu}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectSeparator className="my-1.5" />
+                      <SelectGroup>
+                        <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+                          Новый Завет
+                        </SelectLabel>
+                        {newTestamentBooks.map((b) => (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.nameRu}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Глава</Label>
                     <Select
@@ -1156,16 +1293,17 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       value={chapterNo}
                       onValueChange={(v) => {
                         setChapterNo(v);
-                        setVerseNo("");
+                        setVerseStartNo("");
+                        setVerseEndNo("");
                         setSelectedVerse(null);
                         setVerseTagsLoaded(false);
                       }}
                       disabled={!bookId || chaptersCount === 0}
                     >
-                      <SelectTrigger className="rounded-xl text-foreground/75">
+                      <SelectTrigger className={SOFT_SELECT_TRIGGER_CLASS}>
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
-                      <SelectContent position="item-aligned" className="max-h-[min(48dvh,240px)] text-foreground/75">
+                      <SelectContent position="popper" className={SOFT_SELECT_CONTENT_CLASS}>
                         {chaptersCount > 0 && Array.from({ length: chaptersCount }, (_, i) => (
                           <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
                         ))}
@@ -1175,30 +1313,78 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                      Стих
+                      Стих от
                       {verseCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/60" />}
                     </Label>
                     <Select
-                      name="verse-select"
-                      value={verseNo}
+                      name="verse-start-select"
+                      value={verseStartNo}
                       onValueChange={(v) => {
-                        setVerseNo(v);
+                        setVerseStartNo(v);
+                        const nextStart = toInt(v);
+                        const nextEnd = toInt(verseEndNo);
+                        if (!nextStart) {
+                          setVerseEndNo("");
+                        } else if (nextEnd !== null) {
+                          const nextMaxEnd = Math.min(
+                            verseOptionsCount,
+                            nextStart + MAX_EXTERNAL_VERSE_RANGE_SIZE - 1
+                          );
+                          if (
+                            nextEnd < nextStart ||
+                            nextEnd > nextMaxEnd
+                          ) {
+                            setVerseEndNo("");
+                          }
+                        }
                         setSelectedVerse(null);
                         setVerseTagsLoaded(false);
                       }}
                       disabled={!chapterNo}
                     >
-                      <SelectTrigger className="rounded-xl text-foreground/75">
+                      <SelectTrigger className={SOFT_SELECT_TRIGGER_CLASS}>
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
-                      <SelectContent position="item-aligned" className="max-h-[min(48dvh,240px)] text-foreground/75">
-                        {chapterNo && Array.from({ length: verseCount ?? 176 }, (_, i) => (
+                      <SelectContent position="popper" className={SOFT_SELECT_CONTENT_CLASS}>
+                        {chapterNo && Array.from({ length: verseOptionsCount }, (_, i) => (
                           <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">до (опц.)</Label>
+                    <Select
+                      name="verse-end-select"
+                      value={verseEndNo}
+                      onValueChange={(v) => {
+                        setVerseEndNo(v);
+                        setSelectedVerse(null);
+                        setVerseTagsLoaded(false);
+                      }}
+                      disabled={!chapterNo || verseStartValue === null}
+                    >
+                      <SelectTrigger className={SOFT_SELECT_TRIGGER_CLASS}>
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className={SOFT_SELECT_CONTENT_CLASS}>
+                        {chapterNo && verseStartValue !== null && maxVerseEndForStart !== null &&
+                          Array.from(
+                            { length: Math.max(0, maxVerseEndForStart - verseStartValue + 1) },
+                            (_, i) => verseStartValue + i
+                          ).map((verseNo) => (
+                            <SelectItem key={verseNo} value={String(verseNo)}>
+                              {verseNo}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground/70">
+                  Можно выбрать до {MAX_EXTERNAL_VERSE_RANGE_SIZE} стихов в одном отрывке.
+                </p>
 
                 <Button
                   type="button"
@@ -1208,7 +1394,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                   className="w-full gap-2 rounded-xl bg-input-background text-foreground/75"
                 >
                   {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {fetchLoading ? "Загружаем..." : "Загрузить стих"}
+                  {fetchLoading ? "Загружаем..." : "Загрузить отрывок"}
                 </Button>
 
                 {fetchError && (
@@ -1223,7 +1409,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-                      Выбранный стих
+                      {selectedVerse.verseStart === selectedVerse.verseEnd ? "Выбранный стих" : "Выбранный отрывок"}
                     </span>
                     <button
                       type="button"
