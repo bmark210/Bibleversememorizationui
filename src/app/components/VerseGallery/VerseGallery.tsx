@@ -497,6 +497,9 @@ export function VerseGallery({
                   rendererRef={training.trainingRendererRef}
                   onSwipeStep={training.handleTrainingNavigationStep}
                   onRate={training.handleTrainingRate}
+                  onQuickForget={training.requestQuickForget}
+                  quickForgetLabel={training.quickForgetLabel}
+                  quickForgetDisabled={aux.actionPending}
                 />
               ) : null}
             </motion.div>
@@ -601,6 +604,37 @@ export function VerseGallery({
               onClick={() => void handleDelete()}
             >
               Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={training.quickForgetConfirmStage !== null}
+        onOpenChange={(open) => {
+          if (!open) training.cancelQuickForget();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {training.quickForgetConfirmStage === "review"
+                ? "Отметить как «не вспомнил»?"
+                : "Отметить как «забыл»?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {training.quickForgetConfirmStage === "review"
+                ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 10 минут."
+                : "Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={training.cancelQuickForget}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={training.confirmQuickForget}
+            >
+              Подтвердить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

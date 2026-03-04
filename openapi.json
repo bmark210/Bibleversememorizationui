@@ -47,6 +47,15 @@
                   },
                   "translation": {
                     "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "avatarUrl": {
+                    "type": "string"
                   }
                 }
               }
@@ -100,6 +109,79 @@
         }
       }
     },
+    "/api/users/{telegramId}/stats": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Персональная статистика пользователя для дашборда",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDashboardStats"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найден"
+          }
+        }
+      }
+    },
+    "/api/users/leaderboard": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Таблица лидеров для главной страницы",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLeaderboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/users/telegram": {
       "post": {
         "tags": [
@@ -120,6 +202,15 @@
                     "type": "string"
                   },
                   "translation": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "avatarUrl": {
                     "type": "string"
                   }
                 }
@@ -283,7 +374,7 @@
                   "masteryLevel": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 5
+                    "maximum": 7
                   },
                   "repetitions": {
                     "type": "integer",
@@ -291,6 +382,8 @@
                   },
                   "lastTrainingModeId": {
                     "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8,
                     "nullable": true
                   },
                   "lastReviewedAt": {
@@ -328,7 +421,7 @@
         "tags": [
           "User Verses"
         ],
-        "summary": "Список стихов пользователя на повторение (LEARNING, masteryLevel > TRAINING_STAGE_MASTERY_MAX)",
+        "summary": "Список стихов пользователя на повторение (LEARNING, masteryLevel >= TRAINING_STAGE_MASTERY_MAX)",
         "parameters": [
           {
             "name": "telegramId",
@@ -385,7 +478,7 @@
         "tags": [
           "User Verses"
         ],
-        "summary": "Обновить прогресс по стиху",
+        "summary": "Обновить прогресс по стиху (сервер защищает инварианты mastery/review и валидирует lastTrainingModeId)",
         "parameters": [
           {
             "name": "telegramId",
@@ -414,7 +507,7 @@
                   "masteryLevel": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 5
+                    "maximum": 7
                   },
                   "repetitions": {
                     "type": "integer",
@@ -422,6 +515,8 @@
                   },
                   "lastTrainingModeId": {
                     "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8,
                     "nullable": true
                   },
                   "lastReviewedAt": {
@@ -734,6 +829,18 @@
           "telegramId": {
             "type": "string"
           },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "nickname": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
           "translation": {
             "type": "string"
           },
@@ -809,6 +916,184 @@
             }
           }
         ]
+      },
+      "UserDashboardStats": {
+        "type": "object",
+        "required": [
+          "totalVerses",
+          "learningVerses",
+          "reviewVerses",
+          "masteredVerses",
+          "stoppedVerses",
+          "dueReviewVerses",
+          "totalRepetitions",
+          "averageProgressPercent",
+          "bestVerseReference",
+          "dailyStreak"
+        ],
+        "properties": {
+          "totalVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "learningVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "masteredVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stoppedVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dueReviewVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageProgressPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "bestVerseReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "dailyStreak": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "UserLeaderboardEntry": {
+        "type": "object",
+        "required": [
+          "rank",
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "score",
+          "streakDays",
+          "weeklyRepetitions",
+          "isCurrentUser"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "telegramId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "streakDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weeklyRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isCurrentUser": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserLeaderboardCurrentUser": {
+        "type": "object",
+        "required": [
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "rank",
+          "score",
+          "streakDays",
+          "weeklyRepetitions"
+        ],
+        "properties": {
+          "telegramId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "streakDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weeklyRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "UserLeaderboardResponse": {
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "totalParticipants",
+          "entries",
+          "currentUser"
+        ],
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalParticipants": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserLeaderboardEntry"
+            }
+          },
+          "currentUser": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserLeaderboardCurrentUser"
+              }
+            ]
+          }
+        }
       },
       "Tag": {
         "type": "object",

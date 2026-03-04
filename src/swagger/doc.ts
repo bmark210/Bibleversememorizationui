@@ -181,9 +181,9 @@ const swaggerDoc = {
                 required: ["externalVerseId"],
                 properties: {
                   externalVerseId: { type: "string" },
-                  masteryLevel: { type: "integer", minimum: 0, maximum: 5 },
+                  masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
                   repetitions: { type: "integer", minimum: 0 },
-                  lastTrainingModeId: { type: "integer", nullable: true },
+                  lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
                   lastReviewedAt: { type: "string", format: "date-time" },
                   nextReviewAt: { type: "string", format: "date-time" },
                 },
@@ -200,7 +200,8 @@ const swaggerDoc = {
     "/api/users/{telegramId}/verses/review": {
       get: {
         tags: ["User Verses"],
-        summary: "Список стихов пользователя на повторение (LEARNING, masteryLevel > TRAINING_STAGE_MASTERY_MAX)",
+        summary:
+          "Список стихов пользователя на повторение (LEARNING, masteryLevel >= TRAINING_STAGE_MASTERY_MAX)",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
           {
@@ -231,7 +232,8 @@ const swaggerDoc = {
     "/api/users/{telegramId}/verses/{externalVerseId}": {
       patch: {
         tags: ["User Verses"],
-        summary: "Обновить прогресс по стиху",
+        summary:
+          "Обновить прогресс по стиху (сервер защищает инварианты mastery/review и валидирует lastTrainingModeId)",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
           { name: "externalVerseId", in: "path", required: true, schema: { type: "string" } },
@@ -243,9 +245,9 @@ const swaggerDoc = {
               schema: {
                 type: "object",
                 properties: {
-                  masteryLevel: { type: "integer", minimum: 0, maximum: 5 },
+                  masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
                   repetitions: { type: "integer", minimum: 0 },
-                  lastTrainingModeId: { type: "integer", nullable: true },
+                  lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
                   lastReviewedAt: { type: "string", format: "date-time" },
                   nextReviewAt: { type: "string", format: "date-time" },
                   status: {

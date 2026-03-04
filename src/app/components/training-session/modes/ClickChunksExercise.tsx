@@ -24,26 +24,51 @@ interface ChunkToken {
   order: number;
 }
 
+function mergeChunksEvenly(chunks: string[], targetCount: number): string[] {
+  if (chunks.length <= targetCount) return chunks;
+
+  const normalized = chunks.map((chunk) => chunk.trim()).filter(Boolean);
+  if (normalized.length <= targetCount) return normalized;
+
+  const merged: string[] = [];
+  for (let i = 0; i < targetCount; i += 1) {
+    const start = Math.floor((i * normalized.length) / targetCount);
+    const end = Math.floor(((i + 1) * normalized.length) / targetCount);
+    const nextChunk = normalized.slice(start, end).join(' ').trim();
+    if (nextChunk) {
+      merged.push(nextChunk);
+    }
+  }
+
+  return merged;
+}
+
 function splitIntoChunks(text: string): string[] {
   const byPunctuation = text
     .split(/[.;!?]+/)
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
 
-  if (byPunctuation.length >= 3) {
-    return byPunctuation;
-  }
-
   const words = text
     .split(/\s+/)
     .map((word) => word.trim())
     .filter(Boolean);
 
+  if (words.length === 0) {
+    return [];
+  }
+
+  const desiredChunks = clamp(Math.ceil(words.length / 5), 2, 5);
+
+  if (byPunctuation.length >= 3) {
+    const targetByPunctuation = clamp(desiredChunks, 3, 5);
+    return mergeChunksEvenly(byPunctuation, targetByPunctuation);
+  }
+
   if (words.length <= 4) {
     return [words.join(' ')].filter(Boolean);
   }
 
-  const desiredChunks = clamp(Math.ceil(words.length / 4), 2, 4);
   const chunkSize = Math.max(2, Math.ceil(words.length / desiredChunks));
   const chunks: string[] = [];
 
@@ -51,7 +76,7 @@ function splitIntoChunks(text: string): string[] {
     chunks.push(words.slice(i, i + chunkSize).join(' '));
   }
 
-  return chunks.filter(Boolean);
+  return mergeChunksEvenly(chunks, desiredChunks);
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -188,56 +213,40 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     }, 280);
   };
 
-  const handleUndo = () => {
-    if (isCompleted || selectedIds.length === 0) return;
-    setSelectedIds((prev) => prev.slice(0, -1));
-    setFeedback(null);
-  };
-
-  const handleReset = () => {
-    if (isCompleted || selectedIds.length === 0) return;
-    setSelectedIds([]);
-    setFeedback(null);
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-      <div className="space-y-4">
-        <div className="space-y-3">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-sm font-medium mx-auto text-foreground/90">
-                Соберите стих по частям
-              </label>
-            </div>
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-border/60 bg-background/70 p-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-foreground/90">
+              Соберите стих по частям
+            </p>
 
             {!isCompleted && (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowHint((prev) => !prev)}
-                  aria-pressed={showHint}
-                  className="gap-2 rounded-full border border-border/60 bg-muted/35 text-foreground/90"
-                >
-                  <Lightbulb className="h-4 w-4" />
-                  {showHint ? 'Скрыть подсказку' : 'Подсказка'}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowHint((prev) => !prev)}
+                aria-pressed={showHint}
+                className="h-7 gap-1.5 rounded-full border border-border/60 bg-muted/35 px-2.5 text-[11px] text-foreground/85"
+              >
+                <Lightbulb className="h-3.5 w-3.5" />
+                {showHint ? 'Скрыть' : 'Подсказка'}
+              </Button>
             )}
           </div>
 
           {!isCompleted && (
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                <span>Прогресс последовательности</span>
+            <div className="mt-2.5 space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="uppercase tracking-[0.14em]">Прогресс</span>
                 <span className="tabular-nums">{selectedCount}/{totalChunks}</span>
               </div>
+
               <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
                 <motion.div
                   className="h-full rounded-full bg-primary/80"
@@ -246,12 +255,12 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                 />
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-primary">
                   Готово: {progressPercent}%
                 </div>
                 <div
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 ${
                     isMistakeRiskCritical
                       ? 'border-destructive/45 bg-destructive/10 text-destructive'
                       : isMistakeRiskHigh
@@ -262,93 +271,97 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                   До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
                 </div>
                 {mistakes > 0 && (
-                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                    Ошибок всего: {mistakes}
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-0.5 text-muted-foreground">
+                    Ошибки: {mistakes}
                   </div>
                 )}
               </div>
             </div>
           )}
+        </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
-            />
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                Собранная последовательность
-              </div>
-              {!isCompleted && totalChunks > 0 && (
-                <div className="text-[11px] tabular-nums text-muted-foreground">
-                  {selectedCount}/{totalChunks}
-                </div>
-              )}
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              Последовательность
             </div>
-
-            {selectedTokens.length > 0 ? (
-              <div className="space-y-2">
-                {selectedTokens.map((token) => (
-                  <motion.div
-                    key={token.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md border border-border/60 bg-muted/35 px-3 py-2 text-sm text-foreground/90"
-                  >
-                    {token.text}
-                  </motion.div>
-                ))}
+            {!isCompleted && totalChunks > 0 && (
+              <div className="text-[11px] tabular-nums text-muted-foreground">
+                {selectedCount}/{totalChunks}
               </div>
-            ) : (
-              <p className="text-sm text-foreground/90">
-                Ввод появится здесь
-              </p>
             )}
           </div>
 
-          <AnimatePresence initial={false}>
-            {showHint && !isCompleted && (
-              <motion.div
-                initial={{ opacity: 0, height: 0, y: -4 }}
-                animate={{ opacity: 1, height: 'auto', y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -4 }}
-                transition={{ duration: 0.22 }}
-                className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
-              >
-                <div className="flex items-center gap-2 text-sm">
-                  <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
-                  <p className="text-muted-foreground">
-                    {verse.text.split(' ').slice(0, 2).join(' ')}...
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {selectedTokens.length > 0 ? (
+            <div className="flex max-h-36 flex-wrap content-start gap-1.5 overflow-y-auto pr-1">
+              {selectedTokens.map((token, index) => (
+                <motion.span
+                  key={token.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="inline-flex max-w-full items-start rounded-md border border-border/60 bg-muted/35 px-2.5 py-1 text-[13px] leading-snug text-foreground/90"
+                >
+                  <span className="mr-1 text-[11px] text-muted-foreground">
+                    {index + 1}.
+                  </span>
+                  <span>{token.text}</span>
+                </motion.span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Нажимайте части стиха в правильном порядке
+            </p>
+          )}
+        </div>
 
-          {!isCompleted && remainingTokens.length > 0 && (
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  Части стиха
-                </div>
+        <AnimatePresence initial={false}>
+          {showHint && !isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -4 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2"
+            >
+              <div className="flex items-center gap-1.5 text-xs">
+                <Lightbulb className="h-3.5 w-3.5 text-amber-600 dark:text-amber-300" />
+                <p className="text-muted-foreground">
+                  {verse.text.split(' ').slice(0, 2).join(' ')}...
+                </p>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              <AnimatePresence initial={false}>
-                {feedback && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="inline-flex max-w-full text-foreground/90 items-center rounded-full border border-destructive/25 bg-destructive/10 px-3 py-1 text-xs"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {feedback}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+        {!isCompleted && remainingTokens.length > 0 && (
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-3 shadow-sm space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Части стиха
+              </div>
+              <div className="text-[11px] tabular-nums text-muted-foreground">
+                {remainingTokens.length}
+              </div>
+            </div>
 
-              <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {feedback && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="max-w-full rounded-lg border border-destructive/25 bg-destructive/10 px-2.5 py-1 text-[11px] leading-snug text-foreground/90"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {feedback}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="max-h-48 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-1.5 min-[520px]:grid-cols-2">
                 {remainingTokens.map((token) => {
                   const isError = errorFlashTokenId === token.id;
 
@@ -361,10 +374,10 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                       <Button
                         type="button"
                         variant="outline"
-                        className={`h-auto w-full justify-start whitespace-normal rounded-xl border-border/70 bg-background/60 px-4 py-3 text-left transition-colors ${
+                        className={`h-auto w-full justify-start whitespace-normal rounded-lg border px-3 py-2 text-left text-[13px] leading-snug transition-colors ${
                           isError
                             ? 'border-destructive text-destructive'
-                            : 'hover:border-primary/35 hover:bg-primary/5'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                         }`}
                         onClick={() => handleChunkClick(token)}
                         disabled={isCompleted}
@@ -377,8 +390,8 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
                 })}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <AnimatePresence initial={false}>
           {isCompleted && (
@@ -386,9 +399,9 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="space-y-4"
+              className="space-y-3"
             >
-              <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+              <div className="rounded-2xl border border-border/60 bg-background/70 p-3 shadow-sm">
                 <div className="mb-2 text-sm font-medium text-foreground">Полный стих</div>
                 <p className="leading-relaxed text-sm sm:text-base">{verse.text}</p>
               </div>

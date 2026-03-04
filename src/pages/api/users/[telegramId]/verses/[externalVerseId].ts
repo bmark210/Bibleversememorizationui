@@ -1,12 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import {
+  REVIEW_FAILED_RETRY_MINUTES,
+  TRAINING_STAGE_MASTERY_MAX,
+} from "@/shared/training/constants";
 import {
   REVIEW_MASTERY_LEVEL_MIN,
   WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
   WAITING_NEXT_REVIEW_DELAY_HOURS,
   canMutateRepetitionsByMastery,
+  isReviewState,
   mapUserVerseToVerseCardDto,
   normalizeBaseStatus,
   normalizeProgressValue,
@@ -15,6 +19,14 @@ import {
 
 function clampMasteryForLearning(value: number): number {
   return Math.max(1, Math.min(TRAINING_STAGE_MASTERY_MAX, Math.round(value)));
+}
+
+function validateTrainingModeIdOrNull(value: number | null): number | null {
+  if (value === null) return null;
+  if (Number.isInteger(value) && value >= 1 && value <= 8) {
+    return value;
+  }
+  throw new Error("lastTrainingModeId must be an integer between 1 and 8 or null");
 }
 
 type UpdateVersePayload = {
@@ -112,6 +124,16 @@ async function handlePatch(
   // Корректирует поля прогресса (мастерство, повторения, даты).
   try {
     const body = req.body as UpdateVersePayload;
+    let nextLastTrainingModeId: number | null | undefined;
+    if (body.lastTrainingModeId !== undefined) {
+      try {
+        nextLastTrainingModeId = validateTrainingModeIdOrNull(body.lastTrainingModeId ?? null);
+      } catch (error) {
+        return res.status(400).json({
+          error: error instanceof Error ? error.message : "Invalid lastTrainingModeId",
+        });
+      }
+    }
 
     const [user, { globalVerse, userVerse: existingVerse }] = await Promise.all([
       prisma.user.findUnique({
@@ -151,14 +173,26 @@ async function handlePatch(
       body.masteryLevel !== undefined
         ? normalizeProgressValue(body.masteryLevel)
         : currentMasteryLevel;
-    const requestedMasteryLevel =
+    const requestedMasteryLevelClamped =
       currentBaseStatus === VerseStatus.LEARNING && body.masteryLevel !== undefined
         ? clampMasteryForLearning(requestedMasteryLevelRaw)
         : requestedMasteryLevelRaw;
+    const requestedMasteryLevel =
+      currentBaseStatus === VerseStatus.LEARNING &&
+      body.masteryLevel !== undefined &&
+      currentMasteryLevel < TRAINING_STAGE_MASTERY_MAX - 1 &&
+      requestedMasteryLevelClamped >= TRAINING_STAGE_MASTERY_MAX
+        ? TRAINING_STAGE_MASTERY_MAX - 1
+        : requestedMasteryLevelClamped;
     const requestedBaseStatus =
       body.status !== undefined ? normalizeBaseStatus(body.status) : currentBaseStatus;
     const isRepetitionsMutation =
       body.repetitions !== undefined && requestedRepetitions !== currentRepetitions;
+    const isCurrentReviewState = isReviewState(
+      currentBaseStatus,
+      currentMasteryLevel,
+      currentRepetitions
+    );
 
     if (
       isRepetitionsMutation &&
@@ -182,11 +216,18 @@ async function handlePatch(
     const autoNextReviewAt = reachedWaitingThresholdNow
       ? new Date(Date.now() + WAITING_NEXT_REVIEW_DELAY_HOURS * 60 * 60 * 1000)
       : null;
+    const forcedReviewRetryNextReviewAt =
+      isCurrentReviewState &&
+      body.repetitions !== undefined &&
+      requestedRepetitions === currentRepetitions
+        ? new Date(Date.now() + REVIEW_FAILED_RETRY_MINUTES * 60 * 1000)
+        : null;
 
-    // Client-computed nextReviewAt (spaced repetition) takes precedence;
-    // server auto-value is the fallback for the graduation step.
+    // Forced review retry (+10m) has highest priority on failed review attempts.
+    // Then client-computed nextReviewAt (spaced repetition), then server auto-value on graduation.
     const resolvedNextReviewAt =
-      body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt;
+      forcedReviewRetryNextReviewAt ??
+      (body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt);
 
     const verse = await prisma.userVerse.update({
       where: {
@@ -198,12 +239,12 @@ async function handlePatch(
       data: {
         ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
         ...(body.repetitions !== undefined && !isNotYetDue
-          ? { repetitions: normalizeProgressValue(body.repetitions) }
+          ? { repetitions: requestedRepetitions }
           : {}),
         ...(body.lastReviewedAt ? { lastReviewedAt: new Date(body.lastReviewedAt) } : {}),
         ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
-        ...(body.lastTrainingModeId !== undefined
-          ? { lastTrainingModeId: body.lastTrainingModeId ?? null }
+        ...(nextLastTrainingModeId !== undefined
+          ? { lastTrainingModeId: nextLastTrainingModeId }
           : {}),
         ...(body.status ? { status: body.status } : {}),
       },

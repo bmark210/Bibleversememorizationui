@@ -19,7 +19,12 @@ import {
 } from "@/app/components/training-session/TrainingModeRenderer";
 import {
   applyMasteryDelta,
+  TrainingModeId,
 } from "@/shared/training/modeEngine";
+import {
+  REVIEW_FAILED_RETRY_MINUTES,
+  TRAINING_STAGE_MASTERY_MAX,
+} from "@/shared/training/constants";
 import {
   MASTERY_DELTA_BY_RATING,
   MODE_SHIFT_BY_RATING,
@@ -56,6 +61,8 @@ import type {
   VersePreviewOverride,
 } from "../types";
 
+type QuickForgetConfirmStage = "learning" | "review";
+
 type Params = {
   verses: Verse[];
   previewActiveVerse: Verse | null;
@@ -86,6 +93,27 @@ function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
   return useCallback(((...args: Parameters<T>) => fnRef.current(...args)) as T, []);
 }
 
+const LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY =
+  "bible-memory.training.quick-forget.learning-confirm.seen.v1";
+
+function hasLearningQuickForgetConfirmBeenSeen(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markLearningQuickForgetConfirmSeen() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LEARNING_QUICK_FORGET_CONFIRM_SEEN_STORAGE_KEY, "1");
+  } catch {
+    // ignore storage write errors in restricted webviews
+  }
+}
+
 export type UseTrainingFlowReturn = {
   panelMode: PanelMode;
   trainingActiveVerse: TrainingVerseState | null;
@@ -104,6 +132,11 @@ export type UseTrainingFlowReturn = {
   exitTrainingMode: (target?: TrainingVerseState | null) => void;
   handleTrainingBackAction: () => void;
   applyUserTrainingSubsetFilter: (filter: TrainingSubsetFilter) => void;
+  quickForgetLabel: string;
+  quickForgetConfirmStage: QuickForgetConfirmStage | null;
+  requestQuickForget: () => void;
+  confirmQuickForget: () => void;
+  cancelQuickForget: () => void;
 };
 
 export function useTrainingFlow({
@@ -131,6 +164,8 @@ export function useTrainingFlow({
   const [isAutoStartingTraining, setIsAutoStartingTraining] = useState(
     () => autoStartInTraining
   );
+  const [quickForgetConfirmStage, setQuickForgetConfirmStage] =
+    useState<QuickForgetConfirmStage | null>(null);
 
   const trainingRendererRef = useRef<TrainingModeRendererHandle | null>(null);
   const autoStartedTrainingRef = useRef(false);
@@ -154,6 +189,7 @@ export function useTrainingFlow({
     if (!trainingActiveVerse) {
       setPanelMode("preview");
       setTrainingModeId(null);
+      setQuickForgetConfirmStage(null);
     }
   }, [panelMode, trainingActiveVerse]);
 
@@ -191,6 +227,12 @@ export function useTrainingFlow({
   useEffect(() => {
     if (panelMode === "training") {
       setIsAutoStartingTraining(false);
+    }
+  }, [panelMode]);
+
+  useEffect(() => {
+    if (panelMode !== "training") {
+      setQuickForgetConfirmStage(null);
     }
   }, [panelMode]);
 
@@ -548,8 +590,13 @@ export function useTrainingFlow({
         // 2) failed attempt -> stay on current review stage
         const shouldIncrementRepetitions = rating >= 2;
         reviewWasSuccessful = shouldIncrementRepetitions;
-        nextRepetitions = current.repetitions + (shouldIncrementRepetitions ? 1 : 0);
-        nextReviewAt = calcNextReviewAtForReviewRepetition(nextRepetitions);
+        if (shouldIncrementRepetitions) {
+          nextRepetitions = current.repetitions + 1;
+          nextReviewAt = calcNextReviewAtForReviewRepetition(nextRepetitions);
+        } else {
+          nextRepetitions = current.repetitions;
+          nextReviewAt = new Date(Date.now() + REVIEW_FAILED_RETRY_MINUTES * 60 * 1000);
+        }
       } else {
         const masteryDelta = MASTERY_DELTA_BY_RATING[rating] ?? 0;
         const masteryResult = applyMasteryDelta({
@@ -560,6 +607,13 @@ export function useTrainingFlow({
 
         rawMasteryAfter = masteryResult.rawMasteryAfter;
         graduatesToReview = masteryResult.graduatesToReview;
+
+        const isFullRecallStep = trainingModeId === TrainingModeId.FullRecall;
+        if (graduatesToReview && !isFullRecallStep) {
+          rawMasteryAfter = TRAINING_STAGE_MASTERY_MAX - 1;
+          graduatesToReview = false;
+        }
+
         stageMasteryAfter = toStageMasteryLevel(rawMasteryAfter);
 
         if (graduatesToReview) {
@@ -782,10 +836,55 @@ export function useTrainingFlow({
     ]
   );
 
+  const quickForgetLabel =
+    trainingActiveVerse && isTrainingReviewVerse(trainingActiveVerse)
+      ? "Не вспомнил"
+      : "Забыл";
+
+  const requestQuickForget = useCallback(() => {
+    if (panelMode !== "training" || trainingModeId === null || actionPending) return;
+    const current = trainingVerses[trainingIndex];
+    if (!current) return;
+    if (!isTrainingEligibleVerse(current)) return;
+
+    const stage: QuickForgetConfirmStage = isTrainingReviewVerse(current)
+      ? "review"
+      : "learning";
+
+    if (stage === "review") {
+      setQuickForgetConfirmStage("review");
+      return;
+    }
+
+    if (hasLearningQuickForgetConfirmBeenSeen()) {
+      void handleTrainingRate(0);
+      return;
+    }
+
+    setQuickForgetConfirmStage("learning");
+  }, [actionPending, handleTrainingRate, panelMode, trainingIndex, trainingModeId, trainingVerses]);
+
+  const confirmQuickForget = useCallback(() => {
+    const stage = quickForgetConfirmStage;
+    if (!stage) return;
+    setQuickForgetConfirmStage(null);
+    if (stage === "learning") {
+      markLearningQuickForgetConfirmSeen();
+    }
+    void handleTrainingRate(0);
+  }, [handleTrainingRate, quickForgetConfirmStage]);
+
+  const cancelQuickForget = useCallback(() => {
+    setQuickForgetConfirmStage(null);
+  }, []);
+
   const stableStartTrainingFromActiveVerse = useEventCallback(startTrainingFromActiveVerse);
   const stableHandleTrainingRate = useEventCallback(handleTrainingRate);
   const stableHandleTrainingNavigationStep = useEventCallback(handleTrainingNavigationStep);
   const stableHandleTrainingBackAction = useEventCallback(handleTrainingBackAction);
+  const stableRequestQuickForget = useEventCallback(requestQuickForget);
+  const stableConfirmQuickForget = useEventCallback(confirmQuickForget);
+  const stableCancelQuickForget = useEventCallback(cancelQuickForget);
 
   // Auto-start training when gallery opens directly in training mode
   useEffect(() => {
@@ -833,5 +932,10 @@ export function useTrainingFlow({
     exitTrainingMode,
     handleTrainingBackAction: stableHandleTrainingBackAction,
     applyUserTrainingSubsetFilter,
+    quickForgetLabel,
+    quickForgetConfirmStage,
+    requestQuickForget: stableRequestQuickForget,
+    confirmQuickForget: stableConfirmQuickForget,
+    cancelQuickForget: stableCancelQuickForget,
   };
 }

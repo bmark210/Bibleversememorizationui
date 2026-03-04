@@ -1,6 +1,7 @@
 import { memo, useMemo, type RefObject } from "react";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
+import { Button } from "@/app/components/ui/button";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -16,6 +17,9 @@ type Props = {
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
   onSwipeStep: (step: 1 | -1) => void;
   onRate: (rating: Rating) => void | Promise<void>;
+  onQuickForget: () => void;
+  quickForgetLabel: string;
+  quickForgetDisabled?: boolean;
 };
 
 function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
@@ -52,6 +56,9 @@ export const TrainingCard = memo(function TrainingCard({
   rendererRef,
   onSwipeStep,
   onRate,
+  onQuickForget,
+  quickForgetLabel,
+  quickForgetDisabled = false,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const isReviewStage =
@@ -92,7 +99,7 @@ export const TrainingCard = memo(function TrainingCard({
             <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
               {trainingVerse.raw.reference}
             </h2>
-            <div className="mx-auto">
+            <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
               {/* Training badge — plain div, no motion wrapper */}
               <div
                 className={cn(
@@ -145,6 +152,21 @@ export const TrainingCard = memo(function TrainingCard({
                   {totalProgressPercent}%
                 </span>
               </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={quickForgetDisabled}
+                className={cn(
+                  "rounded-full border px-3 text-[11px] font-semibold",
+                  isReviewStage
+                    ? "border-rose-500/35 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
+                    : "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                )}
+                onClick={onQuickForget}
+              >
+                {quickForgetLabel}
+              </Button>
             </div>
           </div>
         } 

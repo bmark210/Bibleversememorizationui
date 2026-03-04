@@ -40,7 +40,6 @@ function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
   }
 
   return [
-    { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
     { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
     { rating: 2, label: 'Норм', className: BUTTON_STYLE_BY_RATING[2] },
     { rating: 3, label: 'Отлично', className: BUTTON_STYLE_BY_RATING[3] },
@@ -79,7 +78,7 @@ export function TrainingRatingButtons({
       ? 'Выберите результат повторения:'
       : 'Оцените своё запоминание:';
   const gridClassName =
-    stage === 'review' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3';
+    stage === 'review' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3';
 
   return (
     <motion.div

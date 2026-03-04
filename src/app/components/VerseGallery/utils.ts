@@ -186,6 +186,7 @@ export function chooseModeId(verse: TrainingVerseState): ModeId {
   return chooseTrainingModeId({
     rawMasteryLevel: verse.rawMasteryLevel,
     stageMasteryLevel: verse.stageMasteryLevel,
+    repetitions: verse.repetitions,
     lastModeId: verse.lastModeId,
   });
 }

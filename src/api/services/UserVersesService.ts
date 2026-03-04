@@ -77,7 +77,7 @@ export class UserVersesService {
         });
     }
     /**
-     * Список стихов пользователя на повторение (LEARNING, masteryLevel > TRAINING_STAGE_MASTERY_MAX)
+     * Список стихов пользователя на повторение (LEARNING, masteryLevel >= TRAINING_STAGE_MASTERY_MAX)
      * @param telegramId
      * @param orderBy
      * @param order
@@ -102,7 +102,7 @@ export class UserVersesService {
         });
     }
     /**
-     * Обновить прогресс по стиху
+     * Обновить прогресс по стиху (сервер защищает инварианты mastery/review и валидирует lastTrainingModeId)
      * @param telegramId
      * @param externalVerseId
      * @param requestBody

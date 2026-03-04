@@ -12,7 +12,6 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
-import { TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
   analyzeGuidedInput,
   normalizeComparableText,
@@ -325,17 +324,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               <TrainingRatingButtons
                 stage={ratingStage}
                 mode="full-recall"
-                onRate={(rating) => {
-                  if (
-                    rating === 3 &&
-                    ratingStage === 'learning' &&
-                    verse.masteryLevel < TRAINING_STAGE_MASTERY_MAX
-                  ) {
-                    onRate(2);
-                    return;
-                  }
-                  onRate(rating);
-                }}
+                onRate={onRate}
               />
             </TrainingRatingFooter>
           )}

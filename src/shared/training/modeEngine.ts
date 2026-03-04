@@ -93,21 +93,22 @@ export function getTrainingModeByShiftInProgressOrder(
   return TRAINING_MODE_PROGRESS_ORDER[Math.max(0, index + shift)];
 }
 
+export function getReviewModeByRepetition(repetitions: number): TrainingModeId {
+  const normalizedRepetitions = Number.isFinite(repetitions) ? Math.max(0, Math.round(repetitions)) : 0;
+  const index = clamp(normalizedRepetitions, 0, REVIEW_TRAINING_MODE_ROTATION.length - 1);
+  return REVIEW_TRAINING_MODE_ROTATION[index] ?? REVIEW_TRAINING_MODE_ROTATION[0];
+}
+
 export function chooseTrainingModeId(params: {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
+  repetitions: number;
   lastModeId: TrainingModeId | null;
 }): TrainingModeId {
-  const { rawMasteryLevel, stageMasteryLevel, lastModeId } = params;
+  const { rawMasteryLevel, stageMasteryLevel, repetitions, lastModeId } = params;
 
   if (isTrainingReviewRawMastery(rawMasteryLevel)) {
-    if (!lastModeId || !REVIEW_TRAINING_MODE_ROTATION.includes(lastModeId)) {
-      return REVIEW_TRAINING_MODE_ROTATION[0];
-    }
-    const index = REVIEW_TRAINING_MODE_ROTATION.indexOf(lastModeId);
-    return REVIEW_TRAINING_MODE_ROTATION[
-      (index + 1) % REVIEW_TRAINING_MODE_ROTATION.length
-    ];
+    return getReviewModeByRepetition(repetitions);
   }
 
   const base = getBaseTrainingModeForMastery(stageMasteryLevel);
