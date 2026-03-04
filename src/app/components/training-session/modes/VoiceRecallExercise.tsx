@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, Lightbulb, RefreshCcw } from 'lucide-react';
+import { Mic, MicOff, RefreshCcw } from 'lucide-react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from '../../ui/button';
@@ -12,10 +12,7 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
-import {
-  normalizeComparableText,
-  tokenizeComparableWords,
-} from '@/shared/training/fullRecallTypingAssist';
+import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 
 interface VoiceRecallExerciseProps {
   verse: Verse;
@@ -55,6 +52,45 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return maybeWindow.SpeechRecognition ?? maybeWindow.webkitSpeechRecognition ?? null;
 }
 
+function calculateLevenshteinDistance(left: string, right: string) {
+  const source = Array.from(left);
+  const target = Array.from(right);
+
+  if (source.length === 0) return target.length;
+  if (target.length === 0) return source.length;
+
+  let previousRow = Array.from({ length: target.length + 1 }, (_, index) => index);
+
+  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
+    const currentRow: number[] = [sourceIndex];
+
+    for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
+      const substitutionCost =
+        source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
+
+      currentRow[targetIndex] = Math.min(
+        previousRow[targetIndex] + 1,
+        currentRow[targetIndex - 1] + 1,
+        previousRow[targetIndex - 1] + substitutionCost
+      );
+    }
+
+    previousRow = currentRow;
+  }
+
+  return previousRow[target.length] ?? 0;
+}
+
+function calculateTextMatchPercent(userText: string, targetText: string) {
+  const maxLength = Math.max(userText.length, targetText.length);
+  if (maxLength === 0) return 100;
+
+  const distance = calculateLevenshteinDistance(userText, targetText);
+  const similarity = ((maxLength - distance) / maxLength) * 100;
+
+  return Math.max(0, Math.min(100, Math.round(similarity)));
+}
+
 export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExerciseProps) {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -62,8 +98,8 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
+  const [matchPercent, setMatchPercent] = useState<number | null>(null);
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const isSpeechSupported = speechCtor != null;
@@ -73,17 +109,13 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     () => normalizeComparableText(verse.text),
     [verse.text]
   );
-  const targetWordsCount = useMemo(
-    () => tokenizeComparableWords(verse.text).length,
-    [verse.text]
-  );
 
   useEffect(() => {
     setTranscript('');
     setIsListening(false);
     setIsChecked(false);
-    setShowHint(false);
     setRecognitionError(null);
+    setMatchPercent(null);
     finalTranscriptRef.current = '';
 
     return () => {
@@ -113,8 +145,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
           interim = `${interim} ${piece}`.trim();
         }
       }
-      const next = `${finalTranscriptRef.current} ${interim}`.trim();
-      setTranscript(next);
+      setTranscript(`${finalTranscriptRef.current} ${interim}`.trim());
       if (recognitionError) setRecognitionError(null);
     };
 
@@ -151,7 +182,6 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
       recognition.start();
       setIsListening(true);
     } catch {
-      // start() throws if called twice in a row.
       setIsListening(true);
     }
   };
@@ -166,104 +196,107 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     finalTranscriptRef.current = '';
     setTranscript('');
     setIsChecked(false);
-    setShowHint(false);
     setRecognitionError(null);
+    setMatchPercent(null);
   };
 
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
-      toast.error('Сначала продиктуйте стих', {
+      toast.error('Сначала продиктуйте или введите стих', {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
       return;
     }
 
-    if (comparable === targetComparableText) {
+    const nextMatchPercent = calculateTextMatchPercent(comparable, targetComparableText);
+    setMatchPercent(nextMatchPercent);
+
+    if (nextMatchPercent === 100) {
       setIsChecked(true);
-      toast.success('Отлично! Стих распознан верно', {
+      toast.success('Совпадение 100%. Отлично!', {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
       return;
     }
 
-    toast.error('Есть расхождения, попробуйте ещё раз или откройте подсказку', {
+    toast.error(`Совпадение: ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
     });
   };
 
-  const transcriptWordsCount = tokenizeComparableWords(transcript).length;
-
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 space-y-2">
-        <div className="text-sm font-medium">Голосовой набор всего стиха</div>
-        <div className="text-xs text-muted-foreground">
-          Проговорите стих целиком. После остановки проверьте распознанный текст.
-        </div>
-        <div className="flex flex-wrap gap-2 pt-1">
+    <div className="space-y-3">
+      <label className="block text-center text-sm font-medium text-foreground/90">
+        Голосовой ввод стиха
+      </label>
+
+      <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             onClick={isListening ? handleStopListening : handleStartListening}
             className="rounded-xl"
             variant={isListening ? 'secondary' : 'default'}
           >
-            {isListening ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
+            {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
             {isListening ? 'Остановить запись' : 'Начать запись'}
           </Button>
           <Button type="button" variant="outline" className="rounded-xl" onClick={handleResetTranscript}>
-            <RefreshCcw className="w-4 h-4 mr-2" />
+            <RefreshCcw className="mr-2 h-4 w-4" />
             Очистить
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl"
-            onClick={() => setShowHint((prev) => !prev)}
-          >
-            <Lightbulb className="w-4 h-4 mr-2" />
-            {showHint ? 'Скрыть подсказку' : 'Показать подсказку'}
           </Button>
         </div>
       </div>
 
       {!isSpeechSupported ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-          Браузер не поддерживает Web Speech API. Можно вставить распознанный текст вручную.
+          Браузер не поддерживает Web Speech API. Введите текст вручную.
         </div>
       ) : null}
 
       {recognitionError ? (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+        <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {recognitionError}
         </div>
       ) : null}
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Распознано слов: {transcriptWordsCount}</span>
-          <span>Ожидается слов: {targetWordsCount}</span>
-        </div>
+      <div className="rounded-2xl border border-border/60 bg-background/70 p-2">
         <Textarea
           value={transcript}
-          onChange={(event) => setTranscript(event.target.value)}
-          className="min-h-[140px] text-sm sm:text-base"
-          placeholder="Здесь появится распознанный текст..."
+          onChange={(event) => {
+            setTranscript(event.target.value);
+            if (matchPercent !== null) setMatchPercent(null);
+          }}
+          className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
+          placeholder="Здесь будет распознанный текст..."
+          disabled={isChecked}
         />
       </div>
 
-      {showHint ? (
-        <div className="rounded-xl border border-border/60 bg-muted/25 p-3 text-sm sm:text-base leading-relaxed">
-          {verse.text}
+      {matchPercent !== null && (
+        <div
+          className={`rounded-xl border px-3 py-2 text-sm ${
+            matchPercent === 100
+              ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : matchPercent >= 80
+                ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                : 'border-destructive/45 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <p className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">Процент соответствия</span>
+            <span className="font-semibold tabular-nums">{matchPercent}%</span>
+          </p>
         </div>
-      ) : null}
+      )}
 
       {!isChecked ? (
-        <Button type="button" className="w-full rounded-2xl" onClick={handleCheck}>
-          Проверить распознавание
+        <Button type="button" className="w-full rounded-xl" onClick={handleCheck}>
+          Проверить
         </Button>
       ) : (
         <TrainingRatingFooter>

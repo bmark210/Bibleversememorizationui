@@ -25,10 +25,10 @@ type RatingButtonMeta = {
 };
 
 const BUTTON_STYLE_BY_RATING: Record<TrainingModeRating, string> = {
-  0: 'rounded-2xl border border-border/70 bg-gradient-to-br from-rose-500/40 to-rose-500/30 p-4 text-white backdrop-blur-sm',
-  1: 'rounded-2xl border border-border/70 bg-gradient-to-br from-orange-500/40 to-orange-500/30 p-4 text-white backdrop-blur-sm',
-  2: 'rounded-2xl border border-border/70 bg-gradient-to-br from-yellow-500/40 to-yellow-500/30 p-4 text-white backdrop-blur-sm',
-  3: 'rounded-2xl border border-border/70 bg-gradient-to-br from-emerald-500/40 to-emerald-500/30 p-4 text-white backdrop-blur-sm',
+  0: 'rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-rose-700 hover:bg-rose-500/15 dark:text-rose-300',
+  1: 'rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-orange-700 hover:bg-orange-500/15 dark:text-orange-300',
+  2: 'rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300',
+  3: 'rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300',
 };
 
 function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
@@ -75,8 +75,8 @@ export function TrainingRatingButtons({
   // const modeHint = getModeHint(stage, mode);
   const title =
     stage === 'review'
-      ? 'Выберите результат повторения:'
-      : 'Оцените своё запоминание:';
+      ? 'Результат повторения'
+      : 'Оценка запоминания';
   const gridClassName =
     stage === 'review' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3';
 
