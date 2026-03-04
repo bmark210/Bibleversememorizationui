@@ -89,7 +89,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
         mobileFocusTimeoutRef.current = null;
       }
     };
-  }, [verse.id, verse.text]);
+  }, [verse]);
 
   const triggerInputShake = () => {
     setShakeInput(true);
@@ -221,7 +221,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
         )}
 
         {!isCompleted ? (
-          <Button type="button" className="w-full rounded-xl" onClick={handleCheck}>
+          <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
             Проверить
           </Button>
         ) : (

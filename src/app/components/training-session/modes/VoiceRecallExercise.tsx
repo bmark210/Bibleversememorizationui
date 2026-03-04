@@ -122,7 +122,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
       recognitionRef.current?.stop();
       recognitionRef.current = null;
     };
-  }, [verse.id, verse.text]);
+  }, [verse]);
 
   const ensureRecognition = (): SpeechRecognitionLike | null => {
     if (!speechCtor) return null;
@@ -295,7 +295,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
       )}
 
       {!isChecked ? (
-        <Button type="button" className="w-full rounded-xl" onClick={handleCheck}>
+        <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
           Проверить
         </Button>
       ) : (

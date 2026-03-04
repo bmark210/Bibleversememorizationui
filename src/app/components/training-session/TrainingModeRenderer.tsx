@@ -195,36 +195,38 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
     setTutorialOpen(false);
   };
 
+  const modeInstanceKey = `${renderer}:${verse.id}:${verse.status}:${verse.repetitions}:${verse.lastReviewedAt ?? ''}:${verse.nextReviewAt ?? ''}`;
+
   const modeContent = (() => {
   if (renderer === TrainingModeRendererKey.ChunksOrder) {
-    return <ModeClickChunksExercise verse={verse} onRate={onRate} />;
+    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersTap) {
-    return <ModeFirstLettersTapExercise verse={verse} onRate={onRate} />;
+    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersType) {
-    return <ModeFirstLettersKeyboardExercise verse={verse} onRate={onRate} />;
+    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.OrderHints) {
-    return <ModeClickWordsHintedExercise verse={verse} onRate={onRate} />;
+    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.Order) {
-    return <ModeClickWordsExercise verse={verse} onRate={onRate} />;
+    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersHints) {
-    return <ModeFirstLettersHintedExercise verse={verse} onRate={onRate} />;
+    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
   if (renderer === TrainingModeRendererKey.VoiceTyping) {
-    return <ModeVoiceRecallExercise verse={verse} onRate={onRate} />;
+    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   }
 
-  return <ModeFullRecallExercise verse={verse} onRate={onRate} />;
+  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} onRate={onRate} />;
   })();
 
   return (

@@ -37,7 +37,7 @@ export function ConfirmDeleteModal({
           <AlertDialogCancel disabled={isSubmitting} className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">Отмена</AlertDialogCancel>
           <AlertDialogAction
             disabled={isSubmitting}
-            className=" rounded-full border border-border/60 bg-muted/35 text-foreground/90"
+            className="bg-destructive hover:bg-destructive/90 text-white rounded-full border border-border/60"
             onClick={(e) => {
               e.preventDefault();
               void onConfirm();

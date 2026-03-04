@@ -154,7 +154,6 @@ export function VerseGallery({
 }: VerseGalleryProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
-  const bottomInset = contentSafeAreaInset.bottom;
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -330,6 +329,9 @@ export function VerseGallery({
   }, []);
 
   // ── Slide announcement (accessibility) ──────────────────────────────────────
+  // Use the stable state setter directly — the `aux` object literal is recreated
+  // every render and would cause this effect to re-run on every single render.
+  const setSlideAnnouncement = aux.setSlideAnnouncement;
   useEffect(() => {
     const displayVerse =
       training.panelMode === "training" && training.trainingActiveVerse
@@ -344,7 +346,7 @@ export function VerseGallery({
       training.panelMode === "training"
         ? Math.max(1, training.trainingEligibleIndices.indexOf(training.trainingIndex) + 1)
         : nav.activeIndex + 1;
-    aux.setSlideAnnouncement(
+    setSlideAnnouncement(
       `Стих ${position} из ${Math.max(total, 1)}: ${displayVerse.reference}`
     );
   }, [
@@ -355,7 +357,7 @@ export function VerseGallery({
     nav.activeIndex,
     previewActiveVerse,
     previewDisplayTotal,
-    aux,
+    setSlideAnnouncement,
   ]);
 
   // ── Swipe gesture (preview only) ─────────────────────────────────────────────
@@ -407,10 +409,10 @@ export function VerseGallery({
       ? Math.max(0, training.trainingEligibleIndices.indexOf(training.trainingIndex))
       : Math.max(0, nav.activeIndex);
 
-  const galleryBodyKey =
-    training.panelMode === "training"
-      ? `training-${training.trainingIndex}-${getVerseIdentity(displayVerse)}-${training.trainingModeId ?? "none"}`
-      : `preview-${nav.activeIndex}-${getVerseIdentity(displayVerse)}`;
+  // Key is the verse identity only — AnimatePresence animates only when the verse
+  // actually changes. Mode switches (preview↔training) or modeId advances on the
+  // same verse must NOT trigger a slide animation.
+  const galleryBodyKey = getVerseIdentity(displayVerse);
 
   const previewStatusAction =
     training.panelMode === "preview" && previewActiveVerse

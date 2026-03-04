@@ -41,8 +41,8 @@ function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
 
   return [
     { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
-    { rating: 2, label: 'Норм', className: BUTTON_STYLE_BY_RATING[2] },
-    { rating: 3, label: 'Отлично', className: BUTTON_STYLE_BY_RATING[3] },
+    { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[2] },
+    { rating: 3, label: 'Легко', className: BUTTON_STYLE_BY_RATING[3] },
   ];
 }
 

@@ -81,7 +81,7 @@ type Params = {
   showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => Promise<void>;
   // from usePreviewNavigation
   setNavActiveIndex: (index: number) => void;
-  setNavDirection: (dir: number) => void;
+  setNavDirection?: (dir: number) => void;
 };
 
 function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
@@ -318,7 +318,6 @@ export function useTrainingFlow({
       const preservedKey = preservedPreviewVerseKeyOnTrainingExitRef.current;
       preservedPreviewVerseKeyOnTrainingExitRef.current = null;
       const effectiveTarget = target ?? trainingActiveVerse;
-      const trainingVerseKey = effectiveTarget?.key ?? null;
 
       if (preservedKey) {
         const preservedIndex = verses.findIndex((v) => getVerseIdentity(v) === preservedKey);
@@ -333,12 +332,10 @@ export function useTrainingFlow({
         if (idx >= 0) setNavActiveIndex(idx);
       }
 
-      const isSameVerse = preservedKey ? preservedKey === trainingVerseKey : true;
-      setNavDirection(isSameVerse ? 0 : 1);
       setPanelMode("preview");
       setTrainingModeId(null);
     },
-    [trainingActiveVerse, verses, setNavActiveIndex, setNavDirection]
+    [trainingActiveVerse, verses, setNavActiveIndex]
   );
 
   const handleTrainingBackAction = useCallback(() => {
@@ -376,7 +373,7 @@ export function useTrainingFlow({
 
       const nextVerse = trainingVerses[nextIndex ?? -1];
       if (!nextVerse) return;
-      setNavDirection(delta > 0 ? 1 : -1);
+      setNavDirection?.(delta);
       setTrainingIndex(nextIndex!);
       setTrainingModeId(chooseModeId(nextVerse));
       haptic("medium");
@@ -449,10 +446,10 @@ export function useTrainingFlow({
       }
 
       const nextVerse = nextIndex != null ? nextList[nextIndex] : nextList[0];
+      setNavDirection?.(delta);
       setTrainingVerses(nextList);
       if (nextVerse) {
         const resolvedIndex = nextList.findIndex((verse) => verse.key === nextVerse.key);
-        setNavDirection(delta > 0 ? 1 : -1);
         setTrainingIndex(resolvedIndex >= 0 ? resolvedIndex : 0);
         setTrainingModeId(chooseModeId(nextVerse));
       } else {
@@ -570,11 +567,9 @@ export function useTrainingFlow({
           preservedPreviewVerseKeyOnTrainingExitRef.current = getVerseIdentity(previewActiveVerse);
         }
 
-        const isSameVerse = startState.key === startKey;
         setTrainingIndex(startIndex);
         setTrainingModeId(chooseModeId(startState));
         setPanelMode("training");
-        setNavDirection(isSameVerse ? 0 : 1);
         haptic("medium");
 
         const shouldShowLearningIntroPopup =
@@ -609,7 +604,6 @@ export function useTrainingFlow({
       fetchLearningVersesForTraining,
       previewActiveVerse,
       setActionPending,
-      setNavDirection,
       showFeedback,
       showTrainingMilestonePopup,
       verses,
@@ -714,9 +708,16 @@ export function useTrainingFlow({
           nextReviewAt,
         };
 
-        const updatedList = [...trainingVerses];
-        updatedList[trainingIndex] = updated;
-        setTrainingVerses(updatedList);
+        const optimisticShouldMoveToNextVerse =
+          wasReviewExercise || becameLearned || nextStatus === "MASTERED";
+        let didSwitchSubsetToCatalogOptimistically = false;
+
+        if (!optimisticShouldMoveToNextVerse) {
+          const updatedList = [...trainingVerses];
+          updatedList[trainingIndex] = updated;
+          setTrainingVerses(updatedList);
+        }
+
         setPreviewOverride(current.raw, {
           status: updated.status,
           masteryLevel: rawMasteryAfter,
@@ -739,18 +740,21 @@ export function useTrainingFlow({
               ? nextMode
               : chooseModeId(updated);
 
-        if (
-          trainingSubsetFilter !== "catalog" &&
-          !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)
-        ) {
-          showFeedback(
-            "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
-            "info"
-          );
-          setTrainingSubsetFilter("catalog");
-        }
+        if (!optimisticShouldMoveToNextVerse) {
+          if (
+            trainingSubsetFilter !== "catalog" &&
+            !matchesTrainingSubsetFilter(updated, trainingSubsetFilter)
+          ) {
+            showFeedback(
+              "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
+              "info"
+            );
+            setTrainingSubsetFilter("catalog");
+            didSwitchSubsetToCatalogOptimistically = true;
+          }
 
-        setTrainingModeId(nextModeForCurrentVerse);
+          setTrainingModeId(nextModeForCurrentVerse);
+        }
 
         try {
           const persistedResponse = await persistTrainingVerseProgress(updated, {
@@ -814,13 +818,41 @@ export function useTrainingFlow({
             nextReviewAt: persistedNextReviewAt,
           };
 
-          setTrainingVerses((prev) => {
-            const idx = prev.findIndex((v) => v.key === current.key);
-            if (idx < 0) return prev;
-            const next = [...prev];
-            next[idx] = persistedUpdated;
-            return next;
-          });
+          const finalShouldMoveToNextVerse =
+            wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
+          if (!finalShouldMoveToNextVerse) {
+            setTrainingVerses((prev) => {
+              const idx = prev.findIndex((v) => v.key === current.key);
+              if (idx < 0) return prev;
+              const next = [...prev];
+              next[idx] = persistedUpdated;
+              return next;
+            });
+
+            const persistedNextModeForCurrentVerse =
+              becameLearned
+                ? chooseModeId(persistedUpdated)
+                : !wasReviewExercise && nextMode
+                  ? nextMode
+                  : chooseModeId(persistedUpdated);
+
+            const shouldSwitchSubsetToCatalog =
+              trainingSubsetFilter !== "catalog" &&
+              !matchesTrainingSubsetFilter(persistedUpdated, trainingSubsetFilter);
+
+            if (
+              shouldSwitchSubsetToCatalog &&
+              !didSwitchSubsetToCatalogOptimistically
+            ) {
+              showFeedback(
+                "Стих вышел из текущего фильтра. Переключаем на «Каталог».",
+                "info"
+              );
+              setTrainingSubsetFilter("catalog");
+            }
+
+            setTrainingModeId(persistedNextModeForCurrentVerse);
+          }
 
           setPreviewOverride(current.raw, {
             status: persistedUpdated.status,
@@ -868,9 +900,7 @@ export function useTrainingFlow({
             await showTrainingMilestonePopup(milestonePopup);
           }
 
-          const shouldMoveToNextVerse =
-            wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
-          if (shouldMoveToNextVerse) {
+          if (finalShouldMoveToNextVerse) {
             removeCompletedTrainingVerseAndNavigate(1);
           }
         } catch (error) {
