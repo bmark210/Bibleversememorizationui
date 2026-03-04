@@ -179,7 +179,7 @@ export function DashboardTrainingStatsCard({
                       <Icon className={`h-4 w-4 ${item.iconColor}`} />
                     </div>
                   </div>
-                  <p className={`mt-3 text-xs dark:text-foreground/75 ${item.textColor} leading-relaxed`}>
+                  <p className={`mt-3 text-xs dark:text-foreground/75 text-foreground/70 leading-relaxed`}>
                     {item.hint}
                   </p>
                 </motion.div>

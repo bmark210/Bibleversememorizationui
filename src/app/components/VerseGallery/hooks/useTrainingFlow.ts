@@ -7,7 +7,6 @@ import {
   type RefObject,
 } from "react";
 import { VerseStatus } from "@/generated/prisma";
-import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type {
@@ -52,7 +51,7 @@ import {
   sortByCreatedAtDesc,
   parseDate,
 } from "../utils";
-import { getTelegramId, persistTrainingVerseProgress } from "../trainingApi";
+import { persistTrainingVerseProgress } from "../trainingApi";
 import type {
   PanelMode,
   ModeId,
@@ -82,6 +81,7 @@ type Params = {
   // from usePreviewNavigation
   setNavActiveIndex: (index: number) => void;
   setNavDirection?: (dir: number) => void;
+  onRequestMoreTrainingVerses?: () => Promise<Verse[]>;
 };
 
 function useEventCallback<T extends (...args: any[]) => any>(fn: T): T {
@@ -298,6 +298,27 @@ function cleanupLearningStageIntroPopupSeenForVisibleVerses(verses: Verse[]) {
   }
 }
 
+function pickTrainingSourceVerses(source: Verse[]): Verse[] {
+  return sortByCreatedAtDesc(
+    source.filter((verse) => {
+      const status = normalizeVerseStatus(verse.status);
+      return status === VerseStatus.LEARNING || status === "REVIEW";
+    })
+  );
+}
+
+function mergeVersesByIdentity(base: Verse[], incoming: Verse[]): Verse[] {
+  if (incoming.length === 0) return base;
+  const seen = new Set(base.map((verse) => getVerseIdentity(verse)));
+  const additions = incoming.filter((verse) => {
+    const key = getVerseIdentity(verse);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return additions.length > 0 ? [...base, ...additions] : base;
+}
+
 export type UseTrainingFlowReturn = {
   panelMode: PanelMode;
   trainingActiveVerse: TrainingVerseState | null;
@@ -339,6 +360,7 @@ export function useTrainingFlow({
   showTrainingMilestonePopup,
   setNavActiveIndex,
   setNavDirection,
+  onRequestMoreTrainingVerses,
 }: Params): UseTrainingFlowReturn {
   const [panelMode, setPanelMode] = useState<PanelMode>("preview");
   const [trainingVerses, setTrainingVerses] = useState<TrainingVerseState[]>([]);
@@ -446,37 +468,20 @@ export function useTrainingFlow({
   }, [verses]);
 
   const fetchLearningVersesForTraining = useCallback(async (): Promise<Verse[]> => {
-    const telegramId = getTelegramId();
-    if (!telegramId) {
-      return sortByCreatedAtDesc(
-        verses.filter((v) => {
-          const status = normalizeVerseStatus(v.status);
-          return status === VerseStatus.LEARNING || status === "REVIEW";
-        })
-      );
+    let source = pickTrainingSourceVerses(verses);
+    if (source.length > 0) return source;
+    if (!onRequestMoreTrainingVerses) return source;
+
+    // Pull additional chunks lazily until at least one training verse is available.
+    for (let attempts = 0; attempts < 8; attempts += 1) {
+      const nextChunk = await onRequestMoreTrainingVerses();
+      if (nextChunk.length === 0) break;
+      source = mergeVersesByIdentity(source, pickTrainingSourceVerses(nextChunk));
+      if (source.length > 0) break;
     }
-    try {
-      const response = (await fetchAllUserVerses({
-        telegramId,
-        status: VerseStatus.LEARNING,
-        orderBy: "createdAt",
-        order: "desc",
-      })) as Verse[];
-      const filtered = response.filter((v) => {
-        const status = normalizeVerseStatus(v.status);
-        return status === VerseStatus.LEARNING || status === "REVIEW";
-      });
-      return sortByCreatedAtDesc(filtered);
-    } catch (error) {
-      console.error("Не удалось загрузить стихи LEARNING:", error);
-      return sortByCreatedAtDesc(
-        verses.filter((v) => {
-          const status = normalizeVerseStatus(v.status);
-          return status === VerseStatus.LEARNING || status === "REVIEW";
-        })
-      );
-    }
-  }, [verses]);
+
+    return source;
+  }, [onRequestMoreTrainingVerses, verses]);
 
   const applyUserTrainingSubsetFilter = useCallback(
     (nextFilter: TrainingSubsetFilter) => {
@@ -524,13 +529,73 @@ export function useTrainingFlow({
     (delta: -1 | 1) => {
       if (panelMode !== "training") return;
       if (!trainingActiveVerse) return;
-      if (trainingEligibleIndices.length <= 1) return;
+      const loadMoreAndTryNavigate = async () => {
+        if (!onRequestMoreTrainingVerses) return;
+        const nextChunk = await onRequestMoreTrainingVerses();
+        if (nextChunk.length === 0) return;
+
+        const normalizedChunk = pickTrainingSourceVerses(nextChunk)
+          .map(toTrainingVerseState)
+          .filter((verse): verse is TrainingVerseState => verse !== null);
+        if (normalizedChunk.length === 0) return;
+
+        const existingKeys = new Set(trainingVerses.map((verse) => verse.key));
+        const additions = normalizedChunk.filter((verse) => !existingKeys.has(verse.key));
+        if (additions.length === 0) return;
+
+        const merged = [...trainingVerses, ...additions];
+        const mergedEligibleIndices = merged
+          .map((verse, index) => ({ verse, index }))
+          .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
+          .map(({ index }) => index);
+        if (mergedEligibleIndices.length === 0) {
+          setTrainingVerses(merged);
+          return;
+        }
+
+        const currentPosInMerged = mergedEligibleIndices.indexOf(trainingIndex);
+        let nextMergedIndex: number | undefined;
+        if (currentPosInMerged >= 0) {
+          const nextPos = currentPosInMerged + delta;
+          if (nextPos >= 0 && nextPos < mergedEligibleIndices.length) {
+            nextMergedIndex = mergedEligibleIndices[nextPos];
+          }
+        } else if (delta > 0) {
+          nextMergedIndex =
+            mergedEligibleIndices.find((index) => index > trainingIndex) ??
+            mergedEligibleIndices[0];
+        } else {
+          nextMergedIndex =
+            [...mergedEligibleIndices].reverse().find((index) => index < trainingIndex) ??
+            mergedEligibleIndices[mergedEligibleIndices.length - 1];
+        }
+
+        setTrainingVerses(merged);
+        if (nextMergedIndex == null) return;
+
+        const nextVerse = merged[nextMergedIndex];
+        if (!nextVerse) return;
+        setNavDirection?.(delta);
+        setTrainingIndex(nextMergedIndex);
+        setTrainingModeId(chooseModeId(nextVerse));
+        haptic("medium");
+      };
+
+      if (trainingEligibleIndices.length <= 1) {
+        if (delta > 0) void loadMoreAndTryNavigate();
+        return;
+      }
+
       const currentPos = trainingEligibleIndices.indexOf(trainingIndex);
 
       let nextIndex: number | undefined;
       if (currentPos >= 0) {
         const nextPos = currentPos + delta;
-        if (nextPos < 0 || nextPos >= trainingEligibleIndices.length) return;
+        if (nextPos < 0) return;
+        if (nextPos >= trainingEligibleIndices.length) {
+          if (delta > 0) void loadMoreAndTryNavigate();
+          return;
+        }
         nextIndex = trainingEligibleIndices[nextPos];
       } else {
         if (delta > 0) {
@@ -542,6 +607,11 @@ export function useTrainingFlow({
             [...trainingEligibleIndices].reverse().find((idx) => idx < trainingIndex) ??
             trainingEligibleIndices[trainingEligibleIndices.length - 1];
         }
+
+        if (nextIndex == null && delta > 0) {
+          void loadMoreAndTryNavigate();
+          return;
+        }
       }
 
       const nextVerse = trainingVerses[nextIndex ?? -1];
@@ -552,10 +622,12 @@ export function useTrainingFlow({
       haptic("medium");
     },
     [
+      onRequestMoreTrainingVerses,
       panelMode,
       trainingActiveVerse,
       trainingEligibleIndices,
       trainingIndex,
+      trainingSubsetFilter,
       trainingVerses,
       setNavDirection,
     ]
@@ -575,6 +647,50 @@ export function useTrainingFlow({
       }
 
       if (nextList.length === 0) {
+        if (delta > 0 && onRequestMoreTrainingVerses) {
+          void (async () => {
+            const nextChunk = await onRequestMoreTrainingVerses();
+            const normalizedChunk = pickTrainingSourceVerses(nextChunk)
+              .map(toTrainingVerseState)
+              .filter((verse): verse is TrainingVerseState => verse !== null);
+
+            if (normalizedChunk.length === 0) {
+              setTrainingVerses([]);
+              setTrainingIndex(0);
+              setTrainingModeId(null);
+              haptic("light");
+              return;
+            }
+
+            const candidateIndices = normalizedChunk
+              .map((verse, index) => ({ verse, index }))
+              .filter(({ verse }) => matchesTrainingSubsetFilter(verse, trainingSubsetFilter))
+              .map(({ index }) => index);
+            const fallbackEligibleIndices = normalizedChunk
+              .map((verse, index) => ({ verse, index }))
+              .filter(({ verse }) => isTrainingEligibleVerse(verse))
+              .map(({ index }) => index);
+
+            let nextIndex = candidateIndices[0] ?? fallbackEligibleIndices[0] ?? 0;
+            if (
+              candidateIndices.length === 0 &&
+              fallbackEligibleIndices.length > 0 &&
+              trainingSubsetFilter !== "catalog"
+            ) {
+              setTrainingSubsetFilter("catalog");
+            }
+
+            nextIndex = Math.min(Math.max(nextIndex, 0), normalizedChunk.length - 1);
+            const nextVerse = normalizedChunk[nextIndex];
+
+            setTrainingVerses(normalizedChunk);
+            setTrainingIndex(nextIndex);
+            setTrainingModeId(nextVerse ? chooseModeId(nextVerse) : null);
+            haptic("light");
+          })();
+          return;
+        }
+
         setTrainingVerses([]);
         setTrainingIndex(0);
         setTrainingModeId(null);
@@ -633,6 +749,7 @@ export function useTrainingFlow({
     },
     [
       jumpToAdjacentTrainingVerse,
+      onRequestMoreTrainingVerses,
       panelMode,
       trainingActiveVerse,
       trainingIndex,
@@ -662,13 +779,13 @@ export function useTrainingFlow({
         setActionPending(true);
         const startVerse = previewActiveVerse;
         const activeDisplayStatus = normalizeVerseStatus(previewActiveVerse.status);
+        const startKey = getVerseIdentity(startVerse);
 
         let learningRaw = await fetchLearningVersesForTraining();
         let normalized = learningRaw
           .map(toTrainingVerseState)
           .filter((v): v is TrainingVerseState => v !== null);
 
-        const startKey = getVerseIdentity(startVerse);
         if (!normalized.some((v) => v.key === startKey)) {
           const fallback = toTrainingVerseState(startVerse);
           if (
@@ -679,10 +796,35 @@ export function useTrainingFlow({
           }
         }
 
-        const eligibleIndices = normalized
+        let eligibleIndices = normalized
           .map((verse, index) => ({ verse, index }))
           .filter(({ verse }) => isTrainingEligibleVerse(verse))
           .map(({ index }) => index);
+
+        while (eligibleIndices.length === 0 && onRequestMoreTrainingVerses) {
+          const nextChunk = await onRequestMoreTrainingVerses();
+          if (nextChunk.length === 0) break;
+
+          learningRaw = mergeVersesByIdentity(learningRaw, pickTrainingSourceVerses(nextChunk));
+          normalized = learningRaw
+            .map(toTrainingVerseState)
+            .filter((verse): verse is TrainingVerseState => verse !== null);
+
+          if (!normalized.some((verse) => verse.key === startKey)) {
+            const fallback = toTrainingVerseState(startVerse);
+            if (
+              fallback &&
+              (fallback.status === VerseStatus.LEARNING || fallback.status === "REVIEW")
+            ) {
+              normalized = [fallback, ...normalized];
+            }
+          }
+
+          eligibleIndices = normalized
+            .map((verse, index) => ({ verse, index }))
+            .filter(({ verse }) => isTrainingEligibleVerse(verse))
+            .map(({ index }) => index);
+        }
 
         if (eligibleIndices.length === 0) {
           showFeedback("Нет доступных стихов LEARNING/REVIEW", "error");
@@ -776,11 +918,11 @@ export function useTrainingFlow({
     [
       actionPending,
       fetchLearningVersesForTraining,
+      onRequestMoreTrainingVerses,
       previewActiveVerse,
       setActionPending,
       showFeedback,
       showTrainingMilestonePopup,
-      verses,
     ]
   );
 

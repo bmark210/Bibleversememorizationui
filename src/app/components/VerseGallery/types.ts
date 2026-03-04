@@ -62,4 +62,5 @@ export type VerseGalleryProps = {
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;
   onRequestMorePreviewVerses?: () => Promise<boolean>;
+  onRequestMoreTrainingVerses?: () => Promise<Verse[]>;
 };

@@ -15,7 +15,10 @@ import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import { UserVersesService } from "@/api/services/UserVersesService";
-import { fetchAllUserVerses } from "@/api/services/userVersesPagination";
+import {
+  fetchAllUserVerses,
+  fetchUserVersesPage,
+} from "@/api/services/userVersesPagination";
 import {
   fetchDashboardLeaderboard,
   type DashboardLeaderboard,
@@ -76,6 +79,13 @@ const VerseGallery = dynamic(
   }
 );
 
+const ReferenceTrainer = dynamic(
+  () => import("./components/ReferenceTrainer").then((m) => m.ReferenceTrainer),
+  {
+    loading: () => <div className="min-h-[60vh]" />,
+  }
+);
+
 // Frontend verse model — matches the VerseCardDto shape returned by the API.
 // externalVerseId is the primary identifier ("book-chapter-verse").
 export type Verse = {
@@ -102,6 +112,7 @@ type DashboardTrainingLaunchOptions = {
 type Page =
   | "dashboard"
   | "verses"
+  | "references"
   // | "collections"
   // | "stats"
   | "profile"
@@ -109,17 +120,12 @@ type Page =
 
 type Theme = "light" | "dark";
 
-type TrainingBatchPreferences = {
-  newVersesCount: number;
-  reviewVersesCount: number;
-};
-
 type AppProps = {
   onInitialContentReady?: () => void;
 };
 
-const TRAINING_BATCH_PREFERENCES_KEY = "bible-memory.training-batch-preferences.v1";
 const THEME_STORAGE_KEY = "theme";
+const TRAINING_GALLERY_PAGE_SIZE = 40;
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
   light: {
     background: "#ede3d2",
@@ -131,12 +137,6 @@ const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string;
     header: "#24201a",
     bottomBar: "#24201a",
   },
-};
-const MY_VERSE_COUNT_OPTIONS = [1, 2, 3, 4] as const;
-const REVIEW_VERSE_COUNT_OPTIONS = [3, 5, 10, 15] as const;
-const DEFAULT_TRAINING_BATCH_PREFERENCES: TrainingBatchPreferences = {
-  newVersesCount: 1,
-  reviewVersesCount: 5,
 };
 
 function readStoredTheme(): Theme | null {
@@ -237,29 +237,6 @@ function getClientTimezone(): string {
   return typeof tz === "string" && tz.length > 0 ? tz : "UTC";
 }
 
-function readTrainingBatchPreferences(): TrainingBatchPreferences | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(TRAINING_BATCH_PREFERENCES_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<TrainingBatchPreferences>;
-    const newVersesCount = Number(parsed?.newVersesCount);
-    const reviewVersesCount = Number(parsed?.reviewVersesCount);
-    if (!Number.isFinite(newVersesCount) || !Number.isFinite(reviewVersesCount)) return null;
-    return {
-      newVersesCount: Math.max(0, Math.round(newVersesCount)),
-      reviewVersesCount: Math.max(0, Math.round(reviewVersesCount)),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeTrainingBatchPreferences(value: TrainingBatchPreferences) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(TRAINING_BATCH_PREFERENCES_KEY, JSON.stringify(value));
-}
-
 function sortByUpdatedAtDesc(a: Verse, b: Verse) {
   const aUpdated = parseDateValue((a as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   const bUpdated = parseDateValue((b as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
@@ -276,35 +253,21 @@ function sortByUpdatedAtDesc(a: Verse, b: Verse) {
   return String(a.externalVerseId ?? a.id).localeCompare(String(b.externalVerseId ?? b.id));
 }
 
-function buildTrainingBatchVerses(
-  allVerses: Array<Verse>,
-  prefs: TrainingBatchPreferences
-): Array<Verse> {
-  const newPool = allVerses
-    .filter((verse) => normalizeDisplayVerseStatus(verse.status) === VerseStatus.LEARNING)
-    .sort(sortByUpdatedAtDesc);
-  const newVerses = newPool.slice(0, Math.max(0, prefs.newVersesCount));
-
-  const reviewPool = allVerses
-    .filter((verse) => {
-      const status = normalizeDisplayVerseStatus(verse.status);
-      return status === "REVIEW";
-    })
-    .sort(sortByUpdatedAtDesc);
-  const reviewVerses = reviewPool.slice(0, Math.max(0, prefs.reviewVersesCount));
-
-  const seen = new Set<string>();
-  return [...newVerses, ...reviewVerses].filter((verse) => {
-    const key = String(verse.externalVerseId ?? verse.id);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse> {
-  const source = userData?.verses ?? [];
-  return source.map((verse) => ({
+function mapUserVerseToAppVerse(verse: {
+  id?: string | number | null;
+  externalVerseId?: string | number | null;
+  status?: string | null;
+  masteryLevel?: number | null;
+  repetitions?: number | null;
+  lastTrainingModeId?: number | null;
+  lastReviewedAt?: string | null;
+  nextReviewAt?: string | null;
+  tags?: Array<{ id: string; slug: string; title: string }> | null;
+  text?: string | null;
+  reference?: string | null;
+}): Verse {
+  return {
+    id: verse.id ?? undefined,
     externalVerseId: String(verse.externalVerseId ?? ""),
     status: normalizeDisplayVerseStatus(verse.status),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
@@ -315,7 +278,21 @@ function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse>
     tags: verse.tags ?? [],
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
-  }));
+  };
+}
+
+function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse> {
+  const source = userData?.verses ?? [];
+  return source.map((verse) => mapUserVerseToAppVerse(verse));
+}
+
+function isTrainingDashboardVerse(verse: Verse) {
+  const status = normalizeDisplayVerseStatus(verse.status);
+  return status === VerseStatus.LEARNING || status === "REVIEW";
+}
+
+function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {
+  return allVerses.filter(isTrainingDashboardVerse).sort(sortByUpdatedAtDesc);
 }
 
 export default function App({ onInitialContentReady }: AppProps) {
@@ -336,18 +313,14 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [dashboardLeaderboard, setDashboardLeaderboard] = useState<DashboardLeaderboard | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
-  const [trainingBatchPreferences, setTrainingBatchPreferences] = useState<TrainingBatchPreferences | null>(null);
-  const [isTrainingBatchPromptOpen, setIsTrainingBatchPromptOpen] = useState(false);
-  const [selectedNewVersesCount, setSelectedNewVersesCount] = useState<number>(
-    DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount
-  );
-  const [selectedReviewVersesCount, setSelectedReviewVersesCount] = useState<number>(
-    DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount
-  );
-  const [isSavingTrainingPlan, setIsSavingTrainingPlan] = useState(false);
+  const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
+  const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
+  const dashboardTrainingStartWithRef = useRef(0);
+  const dashboardTrainingTotalCountRef = useRef(0);
+  const dashboardTrainingHasMoreRef = useRef(false);
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -484,18 +457,6 @@ export default function App({ onInitialContentReady }: AppProps) {
         }
       }
 
-      const savedPreferences = readTrainingBatchPreferences();
-      if (savedPreferences) {
-        setTrainingBatchPreferences(savedPreferences);
-        setSelectedNewVersesCount(savedPreferences.newVersesCount);
-        setSelectedReviewVersesCount(savedPreferences.reviewVersesCount);
-      } else {
-        setTrainingBatchPreferences(null);
-        setSelectedNewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.newVersesCount);
-        setSelectedReviewVersesCount(DEFAULT_TRAINING_BATCH_PREFERENCES.reviewVersesCount);
-        setIsTrainingBatchPromptOpen(true);
-      }
-
       const fetchUser = async () => {
         try {
           setIsLoading(true);
@@ -506,11 +467,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           ]);
           setUser(userData);
           const userVerses = mapUserVersesToAppVerses(userData);
-                    if (savedPreferences) {
-            setVerses(buildTrainingBatchVerses(userVerses, savedPreferences));
-          } else {
-            setVerses([]);
-          }
+          setVerses(pickTrainingDashboardVerses(userVerses));
         } catch (err) {
           const status = (err as ApiError)?.status;
           if (status === 404) {
@@ -567,18 +524,84 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
-  const loadPlannedVersesForDashboard = async (
-    telegramIdValue: string,
-    prefs: TrainingBatchPreferences
-  ) => {
+  const loadTrainingVersesForDashboard = async (telegramIdValue: string) => {
     try {
       const allVerses = await loadAllUserVerses(telegramIdValue);
-      const planned = buildTrainingBatchVerses(allVerses, prefs);
-      setVerses(planned);
-      return planned;
+      const trainingPool = pickTrainingDashboardVerses(
+        allVerses.map((verse) => mapUserVerseToAppVerse(verse as any))
+      );
+      setVerses(trainingPool);
+      return trainingPool;
     } catch (err) {
       setVerses([]);
       throw err;
+    }
+  };
+
+  const mergeVerseListsUnique = (base: Array<Verse>, incoming: Array<Verse>) => {
+    if (incoming.length === 0) return base;
+    const seen = new Set(base.map((verse) => getVerseSyncKey(verse)));
+    const additions = incoming.filter((verse) => {
+      const key = getVerseSyncKey(verse);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return additions.length > 0 ? [...base, ...additions] : base;
+  };
+
+  const loadDashboardTrainingGalleryChunk = async (
+    options?: { reset?: boolean }
+  ): Promise<Array<Verse>> => {
+    const reset = options?.reset === true;
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) return [];
+    if (dashboardTrainingIsLoadingMore) return [];
+    if (!reset && !dashboardTrainingHasMoreRef.current) return [];
+
+    if (reset) {
+      dashboardTrainingStartWithRef.current = 0;
+      dashboardTrainingTotalCountRef.current = 0;
+      dashboardTrainingHasMoreRef.current = true;
+      setDashboardTrainingHasMore(true);
+    }
+
+    setDashboardTrainingIsLoadingMore(true);
+    try {
+      const page = await fetchUserVersesPage({
+        telegramId: telegramIdValue,
+        status: VerseStatus.LEARNING,
+        orderBy: "createdAt",
+        order: "desc",
+        limit: TRAINING_GALLERY_PAGE_SIZE,
+        startWith: dashboardTrainingStartWithRef.current,
+      });
+
+      const mappedChunk = (page.items as Array<any>)
+        .map((item) => mapUserVerseToAppVerse(item))
+        .filter(isTrainingDashboardVerse)
+        .sort(sortByUpdatedAtDesc);
+
+      dashboardTrainingStartWithRef.current += page.items.length;
+      dashboardTrainingTotalCountRef.current = page.totalCount;
+      const hasMore = dashboardTrainingStartWithRef.current < page.totalCount;
+      dashboardTrainingHasMoreRef.current = hasMore;
+      setDashboardTrainingHasMore(hasMore);
+
+      if (reset) {
+        setDashboardGalleryVerses(mappedChunk);
+      } else {
+        setDashboardGalleryVerses((prev) => mergeVerseListsUnique(prev, mappedChunk));
+      }
+
+      return mappedChunk;
+    } catch (error) {
+      console.error("Не удалось подгрузить стихи для тренировки:", error);
+      dashboardTrainingHasMoreRef.current = false;
+      setDashboardTrainingHasMore(false);
+      return [];
+    } finally {
+      setDashboardTrainingIsLoadingMore(false);
     }
   };
 
@@ -600,12 +623,15 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
     setDashboardGalleryLaunchMode("preview");
+    dashboardTrainingStartWithRef.current = 0;
+    dashboardTrainingTotalCountRef.current = 0;
+    dashboardTrainingHasMoreRef.current = false;
+    setDashboardTrainingHasMore(false);
+    setDashboardTrainingIsLoadingMore(false);
 
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (telegramIdValue && trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-    }
     if (telegramIdValue) {
+      void loadTrainingVersesForDashboard(telegramIdValue);
       void loadDashboardStats(telegramIdValue);
       void loadDashboardLeaderboard(telegramIdValue);
     }
@@ -627,9 +653,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       patch,
     });
 
-    if (trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-    }
+    void loadTrainingVersesForDashboard(telegramIdValue);
     void loadDashboardStats(telegramIdValue);
     void loadDashboardLeaderboard(telegramIdValue);
 
@@ -648,29 +672,22 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     setDashboardGalleryVerses((prev) => prev.filter((v) => getVerseKey(v) !== getVerseKey(verse)));
 
-    if (trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-    }
+    void loadTrainingVersesForDashboard(telegramIdValue);
     void loadDashboardStats(telegramIdValue);
     void loadDashboardLeaderboard(telegramIdValue);
   };
 
-  const handleStartTraining = async (launchOptions?: DashboardTrainingLaunchOptions) => {
+  const handleStartTraining = async (launchOptions: DashboardTrainingLaunchOptions = {
+    launchMode: "training",
+    preferredVerseId: null,
+  }) => {
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) {
       toast.error("Не найден telegramId");
       return;
     }
 
-    if (!trainingBatchPreferences) {
-      setIsTrainingBatchPromptOpen(true);
-      toast.info("Сначала выберите формат тренировки", {
-        description: "Сколько стихов в изучении и сколько повторений загружать за раз.",
-      });
-      return;
-    }
-
-    const launchMode = launchOptions?.launchMode ?? "preview";
+    const launchMode = launchOptions?.launchMode ?? "training";
     const preferredTargetVerseId = launchOptions?.preferredVerseId ?? null;
     const openDashboardGallery = (
       plannedList: Array<Verse>,
@@ -688,88 +705,33 @@ export default function App({ onInitialContentReady }: AppProps) {
       return true;
     };
 
-    // Open immediately from the current dashboard list, then refresh in background.
-    // This prevents a visible "dead time" before VerseGallery appears.
-    if (verses.length > 0 && openDashboardGallery(verses, preferredTargetVerseId)) {
-      void (async () => {
-        try {
-          const refreshed = await loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-          if (refreshed.length > 0) {
-            setDashboardGalleryVerses(refreshed);
-            setDashboardGalleryIndex((prev) => {
-              if (preferredTargetVerseId) {
-                const targetIndex = refreshed.findIndex(
-                  (verse) => String(verse.externalVerseId ?? verse.id) === String(preferredTargetVerseId)
-                );
-                if (targetIndex >= 0) return targetIndex;
-              }
-              return prev === null ? null : Math.min(prev, Math.max(0, refreshed.length - 1));
-            });
-          }
-        } catch (error) {
-          console.error("Не удалось обновить подборку перед тренировкой:", error);
-        }
-      })();
-      return;
-    }
-
     try {
-      const plannedVerses = await loadPlannedVersesForDashboard(telegramIdValue, trainingBatchPreferences);
-      if (plannedVerses.length === 0) {
+      const firstChunk = await loadDashboardTrainingGalleryChunk({ reset: true });
+      if (firstChunk.length === 0) {
         toast.info("Нет стихов для тренировки", {
           description: "Выберите стихи в статусах LEARNING/REVIEW или переведите карточки в изучение. Просмотр доступен в разделе «Стихи».",
         });
         return;
       }
-      openDashboardGallery(plannedVerses, preferredTargetVerseId);
+      openDashboardGallery(firstChunk, preferredTargetVerseId);
     } catch {
       toast.error("Не удалось загрузить стихи для тренировки");
     }
+  };
+
+  const requestMoreDashboardTrainingVerses = async (): Promise<Array<Verse>> => {
+    return loadDashboardTrainingGalleryChunk({ reset: false });
   };
 
   const handleAddVerse = () => {
     setShowAddVerseDialog(true);
   };
 
-  const handleOpenTrainingPlanSettings = () => {
-    setIsTrainingBatchPromptOpen(true);
-  };
-
   const handleVerseListMutationCommitted = () => {
     if (!telegramId) return;
-    if (trainingBatchPreferences) {
-      void loadPlannedVersesForDashboard(telegramId, trainingBatchPreferences);
-    }
+    void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
     void loadDashboardLeaderboard(telegramId);
-  };
-
-  const handleSaveTrainingBatchPreferences = async () => {
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    const nextPreferences: TrainingBatchPreferences = {
-      newVersesCount: selectedNewVersesCount,
-      reviewVersesCount: selectedReviewVersesCount,
-    };
-
-    writeTrainingBatchPreferences(nextPreferences);
-    setTrainingBatchPreferences(nextPreferences);
-    setIsTrainingBatchPromptOpen(false);
-
-    if (!telegramIdValue) return;
-
-    try {
-      setIsSavingTrainingPlan(true);
-      setIsLoading(true);
-      await loadPlannedVersesForDashboard(telegramIdValue, nextPreferences);
-      toast.success("План тренировки сохранён", {
-        description: `В изучении: ${nextPreferences.newVersesCount}, повторений: ${nextPreferences.reviewVersesCount}.`,
-      });
-    } catch {
-      toast.error("Не удалось загрузить стихи по новым настройкам");
-    } finally {
-      setIsSavingTrainingPlan(false);
-      setIsLoading(false);
-    }
   };
 
   const handleVerseAdded = async (verse: {
@@ -829,14 +791,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         });
       }
 
-      const effectivePreferences =
-        trainingBatchPreferences ?? readTrainingBatchPreferences();
-
-      if (effectivePreferences) {
-        await loadPlannedVersesForDashboard(telegramId, effectivePreferences);
-      } else {
-        await loadAllUserVerses(telegramId);
-      }
+      await loadTrainingVersesForDashboard(telegramId);
       await Promise.all([
         loadDashboardStats(telegramId),
         loadDashboardLeaderboard(telegramId),
@@ -889,7 +844,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                 onStartTraining={handleStartTraining}
                 onAddVerse={handleAddVerse}
                 onViewAll={() => setCurrentPage("verses")}
-                onOpenTrainingPlanSettings={handleOpenTrainingPlanSettings}
+                onOpenTrainingPlanSettings={() => {}}
                 isInitializingData={isBootstrapping}
               />
             </motion.div>
@@ -901,6 +856,10 @@ export default function App({ onInitialContentReady }: AppProps) {
               verseListExternalSyncVersion={verseListExternalSyncVersion}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
             />
+          )}
+
+          {currentPage === "references" && (
+            <ReferenceTrainer telegramId={telegramId} />
           )}
 
           {/* {currentPage === "collections" && (
@@ -937,6 +896,13 @@ export default function App({ onInitialContentReady }: AppProps) {
           onStatusChange={handleDashboardGalleryStatusChange}
           onVersePatched={handleDashboardGalleryVersePatched}
           onDelete={handleDashboardGalleryDelete}
+          previewHasMore={dashboardTrainingHasMore}
+          previewIsLoadingMore={dashboardTrainingIsLoadingMore}
+          onRequestMorePreviewVerses={async () => {
+            const nextChunk = await requestMoreDashboardTrainingVerses();
+            return nextChunk.length > 0;
+          }}
+          onRequestMoreTrainingVerses={requestMoreDashboardTrainingVerses}
         />
       )}
 

@@ -151,6 +151,7 @@ export function VerseGallery({
   previewHasMore = false,
   previewIsLoadingMore = false,
   onRequestMorePreviewVerses,
+  onRequestMoreTrainingVerses,
 }: VerseGalleryProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -226,6 +227,7 @@ export function VerseGallery({
     showTrainingMilestonePopup: aux.showTrainingMilestonePopup,
     setNavActiveIndex: nav.setActiveIndex,
     setNavDirection: nav.setDirection,
+    onRequestMoreTrainingVerses,
   });
 
   // ── Preview status action ────────────────────────────────────────────────────

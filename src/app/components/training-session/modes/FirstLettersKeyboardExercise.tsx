@@ -17,6 +17,10 @@ interface FirstLettersKeyboardExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
+function normalizeComparableLetter(value: string) {
+  return value.toLowerCase().replace(/ё/g, 'е');
+}
+
 function tokenizeFirstLetters(text: string): string[] {
   return text
     .split(/\s+/)
@@ -24,7 +28,7 @@ function tokenizeFirstLetters(text: string): string[] {
     .filter(Boolean)
     .map((word) => {
       const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-      return (cleaned.charAt(0) || word.charAt(0) || '').toLowerCase();
+      return normalizeComparableLetter(cleaned.charAt(0) || word.charAt(0) || '');
     })
     .filter(Boolean);
 }
@@ -36,7 +40,7 @@ function sanitizeInput(value: string) {
 }
 
 function compactLetters(value: string) {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  return normalizeComparableLetter(value).replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
 function trimToMaxLetters(rawValue: string, maxLetters: number) {

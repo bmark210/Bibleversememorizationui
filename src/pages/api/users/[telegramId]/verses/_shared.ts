@@ -8,6 +8,7 @@ import {
   normalizeHelloaoTranslation,
 } from "@/shared/bible/helloao";
 import {
+  computeDisplayStatus,
   mapUserVerseToVerseCardDto,
   type UserVerseWithLegacyNullableProgress,
   type UserVersesPageResponse,
@@ -102,6 +103,7 @@ const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
 const MAX_USER_VERSES_PAGE_LIMIT = 50;
 const MAX_USER_VERSES_SEARCH_LENGTH = 100;
 const MAX_USER_VERSES_TAG_FILTER_SIZE = 30;
+const DEFAULT_REFERENCE_TRAINER_LIMIT = 50;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -531,6 +533,77 @@ export async function fetchEnrichedUserVerses({
   });
 
   return enrichUserVerses(flattenVerseRows(rawRows), translation);
+}
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+  return items;
+}
+
+export async function fetchRandomReferenceTrainerVerses(options: {
+  telegramId: string;
+  limit?: number;
+}): Promise<VerseCardDto[]> {
+  const limit = Math.max(1, Math.min(DEFAULT_REFERENCE_TRAINER_LIMIT, Math.round(options.limit ?? DEFAULT_REFERENCE_TRAINER_LIMIT)));
+  const translation = await getUserTranslationForTelegram(options.telegramId);
+
+  const learningRows = await prisma.userVerse.findMany({
+    where: {
+      telegramId: options.telegramId,
+      status: VerseStatus.LEARNING,
+    },
+    select: {
+      status: true,
+      masteryLevel: true,
+      repetitions: true,
+      lastTrainingModeId: true,
+      lastReviewedAt: true,
+      nextReviewAt: true,
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  const candidates = learningRows.filter((row) => {
+    const displayStatus = computeDisplayStatus(row.status, row.masteryLevel, row.repetitions);
+    return displayStatus === VerseStatus.LEARNING || displayStatus === "MASTERED";
+  });
+
+  if (candidates.length === 0) return [];
+
+  const sampled = shuffleInPlace([...candidates]).slice(0, limit);
+  const enrichedById = await enrichExternalVerseIds(
+    sampled.map((row) => row.verse.externalVerseId),
+    translation
+  );
+
+  return sampled.map((row) => {
+    const externalVerseId = row.verse.externalVerseId;
+    const enriched = enrichedById.get(externalVerseId);
+    const source = {
+      externalVerseId,
+      status: row.status,
+      masteryLevel: row.masteryLevel,
+      repetitions: row.repetitions,
+      lastTrainingModeId: row.lastTrainingModeId,
+      lastReviewedAt: row.lastReviewedAt,
+      nextReviewAt: row.nextReviewAt,
+      tags: enriched?.tags ?? [],
+      text: enriched?.text,
+      reference: enriched?.reference,
+    } as unknown as UserVerseWithLegacyNullableProgress & {
+      text?: string;
+      reference?: string;
+      tags?: VerseCardTagDto[];
+    };
+    return mapUserVerseToVerseCardDto(source);
+  });
 }
 
 export type EnrichedExternalVerse = {

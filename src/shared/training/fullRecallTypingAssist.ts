@@ -1,6 +1,7 @@
 export function normalizeComparableWord(word: string) {
   return word
     .toLowerCase()
+    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}]+/gu, '')
     .trim();
 }
@@ -8,6 +9,7 @@ export function normalizeComparableWord(word: string) {
 export function normalizeComparableText(text: string) {
   return text
     .toLowerCase()
+    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/[ \t]+/g, ' ')
     .trim();
@@ -23,6 +25,7 @@ export function tokenizeComparableWords(text: string): string[] {
 function sanitizeGuidedInput(text: string) {
   return text
     .toLowerCase()
+    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/[ \t]+/g, ' ')
     .replace(/^\s+/g, '');

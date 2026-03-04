@@ -213,16 +213,16 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     const nextMatchPercent = calculateTextMatchPercent(comparable, targetComparableText);
     setMatchPercent(nextMatchPercent);
 
-    if (nextMatchPercent === 100) {
+    if (nextMatchPercent >= 80) {
       setIsChecked(true);
-      toast.success('Совпадение 100%. Отлично!', {
+      toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
       return;
     }
 
-    toast.error(`Совпадение: ${nextMatchPercent}%. Попробуйте ещё раз.`, {
+    toast.error(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
     });

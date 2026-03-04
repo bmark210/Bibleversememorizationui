@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, LayoutDashboard, User } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Link2, User } from 'lucide-react';
 import { useTelegram } from '../contexts/TelegramContext';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { cn } from './ui/utils';
@@ -162,6 +162,7 @@ export function Layout({ children, currentPage, onNavigate, isContentReady = fal
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
+    { id: 'references', label: 'Ссылки', icon: Link2 },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
