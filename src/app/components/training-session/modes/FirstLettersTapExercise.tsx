@@ -61,11 +61,13 @@ export function ModeFirstLettersTapExercise({
   verse,
   onRate,
 }: FirstLettersTapExerciseProps) {
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
@@ -76,6 +78,7 @@ export function ModeFirstLettersTapExercise({
     setSelectedLetters([]);
     setShowHint(false);
     setMistakes(0);
+    setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
 
@@ -96,6 +99,14 @@ export function ModeFirstLettersTapExercise({
   );
 
   const selectedCount = selectedLetters.length;
+  const total = tokens.length;
+  const progressPercent = total > 0 ? Math.round((selectedCount / total) * 100) : 0;
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
 
   const shuffledUniqueLetters = useMemo(() => {
     const seen = new Set<string>();
@@ -119,8 +130,6 @@ export function ModeFirstLettersTapExercise({
     [selectedLetters]
   );
 
-  const total = tokens.length;
-
   const handlePick = (letter: string) => {
     if (isCompleted) return;
 
@@ -140,12 +149,33 @@ export function ModeFirstLettersTapExercise({
       return;
     }
 
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+
     setMistakes((prev) => prev + 1);
-    setSelectedLetters([]);
-    toast.error('Неверная буква. Последовательность сброшена, попробуйте ещё раз.', {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
-    });
+    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetSequence) {
+      setSelectedLetters([]);
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      toast.error(
+        `Неверная буква. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
     setErrorFlashLetter(letter);
 
     if (clearFlashTimeoutRef.current) {
@@ -165,9 +195,9 @@ export function ModeFirstLettersTapExercise({
     >
       <div className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1 text-center">
-              <label className="text-sm font-medium text-foreground">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-sm font-medium mx-auto text-foreground/90">
                 Соберите первые буквы слов
               </label>
             </div>
@@ -189,7 +219,49 @@ export function ModeFirstLettersTapExercise({
             )}
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+          {!isCompleted && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                <span>Прогресс выбора</span>
+                <span className="tabular-nums">{selectedCount}/{total}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                <motion.div
+                  className="h-full rounded-full bg-primary/80"
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                  Готово: {progressPercent}%
+                </div>
+                <div
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                    isMistakeRiskCritical
+                      ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                      : isMistakeRiskHigh
+                        ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-border/60 bg-background/80 text-muted-foreground'
+                  }`}
+                >
+                  До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                </div>
+                {mistakes > 0 && (
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                    Ошибок всего: {mistakes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+            />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                 Собранные буквы
@@ -221,17 +293,12 @@ export function ModeFirstLettersTapExercise({
             )}
           </div>
 
-          {!availableLetters.every((letter) => selectedLetters.includes(letter)) && (
+          {!isCompleted && availableLetters.length > 0 && (
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Варианты букв
                 </div>
-                {mistakes > 0 && (
-                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                    Ошибок: {mistakes}
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -247,10 +314,10 @@ export function ModeFirstLettersTapExercise({
                       <Button
                         type="button"
                         variant="outline"
-                        className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase ${
+                        className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase transition-colors ${
                           isError
                             ? 'border-destructive text-destructive'
-                            : 'border-border/70 bg-background/60'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                         }`}
                         onClick={() => handlePick(letter)}
                         disabled={isCompleted}
@@ -261,6 +328,10 @@ export function ModeFirstLettersTapExercise({
                   );
                 })}
               </div>
+
+              {/* <p className="text-xs text-muted-foreground">
+                Повторяющиеся буквы можно нажимать несколько раз, если они нужны дальше по порядку.
+              </p> */}
             </div>
           )}
         </div>

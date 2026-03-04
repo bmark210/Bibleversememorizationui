@@ -132,12 +132,14 @@ export function ModeClickWordsHintedExercise({
   verse,
   onRate,
 }: ClickWordsHintedExerciseProps) {
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choices, setChoices] = useState<HiddenChoice[]>([]);
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
@@ -149,6 +151,7 @@ export function ModeClickWordsHintedExercise({
     setSelectedChoiceIds([]);
     setShowHint(false);
     setMistakes(0);
+    setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashChoiceId(null);
 
@@ -164,6 +167,10 @@ export function ModeClickWordsHintedExercise({
     () => new Map(choices.map((choice) => [choice.id, choice])),
     [choices]
   );
+  const selectedChoiceIdSet = useMemo(
+    () => new Set(selectedChoiceIds),
+    [selectedChoiceIds]
+  );
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -177,16 +184,31 @@ export function ModeClickWordsHintedExercise({
         .filter((choice): choice is HiddenChoice => Boolean(choice)),
     [selectedChoiceIds, choiceMap]
   );
+  const remainingChoices = useMemo(
+    () => choices.filter((choice) => !selectedChoiceIdSet.has(choice.id)),
+    [choices, selectedChoiceIdSet]
+  );
+  const hiddenIndexByOrder = useMemo(() => {
+    const map = new Map<number, number>();
+    hiddenSlots.forEach((slot, index) => map.set(slot.order, index));
+    return map;
+  }, [hiddenSlots]);
 
   const selectedCount = selectedChoices.length;
   const totalHiddenWords = hiddenSlots.length;
   const revealedCount = slots.length - hiddenSlots.length;
   const progress = totalHiddenWords > 0 ? Math.round((selectedCount / totalHiddenWords) * 100) : 0;
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
 
   const handleWordClick = (choice: HiddenChoice) => {
     if (isCompleted) return;
-    if (selectedChoiceIds.includes(choice.id)) return;
+    if (selectedChoiceIdSet.has(choice.id)) return;
     if (!nextHiddenSlot) return;
 
     if (choice.normalized === nextHiddenSlot.normalized) {
@@ -200,12 +222,33 @@ export function ModeClickWordsHintedExercise({
       return;
     }
 
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+
     setMistakes((prev) => prev + 1);
-    toast.error('Неверное слово. Скрытая последовательность сброшена, попробуйте снова.', {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
-    });
-    setSelectedChoiceIds([]);
+    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetSequence) {
+      setSelectedChoiceIds([]);
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      toast.error(
+        `Неверное слово. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
     setErrorFlashChoiceId(choice.id);
 
     if (clearFlashTimeoutRef.current) {
@@ -235,9 +278,9 @@ export function ModeClickWordsHintedExercise({
     >
       <div className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1 text-center">
-              <label className="text-sm font-medium text-foreground">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-sm font-medium mx-auto text-foreground/90">
                 Восстановите скрытые слова по порядку
               </label>
             </div>
@@ -259,7 +302,47 @@ export function ModeClickWordsHintedExercise({
             )}
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+          {!isCompleted && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                <span>Прогресс скрытых слов</span>
+                <span className="tabular-nums">{selectedCount}/{totalHiddenWords}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                <motion.div
+                  className="h-full rounded-full bg-primary/80"
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                  Готово: {progress}%
+                </div>
+                <div className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  Открыто: {revealedCount}
+                </div>
+                <div
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                    isMistakeRiskCritical
+                      ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                      : isMistakeRiskHigh
+                        ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-border/60 bg-background/80 text-muted-foreground'
+                  }`}
+                >
+                  До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+            />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 Стих с подсказками
@@ -272,7 +355,7 @@ export function ModeClickWordsHintedExercise({
             </div>
             <div className="flex flex-wrap gap-1.5 leading-relaxed">
               {slots.map((slot) => {
-                const hiddenIndex = hiddenSlots.findIndex((hidden) => hidden.order === slot.order);
+                const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
                 const isHidden = hiddenIndex >= 0;
                 const isFilled = isHidden && hiddenIndex < selectedCount;
                 const isNext = isHidden && hiddenIndex === selectedCount && !isCompleted;
@@ -321,68 +404,62 @@ export function ModeClickWordsHintedExercise({
           </div>
 
           <AnimatePresence initial={false}>
-          {showHint && !isCompleted && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, y: -4 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -4 }}
-              transition={{ duration: 0.22 }}
-              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
-            >
-              <div className="flex items-center gap-2 text-sm">
-                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
-                <p className="text-muted-foreground">
-                  {verse.text.split(' ').slice(0, 2).join(' ')}...
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                Слова для выбора
-              </div>
-              {mistakes > 0 && (
-                <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                  Ошибок: {mistakes}
+            {showHint && !isCompleted && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -4 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -4 }}
+                transition={{ duration: 0.22 }}
+                className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
+              >
+                <div className="flex items-center gap-2 text-sm">
+                  <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                  <p className="text-muted-foreground">
+                    {verse.text.split(' ').slice(0, 2).join(' ')}...
+                  </p>
                 </div>
-              )}
-            </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            <div className="flex flex-wrap gap-2">
-              {choices.map((choice) => {
-                const isSelected = selectedChoiceIds.includes(choice.id);
-                const isError = errorFlashChoiceId === choice.id;
+          {!isCompleted && remainingChoices.length > 0 && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  Слова для выбора
+                </div>
+              </div>
 
-                if (isSelected) return null;
+              <div className="flex flex-wrap gap-2">
+                {remainingChoices.map((choice) => {
+                  const isError = errorFlashChoiceId === choice.id;
 
-                return (
-                  <motion.div
-                    key={choice.id}
-                    animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`h-auto rounded-xl px-3 py-2.5 ${
-                        isError
-                          ? 'border-destructive text-destructive'
-                          : 'border-border/70 bg-background/60'
-                      }`}
-                      onClick={() => handleWordClick(choice)}
-                      disabled={isCompleted}
-                      aria-pressed={false}
+                  return (
+                    <motion.div
+                      key={choice.id}
+                      animate={isError ? { x: [-2, 2, -2, 2, 0] } : { x: 0 }}
+                      transition={{ duration: 0.2 }}
                     >
-                      {choice.text}
-                    </Button>
-                  </motion.div>
-                );
-              })}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={`h-auto rounded-xl px-3 py-2.5 transition-colors ${
+                          isError
+                            ? 'border-destructive text-destructive'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                        }`}
+                        onClick={() => handleWordClick(choice)}
+                        disabled={isCompleted}
+                        aria-pressed={false}
+                      >
+                        {choice.text}
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <AnimatePresence initial={false}>

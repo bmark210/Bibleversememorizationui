@@ -233,16 +233,16 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
 
       {tutorial && (
         <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-3xl">
             <AlertDialogHeader>
               <AlertDialogTitle>{tutorial.title}</AlertDialogTitle>
               <AlertDialogDescription>{tutorial.summary}</AlertDialogDescription>
             </AlertDialogHeader>
 
-            <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="space-y-2 text-sm text-foreground/90">
               {tutorial.bullets.map((bullet, index) => (
                 <div key={index} className="flex gap-2">
-                  <span className="mt-0.5 text-primary">•</span>
+                  <span className="mt-0.5 text-foreground/90">•</span>
                   <span>{bullet}</span>
                 </div>
               ))}
@@ -250,7 +250,7 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
 
             <AlertDialogFooter>
               <AlertDialogAction
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto rounded-full border border-border/60 bg-muted/35 text-foreground/90"
                 onClick={(e) => {
                   e.preventDefault();
                   handleTutorialComplete();

@@ -136,12 +136,14 @@ export function ModeFirstLettersHintedExercise({
   verse,
   onRate,
 }: FirstLettersHintedExerciseProps) {
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choices, setChoices] = useState<LetterChoice[]>([]);
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
@@ -153,6 +155,7 @@ export function ModeFirstLettersHintedExercise({
     setSelectedChoiceIds([]);
     setShowHint(false);
     setMistakes(0);
+    setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashChoiceId(null);
 
@@ -173,6 +176,10 @@ export function ModeFirstLettersHintedExercise({
     () => new Map(choices.map((choice) => [choice.id, choice])),
     [choices]
   );
+  const selectedChoiceIdSet = useMemo(
+    () => new Set(selectedChoiceIds),
+    [selectedChoiceIds]
+  );
 
   const selectedChoices = useMemo(
     () =>
@@ -181,16 +188,31 @@ export function ModeFirstLettersHintedExercise({
         .filter((choice): choice is LetterChoice => Boolean(choice)),
     [selectedChoiceIds, choiceMap]
   );
+  const remainingChoices = useMemo(
+    () => choices.filter((choice) => !selectedChoiceIdSet.has(choice.id)),
+    [choices, selectedChoiceIdSet]
+  );
+  const hiddenIndexByOrder = useMemo(() => {
+    const map = new Map<number, number>();
+    hiddenSlots.forEach((slot, index) => map.set(slot.order, index));
+    return map;
+  }, [hiddenSlots]);
 
   const selectedCount = selectedChoices.length;
   const totalHidden = hiddenSlots.length;
   const revealedCount = slots.length - hiddenSlots.length;
   const progress = totalHidden > 0 ? Math.round((selectedCount / totalHidden) * 100) : 0;
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
 
   const handleLetterClick = (choice: LetterChoice) => {
     if (isCompleted) return;
-    if (selectedChoiceIds.includes(choice.id)) return;
+    if (selectedChoiceIdSet.has(choice.id)) return;
     if (!nextHiddenSlot) return;
 
     // Duplicate letters should count as correct if the letter matches the expected one.
@@ -205,12 +227,33 @@ export function ModeFirstLettersHintedExercise({
       return;
     }
 
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+
     setMistakes((prev) => prev + 1);
-    setSelectedChoiceIds([]);
-    toast.error('Неверная буква. Последовательность скрытых слов сброшена, попробуйте снова.', {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
-    });
+    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetSequence) {
+      setSelectedChoiceIds([]);
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      toast.error(
+        `Неверная буква. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
     setErrorFlashChoiceId(choice.id);
 
     if (clearFlashTimeoutRef.current) {
@@ -240,9 +283,9 @@ export function ModeFirstLettersHintedExercise({
     >
       <div className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1 text-center">
-              <label className="text-sm font-medium text-foreground">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-sm font-medium mx-auto text-foreground/90">
                 Восстановите скрытые слова по первым буквам
               </label>
             </div>
@@ -264,7 +307,52 @@ export function ModeFirstLettersHintedExercise({
             )}
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+          {!isCompleted && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                <span>Прогресс скрытых слов</span>
+                <span className="tabular-nums">{selectedCount}/{totalHidden}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                <motion.div
+                  className="h-full rounded-full bg-primary/80"
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                  Готово: {progress}%
+                </div>
+                <div className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  Открыто: {revealedCount}
+                </div>
+                <div
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                    isMistakeRiskCritical
+                      ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                      : isMistakeRiskHigh
+                        ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-border/60 bg-background/80 text-muted-foreground'
+                  }`}
+                >
+                  До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                </div>
+                {mistakes > 0 && (
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                    Ошибок всего: {mistakes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+            />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 Стих с подсказками
@@ -277,7 +365,7 @@ export function ModeFirstLettersHintedExercise({
             </div>
             <div className="flex flex-wrap gap-1.5 leading-relaxed">
               {slots.map((slot) => {
-                const hiddenIndex = hiddenSlots.findIndex((hidden) => hidden.order === slot.order);
+                const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
                 const isHidden = hiddenIndex >= 0;
                 const isFilled = isHidden && hiddenIndex < selectedCount;
                 const isNext = isHidden && hiddenIndex === selectedCount && !isCompleted;
@@ -325,49 +413,39 @@ export function ModeFirstLettersHintedExercise({
             </div>
           </div>
 
-          {/* <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Собранные буквы
-            </div>
-            {selectedChoices.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedChoices.map((choice) => (
-                  <motion.span
-                    key={choice.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="inline-flex min-w-9 items-center justify-center rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 font-mono text-sm uppercase"
-                  >
-                    {choice.letter}
-                  </motion.span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Ввод появится здесь
-              </p>
-            )}
-          </div> */}
-
-          {!choices.every((choice) => selectedChoiceIds.includes(choice.id)) && (
+          {!isCompleted && remainingChoices.length > 0 && (
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Буквы для выбора
                 </div>
-                {mistakes > 0 && (
-                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                    Ошибок: {mistakes}
-                  </div>
-                )}
+                {/* <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUndo}
+                    disabled={isCompleted || selectedChoiceIds.length === 0}
+                    className="rounded-full"
+                  >
+                    Назад
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={isCompleted || selectedChoiceIds.length === 0}
+                    className="rounded-full"
+                  >
+                    Сброс
+                  </Button>
+                </div> */}
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {choices.map((choice) => {
-                  const isSelected = selectedChoiceIds.includes(choice.id);
+                {remainingChoices.map((choice) => {
                   const isError = errorFlashChoiceId === choice.id;
-
-                  if (isSelected) return null;
 
                   return (
                     <motion.div
@@ -378,10 +456,10 @@ export function ModeFirstLettersHintedExercise({
                       <Button
                         type="button"
                         variant="outline"
-                        className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase ${
+                        className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase transition-colors ${
                           isError
                             ? 'border-destructive text-destructive'
-                            : 'border-border/70 bg-background/60'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                         }`}
                         onClick={() => handleLetterClick(choice)}
                         disabled={isCompleted}

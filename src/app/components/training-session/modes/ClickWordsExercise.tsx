@@ -54,11 +54,13 @@ function shuffleTokens(words: string[]): WordToken[] {
 }
 
 export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProps) {
+  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<WordToken[]>([]);
   const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashWord, setErrorFlashWord] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
@@ -69,6 +71,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     setSelectedTokenIds([]);
     setShowHint(false);
     setMistakes(0);
+    setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashWord(null);
 
@@ -113,6 +116,13 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
 
   const selectedCount = selectedTokens.length;
   const totalWords = tokens.length;
+  const progressPercent = totalWords > 0 ? Math.round((selectedCount / totalWords) * 100) : 0;
+  const mistakesLeftBeforeReset = Math.max(
+    0,
+    MAX_MISTAKES_BEFORE_RESET - mistakesSinceReset
+  );
+  const isMistakeRiskHigh = mistakesLeftBeforeReset <= 2;
+  const isMistakeRiskCritical = mistakesLeftBeforeReset <= 1;
 
   const availableWords = useMemo(() => {
     const remainingWords = orderedTokens.slice(selectedCount).map((token) => token.text);
@@ -138,12 +148,33 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
       return;
     }
 
+    const nextMistakesSinceReset = mistakesSinceReset + 1;
+    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+
     setMistakes((prev) => prev + 1);
-    toast.error('Неверное слово. Последовательность сброшена, попробуйте снова.', {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
-    });
-    setSelectedTokenIds([]);
+    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+
+    if (shouldResetSequence) {
+      setSelectedTokenIds([]);
+      toast.error(
+        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена, попробуйте снова.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    } else {
+      toast.error(
+        `Неверное слово. Осталось ошибок до сброса: ${
+          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+        }.`,
+        {
+          toasterId: GALLERY_TOASTER_ID,
+          size: 'compact',
+        }
+      );
+    }
+
     setErrorFlashWord(word);
 
     if (clearFlashTimeoutRef.current) {
@@ -163,9 +194,9 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     >
       <div className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1 text-center">
-              <label className="text-sm font-medium text-foreground">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-sm font-medium mx-auto text-foreground/90">
                 Соберите стих, нажимая слова по порядку
               </label>
             </div>
@@ -187,7 +218,49 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
             )}
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+          {!isCompleted && (
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background via-muted/10 to-muted/20 p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                <span>Прогресс последовательности</span>
+                <span className="tabular-nums">{selectedCount}/{totalWords}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/60">
+                <motion.div
+                  className="h-full rounded-full bg-primary/80"
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                  Готово: {progressPercent}%
+                </div>
+                <div
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                    isMistakeRiskCritical
+                      ? 'border-destructive/45 bg-destructive/10 text-destructive'
+                      : isMistakeRiskHigh
+                        ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-border/60 bg-background/80 text-muted-foreground'
+                  }`}
+                >
+                  До сброса: {mistakesLeftBeforeReset}/{MAX_MISTAKES_BEFORE_RESET}
+                </div>
+                {mistakes > 0 && (
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+                    Ошибок всего: {mistakes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 min-h-[128px] shadow-sm">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
+            />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                 Собранная последовательность
@@ -220,24 +293,23 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           </div>
 
           <AnimatePresence initial={false}>
-          {showHint && !isCompleted && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, y: -4 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -4 }}
-              transition={{ duration: 0.22 }}
-              className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
-            >
-              <div className="flex items-center gap-2 text-sm">
-                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
-                <p className="text-muted-foreground">
-                  {verse.text.split(' ').slice(0, 2).join(' ')}...
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+            {showHint && !isCompleted && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -4 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -4 }}
+                transition={{ duration: 0.22 }}
+                className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-background p-4"
+              >
+                <div className="flex items-center gap-2 text-sm">
+                  <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                  <p className="text-muted-foreground">
+                    {verse.text.split(' ').slice(0, 2).join(' ')}...
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {!isCompleted && availableWords.length > 0 && (
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/20 p-4 shadow-sm space-y-3">
@@ -245,11 +317,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Слова для выбора
                 </div>
-                {mistakes > 0 && (
-                  <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-                    Ошибок: {mistakes}
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -265,10 +332,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                       <Button
                         type="button"
                         variant="outline"
-                        className={`h-auto rounded-xl px-3 py-2.5 ${
+                        className={`h-auto rounded-xl px-3 py-2.5 transition-colors ${
                           isError
                             ? 'border-destructive text-destructive'
-                            : 'border-border/70 bg-background/60'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                         }`}
                         onClick={() => handleWordClick(word)}
                         disabled={isCompleted}
