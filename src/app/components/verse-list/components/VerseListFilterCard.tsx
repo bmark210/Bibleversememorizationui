@@ -326,7 +326,7 @@ export function VerseListFilterCard({
               </div>
 
               <div className="my-1 overflow-hidden rounded-2xl">
-                <div className="flex items-center justify-between gap-2 border-b border-border/35 px-3 pb-2 pt-2">
+                <div className="flex items-center justify-between gap-2 border-b border-border/35 px-5 pb-2 pt-2">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     {hasActiveTags ? `Темы: ${selectedTagSlugs.size}` : 'Все темы'}
                   </span>
