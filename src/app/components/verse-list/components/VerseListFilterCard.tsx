@@ -171,7 +171,7 @@ export function VerseListFilterCard({
               className={cn(
                 'rounded-lg px-2 py-1 text-[11px] font-medium transition-colors',
                 hasFiltersApplied
-                  ? 'bg-destructive/45 text-foreground/75'
+                  ? 'bg-destructive/60 dark:text-foreground/75 text-background'
                   : 'text-muted-foreground hover:bg-background/60'
               )}
             >

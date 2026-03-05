@@ -873,8 +873,8 @@ export function VerseGallery({
       >
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Перейти к другому стиху?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base text-foreground/90">Перейти к другому стиху?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground/90">
               Если перейти сейчас, прогресс текущего упражнения не сохранится.
             </AlertDialogDescription>
           </AlertDialogHeader>
