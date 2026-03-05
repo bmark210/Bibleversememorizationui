@@ -646,7 +646,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
       <Card
         className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border-border/70"
-        style={frameHeight ? { height: `${frameHeight}px` } : { height: "calc(100dvh - 12.5rem)" }}
+        style={frameHeight ? { height: `${frameHeight}px` } : { height: "calc(100dvh - 15.5rem)" }}
       >
         <div className="shrink-0 border-b border-border/70 px-3 py-3 sm:px-4">
           <div className="flex items-center justify-between gap-2">
