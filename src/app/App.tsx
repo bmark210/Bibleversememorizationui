@@ -349,6 +349,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
   }, []);
   const hasNotifiedInitialContentReadyRef = useRef(false);
+  const previousPageRef = useRef<Page>("dashboard");
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
@@ -576,10 +577,14 @@ export default function App({ onInitialContentReady }: AppProps) {
   };
 
   useEffect(() => {
-    if (currentPage !== "dashboard") return;
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (!telegramIdValue) return;
-    void loadDashboardFriendsActivity(telegramIdValue);
+    const previousPage = previousPageRef.current;
+    previousPageRef.current = currentPage;
+
+    const hasEnteredDashboard =
+      currentPage === "dashboard" && previousPage !== "dashboard";
+    if (!hasEnteredDashboard || !telegramId) return;
+
+    void loadDashboardFriendsActivity(telegramId);
   }, [currentPage, telegramId]);
 
   useEffect(() => {
