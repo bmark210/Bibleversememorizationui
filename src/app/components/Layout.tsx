@@ -31,12 +31,27 @@ export function Layout({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tg = (window as any).Telegram?.WebApp;
     const vv = window.visualViewport;
-    if (!vv) return;
-    const check = () => setIsKeyboardOpen(window.innerHeight - vv.height > 150);
+
+    const check = () => {
+      // Telegram's viewportChanged is the most reliable source in Telegram WebApp
+      if (tg?.viewportStableHeight && tg?.viewportHeight) {
+        setIsKeyboardOpen(tg.viewportStableHeight - tg.viewportHeight > 100);
+        return;
+      }
+      // Fallback for browser/dev
+      if (vv) setIsKeyboardOpen(window.innerHeight - vv.height > 150);
+    };
+
     check();
-    vv.addEventListener("resize", check);
-    return () => vv.removeEventListener("resize", check);
+    vv?.addEventListener("resize", check);
+    tg?.onEvent("viewportChanged", check);
+    return () => {
+      vv?.removeEventListener("resize", check);
+      tg?.offEvent("viewportChanged", check);
+    };
   }, []);
 
   // Отладка safe area

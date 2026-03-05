@@ -455,8 +455,9 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       ? visualViewportHeight 
       : viewportHeight;
     
-    // Reserve space for header + padding only (nav is hidden when keyboard is open)
-    const reservedSpace = isKeyboardVisible ? 90 : 210;
+    // Without keyboard: header(45) + card-wrapper-padding(24) + nav(82) + buffer(14) = 165
+    // With keyboard: nav hides, only header(45) + card-wrapper-padding(24) + buffer(21) = 90
+    const reservedSpace = isKeyboardVisible ? 90 : 165;
     
     return Math.max(200, availableHeight - reservedSpace);
   }, [viewportHeight, visualViewportHeight, isKeyboardVisible]);
@@ -594,45 +595,38 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     isAnswered && currentQuestionIndex < questions.length - 1 && !sessionComplete;
   const isKeyboardMode = currentQuestion?.mode === "keyboard";
 
-  // Track visual viewport height with smooth transitions for keyboard
+  // Track keyboard open state via Telegram's viewportChanged (primary) + visualViewport (fallback)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tg = (window as any).Telegram?.WebApp;
     const vv = window.visualViewport;
-    if (!vv) return;
-    
+
     const handleViewportChange = () => {
-      const newHeight = vv.height;
-      const windowHeight = window.innerHeight;
-      const heightDiff = windowHeight - newHeight;
-      
-      // Detect keyboard: significant height reduction (>150px)
-      const keyboardDetected = heightDiff > 150 && newHeight > 100;
-      
+      let newHeight: number;
+      let keyboardDetected: boolean;
+
+      if (tg?.viewportStableHeight && tg?.viewportHeight) {
+        newHeight = tg.viewportHeight;
+        keyboardDetected = tg.viewportStableHeight - tg.viewportHeight > 100;
+      } else if (vv) {
+        newHeight = vv.height;
+        keyboardDetected = window.innerHeight - vv.height > 150 && vv.height > 100;
+      } else {
+        return;
+      }
+
       setVisualViewportHeight(newHeight);
       setIsKeyboardVisible(keyboardDetected);
-      setKeyboardHeight(keyboardDetected ? heightDiff : 0);
-      
-      // Scroll active element into view when keyboard opens
-      if (keyboardDetected && inputRef.current) {
-        setTimeout(() => {
-          inputRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'end',
-            inline: 'nearest'
-          });
-        }, 100);
-      }
+      setKeyboardHeight(keyboardDetected ? window.innerHeight - newHeight : 0);
     };
-    
-    // Initial check
+
     handleViewportChange();
-    
-    vv.addEventListener("resize", handleViewportChange);
-    vv.addEventListener("scroll", handleViewportChange);
-    
+    vv?.addEventListener("resize", handleViewportChange);
+    tg?.onEvent("viewportChanged", handleViewportChange);
     return () => {
-      vv.removeEventListener("resize", handleViewportChange);
-      vv.removeEventListener("scroll", handleViewportChange);
+      vv?.removeEventListener("resize", handleViewportChange);
+      tg?.offEvent("viewportChanged", handleViewportChange);
     };
   }, []);
 
@@ -835,16 +829,19 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                     </div>
                   )}
 
+                  {/* Spacer: pushes keyboard form (or answer feedback) to the bottom */}
+                  {currentQuestion.mode === "keyboard" && (
+                    <div className="min-h-0 flex-1" />
+                  )}
+
                   {currentQuestion.mode === "keyboard" && !isAnswered && (
-                    <motion.div 
-                      initial={{ y: 20, opacity: 0 }}
+                    <motion.div
+                      initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-                      className="min-h-0 flex-1 rounded-2xl border border-border/60 bg-gradient-to-br from-background/95 to-background/90 p-4 shadow-lg shadow-black/5 backdrop-blur-xl"
-                      onClick={() => inputRef.current?.focus()}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="shrink-0 space-y-2.5 pb-1"
                     >
                       <form
-                        className="space-y-3"
                         onSubmit={(event) => {
                           event.preventDefault();
                           handleTypedSubmit();
@@ -854,28 +851,15 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                           <Input
                             ref={inputRef}
                             value={typedReference}
-                            onChange={(event) => {
-                              setTypedReference(event.target.value);
-                            }}
+                            onChange={(event) => setTypedReference(event.target.value)}
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter' && !event.shiftKey) {
+                              if (event.key === "Enter" && !event.shiftKey) {
                                 event.preventDefault();
-                                if (typedReference.trim().length > 0) {
-                                  handleTypedSubmit();
-                                }
+                                if (typedReference.trim().length > 0) handleTypedSubmit();
                               }
                             }}
-                            onFocus={() => {
-                              // Ensure proper scroll position when focused
-                              setTimeout(() => {
-                                inputRef.current?.scrollIntoView({ 
-                                  behavior: 'smooth', 
-                                  block: 'nearest'
-                                });
-                              }, 100);
-                            }}
                             placeholder="Например: Иоанна 3:16"
-                            className="h-12 rounded-xl border-border/50 bg-background/80 pr-24 text-base shadow-inner transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                            className="h-12 rounded-xl border-border/50 bg-background/60 pr-24 text-base transition-colors focus:border-primary/40"
                             autoCapitalize="none"
                             autoCorrect="off"
                             spellCheck={false}
@@ -886,29 +870,28 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                             <Button
                               type="submit"
                               size="sm"
-                              className="h-8 rounded-lg px-4 text-xs font-medium shadow-sm transition-all active:scale-95"
+                              className="h-8 rounded-lg px-4 text-xs font-medium active:scale-95"
                               disabled={typedReference.trim().length === 0}
                             >
-                              {typingAttempts === 0 ? 'Проверить' : 'Ещё раз'}
+                              {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
                             </Button>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+
+                        <div className="mt-2 flex items-center justify-between px-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary tabular-nums">
                               {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               из {MAX_TYPING_ATTEMPTS} попыток
                             </span>
                           </div>
-                          
                           {typingAttempts > 0 && (
-                            <motion.p 
-                              initial={{ opacity: 0, x: -10 }}
+                            <motion.p
+                              initial={{ opacity: 0, x: 8 }}
                               animate={{ opacity: 1, x: 0 }}
-                              className="text-xs text-primary/80 font-medium"
+                              className="text-xs font-medium text-primary/80"
                             >
                               {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
                             </motion.p>
