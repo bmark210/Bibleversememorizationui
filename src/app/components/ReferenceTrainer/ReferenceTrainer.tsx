@@ -760,7 +760,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                     </p>
                   </div>
 
-                  {/* {currentQuestion.mode !== "keyboard" && (
+                  {currentQuestion.mode !== "keyboard" && (
                     <div
                       ref={answersViewportRef}
                       className="min-h-0 flex-1 overflow-auto pr-0.5"
@@ -825,7 +825,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                         </div>
                       )}
                     </div>
-                  )} */}
+                  )}
 
                   {/* Spacer: pushes keyboard form (or answer feedback) to the bottom */}
                   {/* {currentQuestion.mode === "keyboard" && (
