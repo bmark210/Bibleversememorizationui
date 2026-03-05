@@ -16,6 +16,7 @@ type Props = {
   modeId: ModeId;
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
   onSwipeStep: (step: 1 | -1) => void;
+  onTrainingInteractionStart?: () => void;
   onRate: (rating: Rating) => void | Promise<void>;
   onQuickForget: () => void;
   quickForgetLabel: string;
@@ -55,6 +56,7 @@ export const TrainingCard = memo(function TrainingCard({
   modeId,
   rendererRef,
   onSwipeStep,
+  onTrainingInteractionStart,
   onRate,
   onQuickForget,
   quickForgetLabel,
@@ -171,7 +173,12 @@ export const TrainingCard = memo(function TrainingCard({
           </div>
         } 
         body={
-          <div className="relative h-full">
+          <div
+            className="relative h-full"
+            onClickCapture={onTrainingInteractionStart}
+            onInputCapture={onTrainingInteractionStart}
+            onKeyDownCapture={onTrainingInteractionStart}
+          >
             <TrainingModeRenderer
               ref={rendererRef as RefObject<TrainingModeRendererHandle>}
               renderer={renderer}

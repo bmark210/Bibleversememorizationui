@@ -161,6 +161,10 @@ export function VerseGallery({
   const previewTouchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(null);
 
   const [mounted, setMounted] = useState(false);
+  const [hasTrainingInteractionStarted, setHasTrainingInteractionStarted] =
+    useState(false);
+  const [pendingTrainingNavigationStep, setPendingTrainingNavigationStep] =
+    useState<1 | -1 | null>(null);
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
@@ -282,13 +286,65 @@ export function VerseGallery({
     aux.setDeleteDialogOpen(false);
   }, [previewActiveVerse, aux, onDelete, verses.length, nav, onClose]);
 
+  const requestTrainingNavigationStep = useCallback(
+    (step: 1 | -1) => {
+      if (training.panelMode !== "training") return;
+      if (training.isAutoStartingTraining || aux.actionPending) return;
+      if (
+        aux.deleteDialogOpen ||
+        aux.trainingMilestonePopup !== null ||
+        training.quickForgetConfirmStage !== null
+      ) {
+        return;
+      }
+      if (!hasTrainingInteractionStarted) {
+        training.handleTrainingNavigationStep(step);
+        return;
+      }
+      setPendingTrainingNavigationStep(step);
+    },
+    [
+      aux.actionPending,
+      aux.deleteDialogOpen,
+      hasTrainingInteractionStarted,
+      aux.trainingMilestonePopup,
+      training.handleTrainingNavigationStep,
+      training.isAutoStartingTraining,
+      training.panelMode,
+      training.quickForgetConfirmStage,
+    ]
+  );
+
+  const markTrainingInteractionStarted = useCallback(() => {
+    if (training.panelMode !== "training" || training.isAutoStartingTraining) return;
+    setHasTrainingInteractionStarted(true);
+  }, [training.isAutoStartingTraining, training.panelMode]);
+
+  const confirmTrainingNavigationStep = useCallback(() => {
+    if (pendingTrainingNavigationStep === null) return;
+    const step = pendingTrainingNavigationStep;
+    setPendingTrainingNavigationStep(null);
+    training.handleTrainingNavigationStep(step);
+  }, [pendingTrainingNavigationStep, training.handleTrainingNavigationStep]);
+
+  const cancelTrainingNavigationStep = useCallback(() => {
+    setPendingTrainingNavigationStep(null);
+  }, []);
+
+  useEffect(() => {
+    if (training.panelMode === "training") return;
+    setHasTrainingInteractionStarted(false);
+    setPendingTrainingNavigationStep(null);
+  }, [training.panelMode]);
+
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (
         aux.deleteDialogOpen ||
         aux.trainingMilestonePopup !== null ||
-        training.quickForgetConfirmStage !== null
+        training.quickForgetConfirmStage !== null ||
+        pendingTrainingNavigationStep !== null
       ) {
         return;
       }
@@ -319,6 +375,7 @@ export function VerseGallery({
   }, [
     aux.deleteDialogOpen,
     aux.trainingMilestonePopup,
+    pendingTrainingNavigationStep,
     closeTrainingGoesToPreview,
     nav,
     onClose,
@@ -591,8 +648,12 @@ export function VerseGallery({
                   trainingVerse={training.trainingActiveVerse}
                   modeId={training.trainingModeId}
                   rendererRef={training.trainingRendererRef}
-                  onSwipeStep={training.handleTrainingNavigationStep}
-                  onRate={training.handleTrainingRate}
+                  onSwipeStep={requestTrainingNavigationStep}
+                  onTrainingInteractionStart={markTrainingInteractionStarted}
+                  onRate={(rating) => {
+                    setHasTrainingInteractionStarted(true);
+                    return training.handleTrainingRate(rating);
+                  }}
                   onQuickForget={training.requestQuickForget}
                   quickForgetLabel={training.quickForgetLabel}
                   quickForgetDisabled={aux.actionPending}
@@ -780,6 +841,30 @@ export function VerseGallery({
               onClick={training.confirmQuickForget}
             >
               Подтвердить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingTrainingNavigationStep !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelTrainingNavigationStep();
+        }}
+      >
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Перейти к другому стиху?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Если перейти сейчас, прогресс текущего упражнения не сохранится.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/70" onClick={cancelTrainingNavigationStep}>
+              Остаться
+            </AlertDialogCancel>
+            <AlertDialogAction className="rounded-full border border-border/60 bg-primary/60 text-background" onClick={confirmTrainingNavigationStep}>
+              Перейти
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
