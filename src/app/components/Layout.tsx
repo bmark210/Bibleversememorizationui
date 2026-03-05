@@ -25,8 +25,19 @@ export function Layout({
   const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const check = () => setIsKeyboardOpen(window.innerHeight - vv.height > 150);
+    check();
+    vv.addEventListener("resize", check);
+    return () => vv.removeEventListener("resize", check);
+  }, []);
 
   // Отладка safe area
   useEffect(() => {
@@ -221,10 +232,10 @@ export function Layout({
         </aside>
 
         {/* Main Content */}
-        <main 
+        <main
           className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
-          style={{ 
-            paddingBottom: `calc(82px + ${bottomInset}px)` 
+          style={{
+            paddingBottom: isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
           }}
         >
           {children}
@@ -232,9 +243,13 @@ export function Layout({
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div 
-        className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-400 ease-out ${
-          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+      <div
+        className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-300 ease-out ${
+          !isContentReady
+            ? 'opacity-0 translate-y-3 pointer-events-none'
+            : isKeyboardOpen
+              ? 'opacity-0 translate-y-full pointer-events-none'
+              : 'opacity-100 translate-y-0'
         }`}
         style={{ paddingBottom: `${bottomInset}px` }}
       >

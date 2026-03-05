@@ -455,8 +455,8 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       ? visualViewportHeight 
       : viewportHeight;
     
-    // Reserve space for header, progress, and padding
-    const reservedSpace = isKeyboardVisible ? 180 : 210;
+    // Reserve space for header + padding only (nav is hidden when keyboard is open)
+    const reservedSpace = isKeyboardVisible ? 90 : 210;
     
     return Math.max(200, availableHeight - reservedSpace);
   }, [viewportHeight, visualViewportHeight, isKeyboardVisible]);
@@ -636,37 +636,15 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     };
   }, []);
 
-  // Auto-focus input when a keyboard question appears - with Telegram optimization
+  // Auto-focus input when a keyboard question appears
+  // Two staggered attempts: one after animation (50ms) and one as safety net (250ms)
   useEffect(() => {
     if (!isKeyboardMode || isAnswered) return;
-    
-    let attempts = 0;
-    const maxAttempts = 5;
-    
-    const tryFocus = () => {
-      if (inputRef.current && attempts < maxAttempts) {
-        attempts++;
-        inputRef.current.focus();
-        
-        // Ensure cursor at end
-        const len = inputRef.current.value.length;
-        inputRef.current.setSelectionRange(len, len);
-        
-        // If not focused, try again
-        if (document.activeElement !== inputRef.current && attempts < maxAttempts) {
-          setTimeout(tryFocus, 100 * attempts);
-        }
-      }
-    };
-    
-    // Progressive focus attempts for Telegram
-    const timeouts: NodeJS.Timeout[] = [];
-    timeouts.push(setTimeout(tryFocus, 50));
-    timeouts.push(setTimeout(tryFocus, 150));
-    timeouts.push(setTimeout(tryFocus, 300));
-    
+    const t1 = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
+    const t2 = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 250);
     return () => {
-      timeouts.forEach(clearTimeout);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
     };
   }, [currentQuestion?.id, isAnswered, isKeyboardMode]);
 
@@ -903,7 +881,6 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                             spellCheck={false}
                             inputMode="text"
                             enterKeyHint="done"
-                            autoFocus={isKeyboardMode}
                           />
                           <div className="absolute right-2 top-1/2 -translate-y-1/2">
                             <Button
