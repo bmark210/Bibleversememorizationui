@@ -23,6 +23,10 @@ import {
   type DashboardLeaderboard,
 } from "@/api/services/leaderboard";
 import {
+  fetchDashboardFriendsActivity,
+  type DashboardFriendsActivity,
+} from "@/api/services/friends";
+import {
   fetchUserDashboardStats,
   type UserDashboardStats,
 } from "@/api/services/userStats";
@@ -309,6 +313,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
   const [dashboardLeaderboard, setDashboardLeaderboard] = useState<DashboardLeaderboard | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
+  const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
+  const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
   const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
@@ -345,6 +351,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
+  const dashboardFriendsActivityRequestIdRef = useRef(0);
   const dashboardTrainingStartWithRef = useRef(0);
   const dashboardTrainingTotalCountRef = useRef(0);
   const dashboardTrainingHasMoreRef = useRef(false);
@@ -430,6 +437,33 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
+  const loadDashboardFriendsActivity = async (telegramIdValue: string) => {
+    if (!telegramIdValue) return null;
+
+    const requestId = ++dashboardFriendsActivityRequestIdRef.current;
+    setIsDashboardFriendsActivityLoading(true);
+
+    try {
+      const nextFriendsActivity = await fetchDashboardFriendsActivity(telegramIdValue, {
+        limit: 6,
+      });
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        setDashboardFriendsActivity(nextFriendsActivity);
+      }
+      return nextFriendsActivity;
+    } catch (error) {
+      console.error("Не удалось получить активность друзей:", error);
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        setDashboardFriendsActivity(null);
+      }
+      return null;
+    } finally {
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        setIsDashboardFriendsActivityLoading(false);
+      }
+    }
+  };
+
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
     let isMounted = true;
@@ -463,6 +497,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         setIsLoading(false);
         setDashboardStats(null);
         setDashboardLeaderboard(null);
+        setDashboardFriendsActivity(null);
         finishBootstrapping();
         return;
       }
@@ -506,6 +541,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             loadTrainingVersesForDashboard(telegramId),
             loadDashboardStats(telegramId),
             loadDashboardLeaderboard(telegramId),
+            loadDashboardFriendsActivity(telegramId),
           ]);
         } catch (err) {
           console.error("Не удалось получить данные дашборда:", err);
@@ -538,6 +574,13 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardGalleryVerses([]);
     setDashboardGalleryLaunchMode("preview");
   };
+
+  useEffect(() => {
+    if (currentPage !== "dashboard") return;
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) return;
+    void loadDashboardFriendsActivity(telegramIdValue);
+  }, [currentPage, telegramId]);
 
   useEffect(() => {
     if (currentPage === "references" && !canAccessReferenceTrainer) {
@@ -770,6 +813,12 @@ export default function App({ onInitialContentReady }: AppProps) {
     void loadDashboardLeaderboard(telegramId);
   };
 
+  const handleFriendsChanged = () => {
+    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
+    if (!telegramIdValue) return;
+    void loadDashboardFriendsActivity(telegramIdValue);
+  };
+
   const handleVerseAdded = async (verse: {
     externalVerseId: string;
     reference: string;
@@ -882,6 +931,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardStatsLoading={isDashboardStatsLoading}
                 dashboardLeaderboard={dashboardLeaderboard}
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
+                dashboardFriendsActivity={dashboardFriendsActivity}
+                isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                 onStartTraining={handleStartTraining}
                 onAddVerse={handleAddVerse}
                 onViewAll={() => setCurrentPage("verses")}
@@ -917,6 +968,8 @@ export default function App({ onInitialContentReady }: AppProps) {
             <Profile
               theme={theme}
               onToggleTheme={handleToggleTheme}
+              telegramId={telegramId}
+              onFriendsChanged={handleFriendsChanged}
             />
           )}
         </Layout>

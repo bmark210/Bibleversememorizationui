@@ -13,6 +13,10 @@
       "description": "Работа с пользователями"
     },
     {
+      "name": "Friends",
+      "description": "Подписки и активность друзей"
+    },
+    {
       "name": "User Verses",
       "description": "Прогресс запоминания стихов"
     },
@@ -138,6 +142,264 @@
           },
           "404": {
             "description": "Не найден"
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/players": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Список игроков для поиска друзей",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "startWith",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendPlayersPageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/friends": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Список друзей (подписок пользователя)",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "startWith",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendPlayersPageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Добавить пользователя в друзья (подписка)",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "targetTelegramId"
+                ],
+                "properties": {
+                  "targetTelegramId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendsMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/friends/{friendTelegramId}": {
+      "delete": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Удалить пользователя из друзей",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "friendTelegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendsMutationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/friends/activity": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Последняя активность друзей для дашборда",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardFriendsActivityResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
           }
         }
       }
@@ -1180,6 +1442,197 @@
               {
                 "$ref": "#/components/schemas/UserLeaderboardCurrentUser"
               }
+            ]
+          }
+        }
+      },
+      "FriendPlayerListItem": {
+        "type": "object",
+        "required": [
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "isFriend",
+          "lastActiveAt",
+          "weeklyRepetitions",
+          "dailyStreak",
+          "averageProgressPercent"
+        ],
+        "properties": {
+          "telegramId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "isFriend": {
+            "type": "boolean"
+          },
+          "lastActiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "weeklyRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dailyStreak": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageProgressPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "FriendPlayersPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "totalCount",
+          "limit",
+          "startWith"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendPlayerListItem"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "startWith": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "DashboardFriendActivityEntry": {
+        "type": "object",
+        "required": [
+          "telegramId",
+          "name",
+          "avatarUrl",
+          "lastActiveAt",
+          "weeklyRepetitions",
+          "dailyStreak",
+          "averageProgressPercent"
+        ],
+        "properties": {
+          "telegramId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastActiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "weeklyRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dailyStreak": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "averageProgressPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "DashboardFriendsActivitySummary": {
+        "type": "object",
+        "required": [
+          "friendsTotal",
+          "activeLast7Days",
+          "avgWeeklyRepetitions",
+          "avgStreakDays",
+          "avgProgressPercent"
+        ],
+        "properties": {
+          "friendsTotal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activeLast7Days": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "avgWeeklyRepetitions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "avgStreakDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "avgProgressPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "DashboardFriendsActivityResponse": {
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "summary",
+          "entries"
+        ],
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DashboardFriendsActivitySummary"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardFriendActivityEntry"
+            }
+          }
+        }
+      },
+      "FriendsMutationResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "already-following",
+              "removed",
+              "not-following"
             ]
           }
         }

@@ -7,14 +7,15 @@ import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants'
+import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
 import { Button } from './ui/button'
 import {
+  DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from './dashboard/DashboardSections'
-import { normalizeRawMasteryLevel } from '@/shared/training/modeEngine'
 
 interface DashboardProps {
   todayVerses: Array<Verse>
@@ -22,6 +23,8 @@ interface DashboardProps {
   isDashboardStatsLoading?: boolean
   dashboardLeaderboard?: DashboardLeaderboardData | null
   isDashboardLeaderboardLoading?: boolean
+  dashboardFriendsActivity?: DashboardFriendsActivityData | null
+  isDashboardFriendsActivityLoading?: boolean
   onStartTraining: () => void
   onAddVerse: () => void
   onViewAll: () => void
@@ -47,6 +50,8 @@ export function Dashboard({
   isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
+  dashboardFriendsActivity = null,
+  isDashboardFriendsActivityLoading = false,
   onStartTraining,
   onAddVerse: _onAddVerse,
   onViewAll: _onViewAll,
@@ -253,13 +258,21 @@ export function Dashboard({
               cardItemVariants={cardItemVariants}
               groupStaggerVariants={groupStaggerVariants}
             />
-            <DashboardLeaderboardCard
-              avgMasteryPercent={avgMasteryPercent}
-              leaderboard={dashboardLeaderboard}
-              isLeaderboardLoading={isDashboardLeaderboardLoading}
-              cardItemVariants={cardItemVariants}
-              groupStaggerVariants={groupStaggerVariants}
-            />
+            <div className="space-y-6">
+              <DashboardLeaderboardCard
+                avgMasteryPercent={avgMasteryPercent}
+                leaderboard={dashboardLeaderboard}
+                isLeaderboardLoading={isDashboardLeaderboardLoading}
+                cardItemVariants={cardItemVariants}
+                groupStaggerVariants={groupStaggerVariants}
+              />
+              <DashboardFriendsActivityCard
+                friendsActivity={dashboardFriendsActivity}
+                isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+                cardItemVariants={cardItemVariants}
+                groupStaggerVariants={groupStaggerVariants}
+              />
+            </div>
           </motion.div>
         </motion.div>
       </motion.div>

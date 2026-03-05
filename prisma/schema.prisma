@@ -33,6 +33,22 @@ model User {
   dailyStreak         Int @default(0)
 
   verses       UserVerse[]
+  following    UserFollow[] @relation("UserFollowing")
+  followers    UserFollow[] @relation("UserFollowers")
+}
+
+model UserFollow {
+  id                  String   @id @default(cuid())
+  followerTelegramId  String
+  followingTelegramId String
+  createdAt           DateTime @default(now())
+
+  follower  User @relation("UserFollowing", fields: [followerTelegramId], references: [telegramId], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingTelegramId], references: [telegramId], onDelete: Cascade)
+
+  @@unique([followerTelegramId, followingTelegramId])
+  @@index([followerTelegramId, createdAt])
+  @@index([followingTelegramId])
 }
 
 // Глобальный каталог стихов — один стих существует в системе один раз,
