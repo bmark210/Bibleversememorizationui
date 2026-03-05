@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, LayoutDashboard, Link2, User } from 'lucide-react';
+import { Anchor, BookOpen, LayoutDashboard, Link2, User } from 'lucide-react';
 import { useTelegram } from '../contexts/TelegramContext';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
@@ -197,7 +197,7 @@ export function Layout({
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     ...(showReferencesSection
-      ? [{ id: 'references', label: 'Опоры', icon: Link2 }]
+      ? [{ id: 'references', label: 'Якоря', icon: Anchor }]
       : []),
     { id: 'profile', label: 'Профиль', icon: User },
   ];

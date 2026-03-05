@@ -2,8 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeExternalVerseId } from "@/shared/bible/externalVerseId";
 
-type SessionTrack = "reference" | "incipit" | "mixed";
-type SkillTrack = "reference" | "incipit";
+type SessionTrack = "reference" | "incipit" | "context" | "mixed";
+type SkillTrack = "reference" | "incipit" | "context";
 type SessionOutcome = "correct_first" | "correct_retry" | "wrong";
 
 type SessionUpdateInput = {
@@ -17,8 +17,13 @@ type SessionRequestBody = {
   updates: SessionUpdateInput[];
 };
 
-const SESSION_TRACKS = new Set<SessionTrack>(["reference", "incipit", "mixed"]);
-const SKILL_TRACKS = new Set<SkillTrack>(["reference", "incipit"]);
+const SESSION_TRACKS = new Set<SessionTrack>([
+  "reference",
+  "incipit",
+  "context",
+  "mixed",
+]);
+const SKILL_TRACKS = new Set<SkillTrack>(["reference", "incipit", "context"]);
 const OUTCOMES = new Set<SessionOutcome>(["correct_first", "correct_retry", "wrong"]);
 const OUTCOME_DELTA: Record<SessionOutcome, number> = {
   correct_first: 5,
@@ -48,7 +53,9 @@ function parseSessionBody(body: unknown): SessionRequestBody {
 
   const sessionTrackRaw = body.sessionTrack;
   if (typeof sessionTrackRaw !== "string" || !SESSION_TRACKS.has(sessionTrackRaw as SessionTrack)) {
-    throw new SessionValidationError("sessionTrack must be one of: reference, incipit, mixed");
+    throw new SessionValidationError(
+      "sessionTrack must be one of: reference, incipit, context, mixed"
+    );
   }
 
   const updatesRaw = body.updates;
@@ -69,7 +76,9 @@ function parseSessionBody(body: unknown): SessionRequestBody {
       throw new SessionValidationError(`updates[${index}].externalVerseId is required`);
     }
     if (typeof trackRaw !== "string" || !SKILL_TRACKS.has(trackRaw as SkillTrack)) {
-      throw new SessionValidationError(`updates[${index}].track must be one of: reference, incipit`);
+      throw new SessionValidationError(
+        `updates[${index}].track must be one of: reference, incipit, context`
+      );
     }
     if (typeof outcomeRaw !== "string" || !OUTCOMES.has(outcomeRaw as SessionOutcome)) {
       throw new SessionValidationError(`updates[${index}].outcome must be one of: correct_first, correct_retry, wrong`);
@@ -146,6 +155,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         verseId: true,
         referenceScore: true,
         incipitScore: true,
+        contextScore: true,
       },
     });
 
@@ -156,6 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         externalVerseId: string;
         referenceScore: number;
         incipitScore: number;
+        contextScore: number;
       }
     >();
 
@@ -167,6 +178,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         externalVerseId,
         referenceScore: clampSkillScore(row.referenceScore),
         incipitScore: clampSkillScore(row.incipitScore),
+        contextScore: clampSkillScore(row.contextScore),
       });
     }
 
@@ -191,8 +203,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (update.track === "reference") {
         row.referenceScore = clampSkillScore(row.referenceScore + delta);
-      } else {
+      } else if (update.track === "incipit") {
         row.incipitScore = clampSkillScore(row.incipitScore + delta);
+      } else {
+        row.contextScore = clampSkillScore(row.contextScore + delta);
       }
 
       if (!touchedSet.has(update.externalVerseId)) {
@@ -204,7 +218,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const touchedRows = touchedExternalIds
       .map((externalVerseId) => userVerseByExternalId.get(externalVerseId))
       .filter(
-        (row): row is { id: number; externalVerseId: string; referenceScore: number; incipitScore: number } =>
+        (
+          row
+        ): row is {
+          id: number;
+          externalVerseId: string;
+          referenceScore: number;
+          incipitScore: number;
+          contextScore: number;
+        } =>
           row !== undefined
       );
 
@@ -215,6 +237,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data: {
             referenceScore: row.referenceScore,
             incipitScore: row.incipitScore,
+            contextScore: row.contextScore,
           },
         })
       )
@@ -225,6 +248,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         externalVerseId: row.externalVerseId,
         referenceScore: row.referenceScore,
         incipitScore: row.incipitScore,
+        contextScore: row.contextScore,
       })),
     });
   } catch (error) {

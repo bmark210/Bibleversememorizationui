@@ -49,6 +49,10 @@ type ComputedParticipant = {
 const DEFAULT_LIMIT = 6;
 const MAX_LIMIT = 25;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const RATING_PROGRESS_WEIGHT = 0.4;
+const RATING_SKILLS_WEIGHT = 0.3;
+const RATING_STREAK_WEIGHT = 0.2;
+const RATING_WEEKLY_WEIGHT = 0.1;
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -100,18 +104,39 @@ function toProgressPercent(masteryLevel: number, repetitions: number) {
   );
 }
 
+function normalizeSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function toSkillsPercent(
+  referenceScore: number | null | undefined,
+  incipitScore: number | null | undefined,
+  contextScore: number | null | undefined
+): number {
+  return clampPercent(
+    (normalizeSkillScore(referenceScore) +
+      normalizeSkillScore(incipitScore) +
+      normalizeSkillScore(contextScore)) /
+      3
+  );
+}
+
 function computeLeaderboardScore(params: {
   averageProgressPercent: number;
+  averageSkillsPercent: number;
   streakDays: number;
   weeklyRepetitions: number;
 }): number {
-  const streakScore = Math.min(100, params.streakDays * 4);
-  const weeklyScore = Math.min(100, params.weeklyRepetitions * 12);
-  const rawScore =
-    params.averageProgressPercent * 0.65 +
-    streakScore * 0.2 +
-    weeklyScore * 0.15;
-  return clampPercent(rawScore);
+  const streakScore = Math.min(100, Math.max(0, params.streakDays) * 5);
+  const weeklyScore = Math.min(100, Math.max(0, params.weeklyRepetitions) * 10);
+
+  return clampPercent(
+    params.averageProgressPercent * RATING_PROGRESS_WEIGHT +
+      params.averageSkillsPercent * RATING_SKILLS_WEIGHT +
+      streakScore * RATING_STREAK_WEIGHT +
+      weeklyScore * RATING_WEEKLY_WEIGHT
+  );
 }
 
 export default async function handler(
@@ -130,11 +155,6 @@ export default async function handler(
 
     const [users, userVerses] = await Promise.all([
       prisma.user.findMany({
-        where: {
-          NOT: {
-            telegramId: "891739957"
-          }
-        },
         select: {
           telegramId: true,
           name: true,
@@ -149,6 +169,9 @@ export default async function handler(
           status: true,
           masteryLevel: true,
           repetitions: true,
+          referenceScore: true,
+          incipitScore: true,
+          contextScore: true,
           lastReviewedAt: true,
         },
       }),
@@ -160,6 +183,9 @@ export default async function handler(
         status: VerseStatus;
         masteryLevel: number;
         repetitions: number;
+        referenceScore: number;
+        incipitScore: number;
+        contextScore: number;
         lastReviewedAt: Date | null;
       }>
     >();
@@ -173,6 +199,7 @@ export default async function handler(
     const participants: ComputedParticipant[] = users.map((user) => {
       const verses = versesByTelegramId.get(user.telegramId) ?? [];
       let progressSum = 0;
+      let skillsSum = 0;
       let progressCount = 0;
       let weeklyRepetitions = 0;
       let latestReviewedAt: Date | null = null;
@@ -192,6 +219,11 @@ export default async function handler(
           displayStatus === "MASTERED"
         ) {
           progressSum += toProgressPercent(masteryLevel, repetitions);
+          skillsSum += toSkillsPercent(
+            verse.referenceScore,
+            verse.incipitScore,
+            verse.contextScore
+          );
           progressCount += 1;
 
           const reviewedAt = verse.lastReviewedAt?.getTime() ?? Number.NaN;
@@ -214,8 +246,11 @@ export default async function handler(
       });
       const averageProgressPercent =
         progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
+      const averageSkillsPercent =
+        progressCount > 0 ? clampPercent(skillsSum / progressCount) : 0;
       const score = computeLeaderboardScore({
         averageProgressPercent,
+        averageSkillsPercent,
         streakDays,
         weeklyRepetitions,
       });

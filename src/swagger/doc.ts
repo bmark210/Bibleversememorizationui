@@ -64,7 +64,7 @@ const swaggerDoc = {
     "/api/users/{telegramId}/stats": {
       get: {
         tags: ["Users"],
-        summary: "Персональная статистика пользователя для дашборда",
+        summary: "Персональная статистика пользователя для дашборда (включая композитный рейтинг)",
         parameters: [{ name: "telegramId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           200: { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/UserDashboardStats" } } } },
@@ -175,7 +175,7 @@ const swaggerDoc = {
     "/api/users/{telegramId}/friends/activity": {
       get: {
         tags: ["Friends"],
-        summary: "Последняя активность друзей для дашборда",
+        summary: "Последняя активность друзей для дашборда (с композитным рейтингом)",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
           { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 50 } },
@@ -196,7 +196,7 @@ const swaggerDoc = {
     "/api/users/leaderboard": {
       get: {
         tags: ["Users"],
-        summary: "Таблица лидеров для главной страницы",
+        summary: "Таблица лидеров для главной страницы (рейтинг: прогресс + навыки + регулярность)",
         parameters: [
           { name: "telegramId", in: "query", required: false, schema: { type: "string" } },
           { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 25 } },
@@ -376,7 +376,7 @@ const swaggerDoc = {
     "/api/users/{telegramId}/verses/reference-trainer": {
       get: {
         tags: ["User Verses"],
-        summary: "Пул стихов для раздела «Опоры»",
+        summary: "Пул стихов для раздела «Якоря»",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
         ],
@@ -395,7 +395,7 @@ const swaggerDoc = {
     "/api/users/{telegramId}/verses/reference-trainer/session": {
       post: {
         tags: ["User Verses"],
-        summary: "Сохранить skill-score по итогам сессии раздела «Опоры»",
+        summary: "Сохранить skill-score по итогам сессии раздела «Якоря»",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
         ],
@@ -409,7 +409,7 @@ const swaggerDoc = {
                 properties: {
                   sessionTrack: {
                     type: "string",
-                    enum: ["reference", "incipit", "mixed"],
+                    enum: ["reference", "incipit", "context", "mixed"],
                   },
                   updates: {
                     type: "array",
@@ -420,7 +420,7 @@ const swaggerDoc = {
                         externalVerseId: externalVerseIdSchema,
                         track: {
                           type: "string",
-                          enum: ["reference", "incipit"],
+                          enum: ["reference", "incipit", "context"],
                         },
                         outcome: {
                           type: "string",
@@ -447,11 +447,17 @@ const swaggerDoc = {
                       type: "array",
                       items: {
                         type: "object",
-                        required: ["externalVerseId", "referenceScore", "incipitScore"],
+                        required: [
+                          "externalVerseId",
+                          "referenceScore",
+                          "incipitScore",
+                          "contextScore",
+                        ],
                         properties: {
                           externalVerseId: externalVerseIdSchema,
                           referenceScore: { type: "integer", minimum: 0, maximum: 100 },
                           incipitScore: { type: "integer", minimum: 0, maximum: 100 },
+                          contextScore: { type: "integer", minimum: 0, maximum: 100 },
                         },
                       },
                     },
@@ -700,6 +706,7 @@ const swaggerDoc = {
           "repetitions",
           "referenceScore",
           "incipitScore",
+          "contextScore",
           "lastReviewedAt",
           "nextReviewAt",
         ],
@@ -713,6 +720,7 @@ const swaggerDoc = {
           repetitions: { type: "integer" },
           referenceScore: { type: "integer", minimum: 0, maximum: 100 },
           incipitScore: { type: "integer", minimum: 0, maximum: 100 },
+          contextScore: { type: "integer", minimum: 0, maximum: 100 },
           lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
           lastReviewedAt: { type: "string", format: "date-time", nullable: true },
           nextReviewAt: { type: "string", format: "date-time", nullable: true },
@@ -735,6 +743,8 @@ const swaggerDoc = {
           popularityValue: { type: "integer", minimum: 0 },
           text: { type: "string" },
           reference: { type: "string" },
+          contextPromptText: { type: "string" },
+          contextPromptReference: { type: "string" },
         },
       },
       UserVersesPageResponse: {
@@ -781,7 +791,12 @@ const swaggerDoc = {
           stoppedVerses: { type: "integer", minimum: 0 },
           dueReviewVerses: { type: "integer", minimum: 0 },
           totalRepetitions: { type: "integer", minimum: 0 },
-          averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
+          averageProgressPercent: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Композитный рейтинг пользователя (прогресс + навыки + регулярность).",
+          },
           bestVerseReference: { type: "string", nullable: true },
           dailyStreak: { type: "integer", minimum: 0 },
         },
@@ -803,7 +818,12 @@ const swaggerDoc = {
           telegramId: { type: "string" },
           name: { type: "string" },
           avatarUrl: { type: "string", nullable: true },
-          score: { type: "integer", minimum: 0, maximum: 100 },
+          score: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Композитный рейтинг участника (прогресс + навыки + регулярность).",
+          },
           streakDays: { type: "integer", minimum: 0 },
           weeklyRepetitions: { type: "integer", minimum: 0 },
           isCurrentUser: { type: "boolean" },
@@ -825,7 +845,12 @@ const swaggerDoc = {
           name: { type: "string" },
           avatarUrl: { type: "string", nullable: true },
           rank: { type: "integer", minimum: 1, nullable: true },
-          score: { type: "integer", minimum: 0, maximum: 100 },
+          score: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Композитный рейтинг пользователя (прогресс + навыки + регулярность).",
+          },
           streakDays: { type: "integer", minimum: 0 },
           weeklyRepetitions: { type: "integer", minimum: 0 },
         },
@@ -866,7 +891,12 @@ const swaggerDoc = {
           lastActiveAt: { type: "string", format: "date-time", nullable: true },
           weeklyRepetitions: { type: "integer", minimum: 0 },
           dailyStreak: { type: "integer", minimum: 0 },
-          averageProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
+          averageProgressPercent: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Композитный рейтинг друга (прогресс + навыки + регулярность).",
+          },
         },
       },
       FriendPlayersPageResponse: {
@@ -917,7 +947,12 @@ const swaggerDoc = {
           activeLast7Days: { type: "integer", minimum: 0 },
           avgWeeklyRepetitions: { type: "integer", minimum: 0 },
           avgStreakDays: { type: "integer", minimum: 0 },
-          avgProgressPercent: { type: "integer", minimum: 0, maximum: 100 },
+          avgProgressPercent: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description: "Средний композитный рейтинг по друзьям.",
+          },
         },
       },
       DashboardFriendsActivityResponse: {
@@ -977,4 +1012,3 @@ const swaggerDoc = {
 } as const;
 
 export default swaggerDoc;
-

@@ -151,7 +151,7 @@ export function DashboardWelcomeSection({
 }
 
 type DashboardTrainingStatsCardProps = {
-  avgMasteryPercent: number;
+  avgRatingPercent: number;
   todayVersesCount: number;
   statsCards: ReadonlyArray<StatsCardItem>;
   cardItemVariants: Variants;
@@ -159,7 +159,7 @@ type DashboardTrainingStatsCardProps = {
 };
 
 export function DashboardTrainingStatsCard({
-  avgMasteryPercent,
+  avgRatingPercent,
   todayVersesCount,
   statsCards,
   cardItemVariants,
@@ -246,7 +246,7 @@ export function DashboardTrainingStatsCard({
 }
 
 type DashboardLeaderboardCardProps = {
-  avgMasteryPercent: number;
+  avgRatingPercent: number;
   leaderboard?: DashboardLeaderboardData | null;
   isLeaderboardLoading?: boolean;
   cardItemVariants: Variants;
@@ -254,7 +254,7 @@ type DashboardLeaderboardCardProps = {
 };
 
 export function DashboardLeaderboardCard({
-  avgMasteryPercent,
+  avgRatingPercent,
   leaderboard = null,
   isLeaderboardLoading = false,
   cardItemVariants,
@@ -276,7 +276,7 @@ export function DashboardLeaderboardCard({
 
   const footerScore = currentUser
     ? `${currentUser.score}%`
-    : `${Math.max(0, Math.min(100, avgMasteryPercent))}%`;
+    : `${Math.max(0, Math.min(100, avgRatingPercent))}%`;
 
   return (
     <motion.div variants={cardItemVariants}>
@@ -285,7 +285,7 @@ export function DashboardLeaderboardCard({
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-primary">Лучшие игроки</h2>
             <p className="text-sm text-foreground/75 mt-1">
-              По точности и регулярности тренировок.
+              По прогрессу, качеству навыков и регулярности тренировок.
             </p>
           </div>
           <div className="flex items-center gap-2 mb-2">
@@ -473,7 +473,7 @@ export function DashboardFriendsActivityCard({
           >
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Activity className="h-3.5 w-3.5" />
-              Ср. прогресс
+              Ср. рейтинг
             </div>
             <div className="mt-1 text-lg font-semibold text-primary">
               {summary.avgProgressPercent}%

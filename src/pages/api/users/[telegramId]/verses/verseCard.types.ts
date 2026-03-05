@@ -29,6 +29,7 @@ export interface VerseCardDto {
   repetitions: number;
   referenceScore: number;
   incipitScore: number;
+  contextScore: number;
   lastReviewedAt: string | null;
   nextReviewAt: string | null;
   lastTrainingModeId: number | null;
@@ -37,6 +38,8 @@ export interface VerseCardDto {
   popularityValue?: number;
   text?: string;
   reference?: string;
+  contextPromptText?: string;
+  contextPromptReference?: string;
 }
 
 export type UserVersesPageResponse = {
@@ -71,12 +74,15 @@ export type UserVerseWithLegacyNullableProgress = Omit<
   repetitions?: PrismaUserVerseWithVerse["repetitions"] | null;
   referenceScore?: PrismaUserVerseWithVerse["referenceScore"] | null;
   incipitScore?: PrismaUserVerseWithVerse["incipitScore"] | null;
+  contextScore?: PrismaUserVerseWithVerse["contextScore"] | null;
   lastTrainingModeId?: number | null;
 };
 
 export type EnrichedUserVerseSource = UserVerseWithLegacyNullableProgress & {
   text?: string;
   reference?: string;
+  contextPromptText?: string;
+  contextPromptReference?: string;
   tags?: VerseCardTagDto[];
   popularityScope?: VersePopularityScope;
   popularityValue?: number;
@@ -163,6 +169,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
     repetitions,
     referenceScore: normalizeSkillScore(verse.referenceScore),
     incipitScore: normalizeSkillScore(verse.incipitScore),
+    contextScore: normalizeSkillScore(verse.contextScore),
     lastTrainingModeId: typeof verse.lastTrainingModeId === "number" ? verse.lastTrainingModeId : null,
     lastReviewedAt: toIsoStringOrNull(verse.lastReviewedAt),
     nextReviewAt: toIsoStringOrNull(verse.nextReviewAt),
@@ -175,5 +182,11 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
       : {}),
     ...(typeof verse.text === "string" ? { text: verse.text } : {}),
     ...(typeof verse.reference === "string" ? { reference: verse.reference } : {}),
+    ...(typeof verse.contextPromptText === "string"
+      ? { contextPromptText: verse.contextPromptText }
+      : {}),
+    ...(typeof verse.contextPromptReference === "string"
+      ? { contextPromptReference: verse.contextPromptReference }
+      : {}),
   };
 }

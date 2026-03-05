@@ -14,6 +14,10 @@ const DEFAULT_ACTIVITY_LIMIT = 6;
 const MAX_LIMIT = 50;
 const MAX_SEARCH_LENGTH = 80;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const RATING_PROGRESS_WEIGHT = 0.4;
+const RATING_SKILLS_WEIGHT = 0.3;
+const RATING_STREAK_WEIGHT = 0.2;
+const RATING_WEEKLY_WEIGHT = 0.1;
 
 export type FriendListItemResponse = {
   telegramId: string;
@@ -67,6 +71,7 @@ type UserForFriendList = {
 
 type UserMetricAggregate = {
   progressSum: number;
+  skillsSum: number;
   progressCount: number;
   weeklyRepetitions: number;
   latestReviewedAt: Date | null;
@@ -99,6 +104,44 @@ function toProgressPercent(masteryLevel: number, repetitions: number) {
   );
   return clampPercent(
     (totalProgressPoints / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
+  );
+}
+
+function normalizeSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function toSkillsPercent(
+  referenceScore: number | null | undefined,
+  incipitScore: number | null | undefined,
+  contextScore: number | null | undefined
+): number {
+  return clampPercent(
+    (normalizeSkillScore(referenceScore) +
+      normalizeSkillScore(incipitScore) +
+      normalizeSkillScore(contextScore)) /
+      3
+  );
+}
+
+function computeRatingPercent(params: {
+  averageProgressPercent: number;
+  averageSkillsPercent: number;
+  streakDays: number;
+  weeklyRepetitions: number;
+}): number {
+  const streakPercent = Math.min(100, Math.max(0, params.streakDays) * 5);
+  const weeklyActivityPercent = Math.min(
+    100,
+    Math.max(0, params.weeklyRepetitions) * 10
+  );
+
+  return clampPercent(
+    params.averageProgressPercent * RATING_PROGRESS_WEIGHT +
+      params.averageSkillsPercent * RATING_SKILLS_WEIGHT +
+      streakPercent * RATING_STREAK_WEIGHT +
+      weeklyActivityPercent * RATING_WEEKLY_WEIGHT
   );
 }
 
@@ -214,6 +257,7 @@ export async function buildFriendMetricsMap(
   for (const user of users) {
     metrics.set(user.telegramId, {
       progressSum: 0,
+      skillsSum: 0,
       progressCount: 0,
       weeklyRepetitions: 0,
       latestReviewedAt: null,
@@ -233,6 +277,9 @@ export async function buildFriendMetricsMap(
         status: true,
         masteryLevel: true,
         repetitions: true,
+        referenceScore: true,
+        incipitScore: true,
+        contextScore: true,
         lastReviewedAt: true,
       },
     });
@@ -255,6 +302,11 @@ export async function buildFriendMetricsMap(
 
       if (isProgressStatus) {
         aggregate.progressSum += toProgressPercent(masteryLevel, repetitions);
+        aggregate.skillsSum += toSkillsPercent(
+          row.referenceScore,
+          row.incipitScore,
+          row.contextScore
+        );
         aggregate.progressCount += 1;
 
         const reviewedAtTime = row.lastReviewedAt?.getTime() ?? Number.NaN;
@@ -278,17 +330,30 @@ export async function buildFriendMetricsMap(
     const aggregate = metrics.get(user.telegramId);
     const latestReviewedAt = aggregate?.latestReviewedAt ?? null;
     const storedStreak = streakByTelegramId.get(user.telegramId) ?? 0;
+    const dailyStreak = computeActiveDailyStreak({
+      storedStreak,
+      latestReviewedAt,
+    });
+    const averageProgressPercent =
+      aggregate && aggregate.progressCount > 0
+        ? clampPercent(aggregate.progressSum / aggregate.progressCount)
+        : 0;
+    const averageSkillsPercent =
+      aggregate && aggregate.progressCount > 0
+        ? clampPercent(aggregate.skillsSum / aggregate.progressCount)
+        : 0;
+    const ratingPercent = computeRatingPercent({
+      averageProgressPercent,
+      averageSkillsPercent,
+      streakDays: dailyStreak,
+      weeklyRepetitions: aggregate?.weeklyRepetitions ?? 0,
+    });
+
     result.set(user.telegramId, {
       lastActiveAt: latestReviewedAt ? latestReviewedAt.toISOString() : null,
       weeklyRepetitions: aggregate?.weeklyRepetitions ?? 0,
-      dailyStreak: computeActiveDailyStreak({
-        storedStreak,
-        latestReviewedAt,
-      }),
-      averageProgressPercent:
-        aggregate && aggregate.progressCount > 0
-          ? clampPercent(aggregate.progressSum / aggregate.progressCount)
-          : 0,
+      dailyStreak,
+      averageProgressPercent: ratingPercent,
     });
   }
 
@@ -392,4 +457,3 @@ export function buildFriendsActivityResponse(params: {
     entries: limitedEntries,
   };
 }
-

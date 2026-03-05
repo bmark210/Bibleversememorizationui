@@ -1441,7 +1441,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
                       Админ: каталог стиха
                     </p>
                     {adminVerseSummaryLoading ? (
-                      <p className="text-xs text-muted-foreground">Проверяем связи стиха...</p>
+                      <p className="text-xs text-muted-foreground">Проверяем Якоря стиха...</p>
                     ) : adminVerseSummary ? (
                       <p className="text-xs text-muted-foreground">
                         Связей с пользователями: <span className="font-semibold text-foreground">{adminVerseSummary.userLinksCount}</span>

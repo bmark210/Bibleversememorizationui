@@ -78,7 +78,7 @@ export function Dashboard({
   const fallbackMasteredVerses = todayVerses.filter(
     (verse) => verse.status === 'MASTERED'
   ).length
-  const fallbackAvgMasteryPercent =
+  const fallbackAvgRatingPercent =
     todayVerses.length > 0
       ? clampPercent(
           todayVerses.reduce(
@@ -98,8 +98,8 @@ export function Dashboard({
       : best
   }, null)
 
-  const avgMasteryPercent =
-    dashboardStats?.averageProgressPercent ?? fallbackAvgMasteryPercent
+  const avgRatingPercent =
+    dashboardStats?.averageProgressPercent ?? fallbackAvgRatingPercent
   const totalRepetitions =
     dashboardStats?.totalRepetitions ?? fallbackTotalRepetitions
   const masteredVerses =
@@ -132,10 +132,10 @@ export function Dashboard({
     },
     {
       key: 'mastery',
-      label: 'Среднее освоение',
-      value: `${avgMasteryPercent}%`,
+      label: 'Средний рейтинг',
+      value: `${avgRatingPercent}%`,
       hint: bestVerseReference
-        ? `Лучший стих: ${bestVerseReference}`
+        ? `Баланс прогресса, навыков и регулярности. Лучший стих: ${bestVerseReference}`
         : isDashboardStatsLoading
           ? 'Загружаем вашу статистику...'
           : 'Добавьте стихи для старта',
@@ -252,7 +252,7 @@ export function Dashboard({
             variants={groupStaggerVariants}
           >
             <DashboardTrainingStatsCard
-              avgMasteryPercent={avgMasteryPercent}
+              avgRatingPercent={avgRatingPercent}
               todayVersesCount={todayVerses.length}
               statsCards={statsCards}
               cardItemVariants={cardItemVariants}
@@ -260,7 +260,7 @@ export function Dashboard({
             />
             <div className="space-y-6">
               <DashboardLeaderboardCard
-                avgMasteryPercent={avgMasteryPercent}
+                avgRatingPercent={avgRatingPercent}
                 leaderboard={dashboardLeaderboard}
                 isLeaderboardLoading={isDashboardLeaderboardLoading}
                 cardItemVariants={cardItemVariants}

@@ -800,7 +800,7 @@ export function VerseGallery({
 
           <AlertDialogFooter className="relative">
             <AlertDialogAction
-              className={`w-full rounded-full sm:w-auto ${milestoneTheme.statCardClassName} ${milestoneTheme.actionClassName} `}
+              className={`w-full rounded-full sm:w-auto text-sm font-medium text-foreground/90 border border-border/70 ${milestoneTheme.statCardClassName} `}
               onClick={aux.confirmTrainingMilestonePopup}
             >
               Понятно

@@ -12,6 +12,7 @@ export type UserVerse = {
     repetitions: number;
     referenceScore?: number;
     incipitScore?: number;
+    contextScore?: number;
     lastTrainingModeId?: number | null;
     lastReviewedAt: string | null;
     nextReviewAt: string | null;
@@ -24,6 +25,8 @@ export type UserVerse = {
     popularityValue?: number;
     text?: string;
     reference?: string;
+    contextPromptText?: string;
+    contextPromptReference?: string;
 };
 export namespace UserVerse {
     export enum status {

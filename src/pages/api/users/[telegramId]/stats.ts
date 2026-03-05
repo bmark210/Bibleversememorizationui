@@ -27,6 +27,12 @@ type UserDashboardStatsResponse = {
   dailyStreak: number;
 };
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const RATING_PROGRESS_WEIGHT = 0.4;
+const RATING_SKILLS_WEIGHT = 0.3;
+const RATING_STREAK_WEIGHT = 0.2;
+const RATING_WEEKLY_WEIGHT = 0.1;
+
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -38,6 +44,44 @@ function toProgressPercent(masteryLevel: number, repetitions: number) {
   );
   return clampPercent(
     (totalProgressPoints / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
+  );
+}
+
+function normalizeSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function toSkillsPercent(
+  referenceScore: number | null | undefined,
+  incipitScore: number | null | undefined,
+  contextScore: number | null | undefined
+): number {
+  return clampPercent(
+    (normalizeSkillScore(referenceScore) +
+      normalizeSkillScore(incipitScore) +
+      normalizeSkillScore(contextScore)) /
+      3
+  );
+}
+
+function computeRatingPercent(params: {
+  averageProgressPercent: number;
+  averageSkillsPercent: number;
+  streakDays: number;
+  weeklyRepetitions: number;
+}): number {
+  const streakPercent = Math.min(100, Math.max(0, params.streakDays) * 5);
+  const weeklyActivityPercent = Math.min(
+    100,
+    Math.max(0, params.weeklyRepetitions) * 10
+  );
+
+  return clampPercent(
+    params.averageProgressPercent * RATING_PROGRESS_WEIGHT +
+      params.averageSkillsPercent * RATING_SKILLS_WEIGHT +
+      streakPercent * RATING_STREAK_WEIGHT +
+      weeklyActivityPercent * RATING_WEEKLY_WEIGHT
   );
 }
 
@@ -77,6 +121,9 @@ export default async function handler(
         status: true,
         masteryLevel: true,
         repetitions: true,
+        referenceScore: true,
+        incipitScore: true,
+        contextScore: true,
         lastReviewedAt: true,
         nextReviewAt: true,
         verse: {
@@ -88,6 +135,7 @@ export default async function handler(
     });
 
     const now = Date.now();
+    const weeklyCutoff = now - WEEK_MS;
     let learningVerses = 0;
     let learningStatusVerses = 0;
     let reviewVerses = 0;
@@ -96,8 +144,11 @@ export default async function handler(
     let dueReviewVerses = 0;
     let totalRepetitions = 0;
     let progressSum = 0;
+    let skillsSum = 0;
     let progressCount = 0;
-    let bestProgressPercent = -1;
+    let weeklyRepetitions = 0;
+    let bestVerseQuality = -1;
+    let bestVerseExternalId: string | null = null;
     let bestVerseReference: string | null = null;
     let latestReviewedAt: Date | null = null;
 
@@ -133,19 +184,39 @@ export default async function handler(
         stoppedVerses += 1;
       }
 
-      totalRepetitions += repetitions;
-
       if (
         displayStatus === VerseStatus.LEARNING ||
         displayStatus === "REVIEW" ||
         displayStatus === "MASTERED"
       ) {
         const progressPercent = toProgressPercent(masteryLevel, repetitions);
-        progressSum += progressPercent;
-        progressCount += 1;
+        const skillsPercent = toSkillsPercent(
+          userVerse.referenceScore,
+          userVerse.incipitScore,
+          userVerse.contextScore
+        );
+        const verseQuality = clampPercent(
+          progressPercent * 0.5 + skillsPercent * 0.5
+        );
 
-        if (progressPercent > bestProgressPercent) {
-          bestProgressPercent = progressPercent;
+        progressSum += progressPercent;
+        skillsSum += skillsPercent;
+        progressCount += 1;
+        totalRepetitions += repetitions;
+
+        const reviewedAt = userVerse.lastReviewedAt?.getTime() ?? Number.NaN;
+        if (!Number.isNaN(reviewedAt) && reviewedAt >= weeklyCutoff) {
+          weeklyRepetitions += 1;
+        }
+
+        if (
+          verseQuality > bestVerseQuality ||
+          (verseQuality === bestVerseQuality &&
+            bestVerseExternalId != null &&
+            userVerse.verse.externalVerseId.localeCompare(bestVerseExternalId) < 0)
+        ) {
+          bestVerseQuality = verseQuality;
+          bestVerseExternalId = userVerse.verse.externalVerseId;
           bestVerseReference = formatVerseReference(
             userVerse.verse.externalVerseId
           );
@@ -153,11 +224,19 @@ export default async function handler(
       }
     }
 
-    const averageProgressPercent =
+    const averageProgressOnlyPercent =
       progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
+    const averageSkillsPercent =
+      progressCount > 0 ? clampPercent(skillsSum / progressCount) : 0;
     const dailyStreak = computeActiveDailyStreak({
       storedStreak: user.dailyStreak,
       latestReviewedAt,
+    });
+    const averageProgressPercent = computeRatingPercent({
+      averageProgressPercent: averageProgressOnlyPercent,
+      averageSkillsPercent,
+      streakDays: dailyStreak,
+      weeklyRepetitions,
     });
 
     return res.status(200).json({

@@ -14,6 +14,7 @@ import {
 } from "@/shared/bible/externalVerseId";
 import {
   computeDisplayStatus,
+  type DisplayStatus,
   mapUserVerseToVerseCardDto,
   type UserVerseWithLegacyNullableProgress,
   type UserVersesPageResponse,
@@ -105,7 +106,7 @@ const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
 const MAX_USER_VERSES_PAGE_LIMIT = 50;
 const MAX_USER_VERSES_SEARCH_LENGTH = 100;
 const MAX_USER_VERSES_TAG_FILTER_SIZE = 30;
-const DEFAULT_REFERENCE_TRAINER_LIMIT = 50;
+const DEFAULT_REFERENCE_TRAINER_LIMIT = 12;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -725,6 +726,178 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items;
 }
 
+type ReferenceTrainerDisplayStatus = Extract<
+  DisplayStatus,
+  "LEARNING" | "REVIEW" | "MASTERED"
+>;
+
+type ReferenceTrainerContextPrompt = {
+  text: string;
+  reference: string;
+};
+
+function resolveContextDistance(status: ReferenceTrainerDisplayStatus): number {
+  if (status === "MASTERED") return 3;
+  if (status === "REVIEW") return 2;
+  return 1;
+}
+
+function getMaxVerseNumber(chapterMap: Map<number, string>): number {
+  let max = 0;
+  for (const verseNumber of chapterMap.keys()) {
+    if (verseNumber > max) max = verseNumber;
+  }
+  return max;
+}
+
+function hasVerseText(chapterMap: Map<number, string>, verseNumber: number): boolean {
+  const text = chapterMap.get(verseNumber);
+  return typeof text === "string" && text.trim().length > 0;
+}
+
+function findNearestAvailableVerse(params: {
+  chapterMap: Map<number, string>;
+  startVerse: number;
+  step: -1 | 1;
+}): number | null {
+  const { chapterMap, startVerse, step } = params;
+  if (chapterMap.size === 0) return null;
+
+  if (step < 0) {
+    for (let verse = startVerse; verse >= 1; verse -= 1) {
+      if (hasVerseText(chapterMap, verse)) return verse;
+    }
+    return null;
+  }
+
+  const maxVerse = getMaxVerseNumber(chapterMap);
+  if (maxVerse <= 0 || startVerse > maxVerse) return null;
+
+  for (let verse = startVerse; verse <= maxVerse; verse += 1) {
+    if (hasVerseText(chapterMap, verse)) return verse;
+  }
+  return null;
+}
+
+function resolveContextVerseNumber(params: {
+  chapterMap: Map<number, string>;
+  targetVerse: number;
+  status: ReferenceTrainerDisplayStatus;
+}): number | null {
+  const { chapterMap, targetVerse, status } = params;
+  if (targetVerse <= 0 || chapterMap.size === 0) return null;
+
+  const distance = resolveContextDistance(status);
+  const backwardCandidate = targetVerse - distance;
+
+  if (backwardCandidate >= 1) {
+    return findNearestAvailableVerse({
+      chapterMap,
+      startVerse: backwardCandidate,
+      step: -1,
+    });
+  }
+
+  return findNearestAvailableVerse({
+    chapterMap,
+    startVerse: targetVerse + 1,
+    step: 1,
+  });
+}
+
+async function buildReferenceTrainerContextPrompts(
+  sampledRows: Array<{
+    verse: { externalVerseId: string };
+    displayStatus: ReferenceTrainerDisplayStatus;
+  }>,
+  translation: string
+): Promise<Map<string, ReferenceTrainerContextPrompt>> {
+  const prompts = new Map<string, ReferenceTrainerContextPrompt>();
+  if (sampledRows.length === 0) return prompts;
+
+  const groups = new Map<
+    string,
+    {
+      book: number;
+      chapter: number;
+      rows: Array<{
+        externalVerseId: string;
+        targetVerse: number;
+        status: ReferenceTrainerDisplayStatus;
+      }>;
+    }
+  >();
+
+  for (const row of sampledRows) {
+    const externalVerseId = row.verse.externalVerseId;
+    const parsed = parseExternalVerseId(externalVerseId);
+    if (!parsed) continue;
+
+    const key = buildGroupKey(translation, parsed.book, parsed.chapter);
+    const existing = groups.get(key);
+    const item = {
+      externalVerseId,
+      targetVerse: parsed.verseStart,
+      status: row.displayStatus,
+    };
+
+    if (existing) {
+      existing.rows.push(item);
+      continue;
+    }
+
+    groups.set(key, {
+      book: parsed.book,
+      chapter: parsed.chapter,
+      rows: [item],
+    });
+  }
+
+  await Promise.all(
+    Array.from(groups.values()).map(async (group) => {
+      let chapterMap = new Map<number, string>();
+      try {
+        chapterMap = await getHelloaoChapterVerseMap({
+          translation,
+          book: group.book,
+          chapter: group.chapter,
+        });
+      } catch {
+        chapterMap = new Map();
+      }
+
+      if (chapterMap.size === 0) return;
+
+      for (const row of group.rows) {
+        const contextVerse = resolveContextVerseNumber({
+          chapterMap,
+          targetVerse: row.targetVerse,
+          status: row.status,
+        });
+        if (!contextVerse) continue;
+
+        const contextText = chapterMap.get(contextVerse)?.trim();
+        if (!contextText) continue;
+
+        prompts.set(row.externalVerseId, {
+          text: contextText,
+          reference: formatParsedExternalVerseReference(
+            {
+              book: group.book,
+              chapter: group.chapter,
+              verseStart: contextVerse,
+              verseEnd: contextVerse,
+            },
+            getBibleBookNameRu(group.book)
+          ),
+        });
+      }
+    })
+  );
+
+  return prompts;
+}
+
 export async function fetchRandomReferenceTrainerVerses(options: {
   telegramId: string;
   limit?: number;
@@ -743,6 +916,7 @@ export async function fetchRandomReferenceTrainerVerses(options: {
       repetitions: true,
       referenceScore: true,
       incipitScore: true,
+      contextScore: true,
       lastTrainingModeId: true,
       lastReviewedAt: true,
       nextReviewAt: true,
@@ -754,10 +928,25 @@ export async function fetchRandomReferenceTrainerVerses(options: {
     },
   });
 
-  const candidates = learningRows.filter((row) => {
-    const displayStatus = computeDisplayStatus(row.status, row.masteryLevel, row.repetitions);
-    return displayStatus === VerseStatus.LEARNING || displayStatus === "MASTERED";
-  });
+  const candidates = learningRows
+    .map((row) => ({
+      ...row,
+      displayStatus: computeDisplayStatus(
+        row.status,
+        row.masteryLevel,
+        row.repetitions
+      ),
+    }))
+    .filter(
+      (
+        row
+      ): row is typeof row & {
+        displayStatus: ReferenceTrainerDisplayStatus;
+      } =>
+        row.displayStatus === VerseStatus.LEARNING ||
+        row.displayStatus === "REVIEW" ||
+        row.displayStatus === "MASTERED"
+    );
 
   if (candidates.length === 0) return [];
 
@@ -766,10 +955,15 @@ export async function fetchRandomReferenceTrainerVerses(options: {
     sampled.map((row) => row.verse.externalVerseId),
     translation
   );
+  const contextPromptByExternalVerseId = await buildReferenceTrainerContextPrompts(
+    sampled,
+    translation
+  );
 
   return sampled.map((row) => {
     const externalVerseId = row.verse.externalVerseId;
     const enriched = enrichedById.get(externalVerseId);
+    const contextPrompt = contextPromptByExternalVerseId.get(externalVerseId);
     const source = {
       externalVerseId,
       status: row.status,
@@ -777,15 +971,20 @@ export async function fetchRandomReferenceTrainerVerses(options: {
       repetitions: row.repetitions,
       referenceScore: row.referenceScore,
       incipitScore: row.incipitScore,
+      contextScore: row.contextScore,
       lastTrainingModeId: row.lastTrainingModeId,
       lastReviewedAt: row.lastReviewedAt,
       nextReviewAt: row.nextReviewAt,
       tags: enriched?.tags ?? [],
       text: enriched?.text,
       reference: enriched?.reference,
+      contextPromptText: contextPrompt?.text,
+      contextPromptReference: contextPrompt?.reference,
     } as unknown as UserVerseWithLegacyNullableProgress & {
       text?: string;
       reference?: string;
+      contextPromptText?: string;
+      contextPromptReference?: string;
       tags?: VerseCardTagDto[];
     };
     return mapUserVerseToVerseCardDto(source);
@@ -985,6 +1184,7 @@ async function fetchPaginatedFriendVerses(options: {
             repetitions: 0,
             referenceScore: 50,
             incipitScore: 50,
+            contextScore: 50,
             lastTrainingModeId: null,
             lastReviewedAt: null,
             nextReviewAt: null,

@@ -1,7 +1,11 @@
 import type { UserVerse } from "../models/UserVerse";
 
-export type ReferenceTrainerSessionTrack = "reference" | "incipit" | "mixed";
-export type ReferenceTrainerSkillTrack = "reference" | "incipit";
+export type ReferenceTrainerSessionTrack =
+  | "reference"
+  | "incipit"
+  | "context"
+  | "mixed";
+export type ReferenceTrainerSkillTrack = "reference" | "incipit" | "context";
 export type ReferenceTrainerSessionOutcome =
   | "correct_first"
   | "correct_retry"
@@ -18,14 +22,25 @@ export type ReferenceTrainerSessionResponse = {
     externalVerseId: string;
     referenceScore: number;
     incipitScore: number;
+    contextScore: number;
   }>;
 };
 
 export async function fetchReferenceTrainerVerses(
-  telegramId: string
+  telegramId: string,
+  options?: {
+    limit?: number;
+  }
 ): Promise<Array<UserVerse>> {
+  const params = new URLSearchParams();
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    params.set("limit", String(Math.max(1, Math.round(options.limit))));
+  }
+  const query = params.toString();
   const response = await fetch(
-    `/api/users/${encodeURIComponent(telegramId)}/verses/reference-trainer`
+    `/api/users/${encodeURIComponent(telegramId)}/verses/reference-trainer${
+      query ? `?${query}` : ""
+    }`
   );
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as

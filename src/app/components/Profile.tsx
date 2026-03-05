@@ -1,8 +1,17 @@
-'use client'
+"use client";
 
-import React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { Flame, Moon, Palette, Search, Sun, UserMinus, UserPlus, Users } from 'lucide-react';
+import React from "react";
+import { motion, useReducedMotion } from "motion/react";
+import {
+  Flame,
+  Moon,
+  Palette,
+  Search,
+  Sun,
+  UserMinus,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
@@ -11,18 +20,18 @@ import {
   removeFriend,
   type FriendPlayerListItem,
   type FriendPlayersPageResponse,
-} from '@/api/services/friends';
-import { toast } from '@/app/lib/toast';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+} from "@/api/services/friends";
+import { toast } from "@/app/lib/toast";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
-type Theme = 'light' | 'dark';
-type FriendsTab = 'players' | 'friends';
+type Theme = "light" | "dark";
+type FriendsTab = "players" | "friends";
 
 const FRIENDS_PAGE_SIZE = 8;
 const SEARCH_DEBOUNCE_MS = 280;
@@ -36,20 +45,20 @@ interface ProfileProps {
 
 function getInitials(name: string) {
   return name
-    .split(' ')
+    .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 function formatRelativeLastActive(value: string | null): string {
-  if (!value) return 'Пока без активности';
+  if (!value) return "Пока без активности";
   const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return 'Пока без активности';
+  if (Number.isNaN(parsed)) return "Пока без активности";
 
   const deltaMs = Date.now() - parsed;
-  if (deltaMs < 2 * 60 * 1000) return 'Активен(а) только что';
+  if (deltaMs < 2 * 60 * 1000) return "Активен(а) только что";
 
   const minutes = Math.floor(deltaMs / (60 * 1000));
   if (minutes < 60) return `Активен(а) ${minutes} мин назад`;
@@ -60,9 +69,9 @@ function formatRelativeLastActive(value: string | null): string {
   const days = Math.floor(deltaMs / (24 * 60 * 60 * 1000));
   if (days < 7) return `Активен(а) ${days} дн назад`;
 
-  return `Активен(а) ${new Date(parsed).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
+  return `Активен(а) ${new Date(parsed).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
   })}`;
 }
 
@@ -73,9 +82,9 @@ export function Profile({
   onFriendsChanged,
 }: ProfileProps) {
   const shouldReduceMotion = useReducedMotion();
-  const [activeTab, setActiveTab] = React.useState<FriendsTab>('players');
-  const [searchInput, setSearchInput] = React.useState('');
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [activeTab, setActiveTab] = React.useState<FriendsTab>("players");
+  const [searchInput, setSearchInput] = React.useState("");
+  const [searchQuery, setSearchQuery] = React.useState("");
   const [playersPageIndex, setPlayersPageIndex] = React.useState(1);
   const [friendsPageIndex, setFriendsPageIndex] = React.useState(1);
   const [playersPage, setPlayersPage] =
@@ -99,7 +108,7 @@ export function Profile({
       y: 0,
       transition: {
         duration: shouldReduceMotion ? 0 : 0.24,
-        ease: 'easeOut' as const,
+        ease: "easeOut" as const,
       },
     },
   };
@@ -122,10 +131,10 @@ export function Profile({
     async (
       tab: FriendsTab,
       pageIndex: number,
-      options?: { withLoader?: boolean }
+      options?: { withLoader?: boolean },
     ) => {
       if (!telegramId) {
-        if (tab === 'players') {
+        if (tab === "players") {
           setPlayersPage(EMPTY_FRIEND_PLAYERS_PAGE);
         } else {
           setFriendsPage(EMPTY_FRIEND_PLAYERS_PAGE);
@@ -135,7 +144,7 @@ export function Profile({
       }
 
       const requestId =
-        tab === 'players'
+        tab === "players"
           ? ++playersRequestIdRef.current
           : ++friendsRequestIdRef.current;
       const withLoader = options?.withLoader !== false;
@@ -148,7 +157,7 @@ export function Profile({
 
       try {
         const nextPage =
-          tab === 'players'
+          tab === "players"
             ? await fetchPlayersPage(telegramId, {
                 search: searchQuery || undefined,
                 limit: FRIENDS_PAGE_SIZE,
@@ -161,17 +170,17 @@ export function Profile({
               });
 
         const isStale =
-          tab === 'players'
+          tab === "players"
             ? playersRequestIdRef.current !== requestId
             : friendsRequestIdRef.current !== requestId;
         if (isStale) return;
 
         const totalPages = Math.max(
           1,
-          Math.ceil(nextPage.totalCount / FRIENDS_PAGE_SIZE)
+          Math.ceil(nextPage.totalCount / FRIENDS_PAGE_SIZE),
         );
         if (pageIndex > totalPages) {
-          if (tab === 'players') {
+          if (tab === "players") {
             setPlayersPageIndex(totalPages);
           } else {
             setFriendsPageIndex(totalPages);
@@ -179,18 +188,20 @@ export function Profile({
           return;
         }
 
-        if (tab === 'players') {
+        if (tab === "players") {
           setPlayersPage(nextPage);
         } else {
           setFriendsPage(nextPage);
         }
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Не удалось загрузить список';
+          error instanceof Error
+            ? error.message
+            : "Не удалось загрузить список";
         setListError(message);
       } finally {
         const isStale =
-          tab === 'players'
+          tab === "players"
             ? playersRequestIdRef.current !== requestId
             : friendsRequestIdRef.current !== requestId;
         if (!isStale && withLoader) {
@@ -198,18 +209,19 @@ export function Profile({
         }
       }
     },
-    [searchQuery, telegramId]
+    [searchQuery, telegramId],
   );
 
   React.useEffect(() => {
-    const pageIndex = activeTab === 'players' ? playersPageIndex : friendsPageIndex;
+    const pageIndex =
+      activeTab === "players" ? playersPageIndex : friendsPageIndex;
     void fetchTabPage(activeTab, pageIndex, { withLoader: true });
   }, [activeTab, fetchTabPage, friendsPageIndex, playersPageIndex]);
 
   const refreshFriendsLists = React.useCallback(async () => {
     await Promise.all([
-      fetchTabPage('players', playersPageIndex, { withLoader: false }),
-      fetchTabPage('friends', friendsPageIndex, { withLoader: false }),
+      fetchTabPage("players", playersPageIndex, { withLoader: false }),
+      fetchTabPage("friends", friendsPageIndex, { withLoader: false }),
     ]);
   }, [fetchTabPage, friendsPageIndex, playersPageIndex]);
 
@@ -230,7 +242,7 @@ export function Profile({
 
   const handleToggleFriend = async (item: FriendPlayerListItem) => {
     if (!telegramId) {
-      toast.error('Не найден telegramId');
+      toast.error("Не найден telegramId");
       return;
     }
     if (pendingMutationByTelegramId[item.telegramId]) {
@@ -241,17 +253,17 @@ export function Profile({
     try {
       if (item.isFriend) {
         const response = await removeFriend(telegramId, item.telegramId);
-        if (response.status === 'removed') {
-          toast.success('Друг удалён');
+        if (response.status === "removed") {
+          toast.success("Друг удалён");
         } else {
-          toast.info('Пользователь уже не был у вас в друзьях');
+          toast.info("Пользователь уже не был у вас в друзьях");
         }
       } else {
         const response = await addFriend(telegramId, item.telegramId);
-        if (response.status === 'added') {
-          toast.success('Друг добавлен');
+        if (response.status === "added") {
+          toast.success("Друг добавлен");
         } else {
-          toast.info('Пользователь уже добавлен в друзья');
+          toast.info("Пользователь уже добавлен в друзья");
         }
       }
 
@@ -259,25 +271,28 @@ export function Profile({
       onFriendsChanged?.();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Не удалось изменить список друзей';
+        error instanceof Error
+          ? error.message
+          : "Не удалось изменить список друзей";
       toast.error(message);
     } finally {
       setMutationPending(item.telegramId, false);
     }
   };
 
-  const currentPage = activeTab === 'players' ? playersPageIndex : friendsPageIndex;
-  const currentPageData = activeTab === 'players' ? playersPage : friendsPage;
+  const currentPage =
+    activeTab === "players" ? playersPageIndex : friendsPageIndex;
+  const currentPageData = activeTab === "players" ? playersPage : friendsPage;
   const totalPages = Math.max(
     1,
-    Math.ceil(currentPageData.totalCount / FRIENDS_PAGE_SIZE)
+    Math.ceil(currentPageData.totalCount / FRIENDS_PAGE_SIZE),
   );
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
   const canManageFriends = Boolean(telegramId);
 
   const updatePage = (nextPage: number) => {
-    if (activeTab === 'players') {
+    if (activeTab === "players") {
       setPlayersPageIndex(nextPage);
     } else {
       setFriendsPageIndex(nextPage);
@@ -292,7 +307,7 @@ export function Profile({
           : {
               initial: { opacity: 0 },
               animate: { opacity: 1 },
-              transition: { duration: 0.2, ease: 'easeOut' as const },
+              transition: { duration: 0.2, ease: "easeOut" as const },
             })}
       >
         <motion.div
@@ -311,7 +326,9 @@ export function Profile({
         >
           <motion.div className="mb-4" variants={sectionVariants}>
             <h1 className="mb-1 text-primary">Профиль</h1>
-            <p className="text-foreground/75">Настройки внешнего вида приложения.</p>
+            <p className="text-foreground/75">
+              Настройки внешнего вида приложения.
+            </p>
           </motion.div>
 
           <motion.div variants={sectionVariants}>
@@ -329,9 +346,12 @@ export function Profile({
 
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background/70 p-4">
                   <div className="space-y-1">
-                    <Label className="text-sm text-foreground/75">Тема приложения</Label>
+                    <Label className="text-sm text-foreground/75">
+                      Тема приложения
+                    </Label>
                     <p className="text-sm text-muted-foreground">
-                      Сейчас активна {theme === 'dark' ? 'тёмная' : 'светлая'} тема.
+                      Сейчас активна {theme === "dark" ? "тёмная" : "светлая"}{" "}
+                      тема.
                     </p>
                   </div>
 
@@ -341,11 +361,15 @@ export function Profile({
                     size="sm"
                     onClick={onToggleTheme}
                     className="gap-2 text-foreground/75 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
-                    aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
+                    aria-label={`Переключить на ${theme === "light" ? "тёмную" : "светлую"} тему`}
                   >
-                    <Sun className={`w-4 h-4 ${theme === 'dark' ? 'hidden' : 'block'}`} />
-                    <Moon className={`w-4 h-4 ${theme === 'dark' ? 'block' : 'hidden'}`} />
-                    <span>{theme === 'dark' ? 'Тёмная' : 'Светлая'}</span>
+                    <Sun
+                      className={`w-4 h-4 ${theme === "dark" ? "hidden" : "block"}`}
+                    />
+                    <Moon
+                      className={`w-4 h-4 ${theme === "dark" ? "block" : "hidden"}`}
+                    />
+                    <span>{theme === "dark" ? "Тёмная" : "Светлая"}</span>
                   </Button>
                 </div>
               </div>
@@ -370,25 +394,31 @@ export function Profile({
                       Ищите игроков, подписывайтесь и следите за их прогрессом.
                     </p>
                   </div>
-                  <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
+                  <Badge
+                    variant="outline"
+                    className="rounded-full px-3 py-1 text-foreground/75"
+                  >
                     Друзья
                   </Badge>
                 </div>
 
                 {!canManageFriends ? (
                   <div className="rounded-2xl border border-dashed border-border/70 bg-background/65 p-4 text-sm text-muted-foreground">
-                    Раздел друзей станет доступен после инициализации профиля в Telegram.
+                    Раздел друзей станет доступен после инициализации профиля в
+                    Telegram.
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <Tabs
                       value={activeTab}
-                      onValueChange={(value) => setActiveTab(value as FriendsTab)}
+                      onValueChange={(value) =>
+                        setActiveTab(value as FriendsTab)
+                      }
                       className="space-y-4"
                     >
-                      <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value="players">Игроки</TabsTrigger>
-                        <TabsTrigger value="friends">Мои друзья</TabsTrigger>
+                      <TabsList className="w-full h-fit grid grid-cols-2 gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1">
+                        <TabsTrigger className="h-8 px-3 text-sm text-foreground/50 border-border/70 rounded-xl" value="players">Игроки</TabsTrigger>
+                        <TabsTrigger className="h-8 px-3 text-sm text-foreground/50 border-border/70 rounded-xl" value="friends">Мои друзья</TabsTrigger>
                       </TabsList>
                     </Tabs>
 
@@ -398,9 +428,9 @@ export function Profile({
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
                         placeholder={
-                          activeTab === 'players'
-                            ? 'Поиск игроков'
-                            : 'Поиск по друзьям'
+                          activeTab === "players"
+                            ? "Поиск игроков"
+                            : "Поиск по друзьям"
                         }
                         className="pl-9 rounded-xl border-border/70 bg-background/70"
                       />
@@ -408,7 +438,7 @@ export function Profile({
 
                     <div className="flex items-start text-xs text-muted-foreground">
                       <span>
-                        {activeTab === 'players'
+                        {activeTab === "players"
                           ? `Игроков: ${playersPage.totalCount}`
                           : `Друзей: ${friendsPage.totalCount}`}
                       </span>
@@ -433,12 +463,12 @@ export function Profile({
                               onClick={() =>
                                 void fetchTabPage(
                                   activeTab,
-                                  activeTab === 'players'
+                                  activeTab === "players"
                                     ? playersPageIndex
                                     : friendsPageIndex,
                                   {
                                     withLoader: true,
-                                  }
+                                  },
                                 )
                               }
                             >
@@ -449,17 +479,18 @@ export function Profile({
                       ) : currentPageData.items.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-border/70 bg-background/65 p-4 text-sm text-muted-foreground">
                           {searchQuery
-                            ? 'По вашему запросу ничего не найдено.'
-                            : activeTab === 'players'
-                              ? 'Пока нет доступных игроков.'
-                              : 'Пока нет друзей. Добавьте игроков в друзья.'}
+                            ? "По вашему запросу ничего не найдено."
+                            : activeTab === "players"
+                              ? "Пока нет доступных игроков."
+                              : "Пока нет друзей. Добавьте игроков в друзья."}
                         </div>
                       ) : (
                         currentPageData.items.map((item) => {
                           const isMutationPending =
-                            pendingMutationByTelegramId[item.telegramId] === true;
+                            pendingMutationByTelegramId[item.telegramId] ===
+                            true;
                           const showRemoveAction =
-                            activeTab === 'friends' || item.isFriend;
+                            activeTab === "friends" || item.isFriend;
 
                           return (
                             <div
@@ -469,7 +500,10 @@ export function Profile({
                               <div className="flex items-start gap-3">
                                 <Avatar className="h-11 w-11 border border-border/70 bg-background/80">
                                   {item.avatarUrl ? (
-                                    <AvatarImage src={item.avatarUrl} alt={item.name} />
+                                    <AvatarImage
+                                      src={item.avatarUrl}
+                                      alt={item.name}
+                                    />
                                   ) : null}
                                   <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
                                     {getInitials(item.name)}
@@ -481,9 +515,14 @@ export function Profile({
                                     {item.name}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
-                                    {formatRelativeLastActive(item.lastActiveAt)}
+                                    {formatRelativeLastActive(
+                                      item.lastActiveAt,
+                                    )}
                                   </div>
-                                  <div hidden={activeTab === 'players'} className="flex flex-wrap items-center gap-2 pt-1">
+                                  <div
+                                    hidden={activeTab === "players"}
+                                    className="flex flex-wrap items-center gap-2 pt-1"
+                                  >
                                     <Badge
                                       variant="outline"
                                       className="rounded-full px-2 py-0.5 text-[11px] text-foreground/80"
@@ -494,35 +533,40 @@ export function Profile({
                                       variant="outline"
                                       className="rounded-full px-2 py-0.5 text-[11px] text-foreground/80"
                                     >
-                                    <Flame className="h-3.5 w-3.5" /> Серия {item.dailyStreak} дн
+                                      <Flame className="h-3.5 w-3.5" /> Серия{" "}
+                                      {item.dailyStreak} дн
                                     </Badge>
                                   </div>
                                 </div>
-<div className="flex flex-col items-center gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={showRemoveAction ? 'outline' : 'default'}
-                                  disabled={isMutationPending}
-                                  onClick={() => void handleToggleFriend(item)}
-                                  className="rounded-full"
-                                >
-                                  {showRemoveAction ? (
-                                    <>
-                                      <UserMinus className="h-3.5 w-3.5" />
-                                      Удалить
-                                    </>
-                                  ) : (
-                                    <>
-                                      <UserPlus className="h-3.5 w-3.5" />
-                                      Добавить
-                                    </>
-                                  )}
-                                </Button>
-                                <Badge className="rounded-full px-2 py-0.5 text-[11px] bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
-                                      Прогресс {item.averageProgressPercent}%
-                                    </Badge>
-                              </div>
+                                <div className="flex flex-col items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      showRemoveAction ? "outline" : "default"
+                                    }
+                                    disabled={isMutationPending}
+                                    onClick={() =>
+                                      void handleToggleFriend(item)
+                                    }
+                                    className="rounded-full h-9 px-3 text-xs text-foreground/75 border-border/70 bg-background/70"
+                                  >
+                                    {showRemoveAction ? (
+                                      <>
+                                        <UserMinus className="h-3.5 w-3.5" />
+                                        Удалить
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserPlus className="h-3.5 w-3.5" />
+                                        Добавить
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Badge className="rounded-full px-2 py-0.5 text-[11px] bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
+                                    Прогресс {item.averageProgressPercent}%
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
                           );
@@ -548,7 +592,9 @@ export function Profile({
                         size="sm"
                         variant="outline"
                         disabled={!canGoNext || isListLoading}
-                        onClick={() => updatePage(Math.min(totalPages, currentPage + 1))}
+                        onClick={() =>
+                          updatePage(Math.min(totalPages, currentPage + 1))
+                        }
                       >
                         Вперёд
                       </Button>

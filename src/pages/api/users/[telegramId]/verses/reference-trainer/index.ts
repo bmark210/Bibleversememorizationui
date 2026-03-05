@@ -4,6 +4,18 @@ import {
   UserVersesApiError,
 } from "../_shared";
 
+const MAX_REFERENCE_TRAINER_LIMIT = 12;
+
+function parseReferenceTrainerLimit(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return MAX_REFERENCE_TRAINER_LIMIT;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return MAX_REFERENCE_TRAINER_LIMIT;
+
+  return Math.max(1, Math.min(MAX_REFERENCE_TRAINER_LIMIT, Math.round(parsed)));
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
   if (!telegramId || Array.isArray(telegramId)) {
@@ -16,9 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const limit = parseReferenceTrainerLimit(req.query.limit);
     const verses = await fetchRandomReferenceTrainerVerses({
       telegramId,
-      limit: 50,
+      limit,
     });
     return res.status(200).json(verses);
   } catch (error) {
