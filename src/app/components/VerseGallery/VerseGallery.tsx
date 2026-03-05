@@ -316,9 +316,19 @@ export function VerseGallery({
   );
 
   const markTrainingInteractionStarted = useCallback(() => {
-    if (training.panelMode !== "training" || training.isAutoStartingTraining) return;
+    if (
+      training.panelMode !== "training" ||
+      training.isAutoStartingTraining ||
+      !training.trainingActiveVerse
+    ) {
+      return;
+    }
     setHasTrainingInteractionStarted(true);
-  }, [training.isAutoStartingTraining, training.panelMode]);
+  }, [
+    training.isAutoStartingTraining,
+    training.panelMode,
+    training.trainingActiveVerse,
+  ]);
 
   const confirmTrainingNavigationStep = useCallback(() => {
     if (pendingTrainingNavigationStep === null) return;
@@ -332,10 +342,16 @@ export function VerseGallery({
   }, []);
 
   useEffect(() => {
-    if (training.panelMode === "training") return;
+    if (training.panelMode !== "training") {
+      setHasTrainingInteractionStarted(false);
+      setPendingTrainingNavigationStep(null);
+      return;
+    }
+
+    // Per-card semantics: new training verse starts with a clean state.
     setHasTrainingInteractionStarted(false);
     setPendingTrainingNavigationStep(null);
-  }, [training.panelMode]);
+  }, [training.panelMode, training.trainingActiveVerse?.key]);
 
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -654,7 +670,10 @@ export function VerseGallery({
                     setHasTrainingInteractionStarted(true);
                     return training.handleTrainingRate(rating);
                   }}
-                  onQuickForget={training.requestQuickForget}
+                  onQuickForget={() => {
+                    setHasTrainingInteractionStarted(true);
+                    training.requestQuickForget();
+                  }}
                   quickForgetLabel={training.quickForgetLabel}
                   quickForgetDisabled={aux.actionPending}
                 />

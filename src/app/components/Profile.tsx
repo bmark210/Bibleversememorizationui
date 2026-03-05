@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Moon, Palette, Search, Sun, UserMinus, UserPlus, Users } from 'lucide-react';
+import { Flame, Moon, Palette, Search, Sun, UserMinus, UserPlus, Users } from 'lucide-react';
 import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
@@ -484,25 +484,22 @@ export function Profile({
                                   <div className="text-xs text-muted-foreground">
                                     {formatRelativeLastActive(item.lastActiveAt)}
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                                  <div hidden={activeTab === 'players'} className="flex flex-wrap items-center gap-2 pt-1">
                                     <Badge
                                       variant="outline"
                                       className="rounded-full px-2 py-0.5 text-[11px] text-foreground/80"
                                     >
-                                      {item.weeklyRepetitions} повторений/7д
+                                      {item.weeklyRepetitions} повторений / 7д
                                     </Badge>
                                     <Badge
                                       variant="outline"
                                       className="rounded-full px-2 py-0.5 text-[11px] text-foreground/80"
                                     >
-                                      Серия {item.dailyStreak} дн
-                                    </Badge>
-                                    <Badge className="rounded-full px-2 py-0.5 text-[11px] bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
-                                      Прогресс {item.averageProgressPercent}%
+                                    <Flame className="h-3.5 w-3.5" /> Серия {item.dailyStreak} дн
                                     </Badge>
                                   </div>
                                 </div>
-
+<div className="flex flex-col items-center gap-2">
                                 <Button
                                   type="button"
                                   size="sm"
@@ -523,6 +520,10 @@ export function Profile({
                                     </>
                                   )}
                                 </Button>
+                                <Badge className="rounded-full px-2 py-0.5 text-[11px] bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
+                                      Прогресс {item.averageProgressPercent}%
+                                    </Badge>
+                              </div>
                               </div>
                             </div>
                           );

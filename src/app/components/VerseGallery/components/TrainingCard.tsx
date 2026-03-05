@@ -1,4 +1,4 @@
-import { memo, useMemo, type RefObject } from "react";
+import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
 import { Button } from "@/app/components/ui/button";
@@ -90,6 +90,23 @@ export const TrainingCard = memo(function TrainingCard({
     ]
   );
 
+  const handleTrainingInteractionCapture = (
+    event: SyntheticEvent<HTMLDivElement>
+  ) => {
+    if (!onTrainingInteractionStart) return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    // Consider the training as started only after explicit interaction
+    // with real controls, not by touching/dragging the card shell.
+    const interactiveTarget = target.closest(
+      "button,input,textarea,select,[role='button'],[contenteditable='true']"
+    );
+    if (!interactiveTarget) return;
+
+    onTrainingInteractionStart();
+  };
+
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
@@ -175,9 +192,9 @@ export const TrainingCard = memo(function TrainingCard({
         body={
           <div
             className="relative h-full"
-            onClickCapture={onTrainingInteractionStart}
-            onInputCapture={onTrainingInteractionStart}
-            onKeyDownCapture={onTrainingInteractionStart}
+            onClickCapture={handleTrainingInteractionCapture}
+            onInputCapture={handleTrainingInteractionCapture}
+            onKeyDownCapture={handleTrainingInteractionCapture}
           >
             <TrainingModeRenderer
               ref={rendererRef as RefObject<TrainingModeRendererHandle>}
