@@ -763,7 +763,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   {currentQuestion.mode !== "keyboard" && (
                     <div
                       ref={answersViewportRef}
-                      className="min-h-0 flex-1 overflow-auto pr-0.5"
+                      className="min-h-0 overflow-auto pr-0.5"
                     >
                       {currentQuestion.mode === "reference-choice" && (
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -946,7 +946,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                       <Button 
                         type="button" 
                         size="sm" 
-                        className="h-10 rounded-xl px-5 text-sm font-medium shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-95" 
+                        className="h-10 rounded-xl px-5 text-sm font-medium bg-background text-foreground/80 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-95 border border-border/70" 
                         onClick={handleMoveNext}
                       >
                         Далее →
