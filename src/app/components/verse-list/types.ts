@@ -97,6 +97,7 @@ export type VerseListController = {
   filterTabs: {
     onTabClick: (filter: VerseListStatusFilter, label: string) => void;
     onSortChange: (sortBy: VerseListSortBy, label: string) => void;
+    onResetFilters: () => void;
   };
   footerLoadState: {
     onRetryLoadMore: () => Promise<void>;

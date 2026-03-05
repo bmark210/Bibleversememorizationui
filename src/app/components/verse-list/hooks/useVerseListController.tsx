@@ -4,6 +4,7 @@ import { Verse } from '@/app/App';
 import { VerseStatus } from '@/generated/prisma';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
+  DEFAULT_VERSE_LIST_STATUS_FILTER,
   DEFAULT_VERSE_LIST_SORT_BY,
   FILTER_VISUAL_THEME,
   LOAD_MORE_SKELETON_DELAY_MS,
@@ -13,6 +14,11 @@ import {
   type VerseListSortBy,
   type VerseListStatusFilter,
 } from '../constants';
+import {
+  parseStoredSortBy,
+  parseStoredStatusFilter,
+  VERSE_LIST_STORAGE_KEYS,
+} from '../storage';
 import { haptic } from '../haptics';
 import { SwipeableVerseCard } from '../components/SwipeableVerseCard';
 import { useTelegramId } from './useTelegramId';
@@ -52,12 +58,29 @@ export function useVerseListController({
     console.log('[VerseList][infinite]', event, payload ?? {});
   }, []);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? '';
+  });
   const [testamentFilter] = useState<'catalog' | 'OT' | 'NT'>('catalog');
   const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
   const tagFilter = useTagFilter();
-  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(reopenGalleryStatusFilter ?? 'my');
-  const [sortBy, setSortBy] = useState<VerseListSortBy>(DEFAULT_VERSE_LIST_SORT_BY);
+  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
+    if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
+    if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_STATUS_FILTER;
+    return (
+      parseStoredStatusFilter(
+        window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
+      ) ?? DEFAULT_VERSE_LIST_STATUS_FILTER
+    );
+  });
+  const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
+    if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
+    return (
+      parseStoredSortBy(window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.sortBy)) ??
+      DEFAULT_VERSE_LIST_SORT_BY
+    );
+  });
   const selectedTagSlugsForServer = useMemo(
     () => Array.from(tagFilter.selectedTagSlugs).sort(),
     [tagFilter.selectedTagSlugs]
@@ -148,6 +171,21 @@ export function useVerseListController({
     if (statusFilter === reopenGalleryStatusFilter) return;
     setStatusFilter(reopenGalleryStatusFilter);
   }, [reopenGalleryStatusFilter, statusFilter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.statusFilter, statusFilter);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.sortBy, sortBy);
+  }, [sortBy]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.searchQuery, searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!reopenGalleryVerseId) return;
@@ -376,6 +414,21 @@ export function useVerseListController({
     setAnnouncement(`Сортировка: ${label}`);
   }, [sortBy]);
 
+  const onResetFilters = useCallback(() => {
+    const hasChanges =
+      statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+      sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
+      searchQuery.trim().length > 0 ||
+      tagFilter.hasActiveTags;
+    if (!hasChanges) return;
+    haptic('light');
+    setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+    setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
+    setSearchQuery('');
+    tagFilter.clearTags();
+    setAnnouncement('Фильтры сброшены');
+  }, [searchQuery, sortBy, statusFilter, tagFilter.clearTags, tagFilter.hasActiveTags]);
+
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
     if (statusFilter === 'catalog') return {
       items: filteredVerses,
@@ -533,6 +586,7 @@ export function useVerseListController({
     filterTabs: {
       onTabClick,
       onSortChange,
+      onResetFilters,
     },
     footerLoadState: {
       onRetryLoadMore,

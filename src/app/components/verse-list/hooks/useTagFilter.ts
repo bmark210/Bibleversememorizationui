@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
 import type { Tag } from '@/api/models/Tag';
 import type { Verse } from '@/app/App';
+import { parseStoredTagSlugs, VERSE_LIST_STORAGE_KEYS } from '../storage';
 
 const TAG_TITLE_COLLATOR = new Intl.Collator(['ru', 'en'], {
   sensitivity: 'base',
@@ -15,7 +16,12 @@ const sortTagsByTitle = (tags: Tag[]) =>
 
 export function useTagFilter() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
-  const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(new Set());
+  const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    return parseStoredTagSlugs(
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedTagSlugs)
+    );
+  });
   const [isLoadingTags, setIsLoadingTags] = useState(false);
 
   useEffect(() => {
@@ -27,6 +33,14 @@ export function useTagFilter() {
       .finally(() => setIsLoadingTags(false));
     return () => req.cancel();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      VERSE_LIST_STORAGE_KEYS.selectedTagSlugs,
+      JSON.stringify(Array.from(selectedTagSlugs))
+    );
+  }, [selectedTagSlugs]);
 
   const toggleTag = useCallback((slug: string) => {
     setSelectedTagSlugs((prev) => {

@@ -120,6 +120,7 @@ export function VerseList({
           sortBy={vm.filters.sortBy}
           sortOptions={vm.filters.sortOptions}
           onSortChange={vm.filterTabs.onSortChange}
+          onResetFilters={vm.filterTabs.onResetFilters}
           searchQuery={vm.search.searchQuery}
           onSearchChange={vm.search.setSearchQuery}
           allTags={vm.tagFilter.allTags}
