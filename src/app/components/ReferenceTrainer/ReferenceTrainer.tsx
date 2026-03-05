@@ -447,11 +447,14 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       : 0;
   const frameHeight = useMemo(() => {
     if (viewportHeight <= 0) return undefined;
+    
     // When keyboard is open, visualViewport shrinks — shrink card to match
-    const effective =
-      visualViewportHeight > 50 && visualViewportHeight < viewportHeight - 10
-        ? visualViewportHeight
-        : viewportHeight;
+    // Add more aggressive height adjustment for Telegram keyboard
+    const isKeyboardOpen = visualViewportHeight > 50 && visualViewportHeight < viewportHeight - 50;
+    const effective = isKeyboardOpen 
+      ? Math.min(visualViewportHeight, viewportHeight - 100) // Ensure input stays visible
+      : viewportHeight;
+    
     return Math.max(200, effective - 210);
   }, [viewportHeight, visualViewportHeight]);
 
@@ -602,10 +605,27 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   // Auto-focus input when a keyboard question appears
   useEffect(() => {
     if (!isKeyboardMode || isAnswered) return;
-    const rafId = window.requestAnimationFrame(() => {
-      inputRef.current?.focus({ preventScroll: true });
+    
+    // Delay focus to ensure Telegram keyboard is ready
+    const focusInput = () => {
+      if (inputRef.current) {
+        // Use a more reliable focus method for Telegram
+        inputRef.current.focus();
+        // Ensure cursor is at the end
+        inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
+      }
+    };
+
+    // Multiple attempts to handle Telegram's async nature
+    const rafId1 = window.requestAnimationFrame(focusInput);
+    const rafId2 = window.requestAnimationFrame(() => {
+      setTimeout(focusInput, 100);
     });
-    return () => window.cancelAnimationFrame(rafId);
+    
+    return () => {
+      window.cancelAnimationFrame(rafId1);
+      window.cancelAnimationFrame(rafId2);
+    };
   }, [currentQuestion?.id, isAnswered, isKeyboardMode]);
 
   return (
@@ -806,12 +826,42 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                         <Input
                           ref={inputRef}
                           value={typedReference}
-                          onChange={(event) => setTypedReference(event.target.value)}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setTypedReference(value);
+                            // Force cursor to end for better Telegram experience
+                            setTimeout(() => {
+                              if (inputRef.current) {
+                                inputRef.current.setSelectionRange(value.length, value.length);
+                              }
+                            }, 0);
+                          }}
+                          onFocus={(event) => {
+                            // Ensure cursor is at end when focusing
+                            const target = event.target;
+                            target.setSelectionRange(target.value.length, target.value.length);
+                            
+                            // Scroll input into view for better Telegram experience
+                            setTimeout(() => {
+                              target.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                              });
+                            }, 150);
+                          }}
+                          onTouchStart={() => {
+                            // Ensure input is responsive on touch devices
+                            if (inputRef.current) {
+                              inputRef.current.focus();
+                            }
+                          }}
                           placeholder="Иоанна 3:16"
                           className="h-10 rounded-lg border-border/70 bg-background/70 text-sm"
                           autoCapitalize="none"
                           autoCorrect="off"
                           spellCheck={false}
+                          inputMode="text"
+                          enterKeyHint="done"
                         />
                         <div className="flex items-center gap-2">
                           <Button
