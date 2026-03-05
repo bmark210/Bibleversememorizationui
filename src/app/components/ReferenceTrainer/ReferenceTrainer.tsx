@@ -645,7 +645,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   return (
     <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
       <Card
-        className="flex w-full flex-col overflow-hidden rounded-2xl border-border/70"
+        className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border-border/70"
         style={frameHeight ? { height: `${frameHeight}px` } : { height: "calc(100dvh - 11rem)" }}
       >
         <div className="shrink-0 border-b border-border/70 px-3 py-3 sm:px-4">
@@ -746,8 +746,8 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   className="flex h-full min-h-0 flex-col gap-3"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <Badge variant="outline" className="rounded-full border-border/70 text-xs">
-                      {MODE_META[currentQuestion.mode].label}
+                    <Badge variant="outline" className="rounded-full text-xs text-foreground/75">
+                      {MODE_META[currentQuestion.mode].hint}
                     </Badge>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {currentQuestionIndex + 1}/{questions.length}
@@ -755,12 +755,10 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   </div>
 
                   <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2.5">
-                    <p className="max-h-[24vh] overflow-auto text-sm leading-relaxed text-foreground/90">
+                    <p className="max-h-[15.8vh] overflow-hidden text-ellipsis line-clamp-6 text-sm leading-relaxed text-foreground/90">
                       {currentQuestion.verse.text}
                     </p>
                   </div>
-
-                  <p className="text-xs text-muted-foreground">{MODE_META[currentQuestion.mode].hint}</p>
 
                   {currentQuestion.mode !== "keyboard" && (
                     <div
