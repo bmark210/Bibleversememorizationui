@@ -699,10 +699,10 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
           {telegramId && isLoading && (
             <div className="space-y-2 animate-pulse pt-1">
-              <div className="h-4 w-1/3 rounded bg-muted/45" />
-              <div className="h-20 rounded-xl bg-muted/25" />
-              <div className="h-10 rounded-xl bg-muted/25" />
-              <div className="h-10 rounded-xl bg-muted/25" />
+              <div className="h-4 w-1/3 rounded bg-muted border border-border/70" />
+              <div className="h-20 rounded-xl bg-muted border border-border/70" />
+              <div className="h-10 rounded-xl bg-muted border border-border/70" />
+              <div className="h-10 rounded-xl bg-muted border border-border/70" />
             </div>
           )}
 
@@ -760,7 +760,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                     </p>
                   </div>
 
-                  {currentQuestion.mode !== "keyboard" && (
+                  {/* {currentQuestion.mode !== "keyboard" && (
                     <div
                       ref={answersViewportRef}
                       className="min-h-0 flex-1 overflow-auto pr-0.5"
@@ -825,12 +825,12 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                         </div>
                       )}
                     </div>
-                  )}
+                  )} */}
 
                   {/* Spacer: pushes keyboard form (or answer feedback) to the bottom */}
-                  {currentQuestion.mode === "keyboard" && (
+                  {/* {currentQuestion.mode === "keyboard" && (
                     <div className="min-h-0 flex-1" />
-                  )}
+                  )} */}
 
                   {currentQuestion.mode === "keyboard" && !isAnswered && (
                     <motion.div
