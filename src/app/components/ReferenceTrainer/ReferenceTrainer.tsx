@@ -783,85 +783,86 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   </div>
 
                   <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2.5">
-                    <p className="max-h-[24vh] overflow-auto text-sm leading-relaxed">
+                    <p className="max-h-[24vh] overflow-auto text-sm leading-relaxed text-foreground/90">
                       {currentQuestion.verse.text}
                     </p>
                   </div>
 
                   <p className="text-xs text-muted-foreground">{MODE_META[currentQuestion.mode].hint}</p>
 
-                  <div
-                    ref={answersViewportRef}
-                    className="min-h-0 flex-1 overflow-auto pr-0.5"
-                  >
-                    {currentQuestion.mode === "reference-choice" && (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {currentQuestion.options.map((option) => {
-                          const optionIsCorrect =
-                            normalizeReferenceForComparison(option) ===
-                            normalizeReferenceForComparison(currentQuestion.verse.reference);
-                          const optionIsSelected = selectedOption === option;
-                          const stateClassName = isAnswered
-                            ? optionIsCorrect
-                              ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                              : optionIsSelected
-                                ? "border-destructive/45 bg-destructive/10 text-destructive"
-                                : "border-border/70 bg-background text-foreground/80"
-                            : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
+                  {currentQuestion.mode !== "keyboard" && (
+                    <div
+                      ref={answersViewportRef}
+                      className="min-h-0 flex-1 overflow-auto pr-0.5"
+                    >
+                      {currentQuestion.mode === "reference-choice" && (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {currentQuestion.options.map((option) => {
+                            const optionIsCorrect =
+                              normalizeReferenceForComparison(option) ===
+                              normalizeReferenceForComparison(currentQuestion.verse.reference);
+                            const optionIsSelected = selectedOption === option;
+                            const stateClassName = isAnswered
+                              ? optionIsCorrect
+                                ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                : optionIsSelected
+                                  ? "border-destructive/45 bg-destructive/10 text-destructive"
+                                  : "border-border/70 bg-background text-foreground/80"
+                              : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
 
-                          return (
-                            <button
-                              key={`${currentQuestion.id}-${option}`}
-                              type="button"
-                              onClick={() => handleOptionSelect(option)}
-                              disabled={isAnswered}
-                              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
-                            >
-                              {option}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                            return (
+                              <button
+                                key={`${currentQuestion.id}-${option}`}
+                                type="button"
+                                onClick={() => handleOptionSelect(option)}
+                                disabled={isAnswered}
+                                className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                    {currentQuestion.mode === "book-choice" && (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {currentQuestion.options.map((option) => {
-                          const optionIsCorrect =
-                            normalizeBookName(option) ===
-                            normalizeBookName(currentQuestion.verse.bookName);
-                          const optionIsSelected = selectedOption === option;
-                          const stateClassName = isAnswered
-                            ? optionIsCorrect
-                              ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                              : optionIsSelected
-                                ? "border-destructive/45 bg-destructive/10 text-destructive"
-                                : "border-border/70 bg-background text-foreground/80"
-                            : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
+                      {currentQuestion.mode === "book-choice" && (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {currentQuestion.options.map((option) => {
+                            const optionIsCorrect =
+                              normalizeBookName(option) ===
+                              normalizeBookName(currentQuestion.verse.bookName);
+                            const optionIsSelected = selectedOption === option;
+                            const stateClassName = isAnswered
+                              ? optionIsCorrect
+                                ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                : optionIsSelected
+                                  ? "border-destructive/45 bg-destructive/10 text-destructive"
+                                  : "border-border/70 bg-background text-foreground/80"
+                              : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
 
-                          return (
-                            <button
-                              key={`${currentQuestion.id}-${option}`}
-                              type="button"
-                              onClick={() => handleOptionSelect(option)}
-                              disabled={isAnswered}
-                              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
-                            >
-                              {option}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                  </div>
+                            return (
+                              <button
+                                key={`${currentQuestion.id}-${option}`}
+                                type="button"
+                                onClick={() => handleOptionSelect(option)}
+                                disabled={isAnswered}
+                                className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {currentQuestion.mode === "keyboard" && !isAnswered && (
                     <motion.div 
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-                      className="shrink-0 rounded-2xl border border-border/60 bg-gradient-to-br from-background/95 to-background/90 p-4 shadow-lg shadow-black/5 backdrop-blur-xl"
+                      className="min-h-0 flex-1 rounded-2xl border border-border/60 bg-gradient-to-br from-background/95 to-background/90 p-4 shadow-lg shadow-black/5 backdrop-blur-xl"
                       onClick={() => inputRef.current?.focus()}
                     >
                       <form
