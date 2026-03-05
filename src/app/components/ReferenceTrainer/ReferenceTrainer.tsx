@@ -429,6 +429,8 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const currentQuestion = questions[currentQuestionIndex] ?? null;
   const answeredCount = results.length;
@@ -448,15 +450,16 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const frameHeight = useMemo(() => {
     if (viewportHeight <= 0) return undefined;
     
-    // When keyboard is open, visualViewport shrinks — shrink card to match
-    // Add more aggressive height adjustment for Telegram keyboard
-    const isKeyboardOpen = visualViewportHeight > 50 && visualViewportHeight < viewportHeight - 50;
-    const effective = isKeyboardOpen 
-      ? Math.min(visualViewportHeight, viewportHeight - 100) // Ensure input stays visible
+    // Calculate available space accounting for keyboard
+    const availableHeight = isKeyboardVisible && visualViewportHeight > 0
+      ? visualViewportHeight 
       : viewportHeight;
     
-    return Math.max(200, effective - 210);
-  }, [viewportHeight, visualViewportHeight]);
+    // Reserve space for header, progress, and padding
+    const reservedSpace = isKeyboardVisible ? 180 : 210;
+    
+    return Math.max(200, availableHeight - reservedSpace);
+  }, [viewportHeight, visualViewportHeight, isKeyboardVisible]);
 
   const resetAnswerState = useCallback(() => {
     setSelectedOption(null);
@@ -591,40 +594,79 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     isAnswered && currentQuestionIndex < questions.length - 1 && !sessionComplete;
   const isKeyboardMode = currentQuestion?.mode === "keyboard";
 
-  // Track visual viewport height — shrinks when virtual keyboard opens
+  // Track visual viewport height with smooth transitions for keyboard
   useEffect(() => {
     if (typeof window === "undefined") return;
     const vv = window.visualViewport;
     if (!vv) return;
-    setVisualViewportHeight(vv.height);
-    const onResize = () => setVisualViewportHeight(vv.height);
-    vv.addEventListener("resize", onResize);
-    return () => vv.removeEventListener("resize", onResize);
+    
+    const handleViewportChange = () => {
+      const newHeight = vv.height;
+      const windowHeight = window.innerHeight;
+      const heightDiff = windowHeight - newHeight;
+      
+      // Detect keyboard: significant height reduction (>150px)
+      const keyboardDetected = heightDiff > 150 && newHeight > 100;
+      
+      setVisualViewportHeight(newHeight);
+      setIsKeyboardVisible(keyboardDetected);
+      setKeyboardHeight(keyboardDetected ? heightDiff : 0);
+      
+      // Scroll active element into view when keyboard opens
+      if (keyboardDetected && inputRef.current) {
+        setTimeout(() => {
+          inputRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'end',
+            inline: 'nearest'
+          });
+        }, 100);
+      }
+    };
+    
+    // Initial check
+    handleViewportChange();
+    
+    vv.addEventListener("resize", handleViewportChange);
+    vv.addEventListener("scroll", handleViewportChange);
+    
+    return () => {
+      vv.removeEventListener("resize", handleViewportChange);
+      vv.removeEventListener("scroll", handleViewportChange);
+    };
   }, []);
 
-  // Auto-focus input when a keyboard question appears
+  // Auto-focus input when a keyboard question appears - with Telegram optimization
   useEffect(() => {
     if (!isKeyboardMode || isAnswered) return;
     
-    // Delay focus to ensure Telegram keyboard is ready
-    const focusInput = () => {
-      if (inputRef.current) {
-        // Use a more reliable focus method for Telegram
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    const tryFocus = () => {
+      if (inputRef.current && attempts < maxAttempts) {
+        attempts++;
         inputRef.current.focus();
-        // Ensure cursor is at the end
-        inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
+        
+        // Ensure cursor at end
+        const len = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(len, len);
+        
+        // If not focused, try again
+        if (document.activeElement !== inputRef.current && attempts < maxAttempts) {
+          setTimeout(tryFocus, 100 * attempts);
+        }
       }
     };
-
-    // Multiple attempts to handle Telegram's async nature
-    const rafId1 = window.requestAnimationFrame(focusInput);
-    const rafId2 = window.requestAnimationFrame(() => {
-      setTimeout(focusInput, 100);
-    });
+    
+    // Progressive focus attempts for Telegram
+    const timeouts: NodeJS.Timeout[] = [];
+    timeouts.push(setTimeout(tryFocus, 50));
+    timeouts.push(setTimeout(tryFocus, 150));
+    timeouts.push(setTimeout(tryFocus, 300));
     
     return () => {
-      window.cancelAnimationFrame(rafId1);
-      window.cancelAnimationFrame(rafId2);
+      timeouts.forEach(clearTimeout);
     };
   }, [currentQuestion?.id, isAnswered, isKeyboardMode]);
 
@@ -815,103 +857,142 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   </div>
 
                   {currentQuestion.mode === "keyboard" && !isAnswered && (
-                    <div className="shrink-0 rounded-xl border border-border/70 bg-background/95 p-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <motion.div 
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      className="shrink-0 rounded-2xl border border-border/60 bg-gradient-to-br from-background/95 to-background/90 p-4 shadow-lg shadow-black/5 backdrop-blur-xl"
+                      onClick={() => inputRef.current?.focus()}
+                    >
                       <form
-                        className="space-y-2.5"
+                        className="space-y-3"
                         onSubmit={(event) => {
                           event.preventDefault();
                           handleTypedSubmit();
                         }}
                       >
-                        <Input
-                          ref={inputRef}
-                          value={typedReference}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setTypedReference(value);
-                            // Force cursor to end for better Telegram experience
-                            setTimeout(() => {
-                              if (inputRef.current) {
-                                inputRef.current.setSelectionRange(value.length, value.length);
+                        <div className="relative">
+                          <Input
+                            ref={inputRef}
+                            value={typedReference}
+                            onChange={(event) => {
+                              setTypedReference(event.target.value);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' && !event.shiftKey) {
+                                event.preventDefault();
+                                if (typedReference.trim().length > 0) {
+                                  handleTypedSubmit();
+                                }
                               }
-                            }, 0);
-                          }}
-                          onFocus={(event) => {
-                            // Ensure cursor is at end when focusing
-                            const target = event.target;
-                            target.setSelectionRange(target.value.length, target.value.length);
-                            
-                            // Scroll input into view for better Telegram experience
-                            setTimeout(() => {
-                              target.scrollIntoView({ 
-                                behavior: 'smooth', 
-                                block: 'center' 
-                              });
-                            }, 150);
-                          }}
-                          onTouchStart={() => {
-                            // Ensure input is responsive on touch devices
-                            if (inputRef.current) {
-                              inputRef.current.focus();
-                            }
-                          }}
-                          placeholder="Иоанна 3:16"
-                          className="h-10 rounded-lg border-border/70 bg-background/70 text-sm"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          inputMode="text"
-                          enterKeyHint="done"
-                        />
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="submit"
-                            size="sm"
-                            className="h-8 rounded-lg px-3 text-xs"
-                            disabled={typedReference.trim().length === 0}
-                          >
-                            Проверить
-                          </Button>
-                          <span className="text-xs text-muted-foreground">
-                            {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}/{MAX_TYPING_ATTEMPTS}
-                          </span>
+                            }}
+                            onFocus={() => {
+                              // Ensure proper scroll position when focused
+                              setTimeout(() => {
+                                inputRef.current?.scrollIntoView({ 
+                                  behavior: 'smooth', 
+                                  block: 'nearest'
+                                });
+                              }, 100);
+                            }}
+                            placeholder="Например: Иоанна 3:16"
+                            className="h-12 rounded-xl border-border/50 bg-background/80 pr-24 text-base shadow-inner transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            inputMode="text"
+                            enterKeyHint="done"
+                            autoFocus={isKeyboardMode}
+                          />
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              className="h-8 rounded-lg px-4 text-xs font-medium shadow-sm transition-all active:scale-95"
+                              disabled={typedReference.trim().length === 0}
+                            >
+                              {typingAttempts === 0 ? 'Проверить' : 'Ещё раз'}
+                            </Button>
+                          </div>
                         </div>
-                        {typingAttempts > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Подсказка: {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
-                          </p>
-                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+                              {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              из {MAX_TYPING_ATTEMPTS} попыток
+                            </span>
+                          </div>
+                          
+                          {typingAttempts > 0 && (
+                            <motion.p 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="text-xs text-primary/80 font-medium"
+                            >
+                              {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
+                            </motion.p>
+                          )}
+                        </div>
                       </form>
-                    </div>
+                    </motion.div>
                   )}
 
                   {isAnswered && (
-                    <div
-                      className={`rounded-xl border px-3 py-2 text-sm ${
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className={`rounded-xl border px-4 py-3 text-sm ${
                         lastAnswerCorrect
-                          ? "border-emerald-500/45 bg-emerald-500/10"
-                          : "border-destructive/45 bg-destructive/10"
+                          ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5"
+                          : "border-rose-500/30 bg-gradient-to-r from-rose-500/10 to-rose-500/5"
                       }`}
                     >
-                      <div className="flex items-start gap-2">
-                        {lastAnswerCorrect ? (
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                        ) : (
-                          <XCircle className="mt-0.5 h-4 w-4 text-destructive" />
-                        )}
-                        <p className="text-foreground/85">
-                          {lastAnswerCorrect ? "Верно." : "Неверно."} {currentQuestion.verse.reference}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          lastAnswerCorrect 
+                            ? "bg-emerald-500/20 text-emerald-600" 
+                            : "bg-rose-500/20 text-rose-600"
+                        }`}>
+                          {lastAnswerCorrect ? (
+                            <CheckCircle2 className="h-5 w-5" />
+                          ) : (
+                            <XCircle className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium ${
+                            lastAnswerCorrect ? "text-emerald-700" : "text-rose-700"
+                          }`}>
+                            {lastAnswerCorrect ? "Правильно!" : "Неправильно"}
+                          </p>
+                          <p className="text-foreground/70 text-xs mt-0.5">
+                            {currentQuestion.verse.reference}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
 
                   {canGoNext && (
-                    <div className="flex justify-end">
-                      <Button type="button" size="sm" className="h-8 rounded-lg px-3 text-xs bg-primary/60" onClick={handleMoveNext}>
-                        Далее
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1, duration: 0.2 }}
+                      className="flex justify-end"
+                    >
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        className="h-10 rounded-xl px-5 text-sm font-medium shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-95" 
+                        onClick={handleMoveNext}
+                      >
+                        Далее →
                       </Button>
-                    </div>
+                    </motion.div>
                   )}
                 </motion.div>
               </AnimatePresence>
