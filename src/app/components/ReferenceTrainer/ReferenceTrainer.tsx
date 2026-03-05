@@ -415,6 +415,8 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const { viewportHeight } = useTelegramSafeArea();
   const initializedTelegramIdRef = useRef<string | null>(null);
   const answersViewportRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [visualViewportHeight, setVisualViewportHeight] = useState(0);
   const [versePool, setVersePool] = useState<ReferenceVerse[]>([]);
   const [questions, setQuestions] = useState<ReferenceQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -445,8 +447,13 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       : 0;
   const frameHeight = useMemo(() => {
     if (viewportHeight <= 0) return undefined;
-    return Math.max(300, viewportHeight - 210);
-  }, [viewportHeight]);
+    // When keyboard is open, visualViewport shrinks — shrink card to match
+    const effective =
+      visualViewportHeight > 50 && visualViewportHeight < viewportHeight - 10
+        ? visualViewportHeight
+        : viewportHeight;
+    return Math.max(200, effective - 210);
+  }, [viewportHeight, visualViewportHeight]);
 
   const resetAnswerState = useCallback(() => {
     setSelectedOption(null);
@@ -581,30 +588,25 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     isAnswered && currentQuestionIndex < questions.length - 1 && !sessionComplete;
   const isKeyboardMode = currentQuestion?.mode === "keyboard";
 
-  const ensureKeyboardFormVisible = useCallback(() => {
-    const container = answersViewportRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
+  // Track visual viewport height — shrinks when virtual keyboard opens
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    setVisualViewportHeight(vv.height);
+    const onResize = () => setVisualViewportHeight(vv.height);
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
   }, []);
 
+  // Auto-focus input when a keyboard question appears
   useEffect(() => {
-    if (!isKeyboardMode) return;
-    const rafId = window.requestAnimationFrame(ensureKeyboardFormVisible);
-    const timeoutId = window.setTimeout(ensureKeyboardFormVisible, 120);
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.clearTimeout(timeoutId);
-    };
-  }, [currentQuestion?.id, ensureKeyboardFormVisible, isKeyboardMode]);
-
-  useEffect(() => {
-    if (!isKeyboardMode || typeof window === "undefined") return;
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const onResize = () => ensureKeyboardFormVisible();
-    viewport.addEventListener("resize", onResize);
-    return () => viewport.removeEventListener("resize", onResize);
-  }, [ensureKeyboardFormVisible, isKeyboardMode]);
+    if (!isKeyboardMode || isAnswered) return;
+    const rafId = window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [currentQuestion?.id, isAnswered, isKeyboardMode]);
 
   return (
     <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
@@ -728,9 +730,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
                   <div
                     ref={answersViewportRef}
-                    className={`min-h-0 flex-1 overflow-auto pr-0.5 ${
-                      currentQuestion.mode === "keyboard" ? "pb-1" : ""
-                    }`}
+                    className="min-h-0 flex-1 overflow-auto pr-0.5"
                   >
                     {currentQuestion.mode === "reference-choice" && (
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -792,51 +792,48 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                       </div>
                     )}
 
-                    {currentQuestion.mode === "keyboard" && (
-                      <div className="sticky bottom-0 z-10 mt-2 rounded-xl border border-border/70 bg-background/95 p-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                        <form
-                          className="space-y-2.5"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            handleTypedSubmit();
-                          }}
-                        >
-                          <Input
-                            value={typedReference}
-                            onChange={(event) => setTypedReference(event.target.value)}
-                            placeholder="Иоанна 3:16"
-                            disabled={isAnswered}
-                            className="h-10 rounded-lg border-border/70 bg-background/70 text-sm"
-                            autoCapitalize="none"
-                            autoCorrect="off"
-                            spellCheck={false}
-                            onFocus={() => {
-                              ensureKeyboardFormVisible();
-                              window.setTimeout(ensureKeyboardFormVisible, 120);
-                            }}
-                          />
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="submit"
-                              size="sm"
-                              className="h-8 rounded-lg px-3 text-xs"
-                              disabled={isAnswered || typedReference.trim().length === 0}
-                            >
-                              Проверить
-                            </Button>
-                            <span className="text-xs text-muted-foreground">
-                              {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}/{MAX_TYPING_ATTEMPTS}
-                            </span>
-                          </div>
-                          {typingAttempts > 0 && !isAnswered && (
-                            <p className="text-xs text-muted-foreground">
-                              Подсказка: {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
-                            </p>
-                          )}
-                        </form>
-                      </div>
-                    )}
                   </div>
+
+                  {currentQuestion.mode === "keyboard" && !isAnswered && (
+                    <div className="shrink-0 rounded-xl border border-border/70 bg-background/95 p-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <form
+                        className="space-y-2.5"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          handleTypedSubmit();
+                        }}
+                      >
+                        <Input
+                          ref={inputRef}
+                          value={typedReference}
+                          onChange={(event) => setTypedReference(event.target.value)}
+                          placeholder="Иоанна 3:16"
+                          className="h-10 rounded-lg border-border/70 bg-background/70 text-sm"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="h-8 rounded-lg px-3 text-xs"
+                            disabled={typedReference.trim().length === 0}
+                          >
+                            Проверить
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}/{MAX_TYPING_ATTEMPTS}
+                          </span>
+                        </div>
+                        {typingAttempts > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Подсказка: {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
+                          </p>
+                        )}
+                      </form>
+                    </div>
+                  )}
 
                   {isAnswered && (
                     <div
