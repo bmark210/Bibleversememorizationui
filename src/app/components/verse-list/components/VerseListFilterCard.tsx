@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BookOpen, History, Pencil } from 'lucide-react';
+import { BookOpen, History, Pencil, TrendingUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from '@/app/lib/toast';
 import { Card } from '@/app/components/ui/card';
@@ -62,7 +62,8 @@ type VerseListFilterCardProps = {
 };
 
 const ROOT_TABS = [
-  { key: 'catalog', label: 'Каталог' },
+  { key: 'catalog', label: 'Общий' },
+  { key: 'friends', label: 'Друзья' },
   { key: 'my', label: 'Мои стихи' },
 ] as const;
 
@@ -89,10 +90,13 @@ export function VerseListFilterCard({
   onDeleteTag,
 }: VerseListFilterCardProps) {
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
-  const isCatalogMode = statusFilter === 'catalog';
-  const isMyMode = !isCatalogMode;
-  const visibleCountLabel =
-    totalVisible === totalCount ? `${totalCount} стихов` : `${totalVisible} из ${totalCount}`;
+  const activeRootTab: (typeof ROOT_TABS)[number]['key'] =
+    statusFilter === 'catalog'
+      ? 'catalog'
+      : statusFilter === 'friends'
+        ? 'friends'
+        : 'my';
+  const isMyMode = activeRootTab === 'my';
 
   const handleDeleteTag = async (tag: Tag) => {
     if (!tag.id || !tag.slug) return;
@@ -110,16 +114,18 @@ export function VerseListFilterCard({
   return (
     <div className="mb-3">
       <Card className="gap-0 rounded-3xl border-border/70 bg-card/50">
-        <div role="tablist" aria-label="Основной фильтр списка стихов" className="grid grid-cols-2 gap-1 rounded-2xl mx-3 mt-3 p-1 border border-border/35 bg-primary/5">
+        <div role="tablist" aria-label="Основной фильтр списка стихов" className="grid grid-cols-3 gap-1 rounded-2xl mx-3 mt-3 p-1 border border-border/35 bg-primary/5">
           {ROOT_TABS.map(({ key, label }) => {
-            const isActive = key === 'catalog' ? isCatalogMode : isMyMode;
+            const isActive = activeRootTab === key;
             return (
               <button
                 key={key}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => onTabClick(key, label)}
+                onClick={() =>
+                  onTabClick(key === 'my' ? 'my' : key, key === 'my' ? 'Мои стихи' : label)
+                }
                 className={cn(
                   'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
                   isActive
@@ -175,7 +181,7 @@ export function VerseListFilterCard({
                 </ScrollRow>
               </div>
           )}
-          
+
         <div className="mt-2 px-3">
           <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
             <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
@@ -184,11 +190,16 @@ export function VerseListFilterCard({
             <div
               role="radiogroup"
               aria-label="Сортировка стихов"
-              className="grid grid-cols-2 gap-1"
+              className="grid grid-cols-3 gap-1"
             >
               {sortOptions.map((option) => {
                 const isActive = sortBy === option.key;
-                const Icon = option.key === 'bible' ? BookOpen : History;
+                const Icon =
+                  option.key === 'bible'
+                    ? BookOpen
+                    : option.key === 'popularity'
+                      ? TrendingUp
+                      : History;
                 return (
                   <button
                     key={option.key}

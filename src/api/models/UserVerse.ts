@@ -18,6 +18,8 @@ export type UserVerse = {
         slug: string;
         title: string;
     }>;
+    popularityScope?: UserVerse.popularityScope;
+    popularityValue?: number;
     text?: string;
     reference?: string;
 };
@@ -29,6 +31,11 @@ export namespace UserVerse {
         REVIEW = 'REVIEW',
         MASTERED = 'MASTERED',
         CATALOG = 'CATALOG',
+    }
+    export enum popularityScope {
+        FRIENDS = 'friends',
+        PLAYERS = 'players',
+        SELF = 'self',
     }
 }
 

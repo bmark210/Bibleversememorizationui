@@ -18,6 +18,7 @@ type PrismaUserVerseWithVerse = Prisma.UserVerseGetPayload<{
 }>;
 
 export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
+export type VersePopularityScope = "friends" | "players" | "self";
 
 export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
 
@@ -30,6 +31,8 @@ export interface VerseCardDto {
   nextReviewAt: string | null;
   lastTrainingModeId: number | null;
   tags: VerseCardTagDto[];
+  popularityScope?: VersePopularityScope;
+  popularityValue?: number;
   text?: string;
   reference?: string;
 }
@@ -71,6 +74,8 @@ export type EnrichedUserVerseSource = UserVerseWithLegacyNullableProgress & {
   text?: string;
   reference?: string;
   tags?: VerseCardTagDto[];
+  popularityScope?: VersePopularityScope;
+  popularityValue?: number;
 };
 
 export function normalizeProgressValue(value: number | null | undefined): number {
@@ -149,6 +154,12 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
     lastReviewedAt: toIsoStringOrNull(verse.lastReviewedAt),
     nextReviewAt: toIsoStringOrNull(verse.nextReviewAt),
     tags: verse.tags ?? [],
+    ...(typeof verse.popularityScope === "string"
+      ? { popularityScope: verse.popularityScope }
+      : {}),
+    ...(typeof verse.popularityValue === "number"
+      ? { popularityValue: Math.max(0, Math.round(verse.popularityValue)) }
+      : {}),
     ...(typeof verse.text === "string" ? { text: verse.text } : {}),
     ...(typeof verse.reference === "string" ? { reference: verse.reference } : {}),
   };

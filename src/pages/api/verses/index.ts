@@ -24,7 +24,7 @@ const MAX_TAG_SLUGS = 30;
 const DEFAULT_CATALOG_ORDER_BY = "createdAt";
 const DEFAULT_CATALOG_ORDER = "desc";
 
-type CatalogOrderBy = "createdAt" | "bible";
+type CatalogOrderBy = "createdAt" | "bible" | "popularity";
 type CatalogOrder = "asc" | "desc";
 
 function parseTagSlugs(value: string | string[] | undefined): string[] {
@@ -45,7 +45,7 @@ function parseTagSlugs(value: string | string[] | undefined): string[] {
 
 function parseCatalogOrderBy(value: string | undefined): CatalogOrderBy | null {
   if (!value) return DEFAULT_CATALOG_ORDER_BY;
-  if (value === "createdAt" || value === "bible") return value;
+  if (value === "createdAt" || value === "bible" || value === "popularity") return value;
   return null;
 }
 
@@ -68,6 +68,29 @@ function toIsoOrNull(value: Date | null | undefined): string | null {
 function normalizeProgress(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.trunc(value));
+}
+
+async function fetchGlobalOwnerCountByVerseId(
+  verseIds: string[]
+): Promise<Map<string, number>> {
+  const uniqueVerseIds = Array.from(new Set(verseIds.filter(Boolean)));
+  if (uniqueVerseIds.length === 0) return new Map();
+
+  const rows = await prisma.userVerse.groupBy({
+    by: ["verseId"],
+    where: {
+      verseId: {
+        in: uniqueVerseIds,
+      },
+    },
+    _count: {
+      _all: true,
+    },
+  });
+
+  return new Map(
+    rows.map((row) => [row.verseId, Math.max(0, row._count._all ?? 0)] as const)
+  );
 }
 
 type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
@@ -189,7 +212,7 @@ async function fetchPaginatedCatalogVerses(options: {
 }) {
   const { verseWhere, tagSlugs, orderBy, order, startWith, limit } = options;
 
-  if (orderBy !== "bible") {
+  if (orderBy === "createdAt") {
     return prisma.verse.findMany({
       where: verseWhere,
       orderBy: { createdAt: order },
@@ -197,6 +220,46 @@ async function fetchPaginatedCatalogVerses(options: {
       take: limit,
       include: { tags: { include: { tag: true } } },
     });
+  }
+
+  if (orderBy === "popularity") {
+    const directionSql = order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+    const tagFilterSql =
+      tagSlugs.length > 0
+        ? Prisma.sql`
+            WHERE EXISTS (
+              SELECT 1
+              FROM "VerseTag" vt
+              INNER JOIN "Tag" t ON t.id = vt."tagId"
+              WHERE vt."verseId" = v.id
+                AND t.slug IN (${Prisma.join(tagSlugs)})
+            )
+          `
+        : Prisma.empty;
+
+    const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT v.id
+      FROM "Verse" v
+      LEFT JOIN "UserVerse" uv ON uv."verseId" = v.id
+      ${tagFilterSql}
+      GROUP BY v.id, v."createdAt"
+      ORDER BY COUNT(uv.id) ${directionSql}, v."createdAt" DESC, v.id ASC
+      OFFSET ${startWith}
+      LIMIT ${limit}
+    `);
+
+    const verseIds = rawRows.map((row) => row.id);
+    if (verseIds.length === 0) return [];
+
+    const verses = await prisma.verse.findMany({
+      where: { id: { in: verseIds } },
+      include: { tags: { include: { tag: true } } },
+    });
+    const verseById = new Map(verses.map((verse) => [verse.id, verse]));
+
+    return verseIds
+      .map((id) => verseById.get(id))
+      .filter((verse): verse is (typeof verses)[number] => Boolean(verse));
   }
 
   const directionSql = order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
@@ -250,12 +313,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const limitRaw = Number(req.query.limit ?? DEFAULT_PAGE_LIMIT);
-  const limit = Math.min(
-    Math.max(1, Number.isInteger(limitRaw) ? limitRaw : DEFAULT_PAGE_LIMIT),
-    MAX_PAGE_LIMIT
-  );
-  const startWith = Math.max(0, Number(req.query.startWith ?? 0));
+  const limitValue = Array.isArray(req.query.limit)
+    ? req.query.limit[0]
+    : req.query.limit;
+  const startWithValue = Array.isArray(req.query.startWith)
+    ? req.query.startWith[0]
+    : req.query.startWith;
+  const parsedLimit = limitValue == null ? DEFAULT_PAGE_LIMIT : Number(limitValue);
+  if (
+    !Number.isInteger(parsedLimit) ||
+    parsedLimit < 1 ||
+    parsedLimit > MAX_PAGE_LIMIT
+  ) {
+    return res.status(400).json({
+      error: `limit must be an integer between 1 and ${MAX_PAGE_LIMIT}`,
+    });
+  }
+  const parsedStartWith = startWithValue == null ? 0 : Number(startWithValue);
+  if (!Number.isInteger(parsedStartWith) || parsedStartWith < 0) {
+    return res.status(400).json({
+      error: "startWith must be a non-negative integer",
+    });
+  }
+  const limit = parsedLimit;
+  const startWith = parsedStartWith;
   const orderByRaw = Array.isArray(req.query.orderBy)
     ? req.query.orderBy[0]
     : req.query.orderBy;
@@ -266,7 +347,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const orderBy = parseCatalogOrderBy(orderByRaw);
   if (!orderBy) {
     return res.status(400).json({
-      error: `orderBy must be one of: createdAt, bible`,
+      error: `orderBy must be one of: createdAt, bible, popularity`,
     });
   }
 
@@ -349,8 +430,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const verseIds = verses.map((v) => v.id);
 
-    // Fetch helloao texts and user's UserVerse rows in parallel
-    const [textsMap, userVerseRows] = await Promise.all([
+    // Fetch helloao texts, user's UserVerse rows and global owners counts in parallel
+    const [textsMap, userVerseRows, globalOwnerCountByVerseId] = await Promise.all([
       fetchHelloaoTexts(groupedRequests),
       telegramIdParam && verseIds.length > 0
         ? prisma.userVerse.findMany({
@@ -366,6 +447,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           })
         : Promise.resolve([] as UserVerseRow[]),
+      fetchGlobalOwnerCountByVerseId(verseIds),
     ]);
 
     // Build lookup: Verse.id → UserVerse progress
@@ -385,6 +467,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slug: vt.tag.slug,
         title: vt.tag.title,
       }));
+      const globalOwnersCount = globalOwnerCountByVerseId.get(verse.id) ?? 0;
 
       const uv = userVerseMap.get(verse.id);
 
@@ -402,6 +485,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastReviewedAt: toIsoOrNull(uv.lastReviewedAt),
           nextReviewAt: toIsoOrNull(uv.nextReviewAt),
           tags,
+          popularityScope: "players" as const,
+          popularityValue: globalOwnersCount,
           text: enriched.text ?? "",
           reference: enriched.reference ?? verse.externalVerseId,
         };
@@ -417,6 +502,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastReviewedAt: null,
         nextReviewAt: null,
         tags,
+        popularityScope: "players" as const,
+        popularityValue: globalOwnersCount,
         text: enriched.text ?? "",
         reference: enriched.reference ?? verse.externalVerseId,
       };

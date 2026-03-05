@@ -116,7 +116,12 @@ export function useVersePagination({
         const page = await fetchCatalogVersesPage({
           telegramId: id,
           tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
-          orderBy: sortBy === 'bible' ? 'bible' : 'createdAt',
+          orderBy:
+            sortBy === 'bible'
+              ? 'bible'
+              : sortBy === 'popularity'
+                ? 'popularity'
+                : 'createdAt',
           order: sortBy === 'bible' ? 'asc' : 'desc',
           limit: pageSize,
           startWith: startWith ?? undefined,
@@ -129,7 +134,12 @@ export function useVersePagination({
 
       const page = await fetchUserVersesPage({
         telegramId: id,
-        orderBy: sortBy === 'bible' ? 'bible' : 'updatedAt',
+        orderBy:
+          sortBy === 'bible'
+            ? 'bible'
+            : sortBy === 'popularity'
+              ? 'popularity'
+              : 'updatedAt',
         order: sortBy === 'bible' ? 'asc' : 'desc',
         filter,
         search: normalizedSearchQuery || undefined,

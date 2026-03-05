@@ -4,9 +4,9 @@ import type { UserVerse } from "../models/UserVerse";
 type GetApiUsersVersesParams = {
   telegramId: string;
   status?: "MY" | "LEARNING" | "STOPPED";
-  orderBy?: "createdAt" | "updatedAt" | "bible";
+  orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
-  filter?: "catalog" | 'my' | "learning" | "review" | "mastered" | "stopped";
+  filter?: "catalog" | 'friends' | 'my' | "learning" | "review" | "mastered" | "stopped";
   search?: string;
   tagSlugs?: string[];
   limit?: number;

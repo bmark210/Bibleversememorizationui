@@ -260,7 +260,10 @@ const swaggerDoc = {
             name: "orderBy",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["createdAt", "updatedAt"] },
+            schema: {
+              type: "string",
+              enum: ["createdAt", "updatedAt", "bible", "popularity"],
+            },
           },
           {
             name: "order",
@@ -272,7 +275,18 @@ const swaggerDoc = {
             name: "filter",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["catalog", 'my', "learning", "review", "mastered", "stopped"] },
+            schema: {
+              type: "string",
+              enum: [
+                "catalog",
+                "friends",
+                "my",
+                "learning",
+                "review",
+                "mastered",
+                "stopped",
+              ],
+            },
           },
           {
             name: "limit",
@@ -458,6 +472,52 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/verses": {
+      get: {
+        tags: ["User Verses"],
+        summary: "Каталог стихов с пагинацией и контекстной популярностью",
+        parameters: [
+          { name: "telegramId", in: "query", required: false, schema: { type: "string" } },
+          { name: "translation", in: "query", required: false, schema: { type: "string" } },
+          { name: "tagSlugs", in: "query", required: false, schema: { type: "string" } },
+          {
+            name: "orderBy",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["createdAt", "bible", "popularity"] },
+          },
+          {
+            name: "order",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"] },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 50 },
+          },
+          {
+            name: "startWith",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 0 },
+          },
+        ],
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UserVersesPageResponse" },
+              },
+            },
+          },
+          400: { description: "Некорректные query-параметры" },
+        },
+      },
+    },
     "/api/verses/{externalVerseId}/tags": {
       get: {
         tags: ["Tags"],
@@ -574,6 +634,11 @@ const swaggerDoc = {
               },
             },
           },
+          popularityScope: {
+            type: "string",
+            enum: ["friends", "players", "self"],
+          },
+          popularityValue: { type: "integer", minimum: 0 },
           text: { type: "string" },
           reference: { type: "string" },
         },

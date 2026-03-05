@@ -105,6 +105,8 @@ export type Verse = {
   nextReview?: string | null;
   nextReviewAt: string | null;
   tags?: Array<{ id: string; slug: string; title: string }>;
+  popularityScope?: "friends" | "players" | "self";
+  popularityValue?: number;
   text: string;
   reference: string;
 };

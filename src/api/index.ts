@@ -7,6 +7,12 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { DashboardFriendActivityEntry } from './models/DashboardFriendActivityEntry';
+export type { DashboardFriendsActivityResponse } from './models/DashboardFriendsActivityResponse';
+export type { DashboardFriendsActivitySummary } from './models/DashboardFriendsActivitySummary';
+export type { FriendPlayerListItem } from './models/FriendPlayerListItem';
+export type { FriendPlayersPageResponse } from './models/FriendPlayersPageResponse';
+export { FriendsMutationResponse } from './models/FriendsMutationResponse';
 export type { OpenApiDoc } from './models/OpenApiDoc';
 export type { Tag } from './models/Tag';
 export type { User } from './models/User';
@@ -20,6 +26,7 @@ export type { UserWithVerses } from './models/UserWithVerses';
 export type { VerseTag } from './models/VerseTag';
 
 export { DocsService } from './services/DocsService';
+export { FriendsService } from './services/FriendsService';
 export { TagsService } from './services/TagsService';
 export { UsersService } from './services/UsersService';
 export { UserVersesService } from './services/UserVersesService';

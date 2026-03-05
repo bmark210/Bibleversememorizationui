@@ -4,7 +4,7 @@ type FetchCatalogVersesPageParams = {
   telegramId?: string;
   translation?: string;
   tagSlugs?: string[];
-  orderBy?: "createdAt" | "bible";
+  orderBy?: "createdAt" | "bible" | "popularity";
   order?: "asc" | "desc";
   limit?: number;
   startWith?: number;

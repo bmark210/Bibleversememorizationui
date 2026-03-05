@@ -95,6 +95,7 @@ export function useVerseListController({
     (verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
       const status = normalizeDisplayVerseStatus(verse.status);
       if (filter === 'catalog') return true;
+      if (filter === 'friends') return true;
       if (filter === 'learning') {
         return status === VerseStatus.LEARNING;
       }
@@ -102,7 +103,6 @@ export function useVerseListController({
       if (filter === 'mastered') return isMasteredVerse(verse);
       if (filter === 'stopped') return status === VerseStatus.STOPPED;
       if (filter === 'my') return status !== 'CATALOG';
-      if (filter === 'catalog') return status === 'CATALOG';
       return true;
     },
     [isMasteredVerse, isReviewVerse]
@@ -263,7 +263,9 @@ export function useVerseListController({
   const currentFilterLabel =
     statusFilter === 'catalog'
       ? 'Каталог'
-      : statusFilter === 'my'
+      : statusFilter === 'friends'
+        ? 'Друзья'
+        : statusFilter === 'my'
         ? 'Мои стихи'
         : filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Мои стихи';
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
@@ -359,8 +361,9 @@ export function useVerseListController({
 
   const sortOptions = useMemo<VerseListSortOption[]>(
     () => [
-      { key: 'bible', label: 'По канону Библии' },
-      { key: 'updatedAt', label: 'По последней активности' },
+      { key: 'bible', label: 'Канон' },
+      { key: 'updatedAt', label: 'Активность' },
+      { key: 'popularity', label: 'Популярность' },
     ],
     []
   );
@@ -384,6 +387,19 @@ export function useVerseListController({
         tintClassName: 'bg-gray-500/5',
       },
     };
+    if (statusFilter === 'friends') {
+      return {
+        items: filteredVerses,
+        config: {
+          headingId: 'friends-verses-heading',
+          title: 'Стихи друзей',
+          subtitle: 'Что изучают и повторяют ваши друзья',
+          dotClassName: 'bg-cyan-500',
+          borderClassName: 'bg-gradient-to-b from-cyan-500/8 to-background',
+          tintClassName: 'bg-cyan-500/8',
+        },
+      };
+    }
     if (statusFilter === 'learning') {
       return {
         items: learningVerses,

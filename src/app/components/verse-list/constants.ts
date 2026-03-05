@@ -5,12 +5,13 @@ import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/sha
 
 export type VerseListStatusFilter =
   | "catalog"
+  | "friends"
   | "learning"
   | "review"
   | "mastered"
   | "stopped"
   | "my";
-export type VerseListSortBy = "updatedAt" | "bible";
+export type VerseListSortBy = "updatedAt" | "bible" | "popularity";
 export type VerseStageVisualKey = VerseListStatusFilter;
 export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
@@ -39,6 +40,15 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     currentBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
     statusBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
     cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-gray-500/7 via-card to-card',
+  },
+  friends: {
+    dotClassName: 'bg-cyan-400',
+    activeTabClassName: 'border-cyan-500/30 bg-cyan-500/14 text-cyan-700 dark:text-cyan-300',
+    currentBadgeClassName:
+      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+    statusBadgeClassName:
+      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+    cardClassName: 'border-border dark:border-cyan-500/20 bg-gradient-to-br from-cyan-500/7 via-card to-card',
   },
   learning: {
     dotClassName: 'bg-emerald-400',

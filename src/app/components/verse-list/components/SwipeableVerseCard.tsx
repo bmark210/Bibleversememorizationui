@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
+import { Brain, Clock3, Globe2, Pause, Play, Plus, Repeat, Trash2, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -47,6 +47,38 @@ export const SwipeableVerseCard = ({
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
   const totalProgress = Math.min(masteryLevel + repetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
   const totalProgressPercent = Math.round((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+  const popularityValue =
+    typeof verse.popularityValue === 'number'
+      ? Math.max(0, Math.round(verse.popularityValue))
+      : null;
+  const popularityChip = (() => {
+    if (popularityValue == null) return null;
+    if (verse.popularityScope === 'friends') {
+      return {
+        icon: Users,
+        label: `У друзей ${popularityValue}`,
+        className:
+          'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+      };
+    }
+    if (verse.popularityScope === 'players') {
+      return {
+        icon: Globe2,
+        label: `У игроков ${popularityValue}`,
+        className:
+          'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+      };
+    }
+    if (verse.popularityScope === 'self') {
+      return {
+        icon: Brain,
+        label: `Прокачка ${popularityValue}%`,
+        className:
+          'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      };
+    }
+    return null;
+  })();
   const waitingUntilLabel = (() => {
     if (!verse.nextReviewAt) return null;
     const date = new Date(verse.nextReviewAt);
@@ -319,7 +351,7 @@ export const SwipeableVerseCard = ({
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
         `}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 min-h-full space-y-2">
           <div className="space-y-2 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-serif text-primary">{verse.reference}</h3>
@@ -344,7 +376,15 @@ export const SwipeableVerseCard = ({
                   )}
                 </div>
               )}
-              {statusMetaContent ? (
+            </AnimatePresence>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {renderActions()}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 justify-between">
+        {statusMetaContent ? (
                 <motion.div
                 key={layoutSignature}
                 initial={{ height: 0, opacity: 0, y: -4 }}
@@ -356,10 +396,20 @@ export const SwipeableVerseCard = ({
                   <div className="pt-0.5">{statusMetaContent}</div>
                 </motion.div>
               ) : null}
-            </AnimatePresence>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0">{renderActions()}</div>
+        {popularityChip && (
+          <div className="pointer-events-none">
+            <Badge
+              className={cn(
+                'rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70 shadow-sm',
+                popularityChip.className
+              )}
+            >
+              <popularityChip.icon className="w-3.5 h-3.5" />
+              {popularityChip.label}
+            </Badge>
+          </div>
+        )}
         </div>
       </div>
     </div>

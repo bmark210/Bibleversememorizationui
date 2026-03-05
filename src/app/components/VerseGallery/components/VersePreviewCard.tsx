@@ -1,11 +1,13 @@
 import {
   Brain,
   Clock3,
+  Globe2,
   Pause,
   Play,
   Plus,
   Repeat,
   Trophy,
+  Users,
 } from "lucide-react";
 import { VerseStatus } from "@/generated/prisma";
 import { Button } from "@/app/components/ui/button";
@@ -63,6 +65,38 @@ export function VersePreviewCard({
             : isReviewStage
               ? "review"
               : "learning";
+  const popularityValue =
+    typeof verse.popularityValue === "number"
+      ? Math.max(0, Math.round(verse.popularityValue))
+      : null;
+  const popularityBadge = (() => {
+    if (popularityValue == null) return null;
+    if (verse.popularityScope === "friends") {
+      return {
+        icon: Users,
+        label: `У друзей ${popularityValue}`,
+        className:
+          "border-cyan-500/35 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
+      };
+    }
+    if (verse.popularityScope === "players") {
+      return {
+        icon: Globe2,
+        label: `У игроков ${popularityValue}`,
+        className:
+          "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",
+      };
+    }
+    if (verse.popularityScope === "self") {
+      return {
+        icon: Brain,
+        label: `Прокачка ${popularityValue}%`,
+        className:
+          "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+      };
+    }
+    return null;
+  })();
 
   const primaryAction = buildPrimaryAction({
     status,
@@ -90,6 +124,19 @@ export function VersePreviewCard({
         isActive
         minHeight="training"
         previewTone={tone}
+        metaBadge={
+          popularityBadge ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                popularityBadge.className
+              )}
+            >
+              <popularityBadge.icon className="h-3.5 w-3.5" />
+              {popularityBadge.label}
+            </span>
+          ) : null
+        }
         tags={verse.tags ?? []}
         activeTagSlugs={activeTagSlugs}
         header={

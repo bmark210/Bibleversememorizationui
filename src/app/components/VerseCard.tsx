@@ -28,6 +28,7 @@ export type VerseCardTag = {
 export interface VerseCardProps {
   isActive?: boolean;
   header?: ReactNode;
+  metaBadge?: ReactNode;
   body: ReactNode;
   footer?: ReactNode;
   centerAction?: ReactNode;
@@ -118,6 +119,7 @@ const PREVIEW_TONE_TAG_CLASS: Record<VerseCardPreviewTone, string> = {
 export function VerseCard({
   isActive = true,
   header,
+  metaBadge,
   body,
   footer,
   centerAction,
@@ -476,6 +478,12 @@ export function VerseCard({
         )}
 
         {header ? <div className="mb-2 min-w-0 flex-shrink-0">{header}</div> : null}
+
+        {metaBadge ? (
+          <div className="mb-3 min-w-0 flex-shrink-0 flex justify-center">
+            {metaBadge}
+          </div>
+        ) : null}
 
         {visibleTags.length > 0 ? (
           <div className="mb-3 min-w-0 flex-shrink-0">

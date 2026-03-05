@@ -23,9 +23,9 @@ export class UserVersesService {
     public static getApiUsersVerses(
         telegramId: string,
         status?: 'MY' | 'LEARNING' | 'STOPPED',
-        orderBy?: 'createdAt' | 'updatedAt',
+        orderBy?: 'createdAt' | 'updatedAt' | 'bible' | 'popularity',
         order?: 'asc' | 'desc',
-        filter?: 'catalog' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
+        filter?: 'catalog' | 'friends' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
         limit?: number,
         startWith?: number,
     ): CancelablePromise<UserVersesPageResponse> {
@@ -152,6 +152,44 @@ export class UserVersesService {
             path: {
                 'telegramId': telegramId,
                 'externalVerseId': externalVerseId,
+            },
+        });
+    }
+    /**
+     * Каталог стихов с пагинацией и контекстной популярностью
+     * @param telegramId
+     * @param translation
+     * @param tagSlugs
+     * @param orderBy
+     * @param order
+     * @param limit
+     * @param startWith
+     * @returns UserVersesPageResponse OK
+     * @throws ApiError
+     */
+    public static getApiVerses(
+        telegramId?: string,
+        translation?: string,
+        tagSlugs?: string,
+        orderBy?: 'createdAt' | 'bible' | 'popularity',
+        order?: 'asc' | 'desc',
+        limit?: number,
+        startWith?: number,
+    ): CancelablePromise<UserVersesPageResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/verses',
+            query: {
+                'telegramId': telegramId,
+                'translation': translation,
+                'tagSlugs': tagSlugs,
+                'orderBy': orderBy,
+                'order': order,
+                'limit': limit,
+                'startWith': startWith,
+            },
+            errors: {
+                400: `Некорректные query-параметры`,
             },
         });
     }

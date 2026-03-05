@@ -18,9 +18,11 @@ import {
   type UserVerseWithLegacyNullableProgress,
   type UserVersesPageResponse,
   type VerseCardDto,
+  type VersePopularityScope,
   type VerseCardTagDto,
   type VerseTagLinkWithTag,
 } from "./verseCard.types";
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 
 const DEFAULT_HELLOAO_TRANSLATION = "rus_syn";
 
@@ -62,10 +64,11 @@ type HelloaoChapterRequest = {
   verses: number[];
 };
 
-export type UserVersesOrderBy = "createdAt" | "updatedAt" | "bible";
+export type UserVersesOrderBy = "createdAt" | "updatedAt" | "bible" | "popularity";
 export type UserVersesOrder = "asc" | "desc";
 export type UserVersesFilter =
   | "catalog"
+  | "friends"
   | "my"
   | "learning"
   | "review"
@@ -217,28 +220,44 @@ function parseStatus(value: string | undefined): VerseStatus | undefined {
 }
 
 function parseOrderBy(value: string | undefined): UserVersesOrderBy | undefined {
-  if (value === "createdAt" || value === "updatedAt" || value === "bible") return value;
-  return undefined;
+  if (!value) return undefined;
+  if (
+    value === "createdAt" ||
+    value === "updatedAt" ||
+    value === "bible" ||
+    value === "popularity"
+  ) {
+    return value;
+  }
+  throw new UserVersesApiError(
+    400,
+    "orderBy must be one of: createdAt, updatedAt, bible, popularity"
+  );
 }
 
 function parseOrder(value: string | undefined): UserVersesOrder | undefined {
+  if (!value) return undefined;
   if (value === "asc" || value === "desc") return value;
-  return undefined;
+  throw new UserVersesApiError(400, "order must be one of: asc, desc");
 }
 
 function parseFilter(value: string | undefined): UserVersesFilter | undefined {
   if (!value) return undefined;
   if (
     value === "catalog" ||
+    value === "friends" ||
     value === "my" ||
     value === "learning" ||
     value === "review" ||
     value === "mastered" ||
     value === "stopped"
   ) {
-    return value;
+      return value;
   }
-  return undefined;
+  throw new UserVersesApiError(
+    400,
+    "filter must be one of: catalog, friends, my, learning, review, mastered, stopped"
+  );
 }
 
 function parsePageLimit(value: string | undefined): number | undefined {
@@ -313,6 +332,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
 export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Record<string, unknown> | undefined {
   if (query.filter) {
     if (query.filter === "catalog") return undefined;
+    if (query.filter === "friends") return undefined;
     if (query.filter === "my") return undefined; // все стихи пользователя, без фильтра по статусу
     if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
     if (
@@ -336,11 +356,11 @@ function isComputedDisplayFilter(filter: UserVersesFilter | undefined): filter i
 }
 
 function filterVerseCardsByDisplayFilter(verses: VerseCardDto[], filter: UserVersesFilter | undefined) {
-  if (!filter || filter === "catalog") return verses;
+  if (!filter || filter === "catalog" || filter === "friends") return verses;
   if (filter === "learning") return verses.filter((verse) => verse.status === VerseStatus.LEARNING);
   if (filter === "review") return verses.filter((verse) => verse.status === "REVIEW");
   if (filter === "mastered") return verses.filter((verse) => verse.status === "MASTERED");
-  if (filter === "my") return verses.filter((verse) => verse.status === VerseStatus.MY);
+  if (filter === "my") return verses.filter((verse) => verse.status !== "CATALOG");
   if (filter === "stopped") return verses.filter((verse) => verse.status === VerseStatus.STOPPED);
   return verses;
 }
@@ -408,7 +428,7 @@ function buildUserVersesOrderBy(
   orderBy?: UserVersesOrderBy,
   order?: UserVersesOrder
 ): Prisma.UserVerseOrderByWithRelationInput[] | undefined {
-  if (orderBy === "bible") return undefined;
+  if (orderBy === "bible" || orderBy === "popularity") return undefined;
   const field = orderBy ?? "createdAt";
   const direction = order ?? "desc";
   return [
@@ -450,6 +470,101 @@ function sortUserVerseRowsByBibleOrder(
       ) * direction;
     if (byExternalVerseId !== 0) return byExternalVerseId;
     return (a.id - b.id) * direction;
+  });
+}
+
+function toMillis(value: Date | string | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+function computeSelfPopularityValue(input: {
+  masteryLevel: number;
+  repetitions: number;
+}): number {
+  const masteryLevel = Math.max(0, Math.round(Number(input.masteryLevel ?? 0)));
+  const repetitions = Math.max(0, Math.round(Number(input.repetitions ?? 0)));
+  const boundedProgress = Math.min(
+    masteryLevel + repetitions,
+    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
+  );
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        (boundedProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
+      )
+    )
+  );
+}
+
+function withPopularity(
+  verse: VerseCardDto,
+  scope: VersePopularityScope,
+  value: number
+): VerseCardDto {
+  return {
+    ...verse,
+    popularityScope: scope,
+    popularityValue: Math.max(0, Math.round(value)),
+  };
+}
+
+function withSelfPopularity(verse: VerseCardDto): VerseCardDto {
+  return withPopularity(
+    verse,
+    "self",
+    computeSelfPopularityValue({
+      masteryLevel: verse.masteryLevel,
+      repetitions: verse.repetitions,
+    })
+  );
+}
+
+function sortVerseCardsByBibleOrder(
+  verses: VerseCardDto[],
+  order?: UserVersesOrder
+): VerseCardDto[] {
+  const direction = order === "desc" ? -1 : 1;
+  return [...verses].sort((a, b) => {
+    const byBible =
+      compareExternalVerseIdsInBibleOrder(a.externalVerseId, b.externalVerseId) *
+      direction;
+    if (byBible !== 0) return byBible;
+    return a.externalVerseId.localeCompare(b.externalVerseId) * direction;
+  });
+}
+
+function sortVerseCardsBySelfPopularity(params: {
+  verses: VerseCardDto[];
+  updatedAtByExternalVerseId: Map<string, number>;
+  order?: UserVersesOrder;
+}): VerseCardDto[] {
+  const direction = params.order === "asc" ? -1 : 1;
+  return [...params.verses].sort((a, b) => {
+    const aPopularity = Math.max(0, Math.round(Number(a.popularityValue ?? 0)));
+    const bPopularity = Math.max(0, Math.round(Number(b.popularityValue ?? 0)));
+    if (aPopularity !== bPopularity) {
+      return (bPopularity - aPopularity) * direction;
+    }
+
+    const aUpdated =
+      params.updatedAtByExternalVerseId.get(a.externalVerseId) ??
+      Number.NEGATIVE_INFINITY;
+    const bUpdated =
+      params.updatedAtByExternalVerseId.get(b.externalVerseId) ??
+      Number.NEGATIVE_INFINITY;
+    if (aUpdated !== bUpdated) {
+      return (bUpdated - aUpdated) * direction;
+    }
+
+    return compareExternalVerseIdsInBibleOrder(a.externalVerseId, b.externalVerseId);
   });
 }
 
@@ -741,6 +856,186 @@ export async function enrichExternalVerseIds(
   return result;
 }
 
+async function fetchPaginatedFriendVerses(options: {
+  telegramId: string;
+  translation: string;
+  orderBy?: UserVersesOrderBy;
+  order?: UserVersesOrder;
+  search?: string;
+  tagSlugs?: string[];
+  limit: number;
+  startWith: number;
+}): Promise<UserVersesPageResponse> {
+  const follows = await prisma.userFollow.findMany({
+    where: { followerTelegramId: options.telegramId },
+    select: { followingTelegramId: true },
+  });
+  const followingTelegramIds = Array.from(
+    new Set(
+      follows
+        .map((follow) => follow.followingTelegramId)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  if (followingTelegramIds.length === 0) {
+    return { items: [], totalCount: 0 };
+  }
+
+  const friendVerseWhere = applyTagFilterToUserVersesWhere(
+    {
+      telegramId: {
+        in: followingTelegramIds,
+      },
+    },
+    options.tagSlugs
+  );
+
+  const aggregatedFriendVerses = await prisma.userVerse.groupBy({
+    by: ["verseId"],
+    where: friendVerseWhere,
+    _count: {
+      _all: true,
+    },
+    _max: {
+      updatedAt: true,
+    },
+  });
+
+  if (aggregatedFriendVerses.length === 0) {
+    return { items: [], totalCount: 0 };
+  }
+
+  const verseIds = aggregatedFriendVerses.map((entry) => entry.verseId);
+  const [verses, myRows] = await Promise.all([
+    prisma.verse.findMany({
+      where: {
+        id: {
+          in: verseIds,
+        },
+      },
+      select: {
+        id: true,
+        externalVerseId: true,
+      },
+    }),
+    prisma.userVerse.findMany({
+      where: {
+        telegramId: options.telegramId,
+        verseId: {
+          in: verseIds,
+        },
+      },
+      include: {
+        verse: {
+          select: {
+            externalVerseId: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const verseById = new Map(
+    verses.map((verse) => [verse.id, verse.externalVerseId] as const)
+  );
+  const externalVerseIds = Array.from(
+    new Set(
+      verseIds
+        .map((verseId) => verseById.get(verseId))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const [enrichedByExternalVerseId] = await Promise.all([
+    enrichExternalVerseIds(externalVerseIds, options.translation),
+  ]);
+
+  const myRowByVerseId = new Map(
+    myRows.map((row) => [row.verseId, row] as const)
+  );
+  const friendsCountByExternalVerseId = new Map<string, number>();
+  const lastFriendActivityByExternalVerseId = new Map<string, number>();
+
+  const items = aggregatedFriendVerses
+    .map((aggregate) => {
+      const externalVerseId = verseById.get(aggregate.verseId);
+      if (!externalVerseId) return null;
+
+      const friendsCount = Math.max(0, aggregate._count._all ?? 0);
+      const lastFriendActivityAt = aggregate._max.updatedAt ?? null;
+      const enriched = enrichedByExternalVerseId.get(externalVerseId);
+      const myRow = myRowByVerseId.get(aggregate.verseId);
+
+      const baseCard = myRow
+        ? mapUserVerseToVerseCardDto({
+            ...(myRow as UserVerseWithLegacyNullableProgress),
+            externalVerseId,
+            tags: enriched?.tags ?? [],
+            text: enriched?.text,
+            reference: enriched?.reference,
+          })
+        : ({
+            externalVerseId,
+            status: "CATALOG",
+            masteryLevel: 0,
+            repetitions: 0,
+            lastTrainingModeId: null,
+            lastReviewedAt: null,
+            nextReviewAt: null,
+            tags: enriched?.tags ?? [],
+            text: enriched?.text ?? "",
+            reference: enriched?.reference ?? externalVerseId,
+          } satisfies VerseCardDto);
+
+      friendsCountByExternalVerseId.set(externalVerseId, friendsCount);
+      lastFriendActivityByExternalVerseId.set(
+        externalVerseId,
+        toMillis(lastFriendActivityAt)
+      );
+
+      return withPopularity(baseCard, "friends", friendsCount);
+    })
+    .filter((item): item is VerseCardDto => Boolean(item));
+
+  const filteredItems = filterVerseCardsBySearch(items, options.search);
+  const direction = options.order === "asc" ? -1 : 1;
+  const sortedItems =
+    options.orderBy === "bible"
+      ? sortVerseCardsByBibleOrder(filteredItems, options.order)
+      : [...filteredItems].sort((a, b) => {
+          const aCount =
+            friendsCountByExternalVerseId.get(a.externalVerseId) ??
+            Math.max(0, Number(a.popularityValue ?? 0));
+          const bCount =
+            friendsCountByExternalVerseId.get(b.externalVerseId) ??
+            Math.max(0, Number(b.popularityValue ?? 0));
+          const aLast =
+            lastFriendActivityByExternalVerseId.get(a.externalVerseId) ??
+            Number.NEGATIVE_INFINITY;
+          const bLast =
+            lastFriendActivityByExternalVerseId.get(b.externalVerseId) ??
+            Number.NEGATIVE_INFINITY;
+          const primaryIsPopularity = options.orderBy === "popularity";
+          if (primaryIsPopularity) {
+            if (aCount !== bCount) return (bCount - aCount) * direction;
+            if (aLast !== bLast) return (bLast - aLast) * direction;
+          } else {
+            if (aLast !== bLast) return (bLast - aLast) * direction;
+            if (aCount !== bCount) return (bCount - aCount) * direction;
+          }
+
+          return compareExternalVerseIdsInBibleOrder(
+            a.externalVerseId,
+            b.externalVerseId
+          );
+        });
+
+  return {
+    items: sortedItems.slice(options.startWith, options.startWith + options.limit),
+    totalCount: sortedItems.length,
+  };
+}
+
 export async function fetchPaginatedEnrichedUserVerses({
   telegramId,
   where,
@@ -753,36 +1048,47 @@ export async function fetchPaginatedEnrichedUserVerses({
   startWith,
 }: FetchPaginatedEnrichedUserVersesOptions): Promise<UserVersesPageResponse> {
   const pageLimit = limit ?? DEFAULT_USER_VERSES_PAGE_LIMIT;
+  const pageOffset = Math.max(0, startWith ?? 0);
+  const hasSearch = Boolean(normalizeSearchTerm(search));
+  const useBibleOrdering = orderBy === "bible";
+  const usePopularityOrdering = orderBy === "popularity";
   const translation = await getUserTranslationForTelegram(telegramId);
+
+  if (displayFilter === "friends") {
+    return fetchPaginatedFriendVerses({
+      telegramId,
+      translation,
+      orderBy,
+      order,
+      search,
+      tagSlugs,
+      limit: pageLimit,
+      startWith: pageOffset,
+    });
+  }
+
   const prismaWhere = applyTagFilterToUserVersesWhere(
     buildUserVersesWhere(telegramId, where),
     tagSlugs
   );
-  const pageOffset = Math.max(0, startWith ?? 0);
-  const hasSearch = Boolean(normalizeSearchTerm(search));
   const prismaOrderBy = buildUserVersesOrderBy(orderBy, order);
-  const useBibleOrdering = orderBy === "bible";
 
-  if (useBibleOrdering) {
+  if (
+    useBibleOrdering &&
+    !usePopularityOrdering &&
+    !isComputedDisplayFilter(displayFilter) &&
+    !hasSearch
+  ) {
     const rawRows = await prisma.userVerse.findMany({
       where: prismaWhere,
       include: { verse: true },
     });
     const orderedRows = sortUserVerseRowsByBibleOrder(rawRows, order);
-
-    if (isComputedDisplayFilter(displayFilter) || hasSearch) {
-      const enrichedItems = await enrichUserVerses(flattenVerseRows(orderedRows), translation);
-      const filteredByDisplay = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
-      const filteredItems = filterVerseCardsBySearch(filteredByDisplay, search);
-
-      return {
-        items: filteredItems.slice(pageOffset, pageOffset + pageLimit),
-        totalCount: filteredItems.length,
-      };
-    }
-
     const paginatedRows = orderedRows.slice(pageOffset, pageOffset + pageLimit);
-    const enrichedItems = await enrichUserVerses(flattenVerseRows(paginatedRows), translation);
+    const enrichedItems = (await enrichUserVerses(
+      flattenVerseRows(paginatedRows),
+      translation
+    )).map(withSelfPopularity);
 
     return {
       items: enrichedItems,
@@ -790,20 +1096,41 @@ export async function fetchPaginatedEnrichedUserVerses({
     };
   }
 
-  if (isComputedDisplayFilter(displayFilter) || hasSearch) {
+  if (usePopularityOrdering || isComputedDisplayFilter(displayFilter) || hasSearch) {
     const rawRows = await prisma.userVerse.findMany({
       where: prismaWhere,
-      orderBy: prismaOrderBy,
+      orderBy: usePopularityOrdering ? undefined : prismaOrderBy,
       include: { verse: true },
     });
-
-    const enrichedItems = await enrichUserVerses(flattenVerseRows(rawRows), translation);
-    const filteredByDisplay = filterVerseCardsByDisplayFilter(enrichedItems, displayFilter);
+    const orderedRows = useBibleOrdering
+      ? sortUserVerseRowsByBibleOrder(rawRows, order)
+      : rawRows;
+    const updatedAtByExternalVerseId = new Map(
+      orderedRows.map((row) => [row.verse.externalVerseId, toMillis(row.updatedAt)] as const)
+    );
+    const enrichedItems = (await enrichUserVerses(
+      flattenVerseRows(orderedRows),
+      translation
+    )).map(withSelfPopularity);
+    const filteredByDisplay = filterVerseCardsByDisplayFilter(
+      enrichedItems,
+      displayFilter
+    );
     const filteredItems = filterVerseCardsBySearch(filteredByDisplay, search);
 
+    const sortedItems = usePopularityOrdering
+      ? sortVerseCardsBySelfPopularity({
+          verses: filteredItems,
+          updatedAtByExternalVerseId,
+          order,
+        })
+      : useBibleOrdering
+        ? sortVerseCardsByBibleOrder(filteredItems, order)
+        : filteredItems;
+
     return {
-      items: filteredItems.slice(pageOffset, pageOffset + pageLimit),
-      totalCount: filteredItems.length,
+      items: sortedItems.slice(pageOffset, pageOffset + pageLimit),
+      totalCount: sortedItems.length,
     };
   }
 
@@ -820,7 +1147,10 @@ export async function fetchPaginatedEnrichedUserVerses({
     }),
   ]);
 
-  const enrichedItems = await enrichUserVerses(flattenVerseRows(rawRows), translation);
+  const enrichedItems = (await enrichUserVerses(
+    flattenVerseRows(rawRows),
+    translation
+  )).map(withSelfPopularity);
 
   return {
     items: enrichedItems,

@@ -961,7 +961,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           <div
             ref={tagListScrollRef}
             onScroll={onTagListScroll}
-            className="inline-flex gap-1.5 pt-1 px-4 pb-3 flex-wrap max-h-[150px] overflow-y-auto"
+            className="inline-flex gap-1.5 pt-1 px-4 pb-3 flex-wrap overflow-y-auto"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
           >
             {allTags.map((tag) => {
