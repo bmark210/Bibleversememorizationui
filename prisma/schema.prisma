@@ -75,6 +75,8 @@ model UserVerse {
 
   masteryLevel       Int       @default(0)
   repetitions        Int       @default(0)
+  referenceScore     Int       @default(50)
+  incipitScore       Int       @default(50)
   lastTrainingModeId Int?
   lastReviewedAt     DateTime?
   nextReviewAt       DateTime?

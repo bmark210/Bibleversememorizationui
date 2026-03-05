@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  CheckCircle2,
-  RefreshCcw,
-  Shuffle,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, RefreshCcw, Shuffle, XCircle } from "lucide-react";
 import type { UserVerse } from "@/api/models/UserVerse";
-import { fetchReferenceTrainerVerses } from "@/api/services/referenceTrainer";
+import {
+  fetchReferenceTrainerVerses,
+  submitReferenceTrainerSession,
+  type ReferenceTrainerSessionOutcome,
+  type ReferenceTrainerSessionTrack,
+  type ReferenceTrainerSessionUpdate,
+} from "@/api/services/referenceTrainer";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -24,7 +25,16 @@ type ReferenceTrainerProps = {
   telegramId: string | null;
 };
 
-type ReferenceTrainingMode = "reference-choice" | "book-choice" | "keyboard";
+type SessionTrack = "reference" | "incipit" | "mixed";
+type SkillTrack = "reference" | "incipit";
+
+type TrainerModeId =
+  | "reference-choice"
+  | "book-choice"
+  | "reference-type"
+  | "incipit-choice"
+  | "incipit-tap"
+  | "incipit-type";
 
 type ReferenceVerse = {
   externalVerseId: string;
@@ -33,64 +43,86 @@ type ReferenceVerse = {
   status: DisplayVerseStatus;
   bookName: string;
   chapterVerse: string;
+  incipit: string;
+  incipitWords: string[];
+  referenceScore: number;
+  incipitScore: number;
 };
 
-type BaseQuestion = {
+type TrainerQuestionBase = {
   id: string;
-  mode: ReferenceTrainingMode;
+  modeId: TrainerModeId;
+  track: SkillTrack;
+  modeLabel: string;
+  modeHint: string;
   verse: ReferenceVerse;
+  prompt: string;
+  answerLabel: string;
 };
 
-type ReferenceChoiceQuestion = BaseQuestion & {
-  mode: "reference-choice";
+type ChoiceQuestion = TrainerQuestionBase & {
+  interaction: "choice";
   options: string[];
+  isCorrectOption: (value: string) => boolean;
 };
 
-type BookChoiceQuestion = BaseQuestion & {
-  mode: "book-choice";
-  options: string[];
+type TypeQuestion = TrainerQuestionBase & {
+  interaction: "type";
+  placeholder: string;
+  maxAttempts: number;
+  retryHint?: string;
+  isCorrectInput: (value: string) => boolean;
 };
 
-type KeyboardQuestion = BaseQuestion & {
-  mode: "keyboard";
+type TapQuestionOption = {
+  id: string;
+  label: string;
+  normalized: string;
 };
 
-type ReferenceQuestion =
-  | ReferenceChoiceQuestion
-  | BookChoiceQuestion
-  | KeyboardQuestion;
+type TapQuestion = TrainerQuestionBase & {
+  interaction: "tap";
+  options: TapQuestionOption[];
+  expectedNormalized: string[];
+};
+
+type TrainerQuestion = ChoiceQuestion | TypeQuestion | TapQuestion;
 
 type QuestionResult = {
-  mode: ReferenceTrainingMode;
+  track: SkillTrack;
+  modeId: TrainerModeId;
   isCorrect: boolean;
 };
 
+type ModeStrategy = {
+  id: TrainerModeId;
+  track: SkillTrack;
+  label: string;
+  hint: string;
+  weight: number;
+  canBuild: (verse: ReferenceVerse, pool: ReferenceVerse[]) => boolean;
+  buildQuestion: (
+    verse: ReferenceVerse,
+    pool: ReferenceVerse[],
+    order: number
+  ) => TrainerQuestion | null;
+};
+
+const TRACK_STORAGE_KEY = "bible-memory.reference-trainer.track.v1";
 const REFERENCE_OPTIONS_COUNT = 4;
 const BOOK_OPTIONS_COUNT = 4;
+const INCIPIT_OPTIONS_COUNT = 4;
+const INCIPIT_TAP_DISTRACTORS_COUNT = 2;
 const SESSION_QUESTION_MIN = 8;
 const SESSION_QUESTION_MAX = 24;
 const SESSION_QUESTION_MULTIPLIER = 2;
 const MAX_TYPING_ATTEMPTS = 2;
+const MIXED_TRACK_BALANCE_THRESHOLD = 8;
 
-const MODE_META: Record<
-  ReferenceTrainingMode,
-  {
-    label: string;
-    hint: string;
-  }
-> = {
-  "reference-choice": {
-    label: "Выбор ссылки",
-    hint: "Выберите правильную ссылку.",
-  },
-  "book-choice": {
-    label: "Выбор книги",
-    hint: "Выберите правильную книгу.",
-  },
-  keyboard: {
-    label: "Ввод вручную",
-    hint: "Введите ссылку с клавиатуры.",
-  },
+const TRACK_META: Record<SessionTrack, { label: string; shortLabel: string }> = {
+  reference: { label: "Ссылки", shortLabel: "Ссылки" },
+  incipit: { label: "Начало стиха", shortLabel: "Начало" },
+  mixed: { label: "Mixed", shortLabel: "Mixed" },
 };
 
 function randomFloat() {
@@ -110,6 +142,11 @@ function randomInt(max: number) {
   return Math.floor(randomFloat() * max);
 }
 
+function clampSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function shuffle<T>(source: T[]) {
   const next = [...source];
   for (let index = next.length - 1; index > 0; index -= 1) {
@@ -127,10 +164,21 @@ function normalizeBookName(value: string) {
 }
 
 function softenBookName(value: string) {
+  return value.replace(/^ко/u, "").replace(/^к/u, "").replace(/^от/u, "");
+}
+
+function normalizeIncipitText(value: string) {
   return value
-    .replace(/^ко/u, "")
-    .replace(/^к/u, "")
-    .replace(/^от/u, "");
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}\s-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractWordTokens(value: string): string[] {
+  const matches = value.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu);
+  return matches ? matches.map((token) => token.trim()).filter(Boolean) : [];
 }
 
 function levenshteinDistance(left: string, right: string) {
@@ -218,7 +266,6 @@ function matchesReferenceWithTolerance(input: string, expected: string) {
   const inputSoft = softenBookName(inputBook);
   const expectedSoft = softenBookName(expectedBook);
   if (inputSoft === expectedSoft) return true;
-
   if (!inputSoft || !expectedSoft) return false;
 
   const distance = levenshteinDistance(inputSoft, expectedSoft);
@@ -228,12 +275,50 @@ function matchesReferenceWithTolerance(input: string, expected: string) {
   return distance <= maxAllowedDistance;
 }
 
+function matchesIncipitWithTolerance(input: string, expected: string) {
+  const normalizedInput = normalizeIncipitText(input);
+  const normalizedExpected = normalizeIncipitText(expected);
+  if (!normalizedInput || !normalizedExpected) return false;
+  if (normalizedInput === normalizedExpected) return true;
+
+  const distance = levenshteinDistance(normalizedInput, normalizedExpected);
+  const maxAllowedDistance = normalizedExpected.length >= 24 ? 2 : 1;
+  return distance <= maxAllowedDistance;
+}
+
+function readStoredTrack(): SessionTrack {
+  if (typeof window === "undefined") return "mixed";
+  try {
+    const value = window.localStorage.getItem(TRACK_STORAGE_KEY);
+    if (value === "reference" || value === "incipit" || value === "mixed") {
+      return value;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return "mixed";
+}
+
+function writeStoredTrack(track: SessionTrack) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TRACK_STORAGE_KEY, track);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
   const text = String(verse.text ?? "").trim();
   const reference = String(verse.reference ?? verse.externalVerseId ?? "").trim();
   if (!text || !reference) return null;
 
   const parsedReference = parseReferenceParts(reference);
+  const words = extractWordTokens(text);
+  const incipitLength =
+    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const incipitWords = words.slice(0, incipitLength);
+  const rawVerse = verse as Record<string, unknown>;
 
   return {
     externalVerseId: verse.externalVerseId,
@@ -242,6 +327,10 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     status: normalizeDisplayVerseStatus(verse.status),
     bookName: parsedReference?.bookName ?? "",
     chapterVerse: parsedReference?.chapterVerse ?? "",
+    incipit: incipitWords.join(" "),
+    incipitWords,
+    referenceScore: clampSkillScore(rawVerse.referenceScore as number | undefined),
+    incipitScore: clampSkillScore(rawVerse.incipitScore as number | undefined),
   };
 }
 
@@ -249,7 +338,7 @@ function buildReferenceChoiceQuestion(
   verse: ReferenceVerse,
   pool: ReferenceVerse[],
   order: number
-): ReferenceChoiceQuestion | null {
+): ChoiceQuestion | null {
   const normalizedCorrect = normalizeReferenceForComparison(verse.reference);
   const distractors = shuffle(
     pool
@@ -269,9 +358,17 @@ function buildReferenceChoiceQuestion(
 
   return {
     id: `reference-choice-${order}-${verse.externalVerseId}`,
-    mode: "reference-choice",
+    modeId: "reference-choice",
+    track: "reference",
+    modeLabel: "Выбор ссылки",
+    modeHint: "Выберите правильную ссылку.",
     verse,
+    prompt: verse.text,
+    answerLabel: verse.reference,
+    interaction: "choice",
     options,
+    isCorrectOption: (value: string) =>
+      normalizeReferenceForComparison(value) === normalizedCorrect,
   };
 }
 
@@ -279,7 +376,7 @@ function buildBookChoiceQuestion(
   verse: ReferenceVerse,
   pool: ReferenceVerse[],
   order: number
-): BookChoiceQuestion | null {
+): ChoiceQuestion | null {
   if (!verse.bookName) return null;
 
   const uniqueBooks = Array.from(
@@ -298,80 +395,281 @@ function buildBookChoiceQuestion(
   );
   if (distractorBooks.length < BOOK_OPTIONS_COUNT - 1) return null;
 
+  const normalizedCorrect = normalizeBookName(verse.bookName);
+
   return {
     id: `book-choice-${order}-${verse.externalVerseId}`,
-    mode: "book-choice",
+    modeId: "book-choice",
+    track: "reference",
+    modeLabel: "Выбор книги",
+    modeHint: "Выберите правильную книгу.",
     verse,
+    prompt: verse.text,
+    answerLabel: verse.bookName,
+    interaction: "choice",
     options: shuffle([
       verse.bookName,
       ...distractorBooks.slice(0, BOOK_OPTIONS_COUNT - 1),
     ]),
+    isCorrectOption: (value: string) =>
+      normalizeBookName(value) === normalizedCorrect,
   };
 }
 
-function buildKeyboardQuestion(
+function buildReferenceTypeQuestion(
   verse: ReferenceVerse,
   order: number
-): KeyboardQuestion {
+): TypeQuestion {
   return {
-    id: `keyboard-${order}-${verse.externalVerseId}`,
-    mode: "keyboard",
+    id: `reference-type-${order}-${verse.externalVerseId}`,
+    modeId: "reference-type",
+    track: "reference",
+    modeLabel: "Ввод ссылки",
+    modeHint: "Введите ссылку вручную.",
     verse,
+    prompt: verse.text,
+    answerLabel: verse.reference,
+    interaction: "type",
+    placeholder: "Например: Иоанна 3:16",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: `${verse.bookName} ${verse.chapterVerse}`.trim(),
+    isCorrectInput: (value: string) =>
+      matchesReferenceWithTolerance(value, verse.reference),
   };
 }
 
-function getWeightedModes(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  previousMode: ReferenceTrainingMode | null
-): ReferenceTrainingMode[] {
-  const canBuildReferenceChoice =
-    buildReferenceChoiceQuestion(verse, pool, -1) !== null;
-  const canBuildBookChoice = buildBookChoiceQuestion(verse, pool, -1) !== null;
-
-  let weighted: ReferenceTrainingMode[] = [];
-
-  if (canBuildReferenceChoice) {
-    weighted = [...weighted, "reference-choice", "reference-choice"];
-  }
-  if (canBuildBookChoice) {
-    weighted = [...weighted, "book-choice"];
-  }
-  weighted = [...weighted, "keyboard", "keyboard"];
-
-  if (previousMode && weighted.some((mode) => mode !== previousMode)) {
-    const filtered = weighted.filter((mode) => mode !== previousMode);
-    if (filtered.length > 0) return filtered;
-  }
-
-  return weighted;
-}
-
-function buildQuestionByMode(
-  mode: ReferenceTrainingMode,
+function buildIncipitChoiceQuestion(
   verse: ReferenceVerse,
   pool: ReferenceVerse[],
   order: number
-): ReferenceQuestion {
-  if (mode === "reference-choice") {
-    return (
-      buildReferenceChoiceQuestion(verse, pool, order) ??
-      buildKeyboardQuestion(verse, order)
-    );
-  }
+): ChoiceQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+  const normalizedCorrect = normalizeIncipitText(verse.incipit);
 
-  if (mode === "book-choice") {
-    return (
-      buildBookChoiceQuestion(verse, pool, order) ??
-      buildReferenceChoiceQuestion(verse, pool, order) ??
-      buildKeyboardQuestion(verse, order)
-    );
-  }
+  const distractors = shuffle(
+    pool
+      .map((item) => item.incipit)
+      .filter((candidate) => candidate.trim().length > 0)
+      .filter(
+        (candidate) => normalizeIncipitText(candidate) !== normalizedCorrect
+      )
+  );
 
-  return buildKeyboardQuestion(verse, order);
+  if (distractors.length < INCIPIT_OPTIONS_COUNT - 1) return null;
+
+  return {
+    id: `incipit-choice-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-choice",
+    track: "incipit",
+    modeLabel: "Выбор начала",
+    modeHint: "Выберите правильное начало стиха.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "choice",
+    options: shuffle([
+      verse.incipit,
+      ...distractors.slice(0, INCIPIT_OPTIONS_COUNT - 1),
+    ]),
+    isCorrectOption: (value: string) =>
+      normalizeIncipitText(value) === normalizedCorrect,
+  };
 }
 
-function buildRandomSessionQuestions(pool: ReferenceVerse[]): ReferenceQuestion[] {
+function buildIncipitTapQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): TapQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+
+  const expectedNormalized = verse.incipitWords.map((word) =>
+    normalizeIncipitText(word)
+  );
+  const expectedSet = new Set(expectedNormalized);
+  const distractorCandidates = Array.from(
+    new Map(
+      pool
+        .flatMap((item) => item.incipitWords)
+        .filter((word) => word.trim().length > 0)
+        .filter((word) => !expectedSet.has(normalizeIncipitText(word)))
+        .map((word) => [normalizeIncipitText(word), word])
+    ).values()
+  );
+
+  const distractors = shuffle(distractorCandidates).slice(
+    0,
+    INCIPIT_TAP_DISTRACTORS_COUNT
+  );
+
+  const options = shuffle([...verse.incipitWords, ...distractors]).map(
+    (word, index) => ({
+      id: `incipit-tap-${order}-${index}`,
+      label: word,
+      normalized: normalizeIncipitText(word),
+    })
+  );
+
+  return {
+    id: `incipit-tap-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-tap",
+    track: "incipit",
+    modeLabel: "Сборка слов",
+    modeHint: "Соберите начало стиха по словам.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "tap",
+    options,
+    expectedNormalized,
+  };
+}
+
+function buildIncipitTypeQuestion(
+  verse: ReferenceVerse,
+  order: number
+): TypeQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+  const initials = verse.incipitWords
+    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    id: `incipit-type-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-type",
+    track: "incipit",
+    modeLabel: "Ввод начала",
+    modeHint: "Введите первые слова стиха.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "type",
+    placeholder: "Напишите начало стиха",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
+    isCorrectInput: (value: string) =>
+      matchesIncipitWithTolerance(value, verse.incipit),
+  };
+}
+
+const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
+  {
+    id: "reference-choice",
+    track: "reference",
+    label: "Выбор ссылки",
+    hint: "Выберите правильную ссылку.",
+    weight: 2,
+    canBuild: (verse, pool) => buildReferenceChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildReferenceChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "book-choice",
+    track: "reference",
+    label: "Выбор книги",
+    hint: "Выберите правильную книгу.",
+    weight: 1,
+    canBuild: (verse, pool) => buildBookChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildBookChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "reference-type",
+    track: "reference",
+    label: "Ввод ссылки",
+    hint: "Введите ссылку вручную.",
+    weight: 2,
+    canBuild: () => true,
+    buildQuestion: (verse, _pool, order) => buildReferenceTypeQuestion(verse, order),
+  },
+  {
+    id: "incipit-choice",
+    track: "incipit",
+    label: "Выбор начала",
+    hint: "Выберите правильное начало стиха.",
+    weight: 2,
+    canBuild: (verse, pool) => buildIncipitChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildIncipitChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "incipit-tap",
+    track: "incipit",
+    label: "Сборка слов",
+    hint: "Соберите начало стиха по словам.",
+    weight: 1,
+    canBuild: (verse, pool) => buildIncipitTapQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildIncipitTapQuestion(verse, pool, order),
+  },
+  {
+    id: "incipit-type",
+    track: "incipit",
+    label: "Ввод начала",
+    hint: "Введите первые слова стиха.",
+    weight: 2,
+    canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
+    buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
+  },
+];
+
+function pickWeightedStrategy(strategies: ReadonlyArray<ModeStrategy>) {
+  const totalWeight = strategies.reduce(
+    (sum, strategy) => sum + Math.max(1, strategy.weight),
+    0
+  );
+  let cursor = randomFloat() * totalWeight;
+  for (const strategy of strategies) {
+    cursor -= Math.max(1, strategy.weight);
+    if (cursor <= 0) return strategy;
+  }
+  return strategies[strategies.length - 1] ?? null;
+}
+
+function resolveMixedTrack(verse: ReferenceVerse): SkillTrack {
+  const diff = verse.referenceScore - verse.incipitScore;
+  if (Math.abs(diff) < MIXED_TRACK_BALANCE_THRESHOLD) {
+    return randomFloat() < 0.5 ? "reference" : "incipit";
+  }
+  if (diff < 0) {
+    return randomFloat() < 0.7 ? "reference" : "incipit";
+  }
+  return randomFloat() < 0.7 ? "incipit" : "reference";
+}
+
+function buildQuestionForTrack(params: {
+  track: SkillTrack;
+  verse: ReferenceVerse;
+  pool: ReferenceVerse[];
+  order: number;
+  previousModeId: TrainerModeId | null;
+}): TrainerQuestion | null {
+  const { track, verse, pool, order, previousModeId } = params;
+  const allStrategies = MODE_STRATEGIES.filter(
+    (strategy) => strategy.track === track && strategy.canBuild(verse, pool)
+  );
+  if (allStrategies.length === 0) return null;
+
+  const candidateStrategies =
+    previousModeId &&
+    allStrategies.some((strategy) => strategy.id !== previousModeId)
+      ? allStrategies.filter((strategy) => strategy.id !== previousModeId)
+      : allStrategies;
+
+  const remaining = [...candidateStrategies];
+  while (remaining.length > 0) {
+    const picked = pickWeightedStrategy(remaining);
+    if (!picked) break;
+    const question = picked.buildQuestion(verse, pool, order);
+    if (question) return question;
+    const pickedIndex = remaining.findIndex((strategy) => strategy.id === picked.id);
+    if (pickedIndex >= 0) remaining.splice(pickedIndex, 1);
+  }
+
+  return null;
+}
+
+function buildRandomSessionQuestions(
+  pool: ReferenceVerse[],
+  sessionTrack: SessionTrack
+): TrainerQuestion[] {
   if (pool.length === 0) return [];
 
   const targetQuestionCount = Math.min(
@@ -379,24 +677,73 @@ function buildRandomSessionQuestions(pool: ReferenceVerse[]): ReferenceQuestion[
     Math.max(SESSION_QUESTION_MIN, pool.length * SESSION_QUESTION_MULTIPLIER)
   );
 
-  const questions: ReferenceQuestion[] = [];
+  const questions: TrainerQuestion[] = [];
   const recentVerseIds: string[] = [];
-  let previousMode: ReferenceTrainingMode | null = null;
+  let previousModeId: TrainerModeId | null = null;
 
   for (let index = 0; index < targetQuestionCount; index += 1) {
-    const preferredPool = pool.filter(
-      (verse) => !recentVerseIds.includes(verse.externalVerseId)
-    );
-    const sourcePool = preferredPool.length > 0 ? preferredPool : pool;
-    const verse = sourcePool[randomInt(sourcePool.length)];
-    const weightedModes = getWeightedModes(verse, pool, previousMode);
-    const selectedMode = weightedModes[randomInt(weightedModes.length)];
-    const question = buildQuestionByMode(selectedMode, verse, pool, index);
+    let question: TrainerQuestion | null = null;
+    let selectedVerseId: string | null = null;
+    let attempts = 0;
+
+    while (!question && attempts < Math.max(pool.length * 3, 6)) {
+      attempts += 1;
+      const preferredPool = pool.filter(
+        (verse) => !recentVerseIds.includes(verse.externalVerseId)
+      );
+      const sourcePool = preferredPool.length > 0 ? preferredPool : pool;
+      const verse = sourcePool[randomInt(sourcePool.length)];
+
+      const preferredTrack =
+        sessionTrack === "mixed" ? resolveMixedTrack(verse) : sessionTrack;
+      question = buildQuestionForTrack({
+        track: preferredTrack,
+        verse,
+        pool,
+        order: index,
+        previousModeId,
+      });
+
+      if (!question && sessionTrack === "mixed") {
+        const fallbackTrack: SkillTrack =
+          preferredTrack === "reference" ? "incipit" : "reference";
+        question = buildQuestionForTrack({
+          track: fallbackTrack,
+          verse,
+          pool,
+          order: index,
+          previousModeId,
+        });
+      }
+
+      if (!question) {
+        question =
+          buildQuestionForTrack({
+            track: "reference",
+            verse,
+            pool,
+            order: index,
+            previousModeId,
+          }) ??
+          buildQuestionForTrack({
+            track: "incipit",
+            verse,
+            pool,
+            order: index,
+            previousModeId,
+          });
+      }
+
+      if (question) {
+        selectedVerseId = verse.externalVerseId;
+      }
+    }
+
+    if (!question || !selectedVerseId) break;
 
     questions.push(question);
-    previousMode = question.mode;
-
-    recentVerseIds.push(verse.externalVerseId);
+    previousModeId = question.modeId;
+    recentVerseIds.push(selectedVerseId);
     if (recentVerseIds.length > 2) {
       recentVerseIds.shift();
     }
@@ -406,31 +753,81 @@ function buildRandomSessionQuestions(pool: ReferenceVerse[]): ReferenceQuestion[
 }
 
 function getResultCaption(percent: number) {
-  if (percent >= 90) return "Отличная точность. Ссылки закрепляются уверенно.";
-  if (percent >= 70) return "Хороший результат. Ещё одна сессия поднимет стабильность.";
-  return "Нужна дополнительная практика. Попробуйте повторить с новыми режимами.";
+  if (percent >= 90) return "Отличная точность. Опоры закрепляются уверенно.";
+  if (percent >= 70) return "Хороший результат. Ещё одна сессия усилит запоминание.";
+  return "Нужна дополнительная практика. Попробуйте новый микс режимов.";
+}
+
+function getChoiceStateClass(params: {
+  isAnswered: boolean;
+  optionIsCorrect: boolean;
+  optionIsSelected: boolean;
+}) {
+  if (!params.isAnswered) {
+    return "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
+  }
+  if (params.optionIsCorrect) {
+    return "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  }
+  if (params.optionIsSelected) {
+    return "border-destructive/45 bg-destructive/10 text-destructive";
+  }
+  return "border-border/70 bg-background text-foreground/80";
+}
+
+function mergeUpdatedSkillScores(
+  pool: ReferenceVerse[],
+  updated: Array<{ externalVerseId: string; referenceScore: number; incipitScore: number }>
+) {
+  const map = new Map(
+    updated.map((item) => [item.externalVerseId, item] as const)
+  );
+  return pool.map((verse) => {
+    const next = map.get(verse.externalVerseId);
+    if (!next) return verse;
+    return {
+      ...verse,
+      referenceScore: clampSkillScore(next.referenceScore),
+      incipitScore: clampSkillScore(next.incipitScore),
+    };
+  });
 }
 
 export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const { viewportHeight } = useTelegramSafeArea();
   const initializedTelegramIdRef = useRef<string | null>(null);
-  const answersViewportRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const savedSessionKeyRef = useRef<string | null>(null);
+
+  const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
+    readStoredTrack()
+  );
+  const [sessionTrack, setSessionTrack] = useState<SessionTrack>(() =>
+    readStoredTrack()
+  );
   const [visualViewportHeight, setVisualViewportHeight] = useState(0);
   const [versePool, setVersePool] = useState<ReferenceVerse[]>([]);
-  const [questions, setQuestions] = useState<ReferenceQuestion[]>([]);
+  const [questions, setQuestions] = useState<TrainerQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [results, setResults] = useState<QuestionResult[]>([]);
+  const [sessionUpdates, setSessionUpdates] = useState<
+    ReferenceTrainerSessionUpdate[]
+  >([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [typedReference, setTypedReference] = useState("");
+  const [typedAnswer, setTypedAnswer] = useState("");
   const [typingAttempts, setTypingAttempts] = useState(0);
+  const [tapSequence, setTapSequence] = useState<string[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingSession, setIsSavingSession] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    writeStoredTrack(selectedTrack);
+  }, [selectedTrack]);
 
   const currentQuestion = questions[currentQuestionIndex] ?? null;
   const answeredCount = results.length;
@@ -441,44 +838,59 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const sessionComplete = questions.length > 0 && answeredCount >= questions.length;
   const progressValue =
     questions.length > 0
-      ? Math.round((Math.min(answeredCount, questions.length) / questions.length) * 100)
+      ? Math.round(
+          (Math.min(answeredCount, questions.length) / questions.length) * 100
+        )
       : 0;
   const resultPercent =
-    questions.length > 0
-      ? Math.round((correctCount / questions.length) * 100)
-      : 0;
+    questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+  const referenceStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "reference");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
+  const incipitStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "incipit");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
   const frameHeight = useMemo(() => {
     if (viewportHeight <= 0) return undefined;
-    
-    // Calculate available space accounting for keyboard
-    const availableHeight = isKeyboardVisible && visualViewportHeight > 0
-      ? visualViewportHeight 
-      : viewportHeight;
-    
-    // Without keyboard: header(45) + card-wrapper-padding(24) + nav(82) + buffer(14) = 165
-    // With keyboard: nav hides, only header(45) + card-wrapper-padding(24) + buffer(21) = 90
-    const reservedSpace = isKeyboardVisible ? 90 : 165;
-    
-    return Math.max(200, availableHeight - reservedSpace);
-  }, [viewportHeight, visualViewportHeight, isKeyboardVisible]);
+    const availableHeight =
+      isKeyboardVisible && visualViewportHeight > 0
+        ? visualViewportHeight
+        : viewportHeight;
+    const reservedSpace = isKeyboardVisible ? 120 : 200;
+    return Math.max(240, availableHeight - reservedSpace);
+  }, [isKeyboardVisible, viewportHeight, visualViewportHeight]);
 
   const resetAnswerState = useCallback(() => {
     setSelectedOption(null);
-    setTypedReference("");
+    setTypedAnswer("");
     setTypingAttempts(0);
+    setTapSequence([]);
     setIsAnswered(false);
     setLastAnswerCorrect(null);
   }, []);
 
   const startSessionFromPool = useCallback(
-    (pool: ReferenceVerse[]) => {
-      const nextQuestions = buildRandomSessionQuestions(pool);
+    (pool: ReferenceVerse[], nextTrack?: SessionTrack) => {
+      const effectiveTrack = nextTrack ?? selectedTrack;
+      const nextQuestions = buildRandomSessionQuestions(pool, effectiveTrack);
       setQuestions(nextQuestions);
       setCurrentQuestionIndex(0);
       setResults([]);
+      setSessionUpdates([]);
+      setSessionTrack(effectiveTrack);
+      savedSessionKeyRef.current = null;
       resetAnswerState();
     },
-    [resetAnswerState]
+    [resetAnswerState, selectedTrack]
   );
 
   const loadVersePool = useCallback(
@@ -493,13 +905,12 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
         const merged = verses
           .map(mapUserVerseToReferenceVerse)
           .filter((verse): verse is ReferenceVerse => verse !== null);
-
         setVersePool(merged);
-        startSessionFromPool(merged);
+        startSessionFromPool(merged, selectedTrack);
       } catch (error) {
-        console.error("Не удалось загрузить стихи для раздела ссылок:", error);
-        setErrorMessage("Не удалось загрузить стихи для тренировки ссылок.");
-        toast.error("Не удалось загрузить раздел «Ссылки»", {
+        console.error("Не удалось загрузить стихи для раздела опор:", error);
+        setErrorMessage("Не удалось загрузить стихи для тренировки опор.");
+        toast.error("Не удалось загрузить раздел «Опоры»", {
           description: "Проверьте соединение и попробуйте снова.",
         });
       } finally {
@@ -507,7 +918,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
         else setIsLoading(false);
       }
     },
-    [startSessionFromPool]
+    [selectedTrack, startSessionFromPool]
   );
 
   useEffect(() => {
@@ -516,6 +927,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       setVersePool([]);
       setQuestions([]);
       setResults([]);
+      setSessionUpdates([]);
       setErrorMessage(null);
       return;
     }
@@ -524,59 +936,153 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     void loadVersePool(telegramId);
   }, [loadVersePool, telegramId]);
 
+  const persistSessionUpdates = useCallback(
+    async (
+      updates: ReferenceTrainerSessionUpdate[],
+      activeTrack: SessionTrack
+    ) => {
+      if (!telegramId || updates.length === 0) return;
+      setIsSavingSession(true);
+
+      const doSubmit = async () =>
+        submitReferenceTrainerSession({
+          telegramId,
+          sessionTrack: activeTrack as ReferenceTrainerSessionTrack,
+          updates,
+        });
+
+      try {
+        let response:
+          | {
+              updated: Array<{
+                externalVerseId: string;
+                referenceScore: number;
+                incipitScore: number;
+              }>;
+            }
+          | null = null;
+
+        try {
+          response = await doSubmit();
+        } catch (firstError) {
+          console.warn("Session save failed, retrying once:", firstError);
+          response = await doSubmit();
+        }
+
+        setVersePool((prev) => mergeUpdatedSkillScores(prev, response.updated));
+      } catch (error) {
+        console.error("Не удалось сохранить прогресс сессии опор:", error);
+        toast.error("Прогресс по навыкам не сохранён", {
+          description: "Попробуйте обновить раздел и повторить сессию.",
+        });
+      } finally {
+        setIsSavingSession(false);
+      }
+    },
+    [telegramId]
+  );
+
+  const sessionKey = useMemo(
+    () => questions.map((question) => question.id).join("|"),
+    [questions]
+  );
+
+  useEffect(() => {
+    if (!telegramId || !sessionComplete || sessionUpdates.length === 0 || !sessionKey) {
+      return;
+    }
+    if (savedSessionKeyRef.current === sessionKey) return;
+    savedSessionKeyRef.current = sessionKey;
+    void persistSessionUpdates(sessionUpdates, sessionTrack);
+  }, [
+    persistSessionUpdates,
+    sessionComplete,
+    sessionKey,
+    sessionTrack,
+    sessionUpdates,
+    telegramId,
+  ]);
+
   const finalizeAnswer = useCallback(
-    (isCorrect: boolean) => {
+    (isCorrect: boolean, attemptsUsed: number) => {
       if (!currentQuestion || isAnswered) return;
+      const outcome: ReferenceTrainerSessionOutcome = isCorrect
+        ? attemptsUsed <= 1
+          ? "correct_first"
+          : "correct_retry"
+        : "wrong";
 
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
-      setResults((prev) => [...prev, { mode: currentQuestion.mode, isCorrect }]);
+      setResults((prev) => [
+        ...prev,
+        {
+          track: currentQuestion.track,
+          modeId: currentQuestion.modeId,
+          isCorrect,
+        },
+      ]);
+      setSessionUpdates((prev) => [
+        ...prev,
+        {
+          externalVerseId: currentQuestion.verse.externalVerseId,
+          track: currentQuestion.track,
+          outcome,
+        },
+      ]);
     },
     [currentQuestion, isAnswered]
   );
 
-  const handleOptionSelect = (value: string) => {
-    if (!currentQuestion || isAnswered || sessionComplete) return;
-    if (currentQuestion.mode !== "reference-choice" && currentQuestion.mode !== "book-choice") {
-      return;
-    }
-
+  const handleChoiceSelect = (value: string) => {
+    if (!currentQuestion || currentQuestion.interaction !== "choice") return;
+    if (isAnswered || sessionComplete) return;
     setSelectedOption(value);
-
-    const isCorrect =
-      currentQuestion.mode === "book-choice"
-        ? normalizeBookName(value) === normalizeBookName(currentQuestion.verse.bookName)
-        : normalizeReferenceForComparison(value) ===
-          normalizeReferenceForComparison(currentQuestion.verse.reference);
-    finalizeAnswer(isCorrect);
+    finalizeAnswer(currentQuestion.isCorrectOption(value), 1);
   };
 
-  const handleTypedSubmit = () => {
-    if (!currentQuestion || currentQuestion.mode !== "keyboard" || isAnswered || sessionComplete) {
+  const handleTapSelect = (optionId: string) => {
+    if (!currentQuestion || currentQuestion.interaction !== "tap") return;
+    if (isAnswered || sessionComplete) return;
+    if (tapSequence.includes(optionId)) return;
+
+    const option = currentQuestion.options.find((item) => item.id === optionId);
+    if (!option) return;
+
+    const nextSequence = [...tapSequence, optionId];
+    setTapSequence(nextSequence);
+
+    const expectedIndex = nextSequence.length - 1;
+    const expectedValue = currentQuestion.expectedNormalized[expectedIndex];
+    if (option.normalized !== expectedValue) {
+      finalizeAnswer(false, 1);
       return;
     }
 
-    const input = typedReference.trim();
+    if (nextSequence.length >= currentQuestion.expectedNormalized.length) {
+      finalizeAnswer(true, 1);
+    }
+  };
+
+  const handleTypeSubmit = () => {
+    if (!currentQuestion || currentQuestion.interaction !== "type") return;
+    if (isAnswered || sessionComplete) return;
+
+    const input = typedAnswer.trim();
     if (!input) return;
 
     const nextAttempt = typingAttempts + 1;
     setTypingAttempts(nextAttempt);
 
-    const isCorrect = matchesReferenceWithTolerance(
-      input,
-      currentQuestion.verse.reference
-    );
-
+    const isCorrect = currentQuestion.isCorrectInput(input);
     if (isCorrect) {
-      finalizeAnswer(true);
+      finalizeAnswer(true, nextAttempt);
       return;
     }
 
-    if (nextAttempt < MAX_TYPING_ATTEMPTS) {
-      return;
+    if (nextAttempt >= currentQuestion.maxAttempts) {
+      finalizeAnswer(false, nextAttempt);
     }
-
-    finalizeAnswer(false);
   };
 
   const handleMoveNext = () => {
@@ -588,14 +1094,21 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
   const handleStartNewSession = () => {
     if (versePool.length === 0) return;
-    startSessionFromPool(versePool);
+    startSessionFromPool(versePool, selectedTrack);
+  };
+
+  const handleTrackSelect = (nextTrack: SessionTrack) => {
+    if (nextTrack === selectedTrack) return;
+    setSelectedTrack(nextTrack);
+    if (versePool.length > 0) {
+      startSessionFromPool(versePool, nextTrack);
+    }
   };
 
   const canGoNext =
     isAnswered && currentQuestionIndex < questions.length - 1 && !sessionComplete;
-  const isKeyboardMode = currentQuestion?.mode === "keyboard";
+  const isTypeMode = currentQuestion?.interaction === "type";
 
-  // Track keyboard open state via Telegram's viewportChanged (primary) + visualViewport (fallback)
   useEffect(() => {
     if (typeof window === "undefined") return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -618,7 +1131,6 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
       setVisualViewportHeight(newHeight);
       setIsKeyboardVisible(keyboardDetected);
-      setKeyboardHeight(keyboardDetected ? window.innerHeight - newHeight : 0);
     };
 
     handleViewportChange();
@@ -630,28 +1142,43 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     };
   }, []);
 
-  // Auto-focus input when a keyboard question appears
-  // Two staggered attempts: one after animation (50ms) and one as safety net (250ms)
   useEffect(() => {
-    if (!isKeyboardMode || isAnswered) return;
-    const t1 = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
-    const t2 = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 250);
+    if (!isTypeMode || isAnswered) return;
+    const t1 = window.setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      50
+    );
+    const t2 = window.setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      250
+    );
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [currentQuestion?.id, isAnswered, isKeyboardMode]);
+  }, [currentQuestion?.id, isAnswered, isTypeMode]);
+
+  const selectedTapLabels =
+    currentQuestion?.interaction === "tap"
+      ? tapSequence
+          .map((id) => currentQuestion.options.find((option) => option.id === id)?.label)
+          .filter((value): value is string => Boolean(value))
+      : [];
 
   return (
     <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
       <Card
         className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border-border/70"
-        style={frameHeight ? { height: `${frameHeight}px` } : { height: "calc(100dvh - 11rem)" }}
+        style={
+          frameHeight
+            ? { height: `${frameHeight}px` }
+            : { height: "calc(100dvh - 11rem)" }
+        }
       >
         <div className="shrink-0 border-b border-border/70 px-3 py-3 sm:px-4">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-primary">Ссылки</p>
+              <p className="text-sm font-medium text-primary">Опоры</p>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {Math.min(answeredCount, questions.length)} / {questions.length}
               </p>
@@ -685,8 +1212,29 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
               </Button>
             </div>
           </div>
+
           <div className="mt-2">
             <Progress value={progressValue} />
+          </div>
+
+          <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-muted/25 p-1">
+            {(["reference", "incipit", "mixed"] as const).map((trackKey) => {
+              const isActive = selectedTrack === trackKey;
+              return (
+                <button
+                  key={trackKey}
+                  type="button"
+                  onClick={() => handleTrackSelect(trackKey)}
+                  className={`h-8 rounded-md text-xs transition-colors ${
+                    isActive
+                      ? "bg-background text-primary border border-primary/25"
+                      : "text-foreground/70 hover:bg-background/70"
+                  }`}
+                >
+                  {TRACK_META[trackKey].shortLabel}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -734,6 +1282,28 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
             !isLoading &&
             !errorMessage &&
             versePool.length > 0 &&
+            questions.length === 0 && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Для выбранного трека пока не хватает подходящих стихов.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs"
+                  onClick={() => handleTrackSelect("mixed")}
+                >
+                  Перейти в Mixed
+                </Button>
+              </div>
+            )}
+
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length > 0 &&
+            questions.length > 0 &&
             !sessionComplete &&
             currentQuestion && (
               <AnimatePresence mode="wait">
@@ -746,9 +1316,16 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   className="flex h-full min-h-0 flex-col gap-3"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <Badge variant="outline" className="rounded-full text-xs text-foreground/75">
-                      {MODE_META[currentQuestion.mode].hint}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="rounded-full text-xs text-foreground/75">
+                        {currentQuestion.modeHint}
+                      </Badge>
+                      {sessionTrack === "mixed" && (
+                        <Badge variant="outline" className="rounded-full text-xs text-foreground/65">
+                          {TRACK_META[currentQuestion.track].shortLabel}
+                        </Badge>
+                      )}
+                    </div>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {currentQuestionIndex + 1}/{questions.length}
                     </span>
@@ -756,83 +1333,84 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
                   <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2.5">
                     <p className="max-h-[15.8vh] overflow-hidden text-ellipsis line-clamp-6 text-sm leading-relaxed text-foreground/90">
-                      {currentQuestion.verse.text}
+                      {currentQuestion.prompt}
                     </p>
                   </div>
 
-                  {currentQuestion.mode !== "keyboard" && (
-                    <div
-                      ref={answersViewportRef}
-                      className="min-h-0 overflow-auto pr-0.5"
-                    >
-                      {currentQuestion.mode === "reference-choice" && (
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {currentQuestion.options.map((option) => {
-                            const optionIsCorrect =
-                              normalizeReferenceForComparison(option) ===
-                              normalizeReferenceForComparison(currentQuestion.verse.reference);
-                            const optionIsSelected = selectedOption === option;
-                            const stateClassName = isAnswered
-                              ? optionIsCorrect
-                                ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                : optionIsSelected
-                                  ? "border-destructive/45 bg-destructive/10 text-destructive"
-                                  : "border-border/70 bg-background text-foreground/80"
-                              : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
+                  {currentQuestion.interaction === "choice" && (
+                    <div className="min-h-0 overflow-auto pr-0.5">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {currentQuestion.options.map((option) => {
+                          const optionIsSelected = selectedOption === option;
+                          const optionIsCorrect = currentQuestion.isCorrectOption(option);
+                          const stateClassName = getChoiceStateClass({
+                            isAnswered,
+                            optionIsCorrect,
+                            optionIsSelected,
+                          });
 
-                            return (
-                              <button
-                                key={`${currentQuestion.id}-${option}`}
-                                type="button"
-                                onClick={() => handleOptionSelect(option)}
-                                disabled={isAnswered}
-                                className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {currentQuestion.mode === "book-choice" && (
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {currentQuestion.options.map((option) => {
-                            const optionIsCorrect =
-                              normalizeBookName(option) ===
-                              normalizeBookName(currentQuestion.verse.bookName);
-                            const optionIsSelected = selectedOption === option;
-                            const stateClassName = isAnswered
-                              ? optionIsCorrect
-                                ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                : optionIsSelected
-                                  ? "border-destructive/45 bg-destructive/10 text-destructive"
-                                  : "border-border/70 bg-background text-foreground/80"
-                              : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45";
-
-                            return (
-                              <button
-                                key={`${currentQuestion.id}-${option}`}
-                                type="button"
-                                onClick={() => handleOptionSelect(option)}
-                                disabled={isAnswered}
-                                className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                          return (
+                            <button
+                              key={`${currentQuestion.id}-${option}`}
+                              type="button"
+                              onClick={() => handleChoiceSelect(option)}
+                              disabled={isAnswered}
+                              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${stateClassName}`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
-                  {/* Spacer: pushes keyboard form (or answer feedback) to the bottom */}
-                  {/* {currentQuestion.mode === "keyboard" && (
-                    <div className="min-h-0 flex-1" />
-                  )} */}
+                  {currentQuestion.interaction === "tap" && (
+                    <div className="min-h-0 overflow-auto pr-0.5 space-y-2">
+                      <div className="rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            Собрано:{" "}
+                            <span className="tabular-nums">
+                              {Math.min(
+                                tapSequence.length,
+                                currentQuestion.expectedNormalized.length
+                              )}
+                              /{currentQuestion.expectedNormalized.length}
+                            </span>
+                          </p>
+                        </div>
+                        <p className="mt-1 text-xs text-foreground/75 line-clamp-2">
+                          {selectedTapLabels.length > 0
+                            ? selectedTapLabels.join(" ")
+                            : "Нажимайте слова по порядку"}
+                        </p>
+                      </div>
 
-                  {currentQuestion.mode === "keyboard" && !isAnswered && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {currentQuestion.options.map((option) => {
+                          const isUsed = tapSequence.includes(option.id);
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              disabled={isAnswered || isUsed}
+                              onClick={() => handleTapSelect(option.id)}
+                              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${
+                                isUsed
+                                  ? "border-primary/35 bg-primary/10 text-primary"
+                                  : "border-border/70 bg-background text-foreground/80 hover:bg-muted/45"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {currentQuestion.interaction === "type" && !isAnswered && (
                     <motion.div
                       initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
@@ -842,21 +1420,23 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                       <form
                         onSubmit={(event) => {
                           event.preventDefault();
-                          handleTypedSubmit();
+                          handleTypeSubmit();
                         }}
                       >
                         <div className="relative">
                           <Input
                             ref={inputRef}
-                            value={typedReference}
-                            onChange={(event) => setTypedReference(event.target.value)}
+                            value={typedAnswer}
+                            onChange={(event) => setTypedAnswer(event.target.value)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" && !event.shiftKey) {
                                 event.preventDefault();
-                                if (typedReference.trim().length > 0) handleTypedSubmit();
+                                if (typedAnswer.trim().length > 0) {
+                                  handleTypeSubmit();
+                                }
                               }
                             }}
-                            placeholder="Например: Иоанна 3:16"
+                            placeholder={currentQuestion.placeholder}
                             className="h-12 rounded-xl border-border/50 bg-background/60 pr-24 text-base transition-colors focus:border-primary/40"
                             autoCapitalize="none"
                             autoCorrect="off"
@@ -869,7 +1449,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                               type="submit"
                               size="sm"
                               className="h-8 rounded-lg px-4 text-xs font-medium active:scale-95"
-                              disabled={typedReference.trim().length === 0}
+                              disabled={typedAnswer.trim().length === 0}
                             >
                               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
                             </Button>
@@ -879,19 +1459,19 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                         <div className="mt-2 flex items-center justify-between px-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary tabular-nums">
-                              {Math.min(typingAttempts + 1, MAX_TYPING_ATTEMPTS)}
+                              {Math.min(typingAttempts + 1, currentQuestion.maxAttempts)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              из {MAX_TYPING_ATTEMPTS} попыток
+                              из {currentQuestion.maxAttempts} попыток
                             </span>
                           </div>
-                          {typingAttempts > 0 && (
+                          {typingAttempts > 0 && currentQuestion.retryHint && (
                             <motion.p
                               initial={{ opacity: 0, x: 8 }}
                               animate={{ opacity: 1, x: 0 }}
                               className="text-xs font-medium text-primary/80"
                             >
-                              {currentQuestion.verse.bookName} {currentQuestion.verse.chapterVerse}
+                              {currentQuestion.retryHint}
                             </motion.p>
                           )}
                         </div>
@@ -911,11 +1491,13 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                          lastAnswerCorrect 
-                            ? "bg-emerald-500/20 text-emerald-600" 
-                            : "bg-rose-500/20 text-rose-600"
-                        }`}>
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                            lastAnswerCorrect
+                              ? "bg-emerald-500/20 text-emerald-600"
+                              : "bg-rose-500/20 text-rose-600"
+                          }`}
+                        >
                           {lastAnswerCorrect ? (
                             <CheckCircle2 className="h-5 w-5" />
                           ) : (
@@ -923,13 +1505,15 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-medium ${
-                            lastAnswerCorrect ? "text-emerald-700" : "text-rose-700"
-                          }`}>
+                          <p
+                            className={`font-medium ${
+                              lastAnswerCorrect ? "text-emerald-700" : "text-rose-700"
+                            }`}
+                          >
                             {lastAnswerCorrect ? "Правильно!" : "Неправильно"}
                           </p>
                           <p className="text-foreground/70 text-xs mt-0.5">
-                            {currentQuestion.verse.reference}
+                            {currentQuestion.answerLabel}
                           </p>
                         </div>
                       </div>
@@ -937,16 +1521,16 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   )}
 
                   {canGoNext && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1, duration: 0.2 }}
                       className="flex justify-end"
                     >
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        className="h-10 rounded-xl px-5 text-sm font-medium bg-background text-foreground/80 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-95 border border-border/70" 
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-10 rounded-xl px-5 text-sm font-medium bg-background text-foreground/80 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-95 border border-border/70"
                         onClick={handleMoveNext}
                       >
                         Далее →
@@ -968,6 +1552,30 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                   {correctCount} из {questions.length} ответов верны.
                 </p>
                 <p className="text-xs text-muted-foreground">{getResultCaption(resultPercent)}</p>
+
+                <div className="w-full max-w-xs rounded-xl border border-border/70 bg-background/65 p-3 text-xs">
+                  {referenceStats.total > 0 && (
+                    <div className="flex items-center justify-between text-foreground/80">
+                      <span>Ссылки</span>
+                      <span className="tabular-nums">
+                        {referenceStats.correct}/{referenceStats.total}
+                      </span>
+                    </div>
+                  )}
+                  {incipitStats.total > 0 && (
+                    <div className="mt-1 flex items-center justify-between text-foreground/80">
+                      <span>Начало</span>
+                      <span className="tabular-nums">
+                        {incipitStats.correct}/{incipitStats.total}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {isSavingSession && (
+                  <p className="text-xs text-muted-foreground">Сохраняем прогресс навыков…</p>
+                )}
+
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -989,7 +1597,9 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
                     }}
                     disabled={isRefreshing}
                   >
-                    <RefreshCcw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                    <RefreshCcw
+                      className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+                    />
                   </Button>
                 </div>
               </div>

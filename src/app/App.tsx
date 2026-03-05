@@ -566,7 +566,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const handleNavigate = (page: string) => {
     if (page === "references" && !canAccessReferenceTrainer) {
-      toast.info("Раздел «Ссылки» пока недоступен", {
+      toast.info("Раздел «Опоры» пока недоступен", {
         description: "Добавьте более 10 стихов в статусе LEARNING.",
       });
       setCurrentPage("dashboard");

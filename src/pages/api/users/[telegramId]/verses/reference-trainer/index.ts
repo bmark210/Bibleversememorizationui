@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import {
   fetchRandomReferenceTrainerVerses,
   UserVersesApiError,
-} from "./_shared";
+} from "../_shared";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
@@ -32,4 +32,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
-

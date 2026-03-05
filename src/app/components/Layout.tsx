@@ -197,7 +197,7 @@ export function Layout({
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     ...(showReferencesSection
-      ? [{ id: 'references', label: 'Ссылки', icon: Link2 }]
+      ? [{ id: 'references', label: 'Опоры', icon: Link2 }]
       : []),
     { id: 'profile', label: 'Профиль', icon: User },
   ];

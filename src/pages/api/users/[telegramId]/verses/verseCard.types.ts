@@ -27,6 +27,8 @@ export interface VerseCardDto {
   status: DisplayStatus;
   masteryLevel: number;
   repetitions: number;
+  referenceScore: number;
+  incipitScore: number;
   lastReviewedAt: string | null;
   nextReviewAt: string | null;
   lastTrainingModeId: number | null;
@@ -67,6 +69,8 @@ export type UserVerseWithLegacyNullableProgress = Omit<
   status?: VerseStatus | null;
   masteryLevel?: PrismaUserVerseWithVerse["masteryLevel"] | null;
   repetitions?: PrismaUserVerseWithVerse["repetitions"] | null;
+  referenceScore?: PrismaUserVerseWithVerse["referenceScore"] | null;
+  incipitScore?: PrismaUserVerseWithVerse["incipitScore"] | null;
   lastTrainingModeId?: number | null;
 };
 
@@ -83,6 +87,13 @@ export function normalizeProgressValue(value: number | null | undefined): number
     return 0;
   }
   return Math.max(0, Math.trunc(value));
+}
+
+export function normalizeSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 50;
+  }
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 export function normalizeBaseStatus(status: VerseStatus | null | undefined): VerseStatus {
@@ -150,6 +161,8 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
     status: computeDisplayStatus(baseStatus, masteryLevel, repetitions),
     masteryLevel,
     repetitions,
+    referenceScore: normalizeSkillScore(verse.referenceScore),
+    incipitScore: normalizeSkillScore(verse.incipitScore),
     lastTrainingModeId: typeof verse.lastTrainingModeId === "number" ? verse.lastTrainingModeId : null,
     lastReviewedAt: toIsoStringOrNull(verse.lastReviewedAt),
     nextReviewAt: toIsoStringOrNull(verse.nextReviewAt),

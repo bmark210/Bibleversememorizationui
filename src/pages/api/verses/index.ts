@@ -70,6 +70,11 @@ function normalizeProgress(value: number | null | undefined): number {
   return Math.max(0, Math.trunc(value));
 }
 
+function normalizeSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 async function fetchGlobalOwnerCountByVerseId(
   verseIds: string[]
 ): Promise<Map<string, number>> {
@@ -113,6 +118,8 @@ type UserVerseRow = {
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;
+  referenceScore: number;
+  incipitScore: number;
   lastTrainingModeId: number | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
@@ -441,6 +448,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               status: true,
               masteryLevel: true,
               repetitions: true,
+              referenceScore: true,
+              incipitScore: true,
               lastTrainingModeId: true,
               lastReviewedAt: true,
               nextReviewAt: true,
@@ -481,6 +490,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: computeDisplayStatus(uv.status, masteryLevel, repetitions),
           masteryLevel,
           repetitions,
+          referenceScore: normalizeSkillScore(uv.referenceScore),
+          incipitScore: normalizeSkillScore(uv.incipitScore),
           lastTrainingModeId: typeof uv.lastTrainingModeId === "number" ? uv.lastTrainingModeId : null,
           lastReviewedAt: toIsoOrNull(uv.lastReviewedAt),
           nextReviewAt: toIsoOrNull(uv.nextReviewAt),
@@ -498,6 +509,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: "CATALOG" as DisplayStatus,
         masteryLevel: 0,
         repetitions: 0,
+        referenceScore: 50,
+        incipitScore: 50,
         lastTrainingModeId: null,
         lastReviewedAt: null,
         nextReviewAt: null,

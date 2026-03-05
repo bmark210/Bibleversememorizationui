@@ -373,6 +373,96 @@ const swaggerDoc = {
         },
       },
     },
+    "/api/users/{telegramId}/verses/reference-trainer": {
+      get: {
+        tags: ["User Verses"],
+        summary: "Пул стихов для раздела «Опоры»",
+        parameters: [
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/UserVerse" } },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/users/{telegramId}/verses/reference-trainer/session": {
+      post: {
+        tags: ["User Verses"],
+        summary: "Сохранить skill-score по итогам сессии раздела «Опоры»",
+        parameters: [
+          { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["sessionTrack", "updates"],
+                properties: {
+                  sessionTrack: {
+                    type: "string",
+                    enum: ["reference", "incipit", "mixed"],
+                  },
+                  updates: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["externalVerseId", "track", "outcome"],
+                      properties: {
+                        externalVerseId: externalVerseIdSchema,
+                        track: {
+                          type: "string",
+                          enum: ["reference", "incipit"],
+                        },
+                        outcome: {
+                          type: "string",
+                          enum: ["correct_first", "correct_retry", "wrong"],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["updated"],
+                  properties: {
+                    updated: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["externalVerseId", "referenceScore", "incipitScore"],
+                        properties: {
+                          externalVerseId: externalVerseIdSchema,
+                          referenceScore: { type: "integer", minimum: 0, maximum: 100 },
+                          incipitScore: { type: "integer", minimum: 0, maximum: 100 },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/users/{telegramId}/verses/{externalVerseId}": {
       patch: {
         tags: ["User Verses"],
@@ -608,6 +698,8 @@ const swaggerDoc = {
           "status",
           "masteryLevel",
           "repetitions",
+          "referenceScore",
+          "incipitScore",
           "lastReviewedAt",
           "nextReviewAt",
         ],
@@ -619,6 +711,8 @@ const swaggerDoc = {
           },
           masteryLevel: { type: "integer" },
           repetitions: { type: "integer" },
+          referenceScore: { type: "integer", minimum: 0, maximum: 100 },
+          incipitScore: { type: "integer", minimum: 0, maximum: 100 },
           lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
           lastReviewedAt: { type: "string", format: "date-time", nullable: true },
           nextReviewAt: { type: "string", format: "date-time", nullable: true },
