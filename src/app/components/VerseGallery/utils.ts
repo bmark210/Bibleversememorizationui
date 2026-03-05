@@ -16,6 +16,7 @@ import {
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
+import { triggerHaptic } from "@/app/lib/haptics";
 import type { Verse } from "@/app/App";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type {
@@ -33,26 +34,7 @@ import type {
 } from "./types";
 
 export function haptic(style: HapticStyle) {
-  try {
-    const tg = (
-      window as unknown as {
-        Telegram?: {
-          WebApp?: {
-            HapticFeedback?: {
-              notificationOccurred: (s: string) => void;
-              impactOccurred: (s: string) => void;
-            };
-          };
-        };
-      }
-    ).Telegram?.WebApp?.HapticFeedback;
-    if (!tg) return;
-    if (style === "success" || style === "error" || style === "warning") {
-      tg.notificationOccurred(style);
-      return;
-    }
-    tg.impactOccurred(style);
-  } catch {}
+  triggerHaptic(style);
 }
 
 export function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {

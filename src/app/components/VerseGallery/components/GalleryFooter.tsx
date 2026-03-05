@@ -70,6 +70,7 @@ export function GalleryFooter({
           <Button
             variant="outline"
             className="w-fit gap-2 text-destructive backdrop-blur-xl rounded-2xl !border !border-border/60 bg-muted/35"
+            haptic={false}
             onClick={() => {
               if (actionPending) return;
               haptic("warning");
@@ -92,10 +93,7 @@ export function GalleryFooter({
           type="button"
           variant="secondary"
           className="w-fit gap-2 rounded-2xl backdrop-blur-xl !border !border-border/60 bg-muted/35"
-          onClick={() => {
-            haptic("light");
-            onTrainingBack();
-          }}
+          onClick={onTrainingBack}
           aria-label={closeTrainingGoesToPreview ? "Вернуться к превью" : "Закрыть галерею"}
         >
           <ChevronLeft className="h-4 w-4" />

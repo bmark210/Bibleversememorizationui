@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, LayoutDashboard, Link2, User } from 'lucide-react';
 import { useTelegram } from '../contexts/TelegramContext';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
+import { triggerHaptic } from '../lib/haptics';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -201,6 +202,11 @@ export function Layout({
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
+  const handleNavigateClick = (page: string) => {
+    triggerHaptic(page === currentPage ? 'light' : 'medium');
+    onNavigate(page);
+  };
+
   return (
     <div className="min-h-dvh flex flex-col">
       {/* Header */}
@@ -231,7 +237,7 @@ export function Layout({
               return (
                 <button
                   key={item.id}
-                  onClick={() => onNavigate(item.id)}
+                  onClick={() => handleNavigateClick(item.id)}
                   className={cn(
                   'flex min-h-8 w-full items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
                   isActive
@@ -276,7 +282,7 @@ export function Layout({
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => handleNavigateClick(item.id)}
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'text-primary'

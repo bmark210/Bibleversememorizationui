@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import { triggerHaptic } from '../lib/haptics';
 
 // Динамический импорт SDK только на клиенте
 let WebApp: any = null;
@@ -224,52 +225,40 @@ export function disableClosingConfirmation() {
  * Вибрация (легкая)
  */
 export function hapticFeedbackLight() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.impactOccurred('light');
-  }
+  triggerHaptic('light');
 }
 
 /**
  * Вибрация (средняя)
  */
 export function hapticFeedbackMedium() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.impactOccurred('medium');
-  }
+  triggerHaptic('medium');
 }
 
 /**
  * Вибрация (сильная)
  */
 export function hapticFeedbackHeavy() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.impactOccurred('heavy');
-  }
+  triggerHaptic('heavy');
 }
 
 /**
  * Вибрация успеха
  */
 export function hapticFeedbackSuccess() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.notificationOccurred('success');
-  }
+  triggerHaptic('success');
 }
 
 /**
  * Вибрация ошибки
  */
 export function hapticFeedbackError() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.notificationOccurred('error');
-  }
+  triggerHaptic('error');
 }
 
 /**
  * Вибрация предупреждения
  */
 export function hapticFeedbackWarning() {
-  if (WebApp && WebApp.HapticFeedback) {
-    WebApp.HapticFeedback.notificationOccurred('warning');
-  }
+  triggerHaptic('warning');
 }

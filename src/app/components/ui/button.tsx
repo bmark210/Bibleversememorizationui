@@ -4,6 +4,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { triggerHaptic, type HapticStyle } from "@/app/lib/haptics";
 import { cn } from "./utils";
 
 const buttonVariants = cva(
@@ -39,6 +40,7 @@ const buttonVariants = cva(
 type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    haptic?: HapticStyle | false;
   };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -48,6 +50,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant,
       size,
       asChild = false,
+      haptic = "light",
       onClick,
       ...props
     },
@@ -56,6 +59,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
       onClick?.(event as React.MouseEvent<HTMLButtonElement>);
+
+      const isAriaDisabled =
+        event.currentTarget.getAttribute("aria-disabled") === "true";
+      if (haptic && !isAriaDisabled && !event.defaultPrevented) {
+        triggerHaptic(haptic);
+      }
+
       if (event.currentTarget instanceof HTMLElement) {
         event.currentTarget.blur();
       }
