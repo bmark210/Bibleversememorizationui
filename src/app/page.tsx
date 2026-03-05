@@ -6,11 +6,19 @@ import App from './App'
 import { TelegramProvider } from './contexts/TelegramContext'
 import { BookOpen } from 'lucide-react'
 
+const TELEGRAM_BOT_URL = 'https://t.me/bible_memory_bot'
+const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
+  'https://i.pinimg.com/1200x/48/6d/10/486d103eecd526147782d71318fb620e.jpg'
+const ALLOW_BROWSER_RUNTIME =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_ALLOW_BROWSER_RUNTIME === '1'
+
 export default function Page() {
   const BOOT_CONTENT_DELAY_MS = 450
   const BOOT_BG_FADE_MS = 650
   const BOOT_BG_FADE_DELAY_MS = 200
   const [mounted, setMounted] = useState(false)
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState<boolean | null>(null)
   const [isAppReady, setIsAppReady] = useState(false)
   const [overlayDismissing, setOverlayDismissing] = useState(false)
   const [showBootOverlay, setShowBootOverlay] = useState(true)
@@ -21,6 +29,14 @@ export default function Page() {
       setMounted(true)
     })
     return () => window.cancelAnimationFrame(frameId)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hasTelegramWebApp = Boolean(
+      (window as Window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp
+    )
+    setIsTelegramWebApp(hasTelegramWebApp)
   }, [])
 
   useEffect(() => {
@@ -46,6 +62,40 @@ export default function Page() {
     })
     return () => window.cancelAnimationFrame(frameId)
   }, [showBootOverlay])
+
+  if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === null) {
+    return <div className="min-h-screen bg-[#3e3428]" />
+  }
+
+  if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === false) {
+    return (
+      <div className="min-h-screen bg-[#3e3428] text-[#f8f4ec] px-5 py-8 sm:px-6">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
+          <div className="w-full overflow-hidden rounded-3xl border border-[#f8f4ec]/20 bg-black/20 shadow-2xl backdrop-blur-sm">
+            <img
+              src={TELEGRAM_BOT_PREVIEW_IMAGE_URL}
+              alt="Bible Memory bot preview"
+              className="h-72 w-full object-cover"
+            />
+            <div className="space-y-4 p-5">
+              <h1 className="text-xl font-semibold">Откройте приложение в Telegram</h1>
+              <p className="text-sm text-[#f8f4ec]/85">
+                Браузерная версия отключена. Перейдите в Telegram-бота, чтобы продолжить.
+              </p>
+              <a
+                href={TELEGRAM_BOT_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex w-full items-center justify-center rounded-xl bg-[#f8f4ec] px-4 py-2.5 text-sm font-semibold text-[#2c251d] transition hover:bg-white"
+              >
+                Перейти в @bible_memory_bot
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen">
@@ -102,5 +152,4 @@ export default function Page() {
     </div>
   )
 }
-
 

@@ -102,7 +102,7 @@ export function VersePreviewCard({
         }
         body={
           <div className="h-full min-w-0 flex items-center justify-center overflow-hidden px-2">
-            <p className="max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center line-clamp-[9] font-light break-words [overflow-wrap:anywhere]">
+            <p className="max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center font-light break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:8] sm:[-webkit-line-clamp:10] overflow-hidden text-ellipsis">
               «{verse.text}»
             </p>
           </div>
