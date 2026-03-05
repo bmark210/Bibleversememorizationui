@@ -87,14 +87,6 @@ export function VersePreviewCard({
           "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",
       };
     }
-    if (verse.popularityScope === "self") {
-      return {
-        icon: Brain,
-        label: `Прокачка ${popularityValue}%`,
-        className:
-          "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-      };
-    }
     return null;
   })();
 

@@ -69,14 +69,6 @@ export const SwipeableVerseCard = ({
           'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
       };
     }
-    if (verse.popularityScope === 'self') {
-      return {
-        icon: Brain,
-        label: `Прокачка ${popularityValue}%`,
-        className:
-          'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-      };
-    }
     return null;
   })();
   const waitingUntilLabel = (() => {

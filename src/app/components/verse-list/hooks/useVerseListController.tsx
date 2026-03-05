@@ -359,13 +359,14 @@ export function useVerseListController({
     setAnnouncement(`Фильтр: ${label}`);
   }, [statusFilter]);
 
+  const isMyScopeFilter = statusFilter !== 'catalog' && statusFilter !== 'friends';
   const sortOptions = useMemo<VerseListSortOption[]>(
     () => [
       { key: 'bible', label: 'Канон' },
       { key: 'updatedAt', label: 'Активность' },
-      { key: 'popularity', label: 'Популярность' },
+      { key: 'popularity', label: isMyScopeFilter ? 'Рейтинг' : 'Популярность' },
     ],
-    []
+    [isMyScopeFilter]
   );
 
   const onSortChange = useCallback((nextSortBy: VerseListSortBy, label: string) => {
