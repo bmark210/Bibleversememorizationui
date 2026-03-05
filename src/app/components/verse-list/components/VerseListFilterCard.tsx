@@ -29,15 +29,15 @@ function ScrollRow({
   return (
     <div className={cn('relative', className)}>
       <div
-        className="flex gap-2 overflow-x-auto py-0.5"
+        className="flex gap-2 overflow-x-auto"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {children}
       </div>
-      <div
+      {/* <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-muted/20 via-card/50 to-transparent"
-      />
+      /> */}
     </div>
   );
 }
@@ -157,14 +157,14 @@ export function VerseListFilterCard({
 
   return (
     <div className="mb-3">
-      <Card className="gap-0 rounded-3xl border-border/70 bg-card/50">
-        <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+      <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
+        <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
           <div className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="font-medium text-primary">{`Фильтры`}</span>
+            <span className="font-medium text-primary uppercase">{`Фильтры`}</span>
           </div>
 
           <div className="flex items-center gap-1">
-            <button
+           {hasFiltersApplied && <button
               type="button"
               onClick={onResetFilters}
               disabled={!hasFiltersApplied}
@@ -176,7 +176,7 @@ export function VerseListFilterCard({
               )}
             >
               Сбросить
-            </button>
+            </button>}
             <button
               type="button"
               aria-expanded={!isCollapsed}
@@ -203,10 +203,14 @@ export function VerseListFilterCard({
               transition={PANEL_TRANSITION}
               className="overflow-hidden"
             >
+              <div className="mt-2 px-3">
+                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+                  Основной фильтр
+                </div>
               <div
                 role="tablist"
                 aria-label="Основной фильтр списка стихов"
-                className="mx-3 grid grid-cols-3 gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
+                className="grid grid-cols-3 gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
               >
                 {ROOT_TABS.map(({ key, label }) => {
                   const isActive = activeRootTab === key;
@@ -234,9 +238,14 @@ export function VerseListFilterCard({
                   );
                 })}
               </div>
+              </div>
 
-              {isMyMode && (
-                <div role="tablist" aria-label="Подфильтр моих стихов" className="mt-2">
+              {isMyMode && ( <div className="mt-3 px-3">
+                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+                  Доп фильтр
+                </div>
+              <div className='rounded-2xl border border-border/35 bg-primary/5 p-1'>
+                  <div role="tablist" aria-label="Подфильтр моих стихов" className="">
                   <ScrollRow>
                     {filterOptions.map((option) => {
                       const isActive = statusFilter === option.key;
@@ -253,7 +262,7 @@ export function VerseListFilterCard({
                               : onTabClick(option.key, option.label)
                           }
                           className={cn(
-                            'first:ml-3 last:mr-3 inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1 text-sm font-medium text-foreground/75 transition-colors',
+                            'first:ml-1 last:mr-1 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium text-foreground/75 transition-colors',
                             isActive
                               ? optionTheme.activeTabClassName
                               : 'text-muted-foreground hover:bg-background/60'
@@ -271,13 +280,15 @@ export function VerseListFilterCard({
                     })}
                   </ScrollRow>
                 </div>
-              )}
+                </div>
+              </div>
+            )}
 
-              <div className="mt-2 px-3">
-                <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
+              <div className="mt-3 px-3">
                   <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
                     Сортировка
                   </div>
+                <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
                   <div
                     role="radiogroup"
                     aria-label="Сортировка стихов"
@@ -299,7 +310,7 @@ export function VerseListFilterCard({
                           aria-checked={isActive}
                           onClick={() => onSortChange(option.key, option.label)}
                           className={cn(
-                            'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors',
+                            'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
                             isActive
                               ? 'border border-primary/30 bg-primary/12 text-primary'
                               : 'border border-transparent text-muted-foreground hover:bg-background/65'
@@ -314,8 +325,8 @@ export function VerseListFilterCard({
                 </div>
               </div>
 
-              <div className="my-2 overflow-hidden rounded-2xl">
-                <div className="flex items-center justify-between gap-2 border-b border-border/35 px-3.5 pb-2.5 pt-2 sm:px-4">
+              <div className="my-1 overflow-hidden rounded-2xl">
+                <div className="flex items-center justify-between gap-2 border-b border-border/35 px-3 pb-2 pt-2">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     {hasActiveTags ? `Темы: ${selectedTagSlugs.size}` : 'Все темы'}
                   </span>
@@ -336,7 +347,7 @@ export function VerseListFilterCard({
                         className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors"
                       >
                         <Pencil className="h-3 w-3" />
-                        Редактировать
+                       <span className="hidden sm:inline">Редактировать</span>
                       </button>
                     )}
                   </div>
@@ -382,10 +393,10 @@ export function VerseListFilterCard({
                               }}
                               disabled={!canToggle}
                               className={cn(
-                                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                                'inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
                                 isActive
                                   ? 'border-primary/40 bg-primary/12 text-primary'
-                                  : 'border-border/60 bg-background/55 text-foreground/75 hover:bg-muted/60',
+                                  : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
                                 !canToggle && 'pointer-events-none opacity-40'
                               )}
                             >
