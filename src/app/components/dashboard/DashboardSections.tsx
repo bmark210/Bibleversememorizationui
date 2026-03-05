@@ -423,7 +423,7 @@ export function DashboardFriendsActivityCard({
             </p>
           </div>
           <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
-            Friends
+            Друзья
           </Badge>
         </div>
 

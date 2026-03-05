@@ -371,7 +371,7 @@ export function Profile({
                     </p>
                   </div>
                   <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
-                    Social
+                    Друзья
                   </Badge>
                 </div>
 
@@ -399,20 +399,19 @@ export function Profile({
                         onChange={(event) => setSearchInput(event.target.value)}
                         placeholder={
                           activeTab === 'players'
-                            ? 'Поиск игроков по имени, нику или telegramId'
+                            ? 'Поиск игроков'
                             : 'Поиск по друзьям'
                         }
                         className="pl-9 rounded-xl border-border/70 bg-background/70"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-start text-xs text-muted-foreground">
                       <span>
                         {activeTab === 'players'
                           ? `Игроков: ${playersPage.totalCount}`
                           : `Друзей: ${friendsPage.totalCount}`}
                       </span>
-                      <span>По {FRIENDS_PAGE_SIZE} на страницу</span>
                     </div>
 
                     <div className="space-y-3">
