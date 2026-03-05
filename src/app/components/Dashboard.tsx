@@ -7,13 +7,14 @@ import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants'
 import { Button } from './ui/button'
 import {
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from './dashboard/DashboardSections'
+import { normalizeRawMasteryLevel } from '@/shared/training/modeEngine'
 
 interface DashboardProps {
   todayVerses: Array<Verse>

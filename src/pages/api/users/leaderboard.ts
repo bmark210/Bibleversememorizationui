@@ -46,7 +46,7 @@ type ComputedParticipant = {
   hasActivity: boolean;
 };
 
-const DEFAULT_LIMIT = 4;
+const DEFAULT_LIMIT = 6;
 const MAX_LIMIT = 25;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -130,6 +130,11 @@ export default async function handler(
 
     const [users, userVerses] = await Promise.all([
       prisma.user.findMany({
+        where: {
+          NOT: {
+            telegramId: "891739957"
+          }
+        },
         select: {
           telegramId: true,
           name: true,

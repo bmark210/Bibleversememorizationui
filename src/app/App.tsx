@@ -13,7 +13,6 @@ import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
-import type { UserWithVerses } from "@/api/models/UserWithVerses";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import {
   fetchAllUserVerses,
@@ -127,6 +126,7 @@ type AppProps = {
 };
 
 const THEME_STORAGE_KEY = "theme";
+const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
 const TRAINING_GALLERY_PAGE_SIZE = 40;
 const REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT = 10;
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
@@ -284,11 +284,6 @@ function mapUserVerseToAppVerse(verse: {
   };
 }
 
-function mapUserVersesToAppVerses(userData: UserWithVerses | null): Array<Verse> {
-  const source = userData?.verses ?? [];
-  return source.map((verse) => mapUserVerseToAppVerse(verse));
-}
-
 function isTrainingDashboardVerse(verse: Verse) {
   const status = normalizeDisplayVerseStatus(verse.status);
   return status === VerseStatus.LEARNING || status === "REVIEW";
@@ -304,7 +299,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
-  const [user, setUser] = useState<UserWithVerses | null>(null);
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [dashboardGalleryVerses, setDashboardGalleryVerses] = useState<Array<Verse>>([]);
   const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
@@ -318,6 +312,36 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
   const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      if (window.localStorage.getItem(DASHBOARD_WELCOME_SEEN_STORAGE_KEY) === "1") {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    const markDashboardWelcomeSeen = () => {
+      try {
+        if (window.localStorage.getItem(DASHBOARD_WELCOME_SEEN_STORAGE_KEY) !== "1") {
+          window.localStorage.setItem(DASHBOARD_WELCOME_SEEN_STORAGE_KEY, "1");
+        }
+      } catch {
+        // Ignore storage write errors in restricted webviews.
+      }
+    };
+
+    window.addEventListener("pagehide", markDashboardWelcomeSeen, { once: true });
+    window.addEventListener("beforeunload", markDashboardWelcomeSeen, { once: true });
+
+    return () => {
+      window.removeEventListener("pagehide", markDashboardWelcomeSeen);
+      window.removeEventListener("beforeunload", markDashboardWelcomeSeen);
+    };
+  }, []);
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
@@ -461,45 +485,38 @@ export default function App({ onInitialContentReady }: AppProps) {
         } catch (error) {
           console.warn("Не удалось синхронизировать профиль Telegram:", error);
         }
+      } else {
+        // Browser/dev fallback: make sure the user row exists before loading paginated verses/stats.
+        try {
+          await UsersService.postApiUsers({
+            telegramId,
+            ...(telegramName ? { name: telegramName } : {}),
+            ...(telegramNickname ? { nickname: telegramNickname } : {}),
+            ...(telegramAvatarUrl ? { avatarUrl: telegramAvatarUrl } : {}),
+          });
+        } catch (error) {
+          console.warn("Не удалось инициализировать пользователя:", error);
+        }
       }
 
-      const fetchUser = async () => {
+      const fetchDashboardData = async () => {
         try {
           setIsLoading(true);
-          const [userData] = await Promise.all([
-            UsersService.getApiUsers(telegramId),
+          await Promise.all([
+            loadTrainingVersesForDashboard(telegramId),
             loadDashboardStats(telegramId),
             loadDashboardLeaderboard(telegramId),
           ]);
-          setUser(userData);
-          const userVerses = mapUserVersesToAppVerses(userData);
-          setVerses(pickTrainingDashboardVerses(userVerses));
         } catch (err) {
-          const status = (err as ApiError)?.status;
-          if (status === 404) {
-            try {
-              const newUser = await UsersService.postApiUsers({ telegramId });
-              setUser({ ...newUser, verses: [] });
-              setVerses([]);
-              await Promise.all([
-                loadDashboardStats(telegramId),
-                loadDashboardLeaderboard(telegramId),
-              ]);
-            } catch (createErr) {
-              console.error("Не удалось создать пользователя:", createErr);
-              toast.error("Ошибка при создании профиля");
-            }
-          } else {
-            console.error("Не удалось получить пользователя:", err);
-            toast.error("Ошибка при подключении к базе данных");
-            setVerses([]);
-          }
+          console.error("Не удалось получить данные дашборда:", err);
+          toast.error("Ошибка при подключении к базе данных");
+          setVerses([]);
         } finally {
           setIsLoading(false);
         }
       };
 
-      await fetchUser();
+      await fetchDashboardData();
       finishBootstrapping();
     })();
 

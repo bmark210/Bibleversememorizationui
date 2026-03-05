@@ -18,6 +18,9 @@ type DashboardUser = {
   photoUrl?: string | null;
 } | null;
 
+const DASHBOARD_WELCOME_SEEN_STORAGE_KEY =
+  "bible-memory.dashboard-welcome-seen.v1";
+
 type StatsCardItem = {
   key: string;
   label: string;
@@ -74,6 +77,19 @@ export function DashboardWelcomeSection({
   todayVersesCount,
   sectionVariants,
 }: DashboardWelcomeSectionProps) {
+  const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const isFirstVisit =
+        window.localStorage.getItem(DASHBOARD_WELCOME_SEEN_STORAGE_KEY) !== "1";
+      setIsFirstAppVisit(isFirstVisit);
+    } catch {
+      setIsFirstAppVisit(false);
+    }
+  }, []);
+
   return (
     <motion.div className="mb-8" variants={sectionVariants}>
       {user ? (
@@ -88,7 +104,11 @@ export function DashboardWelcomeSection({
             )}
           </Avatar>
           <div>
-            <h1 className="mb-1 text-primary">С возвращением, {user.firstName}!</h1>
+            <h1 className="mb-1 text-primary">
+              {isFirstAppVisit
+                ? `Привет, ${user.firstName}.`
+                : `С возвращением, ${user.firstName}!`}
+            </h1>
           </div>
         </div>
       ) : (
@@ -143,7 +163,7 @@ export function DashboardTrainingStatsCard({
                 Статистика сегодня
               </h2>
               <p className="text-sm text-foreground/75 mt-1">
-                Короткий обзор по подборке на текущую сессию.
+                Короткий обзор статистики на текущий день.
               </p>
             </div>
             {/* <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
