@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { Anchor, BookOpen, LayoutDashboard, User } from 'lucide-react';
+import { Anchor, BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
+import { Button } from './ui/button';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -13,6 +14,8 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
   showReferencesSection?: boolean;
+  showTelegramExitButton?: boolean;
+  onTelegramExit?: () => void;
 }
 
 export function Layout({
@@ -21,11 +24,15 @@ export function Layout({
   onNavigate,
   isContentReady = false,
   showReferencesSection = false,
+  showTelegramExitButton = false,
+  onTelegramExit,
 }: LayoutProps) {
-  const { contentSafeAreaInset } = useTelegramSafeArea();
+  const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
+  const shouldShowTelegramExitButton =
+    isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -75,11 +82,26 @@ export function Layout({
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
-          <div className="flex items-center justify-center h-10">
-            <div className="flex items-center gap-2 mx-auto">
+          <div className="relative flex items-center justify-center h-10">
+            <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-primary" />
               <h1 className="text-xl font-semibold text-primary">B Memory</h1>
             </div>
+
+            {shouldShowTelegramExitButton ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                haptic="medium"
+                onClick={onTelegramExit}
+                className="absolute right-0 rounded-full border-border/60 bg-background/65 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/85 hover:text-foreground"
+                aria-label="Выйти из приложения"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Выйти</span>
+              </Button>
+            ) : null}
           </div>
         </div>
       </header>

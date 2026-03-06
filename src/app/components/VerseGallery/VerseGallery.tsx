@@ -23,6 +23,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import { VerseStatus } from "@/generated/prisma";
 import {
@@ -571,6 +572,50 @@ export function VerseGallery({
   );
 
   const trainingMilestonePopup = aux.trainingMilestonePopup;
+
+  const handleTelegramBack = useCallback(() => {
+    if (aux.isActionPending) return;
+
+    if (isIntroDialogOpen) {
+      handleIntroDialogOpenChange(false);
+      return;
+    }
+
+    if (aux.isDeleteDialogOpen) {
+      aux.setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    if (training.quickForgetConfirmStage !== null) {
+      training.cancelQuickForget();
+      return;
+    }
+
+    if (trainingMilestonePopup !== null) {
+      aux.confirmTrainingMilestonePopup();
+      return;
+    }
+
+    if (training.panelMode === "training") {
+      training.handleTrainingBackAction();
+      return;
+    }
+
+    onClose();
+  }, [
+    aux,
+    handleIntroDialogOpenChange,
+    isIntroDialogOpen,
+    onClose,
+    training,
+    trainingMilestonePopup,
+  ]);
+
+  useTelegramBackButton({
+    enabled: true,
+    onBack: handleTelegramBack,
+    priority: 100,
+  });
 
   // ── Display values ───────────────────────────────────────────────────────────
   const displayVerse =

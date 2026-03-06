@@ -43,6 +43,14 @@ export type TelegramHapticFeedback = {
   ) => void;
 };
 
+export type TelegramBackButton = {
+  isVisible?: boolean;
+  show?: () => void;
+  hide?: () => void;
+  onClick?: (callback: () => void) => void;
+  offClick?: (callback: () => void) => void;
+};
+
 export type TelegramWebApp = {
   expand?: () => void;
   ready?: () => void;
@@ -68,6 +76,7 @@ export type TelegramWebApp = {
   setBottomBarColor?: (color: string) => void;
   onEvent?: (eventType: string, callback: () => void) => void;
   offEvent?: (eventType: string, callback: () => void) => void;
+  BackButton?: TelegramBackButton;
   HapticFeedback?: TelegramHapticFeedback;
   initDataUnsafe?: TelegramInitDataUnsafe;
   themeParams?: TelegramThemeParams;

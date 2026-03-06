@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { toast } from "@/app/lib/toast";
 import {
   getTelegramWebApp,
@@ -287,7 +288,7 @@ function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {
 export default function App({ onInitialContentReady }: AppProps) {
   const shouldReduceMotion = useReducedMotion();
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
-  const [currentPage, setCurrentPage] = useState<Page>("dashboard");
+  const [pageStack, setPageStack] = useState<Page[]>(["dashboard"]);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [verses, setVerses] = useState<Array<Verse>>([]);
@@ -305,6 +306,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
   const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
+  const currentPage = pageStack[pageStack.length - 1] ?? "dashboard";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -346,6 +348,23 @@ export default function App({ onInitialContentReady }: AppProps) {
   const canAccessReferenceTrainer =
     (dashboardStats?.learningStatusVerses ?? 0) >=
     REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT;
+  const canGoBackInApp = pageStack.length > 1;
+  const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
+
+  const replaceCurrentPage = useCallback((page: Page) => {
+    setPageStack((prev) => {
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage === page) return prev;
+      if (prev.length <= 1) return [page];
+
+      const next = [...prev.slice(0, -1), page];
+      const previousPage = next[next.length - 2];
+      if (previousPage === page) {
+        return next.slice(0, -1);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -551,14 +570,22 @@ export default function App({ onInitialContentReady }: AppProps) {
       toast.info("Раздел «Якоря» пока недоступен", {
         description: "Добавьте более 10 стихов в статусе LEARNING.",
       });
-      setCurrentPage("dashboard");
       return;
     }
-    setCurrentPage(page as Page);
+    setPageStack((prev) => {
+      const nextPage = page as Page;
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage === nextPage) return prev;
+      return [...prev, nextPage];
+    });
     setDashboardGalleryIndex(null);
     setDashboardGalleryVerses([]);
     setDashboardGalleryLaunchMode("preview");
   };
+
+  const handleNavigateBackInApp = useCallback(() => {
+    setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  }, []);
 
   useEffect(() => {
     const previousPage = previousPageRef.current;
@@ -573,9 +600,9 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (currentPage === "references" && !canAccessReferenceTrainer) {
-      setCurrentPage("dashboard");
+      replaceCurrentPage("dashboard");
     }
-  }, [canAccessReferenceTrainer, currentPage]);
+  }, [canAccessReferenceTrainer, currentPage, replaceCurrentPage]);
 
   const handleToggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
@@ -704,6 +731,57 @@ export default function App({ onInitialContentReady }: AppProps) {
       void loadDashboardLeaderboard(telegramIdValue);
     }
   };
+
+  const handleTelegramExitRequest = useCallback(() => {
+    const webApp = getTelegramWebApp();
+    if (!webApp) return;
+
+    if (typeof webApp.showPopup === "function") {
+      webApp.showPopup(
+        {
+          title: "Выйти из B Memory?",
+          message: "Приложение закроется, но вы сможете вернуться в него из чата в любой момент.",
+          buttons: [
+            { id: "stay", type: "cancel", text: "Остаться" },
+            { id: "close", type: "destructive", text: "Выйти" },
+          ],
+        },
+        (buttonId) => {
+          if (buttonId === "close") {
+            webApp.close?.();
+          }
+        }
+      );
+      return;
+    }
+
+    webApp.close?.();
+  }, []);
+
+  const handleTelegramBack = useCallback(() => {
+    if (showAddVerseDialog) {
+      setShowAddVerseDialog(false);
+      return;
+    }
+
+    if (dashboardGalleryIndex !== null) {
+      handleDashboardGalleryClose();
+      return;
+    }
+
+    handleNavigateBackInApp();
+  }, [
+    dashboardGalleryIndex,
+    handleDashboardGalleryClose,
+    handleNavigateBackInApp,
+    showAddVerseDialog,
+  ]);
+
+  useTelegramBackButton({
+    enabled: showAddVerseDialog || dashboardGalleryIndex !== null || canGoBackInApp,
+    onBack: handleTelegramBack,
+    priority: 10,
+  });
 
   const handleDashboardGalleryStatusChange = async (
     verse: Verse,
@@ -856,6 +934,12 @@ export default function App({ onInitialContentReady }: AppProps) {
           onNavigate={handleNavigate}
           isContentReady={!isBootstrapping}
           showReferencesSection={canAccessReferenceTrainer}
+          showTelegramExitButton={
+            isDashboardRootPage &&
+            !showAddVerseDialog &&
+            dashboardGalleryIndex === null
+          }
+          onTelegramExit={handleTelegramExitRequest}
         >
           {currentPage === "dashboard" && (
             <motion.div
@@ -876,9 +960,9 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onViewAll={() => setCurrentPage("verses")}
+                onViewAll={() => handleNavigate("verses")}
                 canOpenReferences={canAccessReferenceTrainer}
-                onOpenReferences={() => setCurrentPage("references")}
+                onOpenReferences={() => handleNavigate("references")}
                 isInitializingData={isBootstrapping}
               />
             </motion.div>

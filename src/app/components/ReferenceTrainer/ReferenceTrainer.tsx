@@ -20,6 +20,7 @@ import {
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
@@ -1195,6 +1196,17 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     },
     [markIntroAsSeen]
   );
+
+  const handleTelegramBack = useCallback(() => {
+    if (!isIntroDialogOpen) return;
+    handleIntroDialogOpenChange(false);
+  }, [handleIntroDialogOpenChange, isIntroDialogOpen]);
+
+  useTelegramBackButton({
+    enabled: isIntroDialogOpen,
+    onBack: handleTelegramBack,
+    priority: 50,
+  });
 
   const currentQuestion = questions[currentQuestionIndex] ?? null;
   const answeredCount = results.length;
