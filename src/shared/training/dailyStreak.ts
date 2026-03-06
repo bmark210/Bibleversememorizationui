@@ -1,16 +1,9 @@
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+import { toUtcDayIndex } from "@/shared/utils/dateUtils";
 
 function normalizeStreakValue(value: number | null | undefined): number {
   const parsed = Math.round(Number(value ?? 0));
   if (!Number.isFinite(parsed)) return 0;
   return Math.max(0, parsed);
-}
-
-function toUtcDayIndex(value: Date): number {
-  return Math.floor(
-    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()) /
-      MS_PER_DAY
-  );
 }
 
 export function computeNextDailyStreakOnReview(params: {

@@ -3,8 +3,9 @@
 import type { SyntheticEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
+import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { RU_KEYBOARD_ROWS } from '@/shared/ui/ruKeyboardLayout';
-import { Button } from '../../ui/button';
+import { Button } from "@/app/components/ui/button";
 
 interface MobileRuKeyboardOverlayProps {
   open: boolean;
@@ -23,7 +24,7 @@ function triggerKeyboardHaptic(kind: 'light' | 'medium' = 'light') {
   if (typeof window === 'undefined') return;
 
   try {
-    const tg = (window as any).Telegram?.WebApp?.HapticFeedback;
+    const tg = getTelegramWebApp()?.HapticFeedback;
     if (tg?.impactOccurred) {
       tg.impactOccurred(kind);
       return;

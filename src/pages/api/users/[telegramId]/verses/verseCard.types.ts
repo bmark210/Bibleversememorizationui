@@ -1,5 +1,6 @@
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import {
   REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
@@ -20,7 +21,7 @@ type PrismaUserVerseWithVerse = Prisma.UserVerseGetPayload<{
 export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 export type VersePopularityScope = "friends" | "players" | "self";
 
-export interface VerseCardTagDto extends Pick<PrismaTag, "id" | "slug" | "title"> {}
+export type VerseCardTagDto = Pick<PrismaTag, "id" | "slug" | "title">;
 
 export interface VerseCardDto {
   externalVerseId: string;
@@ -120,9 +121,7 @@ export function computeDisplayStatus(
   if (baseStatus === VerseStatus.MY) return VerseStatus.MY;
   if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
 
-  if (repetitions >= MASTERED_REPETITIONS_MIN) return "MASTERED";
-  if (masteryLevel >= REVIEW_MASTERY_LEVEL_MIN) return "REVIEW";
-  return VerseStatus.LEARNING;
+  return computeTrainingDisplayStatus(masteryLevel, repetitions);
 }
 
 export function isReviewState(

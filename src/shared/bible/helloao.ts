@@ -1,6 +1,22 @@
 import type { BibleBook } from "@/app/types/bible";
+import {
+  HELLOAO_API_BASE_URL,
+  fetchHelloaoJson,
+  type HelloaoAvailableTranslationsPayload,
+  type HelloaoBooksPayload,
+  type HelloaoChapterContentItem,
+  type HelloaoChapterPayload,
+  type HelloaoCompletePayload,
+  type HelloaoBookInfo,
+  type HelloaoTranslationInfo,
+} from "@/modules/verses/infrastructure/helloaoClient";
 
-export const HELLOAO_API_BASE_URL = "https://bible.helloao.org/api";
+export { HELLOAO_API_BASE_URL } from "@/modules/verses/infrastructure/helloaoClient";
+export type {
+  HelloaoBookInfo,
+  HelloaoTranslationInfo,
+} from "@/modules/verses/infrastructure/helloaoClient";
+
 export const DEFAULT_HELLOAO_TRANSLATION = "rus_syn";
 
 const LEGACY_TRANSLATION_TO_HELLOAO: Record<string, string> = {
@@ -14,41 +30,6 @@ const LEGACY_TRANSLATION_TO_HELLOAO: Record<string, string> = {
 const BOOKS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 const CHAPTER_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 const COMPLETE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
-
-type HelloaoAvailableTranslationsPayload = {
-  translations?: HelloaoTranslationInfo[];
-};
-
-type HelloaoBooksPayload = {
-  books?: HelloaoBookInfo[];
-};
-
-type HelloaoChapterContentItem = {
-  type?: string;
-  number?: number | string;
-  content?: unknown;
-};
-
-type HelloaoChapterPayload = {
-  chapter?: {
-    number?: number;
-    content?: HelloaoChapterContentItem[];
-  };
-};
-
-type HelloaoCompleteBook = {
-  order?: number;
-  chapters?: Array<{
-    chapter?: {
-      number?: number;
-      content?: HelloaoChapterContentItem[];
-    };
-  }>;
-};
-
-type HelloaoCompletePayload = {
-  books?: HelloaoCompleteBook[];
-};
 
 type BooksCacheEntry = {
   expiresAt: number;
@@ -81,24 +62,6 @@ const chapterInFlight = new Map<string, Promise<Map<number, string>>>();
 
 const completeCache = new Map<string, CompleteCacheEntry>();
 const completeInFlight = new Map<string, Promise<SearchVerseIndexItem[]>>();
-
-export interface HelloaoTranslationInfo {
-  id: string;
-  name: string;
-  shortName?: string;
-  englishName?: string;
-  language?: string;
-  textDirection?: "rtl" | "ltr";
-  [key: string]: unknown;
-}
-
-export interface HelloaoBookInfo {
-  id: string;
-  order: number;
-  name: string;
-  numberOfChapters: number;
-  [key: string]: unknown;
-}
 
 export interface HelloaoVerse {
   pk: number;
@@ -207,11 +170,17 @@ export function normalizeHelloaoTranslation(value?: string | null): string {
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} for ${url}`);
+  const result = await fetchHelloaoJson<T>({
+    url,
+    signal,
+    resourceLabel: url,
+  });
+
+  if (!result.success) {
+    throw result.error;
   }
-  return response.json() as Promise<T>;
+
+  return result.data;
 }
 
 async function getBooksEntry(translationInput?: string): Promise<BooksCacheEntry> {

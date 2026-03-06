@@ -44,6 +44,7 @@ function buildRuKeyboardAdjacencyMap() {
     for (let j = i + 1; j < keys.length; j += 1) {
       const a = keys[i];
       const b = keys[j];
+      if (a === undefined || b === undefined) continue;
       const posA = positions.get(a);
       const posB = positions.get(b);
       if (!posA || !posB) continue;
@@ -73,4 +74,3 @@ export function isAdjacentRuKeyboardKey(actualKey: string, expectedKey: string) 
 
   return RU_KEYBOARD_ADJACENCY.get(actual)?.has(expected) ?? false;
 }
-

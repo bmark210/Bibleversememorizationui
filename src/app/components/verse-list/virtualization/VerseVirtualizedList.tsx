@@ -8,6 +8,7 @@ import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
 type RangeLike = VerseListLoadRange;
+const NOOP_DEBUG_INFINITE_SCROLL: DebugInfiniteScroll = () => {};
 
 type VerseVirtualizedListProps = {
   items: Array<Verse>;
@@ -104,7 +105,7 @@ export function VerseVirtualizedList({
   const shouldReduceMotion = useReducedMotion();
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
   const lastVisibleRangeRef = useRef<RangeLike | null>(null);
-  const debug = debugInfiniteScroll ?? (() => {});
+  const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
 
   const maybeTriggerAutoLoadMore = useCallback(
     (range: RangeLike, source: 'range' | 'end') => {
@@ -229,14 +230,13 @@ export function VerseVirtualizedList({
   const shouldEnableScrollSeek = items.length > Math.max(80, pageSize * 3);
 
   const FooterComponent = useMemo(() => {
-    const Footer = () => (
+    const VerseListVirtuosoFooter = () => (
       <InlineLoadMoreSkeleton
         count={inlineLoadSkeletonCount}
         pulse={showDelayedLoadMoreSkeleton}
       />
     );
-    Footer.displayName = 'VerseListVirtuosoFooter';
-    return Footer;
+    return VerseListVirtuosoFooter;
   }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
 
   const virtuosoComponents = useMemo(

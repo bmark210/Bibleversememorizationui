@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { Translation } from "@/generated/prisma";
+import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type CreateUserPayload = {
   telegramId?: string;
@@ -52,8 +53,8 @@ export default async function handler(
       return res.status(400).json({ error: "telegramId is required" });
     }
 
-    const user = await prisma.user.upsert({
-      where: { telegramId },
+    const user = await upsertUserByTelegramId({
+      telegramId,
       update: {
         ...(translationValue ? { translation: translationValue } : {}),
         ...(nameValue ? { name: nameValue } : {}),
@@ -61,7 +62,6 @@ export default async function handler(
         ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
       },
       create: {
-        telegramId,
         ...(translationValue ? { translation: translationValue } : {}),
         ...(nameValue ? { name: nameValue } : {}),
         ...(nicknameValue ? { nickname: nicknameValue } : {}),
@@ -71,10 +71,9 @@ export default async function handler(
 
     return res.status(201).json(user);
   } catch (error) {
-    console.error("Error creating/updating user:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

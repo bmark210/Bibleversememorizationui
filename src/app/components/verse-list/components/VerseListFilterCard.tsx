@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, ChevronDown, ChevronUp, History, Pencil, TrendingUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from '@/app/lib/toast';
 import { Card } from '@/app/components/ui/card';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
@@ -47,16 +46,6 @@ const PANEL_TRANSITION = {
   ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
 };
 
-const FILTER_MEANING: Record<VerseListStatusFilter, string> = {
-  catalog: 'все стихи каталога',
-  friends: 'стихи друзей',
-  learning: 'стихи в изучении',
-  review: 'стихи на повторении',
-  mastered: 'выученные стихи',
-  stopped: 'стихи на паузе',
-  my: 'все мои стихи',
-};
-
 type VerseListFilterCardProps = {
   totalVisible: number;
   totalCount: number;
@@ -88,10 +77,10 @@ const ROOT_TABS = [
 ] as const;
 
 export function VerseListFilterCard({
-  totalVisible,
-  totalCount,
-  currentFilterLabel,
-  currentFilterTheme,
+  totalVisible: _totalVisible,
+  totalCount: _totalCount,
+  currentFilterLabel: _currentFilterLabel,
+  currentFilterTheme: _currentFilterTheme,
   statusFilter,
   filterOptions,
   onTabClick,
@@ -100,7 +89,7 @@ export function VerseListFilterCard({
   onSortChange,
   onResetFilters,
   searchQuery = '',
-  onSearchChange,
+  onSearchChange: _onSearchChange,
   allTags = [],
   isLoadingTags = false,
   selectedTagSlugs = new Set(),
@@ -108,9 +97,9 @@ export function VerseListFilterCard({
   onTagClick,
   onClearTags,
   onCreateTagDialogOpen,
-  onDeleteTag,
+  onDeleteTag: _onDeleteTag,
 }: VerseListFilterCardProps) {
-  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+  const [deletingTagId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return (
@@ -141,19 +130,6 @@ export function VerseListFilterCard({
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
     trimmedSearchQuery.length > 0;
-
-  const handleDeleteTag = async (tag: Tag) => {
-    if (!tag.id || !tag.slug) return;
-    setDeletingTagId(tag.id);
-    try {
-      await onDeleteTag?.(tag.id, tag.slug);
-      toast.success(`Тег «${tag.title}» удалён`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Не удалось удалить тег');
-    } finally {
-      setDeletingTagId(null);
-    }
-  };
 
   return (
     <div className="mb-3">

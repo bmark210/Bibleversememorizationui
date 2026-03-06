@@ -142,14 +142,6 @@ export function VerseList({
       />
     ) : null;
 
-  const footerVisible = Boolean(
-    !vm.ui.isListLoading &&
-    !vm.pagination.isFetchingMoreVerses &&
-    (vm.pagination.verses.length > 0 ||
-      vm.pagination.hasMoreVerses ||
-      vm.pagination.loadMoreError),
-  );
-
   return (
     <>
       <AlertDialog
@@ -316,12 +308,12 @@ export function VerseList({
           verse={vm.modal.deleteTargetVerse}
           open={vm.modal.deleteTargetVerse !== null}
           onOpenChange={(open) => {
-            if (!open && !vm.modal.deleteSubmitting) {
+            if (!open && !vm.modal.isDeleteSubmitting) {
               vm.modal.setDeleteTargetVerse(null);
             }
           }}
           onConfirm={vm.modal.onConfirmDelete}
-          isSubmitting={vm.modal.deleteSubmitting}
+          isSubmitting={vm.modal.isDeleteSubmitting}
         />
 
         {vm.gallery.galleryIndex !== null &&

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Check, Download, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { Check, Download, Loader2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -32,9 +32,9 @@ import {
   DEFAULT_HELLOAO_TRANSLATION,
   getHelloaoChapter,
   normalizeHelloaoTranslation,
-  searchHelloaoVerses,
 } from "../services/helloaoBibleApi";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
+import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 import { TagsService } from "@/api/services/TagsService";
 import type { Tag } from "@/api/models/Tag";
 import { toast } from "@/app/lib/toast";
@@ -46,31 +46,13 @@ import {
   type ParsedExternalVerseId,
 } from "@/shared/bible/externalVerseId";
 
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
-
-function HighlightedText({ text, className }: { text: string; className?: string }) {
-  const parts = text.split(/(<mark>.*?<\/mark>)/g);
-  return (
-    <span className={className}>
-      {parts.map((part, i) => {
-        const match = part.match(/^<mark>(.*?)<\/mark>$/);
-        return match ? (
-          <mark key={i} className="bg-amber-400/60 text-foreground/90 px-0.5 rounded">{match[1]}</mark>
-        ) : (
-          <React.Fragment key={i}>{part}</React.Fragment>
-        );
-      })}
-    </span>
-  );
-}
-
-const stripMarkTags = (text: string) =>
-  text.replace(/<\/?mark[^>]*>/g, "");
-
 const toInt = (v: string) => {
   const n = parseInt(v, 10);
   return isFinite(n) && n > 0 ? n : null;
 };
+
+const stripMarkTags = (text: string) =>
+  text.replace(/<\/?mark[^>]*>/g, "");
 
 function buildParsedExternalVerseId(params: {
   book: number;
@@ -108,7 +90,6 @@ function slugify(str: string): string {
 
 const TRANSLATION_KEY = "bibleTranslation";
 const MODE_KEY = "addVerseDialogMode";
-const PAGE_SIZE = 20;
 const GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID = "__global__";
 
 const getCanonicalBooks = () =>
@@ -146,14 +127,6 @@ interface AddVerseDialogProps {
   }) => Promise<void>;
   onCreateTag?: (title: string, slug: string) => Promise<void>;
 }
-
-type SearchResult = {
-  book: BibleBook;
-  chapter: number;
-  verse: number;
-  text: string;
-  reference: string;
-};
 
 type SelectedVerse = {
   book: BibleBook;
@@ -195,7 +168,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [creatingTag, setCreatingTag] = useState(false);
   const [tagDeleteMode, setTagDeleteMode] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
-  const [tagListShadows, setTagListShadows] = useState({ top: false, bottom: false });
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagTitle, setEditingTagTitle] = useState("");
   const [savingTagId, setSavingTagId] = useState<string | null>(null);
@@ -217,22 +189,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   const [verseCount, setVerseCount] = useState<number | null>(null);
   const [verseCountLoading, setVerseCountLoading] = useState(false);
   const [verseTagsLoaded, setVerseTagsLoaded] = useState(false);
-
-  // ── Поиск ───────────────────────────────────────────────────────────────────
-  // const [query, setQuery] = useState("");
-  // const [searching, setSearching] = useState(false);
-  // const [results, setResults] = useState<SearchResult[]>([]);
-  // const [searchErr, setSearchErr] = useState<string | null>(null);
-  // const [page, setPage] = useState(1);
-  // const [hasMore, setHasMore] = useState(false);
-  // const [loadingMore, setLoadingMore] = useState(false);
-
-  // const abortRef = useRef<AbortController | null>(null);
-  // const searchingRef = useRef(false);
-  // const lastQueryRef = useRef("");
-  // const reqIdRef = useRef(0);
-  const tagListScrollRef = useRef<HTMLDivElement | null>(null);
-
   // ── Производные ──────────────────────────────────────────────────────────────
 
   const canonicalBooks = useMemo(getCanonicalBooks, []);
@@ -313,7 +269,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
 
-    const fromTelegram = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const fromTelegram = getTelegramUserId();
     const fromStorage = window.localStorage.getItem("telegramId");
     const resolved = String(fromTelegram ?? fromStorage ?? "").trim();
     setViewerTelegramId(resolved);
@@ -353,50 +309,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
     return () => { cancelled = true; };
   }, [translation, bookId, chapterNo]);
-
-  // useEffect(() => {
-  //   if (inputMode === "search") setFetchError(null);
-  //   else setSearchErr(null);
-  // }, [inputMode]);
-
-  // useEffect(() => () => { abortRef.current?.abort(); }, []);
-
-  const updateTagListShadows = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
-      setTagListShadows({ top: false, bottom: false });
-      return;
-    }
-
-    const maxScrollTop = node.scrollHeight - node.clientHeight;
-    if (maxScrollTop <= 1) {
-      setTagListShadows({ top: false, bottom: false });
-      return;
-    }
-
-    const top = node.scrollTop > 2;
-    const bottom = node.scrollTop < maxScrollTop - 2;
-
-    setTagListShadows((prev) => (
-      prev.top === top && prev.bottom === bottom ? prev : { top, bottom }
-    ));
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const rafId = window.requestAnimationFrame(() => {
-      updateTagListShadows(tagListScrollRef.current);
-    });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [
-    open,
-    mode,
-    tagsLoading,
-    createTagMode,
-    tagDeleteMode,
-    allTags.length,
-    selectedVerse?.reference,
-    updateTagListShadows,
-  ]);
 
   useEffect(() => {
     if (!open || !selectedVerse || !isAdmin || !viewerTelegramId) {
@@ -657,7 +569,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     setEditingTagId(null);
     setEditingTagTitle("");
     setSavingTagId(null);
-    setTagListShadows({ top: false, bottom: false });
     setNewTagTitle("");
     setDeletingTagId(null);
     setAdminVerseSummary(null);
@@ -755,93 +666,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     } finally {
       setFetchLoading(false);
     }
-  };
-
-  // const handleSearch = async () => {
-  //   if (searchingRef.current) return;
-  //   const q = query.trim();
-  //   if (q.length < 3) { setSearchErr("Введите минимум 3 символа"); return; }
-
-  //   abortRef.current?.abort();
-  //   const ctrl = new AbortController();
-  //   abortRef.current = ctrl;
-  //   const rid = ++reqIdRef.current;
-
-  //   searchingRef.current = true;
-  //   setSearching(true);
-  //   setSearchErr(null);
-  //   setResults([]);
-  //   setPage(1);
-  //   setHasMore(false);
-  //   lastQueryRef.current = q;
-
-  //   try {
-  //     const resp = await searchHelloaoVerses({ translation, query: q, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: 1, signal: ctrl.signal });
-  //     if (ctrl.signal.aborted || reqIdRef.current !== rid) return;
-  //     const items = (resp.results ?? []).map((it) => ({
-  //       book: it.book as BibleBook,
-  //       chapter: it.chapter,
-  //       verse: it.verse,
-  //       text: it.text,
-  //       reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
-  //     }));
-  //     if (!items.length) setSearchErr("Стихи не найдены.");
-  //     else { setResults(items); setHasMore(items.length < (resp.total ?? items.length)); }
-  //   } catch (err) {
-  //     if (!(err instanceof DOMException && err.name === "AbortError"))
-  //       setSearchErr(err instanceof Error ? err.message : "Ошибка поиска");
-  //   } finally {
-  //     if (reqIdRef.current === rid) { searchingRef.current = false; setSearching(false); abortRef.current = null; }
-  //   }
-  // };
-
-  // const loadMore = async () => {
-  //   if (loadingMore || searching || !hasMore || !lastQueryRef.current) return;
-  //   const nextPage = page + 1;
-  //   setLoadingMore(true);
-  //   try {
-  //     const resp = await searchHelloaoVerses({ translation, query: lastQueryRef.current, matchCase: false, matchWhole: false, limit: PAGE_SIZE, page: nextPage, signal: abortRef.current?.signal });
-  //     const items = (resp.results ?? []).map((it) => ({
-  //       book: it.book as BibleBook, chapter: it.chapter, verse: it.verse, text: it.text,
-  //       reference: formatVerseReference(it.book as BibleBook, it.chapter, it.verse),
-  //     }));
-  //     const total = resp.total ?? 0;
-  //     setResults((prev) => { const m = [...prev, ...items]; setHasMore(m.length < total && items.length > 0); return m; });
-  //     setPage(nextPage);
-  //   } catch { /* ignore */ } finally { setLoadingMore(false); }
-  // };
-
-  // const onScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
-  //   const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-  //   if (scrollHeight - scrollTop - clientHeight < 80) loadMore();
-  // };
-
-  const onTagListScroll: React.UIEventHandler<HTMLDivElement> = useCallback((e) => {
-    updateTagListShadows(e.currentTarget);
-  }, [updateTagListShadows]);
-
-  const selectResult = (r: SearchResult) => {
-    const parsed = buildParsedExternalVerseId({
-      book: Number(r.book),
-      chapter: r.chapter,
-      verseStart: r.verse,
-      verseEnd: r.verse,
-    });
-    const externalVerseId = toCanonicalExternalVerseId(parsed);
-    void loadSelectedVerseTags(externalVerseId);
-    setSelectedVerse({
-      book: r.book,
-      chapter: r.chapter,
-      verseStart: r.verse,
-      verseEnd: r.verse,
-      externalVerseId,
-      reference: formatParsedExternalVerseReference(parsed, getBibleBookNameRu(parsed.book)),
-      text: r.text,
-    });
-    setBookId(r.book.toString());
-    setChapterNo(r.chapter.toString());
-    setVerseStartNo(r.verse.toString());
-    setVerseEndNo(r.verse.toString());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -959,8 +783,6 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       ) : allTags.length > 0 ? (
         <div className="relative rounded-xl">
           <div
-            ref={tagListScrollRef}
-            onScroll={onTagListScroll}
             className="inline-flex gap-1.5 pt-1 px-4 pb-3 flex-wrap overflow-y-auto"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
           >

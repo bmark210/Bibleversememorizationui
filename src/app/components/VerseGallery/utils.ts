@@ -1,21 +1,20 @@
 import { Pause, Play, Plus } from "lucide-react";
 import { VerseStatus } from "@/generated/prisma";
+export { clamp } from "@/shared/utils/clamp";
 import {
   normalizeDisplayVerseStatus,
   type DisplayVerseStatus,
 } from "@/app/types/verseStatus";
 import {
-  REVIEW_REPETITION_INTERVAL_DAYS,
-  REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
 import {
-  chooseTrainingModeId,
   getTrainingModeByShiftInProgressOrder,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
+import { chooseTrainingMode } from "@/modules/training/application/chooseTrainingMode";
 import { triggerHaptic } from "@/app/lib/haptics";
 import type { Verse } from "@/app/App";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
@@ -23,7 +22,6 @@ import type {
   TrainingContactToastPayload,
   TrainingCompletionToastCardPayload,
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
-import { MAX_MASTERY_LEVEL, SPACED_REPETITION_MS } from "./constants";
 import type {
   HapticStyle,
   GalleryStatusAction,
@@ -73,9 +71,6 @@ export function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatu
   return null;
 }
 
-export const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
 export function parseDate(value: unknown): Date | null {
   if (!value) return null;
   const parsed = value instanceof Date ? value : new Date(String(value));
@@ -92,12 +87,6 @@ export function normalizeRawMasteryLevel(raw: number | null | undefined): number
 
 export function toStageMasteryLevel(rawMasteryLevel: number) {
   return toTrainingStageMasteryLevel(rawMasteryLevel);
-}
-
-export function masteryToProgress(stageMasteryLevel: number) {
-  return Math.round(
-    (clamp(stageMasteryLevel, 0, MAX_MASTERY_LEVEL) / MAX_MASTERY_LEVEL) * 100
-  );
 }
 
 export function getVerseIdentity(verse: Pick<Verse, "id" | "externalVerseId">) {
@@ -136,7 +125,7 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   };
 }
 
-export function isTrainingDueVerse(
+function isTrainingDueVerse(
   verse: Pick<TrainingVerseState, "status" | "nextReviewAt">
 ): boolean {
   if (verse.status !== "REVIEW") return true;
@@ -165,53 +154,15 @@ export function matchesTrainingSubsetFilter(
 }
 
 export function chooseModeId(verse: TrainingVerseState): ModeId {
-  return chooseTrainingModeId({
-    rawMasteryLevel: verse.rawMasteryLevel,
-    stageMasteryLevel: verse.stageMasteryLevel,
+  return chooseTrainingMode({
+    masteryLevel: verse.rawMasteryLevel,
     repetitions: verse.repetitions,
-    lastModeId: verse.lastModeId,
+    lastTrainingModeId: verse.lastModeId,
   });
 }
 
 export function getModeByShiftInProgressOrder(modeId: ModeId, shift: number): ModeId | null {
   return getTrainingModeByShiftInProgressOrder(modeId, shift);
-}
-
-export function calcNextReviewAt(masteryLevel: number, score: number): Date {
-  const base =
-    SPACED_REPETITION_MS[clamp(masteryLevel, 0, MAX_MASTERY_LEVEL)] ??
-    SPACED_REPETITION_MS[0];
-  const multiplier = score >= 92 ? 1.25 : score >= 80 ? 1 : score >= 65 ? 0.75 : 0.5;
-  return new Date(Date.now() + Math.round(base * multiplier));
-}
-
-export function calcNextReviewAtForReviewRepetition(
-  successfulRepetitions: number
-): Date | null {
-  if (successfulRepetitions >= REPEAT_THRESHOLD_FOR_MASTERED) {
-    return null;
-  }
-  const clampedIndex = clamp(
-    successfulRepetitions,
-    0,
-    REVIEW_REPETITION_INTERVAL_DAYS.length - 1
-  );
-  const intervalDays = REVIEW_REPETITION_INTERVAL_DAYS[clampedIndex] ?? 1;
-  return new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000);
-}
-
-export function deriveTrainingDisplayStatus(params: {
-  baseStatus: VerseStatus;
-  masteryLevel: number;
-  repetitions: number;
-  nextReviewAt: Date | null;
-}): DisplayVerseStatus {
-  const { baseStatus, masteryLevel, repetitions } = params;
-  if (baseStatus === VerseStatus.MY) return VerseStatus.MY;
-  if (baseStatus === VerseStatus.STOPPED) return VerseStatus.STOPPED;
-  if (repetitions >= REPEAT_THRESHOLD_FOR_MASTERED) return "MASTERED";
-  if (masteryLevel >= MAX_MASTERY_LEVEL) return "REVIEW";
-  return VerseStatus.LEARNING;
 }
 
 function toHumanWaitLabel(nextReviewAt: Date | null): string | null {
@@ -407,24 +358,6 @@ export function getTrainingLearningStartPopupPayload(params: {
     afterProgressPercent: progress,
     masteryLevel: Math.max(0, rawMasteryLevel),
     repetitions: Math.max(0, repetitions),
-  };
-}
-
-export function asLegacyVerse(verse: TrainingVerseState): Verse {
-  const progress = masteryToProgress(verse.stageMasteryLevel);
-  return {
-    id: verse.key,
-    externalVerseId: verse.externalVerseId,
-    status: verse.status,
-    reference: verse.raw.reference,
-    text: verse.raw.text,
-    translation: String((verse.raw as Record<string, unknown>).translation ?? "rus_syn"),
-    masteryLevel: progress,
-    repetitions: verse.repetitions,
-    lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,
-    nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
-    nextReview: verse.nextReviewAt?.toISOString() ?? null,
-    tags: [],
   };
 }
 

@@ -1,36 +1,5 @@
 import { useEffect, useState } from "react";
-
-/* ===================== TELEGRAM WEBAPP TYPES ===================== */
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: {
-        expand: () => void;
-        ready: () => void;
-        isExpanded: boolean;
-        viewportHeight: number;
-        viewportStableHeight: number;
-        platform?: string;
-        version?: string;
-        safeAreaInset?: {
-          top: number;
-          bottom: number;
-          left: number;
-          right: number;
-        };
-        contentSafeAreaInset?: {
-          top: number;
-          bottom: number;
-          left: number;
-          right: number;
-        };
-        onEvent: (eventType: string, callback: () => void) => void;
-        offEvent: (eventType: string, callback: () => void) => void;
-      };
-    };
-  }
-}
+import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 
 export interface SafeAreaInsets {
   top: number;
@@ -115,7 +84,7 @@ export function useTelegramSafeArea(): TelegramWebAppData {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const tg = window.Telegram?.WebApp;
+    const tg = getTelegramWebApp();
 
     const updateFromBrowserFallback = () => {
       // В браузере вне Telegram читаем, если есть, CSS-переменные Telegram.
@@ -140,8 +109,8 @@ export function useTelegramSafeArea(): TelegramWebAppData {
     setIsInTelegram(true);
 
     try {
-      tg.ready();
-      tg.expand();
+      tg.ready?.();
+      tg.expand?.();
     } catch {
       // ignore init errors, still try to read values
     }
@@ -172,16 +141,16 @@ export function useTelegramSafeArea(): TelegramWebAppData {
     const handleSafeAreaChanged = () => updateFromTelegram();
     const handleContentSafeAreaChanged = () => updateFromTelegram();
 
-    tg.onEvent("viewportChanged", handleViewportChanged);
-    tg.onEvent("safeAreaChanged", handleSafeAreaChanged);
-    tg.onEvent("contentSafeAreaChanged", handleContentSafeAreaChanged);
+    tg.onEvent?.("viewportChanged", handleViewportChanged);
+    tg.onEvent?.("safeAreaChanged", handleSafeAreaChanged);
+    tg.onEvent?.("contentSafeAreaChanged", handleContentSafeAreaChanged);
 
     return () => {
       window.cancelAnimationFrame(rafId);
       window.clearTimeout(timeoutId);
-      tg.offEvent("viewportChanged", handleViewportChanged);
-      tg.offEvent("safeAreaChanged", handleSafeAreaChanged);
-      tg.offEvent("contentSafeAreaChanged", handleContentSafeAreaChanged);
+      tg.offEvent?.("viewportChanged", handleViewportChanged);
+      tg.offEvent?.("safeAreaChanged", handleSafeAreaChanged);
+      tg.offEvent?.("contentSafeAreaChanged", handleContentSafeAreaChanged);
     };
   }, []);
 

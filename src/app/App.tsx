@@ -5,10 +5,12 @@ import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
-import { GALLERY_TOASTER_ID, toast } from "@/app/lib/toast";
+import { toast } from "@/app/lib/toast";
+import {
+  getTelegramWebApp,
+  getTelegramWebAppUser,
+} from "@/app/lib/telegramWebApp";
 import { Toaster } from "./components/ui/toaster";
-import { Button } from "./components/ui/button";
-import { Card } from "./components/ui/card";
 import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
 import { UsersService } from "@/api/services/UsersService";
@@ -46,20 +48,6 @@ const VerseList = dynamic(
     loading: () => <div className="min-h-[60vh]" />,
   }
 );
-
-// const Collections = dynamic(
-//   () => import("./components/Collections").then((m) => m.Collections),
-//   {
-//     loading: () => <div className="min-h-[60vh]" />,
-//   }
-// );
-
-// const Statistics = dynamic(
-//   () => import("./components/Statistics").then((m) => m.Statistics),
-//   {
-//     loading: () => <div className="min-h-[60vh]" />,
-//   }
-// );
 
 const Profile = dynamic(
   () => import("./components/Profile").then((m) => m.Profile),
@@ -101,6 +89,8 @@ export type Verse = {
   repetitions: number;
   lastTrainingModeId?: number | null;
   lastReviewedAt: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   translation?: string;
   nextReview?: string | null;
   nextReviewAt: string | null;
@@ -111,9 +101,22 @@ export type Verse = {
   reference: string;
 };
 
-type DashboardTrainingLaunchOptions = {
-  launchMode?: "preview" | "training";
-  preferredVerseId?: string | null;
+type AppVerseApiRecord = {
+  id?: string | number | null;
+  externalVerseId?: string | number | null;
+  status?: string | null;
+  masteryLevel?: number | null;
+  repetitions?: number | null;
+  lastTrainingModeId?: number | null;
+  lastReviewedAt?: string | null;
+  nextReviewAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  tags?: Array<{ id: string; slug: string; title: string }> | null;
+  popularityScope?: "friends" | "players" | "self" | null;
+  popularityValue?: number | null;
+  text?: string | null;
+  reference?: string | null;
 };
 
 type Page =
@@ -177,7 +180,6 @@ function applyThemeToDocument(theme: Theme) {
     target.setAttribute("data-theme", theme);
   }
 
-  const backgroundColor = theme === "dark" ? "#1a1410" : "#ede3d2";
   const foregroundColor = theme === "dark" ? "#f5ead5" : "#2b2015";
 
   document.documentElement.style.colorScheme = theme;
@@ -187,15 +189,12 @@ function applyThemeToDocument(theme: Theme) {
 }
 
 function getTelegramColorScheme(): Theme | null {
-  if (typeof window === "undefined") return null;
-  const colorScheme = (window as any)?.Telegram?.WebApp?.colorScheme;
+  const colorScheme = getTelegramWebApp()?.colorScheme;
   return colorScheme === "light" || colorScheme === "dark" ? colorScheme : null;
 }
 
 function syncTelegramChromeTheme(theme: Theme) {
-  if (typeof window === "undefined") return;
-
-  const webApp = (window as any)?.Telegram?.WebApp;
+  const webApp = getTelegramWebApp();
   if (!webApp) return;
 
   const palette = TELEGRAM_THEME_COLORS[theme];
@@ -240,41 +239,23 @@ function parseDateValue(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function getClientTimezone(): string {
-  if (typeof window === "undefined") return "UTC";
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return typeof tz === "string" && tz.length > 0 ? tz : "UTC";
-}
-
 function sortByUpdatedAtDesc(a: Verse, b: Verse) {
-  const aUpdated = parseDateValue((a as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const bUpdated = parseDateValue((b as any).updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const aUpdated = parseDateValue(a.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bUpdated = parseDateValue(b.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aUpdated !== bUpdated) return bUpdated - aUpdated;
 
   const aLast = parseDateValue(a.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   const bLast = parseDateValue(b.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aLast !== bLast) return bLast - aLast;
 
-  const aCreated = parseDateValue((a as any).createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const bCreated = parseDateValue((b as any).createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const aCreated = parseDateValue(a.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bCreated = parseDateValue(b.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aCreated !== bCreated) return bCreated - aCreated;
 
   return String(a.externalVerseId ?? a.id).localeCompare(String(b.externalVerseId ?? b.id));
 }
 
-function mapUserVerseToAppVerse(verse: {
-  id?: string | number | null;
-  externalVerseId?: string | number | null;
-  status?: string | null;
-  masteryLevel?: number | null;
-  repetitions?: number | null;
-  lastTrainingModeId?: number | null;
-  lastReviewedAt?: string | null;
-  nextReviewAt?: string | null;
-  tags?: Array<{ id: string; slug: string; title: string }> | null;
-  text?: string | null;
-  reference?: string | null;
-}): Verse {
+function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
   return {
     id: verse.id ?? undefined,
     externalVerseId: String(verse.externalVerseId ?? ""),
@@ -283,8 +264,12 @@ function mapUserVerseToAppVerse(verse: {
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     lastTrainingModeId: verse.lastTrainingModeId ?? null,
     lastReviewedAt: verse.lastReviewedAt ?? null,
+    createdAt: verse.createdAt ?? null,
+    updatedAt: verse.updatedAt ?? null,
     nextReviewAt: verse.nextReviewAt ?? null,
     tags: verse.tags ?? [],
+    popularityScope: verse.popularityScope ?? undefined,
+    popularityValue: verse.popularityValue ?? undefined,
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
   };
@@ -309,7 +294,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [dashboardGalleryVerses, setDashboardGalleryVerses] = useState<Array<Verse>>([]);
   const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
   const [dashboardGalleryLaunchMode, setDashboardGalleryLaunchMode] = useState<"preview" | "training">("preview");
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
@@ -370,7 +355,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const webApp = (window as any)?.Telegram?.WebApp;
+    const webApp = getTelegramWebApp();
     if (!webApp || typeof webApp.onEvent !== "function" || typeof webApp.offEvent !== "function") {
       return;
     }
@@ -381,9 +366,9 @@ export default function App({ onInitialContentReady }: AppProps) {
       syncTelegramChromeTheme(theme);
     };
 
-    webApp.onEvent("themeChanged", handleTelegramThemeChanged);
+    webApp.onEvent?.("themeChanged", handleTelegramThemeChanged);
     return () => {
-      webApp.offEvent("themeChanged", handleTelegramThemeChanged);
+      webApp.offEvent?.("themeChanged", handleTelegramThemeChanged);
     };
   }, [theme]);
 
@@ -478,10 +463,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
 
     void (async () => {
-      const telegramWebUser =
-        typeof window !== "undefined"
-          ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user
-          : undefined;
+      const telegramWebUser = getTelegramWebAppUser();
       const telegramId =
         telegramWebUser?.id?.toString() ??
         process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
@@ -602,7 +584,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const loadAllUserVerses = async (telegramIdValue: string) => {
     try {
       const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
-      const allVerses = response as Array<Verse>;
+      const allVerses = response as Array<AppVerseApiRecord>;
       return allVerses;
     } catch (err) {
       console.error("Не удалось получить стихи пользователя:", err);
@@ -614,7 +596,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     try {
       const allVerses = await loadAllUserVerses(telegramIdValue);
       const trainingPool = pickTrainingDashboardVerses(
-        allVerses.map((verse) => mapUserVerseToAppVerse(verse as any))
+        allVerses.map((verse) => mapUserVerseToAppVerse(verse))
       );
       setVerses(trainingPool);
       return trainingPool;
@@ -663,7 +645,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         startWith: dashboardTrainingStartWithRef.current,
       });
 
-      const mappedChunk = (page.items as Array<any>)
+      const mappedChunk = (page.items as Array<AppVerseApiRecord>)
         .map((item) => mapUserVerseToAppVerse(item))
         .filter(isTrainingDashboardVerse)
         .sort(sortByUpdatedAtDesc);
@@ -763,54 +745,8 @@ export default function App({ onInitialContentReady }: AppProps) {
     void loadDashboardLeaderboard(telegramIdValue);
   };
 
-  const handleStartTraining = async (launchOptions: DashboardTrainingLaunchOptions = {
-    launchMode: "training",
-    preferredVerseId: null,
-  }) => {
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (!telegramIdValue) {
-      toast.error("Не найден telegramId");
-      return;
-    }
-
-    const launchMode = launchOptions?.launchMode ?? "training";
-    const preferredTargetVerseId = launchOptions?.preferredVerseId ?? null;
-    const openDashboardGallery = (
-      plannedList: Array<Verse>,
-      preferredVerseId?: string | null
-    ) => {
-      if (plannedList.length === 0) return false;
-      setDashboardGalleryLaunchMode(launchMode);
-      setDashboardGalleryVerses(plannedList);
-      const nextIndex = preferredVerseId
-        ? plannedList.findIndex(
-          (verse) => String(verse.externalVerseId ?? verse.id) === String(preferredVerseId)
-        )
-        : -1;
-      setDashboardGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
-      return true;
-    };
-
-    try {
-      const firstChunk = await loadDashboardTrainingGalleryChunk({ reset: true });
-      if (firstChunk.length === 0) {
-        toast.info("Нет стихов для тренировки", {
-          description: "Выберите стихи в статусах LEARNING/REVIEW или переведите карточки в изучение. Просмотр доступен в разделе «Стихи».",
-        });
-        return;
-      }
-      openDashboardGallery(firstChunk, preferredTargetVerseId);
-    } catch {
-      toast.error("Не удалось загрузить стихи для тренировки");
-    }
-  };
-
   const requestMoreDashboardTrainingVerses = async (): Promise<Array<Verse>> => {
     return loadDashboardTrainingGalleryChunk({ reset: false });
-  };
-
-  const handleAddVerse = () => {
-    setShowAddVerseDialog(true);
   };
 
   const handleVerseListMutationCommitted = () => {

@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
+import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
-import { Button } from '../../ui/button';
+import { Button } from "@/app/components/ui/button";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -68,7 +69,7 @@ function pickRevealedIndices(totalWords: number): Set<number> {
 
   for (let i = candidates.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    swapArrayItems(candidates, i, j);
   }
 
   for (const index of candidates) {
@@ -87,12 +88,12 @@ function shuffleChoices(choices: HiddenChoice[]) {
   const shuffled = [...choices];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    swapArrayItems(shuffled, i, j);
   }
 
   const sameOrder = shuffled.every((choice, index) => choice.slotOrder === choices[index]?.slotOrder);
   if (sameOrder && shuffled.length > 1) {
-    [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    swapArrayItems(shuffled, 0, 1);
   }
 
   return shuffled;

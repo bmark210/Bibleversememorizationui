@@ -1,10 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import type { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import {
+  createFollow,
+  isFollowing,
+} from "@/modules/social/infrastructure/socialRepository";
+import {
+  countFollowedUsers,
+  getFollowedUsersPage,
+  getUserByTelegramId,
+} from "@/modules/users/infrastructure/userRepository";
 import {
   assertUserExists,
   buildFriendMetricsMap,
-  buildUserSearchWhere,
   FriendsApiError,
   mapUsersToFriendListItems,
   parseFriendsListQuery,
@@ -57,34 +63,18 @@ async function handleGet(
   try {
     await assertUserExists(telegramId);
     const query = parseFriendsListQuery(req.query);
-    const searchWhere = buildUserSearchWhere(query.search);
-
-    const baseWhere: Prisma.UserWhereInput = {
-      followers: {
-        some: {
-          followerTelegramId: telegramId,
-        },
-      },
-    };
-    const where: Prisma.UserWhereInput = searchWhere
-      ? { AND: [baseWhere, searchWhere] }
-      : baseWhere;
 
     const [friends, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip: query.startWith,
-        take: query.limit,
-        orderBy: [{ createdAt: "desc" }, { telegramId: "asc" }],
-        select: {
-          telegramId: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-          dailyStreak: true,
-        },
+      getFollowedUsersPage({
+        followerTelegramId: telegramId,
+        search: query.search,
+        startWith: query.startWith,
+        limit: query.limit,
       }),
-      prisma.user.count({ where }),
+      countFollowedUsers({
+        followerTelegramId: telegramId,
+        search: query.search,
+      }),
     ]);
 
     const metricsByTelegramId = await buildFriendMetricsMap(friends);
@@ -130,14 +120,8 @@ async function handlePost(
     }
 
     const [currentUser, targetUser] = await Promise.all([
-      prisma.user.findUnique({
-        where: { telegramId },
-        select: { id: true },
-      }),
-      prisma.user.findUnique({
-        where: { telegramId: targetTelegramId },
-        select: { id: true },
-      }),
+      getUserByTelegramId(telegramId),
+      getUserByTelegramId(targetTelegramId),
     ]);
 
     if (!currentUser) {
@@ -147,25 +131,18 @@ async function handlePost(
       return res.status(404).json({ error: "Target user not found" });
     }
 
-    const existing = await prisma.userFollow.findUnique({
-      where: {
-        followerTelegramId_followingTelegramId: {
-          followerTelegramId: telegramId,
-          followingTelegramId: targetTelegramId,
-        },
-      },
-      select: { id: true },
+    const alreadyFollowing = await isFollowing({
+      followerTelegramId: telegramId,
+      followingTelegramId: targetTelegramId,
     });
 
-    if (existing) {
+    if (alreadyFollowing) {
       return res.status(200).json({ status: "already-following" });
     }
 
-    await prisma.userFollow.create({
-      data: {
-        followerTelegramId: telegramId,
-        followingTelegramId: targetTelegramId,
-      },
+    await createFollow({
+      followerTelegramId: telegramId,
+      followingTelegramId: targetTelegramId,
     });
 
     return res.status(200).json({ status: "added" });
@@ -181,4 +158,3 @@ async function handlePost(
     });
   }
 }
-

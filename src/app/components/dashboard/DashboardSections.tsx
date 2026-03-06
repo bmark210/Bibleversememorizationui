@@ -159,8 +159,8 @@ type DashboardTrainingStatsCardProps = {
 };
 
 export function DashboardTrainingStatsCard({
-  avgRatingPercent,
-  todayVersesCount,
+  avgRatingPercent: _avgRatingPercent,
+  todayVersesCount: _todayVersesCount,
   statsCards,
   cardItemVariants,
   groupStaggerVariants,
@@ -254,29 +254,13 @@ type DashboardLeaderboardCardProps = {
 };
 
 export function DashboardLeaderboardCard({
-  avgRatingPercent,
+  avgRatingPercent: _avgRatingPercent,
   leaderboard = null,
   isLeaderboardLoading = false,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardLeaderboardCardProps) {
   const entries = leaderboard?.entries ?? [];
-  const currentUser = leaderboard?.currentUser ?? null;
-  const totalParticipants = leaderboard?.totalParticipants ?? entries.length;
-
-  const footerTitle = currentUser?.rank
-    ? `Ваша позиция: #${currentUser.rank} из ${Math.max(totalParticipants, currentUser.rank)}`
-    : totalParticipants > 0
-      ? "Вы пока вне рейтинга"
-      : "Рейтинг заполняется";
-
-  const footerHint = currentUser
-    ? `${currentUser.weeklyRepetitions} повторений за неделю · серия ${currentUser.streakDays} дн.`
-    : "Тренируйтесь регулярно, чтобы подняться в таблице лидеров.";
-
-  const footerScore = currentUser
-    ? `${currentUser.score}%`
-    : `${Math.max(0, Math.min(100, avgRatingPercent))}%`;
 
   return (
     <motion.div variants={cardItemVariants}>
@@ -300,7 +284,6 @@ export function DashboardLeaderboardCard({
             entries.map((entry) => {
               const rank = entry.rank;
               const rankBadge = getRankBadge(rank);
-              const RankIcon = rankBadge.icon;
 
               return (
                 <motion.div

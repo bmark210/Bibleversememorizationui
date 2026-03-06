@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import {
   canonicalizeExternalVerseId,
   MAX_EXTERNAL_VERSE_RANGE_SIZE,
 } from "@/shared/bible/externalVerseId";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { upsertCatalogVerse } from "@/modules/verses/infrastructure/verseRepository";
 import {
   buildWhereForUserVersesListQuery,
   fetchPaginatedEnrichedUserVerses,
@@ -76,18 +77,13 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
     }
 
-    const globalVerse = await prisma.verse.upsert({
-      where: { externalVerseId: canonicalExternalVerseId },
-      update: {},
-      create: { externalVerseId: canonicalExternalVerseId },
-    });
+    const globalVerse = await upsertCatalogVerse(canonicalExternalVerseId);
 
     return res.status(201).json({ externalVerseId: globalVerse.externalVerseId, id: globalVerse.id });
   } catch (error) {
-    console.error("Error creating verse:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

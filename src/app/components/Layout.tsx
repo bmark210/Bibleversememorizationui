@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { Anchor, BookOpen, LayoutDashboard, Link2, User } from 'lucide-react';
-import { useTelegram } from '../contexts/TelegramContext';
+import { Anchor, BookOpen, LayoutDashboard, User } from 'lucide-react';
+import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
 import { cn } from './ui/utils';
@@ -22,18 +22,14 @@ export function Layout({
   isContentReady = false,
   showReferencesSection = false,
 }: LayoutProps) {
-  const { user, isReady, platform } = useTelegram();
-  const { safeAreaInset, contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const { contentSafeAreaInset } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tg = (window as any).Telegram?.WebApp;
+    const tg = getTelegramWebApp();
     const vv = window.visualViewport;
 
     const check = () => {
@@ -48,150 +44,12 @@ export function Layout({
 
     check();
     vv?.addEventListener("resize", check);
-    tg?.onEvent("viewportChanged", check);
+    tg?.onEvent?.("viewportChanged", check);
     return () => {
       vv?.removeEventListener("resize", check);
-      tg?.offEvent("viewportChanged", check);
+      tg?.offEvent?.("viewportChanged", check);
     };
   }, []);
-
-  // Отладка safe area
-  useEffect(() => {
-    if (isInTelegram) {
-      // console.log('📱 Layout: Telegram detected, safe area:', safeAreaInset);
-    } else {
-      // console.log('🌐 Layout: Browser mode, safe area:', safeAreaInset);
-    }
-  }, [isInTelegram, safeAreaInset]);
-
-  // Собираем все Telegram переменные
-  const getTelegramDebugInfo = () => {
-    if (typeof window === 'undefined') return null;
-
-    const tg = window.Telegram?.WebApp;
-    if (!tg) return null;
-
-    // Получаем CSS переменные
-    const getCSSVariable = (varName: string) => {
-      if (typeof window === 'undefined') return null;
-      const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-      return value || null;
-    };
-
-    // Получаем значения Content Safe Area CSS переменных
-    const contentSafeAreaTop = getCSSVariable('--tg-content-safe-area-inset-top');
-    const contentSafeAreaBottom = getCSSVariable('--tg-content-safe-area-inset-bottom');
-    const contentSafeAreaLeft = getCSSVariable('--tg-content-safe-area-inset-left');
-    const contentSafeAreaRight = getCSSVariable('--tg-content-safe-area-inset-right');
-    
-    return {
-      // ⭐ Content Safe Area CSS переменные (главные значения)
-      '--tg-content-safe-area-inset-top': contentSafeAreaTop,
-      '--tg-content-safe-area-inset-bottom': contentSafeAreaBottom,
-      '--tg-content-safe-area-inset-left': contentSafeAreaLeft,
-      '--tg-content-safe-area-inset-right': contentSafeAreaRight,
-      
-      // Основная информация
-      platform: tg.platform,
-      version: tg.version,
-      isExpanded: tg.isExpanded,
-      
-      // Viewport
-      viewportHeight: tg.viewportHeight,
-      viewportStableHeight: tg.viewportStableHeight,
-      
-      // Content Safe Area (области контента - избегаемые зоны)
-      contentSafeAreaInset: {
-        api: tg.contentSafeAreaInset,
-        css: {
-          top: contentSafeAreaTop,
-          bottom: contentSafeAreaBottom,
-          left: contentSafeAreaLeft,
-          right: contentSafeAreaRight,
-        }
-      },
-      
-      // Viewport padding
-      viewportPadding: {
-        top: getCSSVariable('--tg-viewport-height'),
-        stableHeight: getCSSVariable('--tg-viewport-stable-height'),
-      },
-      
-      // Тема
-      colorScheme: (tg as any).colorScheme,
-      themeParams: (tg as any).themeParams,
-      themeCSSVariables: {
-        bgColor: getCSSVariable('--tg-theme-bg-color'),
-        textColor: getCSSVariable('--tg-theme-text-color'),
-        hintColor: getCSSVariable('--tg-theme-hint-color'),
-        linkColor: getCSSVariable('--tg-theme-link-color'),
-        buttonColor: getCSSVariable('--tg-theme-button-color'),
-        buttonTextColor: getCSSVariable('--tg-theme-button-text-color'),
-        secondaryBgColor: getCSSVariable('--tg-theme-secondary-bg-color'),
-        headerBgColor: getCSSVariable('--tg-theme-header-bg-color'),
-        accentTextColor: getCSSVariable('--tg-theme-accent-text-color'),
-        sectionBgColor: getCSSVariable('--tg-theme-section-bg-color'),
-        sectionHeaderTextColor: getCSSVariable('--tg-theme-section-header-text-color'),
-        subtitleTextColor: getCSSVariable('--tg-theme-subtitle-text-color'),
-        destructiveTextColor: getCSSVariable('--tg-theme-destructive-text-color'),
-      },
-      
-      // Пользователь
-      initData: (tg as any).initData,
-      initDataUnsafe: (tg as any).initDataUnsafe,
-      
-      // Кнопки
-      MainButton: (tg as any).MainButton ? {
-        text: (tg as any).MainButton.text,
-        color: (tg as any).MainButton.color,
-        textColor: (tg as any).MainButton.textColor,
-        isVisible: (tg as any).MainButton.isVisible,
-        isActive: (tg as any).MainButton.isActive,
-        isProgressVisible: (tg as any).MainButton.isProgressVisible,
-      } : null,
-      BackButton: (tg as any).BackButton ? {
-        isVisible: (tg as any).BackButton.isVisible,
-      } : null,
-      SettingsButton: (tg as any).SettingsButton ? {
-        isVisible: (tg as any).SettingsButton.isVisible,
-      } : null,
-      
-      // Haptic Feedback
-      HapticFeedback: (tg as any).HapticFeedback ? 'available' : 'not available',
-      
-      // Дополнительно
-      headerColor: (tg as any).headerColor,
-      backgroundColor: (tg as any).backgroundColor,
-      bottomBarColor: (tg as any).bottomBarColor,
-      
-      // Все CSS переменные viewport
-      allCSSVariables: {
-        '--tg-viewport-height': getCSSVariable('--tg-viewport-height'),
-        '--tg-viewport-stable-height': getCSSVariable('--tg-viewport-stable-height'),
-      },
-      
-      // Наши вычисленные значения
-      _computed: {
-        safeAreaInset,
-        isInTelegram,
-        user,
-        isReady,
-      }
-    };
-  };
-
-  const handleCopyDebugInfo = async () => {
-    const info = getTelegramDebugInfo();
-    if (!info) return;
-
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(info, null, 2));
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error('Не удалось скопировать:', error);
-    }
-  };
 
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },

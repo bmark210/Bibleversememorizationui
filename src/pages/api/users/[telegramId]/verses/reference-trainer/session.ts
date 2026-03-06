@@ -1,106 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
-import { canonicalizeExternalVerseId } from "@/shared/bible/externalVerseId";
-
-type SessionTrack = "reference" | "incipit" | "context" | "mixed";
-type SkillTrack = "reference" | "incipit" | "context";
-type SessionOutcome = "correct_first" | "correct_retry" | "wrong";
-
-type SessionUpdateInput = {
-  externalVerseId: string;
-  track: SkillTrack;
-  outcome: SessionOutcome;
-};
-
-type SessionRequestBody = {
-  sessionTrack: SessionTrack;
-  updates: SessionUpdateInput[];
-};
-
-const SESSION_TRACKS = new Set<SessionTrack>([
-  "reference",
-  "incipit",
-  "context",
-  "mixed",
-]);
-const SKILL_TRACKS = new Set<SkillTrack>(["reference", "incipit", "context"]);
-const OUTCOMES = new Set<SessionOutcome>(["correct_first", "correct_retry", "wrong"]);
-const OUTCOME_DELTA: Record<SessionOutcome, number> = {
-  correct_first: 5,
-  correct_retry: 2,
-  wrong: -4,
-};
-
-class SessionValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SessionValidationError";
-  }
-}
-
-function clampSkillScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseSessionBody(body: unknown): SessionRequestBody {
-  if (!isRecord(body)) {
-    throw new SessionValidationError("Body must be a JSON object");
-  }
-
-  const sessionTrackRaw = body.sessionTrack;
-  if (typeof sessionTrackRaw !== "string" || !SESSION_TRACKS.has(sessionTrackRaw as SessionTrack)) {
-    throw new SessionValidationError(
-      "sessionTrack must be one of: reference, incipit, context, mixed"
-    );
-  }
-
-  const updatesRaw = body.updates;
-  if (!Array.isArray(updatesRaw)) {
-    throw new SessionValidationError("updates must be an array");
-  }
-
-  const updates: SessionUpdateInput[] = updatesRaw.map((item, index) => {
-    if (!isRecord(item)) {
-      throw new SessionValidationError(`updates[${index}] must be an object`);
-    }
-
-    const externalVerseIdRaw = item.externalVerseId;
-    const trackRaw = item.track;
-    const outcomeRaw = item.outcome;
-
-    if (typeof externalVerseIdRaw !== "string" || externalVerseIdRaw.trim().length === 0) {
-      throw new SessionValidationError(`updates[${index}].externalVerseId is required`);
-    }
-    if (typeof trackRaw !== "string" || !SKILL_TRACKS.has(trackRaw as SkillTrack)) {
-      throw new SessionValidationError(
-        `updates[${index}].track must be one of: reference, incipit, context`
-      );
-    }
-    if (typeof outcomeRaw !== "string" || !OUTCOMES.has(outcomeRaw as SessionOutcome)) {
-      throw new SessionValidationError(`updates[${index}].outcome must be one of: correct_first, correct_retry, wrong`);
-    }
-
-    const canonicalExternalVerseId = canonicalizeExternalVerseId(externalVerseIdRaw);
-    if (!canonicalExternalVerseId) {
-      throw new SessionValidationError(`updates[${index}].externalVerseId has invalid format`);
-    }
-
-    return {
-      externalVerseId: canonicalExternalVerseId,
-      track: trackRaw as SkillTrack,
-      outcome: outcomeRaw as SessionOutcome,
-    };
-  });
-
-  return {
-    sessionTrack: sessionTrackRaw as SessionTrack,
-    updates,
-  };
-}
+import { applySessionResults } from "@/modules/reference-trainer/application/applySessionResults";
+import {
+  getUserVerseScores,
+  getVersesByExternalVerseIds,
+  updateUserVerseScores,
+} from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { referenceSessionSchema } from "@/shared/validation/schemas/referenceSessionSchema";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { telegramId } = req.query;
@@ -114,7 +20,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { updates } = parseSessionBody(req.body);
+    const parsedBody = referenceSessionSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({ error: parsedBody.error.flatten() });
+    }
+
+    const { updates } = parsedBody.data;
     if (updates.length === 0) {
       return res.status(200).json({ updated: [] });
     }
@@ -123,13 +34,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       new Set(updates.map((update) => update.externalVerseId))
     );
 
-    const verseRows = await prisma.verse.findMany({
-      where: { externalVerseId: { in: requestedExternalIds } },
-      select: { id: true, externalVerseId: true },
-    });
+    const verseRows = await getVersesByExternalVerseIds(requestedExternalIds);
 
     const verseIdByExternalId = new Map(
       verseRows.map((row) => [row.externalVerseId, row.id] as const)
+    );
+    const externalVerseIdByVerseId = new Map(
+      verseRows.map((row) => [row.id, row.externalVerseId] as const)
     );
 
     const missingVerseIds = requestedExternalIds.filter(
@@ -143,44 +54,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const userVerseRows = await prisma.userVerse.findMany({
-      where: {
-        telegramId,
-        verseId: {
-          in: verseRows.map((row) => row.id),
-        },
-      },
-      select: {
-        id: true,
-        verseId: true,
-        referenceScore: true,
-        incipitScore: true,
-        contextScore: true,
-      },
+    const userVerseByExternalId = await getUserVerseScores({
+      telegramId,
+      verseIds: verseRows.map((row) => row.id),
+      versesById: externalVerseIdByVerseId,
     });
-
-    const userVerseByExternalId = new Map<
-      string,
-      {
-        id: number;
-        externalVerseId: string;
-        referenceScore: number;
-        incipitScore: number;
-        contextScore: number;
-      }
-    >();
-
-    for (const row of userVerseRows) {
-      const externalVerseId = verseRows.find((verse) => verse.id === row.verseId)?.externalVerseId;
-      if (!externalVerseId) continue;
-      userVerseByExternalId.set(externalVerseId, {
-        id: row.id,
-        externalVerseId,
-        referenceScore: clampSkillScore(row.referenceScore),
-        incipitScore: clampSkillScore(row.incipitScore),
-        contextScore: clampSkillScore(row.contextScore),
-      });
-    }
 
     const missingUserVerseIds = requestedExternalIds.filter(
       (externalVerseId) => !userVerseByExternalId.has(externalVerseId)
@@ -193,55 +71,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const touchedExternalIds: string[] = [];
-    const touchedSet = new Set<string>();
+    const touchedRows = applySessionResults({
+      updates,
+      rowsByExternalVerseId: userVerseByExternalId,
+    });
 
-    for (const update of updates) {
-      const row = userVerseByExternalId.get(update.externalVerseId);
-      if (!row) continue;
-      const delta = OUTCOME_DELTA[update.outcome];
-
-      if (update.track === "reference") {
-        row.referenceScore = clampSkillScore(row.referenceScore + delta);
-      } else if (update.track === "incipit") {
-        row.incipitScore = clampSkillScore(row.incipitScore + delta);
-      } else {
-        row.contextScore = clampSkillScore(row.contextScore + delta);
-      }
-
-      if (!touchedSet.has(update.externalVerseId)) {
-        touchedSet.add(update.externalVerseId);
-        touchedExternalIds.push(update.externalVerseId);
-      }
-    }
-
-    const touchedRows = touchedExternalIds
-      .map((externalVerseId) => userVerseByExternalId.get(externalVerseId))
-      .filter(
-        (
-          row
-        ): row is {
-          id: number;
-          externalVerseId: string;
-          referenceScore: number;
-          incipitScore: number;
-          contextScore: number;
-        } =>
-          row !== undefined
-      );
-
-    await prisma.$transaction(
-      touchedRows.map((row) =>
-        prisma.userVerse.update({
-          where: { id: row.id },
-          data: {
-            referenceScore: row.referenceScore,
-            incipitScore: row.incipitScore,
-            contextScore: row.contextScore,
-          },
-        })
-      )
-    );
+    await updateUserVerseScores(touchedRows);
 
     return res.status(200).json({
       updated: touchedRows.map((row) => ({
@@ -252,14 +87,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })),
     });
   } catch (error) {
-    if (error instanceof SessionValidationError) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    console.error("Error updating reference trainer session:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

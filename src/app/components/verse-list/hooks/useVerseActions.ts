@@ -35,6 +35,26 @@ type UseVerseActionsParams = {
   onVerseMutationCommitted?: () => void;
 };
 
+function getErrorStatusCode(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const maybeStatus =
+    'status' in error
+      ? error.status
+      : 'statusCode' in error
+        ? error.statusCode
+        : null;
+
+  if (typeof maybeStatus === 'number' && Number.isFinite(maybeStatus)) {
+    return maybeStatus;
+  }
+
+  const parsedStatus = Number(maybeStatus);
+  return Number.isFinite(parsedStatus) ? parsedStatus : null;
+}
+
 export function useVerseActions({
   telegramId,
   statusFilter,
@@ -49,7 +69,7 @@ export function useVerseActions({
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
 
   const pushToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
     if (type === 'success') {
@@ -226,8 +246,8 @@ export function useVerseActions({
         await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
-        const status = (err as any)?.status ?? (err as any)?.statusCode;
-        if (status !== 404) throw err;
+        const statusCode = getErrorStatusCode(err);
+        if (statusCode !== 404) throw err;
       }
       if (statusFilter === 'catalog') {
         // В фильтре "catalog" карточка остаётся видимой — сбрасываем статус в CATALOG, очищаем прогресс
@@ -270,7 +290,7 @@ export function useVerseActions({
       return;
     }
 
-    setDeleteSubmitting(true);
+    setIsDeleteSubmitting(true);
     markVersePending(deleteTargetVerse, true);
 
     try {
@@ -286,7 +306,7 @@ export function useVerseActions({
       pushToast('Ошибка — попробуйте ещё раз', 'error');
     } finally {
       markVersePending(deleteTargetVerse, false);
-      setDeleteSubmitting(false);
+      setIsDeleteSubmitting(false);
     }
   }, [
     deleteTargetVerse,
@@ -302,7 +322,7 @@ export function useVerseActions({
     pendingVerseKeys,
     deleteTargetVerse,
     setDeleteTargetVerse,
-    deleteSubmitting,
+    isDeleteSubmitting,
     getVerseKey,
     isSameVerse,
     markVersePending,

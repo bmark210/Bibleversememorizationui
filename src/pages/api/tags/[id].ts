@@ -1,5 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
+import {
+  countVerseTagLinks,
+  deleteTagById,
+  findTagByTitle,
+  updateTagTitle,
+} from "@/modules/verses/infrastructure/verseRepository";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
@@ -21,9 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function handleDelete(res: NextApiResponse, id: string) {
   try {
-    const linksCount = await prisma.verseTag.count({
-      where: { tagId: id },
-    });
+    const linksCount = await countVerseTagLinks(id);
 
     if (linksCount > 0) {
       return res.status(409).json({
@@ -32,19 +36,17 @@ async function handleDelete(res: NextApiResponse, id: string) {
       });
     }
 
-    await prisma.tag.delete({ where: { id } });
-    return res.status(200).json({ ok: true });
-  } catch (error) {
-    const isNotFound =
-      error instanceof Error && error.message.includes("Record to delete does not exist");
-    if (isNotFound) {
+    const deleted = await deleteTagById(id);
+    if (!deleted) {
       return res.status(404).json({ error: "Tag not found" });
     }
-    console.error("Error deleting tag:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -56,28 +58,21 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, id: string
       return res.status(400).json({ error: "title is required" });
     }
 
-    const duplicate = await prisma.tag.findFirst({
-      where: {
-        title: normalizedTitle,
-        NOT: { id },
-      },
-      select: { id: true },
-    });
+    const duplicate = await findTagByTitle(normalizedTitle);
 
-    if (duplicate) {
+    if (duplicate && duplicate.id !== id) {
       return res.status(409).json({ error: "Tag with this title already exists" });
     }
 
-    const updated = await prisma.tag.update({
-      where: { id },
-      data: { title: normalizedTitle },
+    const updated = await updateTagTitle({
+      id,
+      title: normalizedTitle,
     });
     return res.status(200).json(updated);
   } catch (error) {
-    console.error("Error updating tag:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

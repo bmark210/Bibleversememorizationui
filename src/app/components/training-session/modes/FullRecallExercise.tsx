@@ -5,9 +5,10 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
+import { similarityRatio } from '@/shared/utils/levenshtein';
 
-import { Button } from '../../ui/button';
-import { Textarea } from '../../ui/textarea';
+import { Button } from "@/app/components/ui/button";
+import { Textarea } from "@/app/components/ui/textarea";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -19,43 +20,8 @@ interface TypingModeProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
 }
 
-function calculateLevenshteinDistance(left: string, right: string) {
-  const source = Array.from(left);
-  const target = Array.from(right);
-
-  if (source.length === 0) return target.length;
-  if (target.length === 0) return source.length;
-
-  let previousRow = Array.from({ length: target.length + 1 }, (_, index) => index);
-
-  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
-    const currentRow: number[] = [sourceIndex];
-
-    for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
-      const substitutionCost =
-        source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
-
-      currentRow[targetIndex] = Math.min(
-        previousRow[targetIndex] + 1,
-        currentRow[targetIndex - 1] + 1,
-        previousRow[targetIndex - 1] + substitutionCost
-      );
-    }
-
-    previousRow = currentRow;
-  }
-
-  return previousRow[target.length] ?? 0;
-}
-
 function calculateTextMatchPercent(userText: string, targetText: string) {
-  const maxLength = Math.max(userText.length, targetText.length);
-  if (maxLength === 0) return 100;
-
-  const distance = calculateLevenshteinDistance(userText, targetText);
-  const similarity = ((maxLength - distance) / maxLength) * 100;
-
-  return Math.max(0, Math.min(100, Math.round(similarity)));
+  return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
 export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {

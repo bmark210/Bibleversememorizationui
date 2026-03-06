@@ -1,5 +1,7 @@
 "use client";
 
+import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
+
 export type HapticStyle =
   | "light"
   | "medium"
@@ -8,16 +10,6 @@ export type HapticStyle =
   | "error"
   | "warning";
 
-type TelegramWebAppHapticFeedback = {
-  impactOccurred: (style: "light" | "medium" | "heavy") => void;
-  notificationOccurred: (style: "success" | "error" | "warning") => void;
-};
-
-type TelegramWebAppLike = {
-  version?: string;
-  HapticFeedback?: TelegramWebAppHapticFeedback;
-};
-
 function isAtLeastVersion(current: string | undefined, minimum: string): boolean {
   if (!current) return false;
   const currentParts = current.split(".").map((part) => Number.parseInt(part, 10));
@@ -25,23 +17,21 @@ function isAtLeastVersion(current: string | undefined, minimum: string): boolean
   const maxLength = Math.max(currentParts.length, minimumParts.length);
 
   for (let index = 0; index < maxLength; index += 1) {
-    const currentPart = Number.isFinite(currentParts[index]) ? currentParts[index] : 0;
-    const minimumPart = Number.isFinite(minimumParts[index]) ? minimumParts[index] : 0;
+    const currentValue = currentParts[index];
+    const minimumValue = minimumParts[index];
+    const currentPart =
+      typeof currentValue === "number" && Number.isFinite(currentValue)
+        ? currentValue
+        : 0;
+    const minimumPart =
+      typeof minimumValue === "number" && Number.isFinite(minimumValue)
+        ? minimumValue
+        : 0;
     if (currentPart > minimumPart) return true;
     if (currentPart < minimumPart) return false;
   }
 
   return true;
-}
-
-function getTelegramWebApp(): TelegramWebAppLike | null {
-  if (typeof window === "undefined") return null;
-  const webApp = (
-    window as unknown as {
-      Telegram?: { WebApp?: TelegramWebAppLike };
-    }
-  ).Telegram?.WebApp;
-  return webApp ?? null;
 }
 
 export function triggerHaptic(style: HapticStyle = "light"): boolean {
@@ -64,4 +54,3 @@ export function triggerHaptic(style: HapticStyle = "light"): boolean {
 }
 
 export const haptic = triggerHaptic;
-

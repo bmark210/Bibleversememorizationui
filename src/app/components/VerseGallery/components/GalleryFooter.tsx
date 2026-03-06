@@ -9,7 +9,7 @@ import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 type Props = {
   panelMode: PanelMode;
   isTrainingAutoStartOverlayVisible: boolean;
-  actionPending: boolean;
+  isActionPending: boolean;
   closeTrainingGoesToPreview: boolean;
   trainingSubsetFilter: TrainingSubsetFilter;
   previewStatusAction: GalleryStatusAction | null;
@@ -24,7 +24,7 @@ type Props = {
 export function GalleryFooter({
   panelMode,
   isTrainingAutoStartOverlayVisible,
-  actionPending,
+  isActionPending,
   closeTrainingGoesToPreview,
   trainingSubsetFilter,
   previewStatusAction,
@@ -35,10 +35,10 @@ export function GalleryFooter({
   onTrainingSubsetChange,
   closeButtonRef,
 }: Props) {
-  if (isTrainingAutoStartOverlayVisible) return null;
-
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const bottomInset = contentSafeAreaInset.bottom;
+
+  if (isTrainingAutoStartOverlayVisible) return null;
 
   if (panelMode === "preview") {
     return (
@@ -49,7 +49,7 @@ export function GalleryFooter({
             className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
             ref={closeButtonRef}
             onClick={onClose}
-            disabled={actionPending}
+            disabled={isActionPending}
             aria-label="Завершить тренировку"
           >
             Завершить
@@ -60,7 +60,7 @@ export function GalleryFooter({
               variant="outline"
               className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
               onClick={onPreviewStatusAction}
-              disabled={actionPending}
+              disabled={isActionPending}
               aria-label={previewStatusAction.label}
             >
               <previewStatusAction.icon className="h-4 w-4" />
@@ -72,11 +72,11 @@ export function GalleryFooter({
             className="w-fit gap-2 text-destructive backdrop-blur-xl rounded-2xl !border !border-border/60 bg-muted/35"
             haptic={false}
             onClick={() => {
-              if (actionPending) return;
+              if (isActionPending) return;
               haptic("warning");
               onDeleteRequest();
             }}
-            disabled={actionPending}
+            disabled={isActionPending}
             aria-label="Удалить стих"
           >
             <Trash2 className="h-4 w-4" />

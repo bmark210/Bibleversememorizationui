@@ -1,12 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
+import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import {
-  TRAINING_STAGE_MASTERY_MAX,
-  REPEAT_THRESHOLD_FOR_MASTERED,
-} from "@/shared/training/constants";
+  countCatalogVerses,
+  getCatalogVersesPage,
+  getGlobalOwnerCountByVerseIds,
+  getUserCatalogProgressByVerseIds,
+} from "@/modules/verses/infrastructure/verseRepository";
 import {
   getHelloaoChapterVerseMap,
   normalizeHelloaoTranslation,
@@ -16,6 +18,7 @@ import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
 } from "@/shared/bible/externalVerseId";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 const DEFAULT_TRANSLATION = "rus_syn";
 const DEFAULT_PAGE_LIMIT = 20;
@@ -75,29 +78,6 @@ function normalizeSkillScore(value: number | null | undefined): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-async function fetchGlobalOwnerCountByVerseId(
-  verseIds: string[]
-): Promise<Map<string, number>> {
-  const uniqueVerseIds = Array.from(new Set(verseIds.filter(Boolean)));
-  if (uniqueVerseIds.length === 0) return new Map();
-
-  const rows = await prisma.userVerse.groupBy({
-    by: ["verseId"],
-    where: {
-      verseId: {
-        in: uniqueVerseIds,
-      },
-    },
-    _count: {
-      _all: true,
-    },
-  });
-
-  return new Map(
-    rows.map((row) => [row.verseId, Math.max(0, row._count._all ?? 0)] as const)
-  );
-}
-
 type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 
 function computeDisplayStatus(
@@ -107,10 +87,7 @@ function computeDisplayStatus(
 ): DisplayStatus {
   if (!status || status === VerseStatus.MY) return VerseStatus.MY;
   if (status === VerseStatus.STOPPED) return VerseStatus.STOPPED;
-  // LEARNING branch — check for review/mastered thresholds
-  if (repetitions >= REPEAT_THRESHOLD_FOR_MASTERED) return "MASTERED";
-  if (masteryLevel >= TRAINING_STAGE_MASTERY_MAX) return "REVIEW";
-  return VerseStatus.LEARNING;
+  return computeTrainingDisplayStatus(masteryLevel, repetitions);
 }
 
 type UserVerseRow = {
@@ -209,111 +186,6 @@ function toExternalVerseTextAndReference(
   };
 }
 
-async function fetchPaginatedCatalogVerses(options: {
-  verseWhere?: Prisma.VerseWhereInput;
-  tagSlugs: string[];
-  orderBy: CatalogOrderBy;
-  order: CatalogOrder;
-  startWith: number;
-  limit: number;
-}) {
-  const { verseWhere, tagSlugs, orderBy, order, startWith, limit } = options;
-
-  if (orderBy === "createdAt") {
-    return prisma.verse.findMany({
-      where: verseWhere,
-      orderBy: { createdAt: order },
-      skip: startWith,
-      take: limit,
-      include: { tags: { include: { tag: true } } },
-    });
-  }
-
-  if (orderBy === "popularity") {
-    const directionSql = order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-    const tagFilterSql =
-      tagSlugs.length > 0
-        ? Prisma.sql`
-            WHERE EXISTS (
-              SELECT 1
-              FROM "VerseTag" vt
-              INNER JOIN "Tag" t ON t.id = vt."tagId"
-              WHERE vt."verseId" = v.id
-                AND t.slug IN (${Prisma.join(tagSlugs)})
-            )
-          `
-        : Prisma.empty;
-
-    const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT v.id
-      FROM "Verse" v
-      LEFT JOIN "UserVerse" uv ON uv."verseId" = v.id
-      ${tagFilterSql}
-      GROUP BY v.id, v."createdAt"
-      ORDER BY COUNT(uv.id) ${directionSql}, v."createdAt" DESC, v.id ASC
-      OFFSET ${startWith}
-      LIMIT ${limit}
-    `);
-
-    const verseIds = rawRows.map((row) => row.id);
-    if (verseIds.length === 0) return [];
-
-    const verses = await prisma.verse.findMany({
-      where: { id: { in: verseIds } },
-      include: { tags: { include: { tag: true } } },
-    });
-    const verseById = new Map(verses.map((verse) => [verse.id, verse]));
-
-    return verseIds
-      .map((id) => verseById.get(id))
-      .filter((verse): verse is (typeof verses)[number] => Boolean(verse));
-  }
-
-  const directionSql = order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-  const tagFilterSql =
-    tagSlugs.length > 0
-      ? Prisma.sql`
-          WHERE EXISTS (
-            SELECT 1
-            FROM "VerseTag" vt
-            INNER JOIN "Tag" t ON t.id = vt."tagId"
-            WHERE vt."verseId" = v.id
-              AND t.slug IN (${Prisma.join(tagSlugs)})
-          )
-        `
-      : Prisma.empty;
-
-  const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-    SELECT v.id
-    FROM "Verse" v
-    ${tagFilterSql}
-    ORDER BY
-      CAST(split_part(v."externalVerseId", '-', 1) AS integer) ${directionSql},
-      CAST(split_part(v."externalVerseId", '-', 2) AS integer) ${directionSql},
-      CAST(split_part(v."externalVerseId", '-', 3) AS integer) ${directionSql},
-      COALESCE(
-        NULLIF(split_part(v."externalVerseId", '-', 4), '')::integer,
-        CAST(split_part(v."externalVerseId", '-', 3) AS integer)
-      ) ${directionSql},
-      v.id ${directionSql}
-    OFFSET ${startWith}
-    LIMIT ${limit}
-  `);
-
-  const verseIds = rawRows.map((row) => row.id);
-  if (verseIds.length === 0) return [];
-
-  const verses = await prisma.verse.findMany({
-    where: { id: { in: verseIds } },
-    include: { tags: { include: { tag: true } } },
-  });
-  const verseById = new Map(verses.map((verse) => [verse.id, verse]));
-
-  return verseIds
-    .map((id) => verseById.get(id))
-    .filter((verse): verse is (typeof verses)[number] => Boolean(verse));
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -382,40 +254,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const verseWhere =
-      tagSlugs.length > 0
-        ? {
-            tags: {
-              some: {
-                tag: {
-                  slug: {
-                    in: tagSlugs,
-                  },
-                },
-              },
-            },
-          }
-        : undefined;
-
     // Fetch verses page, total count, and user's translation preference in parallel
     const [verses, totalCount, userRecord] = await Promise.all([
-      fetchPaginatedCatalogVerses({
-        verseWhere,
+      getCatalogVersesPage({
         tagSlugs,
         orderBy,
         order,
         startWith,
         limit,
       }),
-      prisma.verse.count({
-        where: verseWhere,
-      }),
-      telegramIdParam
-        ? prisma.user.findUnique({
-            where: { telegramId: telegramIdParam },
-            select: { translation: true },
-          })
-        : null,
+      countCatalogVerses(tagSlugs),
+      telegramIdParam ? getUserByTelegramId(telegramIdParam) : Promise.resolve(null),
     ]);
 
     const translation = normalizeHelloaoTranslation(
@@ -441,22 +290,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const [textsMap, userVerseRows, globalOwnerCountByVerseId] = await Promise.all([
       fetchHelloaoTexts(groupedRequests),
       telegramIdParam && verseIds.length > 0
-        ? prisma.userVerse.findMany({
-            where: { telegramId: telegramIdParam, verseId: { in: verseIds } },
-            select: {
-              verseId: true,
-              status: true,
-              masteryLevel: true,
-              repetitions: true,
-              referenceScore: true,
-              incipitScore: true,
-              lastTrainingModeId: true,
-              lastReviewedAt: true,
-              nextReviewAt: true,
-            },
+        ? getUserCatalogProgressByVerseIds({
+            telegramId: telegramIdParam,
+            verseIds,
           })
         : Promise.resolve([] as UserVerseRow[]),
-      fetchGlobalOwnerCountByVerseId(verseIds),
+      getGlobalOwnerCountByVerseIds(verseIds),
     ]);
 
     // Build lookup: Verse.id → UserVerse progress
@@ -471,11 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         translation,
         textsMap
       );
-      const tags = verse.tags.map((vt) => ({
-        id: vt.tag.id,
-        slug: vt.tag.slug,
-        title: vt.tag.title,
-      }));
+      const tags = verse.tags;
       const globalOwnersCount = globalOwnerCountByVerseId.get(verse.id) ?? 0;
 
       const uv = userVerseMap.get(verse.id);
@@ -524,10 +359,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ items, totalCount });
   } catch (error) {
-    console.error("Error fetching catalog verses:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

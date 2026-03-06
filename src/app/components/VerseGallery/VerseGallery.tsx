@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
-import { Brain, ChevronLeft, ChevronRight, Repeat, Trophy } from "lucide-react";
+import { Brain, Repeat, Trophy } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
-import { Button } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
@@ -34,7 +33,6 @@ import {
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
-import { DotProgress } from "./components/DotProgress";
 import { SwipeHint } from "./components/SwipeHint";
 import { VersePreviewCard } from "./components/VersePreviewCard";
 import { TrainingCard } from "./components/TrainingCard";
@@ -196,7 +194,7 @@ export function VerseGallery({
     null,
   );
 
-  const [mounted, setMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [hasTrainingInteractionStarted, setHasTrainingInteractionStarted] =
     useState(false);
   const [pendingTrainingNavigationStep, setPendingTrainingNavigationStep] =
@@ -224,7 +222,7 @@ export function VerseGallery({
   );
 
   useEffect(() => {
-    setMounted(true);
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
@@ -274,11 +272,12 @@ export function VerseGallery({
     if (verses.length === 0) return;
     const clamped = clamp(nav.activeIndex, 0, Math.max(0, verses.length - 1));
     if (clamped !== nav.activeIndex) nav.setActiveIndex(clamped);
-  }, [verses.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [verses.length]);
 
   // ── Derived preview state ────────────────────────────────────────────────────
-  const previewActiveVerse = verses[nav.activeIndex]
-    ? mergePreviewOverrides(verses[nav.activeIndex], aux.previewOverrides)
+  const activePreviewVerse = verses[nav.activeIndex];
+  const previewActiveVerse = activePreviewVerse
+    ? mergePreviewOverrides(activePreviewVerse, aux.previewOverrides)
     : null;
 
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
@@ -297,8 +296,8 @@ export function VerseGallery({
     closeTrainingGoesToPreview,
     onClose,
     onVersePatched,
-    actionPending: aux.actionPending,
-    setActionPending: aux.setActionPending,
+    isActionPending: aux.isActionPending,
+    setIsActionPending: aux.setIsActionPending,
     setPreviewOverride: aux.setPreviewOverride,
     showFeedback: aux.showFeedback,
     showTrainingContactToast: aux.showTrainingContactToast,
@@ -310,13 +309,13 @@ export function VerseGallery({
 
   // ── Preview status action ────────────────────────────────────────────────────
   const handlePreviewStatusAction = useCallback(async () => {
-    if (!previewActiveVerse || aux.actionPending) return;
+    if (!previewActiveVerse || aux.isActionPending) return;
     const statusAction = getGalleryStatusAction(
       normalizeVerseStatus(previewActiveVerse.status),
     );
     if (!statusAction) return;
     try {
-      aux.setActionPending(true);
+      aux.setIsActionPending(true);
       const optimisticStatus =
         statusAction.nextStatus === VerseStatus.LEARNING &&
         Number(previewActiveVerse.masteryLevel ?? 0) >=
@@ -343,7 +342,7 @@ export function VerseGallery({
       });
       aux.showFeedback("Ошибка — попробуйте ещё раз", "error");
     } finally {
-      aux.setActionPending(false);
+      aux.setIsActionPending(false);
     }
   }, [previewActiveVerse, aux, onStatusChange]);
 
@@ -351,7 +350,7 @@ export function VerseGallery({
   const handleDelete = useCallback(async () => {
     if (!previewActiveVerse) return;
     try {
-      aux.setActionPending(true);
+      aux.setIsActionPending(true);
       await onDelete(previewActiveVerse);
       haptic("success");
       aux.showFeedback("Стих удалён", "success");
@@ -366,17 +365,17 @@ export function VerseGallery({
       haptic("error");
       aux.showFeedback("Ошибка удаления", "error");
     } finally {
-      aux.setActionPending(false);
+      aux.setIsActionPending(false);
     }
-    aux.setDeleteDialogOpen(false);
+    aux.setIsDeleteDialogOpen(false);
   }, [previewActiveVerse, aux, onDelete, verses.length, nav, onClose]);
 
   const requestTrainingNavigationStep = useCallback(
     (step: 1 | -1) => {
       if (training.panelMode !== "training") return;
-      if (training.isAutoStartingTraining || aux.actionPending) return;
+      if (training.isAutoStartingTraining || aux.isActionPending) return;
       if (
-        aux.deleteDialogOpen ||
+        aux.isDeleteDialogOpen ||
         aux.trainingMilestonePopup !== null ||
         training.quickForgetConfirmStage !== null
       ) {
@@ -389,8 +388,8 @@ export function VerseGallery({
       setPendingTrainingNavigationStep(step);
     },
     [
-      aux.actionPending,
-      aux.deleteDialogOpen,
+      aux.isActionPending,
+      aux.isDeleteDialogOpen,
       hasTrainingInteractionStarted,
       aux.trainingMilestonePopup,
       training.handleTrainingNavigationStep,
@@ -440,9 +439,9 @@ export function VerseGallery({
 
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
       if (
-        aux.deleteDialogOpen ||
+        aux.isDeleteDialogOpen ||
         aux.trainingMilestonePopup !== null ||
         training.quickForgetConfirmStage !== null ||
         pendingTrainingNavigationStep !== null
@@ -473,10 +472,10 @@ export function VerseGallery({
         else void nav.navigatePreviewTo("prev");
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", handleWindowKeyDown);
+    return () => window.removeEventListener("keydown", handleWindowKeyDown);
   }, [
-    aux.deleteDialogOpen,
+    aux.isDeleteDialogOpen,
     aux.trainingMilestonePopup,
     pendingTrainingNavigationStep,
     closeTrainingGoesToPreview,
@@ -687,10 +686,10 @@ export function VerseGallery({
       {/*
         Portal to document.body so the Toaster is completely outside the gallery's
         stacking context. The gallery creates position:fixed + backdrop-filter which
-        traps any in-tree position:fixed descendants. Portaling to body bypasses all
+        traps fixed descendants inside the tree. Portaling to body bypasses all
         parent stacking contexts — the Sonner <ol> renders at the top of the DOM.
       */}
-      {mounted &&
+      {isMounted &&
         createPortal(
           <Toaster
             id={GALLERY_TOASTER_ID}
@@ -850,7 +849,7 @@ export function VerseGallery({
                   >
                     <VersePreviewCard
                       verse={previewActiveVerse}
-                      actionPending={aux.actionPending}
+                      isActionPending={aux.isActionPending}
                       activeTagSlugs={activeTagSlugs}
                       onStartTraining={() =>
                         void training.startTrainingFromActiveVerse()
@@ -876,7 +875,7 @@ export function VerseGallery({
                       training.requestQuickForget();
                     }}
                     quickForgetLabel={training.quickForgetLabel}
-                    quickForgetDisabled={aux.actionPending}
+                    quickForgetDisabled={aux.isActionPending}
                     hideRatingFooter={trainingMilestonePopup !== null}
                   />
                 ) : null}
@@ -889,13 +888,13 @@ export function VerseGallery({
         <GalleryFooter
           panelMode={training.panelMode}
           isTrainingAutoStartOverlayVisible={training.isAutoStartingTraining}
-          actionPending={aux.actionPending}
+          isActionPending={aux.isActionPending}
           closeTrainingGoesToPreview={closeTrainingGoesToPreview}
           trainingSubsetFilter={training.trainingSubsetFilter}
           previewStatusAction={previewStatusAction}
           onClose={onClose}
           onPreviewStatusAction={() => void handlePreviewStatusAction()}
-          onDeleteRequest={() => aux.setDeleteDialogOpen(true)}
+          onDeleteRequest={() => aux.setIsDeleteDialogOpen(true)}
           onTrainingBack={training.handleTrainingBackAction}
           onTrainingSubsetChange={(filter) =>
             training.applyUserTrainingSubsetFilter(
@@ -1033,8 +1032,8 @@ export function VerseGallery({
         </AlertDialog>
 
         <AlertDialog
-          open={aux.deleteDialogOpen}
-          onOpenChange={aux.setDeleteDialogOpen}
+          open={aux.isDeleteDialogOpen}
+          onOpenChange={aux.setIsDeleteDialogOpen}
         >
           <AlertDialogContent className="rounded-3xl">
             <AlertDialogHeader>
@@ -1050,7 +1049,7 @@ export function VerseGallery({
               </AlertDialogCancel>
               <AlertDialogAction
                 disabled={
-                  aux.actionPending ||
+                  aux.isActionPending ||
                   training.panelMode !== "preview" ||
                   !previewActiveVerse
                 }

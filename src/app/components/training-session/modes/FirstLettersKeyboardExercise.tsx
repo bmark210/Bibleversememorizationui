@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { TrainingRatingFooter } from './TrainingRatingFooter';
-import { Textarea } from '../../ui/textarea';
+import { Textarea } from "@/app/components/ui/textarea";
 import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,

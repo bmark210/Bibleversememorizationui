@@ -42,6 +42,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function getProgressModeAt(index: number): TrainingModeId | null {
+  return TRAINING_MODE_PROGRESS_ORDER[index] ?? null;
+}
+
+function getReviewModeAt(index: number): TrainingModeId {
+  return REVIEW_TRAINING_MODE_ROTATION[index] ?? TrainingModeId.FirstLettersTyping;
+}
+
 export function normalizeRawMasteryLevel(raw: number | null | undefined): number {
   if (typeof raw !== 'number' || Number.isNaN(raw)) return 0;
   return Math.max(0, Math.round(raw));
@@ -83,20 +91,22 @@ export function getTrainingModeByShiftInProgressOrder(
     const nextIndex = index + shift;
     if (nextIndex >= TRAINING_MODE_PROGRESS_ORDER.length) {
       if (index < TRAINING_MODE_PROGRESS_ORDER.length - 1) {
-        return TRAINING_MODE_PROGRESS_ORDER[TRAINING_MODE_PROGRESS_ORDER.length - 1];
+        return getProgressModeAt(TRAINING_MODE_PROGRESS_ORDER.length - 1);
       }
       return null;
     }
-    return TRAINING_MODE_PROGRESS_ORDER[nextIndex];
+    return getProgressModeAt(nextIndex);
   }
 
-  return TRAINING_MODE_PROGRESS_ORDER[Math.max(0, index + shift)];
+  return getProgressModeAt(Math.max(0, index + shift));
 }
 
 export function getReviewModeByRepetition(repetitions: number): TrainingModeId {
-  const normalizedRepetitions = Number.isFinite(repetitions) ? Math.max(0, Math.round(repetitions)) : 0;
+  const normalizedRepetitions = Number.isFinite(repetitions)
+    ? Math.max(0, Math.round(repetitions))
+    : 0;
   const index = clamp(normalizedRepetitions, 0, REVIEW_TRAINING_MODE_ROTATION.length - 1);
-  return REVIEW_TRAINING_MODE_ROTATION[index] ?? REVIEW_TRAINING_MODE_ROTATION[0];
+  return getReviewModeAt(index);
 }
 
 export function chooseTrainingModeId(params: {
@@ -121,13 +131,17 @@ export function chooseTrainingModeId(params: {
     const right = baseIndex + distance;
 
     if (left >= 0) {
-      const leftMode = TRAINING_MODE_PROGRESS_ORDER[left];
-      if (!candidates.includes(leftMode)) candidates.push(leftMode);
+      const leftMode = getProgressModeAt(left);
+      if (leftMode !== null && !candidates.includes(leftMode)) {
+        candidates.push(leftMode);
+      }
     }
 
     if (distance > 0 && right < TRAINING_MODE_PROGRESS_ORDER.length) {
-      const rightMode = TRAINING_MODE_PROGRESS_ORDER[right];
-      if (!candidates.includes(rightMode)) candidates.push(rightMode);
+      const rightMode = getProgressModeAt(right);
+      if (rightMode !== null && !candidates.includes(rightMode)) {
+        candidates.push(rightMode);
+      }
     }
   }
 

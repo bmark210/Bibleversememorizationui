@@ -107,15 +107,6 @@ const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
   stopped: "from-rose-500/0 via-rose-500/35 to-rose-500/0",
 };
 
-const PREVIEW_TONE_TAG_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300",
-  catalog: "border-slate-500/30 bg-slate-500/10 text-slate-800 dark:text-slate-300",
-  learning: "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300",
-  review: "border-violet-500/32 bg-violet-500/10 text-violet-800 dark:text-violet-300",
-  mastered: "border-amber-500/35 bg-amber-500/12 text-amber-900 dark:text-amber-300",
-  stopped: "border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-300",
-};
-
 export function VerseCard({
   isActive = true,
   header,
@@ -392,17 +383,17 @@ export function VerseCard({
       });
     };
 
-    const onScroll = () => {
+    const handleScroll = () => {
       const targetTop = stepScrollTargetTopRef.current;
       if (targetTop !== null && Math.abs(el.scrollTop - targetTop) <= 1) {
         stepScrollTargetTopRef.current = null;
       }
       scheduleUpdate();
     };
-    const onResize = () => scheduleUpdate();
+    const handleResize = () => scheduleUpdate();
 
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize, { passive: true });
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
 
     const resizeObserver =
       typeof ResizeObserver !== "undefined"
@@ -416,8 +407,8 @@ export function VerseCard({
     scheduleUpdate();
 
     return () => {
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
       resizeObserver?.disconnect();
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);

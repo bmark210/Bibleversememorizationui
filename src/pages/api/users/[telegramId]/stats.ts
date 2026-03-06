@@ -1,13 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
+import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { findUserVerses } from "@/modules/verses/infrastructure/verseRepository";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
 import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
 } from "@/shared/bible/externalVerseId";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 import {
   computeDisplayStatus,
   normalizeProgressValue,
@@ -106,32 +108,14 @@ export default async function handler(
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-      select: { dailyStreak: true },
-    });
+    const user = await getUserByTelegramId(telegramId);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const userVerses = await prisma.userVerse.findMany({
-      where: { telegramId },
-      select: {
-        status: true,
-        masteryLevel: true,
-        repetitions: true,
-        referenceScore: true,
-        incipitScore: true,
-        contextScore: true,
-        lastReviewedAt: true,
-        nextReviewAt: true,
-        verse: {
-          select: {
-            externalVerseId: true,
-          },
-        },
-      },
+    const userVerses = await findUserVerses({
+      telegramId,
     });
 
     const now = Date.now();
@@ -253,10 +237,9 @@ export default async function handler(
       dailyStreak,
     });
   } catch (error) {
-    console.error("Error fetching user dashboard stats:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
