@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Brain, Flame, Play, Repeat, Target, Trophy } from 'lucide-react'
+import { Brain, Flame, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
@@ -25,10 +25,9 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
-  onStartTraining: () => void
-  onAddVerse: () => void
   onViewAll: () => void
-  onOpenTrainingPlanSettings: () => void
+  canOpenReferences?: boolean
+  onOpenReferences?: () => void
   isInitializingData?: boolean
 }
 
@@ -52,10 +51,9 @@ export function Dashboard({
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
-  onStartTraining,
-  onAddVerse: _onAddVerse,
-  onViewAll: _onViewAll,
-  onOpenTrainingPlanSettings: _onOpenTrainingPlanSettings,
+  onViewAll,
+  canOpenReferences = false,
+  onOpenReferences,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
@@ -241,9 +239,9 @@ export function Dashboard({
           />
 
           <motion.div className="mb-6" variants={sectionVariants}>
-            <Button type="button" size="lg" onClick={onStartTraining} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
+            <Button type="button" size="lg" onClick={onViewAll} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
               <Brain className="h-4 w-4" />
-              Начать изучение
+              Перейти в стихи
             </Button>
           </motion.div>
 

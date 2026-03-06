@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { createPortal } from 'react-dom';
+import { useTrainingUiState } from '../TrainingUiStateContext';
 
 interface TrainingRatingFooterProps {
   children: ReactNode;
@@ -47,6 +48,7 @@ function stopEventPropagation(event: { stopPropagation: () => void }) {
 }
 
 export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
+  const { hideRatingFooter } = useTrainingUiState();
   const desktopFooterRef = useRef<HTMLDivElement | null>(null);
   const [desktopFooterRect, setDesktopFooterRect] = useState<FooterRect | null>(null);
 
@@ -208,6 +210,8 @@ export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
       <div className="p-3 pt-2.5">{children}</div>
     </motion.div>
   );
+
+  if (hideRatingFooter) return null;
 
   return (
     <>

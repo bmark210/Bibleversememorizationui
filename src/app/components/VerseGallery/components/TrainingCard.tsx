@@ -6,6 +6,7 @@ import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
+import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
@@ -21,6 +22,7 @@ type Props = {
   onQuickForget: () => void;
   quickForgetLabel: string;
   quickForgetDisabled?: boolean;
+  hideRatingFooter?: boolean;
 };
 
 function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
@@ -61,6 +63,7 @@ export const TrainingCard = memo(function TrainingCard({
   onQuickForget,
   quickForgetLabel,
   quickForgetDisabled = false,
+  hideRatingFooter = false,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const isReviewStage =
@@ -196,12 +199,14 @@ export const TrainingCard = memo(function TrainingCard({
             onInputCapture={handleTrainingInteractionCapture}
             onKeyDownCapture={handleTrainingInteractionCapture}
           >
-            <TrainingModeRenderer
-              ref={rendererRef as RefObject<TrainingModeRendererHandle>}
-              renderer={renderer}
-              verse={verse}
-              onRate={onRate}
-            />
+            <TrainingUiStateProvider hideRatingFooter={hideRatingFooter}>
+              <TrainingModeRenderer
+                ref={rendererRef as RefObject<TrainingModeRendererHandle>}
+                renderer={renderer}
+                verse={verse}
+                onRate={onRate}
+              />
+            </TrainingUiStateProvider>
           </div>
         }
         bodyScrollable

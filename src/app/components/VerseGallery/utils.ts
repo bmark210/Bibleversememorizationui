@@ -287,10 +287,10 @@ export function getTrainingContactToastPayload(params: {
     masteryDelta > 0 ? "positive" : masteryDelta < 0 ? "negative" : "neutral";
   const message =
     masteryDelta > 0
-      ? `Рейтинг +${masteryDelta}`
+      ? `Увеличение рейтинга`
       : masteryDelta < 0
-        ? `Рейтинг ${masteryDelta}`
-        : "Рейтинг без изменений";
+        ? `Рейтинг уменьшен`
+        : "Рейтинг не изменился";
 
   return {
     id: Date.now(),

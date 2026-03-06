@@ -159,8 +159,8 @@ export function VerseListFilterCard({
     <div className="mb-3">
       <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
-          <div className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="font-medium text-primary uppercase">{`Фильтры`}</span>
+          <div className="inline-flex items-center gap-2 text-[13px] text-muted-foreground">
+            <span className="font-medium uppercase">{`Фильтры`}</span>
           </div>
 
           <div className="flex items-center gap-1">

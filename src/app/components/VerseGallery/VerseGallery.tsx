@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState, type TouchEvent as ReactTouchEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, Repeat, Trophy } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +51,11 @@ import {
   clamp,
 } from "./utils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
-import type { VerseGalleryProps, TrainingSubsetFilter, VerseGalleryLaunchMode } from "./types";
+import type {
+  VerseGalleryProps,
+  TrainingSubsetFilter,
+  VerseGalleryLaunchMode,
+} from "./types";
 
 // Card slide animation — only animation kept intentionally
 const slideVariants = {
@@ -59,12 +69,19 @@ const slideVariants = {
     scale: 1,
     transition:
       dir === 0
-        ? { duration: 0.22, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }
+        ? {
+            duration: 0.22,
+            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+          }
         : { type: "spring" as const, stiffness: 320, damping: 32 },
   }),
   exit: (dir: number) =>
     dir === 0
-      ? { opacity: 0, scale: 1, transition: { duration: 0.15, ease: "easeIn" as const } }
+      ? {
+          opacity: 0,
+          scale: 1,
+          transition: { duration: 0.15, ease: "easeIn" as const },
+        }
       : {
           y: dir > 0 ? "-18%" : "18%",
           opacity: 0,
@@ -78,9 +95,20 @@ const GALLERY_PREV_OVERFLOW_DATA_KEY = "verseGalleryPrevOverflow";
 const GALLERY_PREV_OVERFLOW_Y_DATA_KEY = "verseGalleryPrevOverflowY";
 const GALLERY_PREV_TOUCH_ACTION_DATA_KEY = "verseGalleryPrevTouchAction";
 const GALLERY_PREV_OVERSCROLL_DATA_KEY = "verseGalleryPrevOverscrollBehavior";
+const VERSE_GALLERY_INTRO_STORAGE_PREFIX =
+  "bible-memory.verse-gallery.intro.v1";
+
+function getVerseGalleryIntroStorageKey() {
+  if (typeof window === "undefined") return null;
+  const rawTelegramId = window.localStorage.getItem("telegramId") ?? "";
+  const telegramId = rawTelegramId.trim() || "anonymous";
+  return `${VERSE_GALLERY_INTRO_STORAGE_PREFIX}:${telegramId}`;
+}
 
 function getElementScrollLockCount(element: HTMLElement): number {
-  const raw = Number(element.dataset[GALLERY_SCROLL_LOCK_COUNT_DATA_KEY] ?? "0");
+  const raw = Number(
+    element.dataset[GALLERY_SCROLL_LOCK_COUNT_DATA_KEY] ?? "0",
+  );
   return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
@@ -89,8 +117,10 @@ function lockScrollOnElement(element: HTMLElement) {
   if (lockCount === 0) {
     element.dataset[GALLERY_PREV_OVERFLOW_DATA_KEY] = element.style.overflow;
     element.dataset[GALLERY_PREV_OVERFLOW_Y_DATA_KEY] = element.style.overflowY;
-    element.dataset[GALLERY_PREV_TOUCH_ACTION_DATA_KEY] = element.style.touchAction;
-    element.dataset[GALLERY_PREV_OVERSCROLL_DATA_KEY] = element.style.overscrollBehavior;
+    element.dataset[GALLERY_PREV_TOUCH_ACTION_DATA_KEY] =
+      element.style.touchAction;
+    element.dataset[GALLERY_PREV_OVERSCROLL_DATA_KEY] =
+      element.style.overscrollBehavior;
 
     element.style.overflow = "hidden";
     element.style.overflowY = "hidden";
@@ -105,9 +135,12 @@ function unlockScrollOnElement(element: HTMLElement) {
   const lockCount = getElementScrollLockCount(element);
   if (lockCount <= 1) {
     const prevOverflow = element.dataset[GALLERY_PREV_OVERFLOW_DATA_KEY] ?? "";
-    const prevOverflowY = element.dataset[GALLERY_PREV_OVERFLOW_Y_DATA_KEY] ?? "";
-    const prevTouchAction = element.dataset[GALLERY_PREV_TOUCH_ACTION_DATA_KEY] ?? "";
-    const prevOverscrollBehavior = element.dataset[GALLERY_PREV_OVERSCROLL_DATA_KEY] ?? "";
+    const prevOverflowY =
+      element.dataset[GALLERY_PREV_OVERFLOW_Y_DATA_KEY] ?? "";
+    const prevTouchAction =
+      element.dataset[GALLERY_PREV_TOUCH_ACTION_DATA_KEY] ?? "";
+    const prevOverscrollBehavior =
+      element.dataset[GALLERY_PREV_OVERSCROLL_DATA_KEY] ?? "";
 
     if (prevOverflow) element.style.overflow = prevOverflow;
     else element.style.removeProperty("overflow");
@@ -118,7 +151,8 @@ function unlockScrollOnElement(element: HTMLElement) {
     if (prevTouchAction) element.style.touchAction = prevTouchAction;
     else element.style.removeProperty("touch-action");
 
-    if (prevOverscrollBehavior) element.style.overscrollBehavior = prevOverscrollBehavior;
+    if (prevOverscrollBehavior)
+      element.style.overscrollBehavior = prevOverscrollBehavior;
     else element.style.removeProperty("overscroll-behavior");
 
     delete element.dataset[GALLERY_SCROLL_LOCK_COUNT_DATA_KEY];
@@ -158,20 +192,60 @@ export function VerseGallery({
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previewTouchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(null);
+  const previewTouchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(
+    null,
+  );
 
   const [mounted, setMounted] = useState(false);
   const [hasTrainingInteractionStarted, setHasTrainingInteractionStarted] =
     useState(false);
   const [pendingTrainingNavigationStep, setPendingTrainingNavigationStep] =
     useState<1 | -1 | null>(null);
-  useEffect(() => { setMounted(true); }, []);
+  const [isIntroDialogOpen, setIsIntroDialogOpen] = useState(false);
+
+  const markIntroAsSeen = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const storageKey = getVerseGalleryIntroStorageKey();
+    if (!storageKey) return;
+    try {
+      window.localStorage.setItem(storageKey, "1");
+    } catch {
+      // ignore storage write errors
+    }
+  }, []);
+
+  const handleIntroDialogOpenChange = useCallback(
+    (open: boolean) => {
+      setIsIntroDialogOpen(open);
+      if (open) return;
+      markIntroAsSeen();
+    },
+    [markIntroAsSeen],
+  );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storageKey = getVerseGalleryIntroStorageKey();
+    if (!storageKey) return;
+
+    try {
+      const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
+      if (!hasSeenIntro) setIsIntroDialogOpen(true);
+    } catch {
+      setIsIntroDialogOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
 
     const scrollLockTargets = new Set<HTMLElement>();
-    const appScrollContainer = document.querySelector<HTMLElement>(".app-scroll");
+    const appScrollContainer =
+      document.querySelector<HTMLElement>(".app-scroll");
     if (appScrollContainer) scrollLockTargets.add(appScrollContainer);
     const mainScrollContainer = document.querySelector<HTMLElement>("main");
     if (mainScrollContainer) scrollLockTargets.add(mainScrollContainer);
@@ -237,25 +311,36 @@ export function VerseGallery({
   // ── Preview status action ────────────────────────────────────────────────────
   const handlePreviewStatusAction = useCallback(async () => {
     if (!previewActiveVerse || aux.actionPending) return;
-    const statusAction = getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status));
+    const statusAction = getGalleryStatusAction(
+      normalizeVerseStatus(previewActiveVerse.status),
+    );
     if (!statusAction) return;
     try {
       aux.setActionPending(true);
       const optimisticStatus =
         statusAction.nextStatus === VerseStatus.LEARNING &&
-        Number(previewActiveVerse.masteryLevel ?? 0) >= TRAINING_STAGE_MASTERY_MAX
+        Number(previewActiveVerse.masteryLevel ?? 0) >=
+          TRAINING_STAGE_MASTERY_MAX
           ? "REVIEW"
           : statusAction.nextStatus;
       aux.setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
-      const patch = await onStatusChange(previewActiveVerse, statusAction.nextStatus);
+      const patch = await onStatusChange(
+        previewActiveVerse,
+        statusAction.nextStatus,
+      );
       if (patch) {
-        aux.setPreviewOverride(previewActiveVerse, toPreviewOverrideFromVersePatch(patch));
+        aux.setPreviewOverride(
+          previewActiveVerse,
+          toPreviewOverrideFromVersePatch(patch),
+        );
       }
       haptic("success");
       aux.showFeedback(statusAction.successMessage, "success");
     } catch {
       haptic("error");
-      aux.setPreviewOverride(previewActiveVerse, { status: previewActiveVerse.status });
+      aux.setPreviewOverride(previewActiveVerse, {
+        status: previewActiveVerse.status,
+      });
       aux.showFeedback("Ошибка — попробуйте ещё раз", "error");
     } finally {
       aux.setActionPending(false);
@@ -312,7 +397,7 @@ export function VerseGallery({
       training.isAutoStartingTraining,
       training.panelMode,
       training.quickForgetConfirmStage,
-    ]
+    ],
   );
 
   const markTrainingInteractionStarted = useCallback(() => {
@@ -376,13 +461,15 @@ export function VerseGallery({
       }
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
-        if (training.panelMode === "training") training.handleTrainingNavigationStep(1);
+        if (training.panelMode === "training")
+          training.handleTrainingNavigationStep(1);
         else void nav.navigatePreviewTo("next");
         return;
       }
       if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
-        if (training.panelMode === "training") training.handleTrainingNavigationStep(-1);
+        if (training.panelMode === "training")
+          training.handleTrainingNavigationStep(-1);
         else void nav.navigatePreviewTo("prev");
       }
     };
@@ -419,10 +506,14 @@ export function VerseGallery({
         : previewDisplayTotal;
     const position =
       training.panelMode === "training"
-        ? Math.max(1, training.trainingEligibleIndices.indexOf(training.trainingIndex) + 1)
+        ? Math.max(
+            1,
+            training.trainingEligibleIndices.indexOf(training.trainingIndex) +
+              1,
+          )
         : nav.activeIndex + 1;
     setSlideAnnouncement(
-      `Стих ${position} из ${Math.max(total, 1)}: ${displayVerse.reference}`
+      `Стих ${position} из ${Math.max(total, 1)}: ${displayVerse.reference}`,
     );
   }, [
     training.panelMode,
@@ -438,34 +529,49 @@ export function VerseGallery({
   // ── Swipe gesture (preview only) ─────────────────────────────────────────────
   const previewSwipeBind = useDrag(
     ({ last, movement: [, my], velocity: [, vy], canceled }) => {
-      if (!last || canceled || training.panelMode !== "preview" || training.isAutoStartingTraining)
+      if (
+        !last ||
+        canceled ||
+        training.panelMode !== "preview" ||
+        training.isAutoStartingTraining
+      )
         return;
       if (Math.abs(my) > 50 || Math.abs(vy) > 0.3) {
         void nav.navigatePreviewTo(my < 0 ? "next" : "prev");
       }
     },
-    { axis: "y", filterTaps: true, pointer: { touch: false }, threshold: 10 }
+    { axis: "y", filterTaps: true, pointer: { touch: false }, threshold: 10 },
   );
   const previewSwipeHandlers =
     training.panelMode === "preview" ? previewSwipeBind() : undefined;
 
-  const handlePreviewTouchStart = useCallback((e: ReactTouchEvent<HTMLDivElement>) => {
-    if (training.panelMode !== "preview" || training.isAutoStartingTraining) return;
-    previewTouchSwipeStartRef.current = createVerticalTouchSwipeStart(e);
-  }, [training.panelMode, training.isAutoStartingTraining]);
+  const handlePreviewTouchStart = useCallback(
+    (e: ReactTouchEvent<HTMLDivElement>) => {
+      if (training.panelMode !== "preview" || training.isAutoStartingTraining)
+        return;
+      previewTouchSwipeStartRef.current = createVerticalTouchSwipeStart(e);
+    },
+    [training.panelMode, training.isAutoStartingTraining],
+  );
 
-  const handlePreviewTouchEnd = useCallback((e: ReactTouchEvent<HTMLDivElement>) => {
-    if (training.panelMode !== "preview" || training.isAutoStartingTraining) return;
+  const handlePreviewTouchEnd = useCallback(
+    (e: ReactTouchEvent<HTMLDivElement>) => {
+      if (training.panelMode !== "preview" || training.isAutoStartingTraining)
+        return;
 
-    const step = getVerticalTouchSwipeStep(
-      previewTouchSwipeStartRef.current,
-      e,
-      { minVerticalDistance: 48, verticalDominanceRatio: 1.05 }
-    );
-    previewTouchSwipeStartRef.current = null;
-    if (!step) return;
-    void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
-  }, [nav, training.panelMode, training.isAutoStartingTraining]);
+      const step = getVerticalTouchSwipeStep(
+        previewTouchSwipeStartRef.current,
+        e,
+        { minVerticalDistance: 48, verticalDominanceRatio: 1.05 },
+      );
+      previewTouchSwipeStartRef.current = null;
+      if (!step) return;
+      void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
+    },
+    [nav, training.panelMode, training.isAutoStartingTraining],
+  );
+
+  const trainingMilestonePopup = aux.trainingMilestonePopup;
 
   // ── Display values ───────────────────────────────────────────────────────────
   const displayVerse =
@@ -481,7 +587,10 @@ export function VerseGallery({
       : previewDisplayTotal;
   const displayActive =
     training.panelMode === "training"
-      ? Math.max(0, training.trainingEligibleIndices.indexOf(training.trainingIndex))
+      ? Math.max(
+          0,
+          training.trainingEligibleIndices.indexOf(training.trainingIndex),
+        )
       : Math.max(0, nav.activeIndex);
 
   // Key is the verse identity only — AnimatePresence animates only when the verse
@@ -494,7 +603,6 @@ export function VerseGallery({
       ? getGalleryStatusAction(normalizeVerseStatus(previewActiveVerse.status))
       : null;
 
-  const trainingMilestonePopup = aux.trainingMilestonePopup;
   const milestoneStageLabel =
     trainingMilestonePopup?.status === "MASTERED"
       ? "Завершение"
@@ -544,14 +652,15 @@ export function VerseGallery({
               "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-500/95 hover:to-emerald-400/95",
           };
   const milestoneNextReviewSentence = toReadableSentence(
-    trainingMilestonePopup?.nextReviewHint ?? null
+    trainingMilestonePopup?.nextReviewHint ?? null,
   );
 
   const milestoneDialogContent =
     trainingMilestonePopup?.milestoneKind === "review_to_mastered"
       ? {
           title: "Стих выучен полностью",
-          description: "Этап повторения завершён. Стих перешёл в список завершённых.",
+          description:
+            "Этап повторения завершён. Стих перешёл в список завершённых.",
         }
       : trainingMilestonePopup?.milestoneKind === "review_progress"
         ? {
@@ -581,13 +690,102 @@ export function VerseGallery({
         traps any in-tree position:fixed descendants. Portaling to body bypasses all
         parent stacking contexts — the Sonner <ol> renders at the top of the DOM.
       */}
-      {mounted && createPortal(
-        <Toaster
-          id={GALLERY_TOASTER_ID}
-          offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
-        />,
-        document.body
-      )}
+      {mounted &&
+        createPortal(
+          <Toaster
+            id={GALLERY_TOASTER_ID}
+            offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
+          />,
+          document.body,
+        )}
+
+      <AlertDialog
+        open={isIntroDialogOpen}
+        onOpenChange={handleIntroDialogOpenChange}
+      >
+        <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
+          <div className="relative px-6 py-6 sm:px-7">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-amber-500/20 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-primary/20 blur-2xl" />
+            </div>
+
+            <AlertDialogHeader className="relative gap-3">
+              <AlertDialogTitle className="text-xl text-primary">
+                Изучение и прокачка стиха
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
+                После добавления стиха в свой список, и запуска обучения, ваш
+                стих проходит последовательные этапы изучения.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="relative mt-4 grid gap-2">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.09] p-3">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
+                    <Brain className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                      Изучение
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-foreground/75">
+                      7 ступеней изучения.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.09] p-3">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-violet-500/25 bg-violet-500/12 text-violet-700 dark:text-violet-300">
+                    <Repeat className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                      Повторение
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-foreground/75">
+                      3 ступени повторения.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.1] p-3">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300">
+                    <Trophy className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      Выучен
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-foreground/75">
+                      После завершения всех этапов <br /> изучения и повторения.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-3 rounded-2xl border border-border/60 bg-background/65 p-3 text-xs leading-relaxed text-foreground/75">
+             На каждом этапе изучения используется разный режим тренировки. В зависимости от увеличения уровня мастерства, режимы становятся все более сложными.
+            </div>
+
+            <AlertDialogFooter className="relative mt-5">
+              <AlertDialogAction
+                className="h-10 rounded-xl border border-primary/25 bg-background/45 text-foreground/75
+                 px-5 text-sm font-medium"
+                onClick={markIntroAsSeen}
+              >
+                Понятно, начать
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div
         ref={dialogRef}
@@ -602,105 +800,113 @@ export function VerseGallery({
         }
         className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
       >
+        {/* Accessibility announcements */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {aux.feedbackMessage}
+        </div>
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {aux.slideAnnouncement}
+        </div>
 
-      {/* Accessibility announcements */}
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
-        {aux.feedbackMessage}
-      </div>
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
-        {aux.slideAnnouncement}
-      </div>
+        <GalleryHeader
+          displayActive={displayActive}
+          displayTotal={displayTotal}
+          topInset={topInset}
+        />
 
-      <GalleryHeader
-        displayActive={displayActive}
-        displayTotal={displayTotal}
-        topInset={topInset}
-      />
-
-      {/* Card area */}
-      <div
-        className="flex-1 relative grid place-items-center px-4 sm:px-6"
-        role="region"
-        aria-roledescription="carousel"
-        aria-label={
-          training.panelMode === "training" ? "Карточки обучения" : "Карточки со стихами"
-        }
-      >
-        {training.isAutoStartingTraining ? (
-          <TrainingLoadingView />
-        ) : (
-          <AnimatePresence initial={false} mode="sync" custom={nav.direction}>
-            <motion.div
-              key={galleryBodyKey}
-              custom={nav.direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
-              tabIndex={-1}
-            >
-              {training.panelMode === "preview" && previewActiveVerse ? (
-                // Swipe wrapper with touch-action:none so @use-gesture works on touch devices
-                <div
-                  {...previewSwipeHandlers}
-                  className="w-full min-w-0 overflow-x-hidden"
-                  style={{ touchAction: "none" }}
-                  onTouchStart={handlePreviewTouchStart}
-                  onTouchEnd={handlePreviewTouchEnd}
-                >
-                  <VersePreviewCard
-                    verse={previewActiveVerse}
-                    actionPending={aux.actionPending}
-                    activeTagSlugs={activeTagSlugs}
-                    onStartTraining={() => void training.startTrainingFromActiveVerse()}
-                    onStatusAction={() => void handlePreviewStatusAction()}
+        {/* Card area */}
+        <div
+          className="flex-1 relative grid place-items-center px-4 sm:px-6"
+          role="region"
+          aria-roledescription="carousel"
+          aria-label={
+            training.panelMode === "training"
+              ? "Карточки обучения"
+              : "Карточки со стихами"
+          }
+        >
+          {training.isAutoStartingTraining ? (
+            <TrainingLoadingView />
+          ) : (
+            <AnimatePresence initial={false} mode="sync" custom={nav.direction}>
+              <motion.div
+                key={galleryBodyKey}
+                custom={nav.direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
+                tabIndex={-1}
+              >
+                {training.panelMode === "preview" && previewActiveVerse ? (
+                  // Swipe wrapper with touch-action:none so @use-gesture works on touch devices
+                  <div
+                    {...previewSwipeHandlers}
+                    className="w-full min-w-0 overflow-x-hidden"
+                    style={{ touchAction: "none" }}
+                    onTouchStart={handlePreviewTouchStart}
+                    onTouchEnd={handlePreviewTouchEnd}
+                  >
+                    <VersePreviewCard
+                      verse={previewActiveVerse}
+                      actionPending={aux.actionPending}
+                      activeTagSlugs={activeTagSlugs}
+                      onStartTraining={() =>
+                        void training.startTrainingFromActiveVerse()
+                      }
+                      onStatusAction={() => void handlePreviewStatusAction()}
+                    />
+                  </div>
+                ) : training.panelMode === "training" &&
+                  training.trainingActiveVerse &&
+                  training.trainingModeId ? (
+                  <TrainingCard
+                    trainingVerse={training.trainingActiveVerse}
+                    modeId={training.trainingModeId}
+                    rendererRef={training.trainingRendererRef}
+                    onSwipeStep={requestTrainingNavigationStep}
+                    onTrainingInteractionStart={markTrainingInteractionStarted}
+                    onRate={(rating) => {
+                      setHasTrainingInteractionStarted(true);
+                      return training.handleTrainingRate(rating);
+                    }}
+                    onQuickForget={() => {
+                      setHasTrainingInteractionStarted(true);
+                      training.requestQuickForget();
+                    }}
+                    quickForgetLabel={training.quickForgetLabel}
+                    quickForgetDisabled={aux.actionPending}
+                    hideRatingFooter={trainingMilestonePopup !== null}
                   />
-                </div>
-              ) : training.panelMode === "training" &&
-                training.trainingActiveVerse &&
-                training.trainingModeId ? (
-                <TrainingCard
-                  trainingVerse={training.trainingActiveVerse}
-                  modeId={training.trainingModeId}
-                  rendererRef={training.trainingRendererRef}
-                  onSwipeStep={requestTrainingNavigationStep}
-                  onTrainingInteractionStart={markTrainingInteractionStarted}
-                  onRate={(rating) => {
-                    setHasTrainingInteractionStarted(true);
-                    return training.handleTrainingRate(rating);
-                  }}
-                  onQuickForget={() => {
-                    setHasTrainingInteractionStarted(true);
-                    training.requestQuickForget();
-                  }}
-                  quickForgetLabel={training.quickForgetLabel}
-                  quickForgetDisabled={aux.actionPending}
-                />
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+                ) : null}
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </div>
 
-      {/* Mode-specific footer buttons */}
-      <GalleryFooter
-        panelMode={training.panelMode}
-        isTrainingAutoStartOverlayVisible={training.isAutoStartingTraining}
-        actionPending={aux.actionPending}
-        closeTrainingGoesToPreview={closeTrainingGoesToPreview}
-        trainingSubsetFilter={training.trainingSubsetFilter}
-        previewStatusAction={previewStatusAction}
-        onClose={onClose}
-        onPreviewStatusAction={() => void handlePreviewStatusAction()}
-        onDeleteRequest={() => aux.setDeleteDialogOpen(true)}
-        onTrainingBack={training.handleTrainingBackAction}
-        onTrainingSubsetChange={(filter) => training.applyUserTrainingSubsetFilter(filter as TrainingSubsetFilter)}
-        closeButtonRef={closeButtonRef}
-      />
+        {/* Mode-specific footer buttons */}
+        <GalleryFooter
+          panelMode={training.panelMode}
+          isTrainingAutoStartOverlayVisible={training.isAutoStartingTraining}
+          actionPending={aux.actionPending}
+          closeTrainingGoesToPreview={closeTrainingGoesToPreview}
+          trainingSubsetFilter={training.trainingSubsetFilter}
+          previewStatusAction={previewStatusAction}
+          onClose={onClose}
+          onPreviewStatusAction={() => void handlePreviewStatusAction()}
+          onDeleteRequest={() => aux.setDeleteDialogOpen(true)}
+          onTrainingBack={training.handleTrainingBackAction}
+          onTrainingSubsetChange={(filter) =>
+            training.applyUserTrainingSubsetFilter(
+              filter as TrainingSubsetFilter,
+            )
+          }
+          closeButtonRef={closeButtonRef}
+        />
 
-      {/* Bottom navigation row */}
-      {/* <div
+        {/* Bottom navigation row */}
+        {/* <div
         className="shrink-0 flex items-center justify-center gap-2 sm:gap-3 pt-3 z-40 px-2 sm:px-4"
         style={{ paddingBottom: `${Math.max(bottomInset, 10)}px` }}
       >
@@ -758,137 +964,170 @@ export function VerseGallery({
         </Button>
       </div> */}
 
-      {!training.isAutoStartingTraining && <SwipeHint panelMode={training.panelMode} />}
+        {!training.isAutoStartingTraining && (
+          <SwipeHint panelMode={training.panelMode} />
+        )}
 
-      <AlertDialog
-        open={trainingMilestonePopup !== null}
-        onOpenChange={() => {
-          // Popup can be closed only via explicit confirmation button.
-        }}
-      >
-        <AlertDialogContent
-          className={`overflow-hidden rounded-3xl backdrop-blur-xl shadow-2xl ${milestoneTheme.contentClassName}`}
+        <AlertDialog
+          open={trainingMilestonePopup !== null}
+          onOpenChange={() => {
+            // Popup can be closed only via explicit confirmation button.
+          }}
         >
-          <div
-            aria-hidden="true"
-            className={`pointer-events-none absolute inset-0 backdrop-blur-lg ${milestoneTheme.glowClassName}`}
-          />
-          <AlertDialogHeader className="relative gap-3">
-            <span className={`inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${milestoneTheme.badgeClassName}`}>
-              {trainingMilestonePopup?.reference}
-            </span>
-            <AlertDialogTitle className="text-balance text-xl leading-tight text-muted-foreground/90">
-              {milestoneDialogContent.title}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed text-muted-foreground/90">
-              {milestoneDialogContent.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          <AlertDialogContent
+            className={`overflow-hidden rounded-3xl backdrop-blur-xl shadow-2xl ${milestoneTheme.contentClassName}`}
+          >
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 backdrop-blur-lg ${milestoneTheme.glowClassName}`}
+            />
+            <AlertDialogHeader className="relative gap-3">
+              <span
+                className={`inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${milestoneTheme.badgeClassName}`}
+              >
+                {trainingMilestonePopup?.reference}
+              </span>
+              <AlertDialogTitle className="text-balance text-xl leading-tight text-muted-foreground/90">
+                {milestoneDialogContent.title}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-muted-foreground/90">
+                {milestoneDialogContent.description}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
 
-          <div className={`relative grid gap-2 rounded-2xl border p-3 text-xs text-foreground/80 sm:grid-cols-2 ${milestoneTheme.statCardClassName}`}>
-            <div className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}>
-              <span className="text-muted-foreground">Текущий этап</span>
-              <div className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}>{milestoneStageLabel}</div>
-            </div>
-            <div className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}>
-              <span className="text-muted-foreground">Прогресс</span>
-              <div className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}>
-                {trainingMilestonePopup?.beforeProgressPercent}% → {trainingMilestonePopup?.afterProgressPercent}%
+            <div
+              className={`relative grid gap-2 rounded-2xl border p-3 text-xs text-foreground/80 sm:grid-cols-2 ${milestoneTheme.statCardClassName}`}
+            >
+              <div
+                className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}
+              >
+                <span className="text-foreground/75">Текущий этап</span>
+                <div
+                  className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}
+                >
+                  {milestoneStageLabel}
+                </div>
+              </div>
+              <div
+                className={`rounded-xl border px-3 py-2 ${milestoneTheme.statCardClassName}`}
+              >
+                <span className="text-foreground/75">Прогресс</span>
+                <div
+                  className={`mt-0.5 text-sm font-semibold ${milestoneTheme.valueClassName}`}
+                >
+                  {trainingMilestonePopup?.beforeProgressPercent}% →{" "}
+                  {trainingMilestonePopup?.afterProgressPercent}%
+                </div>
               </div>
             </div>
-          </div>
 
-          <AlertDialogFooter className="relative">
-            <AlertDialogAction
-              className={`w-full rounded-full sm:w-auto text-sm font-medium text-foreground/90 border border-border/70 ${milestoneTheme.statCardClassName} `}
-              onClick={aux.confirmTrainingMilestonePopup}
-            >
-              Понятно
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            <AlertDialogFooter className="relative">
+              <AlertDialogAction
+                className={`w-full rounded-full sm:w-auto text-sm font-medium ${milestoneTheme.valueClassName} border border-border/70 ${milestoneTheme.statCardClassName} `}
+                onClick={aux.confirmTrainingMilestonePopup}
+              >
+                Понятно
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog open={aux.deleteDialogOpen} onOpenChange={aux.setDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие нельзя отменить. Стих будет удалён из вашей коллекции.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={
-                aux.actionPending ||
-                training.panelMode !== "preview" ||
-                !previewActiveVerse
-              }
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/90"
-              onClick={() => void handleDelete()}
-            >
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog
+          open={aux.deleteDialogOpen}
+          onOpenChange={aux.setDeleteDialogOpen}
+        >
+          <AlertDialogContent className="rounded-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Это действие нельзя отменить. Стих будет удалён из вашей
+                коллекции.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">
+                Отмена
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={
+                  aux.actionPending ||
+                  training.panelMode !== "preview" ||
+                  !previewActiveVerse
+                }
+                className="rounded-full border border-border/60 bg-muted/35 text-foreground/90"
+                onClick={() => void handleDelete()}
+              >
+                Удалить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog
-        open={training.quickForgetConfirmStage !== null}
-        onOpenChange={(open) => {
-          if (!open) training.cancelQuickForget();
-        }}
-      >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {training.quickForgetConfirmStage === "review"
-                ? "Отметить как «не вспомнил»?"
-                : "Отметить как «забыл»?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {training.quickForgetConfirmStage === "review"
-                ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 10 минут."
-                : "Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={training.cancelQuickForget}>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-white"
-              onClick={training.confirmQuickForget}
-            >
-              Подтвердить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog
+          open={training.quickForgetConfirmStage !== null}
+          onOpenChange={(open) => {
+            if (!open) training.cancelQuickForget();
+          }}
+        >
+          <AlertDialogContent className="rounded-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {training.quickForgetConfirmStage === "review"
+                  ? "Отметить как «не вспомнил»?"
+                  : "Отметить как «забыл»?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {training.quickForgetConfirmStage === "review"
+                  ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 10 минут."
+                  : "Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={training.cancelQuickForget}>
+                Отмена
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90 text-white"
+                onClick={training.confirmQuickForget}
+              >
+                Подтвердить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog
-        open={pendingTrainingNavigationStep !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelTrainingNavigationStep();
-        }}
-      >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">Перейти к другому стиху?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если перейти сейчас, прогресс текущего упражнения не сохранится.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/70" onClick={cancelTrainingNavigationStep}>
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction className="rounded-full border border-border/60 bg-primary/60 text-background" onClick={confirmTrainingNavigationStep}>
-              Перейти
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        <AlertDialog
+          open={pendingTrainingNavigationStep !== null}
+          onOpenChange={(open) => {
+            if (!open) cancelTrainingNavigationStep();
+          }}
+        >
+          <AlertDialogContent className="rounded-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-base text-foreground/90">
+                Перейти к другому стиху?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground/90">
+                Если перейти сейчас, прогресс текущего упражнения не сохранится.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+                onClick={cancelTrainingNavigationStep}
+              >
+                Остаться
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="rounded-full border border-border/60 bg-primary/60 text-background"
+                onClick={confirmTrainingNavigationStep}
+              >
+                Перейти
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </>
   );
 }
@@ -912,20 +1151,32 @@ function TrainingLoadingView() {
           <div className="mt-4 space-y-2.5">
             <div className="flex items-center justify-between text-[0.7rem] text-muted-foreground">
               <span>Загрузка упражнений</span>
-              <span className="font-medium text-foreground/80">Почти готово</span>
+              <span className="font-medium text-foreground/80">
+                Почти готово
+              </span>
             </div>
             <div className="relative h-2 overflow-hidden rounded-full bg-muted/35">
               <motion.div
                 aria-hidden="true"
                 className="absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
                 initial={{ x: "-45%", width: "60%" }}
-                animate={{ x: ["-45%", "10%", "85%"], width: ["60%", "68%", "58%"] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                animate={{
+                  x: ["-45%", "10%", "85%"],
+                  width: ["60%", "68%", "58%"],
+                }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               />
             </div>
           </div>
 
-          <div aria-hidden="true" className="mt-4 rounded-xl border border-border/40 bg-background/70 p-3">
+          <div
+            aria-hidden="true"
+            className="mt-4 rounded-xl border border-border/40 bg-background/70 p-3"
+          >
             <div className="mb-2 h-3.5 w-32 rounded-full bg-muted/45 animate-pulse" />
             <div className="space-y-2">
               <div className="h-2.5 w-full rounded-full bg-muted/30 animate-pulse" />

@@ -53,25 +53,25 @@ export function showTrainingMilestoneToast(
   payload: TrainingCompletionToastCardPayload,
   options?: ToastOptions,
 ) {
-  const title =
-    payload.milestoneKind === "review_to_mastered"
-      ? "Стих выучен полностью"
-      : payload.milestoneKind === "learning_to_review"
-        ? "Переход к повторению"
-        : payload.milestoneKind === "review_progress"
-          ? "Повтор засчитан"
-          : "Этап изучения";
-  const description =
-    payload.milestoneKind === "review_to_mastered"
-      ? "Этап повторения завершён."
-      : payload.nextReviewHint
-        ? payload.nextReviewHint
-        : payload.reference;
+  // const title =
+  //   payload.milestoneKind === "review_to_mastered"
+  //     ? "Стих выучен полностью"
+  //     : payload.milestoneKind === "learning_to_review"
+  //       ? "Переход к повторению"
+  //       : payload.milestoneKind === "review_progress"
+  //         ? "Повтор засчитан"
+  //         : "Этап изучения";
+  // const description =
+  //   payload.milestoneKind === "review_to_mastered"
+  //     ? "Этап повторения завершён."
+  //     : payload.nextReviewHint
+  //       ? payload.nextReviewHint
+  //       : payload.reference;
 
-  toast.success(title, {
-    description,
-    duration: options?.durationMs ?? 10000,
-    toasterId: options?.toasterId,
-    id: `training-milestone-${payload.id}`,
-  });
+  // toast.success(title, {
+  //   description,
+  //   duration: options?.durationMs ?? 10000,
+  //   toasterId: options?.toasterId,
+  //   id: `training-milestone-${payload.id}`,
+  // });
 }

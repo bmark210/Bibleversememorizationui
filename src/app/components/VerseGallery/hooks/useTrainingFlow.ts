@@ -1028,11 +1028,11 @@ export function useTrainingFlow({
           wasReviewExercise || becameLearned || nextStatus === "MASTERED";
         let didSwitchSubsetToCatalogOptimistically = false;
 
-        if (!optimisticShouldMoveToNextVerse) {
-          const updatedList = [...trainingVerses];
-          updatedList[trainingIndex] = updated;
-          setTrainingVerses(updatedList);
-        }
+        // Always reflect optimistic state immediately so the card visuals stay in sync
+        // while milestone popup is open. Removal still happens only after popup confirm.
+        const updatedList = [...trainingVerses];
+        updatedList[trainingIndex] = updated;
+        setTrainingVerses(updatedList);
 
         setPreviewOverride(current.raw, {
           status: updated.status,
@@ -1147,15 +1147,15 @@ export function useTrainingFlow({
 
           const finalShouldMoveToNextVerse =
             wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
-          if (!finalShouldMoveToNextVerse) {
-            setTrainingVerses((prev) => {
-              const idx = prev.findIndex((v) => v.key === current.key);
-              if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = persistedUpdated;
-              return next;
-            });
+          setTrainingVerses((prev) => {
+            const idx = prev.findIndex((v) => v.key === current.key);
+            if (idx < 0) return prev;
+            const next = [...prev];
+            next[idx] = persistedUpdated;
+            return next;
+          });
 
+          if (!finalShouldMoveToNextVerse) {
             const persistedNextModeForCurrentVerse =
               becameLearned
                 ? chooseModeId(persistedUpdated)

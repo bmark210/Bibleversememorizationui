@@ -940,10 +940,9 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onStartTraining={handleStartTraining}
-                onAddVerse={handleAddVerse}
                 onViewAll={() => setCurrentPage("verses")}
-                onOpenTrainingPlanSettings={() => {}}
+                canOpenReferences={canAccessReferenceTrainer}
+                onOpenReferences={() => setCurrentPage("references")}
                 isInitializingData={isBootstrapping}
               />
             </motion.div>

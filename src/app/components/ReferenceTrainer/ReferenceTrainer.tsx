@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CheckCircle2, RefreshCcw, Shuffle, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  GraduationCap,
+  RefreshCcw,
+  Shuffle,
+  XCircle,
+} from "lucide-react";
 import type { UserVerse } from "@/api/models/UserVerse";
 import {
   fetchReferenceTrainerVerses,
@@ -19,6 +25,15 @@ import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Progress } from "@/app/components/ui/progress";
 import { Input } from "@/app/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { toast } from "@/app/lib/toast";
 
 type ReferenceTrainerProps = {
@@ -127,6 +142,8 @@ const MIXED_TRACK_WEIGHT_BASE = 110;
 const TYPE_INPUT_SIMILARITY_THRESHOLD = 0.8;
 const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
+const REFERENCE_TRAINER_INTRO_STORAGE_PREFIX =
+  "bible-memory.reference-trainer.intro.v1";
 
 const TRACK_META: Record<SessionTrack, { label: string; shortLabel: string }> = {
   reference: { label: "Ссылки", shortLabel: "Ссылки" },
@@ -489,6 +506,10 @@ function writeStoredTrack(track: SessionTrack) {
   } catch {
     // ignore storage errors
   }
+}
+
+function getReferenceTrainerIntroStorageKey(telegramId: string) {
+  return `${REFERENCE_TRAINER_INTRO_STORAGE_PREFIX}:${telegramId}`;
 }
 
 function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
@@ -1172,10 +1193,40 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isIntroDialogOpen, setIsIntroDialogOpen] = useState(false);
 
   useEffect(() => {
     writeStoredTrack(selectedTrack);
   }, [selectedTrack]);
+
+  const markIntroAsSeen = useCallback(() => {
+    if (!telegramId || typeof window === "undefined") {
+      setIsIntroDialogOpen(false);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        getReferenceTrainerIntroStorageKey(telegramId),
+        "1"
+      );
+    } catch {
+      // ignore storage errors
+    }
+
+    setIsIntroDialogOpen(false);
+  }, [telegramId]);
+
+  const handleIntroDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsIntroDialogOpen(true);
+        return;
+      }
+      markIntroAsSeen();
+    },
+    [markIntroAsSeen]
+  );
 
   const currentQuestion = questions[currentQuestionIndex] ?? null;
   const answeredCount = results.length;
@@ -1288,12 +1339,28 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       setResults([]);
       setSessionUpdates([]);
       setErrorMessage(null);
+      setIsIntroDialogOpen(false);
       return;
     }
     if (initializedTelegramIdRef.current === telegramId) return;
     initializedTelegramIdRef.current = telegramId;
     void loadVersePool(telegramId);
   }, [loadVersePool, telegramId]);
+
+  useEffect(() => {
+    if (!telegramId || typeof window === "undefined") {
+      setIsIntroDialogOpen(false);
+      return;
+    }
+
+    try {
+      const key = getReferenceTrainerIntroStorageKey(telegramId);
+      const seenValue = window.localStorage.getItem(key);
+      setIsIntroDialogOpen(seenValue !== "1");
+    } catch {
+      setIsIntroDialogOpen(true);
+    }
+  }, [telegramId]);
 
   const persistSessionUpdates = useCallback(
     async (
@@ -1556,15 +1623,55 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
       : [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
-      <Card
-        className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border-border/70"
-        style={
-          frameHeight
-            ? { height: `${frameHeight}px` }
-            : { height: "calc(100dvh - 11rem)" }
-        }
+    <>
+      <AlertDialog
+        open={isIntroDialogOpen}
+        onOpenChange={handleIntroDialogOpenChange}
       >
+        <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
+          <div className="relative px-6 py-6 sm:px-7">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-500/20 blur-2xl" />
+            </div>
+
+            <AlertDialogHeader className="relative gap-3">
+              <AlertDialogTitle className="text-xl text-primary">
+                Раздел «Якоря»
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
+                Здесь вы закрепляете уже изученный материал в разных режимах:
+                ссылка, начало стиха, контекст и смешанный формат.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="relative mt-4 rounded-2xl border border-border/60 bg-background/65 p-3 text-xs leading-relaxed text-foreground/75">
+              Чем регулярнее практика в этом разделе, тем стабильнее
+              долговременное запоминание и быстрее восстановление стиха по
+              подсказкам.
+            </div>
+
+            <AlertDialogFooter className="relative mt-5">
+              <AlertDialogAction
+                className="h-10 rounded-xl border border-primary/25 bg-primary/10 text-primary px-5 text-sm font-medium"
+                onClick={markIntroAsSeen}
+              >
+                Понятно, начать
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="mx-auto w-full max-w-3xl p-3 sm:p-4">
+        <Card
+          className="flex w-full flex-col gap-0 overflow-hidden rounded-2xl border-border/70"
+          style={
+            frameHeight
+              ? { height: `${frameHeight}px` }
+              : { height: "calc(100dvh - 11rem)" }
+          }
+        >
         <div className="shrink-0 border-b border-border/70 px-3 py-3 sm:px-4">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
@@ -1574,6 +1681,16 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg px-2.5 text-xs text-foreground/70 border-border/70 bg-background/70"
+                onClick={() => setIsIntroDialogOpen(true)}
+              >
+                <GraduationCap className="h-3.5 w-3.5" />
+                {/* О разделе */}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -2044,7 +2161,8 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
               </div>
             )}
         </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </>
   );
 }
