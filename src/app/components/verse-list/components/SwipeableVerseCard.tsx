@@ -355,7 +355,7 @@ export const SwipeableVerseCard = ({
                   {verse.tags.slice(0, 3).map((tag) => (
                     <span
                       key={tag.slug}
-                      className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70"
+                      className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground"
                     >
                       <span className="opacity-50">#</span>
                       {tag.title}
@@ -387,7 +387,7 @@ export const SwipeableVerseCard = ({
                 >
                   <div className="pt-0.5">{statusMetaContent}</div>
                 </motion.div>
-              ) : null}
+              ) : <div className="w-full h-4"></div>}
 
         {popularityChip && (
           <div className="pointer-events-none">

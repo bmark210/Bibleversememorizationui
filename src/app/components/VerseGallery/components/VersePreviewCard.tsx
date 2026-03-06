@@ -117,7 +117,7 @@ export function VersePreviewCard({
         minHeight="training"
         previewTone={tone}
         metaBadge={
-          popularityBadge ? (
+          popularityBadge && popularityValue && popularityValue > 0 ? (
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
