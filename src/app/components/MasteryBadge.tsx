@@ -28,7 +28,7 @@ type MasteryBadgeProps = {
   masteryLevel: number;
 };
 
-export function MasteryBadge({ status, masteryLevel }: MasteryBadgeProps) {
+export function MasteryBadge({ status, masteryLevel: _masteryLevel }: MasteryBadgeProps) {
   return (
     <Badge variant="outline" className={`text-xs ${getMasteryColor(status)}`}>
       {getMasteryLabel(status)}

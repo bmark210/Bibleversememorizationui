@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { Translation } from "@/generated/prisma";
+import {
+  createUser,
+  getUserByTelegramId,
+} from "@/modules/users/infrastructure/userRepository";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type TelegramInitPayload = {
   telegramId?: string;
@@ -52,9 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "telegramId is required" });
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { telegramId },
-    });
+    const existing = await getUserByTelegramId(telegramId);
 
     if (existing) {
       return res.status(200).json(existing);
@@ -76,21 +78,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const nicknameValue = normalizeOptionalString(nickname);
     const avatarUrlValue = normalizeOptionalString(avatarUrl);
 
-    const payload = {
+    const created = await createUser({
       telegramId,
       ...(validTranslation ? { translation: validTranslation } : {}),
       ...(nameValue ? { name: nameValue } : {}),
       ...(nicknameValue ? { nickname: nicknameValue } : {}),
       ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
-    };
-
-    const created = await prisma.user.create({ data: payload });
+    });
     return res.status(201).json(created);
   } catch (error) {
-    console.error("Error in telegram route:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

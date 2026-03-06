@@ -1,6 +1,7 @@
 import {
   REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
+  TRAINING_SCORE_BY_RATING,
 } from "@/shared/training/constants";
 import { TRAINING_MODE_SHIFT_BY_RATING } from "@/shared/training/modeEngine";
 import { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
@@ -13,7 +14,6 @@ export const MAX_MASTERY_LEVEL = TRAINING_STAGE_MASTERY_MAX;
 
 export const MAX_DOTS = 12;
 export const EMULATED_DOT_COUNT = 15;
-export const MAX_DOT_PROGRESS_TEXT_WIDTH_CLASS = "max-w-[46vw] sm:max-w-[240px]";
 export const SWIPE_HINT_KEY = "verse-swipe-hint-seen";
 
 export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
@@ -67,18 +67,5 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
   },
 };
 
-export const SCORE_BY_RATING: Record<Rating, number> = { 0: 35, 1: 60, 2: 84, 3: 96 };
-export const MASTERY_DELTA_BY_RATING: Record<Rating, number> = { 0: -1, 1: 0, 2: 1, 3: 2 };
+export const SCORE_BY_RATING: Record<Rating, number> = { ...TRAINING_SCORE_BY_RATING };
 export const MODE_SHIFT_BY_RATING: Record<Rating, number> = TRAINING_MODE_SHIFT_BY_RATING;
-
-export const SPACED_REPETITION_MS: Record<number, number> = {
-  0: 10 * 60 * 1000,
-  1: 60 * 60 * 1000,
-  2: 6 * 60 * 60 * 1000,
-  3: 24 * 60 * 60 * 1000,
-  4: 3 * 24 * 60 * 60 * 1000,
-  5: 3 * 24 * 60 * 60 * 1000,
-  6: 3 * 24 * 60 * 60 * 1000,
-  7: 3 * 24 * 60 * 60 * 1000,
-  8: 3 * 24 * 60 * 60 * 1000,
-};

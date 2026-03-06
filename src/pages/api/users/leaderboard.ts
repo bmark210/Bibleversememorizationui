@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
+import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
+import { getAllUsers } from "@/modules/users/infrastructure/userRepository";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
 import {
@@ -153,29 +154,10 @@ export default async function handler(
     const currentTelegramId = parseTelegramId(req.query.telegramId);
     const weeklyCutoff = Date.now() - WEEK_MS;
 
-    const [users, userVerses] = await Promise.all([
-      prisma.user.findMany({
-        select: {
-          telegramId: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-          dailyStreak: true,
-        },
-      }),
-      prisma.userVerse.findMany({
-        select: {
-          telegramId: true,
-          status: true,
-          masteryLevel: true,
-          repetitions: true,
-          referenceScore: true,
-          incipitScore: true,
-          contextScore: true,
-          lastReviewedAt: true,
-        },
-      }),
-    ]);
+    const users = await getAllUsers();
+    const metricVerses = await getSocialMetricVerseRows(
+      users.map((user) => user.telegramId)
+    );
 
     const versesByTelegramId = new Map<
       string,
@@ -190,7 +172,7 @@ export default async function handler(
       }>
     >();
 
-    for (const verse of userVerses) {
+    for (const verse of metricVerses) {
       const group = versesByTelegramId.get(verse.telegramId) ?? [];
       group.push(verse);
       versesByTelegramId.set(verse.telegramId, group);

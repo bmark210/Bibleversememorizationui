@@ -1,7 +1,3 @@
-import React from 'react';
-import { Badge } from '@/app/components/ui/badge';
-import { Button } from '@/app/components/ui/button';
-
 type VerseListLoadMoreFooterProps = {
   visible: boolean;
   isFetchingMore: boolean;
@@ -14,12 +10,12 @@ type VerseListLoadMoreFooterProps = {
 
 export function VerseListLoadMoreFooter({
   visible,
-  isFetchingMore,
-  showDelayedLoadMoreSkeleton,
-  loadMoreError,
-  hasMoreVerses,
-  versesLength,
-  onRetryLoadMore,
+  isFetchingMore: _isFetchingMore,
+  showDelayedLoadMoreSkeleton: _showDelayedLoadMoreSkeleton,
+  loadMoreError: _loadMoreError,
+  hasMoreVerses: _hasMoreVerses,
+  versesLength: _versesLength,
+  onRetryLoadMore: _onRetryLoadMore,
 }: VerseListLoadMoreFooterProps) {
   if (!visible) return null;
 

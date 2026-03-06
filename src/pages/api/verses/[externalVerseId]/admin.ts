@@ -1,17 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { isAdminTelegramId } from "@/lib/admins";
+import {
+  deleteCatalogVerseByExternalVerseId,
+  getVerseAdminSummary,
+} from "@/modules/verses/infrastructure/verseRepository";
 import {
   canonicalizeExternalVerseId,
   MAX_EXTERNAL_VERSE_RANGE_SIZE,
 } from "@/shared/bible/externalVerseId";
-
-type VerseAdminSummary = {
-  externalVerseId: string;
-  userLinksCount: number;
-  tagLinksCount: number;
-  canDelete: boolean;
-};
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
   `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
@@ -31,30 +28,6 @@ function resolveRequesterTelegramId(req: NextApiRequest): string {
   return "";
 }
 
-async function getVerseSummary(externalVerseId: string): Promise<VerseAdminSummary | null> {
-  const verse = await prisma.verse.findUnique({
-    where: { externalVerseId },
-    select: {
-      externalVerseId: true,
-      _count: {
-        select: {
-          userVerses: true,
-          tags: true,
-        },
-      },
-    },
-  });
-
-  if (!verse) return null;
-
-  return {
-    externalVerseId: verse.externalVerseId,
-    userLinksCount: verse._count.userVerses,
-    tagLinksCount: verse._count.tags,
-    canDelete: verse._count.userVerses === 0,
-  };
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { externalVerseId } = req.query;
   if (!externalVerseId || Array.isArray(externalVerseId)) {
@@ -71,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "GET") {
-    const summary = await getVerseSummary(canonicalExternalVerseId);
+    const summary = await getVerseAdminSummary(canonicalExternalVerseId);
     if (!summary) {
       return res.status(404).json({ error: "Verse not found" });
     }
@@ -80,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === "DELETE") {
     try {
-      const summary = await getVerseSummary(canonicalExternalVerseId);
+      const summary = await getVerseAdminSummary(canonicalExternalVerseId);
       if (!summary) {
         return res.status(404).json({ error: "Verse not found" });
       }
@@ -92,29 +65,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      await prisma.$transaction(async (tx) => {
-        const verse = await tx.verse.findUnique({
-          where: { externalVerseId: canonicalExternalVerseId },
-          select: { id: true },
-        });
-        if (!verse) return;
-
-        await tx.verseTag.deleteMany({
-          where: { verseId: verse.id },
-        });
-
-        await tx.verse.delete({
-          where: { id: verse.id },
-        });
-      });
+      await deleteCatalogVerseByExternalVerseId(canonicalExternalVerseId);
 
       return res.status(200).json({ ok: true, deletedExternalVerseId: canonicalExternalVerseId });
     } catch (error) {
-      console.error("Error deleting verse from catalog:", error);
-      return res.status(500).json({
-        error: "Internal Server Error",
-        details: error instanceof Error ? error.message : String(error),
-      });
+      return handleApiError(
+        res,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

@@ -1,4 +1,4 @@
-import { ADMIN_TELEGRAM_IDS as DEFAULT_ADMIN_TELEGRAM_IDS } from "../../admins";
+import { ADMIN_TELEGRAM_IDS as DEFAULT_ADMIN_TELEGRAM_IDS } from "@root/admins";
 
 function parseAdminIds(value: string | undefined): string[] {
   if (!value) return [];
@@ -26,4 +26,3 @@ export function isAdminTelegramId(telegramId: string | null | undefined): boolea
   if (!telegramId) return false;
   return getAdminTelegramIds().has(String(telegramId).trim());
 }
-

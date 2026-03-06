@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
+import {
+  deleteFollow,
+  isFollowing,
+} from "@/modules/social/infrastructure/socialRepository";
 import {
   assertUserExists,
   FriendsApiError,
@@ -34,29 +37,18 @@ export default async function handler(
       return res.status(400).json({ error: "You cannot remove yourself from friends" });
     }
 
-    const existing = await prisma.userFollow.findUnique({
-      where: {
-        followerTelegramId_followingTelegramId: {
-          followerTelegramId: telegramId,
-          followingTelegramId: friendTelegramId,
-        },
-      },
-      select: {
-        id: true,
-      },
+    const following = await isFollowing({
+      followerTelegramId: telegramId,
+      followingTelegramId: friendTelegramId,
     });
 
-    if (!existing) {
+    if (!following) {
       return res.status(200).json({ status: "not-following" });
     }
 
-    await prisma.userFollow.delete({
-      where: {
-        followerTelegramId_followingTelegramId: {
-          followerTelegramId: telegramId,
-          followingTelegramId: friendTelegramId,
-        },
-      },
+    await deleteFollow({
+      followerTelegramId: telegramId,
+      followingTelegramId: friendTelegramId,
     });
 
     return res.status(200).json({ status: "removed" });

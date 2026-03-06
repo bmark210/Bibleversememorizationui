@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 
 function resolveTelegramIdFromEnv(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   return (
-    (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() ??
+    getTelegramUserId() ??
     process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID ??
     localStorage.getItem('telegramId') ??
     undefined
@@ -23,4 +24,3 @@ export function useTelegramId() {
 
   return { telegramId, setTelegramId };
 }
-

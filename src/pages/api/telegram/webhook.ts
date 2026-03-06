@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { buildOpenAppKeyboard, sendTelegramMessage } from "@/lib/telegramBot";
+import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type TelegramUpdate = {
   message?: {
@@ -22,7 +23,7 @@ function normalizeCommand(rawText: string): { command: string; payload: string }
   const trimmed = rawText.trim();
   if (!trimmed.startsWith("/")) return { command: "", payload: "" };
 
-  const [commandToken, ...rest] = trimmed.split(/\s+/);
+  const [commandToken = "", ...rest] = trimmed.split(/\s+/);
   const command = commandToken.split("@")[0]?.toLowerCase() ?? "";
   return {
     command,
@@ -30,7 +31,7 @@ function normalizeCommand(rawText: string): { command: string; payload: string }
   };
 }
 
-function buildWelcomeText(firstName: string | undefined, appUrl: string) {
+function buildWelcomeText(firstName: string | undefined) {
   const userName = firstName?.trim() || "друг";
 
   return [
@@ -92,20 +93,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { command } = normalizeCommand(text);
 
     if (command === "/start") {
-      await prisma.user.upsert({
-        where: { telegramId },
+      await upsertUserByTelegramId({
+        telegramId,
         update: {
           ...(firstName ? { name: firstName } : {}),
         },
         create: {
-          telegramId,
           name: fallbackName,
         },
       });
 
       await sendTelegramMessage({
         chatId,
-        text: buildWelcomeText(firstName ?? undefined, openAppUrl),
+        text: buildWelcomeText(firstName ?? undefined),
         replyMarkup,
       });
 
@@ -123,10 +123,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ ok: true, skipped: true });
   } catch (error) {
-    console.error("Error in telegram webhook:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

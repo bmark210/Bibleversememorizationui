@@ -1,7 +1,7 @@
 import type { ParsedUrlQuery } from "querystring";
-import type { Prisma } from "@/generated/prisma/client";
 import { VerseStatus } from "@/generated/prisma";
-import { prisma } from "@/lib/prisma";
+import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
+import { userExists } from "@/modules/users/infrastructure/userRepository";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
 import {
@@ -225,23 +225,9 @@ export function parseActivityLimit(query: ParsedUrlQuery): number {
   return parseLimit(getSingleQueryValue(query, "limit"), DEFAULT_ACTIVITY_LIMIT);
 }
 
-export function buildUserSearchWhere(search?: string): Prisma.UserWhereInput | undefined {
-  if (!search) return undefined;
-  return {
-    OR: [
-      { telegramId: { contains: search, mode: "insensitive" } },
-      { name: { contains: search, mode: "insensitive" } },
-      { nickname: { contains: search, mode: "insensitive" } },
-    ],
-  };
-}
-
 export async function assertUserExists(telegramId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { telegramId },
-    select: { id: true },
-  });
-  if (!user) {
+  const exists = await userExists(telegramId);
+  if (!exists) {
     throw new FriendsApiError(404, "User not found");
   }
 }
@@ -266,23 +252,7 @@ export async function buildFriendMetricsMap(
   }
 
   if (telegramIds.length > 0) {
-    const rows = await prisma.userVerse.findMany({
-      where: {
-        telegramId: {
-          in: telegramIds,
-        },
-      },
-      select: {
-        telegramId: true,
-        status: true,
-        masteryLevel: true,
-        repetitions: true,
-        referenceScore: true,
-        incipitScore: true,
-        contextScore: true,
-        lastReviewedAt: true,
-      },
-    });
+    const rows = await getSocialMetricVerseRows(telegramIds);
 
     for (const row of rows) {
       const aggregate = metrics.get(row.telegramId);

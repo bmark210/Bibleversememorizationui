@@ -1,15 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
+import { persistVerseProgressPatch } from "@/modules/training/infrastructure/verseProgressRepository";
+import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import {
-  canonicalizeExternalVerseId,
-  MAX_EXTERNAL_VERSE_RANGE_SIZE,
-} from "@/shared/bible/externalVerseId";
+  deleteUserVerseBinding,
+  getUserVerseByExternalVerseId,
+  getVerseByExternalVerseId,
+  upsertUserVerseBinding,
+} from "@/modules/verses/infrastructure/verseRepository";
 import {
   REVIEW_FAILED_RETRY_MINUTES,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
-import { computeNextDailyStreakOnReview } from "@/shared/training/dailyStreak";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { patchVerseSchema } from "@/shared/validation/schemas/patchVerseSchema";
+import { putVerseSchema } from "@/shared/validation/schemas/putVerseSchema";
 import {
   REVIEW_MASTERY_LEVEL_MIN,
   WAITING_MASTERY_LEVEL_MIN_EXCLUSIVE,
@@ -22,51 +27,32 @@ import {
   type UserVerseWithLegacyNullableProgress,
 } from "./verseCard.types";
 
-const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
-  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
-
 function clampMasteryForLearning(value: number): number {
   return Math.max(1, Math.min(TRAINING_STAGE_MASTERY_MAX, Math.round(value)));
 }
 
-function validateTrainingModeIdOrNull(value: number | null): number | null {
-  if (value === null) return null;
-  if (Number.isInteger(value) && value >= 1 && value <= 8) {
-    return value;
-  }
-  throw new Error("lastTrainingModeId must be an integer between 1 and 8 or null");
-}
-
-type UpdateVersePayload = {
-  masteryLevel?: number;
-  repetitions?: number;
-  lastReviewedAt?: string;
-  nextReviewAt?: string;
-  lastTrainingModeId?: number | null;
-  status?: VerseStatus;
-};
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { telegramId, externalVerseId } = req.query;
-  if (!telegramId || Array.isArray(telegramId) || !externalVerseId || Array.isArray(externalVerseId)) {
-    return res.status(400).json({ error: "telegramId and externalVerseId are required" });
+  const parsedParams = putVerseSchema.safeParse({
+    telegramId: req.query.telegramId,
+    externalVerseId: req.query.externalVerseId,
+  });
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: parsedParams.error.flatten() });
   }
-  const canonicalExternalVerseId = canonicalizeExternalVerseId(externalVerseId);
-  if (!canonicalExternalVerseId) {
-    return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
-  }
+
+  const { telegramId, externalVerseId } = parsedParams.data;
 
   if (req.method === "PUT") {
-    return handlePut(res, telegramId, canonicalExternalVerseId);
+    return handlePut(res, telegramId, externalVerseId);
   }
 
   // Поддерживает обновление и удаление прогресса по конкретному стиху.
   if (req.method === "PATCH") {
-    return handlePatch(req, res, telegramId, canonicalExternalVerseId);
+    return handlePatch(req, res, telegramId, externalVerseId);
   }
 
   if (req.method === "DELETE") {
-    return handleDelete(res, telegramId, canonicalExternalVerseId);
+    return handleDelete(res, telegramId, externalVerseId);
   }
 
   res.setHeader("Allow", "PUT, PATCH, DELETE");
@@ -75,40 +61,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 // Resolve the global Verse by externalVerseId, then find the user's progress record
 async function resolveUserVerse(telegramId: string, externalVerseId: string) {
-  const globalVerse = await prisma.verse.findUnique({
-    where: { externalVerseId },
-    select: { id: true },
+  const { verse, userVerse } = await getUserVerseByExternalVerseId({
+    telegramId,
+    externalVerseId,
   });
-  if (!globalVerse) return { globalVerse: null, userVerse: null };
-
-  const userVerse = await prisma.userVerse.findUnique({
-    where: {
-      telegramId_verseId: {
-        telegramId,
-        verseId: globalVerse.id,
-      },
-    },
-  });
-
-  return { globalVerse, userVerse };
+  return { globalVerse: verse, userVerse };
 }
 
 async function handlePut(res: NextApiResponse, telegramId: string, externalVerseId: string) {
   // Добавляет стих в коллекцию пользователя (создаёт UserVerse со статусом MY, если нет).
   try {
     const [user, globalVerse] = await Promise.all([
-      prisma.user.findUnique({ where: { telegramId }, select: { id: true } }),
-      prisma.verse.findUnique({ where: { externalVerseId }, select: { id: true } }),
+      getUserByTelegramId(telegramId),
+      getVerseByExternalVerseId(externalVerseId),
     ]);
 
     if (!user) return res.status(404).json({ error: "User not found" });
     if (!globalVerse) return res.status(404).json({ error: "Verse not found in catalog" });
 
-    const userVerse = await prisma.userVerse.upsert({
-      where: { telegramId_verseId: { telegramId, verseId: globalVerse.id } },
-      update: {},
-      create: { telegramId, verseId: globalVerse.id, status: VerseStatus.MY },
-      include: { verse: true },
+    const userVerse = await upsertUserVerseBinding({
+      telegramId,
+      verseId: globalVerse.id,
     });
 
     return res.status(200).json(
@@ -119,11 +92,10 @@ async function handlePut(res: NextApiResponse, telegramId: string, externalVerse
       })
     );
   } catch (error) {
-    console.error("Error adding verse to collection:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -135,27 +107,16 @@ async function handlePatch(
 ) {
   // Корректирует поля прогресса (мастерство, повторения, даты).
   try {
-    const body = req.body as UpdateVersePayload;
+    const parsedBody = patchVerseSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({ error: parsedBody.error.flatten() });
+    }
+    const body = parsedBody.data;
     const reviewedAt = body.lastReviewedAt ? new Date(body.lastReviewedAt) : null;
-    if (reviewedAt && Number.isNaN(reviewedAt.getTime())) {
-      return res.status(400).json({ error: "lastReviewedAt must be a valid ISO date-time string" });
-    }
-    let nextLastTrainingModeId: number | null | undefined;
-    if (body.lastTrainingModeId !== undefined) {
-      try {
-        nextLastTrainingModeId = validateTrainingModeIdOrNull(body.lastTrainingModeId ?? null);
-      } catch (error) {
-        return res.status(400).json({
-          error: error instanceof Error ? error.message : "Invalid lastTrainingModeId",
-        });
-      }
-    }
+    const nextLastTrainingModeId = body.lastTrainingModeId;
 
     const [user, { globalVerse, userVerse: existingVerse }] = await Promise.all([
-      prisma.user.findUnique({
-        where: { telegramId },
-        select: { id: true, dailyStreak: true },
-      }),
+      getUserByTelegramId(telegramId),
       resolveUserVerse(telegramId, externalVerseId),
     ]);
 
@@ -218,7 +179,7 @@ async function handlePatch(
       // repetitions are allowed only after the verse is in LEARNING and mastery is >= REVIEW_MASTERY_LEVEL_MIN.
       return res.status(409).json({
         error:
-          "repetitions can only be changed after LEARNING verse reaches masteryLevel >= 7",
+          "repetitions can only be changed after a LEARNING verse reaches the review mastery threshold",
       });
     }
 
@@ -245,53 +206,31 @@ async function handlePatch(
       forcedReviewRetryNextReviewAt ??
       (body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt);
 
-    const verse = await prisma.$transaction(async (tx) => {
-      const latestReviewedBeforeUpdate = reviewedAt
-        ? await tx.userVerse.findFirst({
-            where: { telegramId, lastReviewedAt: { not: null } },
-            orderBy: { lastReviewedAt: "desc" },
-            select: { lastReviewedAt: true },
-          })
-        : null;
-
-      const updatedVerse = await tx.userVerse.update({
-        where: {
-          telegramId_verseId: {
-            telegramId,
-            verseId: globalVerse.id,
-          },
-        },
-        data: {
-          ...(body.masteryLevel !== undefined ? { masteryLevel: requestedMasteryLevel } : {}),
-          ...(body.repetitions !== undefined && !isNotYetDue
-            ? { repetitions: requestedRepetitions }
-            : {}),
-          ...(reviewedAt ? { lastReviewedAt: reviewedAt } : {}),
-          ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
-          ...(nextLastTrainingModeId !== undefined
-            ? { lastTrainingModeId: nextLastTrainingModeId }
-            : {}),
-          ...(body.status ? { status: body.status } : {}),
-        },
-        include: { verse: true },
-      });
-
-      if (reviewedAt) {
-        const streakDecision = computeNextDailyStreakOnReview({
-          currentStreak: user.dailyStreak,
-          latestReviewedAt: latestReviewedBeforeUpdate?.lastReviewedAt ?? null,
-          reviewedAt,
-        });
-
-        if (streakDecision.shouldUpdate) {
-          await tx.user.update({
-            where: { telegramId },
-            data: { dailyStreak: streakDecision.nextStreak },
-          });
-        }
-      }
-
-      return updatedVerse;
+    const verse = await persistVerseProgressPatch({
+      telegramId,
+      verseId: globalVerse.id,
+      patch: {
+        ...(body.masteryLevel !== undefined
+          ? { masteryLevel: requestedMasteryLevel }
+          : {}),
+        ...(body.repetitions !== undefined && !isNotYetDue
+          ? { repetitions: requestedRepetitions }
+          : {}),
+        ...(reviewedAt ? { lastReviewedAt: reviewedAt } : {}),
+        ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),
+        ...(nextLastTrainingModeId !== undefined
+          ? { lastTrainingModeId: nextLastTrainingModeId }
+          : {}),
+        ...(body.status ? { status: body.status } : {}),
+      },
+      ...(reviewedAt
+        ? {
+            dailyStreakContext: {
+              currentStreak: user.dailyStreak,
+              reviewedAt,
+            },
+          }
+        : {}),
     });
 
     return res.status(200).json(
@@ -302,50 +241,38 @@ async function handlePatch(
       })
     );
   } catch (error) {
-    console.error("Error updating verse:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
 async function handleDelete(res: NextApiResponse, telegramId: string, externalVerseId: string) {
   // Удаляет стих только из списка пользователя; глобальный Verse не затрагивается.
   try {
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-      select: { id: true },
-    });
+    const user = await getUserByTelegramId(telegramId);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const globalVerse = await prisma.verse.findUnique({
-      where: { externalVerseId },
-      select: { id: true },
-    });
+    const globalVerse = await getVerseByExternalVerseId(externalVerseId);
 
     if (!globalVerse) {
       return res.status(404).json({ error: "Verse not found" });
     }
 
-    await prisma.userVerse.delete({
-      where: {
-        telegramId_verseId: {
-          telegramId,
-          verseId: globalVerse.id,
-        },
-      },
+    await deleteUserVerseBinding({
+      telegramId,
+      verseId: globalVerse.id,
     });
 
     return res.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Error deleting verse:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

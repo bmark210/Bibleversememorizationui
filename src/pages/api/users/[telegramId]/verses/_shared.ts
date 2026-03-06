@@ -1,8 +1,18 @@
 import type { ParsedUrlQuery } from "querystring";
-import { prisma } from "@/lib/prisma";
 import { getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { getReferenceTrainerLearningRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
+import { getFriendVerseAggregates } from "@/modules/social/infrastructure/socialRepository";
+import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import type { UserVerseRecord } from "@/modules/verses/domain/Verse";
+import {
+  countUserVerses,
+  findUserVerses,
+  findUserVersesByVerseIds,
+  getVerseTagsByExternalVerseIds,
+  getVersesByIds,
+} from "@/modules/verses/infrastructure/verseRepository";
 import {
   getHelloaoChapterVerseMap,
   normalizeHelloaoTranslation,
@@ -12,6 +22,7 @@ import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
 } from "@/shared/bible/externalVerseId";
+import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import {
   computeDisplayStatus,
   type DisplayStatus,
@@ -21,7 +32,6 @@ import {
   type VerseCardDto,
   type VersePopularityScope,
   type VerseCardTagDto,
-  type VerseTagLinkWithTag,
 } from "./verseCard.types";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 
@@ -453,14 +463,10 @@ function compareExternalVerseIdsInBibleOrder(aId: string, bId: string): number {
   return aId.localeCompare(bId);
 }
 
-type UserVerseRowWithVerse = Prisma.UserVerseGetPayload<{
-  include: { verse: true };
-}>;
-
 function sortUserVerseRowsByBibleOrder(
-  rows: UserVerseRowWithVerse[],
+  rows: UserVerseRecord[],
   order?: UserVersesOrder
-): UserVerseRowWithVerse[] {
+): UserVerseRecord[] {
   const direction = order === "desc" ? -1 : 1;
 
   return [...rows].sort((a, b) => {
@@ -570,10 +576,7 @@ function sortVerseCardsBySelfPopularity(params: {
 }
 
 export async function getUserTranslationForTelegram(telegramId: string) {
-  const user = await prisma.user.findUnique({
-    where: { telegramId },
-    select: { id: true, translation: true },
-  });
+  const user = await getUserByTelegramId(telegramId);
 
   if (!user) {
     throw new UserVersesApiError(404, "User not found");
@@ -585,40 +588,7 @@ export async function getUserTranslationForTelegram(telegramId: string) {
 async function fetchTagsForVerses(
   externalVerseIds: string[]
 ): Promise<Map<string, VerseCardTagDto[]>> {
-  const uniqueIds = Array.from(new Set(externalVerseIds.filter(Boolean)));
-  if (uniqueIds.length === 0) {
-    return new Map();
-  }
-
-  // VerseTag now references Verse via verseId FK; externalVerseId lives on the Verse relation
-  const links: VerseTagLinkWithTag[] = await prisma.verseTag.findMany({
-    where: {
-      verse: { externalVerseId: { in: uniqueIds } },
-    },
-    select: {
-      verse: {
-        select: { externalVerseId: true },
-      },
-      tag: {
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-        },
-      },
-    },
-  });
-
-  const tagsByVerseId = new Map<string, VerseCardTagDto[]>();
-
-  for (const link of links) {
-    const key = link.verse.externalVerseId;
-    const current = tagsByVerseId.get(key) ?? [];
-    current.push(link.tag);
-    tagsByVerseId.set(key, current);
-  }
-
-  return tagsByVerseId;
+  return getVerseTagsByExternalVerseIds(externalVerseIds);
 }
 
 async function enrichUserVerses(
@@ -689,13 +659,13 @@ async function enrichUserVerses(
 }
 
 // Flatten externalVerseId from the verse relation so enrichUserVerses doesn't need to change
-function flattenVerseRows(
-  rows: Array<{ verse: { externalVerseId: string }; [key: string]: unknown }>
+function flattenVerseRows<T extends { verse: { externalVerseId: string } }>(
+  rows: T[]
 ): UserVerseWithLegacyNullableProgress[] {
   return rows.map((row) => ({
     ...row,
     externalVerseId: row.verse.externalVerseId,
-  })) as UserVerseWithLegacyNullableProgress[];
+  })) as unknown as UserVerseWithLegacyNullableProgress[];
 }
 
 export async function fetchEnrichedUserVerses({
@@ -706,10 +676,10 @@ export async function fetchEnrichedUserVerses({
 }: FetchEnrichedUserVersesOptions): Promise<VerseCardDto[]> {
   const translation = await getUserTranslationForTelegram(telegramId);
   const prismaOrderBy = buildUserVersesOrderBy(orderBy, order);
-  const rawRows = await prisma.userVerse.findMany({
-    where: buildUserVersesWhere(telegramId, where),
-    orderBy: prismaOrderBy,
-    include: { verse: true },
+  const rawRows = await findUserVerses({
+    telegramId,
+    where: where ?? undefined,
+    orderBy: prismaOrderBy as Record<string, unknown>[] | undefined,
   });
 
   const orderedRows =
@@ -721,7 +691,7 @@ export async function fetchEnrichedUserVerses({
 function shuffleInPlace<T>(items: T[]): T[] {
   for (let index = items.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(Math.random() * (index + 1));
-    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+    swapArrayItems(items, index, swapIndex);
   }
   return items;
 }
@@ -807,7 +777,7 @@ function resolveContextVerseNumber(params: {
 
 async function buildReferenceTrainerContextPrompts(
   sampledRows: Array<{
-    verse: { externalVerseId: string };
+    externalVerseId: string;
     displayStatus: ReferenceTrainerDisplayStatus;
   }>,
   translation: string
@@ -829,7 +799,7 @@ async function buildReferenceTrainerContextPrompts(
   >();
 
   for (const row of sampledRows) {
-    const externalVerseId = row.verse.externalVerseId;
+    const externalVerseId = row.externalVerseId;
     const parsed = parseExternalVerseId(externalVerseId);
     if (!parsed) continue;
 
@@ -905,28 +875,7 @@ export async function fetchRandomReferenceTrainerVerses(options: {
   const limit = Math.max(1, Math.min(DEFAULT_REFERENCE_TRAINER_LIMIT, Math.round(options.limit ?? DEFAULT_REFERENCE_TRAINER_LIMIT)));
   const translation = await getUserTranslationForTelegram(options.telegramId);
 
-  const learningRows = await prisma.userVerse.findMany({
-    where: {
-      telegramId: options.telegramId,
-      status: VerseStatus.LEARNING,
-    },
-    select: {
-      status: true,
-      masteryLevel: true,
-      repetitions: true,
-      referenceScore: true,
-      incipitScore: true,
-      contextScore: true,
-      lastTrainingModeId: true,
-      lastReviewedAt: true,
-      nextReviewAt: true,
-      verse: {
-        select: {
-          externalVerseId: true,
-        },
-      },
-    },
-  });
+  const learningRows = await getReferenceTrainerLearningRows(options.telegramId);
 
   const candidates = learningRows
     .map((row) => ({
@@ -952,7 +901,7 @@ export async function fetchRandomReferenceTrainerVerses(options: {
 
   const sampled = shuffleInPlace([...candidates]).slice(0, limit);
   const enrichedById = await enrichExternalVerseIds(
-    sampled.map((row) => row.verse.externalVerseId),
+    sampled.map((row) => row.externalVerseId),
     translation
   );
   const contextPromptByExternalVerseId = await buildReferenceTrainerContextPrompts(
@@ -961,7 +910,7 @@ export async function fetchRandomReferenceTrainerVerses(options: {
   );
 
   return sampled.map((row) => {
-    const externalVerseId = row.verse.externalVerseId;
+    const externalVerseId = row.externalVerseId;
     const enriched = enrichedById.get(externalVerseId);
     const contextPrompt = contextPromptByExternalVerseId.get(externalVerseId);
     const source = {
@@ -1069,40 +1018,9 @@ async function fetchPaginatedFriendVerses(options: {
   limit: number;
   startWith: number;
 }): Promise<UserVersesPageResponse> {
-  const follows = await prisma.userFollow.findMany({
-    where: { followerTelegramId: options.telegramId },
-    select: { followingTelegramId: true },
-  });
-  const followingTelegramIds = Array.from(
-    new Set(
-      follows
-        .map((follow) => follow.followingTelegramId)
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-
-  if (followingTelegramIds.length === 0) {
-    return { items: [], totalCount: 0 };
-  }
-
-  const friendVerseWhere = applyTagFilterToUserVersesWhere(
-    {
-      telegramId: {
-        in: followingTelegramIds,
-      },
-    },
-    options.tagSlugs
-  );
-
-  const aggregatedFriendVerses = await prisma.userVerse.groupBy({
-    by: ["verseId"],
-    where: friendVerseWhere,
-    _count: {
-      _all: true,
-    },
-    _max: {
-      updatedAt: true,
-    },
+  const aggregatedFriendVerses = await getFriendVerseAggregates({
+    telegramId: options.telegramId,
+    tagSlugs: options.tagSlugs,
   });
 
   if (aggregatedFriendVerses.length === 0) {
@@ -1111,31 +1029,10 @@ async function fetchPaginatedFriendVerses(options: {
 
   const verseIds = aggregatedFriendVerses.map((entry) => entry.verseId);
   const [verses, myRows] = await Promise.all([
-    prisma.verse.findMany({
-      where: {
-        id: {
-          in: verseIds,
-        },
-      },
-      select: {
-        id: true,
-        externalVerseId: true,
-      },
-    }),
-    prisma.userVerse.findMany({
-      where: {
-        telegramId: options.telegramId,
-        verseId: {
-          in: verseIds,
-        },
-      },
-      include: {
-        verse: {
-          select: {
-            externalVerseId: true,
-          },
-        },
-      },
+    getVersesByIds(verseIds),
+    findUserVersesByVerseIds({
+      telegramId: options.telegramId,
+      verseIds,
     }),
   ]);
 
@@ -1164,8 +1061,8 @@ async function fetchPaginatedFriendVerses(options: {
       const externalVerseId = verseById.get(aggregate.verseId);
       if (!externalVerseId) return null;
 
-      const friendsCount = Math.max(0, aggregate._count._all ?? 0);
-      const lastFriendActivityAt = aggregate._max.updatedAt ?? null;
+      const friendsCount = aggregate.friendsCount;
+      const lastFriendActivityAt = aggregate.lastFriendActivityAt;
       const enriched = enrichedByExternalVerseId.get(externalVerseId);
       const myRow = myRowByVerseId.get(aggregate.verseId);
 
@@ -1285,9 +1182,9 @@ export async function fetchPaginatedEnrichedUserVerses({
     !isComputedDisplayFilter(displayFilter) &&
     !hasSearch
   ) {
-    const rawRows = await prisma.userVerse.findMany({
-      where: prismaWhere,
-      include: { verse: true },
+    const rawRows = await findUserVerses({
+      telegramId,
+      where: prismaWhere as Record<string, unknown>,
     });
     const orderedRows = sortUserVerseRowsByBibleOrder(rawRows, order);
     const paginatedRows = orderedRows.slice(pageOffset, pageOffset + pageLimit);
@@ -1303,10 +1200,12 @@ export async function fetchPaginatedEnrichedUserVerses({
   }
 
   if (usePopularityOrdering || isComputedDisplayFilter(displayFilter) || hasSearch) {
-    const rawRows = await prisma.userVerse.findMany({
-      where: prismaWhere,
-      orderBy: usePopularityOrdering ? undefined : prismaOrderBy,
-      include: { verse: true },
+    const rawRows = await findUserVerses({
+      telegramId,
+      where: prismaWhere as Record<string, unknown>,
+      orderBy: usePopularityOrdering
+        ? undefined
+        : (prismaOrderBy as Record<string, unknown>[] | undefined),
     });
     const orderedRows = useBibleOrdering
       ? sortUserVerseRowsByBibleOrder(rawRows, order)
@@ -1341,15 +1240,16 @@ export async function fetchPaginatedEnrichedUserVerses({
   }
 
   const [rawRows, totalCount] = await Promise.all([
-    prisma.userVerse.findMany({
-      where: prismaWhere,
-      orderBy: prismaOrderBy,
+    findUserVerses({
+      telegramId,
+      where: prismaWhere as Record<string, unknown>,
+      orderBy: prismaOrderBy as Record<string, unknown>[] | undefined,
       skip: pageOffset,
       take: pageLimit,
-      include: { verse: true },
     }),
-    prisma.userVerse.count({
-      where: prismaWhere,
+    countUserVerses({
+      telegramId,
+      where: prismaWhere as Record<string, unknown>,
     }),
   ]);
 

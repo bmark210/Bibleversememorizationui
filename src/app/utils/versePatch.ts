@@ -8,6 +8,31 @@ function hasOwn(obj: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readNullableString(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : String(value);
+}
+
+function readNullableNumber(value: unknown): number | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
 export function getVerseSyncKey(ref: VerseIdentityRef | VerseLikeIdentity): string {
   return String(ref.externalVerseId ?? ref.id ?? "");
 }
@@ -25,56 +50,37 @@ export function isSameVerseByRef(
 }
 
 export function pickMutableVersePatchFromApiResponse(raw: unknown): VerseMutablePatch | null {
-  if (!raw || typeof raw !== "object") return null;
-  const data = raw as Record<string, unknown>;
+  if (!isRecord(raw)) return null;
+  const responseRecord = raw;
   const patch: VerseMutablePatch = {};
-  let hasAny = false;
+  let hasPatchFields = false;
 
-  if (hasOwn(data, "status")) {
-    patch.status = normalizeDisplayVerseStatus(data.status);
-    hasAny = true;
+  if (hasOwn(responseRecord, "status")) {
+    patch.status = normalizeDisplayVerseStatus(responseRecord.status);
+    hasPatchFields = true;
   }
-  if (hasOwn(data, "masteryLevel")) {
-    patch.masteryLevel =
-      typeof data.masteryLevel === "number" && Number.isFinite(data.masteryLevel)
-        ? data.masteryLevel
-        : data.masteryLevel == null
-          ? null
-          : Number(data.masteryLevel);
-    hasAny = true;
+  if (hasOwn(responseRecord, "masteryLevel")) {
+    patch.masteryLevel = readNullableNumber(responseRecord.masteryLevel);
+    hasPatchFields = true;
   }
-  if (hasOwn(data, "repetitions")) {
-    patch.repetitions =
-      typeof data.repetitions === "number" && Number.isFinite(data.repetitions)
-        ? data.repetitions
-        : data.repetitions == null
-          ? null
-          : Number(data.repetitions);
-    hasAny = true;
+  if (hasOwn(responseRecord, "repetitions")) {
+    patch.repetitions = readNullableNumber(responseRecord.repetitions);
+    hasPatchFields = true;
   }
-  if (hasOwn(data, "lastReviewedAt")) {
-    patch.lastReviewedAt =
-      typeof data.lastReviewedAt === "string" || data.lastReviewedAt == null
-        ? (data.lastReviewedAt as string | null)
-        : String(data.lastReviewedAt);
-    hasAny = true;
+  if (hasOwn(responseRecord, "lastReviewedAt")) {
+    patch.lastReviewedAt = readNullableString(responseRecord.lastReviewedAt);
+    hasPatchFields = true;
   }
-  if (hasOwn(data, "nextReviewAt")) {
-    patch.nextReviewAt =
-      typeof data.nextReviewAt === "string" || data.nextReviewAt == null
-        ? (data.nextReviewAt as string | null)
-        : String(data.nextReviewAt);
-    hasAny = true;
+  if (hasOwn(responseRecord, "nextReviewAt")) {
+    patch.nextReviewAt = readNullableString(responseRecord.nextReviewAt);
+    hasPatchFields = true;
   }
-  if (hasOwn(data, "updatedAt")) {
-    patch.updatedAt =
-      typeof data.updatedAt === "string" || data.updatedAt == null
-        ? (data.updatedAt as string | null)
-        : String(data.updatedAt);
-    hasAny = true;
+  if (hasOwn(responseRecord, "updatedAt")) {
+    patch.updatedAt = readNullableString(responseRecord.updatedAt);
+    hasPatchFields = true;
   }
 
-  return hasAny ? patch : null;
+  return hasPatchFields ? patch : null;
 }
 
 export function mergeVersePatch<T extends Verse>(verse: T, patch: VerseMutablePatch): T {
@@ -84,4 +90,3 @@ export function mergeVersePatch<T extends Verse>(verse: T, patch: VerseMutablePa
     ...patch,
   } as T;
 }
-

@@ -1,12 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import {
+  getTelegramWebApp,
+  type TelegramColorScheme,
+  type TelegramInitDataUnsafe,
+  type TelegramPopupParams,
+  type TelegramThemeParams,
+  type TelegramWebApp,
+} from '@/app/lib/telegramWebApp';
 import { triggerHaptic } from '../lib/haptics';
 
 // Динамический импорт SDK только на клиенте
-let WebApp: any = null;
+let webAppSdk: TelegramWebApp | null = null;
 if (typeof window !== 'undefined') {
-  WebApp = require('@twa-dev/sdk').default;
+  webAppSdk = getTelegramWebApp();
+  void import('@twa-dev/sdk')
+    .then((sdkModule) => {
+      webAppSdk =
+        ((sdkModule.default as unknown) as TelegramWebApp | undefined) ??
+        getTelegramWebApp();
+    })
+    .catch(() => {
+      webAppSdk = getTelegramWebApp();
+    });
 }
 
 /**
@@ -30,8 +47,8 @@ export interface TelegramWebAppState {
   user: TelegramUser | null;
   platform: string;
   colorScheme: 'light' | 'dark';
-  themeParams: any;
-  initDataUnsafe: any;
+  themeParams: TelegramThemeParams;
+  initDataUnsafe: TelegramInitDataUnsafe;
 }
 
 /**
@@ -56,47 +73,38 @@ export function useTelegramWebApp() {
 
   useEffect(() => {
     // Проверяем, запущено ли приложение в Telegram
-    if (typeof window !== 'undefined' && WebApp) {
+    if (typeof window !== 'undefined' && webAppSdk) {
       try {
         // Инициализируем WebApp
-        WebApp.ready();
+        webAppSdk.ready?.();
 
         // Расширяем WebApp на весь экран
-        WebApp.expand();
+        webAppSdk.expand?.();
 
         // Запускаем полноэкранный режим
-        if (WebApp.requestFullscreen) {
-          WebApp.requestFullscreen();
-        }
+        webAppSdk.requestFullscreen?.();
 
         // Отключаем вертикальные свайпы
-        if (WebApp.disableVerticalSwipes) {
-          WebApp.disableVerticalSwipes();
-        }
+        webAppSdk.disableVerticalSwipes?.();
 
         // Блокируем выход из приложения
-        if (WebApp.enableClosingConfirmation) {
-          WebApp.enableClosingConfirmation();
-        }
+        webAppSdk.enableClosingConfirmation?.();
 
         // Блокируем переворот устройства
-        if (WebApp.disableRotation) {
-          WebApp.disableRotation();
-        }
+        webAppSdk.disableRotation?.();
 
         // Блокируем перемещение фокуса за пределы приложения
-        if (WebApp.disableFocusOutside) {
-          WebApp.disableFocusOutside();
-        }
+        webAppSdk.disableFocusOutside?.();
 
         // Получаем данные пользователя
-        const tgUser = WebApp.initDataUnsafe?.user;
+        const tgUser = webAppSdk.initDataUnsafe?.user;
         
         let user: TelegramUser | null = null;
         
         if (tgUser) {
+          const telegramUserId = Number(tgUser.id);
           user = {
-            id: tgUser.id,
+            id: Number.isFinite(telegramUserId) ? telegramUserId : 0,
             firstName: tgUser.first_name || '',
             lastName: tgUser.last_name,
             username: tgUser.username,
@@ -109,27 +117,17 @@ export function useTelegramWebApp() {
         setState({
           isReady: true,
           user,
-          platform: WebApp.platform,
-          colorScheme: WebApp.colorScheme as 'light' | 'dark',
-          themeParams: WebApp.themeParams,
-          initDataUnsafe: WebApp.initDataUnsafe,
+          platform: webAppSdk.platform ?? 'unknown',
+          colorScheme: (webAppSdk.colorScheme ?? 'light') as TelegramColorScheme,
+          themeParams: webAppSdk.themeParams ?? {},
+          initDataUnsafe: webAppSdk.initDataUnsafe ?? {},
         });
-
-        // console.log('Telegram WebApp инициализирован:', {
-        //   platform: WebApp.platform,
-        //   version: WebApp.version,
-        //   user: user,
-        //   fullscreen: WebApp.isFullscreen,
-        //   verticalSwipes: WebApp.isVerticalSwipesEnabled,
-        // });
 
       } catch (error) {
         console.error('Ошибка инициализации Telegram WebApp:', error);
         setState(prev => ({ ...prev, isReady: true }));
       }
     } else {
-      // Не в Telegram - используем моковые данные для разработки
-      // console.log('Приложение запущено вне Telegram');
       setState({
         isReady: true,
         user: null,
@@ -148,8 +146,8 @@ export function useTelegramWebApp() {
  * Показать всплывающее уведомление в Telegram
  */
 export function showTelegramAlert(message: string) {
-  if (WebApp) {
-    WebApp.showAlert(message);
+  if (webAppSdk?.showAlert) {
+    webAppSdk.showAlert(message);
   } else {
     alert(message);
   }
@@ -159,8 +157,8 @@ export function showTelegramAlert(message: string) {
  * Показать подтверждение в Telegram
  */
 export function showTelegramConfirm(message: string, callback: (confirmed: boolean) => void) {
-  if (WebApp) {
-    WebApp.showConfirm(message, callback);
+  if (webAppSdk?.showConfirm) {
+    webAppSdk.showConfirm(message, callback);
   } else {
     const confirmed = confirm(message);
     callback(confirmed);
@@ -175,8 +173,8 @@ export function showTelegramPopup(params: {
   message: string;
   buttons?: Array<{ id?: string; type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'; text: string }>;
 }, callback?: (buttonId?: string) => void) {
-  if (WebApp && WebApp.showPopup) {
-    WebApp.showPopup(params as any, callback);
+  if (webAppSdk?.showPopup) {
+    webAppSdk.showPopup(params as TelegramPopupParams, callback);
   } else {
     alert(params.message);
     callback?.('ok');
@@ -187,8 +185,8 @@ export function showTelegramPopup(params: {
  * Закрыть WebApp
  */
 export function closeTelegramWebApp() {
-  if (WebApp) {
-    WebApp.close();
+  if (webAppSdk?.close) {
+    webAppSdk.close();
   }
 }
 
@@ -196,8 +194,8 @@ export function closeTelegramWebApp() {
  * Открыть ссылку
  */
 export function openTelegramLink(url: string) {
-  if (WebApp) {
-    WebApp.openLink(url);
+  if (webAppSdk?.openLink) {
+    webAppSdk.openLink(url);
   } else {
     window.open(url, '_blank');
   }
@@ -207,8 +205,8 @@ export function openTelegramLink(url: string) {
  * Включить кнопку "Закрыть" с подтверждением
  */
 export function enableClosingConfirmation() {
-  if (WebApp) {
-    WebApp.enableClosingConfirmation();
+  if (webAppSdk?.enableClosingConfirmation) {
+    webAppSdk.enableClosingConfirmation();
   }
 }
 
@@ -216,8 +214,8 @@ export function enableClosingConfirmation() {
  * Отключить кнопку "Закрыть" с подтверждением
  */
 export function disableClosingConfirmation() {
-  if (WebApp) {
-    WebApp.disableClosingConfirmation();
+  if (webAppSdk?.disableClosingConfirmation) {
+    webAppSdk.disableClosingConfirmation();
   }
 }
 

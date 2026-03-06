@@ -7,10 +7,11 @@
     "dev": "next dev",
     "build": "npm run prisma:generate && next build",
     "start": "next start",
+    "lint": "eslint src/ --max-warnings 0",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:push": "prisma db push --schema prisma/schema.prisma",
     "prisma:studio": "prisma studio",
-    "prisma:reset": "prisma migrate reset --force && prisma db push && console.log('Prisma reset completed')",
+    "prisma:reset": "prisma migrate reset --force && prisma db push",
     "prisma": "npm run prisma:generate && npm run prisma:push && npm run prisma:studio",
     "generate-api": "npx tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
     "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"
@@ -69,15 +70,18 @@
     "swagger-ui-react": "^5.31.0",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
-    "vaul": "1.1.2"
+    "vaul": "1.1.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/pg": "^8.10.2",
     "@tailwindcss/postcss": "4.1.12",
     "@types/node": "22.10.5",
+    "@types/pg": "^8.10.2",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "@types/swagger-ui-react": "^5.18.0",
+    "eslint": "^9.39.3",
+    "eslint-config-next": "^16.1.6",
     "openapi-typescript-codegen": "^0.30.0",
     "prisma": "^7.2.0",
     "tailwindcss": "4.1.12",

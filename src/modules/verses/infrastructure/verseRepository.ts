@@ -1,0 +1,858 @@
+import { prisma } from "@/lib/prisma";
+import { VerseStatus } from "@/generated/prisma";
+import { Prisma } from "@/generated/prisma/client";
+import type {
+  CatalogUserVerseProgressRecord,
+  CatalogVerseRecord,
+  TagRecord,
+  UserVerseRecord,
+  VerseRecord,
+  VerseAdminSummaryRecord,
+  VerseTagLinkRecord,
+  VerseTagRecord,
+} from "@/modules/verses/domain/Verse";
+
+function mapVerseRecord(row: { id: string; externalVerseId: string }): VerseRecord {
+  return {
+    id: row.id,
+    externalVerseId: row.externalVerseId,
+  };
+}
+
+function mapTagRecord(row: { id: string; slug: string; title: string }): TagRecord {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+  };
+}
+
+function mapCatalogVerseRecord(row: {
+  id: string;
+  externalVerseId: string;
+  createdAt: Date;
+  tags: Array<{
+    tag: {
+      id: string;
+      slug: string;
+      title: string;
+    };
+  }>;
+}): CatalogVerseRecord {
+  return {
+    id: row.id,
+    externalVerseId: row.externalVerseId,
+    createdAt: row.createdAt,
+    tags: row.tags.map((item) => mapTagRecord(item.tag)),
+  };
+}
+
+function mapCatalogUserVerseProgressRecord(row: {
+  verseId: string;
+  status: VerseStatus;
+  masteryLevel: number;
+  repetitions: number;
+  referenceScore: number;
+  incipitScore: number;
+  lastTrainingModeId: number | null;
+  lastReviewedAt: Date | null;
+  nextReviewAt: Date | null;
+}): CatalogUserVerseProgressRecord {
+  return {
+    verseId: row.verseId,
+    status: row.status,
+    masteryLevel: row.masteryLevel,
+    repetitions: row.repetitions,
+    referenceScore: row.referenceScore,
+    incipitScore: row.incipitScore,
+    lastTrainingModeId: row.lastTrainingModeId,
+    lastReviewedAt: row.lastReviewedAt,
+    nextReviewAt: row.nextReviewAt,
+  };
+}
+
+export function mapUserVerseRecord(
+  row: {
+    id: number;
+    telegramId: string;
+    verseId: string;
+    status: VerseStatus;
+    masteryLevel: number;
+    repetitions: number;
+    referenceScore: number;
+    incipitScore: number;
+    contextScore: number;
+    lastTrainingModeId: number | null;
+    lastReviewedAt: Date | null;
+    nextReviewAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    verse: { externalVerseId: string };
+  }
+): UserVerseRecord {
+  return {
+    id: row.id,
+    telegramId: row.telegramId,
+    verseId: row.verseId,
+    status: row.status,
+    masteryLevel: row.masteryLevel,
+    repetitions: row.repetitions,
+    referenceScore: row.referenceScore,
+    incipitScore: row.incipitScore,
+    contextScore: row.contextScore,
+    lastTrainingModeId: row.lastTrainingModeId,
+    lastReviewedAt: row.lastReviewedAt,
+    nextReviewAt: row.nextReviewAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    verse: {
+      externalVerseId: row.verse.externalVerseId,
+    },
+  };
+}
+
+export async function getVerseByExternalVerseId(
+  externalVerseId: string
+): Promise<VerseRecord | null> {
+  const verse = await prisma.verse.findUnique({
+    where: { externalVerseId },
+    select: {
+      id: true,
+      externalVerseId: true,
+    },
+  });
+
+  return verse ? mapVerseRecord(verse) : null;
+}
+
+export async function getVersesByIds(verseIds: string[]): Promise<VerseRecord[]> {
+  if (verseIds.length === 0) {
+    return [];
+  }
+
+  const verses = await prisma.verse.findMany({
+    where: {
+      id: {
+        in: verseIds,
+      },
+    },
+    select: {
+      id: true,
+      externalVerseId: true,
+    },
+  });
+
+  return verses.map(mapVerseRecord);
+}
+
+export async function countCatalogVerses(tagSlugs: string[]): Promise<number> {
+  const where =
+    tagSlugs.length > 0
+      ? {
+          tags: {
+            some: {
+              tag: {
+                slug: {
+                  in: tagSlugs,
+                },
+              },
+            },
+          },
+        }
+      : undefined;
+
+  return prisma.verse.count({ where });
+}
+
+export async function getCatalogVersesPage(params: {
+  tagSlugs: string[];
+  orderBy: "createdAt" | "bible" | "popularity";
+  order: "asc" | "desc";
+  startWith: number;
+  limit: number;
+}): Promise<CatalogVerseRecord[]> {
+  const where =
+    params.tagSlugs.length > 0
+      ? {
+          tags: {
+            some: {
+              tag: {
+                slug: {
+                  in: params.tagSlugs,
+                },
+              },
+            },
+          },
+        }
+      : undefined;
+
+  if (params.orderBy === "createdAt") {
+    const verses = await prisma.verse.findMany({
+      where,
+      orderBy: { createdAt: params.order },
+      skip: params.startWith,
+      take: params.limit,
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
+
+    return verses.map(mapCatalogVerseRecord);
+  }
+
+  if (params.orderBy === "popularity") {
+    const directionSql = params.order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+    const tagFilterSql =
+      params.tagSlugs.length > 0
+        ? Prisma.sql`
+            WHERE EXISTS (
+              SELECT 1
+              FROM "VerseTag" vt
+              INNER JOIN "Tag" t ON t.id = vt."tagId"
+              WHERE vt."verseId" = v.id
+                AND t.slug IN (${Prisma.join(params.tagSlugs)})
+            )
+          `
+        : Prisma.empty;
+
+    const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT v.id
+      FROM "Verse" v
+      LEFT JOIN "UserVerse" uv ON uv."verseId" = v.id
+      ${tagFilterSql}
+      GROUP BY v.id, v."createdAt"
+      ORDER BY COUNT(uv.id) ${directionSql}, v."createdAt" DESC, v.id ASC
+      OFFSET ${params.startWith}
+      LIMIT ${params.limit}
+    `);
+
+    const verseIds = rawRows.map((row) => row.id);
+    if (verseIds.length === 0) {
+      return [];
+    }
+
+    const verses = await prisma.verse.findMany({
+      where: {
+        id: {
+          in: verseIds,
+        },
+      },
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
+
+    const verseById = new Map(verses.map((verse) => [verse.id, verse] as const));
+    return verseIds
+      .map((verseId) => verseById.get(verseId))
+      .filter((verse): verse is (typeof verses)[number] => Boolean(verse))
+      .map(mapCatalogVerseRecord);
+  }
+
+  const directionSql = params.order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const tagFilterSql =
+    params.tagSlugs.length > 0
+      ? Prisma.sql`
+          WHERE EXISTS (
+            SELECT 1
+            FROM "VerseTag" vt
+            INNER JOIN "Tag" t ON t.id = vt."tagId"
+            WHERE vt."verseId" = v.id
+              AND t.slug IN (${Prisma.join(params.tagSlugs)})
+          )
+        `
+      : Prisma.empty;
+
+  const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT v.id
+    FROM "Verse" v
+    ${tagFilterSql}
+    ORDER BY
+      CAST(split_part(v."externalVerseId", '-', 1) AS integer) ${directionSql},
+      CAST(split_part(v."externalVerseId", '-', 2) AS integer) ${directionSql},
+      CAST(split_part(v."externalVerseId", '-', 3) AS integer) ${directionSql},
+      COALESCE(
+        NULLIF(split_part(v."externalVerseId", '-', 4), '')::integer,
+        CAST(split_part(v."externalVerseId", '-', 3) AS integer)
+      ) ${directionSql},
+      v.id ${directionSql}
+    OFFSET ${params.startWith}
+    LIMIT ${params.limit}
+  `);
+
+  const verseIds = rawRows.map((row) => row.id);
+  if (verseIds.length === 0) {
+    return [];
+  }
+
+  const verses = await prisma.verse.findMany({
+    where: {
+      id: {
+        in: verseIds,
+      },
+    },
+    include: {
+      tags: {
+        include: {
+          tag: true,
+        },
+      },
+    },
+  });
+
+  const verseById = new Map(verses.map((verse) => [verse.id, verse] as const));
+  return verseIds
+    .map((verseId) => verseById.get(verseId))
+    .filter((verse): verse is (typeof verses)[number] => Boolean(verse))
+    .map(mapCatalogVerseRecord);
+}
+
+export async function getGlobalOwnerCountByVerseIds(
+  verseIds: string[]
+): Promise<Map<string, number>> {
+  const uniqueVerseIds = Array.from(new Set(verseIds.filter(Boolean)));
+  if (uniqueVerseIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await prisma.userVerse.groupBy({
+    by: ["verseId"],
+    where: {
+      verseId: {
+        in: uniqueVerseIds,
+      },
+    },
+    _count: {
+      _all: true,
+    },
+  });
+
+  return new Map(
+    rows.map((row) => [row.verseId, Math.max(0, row._count._all ?? 0)] as const)
+  );
+}
+
+export async function getUserCatalogProgressByVerseIds(params: {
+  telegramId: string;
+  verseIds: string[];
+}): Promise<CatalogUserVerseProgressRecord[]> {
+  if (params.verseIds.length === 0) {
+    return [];
+  }
+
+  const rows = await prisma.userVerse.findMany({
+    where: {
+      telegramId: params.telegramId,
+      verseId: {
+        in: params.verseIds,
+      },
+    },
+    select: {
+      verseId: true,
+      status: true,
+      masteryLevel: true,
+      repetitions: true,
+      referenceScore: true,
+      incipitScore: true,
+      lastTrainingModeId: true,
+      lastReviewedAt: true,
+      nextReviewAt: true,
+    },
+  });
+
+  return rows.map(mapCatalogUserVerseProgressRecord);
+}
+
+export async function upsertCatalogVerse(
+  externalVerseId: string
+): Promise<VerseRecord> {
+  const verse = await prisma.verse.upsert({
+    where: { externalVerseId },
+    update: {},
+    create: { externalVerseId },
+    select: {
+      id: true,
+      externalVerseId: true,
+    },
+  });
+
+  return mapVerseRecord(verse);
+}
+
+export async function upsertUserVerseBinding(params: {
+  telegramId: string;
+  verseId: string;
+}): Promise<UserVerseRecord> {
+  const userVerse = await prisma.userVerse.upsert({
+    where: {
+      telegramId_verseId: {
+        telegramId: params.telegramId,
+        verseId: params.verseId,
+      },
+    },
+    update: {},
+    create: {
+      telegramId: params.telegramId,
+      verseId: params.verseId,
+      status: VerseStatus.MY,
+    },
+    include: {
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  return mapUserVerseRecord(userVerse);
+}
+
+export async function deleteUserVerseBinding(params: {
+  telegramId: string;
+  verseId: string;
+}): Promise<void> {
+  await prisma.userVerse.delete({
+    where: {
+      telegramId_verseId: {
+        telegramId: params.telegramId,
+        verseId: params.verseId,
+      },
+    },
+  });
+}
+
+export async function getVerseTagsByExternalVerseIds(
+  externalVerseIds: string[]
+): Promise<Map<string, VerseTagRecord[]>> {
+  const uniqueIds = Array.from(new Set(externalVerseIds.filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const links = await prisma.verseTag.findMany({
+    where: {
+      verse: {
+        externalVerseId: {
+          in: uniqueIds,
+        },
+      },
+    },
+    select: {
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+      tag: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: {
+      tag: {
+        title: "asc",
+      },
+    },
+  });
+
+  const tagsByVerseId = new Map<string, VerseTagRecord[]>();
+  for (const link of links) {
+    const externalVerseId = link.verse.externalVerseId;
+    const currentTags = tagsByVerseId.get(externalVerseId) ?? [];
+    currentTags.push({
+      externalVerseId,
+      id: link.tag.id,
+      slug: link.tag.slug,
+      title: link.tag.title,
+    });
+    tagsByVerseId.set(externalVerseId, currentTags);
+  }
+
+  return tagsByVerseId;
+}
+
+export async function getTagsForVerseExternalVerseId(
+  externalVerseId: string
+): Promise<TagRecord[]> {
+  const tags = await prisma.tag.findMany({
+    where: {
+      verses: {
+        some: {
+          verse: {
+            externalVerseId,
+          },
+        },
+      },
+    },
+    orderBy: {
+      title: "asc",
+    },
+  });
+
+  return tags.map(mapTagRecord);
+}
+
+export async function getTagBySlug(slug: string): Promise<TagRecord | null> {
+  const tag = await prisma.tag.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return tag ? mapTagRecord(tag) : null;
+}
+
+export async function getAllTags(): Promise<TagRecord[]> {
+  const tags = await prisma.tag.findMany({
+    orderBy: {
+      title: "asc",
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return tags.map(mapTagRecord);
+}
+
+export async function createTag(params: {
+  slug: string;
+  title: string;
+}): Promise<TagRecord> {
+  const tag = await prisma.tag.create({
+    data: {
+      slug: params.slug,
+      title: params.title,
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return mapTagRecord(tag);
+}
+
+export async function findTagByTitle(title: string): Promise<TagRecord | null> {
+  const tag = await prisma.tag.findFirst({
+    where: {
+      title,
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return tag ? mapTagRecord(tag) : null;
+}
+
+export async function updateTagTitle(params: {
+  id: string;
+  title: string;
+}): Promise<TagRecord> {
+  const tag = await prisma.tag.update({
+    where: {
+      id: params.id,
+    },
+    data: {
+      title: params.title,
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return mapTagRecord(tag);
+}
+
+export async function attachTagToVerse(params: {
+  verseId: string;
+  tagId: string;
+}): Promise<VerseTagLinkRecord> {
+  const link = await prisma.verseTag.upsert({
+    where: {
+      verseId_tagId: {
+        verseId: params.verseId,
+        tagId: params.tagId,
+      },
+    },
+    update: {},
+    create: {
+      verseId: params.verseId,
+      tagId: params.tagId,
+    },
+  });
+
+  return {
+    id: link.id,
+    verseId: link.verseId,
+    tagId: link.tagId,
+  };
+}
+
+export async function countVerseTagLinks(tagId: string): Promise<number> {
+  return prisma.verseTag.count({
+    where: { tagId },
+  });
+}
+
+export async function deleteTagById(tagId: string): Promise<boolean> {
+  const result = await prisma.tag.deleteMany({
+    where: { id: tagId },
+  });
+
+  return result.count > 0;
+}
+
+export async function removeTagFromVerse(params: {
+  verseId: string;
+  tagId: string;
+}): Promise<boolean> {
+  const result = await prisma.verseTag.deleteMany({
+    where: {
+      verseId: params.verseId,
+      tagId: params.tagId,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function findTagsByIds(tagIds: string[]): Promise<TagRecord[]> {
+  if (tagIds.length === 0) {
+    return [];
+  }
+
+  const tags = await prisma.tag.findMany({
+    where: {
+      id: {
+        in: tagIds,
+      },
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return tags.map(mapTagRecord);
+}
+
+export async function findTagsBySlugs(tagSlugs: string[]): Promise<TagRecord[]> {
+  if (tagSlugs.length === 0) {
+    return [];
+  }
+
+  const tags = await prisma.tag.findMany({
+    where: {
+      slug: {
+        in: tagSlugs,
+      },
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+    },
+  });
+
+  return tags.map(mapTagRecord);
+}
+
+export async function replaceVerseTags(params: {
+  verseId: string;
+  tagIds: string[];
+}): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.verseTag.deleteMany({
+      where: { verseId: params.verseId },
+    });
+
+    if (params.tagIds.length > 0) {
+      await tx.verseTag.createMany({
+        data: params.tagIds.map((tagId) => ({
+          verseId: params.verseId,
+          tagId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  });
+}
+
+export async function getVerseAdminSummary(
+  externalVerseId: string
+): Promise<VerseAdminSummaryRecord | null> {
+  const verse = await prisma.verse.findUnique({
+    where: { externalVerseId },
+    select: {
+      id: true,
+      externalVerseId: true,
+      _count: {
+        select: {
+          userVerses: true,
+          tags: true,
+        },
+      },
+    },
+  });
+
+  if (!verse) {
+    return null;
+  }
+
+  return {
+    verseId: verse.id,
+    externalVerseId: verse.externalVerseId,
+    userLinksCount: verse._count.userVerses,
+    tagLinksCount: verse._count.tags,
+    canDelete: verse._count.userVerses === 0,
+  };
+}
+
+export async function deleteCatalogVerseByExternalVerseId(
+  externalVerseId: string
+): Promise<boolean> {
+  const verse = await getVerseByExternalVerseId(externalVerseId);
+  if (!verse) {
+    return false;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.verseTag.deleteMany({
+      where: { verseId: verse.id },
+    });
+
+    await tx.verse.delete({
+      where: { id: verse.id },
+    });
+  });
+
+  return true;
+}
+
+export async function findUserVerses(params: {
+  telegramId: string;
+  where?: Record<string, unknown>;
+  orderBy?: Record<string, unknown>[];
+  skip?: number;
+  take?: number;
+}): Promise<UserVerseRecord[]> {
+  const rows = await prisma.userVerse.findMany({
+    where: {
+      telegramId: params.telegramId,
+      ...(params.where ?? {}),
+    },
+    ...(params.orderBy ? { orderBy: params.orderBy } : {}),
+    ...(typeof params.skip === "number" ? { skip: params.skip } : {}),
+    ...(typeof params.take === "number" ? { take: params.take } : {}),
+    include: {
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  return rows.map(mapUserVerseRecord);
+}
+
+export async function countUserVerses(params: {
+  telegramId: string;
+  where?: Record<string, unknown>;
+}): Promise<number> {
+  return prisma.userVerse.count({
+    where: {
+      telegramId: params.telegramId,
+      ...(params.where ?? {}),
+    },
+  });
+}
+
+export async function findUserVersesByVerseIds(params: {
+  telegramId: string;
+  verseIds: string[];
+}): Promise<UserVerseRecord[]> {
+  if (params.verseIds.length === 0) {
+    return [];
+  }
+
+  const rows = await prisma.userVerse.findMany({
+    where: {
+      telegramId: params.telegramId,
+      verseId: {
+        in: params.verseIds,
+      },
+    },
+    include: {
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  return rows.map(mapUserVerseRecord);
+}
+
+export async function getUserVerseByExternalVerseId(params: {
+  telegramId: string;
+  externalVerseId: string;
+}): Promise<{ verse: VerseRecord | null; userVerse: UserVerseRecord | null }> {
+  const verse = await prisma.verse.findUnique({
+    where: { externalVerseId: params.externalVerseId },
+    select: {
+      id: true,
+      externalVerseId: true,
+    },
+  });
+  if (!verse) {
+    return { verse: null, userVerse: null };
+  }
+
+  const userVerse = await prisma.userVerse.findUnique({
+    where: {
+      telegramId_verseId: {
+        telegramId: params.telegramId,
+        verseId: verse.id,
+      },
+    },
+    include: {
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  return {
+    verse: mapVerseRecord(verse),
+    userVerse: userVerse ? mapUserVerseRecord(userVerse) : null,
+  };
+}

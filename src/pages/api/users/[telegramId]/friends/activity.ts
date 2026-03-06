@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
+import { getFollowedUsers } from "@/modules/users/infrastructure/userRepository";
 import {
   assertUserExists,
   buildFriendMetricsMap,
@@ -29,22 +29,7 @@ export default async function handler(
     await assertUserExists(telegramId);
     const limit = parseActivityLimit(req.query);
 
-    const friends = await prisma.user.findMany({
-      where: {
-        followers: {
-          some: {
-            followerTelegramId: telegramId,
-          },
-        },
-      },
-      select: {
-        telegramId: true,
-        name: true,
-        nickname: true,
-        avatarUrl: true,
-        dailyStreak: true,
-      },
-    });
+    const friends = await getFollowedUsers(telegramId);
 
     const metricsByTelegramId = await buildFriendMetricsMap(friends);
     return res.status(200).json(
@@ -66,4 +51,3 @@ export default async function handler(
     });
   }
 }
-

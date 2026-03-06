@@ -20,6 +20,8 @@ import {
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
@@ -35,6 +37,8 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { toast } from "@/app/lib/toast";
+import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
+import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 
 type ReferenceTrainerProps = {
   telegramId: string | null;
@@ -158,7 +162,7 @@ function randomFloat() {
     if (maybeCrypto?.getRandomValues) {
       const values = new Uint32Array(1);
       maybeCrypto.getRandomValues(values);
-      return values[0] / 4294967296;
+      return (values[0] ?? 0) / 4294967296;
     }
   }
   return Math.random();
@@ -178,7 +182,7 @@ function shuffle<T>(source: T[]) {
   const next = [...source];
   for (let index = next.length - 1; index > 0; index -= 1) {
     const swapIndex = randomInt(index + 1);
-    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+    swapArrayItems(next, index, swapIndex);
   }
   return next;
 }
@@ -206,31 +210,6 @@ function normalizeIncipitText(value: string) {
 function extractWordTokens(value: string): string[] {
   const matches = value.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu);
   return matches ? matches.map((token) => token.trim()).filter(Boolean) : [];
-}
-
-function levenshteinDistance(left: string, right: string) {
-  const source = Array.from(left);
-  const target = Array.from(right);
-
-  if (source.length === 0) return target.length;
-  if (target.length === 0) return source.length;
-
-  let prev = Array.from({ length: target.length + 1 }, (_, index) => index);
-
-  for (let i = 1; i <= source.length; i += 1) {
-    const curr: number[] = [i];
-    for (let j = 1; j <= target.length; j += 1) {
-      const substitutionCost = source[i - 1] === target[j - 1] ? 0 : 1;
-      curr[j] = Math.min(
-        prev[j] + 1,
-        curr[j - 1] + 1,
-        prev[j - 1] + substitutionCost
-      );
-    }
-    prev = curr;
-  }
-
-  return prev[target.length] ?? 0;
 }
 
 function parseReferenceParts(reference: string): {
@@ -317,15 +296,6 @@ type TypeInputReadiness = {
   remainingChars: number;
 };
 
-function getSimilarityRatio(left: string, right: string): number {
-  const leftLength = Array.from(left).length;
-  const rightLength = Array.from(right).length;
-  const maxLength = Math.max(leftLength, rightLength);
-  if (maxLength === 0) return 1;
-  const distance = levenshteinDistance(left, right);
-  return Math.max(0, 1 - distance / maxLength);
-}
-
 function getExpectedWordPrefixMatch(input: string, expected: string): boolean {
   const expectedTokens = expected.split(" ").filter(Boolean);
   const inputTokens = input.split(" ").filter(Boolean);
@@ -355,7 +325,7 @@ function evaluateIncipitInput(input: string, expected: string): TypeInputEvaluat
     return { isCorrect: true, acceptedWithTolerance: true };
   }
 
-  const similarity = getSimilarityRatio(normalizedInput, normalizedExpected);
+  const similarity = similarityRatio(normalizedInput, normalizedExpected);
   if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
     return { isCorrect: true, acceptedWithTolerance: true };
   }
@@ -372,7 +342,6 @@ function buildContextPrompt(verse: ReferenceVerse): string {
   const promptReference = verse.contextPromptReference.trim();
   if (!promptText) return "";
   if (!promptReference) return promptText;
-  // return `${promptReference}\n${promptText}`;
   return `${promptText}`;
 }
 
@@ -416,7 +385,7 @@ function evaluateContextPrefixInput(
     return { isCorrect: true, acceptedWithTolerance: true };
   }
 
-  const similarity = getSimilarityRatio(joinedInput, joinedExpected);
+  const similarity = similarityRatio(joinedInput, joinedExpected);
   if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
     return { isCorrect: true, acceptedWithTolerance: true };
   }
@@ -1228,6 +1197,17 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
     [markIntroAsSeen]
   );
 
+  const handleTelegramBack = useCallback(() => {
+    if (!isIntroDialogOpen) return;
+    handleIntroDialogOpenChange(false);
+  }, [handleIntroDialogOpenChange, isIntroDialogOpen]);
+
+  useTelegramBackButton({
+    enabled: isIntroDialogOpen,
+    onBack: handleTelegramBack,
+    priority: 50,
+  });
+
   const currentQuestion = questions[currentQuestionIndex] ?? null;
   const answeredCount = results.length;
   const correctCount = useMemo(
@@ -1568,8 +1548,7 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tg = (window as any).Telegram?.WebApp;
+    const tg = getTelegramWebApp();
     const vv = window.visualViewport;
 
     const handleViewportChange = () => {
@@ -1592,10 +1571,10 @@ export function ReferenceTrainer({ telegramId }: ReferenceTrainerProps) {
 
     handleViewportChange();
     vv?.addEventListener("resize", handleViewportChange);
-    tg?.onEvent("viewportChanged", handleViewportChange);
+    tg?.onEvent?.("viewportChanged", handleViewportChange);
     return () => {
       vv?.removeEventListener("resize", handleViewportChange);
-      tg?.offEvent("viewportChanged", handleViewportChange);
+      tg?.offEvent?.("viewportChanged", handleViewportChange);
     };
   }, []);
 

@@ -52,18 +52,12 @@ export function useVerseListController({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
 }: UseVerseListControllerParams): VerseListController {
-  const debugInfiniteScroll = useCallback<DebugInfiniteScroll>((event, payload) => {
-    if (process.env.NODE_ENV === 'production') return;
-    if (process.env.NEXT_PUBLIC_DEBUG_INFINITE_SCROLL !== '1') return;
-    console.log('[VerseList][infinite]', event, payload ?? {});
-  }, []);
+  const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
 
   const [searchQuery, setSearchQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
     return window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? '';
   });
-  const [testamentFilter] = useState<'catalog' | 'OT' | 'NT'>('catalog');
-  const [masteryFilter] = useState<'catalog' | 'low' | 'medium' | 'high'>('catalog');
   const tagFilter = useTagFilter();
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
     if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
@@ -239,32 +233,22 @@ export function useVerseListController({
   ]);
 
   const filteredVerses = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     const useClientTextSearch = statusFilter === 'catalog';
-    return pagination.verses.filter((v) => {
-      const matchStatus = matchesListFilter(v, statusFilter);
-      const matchSearch =
-        !q ||
+    return pagination.verses.filter((verse) => {
+      const matchesStatus = matchesListFilter(verse, statusFilter);
+      const matchesSearch =
+        !normalizedQuery ||
         !useClientTextSearch ||
-        v.reference.toLowerCase().includes(q) ||
-        v.text.toLowerCase().includes(q);
-      const matchTestament = testamentFilter === 'catalog' || (v as any).testament === testamentFilter;
-      const matchMastery =
-        masteryFilter === 'catalog' ||
-        (masteryFilter === 'low' && (v as any).masteryLevel < 40) ||
-        (masteryFilter === 'medium' &&
-          (v as any).masteryLevel >= 40 &&
-          (v as any).masteryLevel < 75) ||
-        (masteryFilter === 'high' && (v as any).masteryLevel >= 75);
-      return matchStatus && matchSearch && matchTestament && matchMastery;
+        verse.reference.toLowerCase().includes(normalizedQuery) ||
+        verse.text.toLowerCase().includes(normalizedQuery);
+
+      return matchesStatus && matchesSearch;
     });
-  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery, testamentFilter, masteryFilter]);
+  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery]);
 
   const hasLocalClientSearchActive = statusFilter === 'catalog' && searchQuery.trim().length > 0;
-  const hasLocalClientFiltersActive =
-    hasLocalClientSearchActive ||
-    testamentFilter !== 'catalog' ||
-    masteryFilter !== 'catalog';
+  const hasLocalClientFiltersActive = hasLocalClientSearchActive;
 
   const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
   const masteredVerses = useMemo(
@@ -309,16 +293,6 @@ export function useVerseListController({
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
 
-  const dueNowCount = useMemo(
-    () =>
-      learningVerses.filter((verse) => {
-        if (!verse.nextReviewAt) return true;
-        const date = new Date(verse.nextReviewAt);
-        return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
-      }).length,
-    [learningVerses]
-  );
-
   const getRevealProps = useCallback(
     (delay = 0) => {
       if (shouldReduceMotion) return {};
@@ -359,7 +333,7 @@ export function useVerseListController({
     [actions, openVerseInGallery]
   );
 
-  const onLoadMoreRows = useCallback(
+  const handleLoadMoreRows = useCallback(
     async (range: VerseListLoadRange) => {
       if (hasLocalClientFiltersActive) {
         debugInfiniteScroll('virtualized-loadMoreRows-skip:local-filters', { range });
@@ -381,19 +355,19 @@ export function useVerseListController({
     ]
   );
 
-  const onRetryLoadMore = useCallback(async () => {
+  const handleRetryLoadMore = useCallback(async () => {
     await pagination.fetchNextPage({ source: 'manual' });
   }, [pagination.fetchNextPage]);
 
-  const onAddVerseClick = useCallback(() => {
+  const handleAddVerseClick = useCallback(() => {
     haptic('medium');
     onAddVerse();
   }, [onAddVerse]);
 
-  const onTabClick = useCallback((filter: VerseListStatusFilter, label: string) => {
-    if (statusFilter === filter) return;
+  const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
+    if (statusFilter === nextFilter) return;
     haptic('light');
-    setStatusFilter(filter);
+    setStatusFilter(nextFilter);
     setAnnouncement(`Фильтр: ${label}`);
   }, [statusFilter]);
 
@@ -407,14 +381,14 @@ export function useVerseListController({
     [isMyScopeFilter]
   );
 
-  const onSortChange = useCallback((nextSortBy: VerseListSortBy, label: string) => {
+  const handleSortChange = useCallback((nextSortBy: VerseListSortBy, label: string) => {
     if (sortBy === nextSortBy) return;
     haptic('light');
     setSortBy(nextSortBy);
     setAnnouncement(`Сортировка: ${label}`);
   }, [sortBy]);
 
-  const onResetFilters = useCallback(() => {
+  const handleResetFilters = useCallback(() => {
     const hasChanges =
       statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
       sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
@@ -517,7 +491,7 @@ export function useVerseListController({
         tintClassName: 'bg-sky-500/5',
       },
     };
-  }, [statusFilter, learningVerses, dueNowCount, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);
+  }, [statusFilter, learningVerses, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);
 
   const listItems = statusFilter === 'catalog'
     ? hasLocalClientFiltersActive
@@ -577,23 +551,23 @@ export function useVerseListController({
       renderVerseRow,
       getItemKey: actions.getVerseKey,
       getItemLayoutSignature: getVerseCardLayoutSignature,
-      onLoadMoreRows,
+      onLoadMoreRows: handleLoadMoreRows,
       debugInfiniteScroll,
     },
     header: {
-      onAddVerseClick,
+      onAddVerseClick: handleAddVerseClick,
     },
     filterTabs: {
-      onTabClick,
-      onSortChange,
-      onResetFilters,
+      onTabClick: handleTabClick,
+      onSortChange: handleSortChange,
+      onResetFilters: handleResetFilters,
     },
     footerLoadState: {
-      onRetryLoadMore,
+      onRetryLoadMore: handleRetryLoadMore,
     },
     modal: {
       deleteTargetVerse: actions.deleteTargetVerse,
-      deleteSubmitting: actions.deleteSubmitting,
+      isDeleteSubmitting: actions.isDeleteSubmitting,
       setDeleteTargetVerse: actions.setDeleteTargetVerse,
       onConfirmDelete: actions.handleConfirmDeleteVerse,
     },

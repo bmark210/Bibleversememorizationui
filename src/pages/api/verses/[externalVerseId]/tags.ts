@@ -1,9 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@/lib/prisma";
+import {
+  attachTagToVerse,
+  countVerseTagLinks,
+  deleteTagById,
+  findTagsByIds,
+  findTagsBySlugs,
+  getTagBySlug,
+  getTagsForVerseExternalVerseId,
+  getVerseByExternalVerseId,
+  removeTagFromVerse,
+  replaceVerseTags,
+} from "@/modules/verses/infrastructure/verseRepository";
 import {
   canonicalizeExternalVerseId,
   MAX_EXTERNAL_VERSE_RANGE_SIZE,
 } from "@/shared/bible/externalVerseId";
+import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type ModifyTagPayload = {
   tagId?: string;
@@ -25,10 +37,7 @@ async function resolveTagId(payload: ModifyTagPayload) {
   }
 
   if (payload.tagSlug) {
-    const tag = await prisma.tag.findUnique({
-      where: { slug: payload.tagSlug },
-      select: { id: true },
-    });
+    const tag = await getTagBySlug(payload.tagSlug);
     return tag?.id;
   }
 
@@ -37,10 +46,7 @@ async function resolveTagId(payload: ModifyTagPayload) {
 
 // VerseTag now references Verse.id (verseId FK), so we resolve externalVerseId → Verse first
 async function resolveVerseId(externalVerseId: string): Promise<string | null> {
-  const verse = await prisma.verse.findUnique({
-    where: { externalVerseId },
-    select: { id: true },
-  });
+  const verse = await getVerseByExternalVerseId(externalVerseId);
   return verse?.id ?? null;
 }
 
@@ -81,16 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(res: NextApiResponse, externalVerseId: string) {
   // Возвращает список тегов, связанных с указанным стихом.
   try {
-    const tags = await prisma.tag.findMany({
-      where: {
-        verses: {
-          some: {
-            verse: { externalVerseId },
-          },
-        },
-      },
-      orderBy: { title: "asc" },
-    });
+    const tags = await getTagsForVerseExternalVerseId(externalVerseId);
 
     const collator = new Intl.Collator(["ru", "en"], {
       sensitivity: "base",
@@ -101,11 +98,10 @@ async function handleGet(res: NextApiResponse, externalVerseId: string) {
 
     return res.status(200).json(tags);
   } catch (error) {
-    console.error("Error fetching verse tags:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -124,27 +120,14 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, externalVer
       return res.status(404).json({ error: "Verse not found" });
     }
 
-    const link = await prisma.verseTag.upsert({
-      where: {
-        verseId_tagId: {
-          verseId,
-          tagId,
-        },
-      },
-      update: {},
-      create: {
-        verseId,
-        tagId,
-      },
-    });
+    const link = await attachTagToVerse({ verseId, tagId });
 
     return res.status(201).json(link);
   } catch (error) {
-    console.error("Error creating verse tag:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -159,9 +142,7 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
     }
 
     if (body?.deleteTagIfUnused) {
-      const linksCount = await prisma.verseTag.count({
-        where: { tagId },
-      });
+      const linksCount = await countVerseTagLinks(tagId);
 
       if (linksCount > 0) {
         return res.status(409).json({
@@ -170,20 +151,12 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
         });
       }
 
-      try {
-        await prisma.tag.delete({
-          where: { id: tagId },
-        });
-        return res.status(200).json({ ok: true, deletedTagId: tagId });
-      } catch (deleteError) {
-        const isNotFound =
-          deleteError instanceof Error &&
-          deleteError.message.includes("Record to delete does not exist");
-        if (isNotFound) {
-          return res.status(404).json({ error: "Tag not found" });
-        }
-        throw deleteError;
+      const deleted = await deleteTagById(tagId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Tag not found" });
       }
+
+      return res.status(200).json({ ok: true, deletedTagId: tagId });
     }
 
     const verseId = await resolveVerseId(externalVerseId);
@@ -191,22 +164,17 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
       return res.status(404).json({ error: "Verse not found" });
     }
 
-    await prisma.verseTag.delete({
-      where: {
-        verseId_tagId: {
-          verseId,
-          tagId,
-        },
-      },
-    });
+    const removed = await removeTagFromVerse({ verseId, tagId });
+    if (!removed) {
+      throw new Error("Verse tag link not found");
+    }
 
     return res.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Error deleting verse tag:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -230,20 +198,14 @@ async function resolveTagIdsForReplace(payload: ReplaceVerseTagsPayload): Promis
   let missingTagSlugs: string[] = [];
 
   if (tagIdsFromBody.length > 0) {
-    const byIds = await prisma.tag.findMany({
-      where: { id: { in: tagIdsFromBody } },
-      select: { id: true },
-    });
+    const byIds = await findTagsByIds(tagIdsFromBody);
     byIds.forEach((tag) => resolvedTagIds.add(tag.id));
     const existingIds = new Set(byIds.map((tag) => tag.id));
     missingTagIds = tagIdsFromBody.filter((id) => !existingIds.has(id));
   }
 
   if (tagSlugsFromBody.length > 0) {
-    const bySlugs = await prisma.tag.findMany({
-      where: { slug: { in: tagSlugsFromBody } },
-      select: { id: true, slug: true },
-    });
+    const bySlugs = await findTagsBySlugs(tagSlugsFromBody);
     bySlugs.forEach((tag) => resolvedTagIds.add(tag.id));
     const existingSlugs = new Set(bySlugs.map((tag) => tag.slug));
     missingTagSlugs = tagSlugsFromBody.filter((slug) => !existingSlugs.has(slug));
@@ -274,40 +236,17 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, externalVers
       });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.verseTag.deleteMany({
-        where: { verseId },
-      });
-
-      if (tagIds.length > 0) {
-        await tx.verseTag.createMany({
-          data: tagIds.map((tagId) => ({
-            verseId,
-            tagId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-    });
-
-    const tags = await prisma.tag.findMany({
-      where: {
-        verses: {
-          some: { verseId },
-        },
-      },
-      orderBy: { title: "asc" },
-    });
+    await replaceVerseTags({ verseId, tagIds });
+    const tags = await getTagsForVerseExternalVerseId(externalVerseId);
 
     return res.status(200).json({
       ok: true,
       tags,
     });
   } catch (error) {
-    console.error("Error replacing verse tags:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    return handleApiError(
+      res,
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

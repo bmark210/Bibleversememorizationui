@@ -1,10 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import type { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getFollowingTelegramIdsInSet } from "@/modules/social/infrastructure/socialRepository";
+import {
+  countUsers,
+  getUsersPage,
+} from "@/modules/users/infrastructure/userRepository";
 import {
   assertUserExists,
   buildFriendMetricsMap,
-  buildUserSearchWhere,
   FriendsApiError,
   mapUsersToFriendListItems,
   parseFriendsListQuery,
@@ -31,46 +33,26 @@ export default async function handler(
     await assertUserExists(telegramId);
     const query = parseFriendsListQuery(req.query);
 
-    const searchWhere = buildUserSearchWhere(query.search);
-    const where: Prisma.UserWhereInput = searchWhere
-      ? {
-          AND: [{ telegramId: { not: telegramId } }, searchWhere],
-        }
-      : { telegramId: { not: telegramId } };
-
     const [users, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip: query.startWith,
-        take: query.limit,
-        orderBy: [{ createdAt: "desc" }, { telegramId: "asc" }],
-        select: {
-          telegramId: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-          dailyStreak: true,
-        },
+      getUsersPage({
+        excludeTelegramId: telegramId,
+        search: query.search,
+        startWith: query.startWith,
+        limit: query.limit,
       }),
-      prisma.user.count({ where }),
+      countUsers({
+        excludeTelegramId: telegramId,
+        search: query.search,
+      }),
     ]);
 
     const playerTelegramIds = users.map((user) => user.telegramId);
-    const follows = await prisma.userFollow.findMany({
-      where: {
-        followerTelegramId: telegramId,
-        followingTelegramId: {
-          in: playerTelegramIds,
-        },
-      },
-      select: {
-        followingTelegramId: true,
-      },
+    const followingTelegramIds = await getFollowingTelegramIdsInSet({
+      followerTelegramId: telegramId,
+      candidateTelegramIds: playerTelegramIds,
     });
 
-    const friendTelegramIds = new Set(
-      follows.map((follow) => follow.followingTelegramId)
-    );
+    const friendTelegramIds = new Set(followingTelegramIds);
     const metricsByTelegramId = await buildFriendMetricsMap(users);
     const items = mapUsersToFriendListItems({
       users,
@@ -96,4 +78,3 @@ export default async function handler(
     });
   }
 }
-

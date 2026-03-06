@@ -27,6 +27,7 @@ import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
 import type { VerseListStatusFilter } from "./verse-list/constants";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 
@@ -120,6 +121,44 @@ export function VerseList({
   const shouldReduceMotion = vm.ui.shouldReduceMotion;
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
+  const isDeleteModalOpen =
+    vm.modal.deleteTargetVerse !== null && !vm.modal.isDeleteSubmitting;
+  const isGalleryOpen = vm.gallery.galleryIndex !== null;
+
+  const handleTelegramBack = useCallback(() => {
+    if (addDialogOpen) {
+      setAddDialogOpen(false);
+      return;
+    }
+
+    if (isDeleteModalOpen) {
+      vm.modal.setDeleteTargetVerse(null);
+      return;
+    }
+
+    if (isGalleryOpen) {
+      vm.gallery.onClose();
+      return;
+    }
+
+    if (isAboutDialogOpen) {
+      handleAboutDialogOpenChange(false);
+    }
+  }, [
+    addDialogOpen,
+    handleAboutDialogOpenChange,
+    isAboutDialogOpen,
+    isDeleteModalOpen,
+    isGalleryOpen,
+    vm.gallery,
+    vm.modal,
+  ]);
+
+  useTelegramBackButton({
+    enabled: addDialogOpen || isDeleteModalOpen || isGalleryOpen || isAboutDialogOpen,
+    onBack: handleTelegramBack,
+    priority: 60,
+  });
 
   const listContent =
     visibleListItems.length > 0 ? (
@@ -141,14 +180,6 @@ export function VerseList({
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
-
-  const footerVisible = Boolean(
-    !vm.ui.isListLoading &&
-    !vm.pagination.isFetchingMoreVerses &&
-    (vm.pagination.verses.length > 0 ||
-      vm.pagination.hasMoreVerses ||
-      vm.pagination.loadMoreError),
-  );
 
   return (
     <>
@@ -316,12 +347,12 @@ export function VerseList({
           verse={vm.modal.deleteTargetVerse}
           open={vm.modal.deleteTargetVerse !== null}
           onOpenChange={(open) => {
-            if (!open && !vm.modal.deleteSubmitting) {
+            if (!open && !vm.modal.isDeleteSubmitting) {
               vm.modal.setDeleteTargetVerse(null);
             }
           }}
           onConfirm={vm.modal.onConfirmDelete}
-          isSubmitting={vm.modal.deleteSubmitting}
+          isSubmitting={vm.modal.isDeleteSubmitting}
         />
 
         {vm.gallery.galleryIndex !== null &&

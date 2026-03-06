@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 
-import { Button } from '../../ui/button';
+import { Button } from "@/app/components/ui/button";
 import type { TrainingModeRating } from './types';
 
 export type TrainingRatingStage = 'learning' | 'review';
@@ -46,21 +46,6 @@ function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
   ];
 }
 
-// function getModeHint(stage: TrainingRatingStage, mode: TrainingRatingMode): string | null {
-//   if (stage !== 'review') return null;
-
-//   if (mode === 'first-letters') {
-//     return 'Повторение: оценивайте строго, даже если справились через шаги.';
-//   }
-//   if (mode === 'full-recall') {
-//     return 'Повторение: ориентир на точное воспроизведение полного текста.';
-//   }
-//   if (mode === 'voice-recall') {
-//     return 'Повторение: учитывайте чистоту речи и точность распознавания.';
-//   }
-//   return 'Повторение: оценка влияет на следующий интервал повторения.';
-// }
-
 export function resolveTrainingRatingStage(status: string | null | undefined): TrainingRatingStage {
   const normalized = String(status ?? '').toUpperCase();
   return normalized === 'REVIEW' || normalized === 'MASTERED' ? 'review' : 'learning';
@@ -68,11 +53,10 @@ export function resolveTrainingRatingStage(status: string | null | undefined): T
 
 export function TrainingRatingButtons({
   stage,
-  mode = 'default',
+  mode: _mode = 'default',
   onRate,
 }: TrainingRatingButtonsProps) {
   const buttons = getStageButtons(stage);
-  // const modeHint = getModeHint(stage, mode);
   const title =
     stage === 'review'
       ? 'Результат повторения'

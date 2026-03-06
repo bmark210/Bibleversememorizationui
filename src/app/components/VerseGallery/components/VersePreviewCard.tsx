@@ -24,7 +24,7 @@ import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
 
 type Props = {
   verse: Verse;
-  actionPending: boolean;
+  isActionPending: boolean;
   activeTagSlugs?: Iterable<string> | null;
   onStartTraining: () => void;
   onStatusAction: () => void;
@@ -32,7 +32,7 @@ type Props = {
 
 export function VersePreviewCard({
   verse,
-  actionPending,
+  isActionPending,
   activeTagSlugs = null,
   onStartTraining,
   onStatusAction,
@@ -154,7 +154,7 @@ export function VersePreviewCard({
               primaryAction?.className
             )}
             onClick={primaryAction?.onClick}
-            disabled={actionPending || Boolean(primaryAction?.disabled)}
+            disabled={isActionPending || Boolean(primaryAction?.disabled)}
             aria-label={primaryAction?.ariaLabel}
           >
             {primaryAction ? <primaryAction.icon className="h-4 w-4" /> : null}

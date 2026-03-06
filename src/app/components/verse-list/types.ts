@@ -104,7 +104,7 @@ export type VerseListController = {
   };
   modal: {
     deleteTargetVerse: Verse | null;
-    deleteSubmitting: boolean;
+    isDeleteSubmitting: boolean;
     setDeleteTargetVerse: (verse: Verse | null) => void;
     onConfirmDelete: () => Promise<void>;
   };

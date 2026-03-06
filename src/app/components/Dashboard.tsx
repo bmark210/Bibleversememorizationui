@@ -52,8 +52,8 @@ export function Dashboard({
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
   onViewAll,
-  canOpenReferences = false,
-  onOpenReferences,
+  canOpenReferences: _canOpenReferences = false,
+  onOpenReferences: _onOpenReferences,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
