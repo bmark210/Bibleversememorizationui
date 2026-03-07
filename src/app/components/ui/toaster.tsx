@@ -14,26 +14,21 @@ const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
       gap={8}
       style={
         {
-          "--normal-bg":
-            "linear-gradient(140deg, color-mix(in srgb, var(--card) 92%, var(--primary) 8%) 0%, color-mix(in srgb, var(--background) 90%, var(--accent) 10%) 100%)",
-          "--normal-border": "color-mix(in srgb, var(--border) 78%, var(--primary) 22%)",
-          "--normal-text": "var(--foreground)",
-          "--success-bg":
-            "linear-gradient(140deg, color-mix(in srgb, var(--success) 28%, var(--card) 72%) 0%, color-mix(in srgb, var(--background) 86%, var(--success) 14%) 100%)",
-          "--success-border": "color-mix(in srgb, var(--success) 58%, var(--border) 42%)",
-          "--success-text": "color-mix(in srgb, var(--success) 72%, var(--foreground) 28%)",
-          "--error-bg":
-            "linear-gradient(140deg, color-mix(in srgb, var(--destructive) 24%, var(--card) 76%) 0%, color-mix(in srgb, var(--background) 86%, var(--destructive) 14%) 100%)",
-          "--error-border": "color-mix(in srgb, var(--destructive) 54%, var(--border) 46%)",
-          "--error-text": "color-mix(in srgb, var(--destructive) 76%, var(--foreground) 24%)",
-          "--info-bg":
-            "linear-gradient(140deg, color-mix(in srgb, var(--accent) 24%, var(--card) 76%) 0%, color-mix(in srgb, var(--background) 84%, var(--primary) 16%) 100%)",
-          "--info-border": "color-mix(in srgb, var(--accent) 55%, var(--border) 45%)",
-          "--info-text": "color-mix(in srgb, var(--foreground) 78%, var(--primary) 22%)",
-          "--warning-bg":
-            "linear-gradient(140deg, color-mix(in srgb, var(--primary) 27%, var(--card) 73%) 0%, color-mix(in srgb, var(--background) 82%, var(--accent) 18%) 100%)",
-          "--warning-border": "color-mix(in srgb, var(--primary) 56%, var(--border) 44%)",
-          "--warning-text": "color-mix(in srgb, var(--foreground) 72%, var(--primary) 28%)",
+          "--normal-bg": "var(--toast-normal-bg)",
+          "--normal-border": "var(--toast-normal-border)",
+          "--normal-text": "var(--toast-normal-text)",
+          "--success-bg": "var(--toast-success-bg)",
+          "--success-border": "var(--toast-success-border)",
+          "--success-text": "var(--toast-success-text)",
+          "--error-bg": "var(--toast-error-bg)",
+          "--error-border": "var(--toast-error-border)",
+          "--error-text": "var(--toast-error-text)",
+          "--info-bg": "var(--toast-info-bg)",
+          "--info-border": "var(--toast-info-border)",
+          "--info-text": "var(--toast-info-text)",
+          "--warning-bg": "var(--toast-warning-bg)",
+          "--warning-border": "var(--toast-warning-border)",
+          "--warning-text": "var(--toast-warning-text)",
         } as React.CSSProperties
       }
       toastOptions={{

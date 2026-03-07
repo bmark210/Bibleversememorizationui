@@ -38,6 +38,7 @@ const SEARCH_DEBOUNCE_MS = 280;
 
 interface ProfileProps {
   theme: Theme;
+  isThemeManagedByTelegram?: boolean;
   onToggleTheme: () => void;
   telegramId?: string | null;
   onFriendsChanged?: () => void;
@@ -77,6 +78,7 @@ function formatRelativeLastActive(value: string | null): string {
 
 export function Profile({
   theme,
+  isThemeManagedByTelegram = false,
   onToggleTheme,
   telegramId = null,
   onFriendsChanged,
@@ -350,8 +352,9 @@ export function Profile({
                       Тема приложения
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Сейчас активна {theme === "dark" ? "тёмная" : "светлая"}{" "}
-                      тема.
+                      {isThemeManagedByTelegram
+                        ? "В Telegram тема синхронизируется с настройками Telegram."
+                        : `Сейчас активна ${theme === "dark" ? "тёмная" : "светлая"} тема.`}
                     </p>
                   </div>
 
@@ -360,6 +363,7 @@ export function Profile({
                     variant="outline"
                     size="sm"
                     onClick={onToggleTheme}
+                    disabled={isThemeManagedByTelegram}
                     className="gap-2 text-foreground/75 rounded-full border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60"
                     aria-label={`Переключить на ${theme === "light" ? "тёмную" : "светлую"} тему`}
                   >
@@ -369,7 +373,7 @@ export function Profile({
                     <Moon
                       className={`w-4 h-4 ${theme === "dark" ? "block" : "hidden"}`}
                     />
-                    <span>{theme === "dark" ? "Тёмная" : "Светлая"}</span>
+                    <span>{isThemeManagedByTelegram ? "Telegram" : theme === "dark" ? "Тёмная" : "Светлая"}</span>
                   </Button>
                 </div>
               </div>

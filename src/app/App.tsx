@@ -158,6 +158,49 @@ const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string;
     bottomBar: "#24201a",
   },
 };
+const TELEGRAM_THEME_PARAM_TO_CSS_VAR: Record<string, string> = {
+  accent_text_color: "--tg-theme-accent-text-color",
+  bg_color: "--tg-theme-bg-color",
+  bottom_bar_bg_color: "--tg-theme-bottom-bar-bg-color",
+  button_color: "--tg-theme-button-color",
+  button_text_color: "--tg-theme-button-text-color",
+  destructive_text_color: "--tg-theme-destructive-text-color",
+  header_bg_color: "--tg-theme-header-bg-color",
+  hint_color: "--tg-theme-hint-color",
+  link_color: "--tg-theme-link-color",
+  secondary_bg_color: "--tg-theme-secondary-bg-color",
+  section_bg_color: "--tg-theme-section-bg-color",
+  section_header_text_color: "--tg-theme-section-header-text-color",
+  section_separator_color: "--tg-theme-section-separator-color",
+  subtitle_text_color: "--tg-theme-subtitle-text-color",
+  text_color: "--tg-theme-text-color",
+};
+
+function isTelegramEnvironment() {
+  return typeof window !== "undefined" && getTelegramWebApp() != null;
+}
+
+function normalizeTelegramThemeColor(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function applyTelegramThemeParamsToDocument() {
+  if (typeof document === "undefined") return;
+
+  const themeParams = getTelegramWebApp()?.themeParams ?? {};
+  const rootStyle = document.documentElement.style;
+
+  for (const [themeParamKey, cssVarName] of Object.entries(TELEGRAM_THEME_PARAM_TO_CSS_VAR)) {
+    const color = normalizeTelegramThemeColor(themeParams[themeParamKey]);
+    if (color) {
+      rootStyle.setProperty(cssVarName, color);
+    } else {
+      rootStyle.removeProperty(cssVarName);
+    }
+  }
+}
 
 function readStoredTheme(): Theme | null {
   if (typeof window === "undefined") return null;
@@ -170,7 +213,7 @@ function readStoredTheme(): Theme | null {
 }
 
 function writeStoredTheme(theme: Theme) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isTelegramEnvironment()) return;
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
@@ -234,10 +277,10 @@ function syncTelegramChromeTheme(theme: Theme) {
 
 function getPreferredTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = readStoredTheme();
-  if (stored) return stored;
   const telegramTheme = getTelegramColorScheme();
   if (telegramTheme) return telegramTheme;
+  const stored = readStoredTheme();
+  if (stored) return stored;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
@@ -368,6 +411,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT;
   const canGoBackInApp = pageStack.length > 1;
   const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
+  const isThemeManagedByTelegram = isTelegramEnvironment();
 
   const replaceCurrentPage = useCallback((page: Page) => {
     setPageStack((prev) => {
@@ -385,6 +429,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   useEffect(() => {
+    applyTelegramThemeParamsToDocument();
     applyThemeToDocument(theme);
     writeStoredTheme(theme);
     syncTelegramChromeTheme(theme);
@@ -397,12 +442,28 @@ export default function App({ onInitialContentReady }: AppProps) {
       return;
     }
 
+    const initialTelegramTheme = getTelegramColorScheme();
+    if (initialTelegramTheme) {
+      setTheme((prevTheme) => (prevTheme === initialTelegramTheme ? prevTheme : initialTelegramTheme));
+    }
+
     const handleTelegramThemeChanged = () => {
-      // Telegram can re-apply its own theme styles; enforce app-selected theme again.
+      applyTelegramThemeParamsToDocument();
+
+      const telegramTheme = getTelegramColorScheme();
+      if (telegramTheme) {
+        setTheme((prevTheme) => (prevTheme === telegramTheme ? prevTheme : telegramTheme));
+        applyThemeToDocument(telegramTheme);
+        syncTelegramChromeTheme(telegramTheme);
+        return;
+      }
+
+      // Telegram can re-apply its own theme styles; enforce the current app theme again.
       applyThemeToDocument(theme);
       syncTelegramChromeTheme(theme);
     };
 
+    applyTelegramThemeParamsToDocument();
     webApp.onEvent?.("themeChanged", handleTelegramThemeChanged);
     return () => {
       webApp.offEvent?.("themeChanged", handleTelegramThemeChanged);
@@ -688,6 +749,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, [canAccessReferenceTrainer, currentPage, replaceCurrentPage]);
 
   const handleToggleTheme = () => {
+    if (isThemeManagedByTelegram) return;
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
@@ -1127,6 +1189,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           {currentPage === "profile" && (
             <Profile
               theme={theme}
+              isThemeManagedByTelegram={isThemeManagedByTelegram}
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
               onFriendsChanged={handleFriendsChanged}

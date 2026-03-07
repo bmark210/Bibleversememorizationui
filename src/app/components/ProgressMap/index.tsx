@@ -41,14 +41,13 @@ export interface ProgressMapProps {
 
 function ProgressMapSkeleton() {
   return (
-    <div
-      style={{
-        height: '100dvh',
-        background:
-          'linear-gradient(180deg, color-mix(in srgb, var(--background) 86%, #ffffff 14%) 0%, color-mix(in srgb, var(--card) 92%, #000000 8%) 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+      <div
+        style={{
+          height: '100dvh',
+          background: 'linear-gradient(180deg, var(--surface-gradient-start) 0%, var(--surface-gradient-end) 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
       }}
     >
       <div

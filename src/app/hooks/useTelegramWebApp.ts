@@ -127,6 +127,22 @@ export function useTelegramWebApp() {
         console.error('Ошибка инициализации Telegram WebApp:', error);
         setState(prev => ({ ...prev, isReady: true }));
       }
+
+      const handleThemeChanged = () => {
+        if (!webAppSdk) return;
+
+        setState((prev) => ({
+          ...prev,
+          colorScheme: (webAppSdk?.colorScheme ?? prev.colorScheme) as TelegramColorScheme,
+          themeParams: webAppSdk?.themeParams ?? {},
+        }));
+      };
+
+      webAppSdk.onEvent?.('themeChanged', handleThemeChanged);
+
+      return () => {
+        webAppSdk?.offEvent?.('themeChanged', handleThemeChanged);
+      };
     } else {
       setState({
         isReady: true,
@@ -137,6 +153,8 @@ export function useTelegramWebApp() {
         initDataUnsafe: {},
       });
     }
+
+    return undefined;
   }, []);
 
   return state;

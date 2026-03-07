@@ -34,7 +34,7 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
     emoji: '🌄',
     verse: '…и возрастал в премудрости и возрасте',
     verseRef: 'Лк 2:52',
-    description: 'Тихое начало пути. Здесь формируется привычка возвращаться к Писанию каждый день.',
+    description: '',
     palette: {
       background:
         'linear-gradient(180deg, #efe1c9 0%, #dcc19b 45%, #9d7750 100%)',
