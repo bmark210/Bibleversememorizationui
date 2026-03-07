@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Brain, BookOpen, Flame, Repeat, Target, Trophy } from 'lucide-react'
+import { Brain, Flame, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
@@ -240,7 +240,7 @@ export function Dashboard({
 
           <motion.div className="mb-6" variants={sectionVariants}>
             <Button type="button" size="lg" onClick={onViewAll} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
-              <BookOpen className="h-4 w-4" />
+              <Brain className="h-4 w-4" />
               Перейти в стихи
             </Button>
           </motion.div>
