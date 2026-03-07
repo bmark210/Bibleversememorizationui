@@ -234,7 +234,7 @@ export function LocationScreen({
     <section
       style={{
         height: '100dvh',
-        zIndex: -1,
+        zIndex: 0,
         position: 'relative',
         overflow: 'hidden',
         scrollSnapAlign: 'start',

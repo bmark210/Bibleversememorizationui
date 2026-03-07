@@ -90,22 +90,242 @@ export type TelegramWebApp = {
   viewportStableHeight?: number;
   safeAreaInset?: Partial<TelegramSafeAreaInsets>;
   contentSafeAreaInset?: Partial<TelegramSafeAreaInsets>;
+  __isDevMock?: boolean;
 };
+
+type TelegramEventCallback = () => void;
+type TelegramWebAppWithDevFlag = TelegramWebApp & { __isDevMock?: boolean };
+
+const DEV_TELEGRAM_THEME_PARAMS: Record<TelegramColorScheme, TelegramThemeParams> = {
+  light: {
+    bg_color: "#ede3d2",
+    secondary_bg_color: "#efe0c8",
+    section_bg_color: "#efe0c8",
+    header_bg_color: "#f2e8d8",
+    bottom_bar_bg_color: "#f2e8d8",
+    text_color: "#241a11",
+    hint_color: "#6b5a45",
+    subtitle_text_color: "#524331",
+    link_color: "#7a6136",
+    button_color: "#5f4f2d",
+    button_text_color: "#fbf7ef",
+    accent_text_color: "#7a6136",
+    destructive_text_color: "#b84a3a",
+    section_header_text_color: "#5f4f2d",
+    section_separator_color: "#b79f7e",
+  },
+  dark: {
+    bg_color: "#1a1410",
+    secondary_bg_color: "#24201a",
+    section_bg_color: "#24201a",
+    header_bg_color: "#24201a",
+    bottom_bar_bg_color: "#24201a",
+    text_color: "#f5ead5",
+    hint_color: "#b5a490",
+    subtitle_text_color: "#b5a490",
+    link_color: "#d4a574",
+    button_color: "#d4a574",
+    button_text_color: "#1a1410",
+    accent_text_color: "#d4a574",
+    destructive_text_color: "#e05b4d",
+    section_header_text_color: "#f5ead5",
+    section_separator_color: "#3d362d",
+  },
+};
+
+const DEV_TELEGRAM_SAFE_AREA: TelegramSafeAreaInsets = {
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
+};
+
+let telegramDevMock: TelegramWebAppWithDevFlag | null = null;
+let emitTelegramDevMockEvent: ((eventType: string) => void) | null = null;
 
 declare global {
   interface Window {
     Telegram?: {
       WebApp?: TelegramWebApp;
-    };
+    } | undefined;
   }
 }
 
-export function getTelegramWebApp(): TelegramWebApp | null {
+function isTelegramDevMockEnabled() {
+  return process.env.NODE_ENV === "development";
+}
+
+function cloneThemeParams(themeParams: TelegramThemeParams): TelegramThemeParams {
+  return { ...themeParams };
+}
+
+function cloneInsets(insets: TelegramSafeAreaInsets): TelegramSafeAreaInsets {
+  return { ...insets };
+}
+
+function createTelegramDevMock(): TelegramWebAppWithDevFlag {
+  const eventListeners = new Map<string, Set<TelegramEventCallback>>();
+  const backButtonListeners = new Set<TelegramEventCallback>();
+
+  const emitEvent = (eventType: string) => {
+    eventListeners.get(eventType)?.forEach((callback) => callback());
+  };
+
+  emitTelegramDevMockEvent = emitEvent;
+
+  const updateViewport = (webApp: TelegramWebAppWithDevFlag) => {
+    webApp.viewportHeight = window.innerHeight;
+    webApp.viewportStableHeight = window.innerHeight;
+    emitEvent("viewportChanged");
+  };
+
+  const backButton = {
+    isVisible: false,
+    show: () => {
+      backButton.isVisible = true;
+    },
+    hide: () => {
+      backButton.isVisible = false;
+    },
+    onClick: (callback: TelegramEventCallback) => {
+      backButtonListeners.add(callback);
+    },
+    offClick: (callback: TelegramEventCallback) => {
+      backButtonListeners.delete(callback);
+    },
+  };
+
+  const webApp: TelegramWebAppWithDevFlag = {
+    __isDevMock: true,
+    platform: "web",
+    colorScheme: "light",
+    version: "8.0",
+    isFullscreen: false,
+    isVerticalSwipesEnabled: true,
+    isExpanded: true,
+    viewportHeight: window.innerHeight,
+    viewportStableHeight: window.innerHeight,
+    safeAreaInset: cloneInsets(DEV_TELEGRAM_SAFE_AREA),
+    contentSafeAreaInset: cloneInsets(DEV_TELEGRAM_SAFE_AREA),
+    initDataUnsafe: {
+      user: {
+        id: process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID?.trim() || "0",
+        first_name: "Dev",
+        last_name: "User",
+        username: "telegram_dev_mock",
+        language_code: "ru",
+      },
+    },
+    themeParams: cloneThemeParams(DEV_TELEGRAM_THEME_PARAMS.light),
+    ready: () => undefined,
+    expand: () => {
+      webApp.isExpanded = true;
+      updateViewport(webApp);
+    },
+    requestFullscreen: () => {
+      webApp.isFullscreen = true;
+      updateViewport(webApp);
+    },
+    disableVerticalSwipes: () => {
+      webApp.isVerticalSwipesEnabled = false;
+    },
+    enableClosingConfirmation: () => undefined,
+    disableClosingConfirmation: () => undefined,
+    disableRotation: () => undefined,
+    disableFocusOutside: () => undefined,
+    showAlert: (message: string) => {
+      window.alert(message);
+    },
+    showConfirm: (message: string, callback: (confirmed: boolean) => void) => {
+      callback(window.confirm(message));
+    },
+    showPopup: (params: TelegramPopupParams, callback?: (buttonId?: string) => void) => {
+      const message = params.title ? `${params.title}\n\n${params.message}` : params.message;
+      window.alert(message);
+      callback?.(params.buttons?.[0]?.id ?? params.buttons?.[0]?.type ?? "ok");
+    },
+    close: () => undefined,
+    openLink: (url: string) => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+    setBackgroundColor: (color: string) => {
+      webApp.themeParams = { ...(webApp.themeParams ?? {}), bg_color: color };
+      emitEvent("themeChanged");
+    },
+    setHeaderColor: (color: string) => {
+      webApp.themeParams = { ...(webApp.themeParams ?? {}), header_bg_color: color };
+      emitEvent("themeChanged");
+    },
+    setBottomBarColor: (color: string) => {
+      webApp.themeParams = { ...(webApp.themeParams ?? {}), bottom_bar_bg_color: color };
+      emitEvent("themeChanged");
+    },
+    onEvent: (eventType: string, callback: TelegramEventCallback) => {
+      const listeners = eventListeners.get(eventType) ?? new Set<TelegramEventCallback>();
+      listeners.add(callback);
+      eventListeners.set(eventType, listeners);
+    },
+    offEvent: (eventType: string, callback: TelegramEventCallback) => {
+      const listeners = eventListeners.get(eventType);
+      if (!listeners) return;
+      listeners.delete(callback);
+      if (listeners.size === 0) {
+        eventListeners.delete(eventType);
+      }
+    },
+    BackButton: backButton,
+    HapticFeedback: {
+      impactOccurred: () => undefined,
+      notificationOccurred: () => undefined,
+    },
+  };
+
+  window.addEventListener("resize", () => updateViewport(webApp));
+
+  return webApp;
+}
+
+function ensureTelegramWebApp(): TelegramWebApp | null {
   if (typeof window === "undefined") {
     return null;
   }
 
-  return window.Telegram?.WebApp ?? null;
+  const existing = window.Telegram?.WebApp as TelegramWebAppWithDevFlag | undefined;
+  if (existing) {
+    return existing;
+  }
+
+  if (!isTelegramDevMockEnabled()) {
+    return null;
+  }
+
+  telegramDevMock ??= createTelegramDevMock();
+  window.Telegram = {
+    ...(window.Telegram ?? {}),
+    WebApp: telegramDevMock,
+  };
+
+  return telegramDevMock;
+}
+
+export function getTelegramWebApp(): TelegramWebApp | null {
+  return ensureTelegramWebApp();
+}
+
+export function isTelegramDevMock(webApp: TelegramWebApp | null | undefined): boolean {
+  return Boolean((webApp as TelegramWebAppWithDevFlag | null | undefined)?.__isDevMock);
+}
+
+export function setTelegramDevMockTheme(colorScheme: TelegramColorScheme): boolean {
+  const webApp = ensureTelegramWebApp() as TelegramWebAppWithDevFlag | null;
+  if (!webApp || !isTelegramDevMock(webApp)) {
+    return false;
+  }
+
+  webApp.colorScheme = colorScheme;
+  webApp.themeParams = cloneThemeParams(DEV_TELEGRAM_THEME_PARAMS[colorScheme]);
+  emitTelegramDevMockEvent?.("themeChanged");
+  return true;
 }
 
 export function getTelegramWebAppUser(): TelegramWebAppUser | null {

@@ -5,6 +5,8 @@ import { motion } from 'motion/react'
 import App from './App'
 import { TelegramProvider } from './contexts/TelegramContext'
 import { BookOpen } from 'lucide-react'
+import { TelegramDevPanel } from './components/dev/TelegramDevPanel'
+import { getTelegramWebApp } from './lib/telegramWebApp'
 
 const TELEGRAM_BOT_URL = 'https://t.me/bible_memory_bot'
 const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
@@ -33,9 +35,7 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const hasTelegramWebApp = Boolean(
-      (window as Window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp
-    )
+    const hasTelegramWebApp = Boolean(getTelegramWebApp())
     setIsTelegramWebApp(hasTelegramWebApp)
   }, [])
 
@@ -109,6 +109,7 @@ export default function Page() {
           <TelegramProvider>
             <App onInitialContentReady={() => setIsAppReady(true)} />
           </TelegramProvider>
+          <TelegramDevPanel />
         </div>
       ) : null}
 
