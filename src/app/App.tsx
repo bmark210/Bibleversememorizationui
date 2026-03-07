@@ -27,7 +27,9 @@ import {
 } from "@/api/services/leaderboard";
 import {
   fetchDashboardFriendsActivity,
+  fetchFriendsPage,
   type DashboardFriendsActivity,
+  type FriendPlayerListItem,
 } from "@/api/services/friends";
 import {
   fetchUserDashboardStats,
@@ -42,6 +44,10 @@ import {
   mergeVersePatch,
   pickMutableVersePatchFromApiResponse,
 } from "@/app/utils/versePatch";
+import {
+  ProgressMap,
+  type ProgressMapAction,
+} from "./components/ProgressMap";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -124,6 +130,7 @@ type Page =
   | "dashboard"
   | "verses"
   | "references"
+  | "progress-map"
   // | "collections"
   // | "stats"
   | "profile"
@@ -285,6 +292,13 @@ function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {
   return allVerses.filter(isTrainingDashboardVerse).sort(sortByUpdatedAtDesc);
 }
 
+function isDueReviewVerse(verse: Pick<Verse, "status" | "nextReviewAt">) {
+  if (normalizeDisplayVerseStatus(verse.status) !== "REVIEW") return false;
+  if (!verse.nextReviewAt) return true;
+  const nextReviewTime = new Date(verse.nextReviewAt).getTime();
+  return Number.isNaN(nextReviewTime) || nextReviewTime <= Date.now();
+}
+
 export default function App({ onInitialContentReady }: AppProps) {
   const shouldReduceMotion = useReducedMotion();
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
@@ -303,6 +317,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
+  const [progressMapFriends, setProgressMapFriends] = useState<FriendPlayerListItem[]>([]);
+  const [isProgressMapFriendsLoading, setIsProgressMapFriendsLoading] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
   const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
@@ -342,6 +358,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
+  const progressMapFriendsRequestIdRef = useRef(0);
+  const hasLoadedProgressMapFriendsRef = useRef(false);
   const dashboardTrainingStartWithRef = useRef(0);
   const dashboardTrainingTotalCountRef = useRef(0);
   const dashboardTrainingHasMoreRef = useRef(false);
@@ -471,6 +489,63 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   };
 
+  const loadProgressMapFriends = useCallback(async (telegramIdValue: string) => {
+    if (!telegramIdValue) return [];
+
+    const requestId = ++progressMapFriendsRequestIdRef.current;
+    setIsProgressMapFriendsLoading(true);
+
+    try {
+      const nextFriends: FriendPlayerListItem[] = [];
+      const seen = new Set<string>();
+      let startWith = 0;
+      let totalCount = Number.POSITIVE_INFINITY;
+
+      while (startWith < totalCount) {
+        const page = await fetchFriendsPage(telegramIdValue, {
+          limit: 50,
+          startWith,
+        });
+
+        totalCount = page.totalCount;
+        for (const item of page.items) {
+          if (seen.has(item.telegramId)) continue;
+          seen.add(item.telegramId);
+          nextFriends.push(item);
+        }
+
+        if (page.items.length === 0) break;
+        startWith += page.items.length;
+      }
+
+      nextFriends.sort((a, b) => {
+        if (b.masteredVerses !== a.masteredVerses) {
+          return b.masteredVerses - a.masteredVerses;
+        }
+        if (b.weeklyRepetitions !== a.weeklyRepetitions) {
+          return b.weeklyRepetitions - a.weeklyRepetitions;
+        }
+        return a.telegramId.localeCompare(b.telegramId);
+      });
+
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setProgressMapFriends(nextFriends);
+      }
+
+      return nextFriends;
+    } catch (error) {
+      console.error("Не удалось получить друзей для карты:", error);
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setProgressMapFriends([]);
+      }
+      return [];
+    } finally {
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setIsProgressMapFriendsLoading(false);
+      }
+    }
+  }, []);
+
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
     let isMounted = true;
@@ -597,6 +672,14 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     void loadDashboardFriendsActivity(telegramId);
   }, [currentPage, telegramId]);
+
+  useEffect(() => {
+    if (currentPage !== "progress-map" || !telegramId) return;
+    if (hasLoadedProgressMapFriendsRef.current) return;
+
+    hasLoadedProgressMapFriendsRef.current = true;
+    void loadProgressMapFriends(telegramId);
+  }, [currentPage, loadProgressMapFriends, telegramId]);
 
   useEffect(() => {
     if (currentPage === "references" && !canAccessReferenceTrainer) {
@@ -837,7 +920,52 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleFriendsChanged = () => {
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
+    hasLoadedProgressMapFriendsRef.current = false;
     void loadDashboardFriendsActivity(telegramIdValue);
+    if (currentPage === "progress-map") {
+      void loadProgressMapFriends(telegramIdValue);
+    }
+  };
+
+  const openProgressMapTraining = (action: Exclude<ProgressMapAction, "open-verses">) => {
+    const nextTrainingVerses = pickTrainingDashboardVerses([...verses]);
+    const targetVerse =
+      action === "start-review"
+        ? nextTrainingVerses.find(isDueReviewVerse) ??
+          nextTrainingVerses.find(
+            (verse) => normalizeDisplayVerseStatus(verse.status) === "REVIEW"
+          ) ??
+          null
+        : nextTrainingVerses.find(
+            (verse) => normalizeDisplayVerseStatus(verse.status) === VerseStatus.LEARNING
+          ) ?? null;
+
+    if (!targetVerse) {
+      handleNavigate("verses");
+      return;
+    }
+
+    const targetIndex = nextTrainingVerses.findIndex(
+      (verse) => getVerseKey(verse) === getVerseKey(targetVerse)
+    );
+
+    if (targetIndex < 0) {
+      handleNavigate("verses");
+      return;
+    }
+
+    setDashboardGalleryVerses(nextTrainingVerses);
+    setDashboardGalleryIndex(targetIndex);
+    setDashboardGalleryLaunchMode("training");
+  };
+
+  const handleProgressMapAction = (action: ProgressMapAction) => {
+    if (action === "open-verses") {
+      handleNavigate("verses");
+      return;
+    }
+
+    openProgressMapTraining(action);
   };
 
   const handleVerseAdded = async (verse: {
@@ -980,15 +1108,21 @@ export default function App({ onInitialContentReady }: AppProps) {
             <ReferenceTrainer telegramId={telegramId} />
           )}
 
-          {/* {currentPage === "collections" && (
-            <Collections
-              collections={mockCollections}
-              onCreateCollection={handleCreateCollection}
-              onSelectCollection={handleSelectCollection}
+          {currentPage === "progress-map" && (
+            <ProgressMap
+              dashboardStats={dashboardStats}
+              dashboardLeaderboard={dashboardLeaderboard}
+              trainingVerses={verses}
+              friendsOnMap={progressMapFriends}
+              isLoading={
+                isBootstrapping ||
+                (dashboardStats == null && isDashboardStatsLoading) ||
+                (dashboardLeaderboard == null && isDashboardLeaderboardLoading)
+              }
+              isFriendsLoading={isProgressMapFriendsLoading}
+              onAction={handleProgressMapAction}
             />
-          )} */}
-
-          {/* {currentPage === "stats" && <Statistics stats={mockStats} />} */}
+          )}
 
           {currentPage === "profile" && (
             <Profile

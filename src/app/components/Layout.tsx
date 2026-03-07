@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { Anchor, BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { Anchor, BookOpen, LayoutDashboard, LogOut, Map, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
@@ -60,6 +60,7 @@ export function Layout({
 
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
+    { id: 'progress-map', label: 'Карта', icon: Map },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     ...(showReferencesSection
       ? [{ id: 'references', label: 'Якоря', icon: Anchor }]
@@ -72,13 +73,15 @@ export function Layout({
     onNavigate(page);
   };
 
+  const isFullscreenPage = currentPage === 'progress-map'
+
   return (
-    <div className="min-h-dvh flex flex-col">
-      {/* Header */}
-      <header 
+    <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
+      {/* Header — hidden on fullscreen pages (progress-map) */}
+      <header
         className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
           isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
-        }`}
+        }${isFullscreenPage ? ' hidden' : ''}`}
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
@@ -136,7 +139,9 @@ export function Layout({
         <main
           className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
           style={{
-            paddingBottom: isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
+            paddingBottom: currentPage === 'progress-map'
+              ? 0
+              : isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
           }}
         >
           {children}
@@ -155,15 +160,15 @@ export function Layout({
         style={{ paddingBottom: `${bottomInset}px` }}
       >
         <nav className="flex justify-around p-2 pt-2.5">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'text-primary'
                     : 'text-muted-foreground'

@@ -8,6 +8,7 @@ export type FriendPlayerListItem = {
     avatarUrl: string | null;
     isFriend: boolean;
     lastActiveAt: string | null;
+    masteredVerses: number;
     weeklyRepetitions: number;
     dailyStreak: number;
     averageProgressPercent: number;

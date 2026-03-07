@@ -25,6 +25,7 @@ export type FriendListItemResponse = {
   avatarUrl: string | null;
   isFriend: boolean;
   lastActiveAt: string | null;
+  masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
   averageProgressPercent: number;
@@ -70,15 +71,20 @@ type UserForFriendList = {
 };
 
 type UserMetricAggregate = {
-  progressSum: number;
-  skillsSum: number;
-  progressCount: number;
-  weeklyRepetitions: number;
-  latestReviewedAt: Date | null;
+  rows: Array<{
+    status: VerseStatus;
+    masteryLevel: number;
+    repetitions: number;
+    referenceScore: number;
+    incipitScore: number;
+    contextScore: number;
+    lastReviewedAt: Date | null;
+  }>;
 };
 
-type UserFriendMetrics = {
+export type UserFriendMetrics = {
   lastActiveAt: string | null;
+  masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
   averageProgressPercent: number;
@@ -184,6 +190,85 @@ function roundAverage(sum: number, count: number) {
   return Math.max(0, Math.round(sum / count));
 }
 
+export function summarizeFriendMetricRows(params: {
+  rows: UserMetricAggregate["rows"];
+  storedStreak: number;
+  now?: number;
+}): UserFriendMetrics {
+  const now = params.now ?? Date.now();
+  const weeklyCutoff = now - WEEK_MS;
+  let progressSum = 0;
+  let skillsSum = 0;
+  let progressCount = 0;
+  let masteredVerses = 0;
+  let weeklyRepetitions = 0;
+  let latestReviewedAt: Date | null = null;
+
+  for (const row of params.rows) {
+    const masteryLevel = normalizeProgressValue(row.masteryLevel);
+    const repetitions = normalizeProgressValue(row.repetitions);
+    const displayStatus = computeDisplayStatus(
+      row.status,
+      masteryLevel,
+      repetitions
+    );
+    const isProgressStatus =
+      displayStatus === VerseStatus.LEARNING ||
+      displayStatus === "REVIEW" ||
+      displayStatus === "MASTERED";
+
+    if (isProgressStatus) {
+      progressSum += toProgressPercent(masteryLevel, repetitions);
+      skillsSum += toSkillsPercent(
+        row.referenceScore,
+        row.incipitScore,
+        row.contextScore
+      );
+      progressCount += 1;
+
+      if (displayStatus === "MASTERED") {
+        masteredVerses += 1;
+      }
+
+      const reviewedAtTime = row.lastReviewedAt?.getTime() ?? Number.NaN;
+      if (!Number.isNaN(reviewedAtTime) && reviewedAtTime >= weeklyCutoff) {
+        weeklyRepetitions += 1;
+      }
+    }
+
+    if (
+      row.lastReviewedAt &&
+      (!latestReviewedAt ||
+        row.lastReviewedAt.getTime() > latestReviewedAt.getTime())
+    ) {
+      latestReviewedAt = row.lastReviewedAt;
+    }
+  }
+
+  const dailyStreak = computeActiveDailyStreak({
+    storedStreak: params.storedStreak,
+    latestReviewedAt,
+    now: new Date(now),
+  });
+  const averageProgressPercent =
+    progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
+  const averageSkillsPercent =
+    progressCount > 0 ? clampPercent(skillsSum / progressCount) : 0;
+
+  return {
+    lastActiveAt: latestReviewedAt ? latestReviewedAt.toISOString() : null,
+    masteredVerses,
+    weeklyRepetitions,
+    dailyStreak,
+    averageProgressPercent: computeRatingPercent({
+      averageProgressPercent,
+      averageSkillsPercent,
+      streakDays: dailyStreak,
+      weeklyRepetitions,
+    }),
+  };
+}
+
 export class FriendsApiError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -237,18 +322,11 @@ export async function buildFriendMetricsMap(
 ): Promise<Map<string, UserFriendMetrics>> {
   const telegramIds = Array.from(new Set(users.map((user) => user.telegramId)));
   const metrics = new Map<string, UserMetricAggregate>();
-  const streakByTelegramId = new Map<string, number>();
-  const weeklyCutoff = Date.now() - WEEK_MS;
 
   for (const user of users) {
     metrics.set(user.telegramId, {
-      progressSum: 0,
-      skillsSum: 0,
-      progressCount: 0,
-      weeklyRepetitions: 0,
-      latestReviewedAt: null,
+      rows: [],
     });
-    streakByTelegramId.set(user.telegramId, user.dailyStreak);
   }
 
   if (telegramIds.length > 0) {
@@ -257,74 +335,27 @@ export async function buildFriendMetricsMap(
     for (const row of rows) {
       const aggregate = metrics.get(row.telegramId);
       if (!aggregate) continue;
-
-      const masteryLevel = normalizeProgressValue(row.masteryLevel);
-      const repetitions = normalizeProgressValue(row.repetitions);
-      const displayStatus = computeDisplayStatus(
-        row.status,
-        masteryLevel,
-        repetitions
-      );
-      const isProgressStatus =
-        displayStatus === VerseStatus.LEARNING ||
-        displayStatus === "REVIEW" ||
-        displayStatus === "MASTERED";
-
-      if (isProgressStatus) {
-        aggregate.progressSum += toProgressPercent(masteryLevel, repetitions);
-        aggregate.skillsSum += toSkillsPercent(
-          row.referenceScore,
-          row.incipitScore,
-          row.contextScore
-        );
-        aggregate.progressCount += 1;
-
-        const reviewedAtTime = row.lastReviewedAt?.getTime() ?? Number.NaN;
-        if (!Number.isNaN(reviewedAtTime) && reviewedAtTime >= weeklyCutoff) {
-          aggregate.weeklyRepetitions += 1;
-        }
-      }
-
-      if (
-        row.lastReviewedAt &&
-        (!aggregate.latestReviewedAt ||
-          row.lastReviewedAt.getTime() > aggregate.latestReviewedAt.getTime())
-      ) {
-        aggregate.latestReviewedAt = row.lastReviewedAt;
-      }
+      aggregate.rows.push({
+        status: row.status,
+        masteryLevel: row.masteryLevel,
+        repetitions: row.repetitions,
+        referenceScore: row.referenceScore,
+        incipitScore: row.incipitScore,
+        contextScore: row.contextScore,
+        lastReviewedAt: row.lastReviewedAt,
+      });
     }
   }
 
   const result = new Map<string, UserFriendMetrics>();
   for (const user of users) {
-    const aggregate = metrics.get(user.telegramId);
-    const latestReviewedAt = aggregate?.latestReviewedAt ?? null;
-    const storedStreak = streakByTelegramId.get(user.telegramId) ?? 0;
-    const dailyStreak = computeActiveDailyStreak({
-      storedStreak,
-      latestReviewedAt,
-    });
-    const averageProgressPercent =
-      aggregate && aggregate.progressCount > 0
-        ? clampPercent(aggregate.progressSum / aggregate.progressCount)
-        : 0;
-    const averageSkillsPercent =
-      aggregate && aggregate.progressCount > 0
-        ? clampPercent(aggregate.skillsSum / aggregate.progressCount)
-        : 0;
-    const ratingPercent = computeRatingPercent({
-      averageProgressPercent,
-      averageSkillsPercent,
-      streakDays: dailyStreak,
-      weeklyRepetitions: aggregate?.weeklyRepetitions ?? 0,
-    });
-
-    result.set(user.telegramId, {
-      lastActiveAt: latestReviewedAt ? latestReviewedAt.toISOString() : null,
-      weeklyRepetitions: aggregate?.weeklyRepetitions ?? 0,
-      dailyStreak,
-      averageProgressPercent: ratingPercent,
-    });
+    result.set(
+      user.telegramId,
+      summarizeFriendMetricRows({
+        rows: metrics.get(user.telegramId)?.rows ?? [],
+        storedStreak: user.dailyStreak,
+      })
+    );
   }
 
   return result;
@@ -352,6 +383,7 @@ export function mapUsersToFriendListItems(params: {
       isFriend:
         forceIsFriend || (friendTelegramIds?.has(user.telegramId) ?? false),
       lastActiveAt: metrics?.lastActiveAt ?? null,
+      masteredVerses: metrics?.masteredVerses ?? 0,
       weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,
       dailyStreak: metrics?.dailyStreak ?? 0,
       averageProgressPercent: metrics?.averageProgressPercent ?? 0,
@@ -379,6 +411,7 @@ export function buildFriendsActivityResponse(params: {
         }),
         avatarUrl: user.avatarUrl ?? null,
         lastActiveAt: metrics?.lastActiveAt ?? null,
+        masteredVerses: metrics?.masteredVerses ?? 0,
         weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,
         dailyStreak: metrics?.dailyStreak ?? 0,
         averageProgressPercent: metrics?.averageProgressPercent ?? 0,
