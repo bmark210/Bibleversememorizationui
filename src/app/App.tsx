@@ -364,21 +364,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const canGoBackInApp = pageStack.length > 1;
   const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
 
-  const replaceCurrentPage = useCallback((page: Page) => {
-    setPageStack((prev) => {
-      const activePage = prev[prev.length - 1] ?? "dashboard";
-      if (activePage === page) return prev;
-      if (prev.length <= 1) return [page];
-
-      const next = [...prev.slice(0, -1), page];
-      const previousPage = next[next.length - 2];
-      if (previousPage === page) {
-        return next.slice(0, -1);
-      }
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     applyThemeToDocument(theme);
     writeStoredTheme(theme);
