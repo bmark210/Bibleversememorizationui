@@ -33,6 +33,8 @@ interface LocationScreenProps {
   weeklyRepetitions: number
   ratingPercent: number
   rank: number | null
+  masteredVerses: number
+  totalVerses: number
   topInset: number
   bottomInset: number
   bottomNavHeight?: number
@@ -134,6 +136,8 @@ export function LocationScreen({
   // weeklyRepetitions,
   // ratingPercent,
   // rank,
+  masteredVerses: _masteredVerses,
+  totalVerses: _totalVerses,
   topInset,
   bottomInset,
   bottomNavHeight = 68,
