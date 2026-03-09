@@ -10,7 +10,6 @@ import { toast } from '@/app/lib/toast'
 import {
   PILGRIM_LOCATIONS,
   getCurrentLocation,
-  masteredToLocationIndex,
 } from './pilgrimConfig'
 import {
   buildProgressMapViewModel,
@@ -127,26 +126,6 @@ export function ProgressMap({
     prevMasteredRef.current = viewModel.masteredVerses
   }, [friendsOnMap, viewModel.currentLocationIndex, viewModel.masteredVerses])
 
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-  const didAutoScrollRef = useRef(false)
-
-  useEffect(() => {
-    if (didAutoScrollRef.current) return
-    if (viewModel.masteredVerses === 0) return
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    didAutoScrollRef.current = true
-    const timeoutId = window.setTimeout(() => {
-      container.scrollTo({
-        top: masteredToLocationIndex(viewModel.masteredVerses) * window.innerHeight,
-        behavior: 'smooth',
-      })
-    }, 120)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [viewModel.masteredVerses])
-
   const handlePrimaryAction = useCallback(() => {
     triggerHaptic('medium')
     onAction(viewModel.primaryAction)
@@ -156,58 +135,41 @@ export function ProgressMap({
     return <ProgressMapSkeleton />
   }
 
-  return (
-    <div
-      className={className}
-      ref={scrollContainerRef}
-      style={{
-        height: '100dvh',
-        overflowY: 'scroll',
-        scrollSnapType: 'y mandatory',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none',
-      }}
-    >
-      {PILGRIM_LOCATIONS.map((location, locationIndex) => {
-        const snapshot = getLocationStateSnapshot(locationIndex, viewModel.masteredVerses)
-        const isCurrent = locationIndex === viewModel.currentLocationIndex
-        const friends = viewModel.friendsByLocation.get(locationIndex) ?? []
+  const locationSnapshots = PILGRIM_LOCATIONS.map((location, locationIndex) => {
+    const snapshot = getLocationStateSnapshot(locationIndex, viewModel.masteredVerses)
+    return {
+      location,
+      locationState: snapshot.state,
+      localCompletedSteps: snapshot.localCompletedSteps,
+      friends: viewModel.friendsByLocation.get(locationIndex) ?? [],
+    }
+  })
 
-        return (
-          <LocationScreen
-            key={location.slug}
-            location={location}
-            locationState={snapshot.state}
-            localCompletedSteps={snapshot.localCompletedSteps}
-            playerName={viewModel.playerName}
-            playerInitials={isCurrent ? viewModel.playerInitials : ''}
-            playerAvatarUrl={isCurrent ? viewModel.playerAvatarUrl : null}
-            playerOverflowMastered={isCurrent ? viewModel.overflowMastered : 0}
-            friends={friends}
-            streakDays={viewModel.streakDays}
-            weeklyRepetitions={viewModel.weeklyRepetitions}
-            ratingPercent={viewModel.ratingPercent}
-            rank={viewModel.rank}
-            masteredVerses={viewModel.masteredVerses}
-            totalVerses={viewModel.totalVerses}
-            topInset={topInset}
-            bottomInset={bottomInset}
-            isJourneyComplete={viewModel.isJourneyComplete}
-            actionTitle={isCurrent ? viewModel.actionTitle : undefined}
-            actionHint={isCurrent ? viewModel.actionHint : undefined}
-            onAction={isCurrent ? handlePrimaryAction : undefined}
-            onStepPress={isCurrent ? () => triggerHaptic('light') : undefined}
-          />
-        )
-      })}
+  return (
+    <>
+      <LocationScreen
+        className={className}
+        locations={locationSnapshots}
+        currentLocationIndex={viewModel.currentLocationIndex}
+        playerName={viewModel.playerName}
+        playerInitials={viewModel.playerInitials}
+        playerAvatarUrl={viewModel.playerAvatarUrl}
+        playerOverflowMastered={viewModel.overflowMastered}
+        masteredVerses={viewModel.masteredVerses}
+        topInset={topInset}
+        bottomInset={bottomInset}
+        isJourneyComplete={viewModel.isJourneyComplete}
+        actionTitle={viewModel.actionTitle}
+        onAction={handlePrimaryAction}
+        onStepPress={() => triggerHaptic('light')}
+      />
 
       <style>{`
-        div::-webkit-scrollbar { display: none; }
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+    </>
   )
 }

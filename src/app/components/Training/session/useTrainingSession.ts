@@ -3,7 +3,6 @@ import {
   useEffect,
   useCallback,
   useRef,
-  useMemo,
   type RefObject,
 } from "react";
 import { VerseStatus } from "@/generated/prisma";
@@ -23,9 +22,6 @@ import {
 } from "@/app/components/VerseGallery/constants";
 import {
   haptic,
-  normalizeVerseStatus,
-  normalizeRawMasteryLevel,
-  getVerseIdentity,
   toTrainingVerseState,
   isTrainingEligibleVerse,
   isTrainingReviewVerse,
