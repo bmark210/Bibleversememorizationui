@@ -75,6 +75,32 @@ export function pointsToSvgPath(points: PathPoint[]): string {
   return path
 }
 
+export function generateRelativePathPoints(
+  steps: number,
+  options?: {
+    startY?: number
+    endY?: number
+    amplitude?: number
+    stepOffset?: number
+  },
+): PathPoint[] {
+  if (steps <= 0) return []
+
+  const startY = options?.startY ?? 0.1
+  const endY = options?.endY ?? 0.9
+  const amplitude = options?.amplitude ?? 0.26
+  const stepOffset = options?.stepOffset ?? 0
+  const usableHeight = endY - startY
+
+  return Array.from({ length: steps }, (_, index) => {
+    const progress = steps === 1 ? 0 : index / (steps - 1)
+    return {
+      x: stepXFraction(stepOffset + index, Math.max(steps + stepOffset, steps), amplitude),
+      y: startY + progress * usableHeight,
+    }
+  })
+}
+
 export function getInitials(name: string): string {
   return name
     .trim()

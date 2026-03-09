@@ -11,6 +11,47 @@ export interface PilgrimLocationPalette {
   badgeBorder: string
 }
 
+export interface PilgrimLocationPathPoint {
+  /** X координата точки пути (0-1, относительно ширины картинки) */
+  x: number
+  /** Y координата точки пути (0-1, относительно высоты картинки) */
+  y: number
+}
+
+export interface PilgrimLocationBackgroundImage {
+  /** URL картинки (относительный или абсолютный) */
+  url: string
+  /** 
+   * Кастомные точки пути дороги на картинке.
+   * Если заданы - используются вместо автоматической генерации.
+   * Координаты 0-1 (относительные).
+   * Должно быть точек = STEPS_PER_LOCATION (12)
+   */
+  pathPoints?: PilgrimLocationPathPoint[]
+  /** 
+   * Режим заполнения картинки:
+   * - 'cover' - заполняет весь экран, обрезает лишнее (для 16:9)
+   * - 'contain' - вмещает всю картинку, возможны поля
+   * - 'fill' - растягивает до размеров контейнера
+   */
+  fitMode?: 'cover' | 'contain' | 'fill'
+  /** 
+   * Фокусная точка для cover режима (0-1).
+   * Где на картинке находится центр дороги.
+   */
+  focalPoint?: { x: number; y: number }
+  /** Где начинается дорога на картинке (0-1, от top) - deprecated, используйте pathPoints */
+  roadStartY?: number
+  /** Где заканчивается дорога на картинке (0-1, от top) - deprecated, используйте pathPoints */
+  roadEndY?: number
+  /** Отступы для fine-tuning позиционирования */
+  padding?: { top: number; bottom: number; left: number; right: number }
+  /** Масштаб по горизонтали для совпадения амплитуды волнения пути */
+  horizontalScale?: number
+  /** Прозрачность картинки */
+  opacity?: number
+}
+
 export interface PilgrimLocation {
   index: number
   slug: string
@@ -20,6 +61,8 @@ export interface PilgrimLocation {
   verseRef: string
   description: string
   palette: PilgrimLocationPalette
+  /** Опциональная фоновая картинка с дорогой */
+  backgroundImage?: PilgrimLocationBackgroundImage
 }
 
 export const STEPS_PER_LOCATION = 12
@@ -49,6 +92,30 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       badgeBg: 'rgba(255, 248, 236, 0.66)',
       badgeBorder: 'rgba(112, 82, 51, 0.18)',
     },
+    // Пример фоновой картинки 16:9 с кастомными точками пути:
+    backgroundImage: {
+      url: '/images/locations/1.png',
+      fitMode: 'cover',    // Заполняет весь экран на телефоне
+      focalPoint: { x: 0.5, y: 0.6 }, // Центр дороги на картинке
+      opacity: 1,
+      // Кастомные точки пути (12 точек для 12 шагов).
+      // Координаты 0-1 относительно картинки.
+      // Можно задать точные позиции сгибов дороги.
+      pathPoints: [
+        { x: 0.53, y: 0.38 }, // Step 0 - начало дороги
+        { x: 0.53, y: 0.40 }, // Step 1 - первый поворот
+        { x: 0.50, y: 0.44 }, // Step 2
+        { x: 0.40, y: 0.51 }, // Step 3
+        { x: 0.42, y: 0.54 }, // Step 4 - середина
+        { x: 0.48, y: 0.57 }, // Step 5
+        { x: 0.41, y: 0.64 }, // Step 6
+        { x: 0.48, y: 0.68  }, // Step 7
+        { x: 0.63, y: 0.75 }, // Step 8
+        { x: 0.70, y: 0.80 }, // Step 9
+        { x: 0.70, y: 0.85 }, // Step 10
+        { x: 0.63, y: 0.90 }, // Step 11 - конец дороги
+      ],
+    },
   },
   {
     index: 1,
@@ -71,6 +138,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       pathShadow: 'rgba(70, 55, 33, 0.24)',
       badgeBg: 'rgba(250, 244, 233, 0.62)',
       badgeBorder: 'rgba(110, 88, 55, 0.16)',
+    },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
     },
   },
   {
@@ -95,6 +168,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       badgeBg: 'rgba(244, 241, 231, 0.6)',
       badgeBorder: 'rgba(83, 89, 61, 0.16)',
     },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
+    },
   },
   {
     index: 3,
@@ -117,6 +196,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       pathShadow: 'rgba(95, 64, 20, 0.22)',
       badgeBg: 'rgba(255, 245, 223, 0.6)',
       badgeBorder: 'rgba(129, 90, 31, 0.16)',
+    },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
     },
   },
   {
@@ -141,6 +226,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       badgeBg: 'rgba(252, 241, 230, 0.58)',
       badgeBorder: 'rgba(124, 69, 37, 0.16)',
     },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
+    },
   },
   {
     index: 5,
@@ -163,6 +254,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       pathShadow: 'rgba(70, 54, 22, 0.22)',
       badgeBg: 'rgba(252, 245, 230, 0.58)',
       badgeBorder: 'rgba(108, 86, 40, 0.16)',
+    },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
     },
   },
   {
@@ -187,6 +284,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       badgeBg: 'rgba(247, 238, 234, 0.56)',
       badgeBorder: 'rgba(98, 61, 50, 0.18)',
     },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
+    },
   },
   {
     index: 7,
@@ -209,6 +312,12 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
       pathShadow: 'rgba(86, 63, 26, 0.24)',
       badgeBg: 'rgba(255, 248, 232, 0.64)',
       badgeBorder: 'rgba(137, 105, 43, 0.18)',
+    },
+    backgroundImage: {
+      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
+      fitMode: 'cover',
+      focalPoint: { x: 0.5, y: 0.5 },
+      opacity: 0.9,
     },
   },
 ]

@@ -3,10 +3,8 @@
 import React from 'react'
 import type { PilgrimLocation } from './pilgrimConfig'
 import {
-  MAP_MAX_MASTERED,
   PILGRIM_MILESTONE_STEPS,
   STEPS_PER_LOCATION,
-  getLocationMasteredRange,
 } from './pilgrimConfig'
 import { WindingPath, type RaceTrackMarker } from './WindingPath'
 
@@ -35,8 +33,6 @@ interface LocationScreenProps {
   weeklyRepetitions: number
   ratingPercent: number
   rank: number | null
-  masteredVerses: number
-  totalVerses: number
   topInset: number
   bottomInset: number
   bottomNavHeight?: number
@@ -83,49 +79,6 @@ function buildLocationBadgeCopy(params: {
   }
 }
 
-function ProgressPill({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
-  return (
-    <div
-      style={{
-        minWidth: 0,
-        padding: '10px 12px',
-        borderRadius: 16,
-        background: 'rgba(255, 248, 236, 0.34)',
-        border: '1px solid rgba(92, 69, 42, 0.1)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          textTransform: 'uppercase',
-          letterSpacing: 0.18,
-          color: 'rgba(61, 44, 24, 0.58)',
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          marginTop: 3,
-          fontSize: 15,
-          fontWeight: 700,
-          color: '#3d2c18',
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
 function LockOverlay() {
   return (
     <div
@@ -138,24 +91,7 @@ function LockOverlay() {
         zIndex: 10,
         pointerEvents: 'none',
       }}
-    >
-      <div
-        style={{
-          padding: '16px 18px',
-          borderRadius: 22,
-          background: 'rgba(47, 34, 20, 0.34)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          color: '#fff7ea',
-          fontSize: 14,
-          fontWeight: 700,
-          letterSpacing: 0.2,
-        }}
-      >
-        Откроется после предыдущего этапа
-      </div>
-    </div>
+    />
   )
 }
 
@@ -194,12 +130,10 @@ export function LocationScreen({
   playerAvatarUrl,
   playerOverflowMastered,
   friends,
-  streakDays = 0,
-  weeklyRepetitions,
-  ratingPercent,
-  rank,
-  masteredVerses,
-  totalVerses,
+  // streakDays = 0,
+  // weeklyRepetitions,
+  // ratingPercent,
+  // rank,
   topInset,
   bottomInset,
   bottomNavHeight = 68,
@@ -211,7 +145,6 @@ export function LocationScreen({
 }: LocationScreenProps) {
   const isLocked = locationState === 'locked'
   const isCurrent = locationState === 'current'
-  const range = getLocationMasteredRange(location.index)
   const activeStepIndex = localCompletedSteps >= STEPS_PER_LOCATION ? null : localCompletedSteps
   const badge = buildLocationBadgeCopy({
     state: locationState,
@@ -279,100 +212,10 @@ export function LocationScreen({
           zIndex: 12,
           display: 'grid',
           gap: 10,
+          pointerEvents: 'none',
         }}
       >
-        <SectionCard
-          borderColor={location.palette.panelBorder}
-          background={location.palette.panel}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <span style={{ fontSize: 26, lineHeight: 1 }}>{location.emoji}</span>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.18,
-                      color: 'rgba(61, 44, 24, 0.54)',
-                    }}
-                  >
-                    Этап {location.index + 1}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 2,
-                      fontSize: 24,
-                      fontWeight: 800,
-                      color: '#322214',
-                    }}
-                  >
-                    {location.nameRu}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 10,
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  color: 'rgba(50, 34, 20, 0.74)',
-                }}
-              >
-                {location.description}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '7px 12px',
-                borderRadius: 999,
-                background: badge.background,
-                color: badge.color,
-                border: `1px solid ${badge.border}`,
-                fontSize: 12,
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {badge.text}
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 14,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 10,
-            }}
-          >
-            <ProgressPill label="Выучено" value={`${masteredVerses}/${MAP_MAX_MASTERED}`} />
-            <ProgressPill label="Диапазон" value={`${range.from}-${range.to}`} />
-            <ProgressPill label="Коллекция" value={`${totalVerses} стихов`} />
-            <ProgressPill
-              label="На этапе"
-              value={`${Math.min(localCompletedSteps, STEPS_PER_LOCATION)}/${STEPS_PER_LOCATION}`}
-            />
-          </div>
-        </SectionCard>
-
-        {isCurrent ? (
+        <div style={{ pointerEvents: 'auto' }}>
           <SectionCard
             borderColor={location.palette.panelBorder}
             background={location.palette.panel}
@@ -380,94 +223,169 @@ export function LocationScreen({
             <div
               style={{
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8,
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
               }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.18,
+                        color: 'rgba(61, 44, 24, 0.54)',
+                      }}
+                    >
+                      Этап {location.index + 1}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 24,
+                        fontWeight: 800,
+                        color: '#322214',
+                      }}
+                    >
+                      {location.nameRu}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 999,
+                  background: badge.background,
+                  color: badge.color,
+                  border: `1px solid ${badge.border}`,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {badge.text}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 10,
+              }}
+            />
+          </SectionCard>
+        </div>
+
+        {/* {isCurrent ? (
+          <div style={{ pointerEvents: 'auto' }}>
+            <SectionCard
+              borderColor={location.palette.panelBorder}
+              background={location.palette.panel}
             >
               <div
                 style={{
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  background: location.palette.badgeBg,
-                  border: `1px solid ${location.palette.badgeBorder}`,
-                  color: '#4d371d',
-                  fontSize: 12,
-                  fontWeight: 700,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 8,
                 }}
               >
-                Рейтинг {ratingPercent}%
+                <div
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 999,
+                    background: location.palette.badgeBg,
+                    border: `1px solid ${location.palette.badgeBorder}`,
+                    color: '#4d371d',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Рейтинг {ratingPercent}%
+                </div>
+                {rank != null ? (
+                  <div
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      background: location.palette.badgeBg,
+                      border: `1px solid ${location.palette.badgeBorder}`,
+                      color: '#4d371d',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Место #{rank}
+                  </div>
+                ) : null}
+                {streakDays > 0 ? (
+                  <div
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      background: location.palette.badgeBg,
+                      border: `1px solid ${location.palette.badgeBorder}`,
+                      color: '#4d371d',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Серия {streakDays} дн
+                  </div>
+                ) : null}
+                <div
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 999,
+                    background: location.palette.badgeBg,
+                    border: `1px solid ${location.palette.badgeBorder}`,
+                    color: '#4d371d',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Повторений за 7 дн {weeklyRepetitions}
+                </div>
+                {playerOverflowMastered > 0 ? (
+                  <div
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      background: location.palette.badgeBg,
+                      border: `1px solid ${location.palette.badgeBorder}`,
+                      color: '#4d371d',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Сверх финиша +{playerOverflowMastered}
+                  </div>
+                ) : null}
               </div>
-              {rank != null ? (
-                <div
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 999,
-                    background: location.palette.badgeBg,
-                    border: `1px solid ${location.palette.badgeBorder}`,
-                    color: '#4d371d',
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Место #{rank}
-                </div>
-              ) : null}
-              {streakDays > 0 ? (
-                <div
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 999,
-                    background: location.palette.badgeBg,
-                    border: `1px solid ${location.palette.badgeBorder}`,
-                    color: '#4d371d',
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Серия {streakDays} дн
-                </div>
-              ) : null}
-              <div
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  background: location.palette.badgeBg,
-                  border: `1px solid ${location.palette.badgeBorder}`,
-                  color: '#4d371d',
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                Повторений за 7 дн {weeklyRepetitions}
-              </div>
-              {playerOverflowMastered > 0 ? (
-                <div
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 999,
-                    background: location.palette.badgeBg,
-                    border: `1px solid ${location.palette.badgeBorder}`,
-                    color: '#4d371d',
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Сверх финиша +{playerOverflowMastered}
-                </div>
-              ) : null}
-            </div>
-          </SectionCard>
-        ) : null}
+            </SectionCard>
+          </div>
+        ) : null} */}
       </div>
 
       <div
         style={{
           position: 'absolute',
-          top: topInset + (isCurrent ? 268 : 222),
+          top: topInset,
           left: 0,
           right: 0,
-          bottom: bottomNavHeight + bottomInset + (isCurrent ? 224 : 92),
-          zIndex: 3,
+          bottom: bottomNavHeight + bottomInset,
+          zIndex: 1,
           opacity: isLocked ? 0.46 : 1,
           transition: 'opacity 0.25s ease',
         }}
@@ -477,6 +395,7 @@ export function LocationScreen({
           activeStepIndex={activeStepIndex}
           stepOffset={location.index * STEPS_PER_LOCATION}
           palette={location.palette}
+          backgroundImage={location.backgroundImage!}
           playerMarker={
             isLocked || (!playerInitials && !playerAvatarUrl)
               ? null
@@ -495,6 +414,7 @@ export function LocationScreen({
 
       {isLocked ? <LockOverlay /> : null}
 
+      {/* Нижняя панель поверх картинки */}
       <div
         style={{
           position: 'absolute',
@@ -502,111 +422,80 @@ export function LocationScreen({
           right: 14,
           bottom: bottomNavHeight + bottomInset + 12,
           zIndex: 12,
+          pointerEvents: 'none',
         }}
       >
-        <SectionCard
-          borderColor={location.palette.panelBorder}
-          background={location.palette.panel}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
+        <div style={{ pointerEvents: 'auto' }}>
+          <SectionCard
+            borderColor={location.palette.panelBorder}
+            background={location.palette.panel}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.18,
-                  color: 'rgba(61, 44, 24, 0.56)',
-                }}
-              >
-                Стих этапа
-              </div>
-              <p
-                style={{
-                  margin: '8px 0 0',
-                  fontSize: 15,
-                  lineHeight: 1.6,
-                  fontStyle: 'italic',
-                  color: '#332315',
-                }}
-              >
-                «{location.verse}»
-              </p>
-              <p
-                style={{
-                  margin: '6px 0 0',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'rgba(61, 44, 24, 0.6)',
-                }}
-              >
-                {location.verseRef}
-              </p>
-            </div>
-
-            {friends.length > 0 ? (
-              <div
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 999,
-                  background: location.palette.badgeBg,
-                  border: `1px solid ${location.palette.badgeBorder}`,
-                  color: '#4d371d',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Попутчики {friends.length}
-              </div>
-            ) : null}
-          </div>
-
-          {isCurrent && onAction && actionTitle ? (
-            <button
-              type="button"
-              onClick={onAction}
+            {/* <div
               style={{
-                marginTop: 14,
-                width: '100%',
-                border: 'none',
-                borderRadius: 18,
-                padding: '14px 18px',
-                background: `linear-gradient(180deg, ${location.palette.accent} 0%, #4c3318 100%)`,
-                boxShadow: `0 18px 28px ${location.palette.pathGlow}`,
-                color: '#fff7ea',
-                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
               }}
             >
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 800,
-                  letterSpacing: 0.2,
-                }}
-              >
-                {actionTitle}
-              </div>
-              {actionHint ? (
+              {friends.length > 0 ? (
                 <div
                   style={{
-                    marginTop: 4,
+                    padding: '6px 10px',
+                    borderRadius: 999,
+                    background: location.palette.badgeBg,
+                    border: `1px solid ${location.palette.badgeBorder}`,
+                    color: '#4d371d',
                     fontSize: 12,
-                    color: 'rgba(255, 244, 227, 0.78)',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {actionHint}
+                  Попутчики {friends.length}
                 </div>
               ) : null}
-            </button>
-          ) : null}
-        </SectionCard>
+            </div> */}
+
+            {isCurrent && onAction && actionTitle ? (
+              <button
+                type="button"
+                onClick={onAction}
+                style={{
+                  marginTop: 14,
+                  width: '100%',
+                  border: 'none',
+                  borderRadius: 18,
+                  padding: '14px 18px',
+                  background: `linear-gradient(180deg, ${location.palette.accent} 0%, #4c3318 100%)`,
+                  boxShadow: `0 18px 28px ${location.palette.pathGlow}`,
+                  color: '#fff7ea',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 800,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {actionTitle}
+                </div>
+                {actionHint ? (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: 'rgba(255, 244, 227, 0.78)',
+                    }}
+                  >
+                    {actionHint}
+                  </div>
+                ) : null}
+              </button>
+            ) : null}
+          </SectionCard>
+        </div>
       </div>
     </section>
   )

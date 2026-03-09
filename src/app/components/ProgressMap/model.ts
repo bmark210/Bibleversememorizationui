@@ -55,11 +55,11 @@ export interface ProgressMapViewModel {
   friendsByLocation: Map<number, FriendOnLocation[]>
 }
 
-function formatRepetitionWord(count: number) {
-  if (count % 10 === 1 && count % 100 !== 11) return 'повторение'
-  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)) return 'повторения'
-  return 'повторений'
-}
+// function formatRepetitionWord(count: number) {
+//   if (count % 10 === 1 && count % 100 !== 11) return 'повторение'
+//   if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)) return 'повторения'
+//   return 'повторений'
+// }
 
 function isReviewVerse(verse: Pick<ProgressMapVerse, 'status'>) {
   return String(verse.status).toUpperCase() === 'REVIEW'
@@ -89,37 +89,38 @@ function resolvePrimaryAction(params: {
   return 'open-verses'
 }
 
-function getActionCopy(
-  action: ProgressMapAction,
-  params: {
-    totalVerses: number
-    dueReviewVerses: number
-    learningVerses: number
-    reviewVerses: number
-  },
-) {
-  if (action === 'start-review') {
-    return {
-      title: 'Повторить сейчас',
-      hint:
-        params.dueReviewVerses > 0
-          ? `${params.dueReviewVerses} ${formatRepetitionWord(params.dueReviewVerses)} ждут`
-          : `${params.reviewVerses} стихов готовы`,
-    }
-  }
+// function getActionCopy(
+//   action: ProgressMapAction,
+//   params: {
+//     totalVerses: number
+//     dueReviewVerses: number
+//     learningVerses: number
+//     reviewVerses: number
+//   },
+// ) {
+  // if (action === 'start-review') {
+  //   return {
+  //     title: 'Повторить сейчас',
+  //     hint:
+  //       params.dueReviewVerses > 0
+  //         ? `${params.dueReviewVerses} ${formatRepetitionWord(params.dueReviewVerses)} ждут`
+  //         : `${params.reviewVerses} стихов готовы`,
+  //   }
+  // }
 
-  if (action === 'start-learning') {
-    return {
-      title: 'Продолжить изучение',
-      hint: `${params.learningVerses} стихов в цикле`,
-    }
-  }
+  // if (action === 'start-learning') {
+  //   return {
+  //     title: 'Продолжить изучение',
+  //     hint: `${params.learningVerses} стихов в цикле`,
+  //   }
+  // }
 
-  return {
-    title: params.totalVerses === 0 ? 'Добавить первый стих' : 'Открыть стихи',
-    hint: params.totalVerses === 0 ? 'Начните путь с первого стиха' : 'Нет активной тренировки',
-  }
-}
+  
+  // return {
+  //   title: params.totalVerses === 0 ? 'Добавить первый стих' : 'Открыть стихи',
+  //   hint: params.totalVerses === 0 ? 'Начните путь с первого стиха' : 'Нет активной тренировки',
+  // }
+// }
 
 function compareFriends(left: FriendPlayerListItem, right: FriendPlayerListItem) {
   if (right.masteredVerses !== left.masteredVerses) {
@@ -154,12 +155,12 @@ export function buildProgressMapViewModel({
     learningVerses,
     reviewVerses,
   })
-  const actionCopy = getActionCopy(primaryAction, {
-    totalVerses,
-    dueReviewVerses,
-    learningVerses,
-    reviewVerses,
-  })
+  // const actionCopy = getActionCopy(primaryAction, {
+  //   totalVerses,
+  //   dueReviewVerses,
+  //   learningVerses,
+  //   reviewVerses,
+  // })
   const playerName = currentUser?.name?.trim() || 'Вы'
   const playerInitials = getInitials(playerName) || 'Я'
   const weeklyRepetitions = Math.max(0, Math.floor(currentUser?.weeklyRepetitions ?? 0))
@@ -250,8 +251,8 @@ export function buildProgressMapViewModel({
     playerInitials,
     playerAvatarUrl: currentUser?.avatarUrl ?? null,
     primaryAction,
-    actionTitle: actionCopy.title,
-    actionHint: actionCopy.hint,
+    actionTitle: '',
+    actionHint: '',
     friendsByLocation,
   }
 }
