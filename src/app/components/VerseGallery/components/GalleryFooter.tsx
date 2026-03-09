@@ -1,114 +1,70 @@
 import type { Ref } from "react";
-import { ChevronLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { TrainingSubsetSelect } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import { haptic } from "../utils";
-import type { PanelMode, TrainingSubsetFilter, GalleryStatusAction } from "../types";
+import type { GalleryStatusAction } from "../types";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 
 type Props = {
-  panelMode: PanelMode;
-  isTrainingAutoStartOverlayVisible: boolean;
   isActionPending: boolean;
-  closeTrainingGoesToPreview: boolean;
-  trainingSubsetFilter: TrainingSubsetFilter;
   previewStatusAction: GalleryStatusAction | null;
   onClose: () => void;
   onPreviewStatusAction: () => void;
   onDeleteRequest: () => void;
-  onTrainingBack: () => void;
-  onTrainingSubsetChange: (filter: TrainingSubsetFilter) => void;
   closeButtonRef?: Ref<HTMLButtonElement>;
 };
 
 export function GalleryFooter({
-  panelMode,
-  isTrainingAutoStartOverlayVisible,
   isActionPending,
-  closeTrainingGoesToPreview,
-  trainingSubsetFilter,
   previewStatusAction,
   onClose,
   onPreviewStatusAction,
   onDeleteRequest,
-  onTrainingBack,
-  onTrainingSubsetChange,
   closeButtonRef,
 }: Props) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const bottomInset = contentSafeAreaInset.bottom;
 
-  if (isTrainingAutoStartOverlayVisible) return null;
+  return (
+    <div style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }} className="shrink-0 px-4 sm:px-6 z-40">
+      <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
+        <Button
+          variant="outline"
+          className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
+          ref={closeButtonRef}
+          onClick={onClose}
+          disabled={isActionPending}
+          aria-label="Закрыть"
+        >
+          Завершить
+        </Button>
 
-  if (panelMode === "preview") {
-    return (
-      <div style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }} className="shrink-0 px-4 sm:px-6 z-40">
-        <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
+        {previewStatusAction ? (
           <Button
             variant="outline"
             className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
-            ref={closeButtonRef}
-            onClick={onClose}
+            onClick={onPreviewStatusAction}
             disabled={isActionPending}
-            aria-label="Завершить тренировку"
+            aria-label={previewStatusAction.label}
           >
-            Завершить
+            <previewStatusAction.icon className="h-4 w-4" />
           </Button>
+        ) : null}
 
-          {previewStatusAction ? (
-            <Button
-              variant="outline"
-              className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
-              onClick={onPreviewStatusAction}
-              disabled={isActionPending}
-              aria-label={previewStatusAction.label}
-            >
-              <previewStatusAction.icon className="h-4 w-4" />
-            </Button>
-          ) : null}
-
-          <Button
-            variant="outline"
-            className="w-fit gap-2 text-destructive backdrop-blur-xl rounded-2xl !border !border-border/60 bg-muted/35"
-            haptic={false}
-            onClick={() => {
-              if (isActionPending) return;
-              haptic("warning");
-              onDeleteRequest();
-            }}
-            disabled={isActionPending}
-            aria-label="Удалить стих"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }} className="shrink-0 px-4 sm:px-6 pt-3 z-40">
-      <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
         <Button
-          type="button"
-          variant="secondary"
-          className="w-fit gap-2 rounded-2xl backdrop-blur-xl !border !border-border/60 bg-muted/35"
-          onClick={onTrainingBack}
-          aria-label={closeTrainingGoesToPreview ? "Вернуться к превью" : "Закрыть галерею"}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          {closeTrainingGoesToPreview ? "К превью" : "Закрыть"}
-        </Button>
-
-        <TrainingSubsetSelect
-          value={trainingSubsetFilter}
-          onValueChange={(value) => {
-            const nextFilter = value as TrainingSubsetFilter;
-            if (trainingSubsetFilter === nextFilter) return;
-            haptic("light");
-            onTrainingSubsetChange(nextFilter);
+          variant="outline"
+          className="w-fit gap-2 text-destructive backdrop-blur-xl rounded-2xl !border !border-border/60 bg-muted/35"
+          haptic={false}
+          onClick={() => {
+            if (isActionPending) return;
+            haptic("warning");
+            onDeleteRequest();
           }}
-        />
+          disabled={isActionPending}
+          aria-label="Удалить стих"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

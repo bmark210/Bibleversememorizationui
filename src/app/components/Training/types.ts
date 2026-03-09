@@ -19,11 +19,20 @@ export type TrainingView =
       order: TrainingOrder;
     };
 
+/** When navigating directly to Training from VerseGallery or Dashboard */
+export interface DirectLaunchVerse {
+  verse: Verse;
+}
+
 export interface TrainingProps {
   allVerses: Verse[];
   dashboardStats?: UserDashboardStats | null;
   telegramId: string | null;
   selectionVerses?: Verse[];
+  /** If set, skip the Hub and start a training session immediately for this verse */
+  directLaunch?: DirectLaunchVerse | null;
+  /** Called when the direct-launch session ends, so the parent can clear the state */
+  onDirectLaunchConsumed?: () => void;
   onVersePatched: (event: VersePatchEvent) => void;
   onRequestVerseSelection: () => void;
   onVerseMutationCommitted?: () => void;

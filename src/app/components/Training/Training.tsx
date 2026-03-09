@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft } from "lucide-react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -31,20 +31,68 @@ function pickVersesForModes(
   return allVerses.filter((v) => statuses.has(normalizeDisplayVerseStatus(v.status)));
 }
 
+/** Pick the training mode that best matches a verse's current status */
+function autoModeForVerse(verse: Verse): TrainingMode {
+  const status = normalizeDisplayVerseStatus(verse.status);
+  if (status === "REVIEW") return "review";
+  if (status === "MASTERED") return "anchor";
+  return "learning";
+}
+
 export function Training({
   allVerses,
   dashboardStats,
   telegramId,
   selectionVerses,
+  directLaunch,
+  onDirectLaunchConsumed,
   onVersePatched,
-  onRequestVerseSelection,
   onVerseMutationCommitted: _onVerseMutationCommitted,
 }: TrainingProps) {
   const [view, setView] = useState<TrainingView>({ mode: "hub" });
   const [selectedModes, setSelectedModes] = useState<TrainingMode[]>(["learning"]);
   const [selectedOrder, setSelectedOrder] = useState<TrainingOrder>("updatedAt");
+  const directLaunchConsumedRef = useRef(false);
 
-  const goToHub = useCallback(() => setView({ mode: "hub" }), []);
+  // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
+  useEffect(() => {
+    if (!directLaunch || directLaunchConsumedRef.current) return;
+    directLaunchConsumedRef.current = true;
+
+    const mode = autoModeForVerse(directLaunch.verse);
+
+    if (mode === "anchor") {
+      setView({ mode: "anchor" });
+    } else {
+      // Build a verse list: put the target verse first, then add other eligible verses
+      const targetKey = `${directLaunch.verse.externalVerseId}`;
+      const eligibleVerses = pickVersesForModes([mode], allVerses);
+      const otherVerses = eligibleVerses.filter(
+        (v) => v.externalVerseId !== targetKey,
+      );
+      const sessionVerses = [directLaunch.verse, ...otherVerses];
+
+      setView({
+        mode: "verse-session",
+        verses: sessionVerses,
+        trainingModes: [mode],
+        order: "updatedAt",
+      });
+    }
+  }, [directLaunch, allVerses]);
+
+  // Reset consumed ref when directLaunch changes to a new value
+  useEffect(() => {
+    if (!directLaunch) {
+      directLaunchConsumedRef.current = false;
+    }
+  }, [directLaunch]);
+
+  const goToHub = useCallback(() => {
+    setView({ mode: "hub" });
+    // If this was a direct launch session, notify parent so it clears directLaunch state
+    onDirectLaunchConsumed?.();
+  }, [onDirectLaunchConsumed]);
 
   const handleStart = useCallback(() => {
     // If only "anchor" is selected, go directly to anchor session
@@ -139,7 +187,6 @@ export function Training({
               onOrderChange={setSelectedOrder}
               onStart={handleStart}
               onStartSelection={handleStartSelection}
-              onRequestVerseSelection={onRequestVerseSelection}
             />
           </motion.div>
         )}

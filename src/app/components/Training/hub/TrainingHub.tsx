@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { Dumbbell, Filter, Play } from "lucide-react";
+import { Dumbbell, Play } from "lucide-react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import { useTrainingHubState, getCountForMode, getCountForModes } from "./useTrainingHubState";
@@ -20,7 +20,6 @@ interface TrainingHubProps {
   onOrderChange: (order: TrainingOrder) => void;
   onStart: () => void;
   onStartSelection: () => void;
-  onRequestVerseSelection: () => void;
 }
 
 const MODES: TrainingMode[] = ["learning", "review", "anchor"];
@@ -50,7 +49,6 @@ export function TrainingHub({
   onOrderChange,
   onStart,
   onStartSelection,
-  onRequestVerseSelection,
 }: TrainingHubProps) {
   const shouldReduceMotion = useReducedMotion();
   const counts = useTrainingHubState({ allVerses, dashboardStats });
@@ -233,23 +231,6 @@ export function TrainingHub({
           animate="show"
           custom={0.1}
         >
-          <div className="border-t border-border/40 pt-4">
-            <button
-              type="button"
-              onClick={onRequestVerseSelection}
-              className="w-full text-left rounded-2xl border border-border/60 bg-muted/20 p-4 hover:bg-muted/40 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Filter className="w-5 h-5 text-foreground/50 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground/80">Подборка из Стихов</p>
-                  <p className="text-xs text-foreground/45 mt-0.5">
-                    Настройте фильтры в разделе Стихи — весь набор станет тренировочным
-                  </p>
-                </div>
-              </div>
-            </button>
-          </div>
         </motion.div>
       </motion.div>
     </div>

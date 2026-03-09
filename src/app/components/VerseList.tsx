@@ -43,6 +43,7 @@ interface VerseListProps {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
+  onNavigateToTraining?: (verse: import("@/app/App").Verse) => void;
 }
 
 const VERSE_LIST_INTRO_STORAGE_PREFIX = "bible-memory.verse-list.intro.v1";
@@ -61,6 +62,7 @@ export function VerseList({
   onReopenGalleryHandled,
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
+  onNavigateToTraining,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -363,11 +365,13 @@ export function VerseList({
               verses={vm.pagination.verses}
               initialIndex={vm.gallery.galleryIndex}
               activeTagSlugs={vm.tagFilter.selectedTagSlugs}
-              launchMode="preview"
               onClose={vm.gallery.onClose}
               onStatusChange={vm.gallery.onStatusChange}
-              onVersePatched={vm.gallery.onVersePatched}
               onDelete={vm.gallery.onDelete}
+              onNavigateToTraining={(verse) => {
+                vm.gallery.onClose();
+                onNavigateToTraining?.(verse);
+              }}
               previewTotalCount={vm.pagination.totalCount}
               previewHasMore={vm.pagination.hasMoreVerses}
               previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}
