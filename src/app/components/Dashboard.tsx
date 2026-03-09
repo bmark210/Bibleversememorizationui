@@ -26,8 +26,7 @@ interface DashboardProps {
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
   onViewAll: () => void
-  canOpenReferences?: boolean
-  onOpenReferences?: () => void
+  onOpenTraining?: () => void
   isInitializingData?: boolean
 }
 
@@ -52,8 +51,7 @@ export function Dashboard({
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
   onViewAll,
-  canOpenReferences: _canOpenReferences = false,
-  onOpenReferences: _onOpenReferences,
+  onOpenTraining: _onOpenTraining,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()

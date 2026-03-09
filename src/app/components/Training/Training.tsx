@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
 import { AnchorSession } from "./anchor/AnchorSession";
+import { TrainingSession } from "./session/TrainingSession";
 import type {
   TrainingProps,
   TrainingView,
@@ -35,7 +36,7 @@ export function Training({
   dashboardStats,
   telegramId,
   selectionVerses,
-  onVersePatched: _onVersePatched,
+  onVersePatched,
   onRequestVerseSelection,
   onVerseMutationCommitted: _onVerseMutationCommitted,
 }: TrainingProps) {
@@ -162,20 +163,13 @@ export function Training({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto"
+            className="flex flex-col flex-1 max-w-4xl mx-auto w-full"
           >
-            {/* Verse Training Session placeholder — Step 4 */}
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-center space-y-2">
-              <p className="font-semibold text-foreground/80">{sessionLabel}</p>
-              <p className="text-sm text-foreground/50">
-                {view.verses.length > 0
-                  ? `${view.verses.length} стихов готово к тренировке`
-                  : "Нет стихов в этом режиме"}
-              </p>
-              <p className="text-xs text-foreground/35 mt-3">
-                Verse Training Session — следующий шаг реализации
-              </p>
-            </div>
+            <TrainingSession
+              verses={view.verses}
+              onClose={goToHub}
+              onVersePatched={onVersePatched}
+            />
           </motion.div>
         )}
       </AnimatePresence>
