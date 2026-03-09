@@ -77,8 +77,8 @@ const VerseGallery = dynamic(
   }
 );
 
-const ReferenceTrainer = dynamic(
-  () => import("./components/ReferenceTrainer").then((m) => m.ReferenceTrainer),
+const Training = dynamic(
+  () => import("./components/Training").then((m) => m.Training),
   {
     loading: () => <div className="min-h-[60vh]" />,
   }
@@ -129,12 +129,11 @@ type AppVerseApiRecord = {
 type Page =
   | "dashboard"
   | "verses"
-  | "references"
+  | "training"
   | "progress-map"
   // | "collections"
   // | "stats"
-  | "profile"
-  // | "training";
+  | "profile";
 
 type Theme = "light" | "dark";
 
@@ -145,7 +144,6 @@ type AppProps = {
 const THEME_STORAGE_KEY = "theme";
 const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
 const TRAINING_GALLERY_PAGE_SIZE = 40;
-const REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT = 10;
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
   light: {
     background: "#ede3d2",
@@ -363,9 +361,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardTrainingStartWithRef = useRef(0);
   const dashboardTrainingTotalCountRef = useRef(0);
   const dashboardTrainingHasMoreRef = useRef(false);
-  const canAccessReferenceTrainer =
-    (dashboardStats?.learningStatusVerses ?? 0) >=
-    REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT;
   const canGoBackInApp = pageStack.length > 1;
   const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
 
@@ -641,12 +636,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const handleNavigate = (page: string) => {
-    if (page === "references" && !canAccessReferenceTrainer) {
-      toast.info("Раздел «Якоря» пока недоступен", {
-        description: "Добавьте более 10 стихов в статусе LEARNING.",
-      });
-      return;
-    }
     setPageStack((prev) => {
       const nextPage = page as Page;
       const activePage = prev[prev.length - 1] ?? "dashboard";
@@ -680,12 +669,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     hasLoadedProgressMapFriendsRef.current = true;
     void loadProgressMapFriends(telegramId);
   }, [currentPage, loadProgressMapFriends, telegramId]);
-
-  useEffect(() => {
-    if (currentPage === "references" && !canAccessReferenceTrainer) {
-      replaceCurrentPage("dashboard");
-    }
-  }, [canAccessReferenceTrainer, currentPage, replaceCurrentPage]);
 
   const handleToggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
@@ -1061,7 +1044,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           currentPage={currentPage}
           onNavigate={handleNavigate}
           isContentReady={!isBootstrapping}
-          showReferencesSection={canAccessReferenceTrainer}
           showTelegramExitButton={
             isDashboardRootPage &&
             !showAddVerseDialog &&
@@ -1089,8 +1071,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                 onViewAll={() => handleNavigate("verses")}
-                canOpenReferences={canAccessReferenceTrainer}
-                onOpenReferences={() => handleNavigate("references")}
+                onOpenTraining={() => handleNavigate("training")}
                 isInitializingData={isBootstrapping}
               />
             </motion.div>
@@ -1104,8 +1085,15 @@ export default function App({ onInitialContentReady }: AppProps) {
             />
           )}
 
-          {currentPage === "references" && canAccessReferenceTrainer && (
-            <ReferenceTrainer telegramId={telegramId} />
+          {currentPage === "training" && (
+            <Training
+              allVerses={verses}
+              dashboardStats={dashboardStats}
+              telegramId={telegramId}
+              onVersePatched={handleDashboardGalleryVersePatched}
+              onRequestVerseSelection={() => handleNavigate("verses")}
+              onVerseMutationCommitted={handleVerseListMutationCommitted}
+            />
           )}
 
           {currentPage === "progress-map" && (

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { Anchor, BookOpen, LayoutDashboard, LogOut, Map, User } from 'lucide-react';
+import { BookOpen, Dumbbell, LayoutDashboard, LogOut, Map, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
@@ -13,7 +13,6 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
-  showReferencesSection?: boolean;
   showTelegramExitButton?: boolean;
   onTelegramExit?: () => void;
 }
@@ -23,7 +22,6 @@ export function Layout({
   currentPage,
   onNavigate,
   isContentReady = false,
-  showReferencesSection = false,
   showTelegramExitButton = false,
   onTelegramExit,
 }: LayoutProps) {
@@ -62,9 +60,7 @@ export function Layout({
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'progress-map', label: 'Карта', icon: Map },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
-    ...(showReferencesSection
-      ? [{ id: 'references', label: 'Якоря', icon: Anchor }]
-      : []),
+    { id: 'training', label: 'Тренировка', icon: Dumbbell },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
