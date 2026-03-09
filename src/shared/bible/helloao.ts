@@ -176,7 +176,7 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
     resourceLabel: url,
   });
 
-  if (!result.success) {
+  if (result.success === false) {
     throw result.error;
   }
 
