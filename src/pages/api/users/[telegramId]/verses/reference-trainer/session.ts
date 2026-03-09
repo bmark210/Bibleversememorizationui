@@ -25,7 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: parsedBody.error.flatten() });
     }
 
-    const { updates } = parsedBody.data;
+    const updates = parsedBody.data.updates as Array<{
+      externalVerseId: string;
+      track: "reference" | "incipit" | "context";
+      outcome: "correct_first" | "correct_retry" | "wrong";
+    }>;
     if (updates.length === 0) {
       return res.status(200).json({ updated: [] });
     }
