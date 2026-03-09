@@ -248,16 +248,21 @@ export function PathBackgroundImage({
           transform: `translate(${x}px, ${y}px)`,
           transformOrigin: 'top left',
           willChange: 'transform',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
           opacity,
         }}
       >
         <img
           src={imageUrl}
           alt=""
+          decoding="async"
+          loading="eager"
           style={{
             width: '100%',
             height: '100%',
             objectFit: 'fill',
+            imageRendering: '-webkit-optimize-contrast',
           }}
         />
       </div>
