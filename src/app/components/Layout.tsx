@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Dumbbell, LayoutDashboard, LogOut, Map, User } from 'lucide-react';
+import { BookOpen, ChartLine, Dumbbell, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
@@ -58,9 +58,9 @@ export function Layout({
 
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
-    { id: 'progress-map', label: 'Карта', icon: Map },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     { id: 'training', label: 'Тренировка', icon: Dumbbell },
+    { id: 'progress-map', label: 'Прогресс', icon: ChartLine },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
