@@ -162,7 +162,8 @@ const PRIMARY_ACCENT: AccentTheme = {
     "group-data-[state=checked]/radio:border-primary/15 group-data-[state=checked]/radio:bg-primary/12 group-data-[state=checked]/radio:text-primary",
   checkedTitleClassName: "group-data-[state=checked]/radio:text-primary",
   checkedSubtitleClassName: "group-data-[state=checked]/radio:text-primary/80",
-  checkedIndicatorClassName: "group-data-[state=checked]/radio:border-primary/25",
+  checkedIndicatorClassName:
+    "group-data-[state=checked]/radio:border-primary/25",
   checkedDotClassName: "bg-primary",
   summaryClassName: "text-primary",
   ctaClassName:
@@ -315,8 +316,9 @@ export function TrainingHub({
       matchesModes(selectedModes, preset.modes),
     ) ?? CORE_MODE_PRESETS[0];
   const activeAnchorTrack =
-    ANCHOR_TRACK_OPTIONS.find((option) => option.track === selectedAnchorTrack) ??
-    ANCHOR_TRACK_OPTIONS[0];
+    ANCHOR_TRACK_OPTIONS.find(
+      (option) => option.track === selectedAnchorTrack,
+    ) ?? ANCHOR_TRACK_OPTIONS[0];
   const currentAccentTheme =
     selectedScenario === "anchor"
       ? activeAnchorTrack.theme
@@ -341,7 +343,7 @@ export function TrainingHub({
 
   return (
     <div
-      className="mx-auto max-w-2xl px-4 pb-32 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8"
+      className="mx-auto w-full px-4 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8 h-full"
       style={
         {
           "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
@@ -351,7 +353,11 @@ export function TrainingHub({
       <motion.div
         initial={shouldReduceMotion ? undefined : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: "easeOut" }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.18,
+          ease: "easeOut",
+        }}
+        className="flex flex-col gap-4 h-full"
       >
         <header className="mb-5 space-y-1.5">
           <div className="flex items-center gap-2.5">
@@ -363,7 +369,9 @@ export function TrainingHub({
         <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
           <Tabs
             value={selectedScenario}
-            onValueChange={(value) => onScenarioChange(value as TrainingScenario)}
+            onValueChange={(value) =>
+              onScenarioChange(value as TrainingScenario)
+            }
             className="gap-4"
           >
             <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
@@ -467,8 +475,8 @@ export function TrainingHub({
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground/78">Подборка</p>
               <p className="text-xs text-foreground/50">
-                {selectionVerses.length} {pluralVerses(selectionVerses.length)} в
-                готовом наборе
+                {selectionVerses.length} {pluralVerses(selectionVerses.length)}{" "}
+                в готовом наборе
               </p>
             </div>
             <Button
@@ -488,7 +496,7 @@ export function TrainingHub({
           <Collapsible
             open={isAdvancedOpen}
             onOpenChange={setIsAdvancedOpen}
-            className="mt-3 rounded-[24px] border border-border/60 bg-card/45 backdrop-blur-xl"
+            className="rounded-[24px] border border-border/60 bg-card/45 backdrop-blur-xl"
           >
             <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none">
               <div className="min-w-0">
@@ -511,7 +519,9 @@ export function TrainingHub({
                 <SectionLabel>Порядок карточек</SectionLabel>
                 <Select
                   value={selectedOrder}
-                  onValueChange={(value) => onOrderChange(value as TrainingOrder)}
+                  onValueChange={(value) =>
+                    onOrderChange(value as TrainingOrder)
+                  }
                 >
                   <SelectTrigger
                     aria-label="Порядок карточек"
@@ -539,34 +549,31 @@ export function TrainingHub({
           </Collapsible>
         ) : null}
 
-        <div className="fixed inset-x-0 bottom-[var(--training-hub-sticky-bottom)] z-20 px-4 sm:px-6 md:sticky md:bottom-4 md:mt-6 md:px-0 lg:px-8">
-          <div className="mx-auto max-w-2xl">
-            <div className="rounded-[26px] border border-border/60 bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl">
-              <p
-                className={cn(
-                  "mb-3 px-1 text-sm font-medium",
-                  currentAccentTheme.summaryClassName,
-                )}
-              >
-                {sessionSummary}
-              </p>
-              <Button
-                type="button"
-                size="lg"
-                haptic="medium"
-                disabled={!hasVerses}
-                onClick={onStart}
-                className={cn(
-                  "h-14 w-full gap-2 rounded-2xl text-base",
-                  'border border-border/60 dark:bg-primary/50 !bg-primary/12',
-                  currentAccentTheme.summaryClassName,
-                  currentAccentTheme.ctaClassName,
-                )}
-              >
-                <Play className="h-4 w-4" />
-                {startLabel}
-              </Button>
-            </div>
+        <div className="mx-auto w-full mb-4 flex-1 content-end">
+          <div className="rounded-[26px] border border-border/60 bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl">
+            <p
+              className={cn(
+                "mb-3 px-1 text-sm font-medium",
+                currentAccentTheme.summaryClassName,
+              )}
+            >
+              {sessionSummary}
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              haptic="medium"
+              disabled={!hasVerses}
+              onClick={onStart}
+              className={cn(
+                "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
+                "border !bg-card/55",
+                currentAccentTheme.ctaClassName,
+              )}
+            >
+              <Play className="h-4 w-4" />
+              {startLabel}
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -586,7 +593,9 @@ function ScenarioTabLabel({
   return (
     <span className="flex w-full items-center justify-between gap-3">
       <span className="truncate text-sm font-medium">{title}</span>
-      <span className={cn("text-xs font-medium text-foreground/45", countClassName)}>
+      <span
+        className={cn("text-xs font-medium text-foreground/45", countClassName)}
+      >
         {count}
       </span>
     </span>
@@ -657,7 +666,9 @@ function RadioCardOption({
           )}
         >
           <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-            <span className={cn("h-2 w-2 rounded-full", theme.checkedDotClassName)} />
+            <span
+              className={cn("h-2 w-2 rounded-full", theme.checkedDotClassName)}
+            />
           </RadioGroupPrimitive.Indicator>
         </span>
       </div>
