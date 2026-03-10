@@ -1,7 +1,6 @@
 import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
-import { Button } from "@/app/components/ui/button";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -19,9 +18,6 @@ type Props = {
   onSwipeStep: (step: 1 | -1) => void;
   onTrainingInteractionStart?: () => void;
   onRate: (rating: Rating) => void | Promise<void>;
-  onQuickForget: () => void;
-  quickForgetLabel: string;
-  quickForgetDisabled?: boolean;
   hideRatingFooter?: boolean;
 };
 
@@ -60,9 +56,6 @@ export const TrainingCard = memo(function TrainingCard({
   onSwipeStep,
   onTrainingInteractionStart,
   onRate,
-  onQuickForget,
-  quickForgetLabel,
-  quickForgetDisabled = false,
   hideRatingFooter = false,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
@@ -174,22 +167,9 @@ export const TrainingCard = memo(function TrainingCard({
                   {totalProgressPercent}%
                 </span>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={quickForgetDisabled}
-                className={cn(
-                  "rounded-full border px-3 text-[11px] font-semibold",
-                  "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
-                )}
-                onClick={onQuickForget}
-              >
-                {quickForgetLabel}
-              </Button>
             </div>
           </div>
-        } 
+        }
         body={
           <div
             className="relative h-full"

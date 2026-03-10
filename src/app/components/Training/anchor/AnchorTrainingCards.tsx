@@ -3,7 +3,6 @@
 import type { ReactNode, RefObject } from "react";
 import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
 import { VerseCard, type VerseCardPreviewTone } from "@/app/components/VerseCard";
-import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
@@ -46,7 +45,6 @@ type AnchorTrainingQuestionCardProps = {
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
-  onForgotAnswer: () => void;
   onContinue: () => void;
 };
 
@@ -69,6 +67,7 @@ type AnchorTrainingStateCardProps = {
   description: string;
   tone?: VerseCardPreviewTone;
   action?: ReactNode;
+  visual?: "loading";
 };
 
 const STATE_THEME: Record<
@@ -136,6 +135,22 @@ function getResultTheme(isCorrect: boolean | null) {
   };
 }
 
+function AnchorTrainingLoadingVisual() {
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <p className="text-center text-sm text-muted-foreground">
+        Подготавливаем закрепление...
+      </p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/50">
+        <div
+          aria-hidden="true"
+          className="h-full w-[68%] rounded-full bg-primary/75 animate-pulse"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function AnchorTrainingQuestionCard({
   question,
   sessionTrack,
@@ -161,11 +176,33 @@ export function AnchorTrainingQuestionCard({
   onTapSelect,
   onTypedAnswerChange,
   onTypeSubmit,
-  onForgotAnswer,
   onContinue,
 }: AnchorTrainingQuestionCardProps) {
   const questionAccent = TRACK_ACCENTS[question.track];
   const resultTheme = getResultTheme(lastAnswerCorrect);
+  const shouldPinTypeInputToTop =
+    question.interaction === "type" && !isAnswered;
+  const modeRenderer =
+    question.interaction !== "type" || !isAnswered ? (
+      <AnchorTrainingModeRenderer
+        question={question}
+        selectedOption={selectedOption}
+        isAnswered={isAnswered}
+        controlsLocked={controlsLocked}
+        tapSequence={tapSequence}
+        selectedTapLabels={selectedTapLabels}
+        typedAnswer={typedAnswer}
+        typingAttempts={typingAttempts}
+        canSubmitTypeAnswer={canSubmitTypeAnswer}
+        isContextPrefixTypeMode={isContextPrefixTypeMode}
+        typeInputReadiness={typeInputReadiness}
+        inputRef={inputRef}
+        onChoiceSelect={onChoiceSelect}
+        onTapSelect={onTapSelect}
+        onTypedAnswerChange={onTypedAnswerChange}
+        onTypeSubmit={onTypeSubmit}
+      />
+    ) : null;
 
   return (
     <VerseCard
@@ -177,8 +214,8 @@ export function AnchorTrainingQuestionCard({
       contentClassName="pb-2"
       header={
         <div className="space-y-3 text-center">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {sessionTrack === "mixed" && (
+          {sessionTrack === "mixed" && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <QuestionBadge className={questionAccent.badgeClassName}>
                 <span
                   aria-hidden="true"
@@ -186,26 +223,8 @@ export function AnchorTrainingQuestionCard({
                 />
                 {TRACK_LABELS[question.track]}
               </QuestionBadge>
-            )}
-            <Badge
-              variant="outline"
-              className="rounded-full border-border/60 bg-background/82 px-3 py-1 text-[11px] text-foreground/72 shadow-sm"
-            >
-                {question.modeLabel}
-            </Badge>
-            {!isAnswered && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-full border px-3 text-[11px] font-semibold border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
-                onClick={onForgotAnswer}
-                disabled={controlsLocked}
-              >
-                Забыл
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
           <p className="text-sm leading-relaxed text-foreground/66">
             {question.modeHint}
           </p>
@@ -213,32 +232,15 @@ export function AnchorTrainingQuestionCard({
       }
       body={
         <div className="space-y-5">
+          {shouldPinTypeInputToTop ? modeRenderer : null}
+
           <div className="rounded-[1.85rem] border border-border/60 bg-background/90 px-4 py-5 sm:px-6 sm:py-6">
-            <p className="whitespace-pre-line text-center text-[1.02rem] leading-relaxed text-foreground/92 sm:text-[1.1rem]">
+            <p className="whitespace-pre-line text-center font-serif italic text-[1.02rem] leading-relaxed text-primary/90 sm:text-[1.1rem]">
               {question.prompt}
             </p>
           </div>
 
-          {(question.interaction !== "type" || !isAnswered) && (
-            <AnchorTrainingModeRenderer
-              question={question}
-              selectedOption={selectedOption}
-              isAnswered={isAnswered}
-              controlsLocked={controlsLocked}
-              tapSequence={tapSequence}
-              selectedTapLabels={selectedTapLabels}
-              typedAnswer={typedAnswer}
-              typingAttempts={typingAttempts}
-              canSubmitTypeAnswer={canSubmitTypeAnswer}
-              isContextPrefixTypeMode={isContextPrefixTypeMode}
-              typeInputReadiness={typeInputReadiness}
-              inputRef={inputRef}
-              onChoiceSelect={onChoiceSelect}
-              onTapSelect={onTapSelect}
-              onTypedAnswerChange={onTypedAnswerChange}
-              onTypeSubmit={onTypeSubmit}
-            />
-          )}
+          {!shouldPinTypeInputToTop ? modeRenderer : null}
         </div>
       }
       footer={
@@ -282,7 +284,7 @@ export function AnchorTrainingQuestionCard({
                     <div className="mt-4 flex justify-end">
                       <Button
                         type="button"
-                        className="rounded-full px-5"
+                        className="rounded-full px-5 text-foreground/60 bg-background/80 border border-border"
                         onClick={onContinue}
                       >
                         Продолжить
@@ -292,13 +294,8 @@ export function AnchorTrainingQuestionCard({
                 </div>
               </div>
             </SurfacePanel>
-          ) : (
-            <div className="flex justify-center">
-              <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-                Свайп вверх переносит стих в конец сессии.
-              </p>
-            </div>
-          )}
+          )
+           : null}
         </div>
       }
     />
@@ -409,6 +406,7 @@ export function AnchorTrainingStateCard({
   description,
   tone = "catalog",
   action,
+  visual,
 }: AnchorTrainingStateCardProps) {
   const theme = STATE_THEME[tone] ?? STATE_THEME.catalog;
 
@@ -428,10 +426,18 @@ export function AnchorTrainingStateCard({
         </div>
       }
       body={
-        <div className="flex h-full items-center justify-center">
-          <p className="max-w-lg text-center text-sm leading-relaxed text-foreground/68">
-            {description}
-          </p>
+        <div
+          className={cn(
+            "flex h-full justify-center",
+            visual ? "items-start" : "items-center",
+          )}
+        >
+          <div className="w-full max-w-lg space-y-5">
+            {visual === "loading" ? <AnchorTrainingLoadingVisual /> : null}
+            <p className="max-w-lg text-center text-sm leading-relaxed text-foreground/68">
+              {description}
+            </p>
+          </div>
         </div>
       }
       centerAction={action ?? null}

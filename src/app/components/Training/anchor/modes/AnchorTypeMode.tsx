@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { QuestionBadge } from "../AnchorTrainingCardUi";
@@ -31,6 +31,34 @@ export function AnchorTypeMode({
   onTypedAnswerChange,
   onTypeSubmit,
 }: AnchorTypeModeProps) {
+  const mobileFocusTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (mobileFocusTimeoutRef.current) {
+        window.clearTimeout(mobileFocusTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleInputFocus = () => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+
+    if (mobileFocusTimeoutRef.current) {
+      window.clearTimeout(mobileFocusTimeoutRef.current);
+    }
+
+    mobileFocusTimeoutRef.current = window.setTimeout(() => {
+      inputRef.current?.scrollIntoView({
+        block: "start",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+      mobileFocusTimeoutRef.current = null;
+    }, 140);
+  };
+
   return (
     <div className="space-y-3">
       <form
@@ -59,7 +87,8 @@ export function AnchorTypeMode({
               }
             }}
             placeholder={question.placeholder}
-            className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-24 text-base transition-colors focus:border-primary/35"
+            className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35"
+            onFocus={handleInputFocus}
             autoCapitalize={isContextPrefixTypeMode ? "characters" : "none"}
             autoCorrect="off"
             spellCheck={false}
@@ -71,7 +100,7 @@ export function AnchorTypeMode({
             <Button
               type="submit"
               size="sm"
-              className="h-8 rounded-xl px-4 text-xs font-medium"
+              className="rounded-xl px-4 text-xs font-medium bg-primary/80 border border-border/60 text-foreground"
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}

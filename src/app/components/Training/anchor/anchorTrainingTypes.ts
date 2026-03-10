@@ -35,7 +35,6 @@ export type TrainerQuestionBase = {
   id: string;
   modeId: TrainerModeId;
   track: SkillTrack;
-  modeLabel: string;
   modeHint: string;
   verse: ReferenceVerse;
   prompt: string;
@@ -89,7 +88,6 @@ export type TypeInputReadiness = {
 export type ModeStrategy = {
   id: TrainerModeId;
   track: SkillTrack;
-  label: string;
   hint: string;
   weight: number;
   canBuild: (verse: ReferenceVerse, pool: ReferenceVerse[]) => boolean;

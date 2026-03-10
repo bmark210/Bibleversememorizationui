@@ -15,6 +15,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Toaster } from "@/app/components/ui/toaster";
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import {
@@ -411,6 +412,7 @@ export function TrainingSession({
     ? getVerseIdentity(trainingActiveVerse.raw)
     : `empty:${resolvedSubsetFilter}:${activeOrder}`;
   const milestonePopup = session.milestonePopup;
+  const showQuickForgetAction = Boolean(trainingActiveVerse && trainingModeId);
 
   const milestoneStageLabel =
     milestonePopup?.status === "MASTERED"
@@ -527,8 +529,24 @@ export function TrainingSession({
           </div>
         </div>
 
+        <div className="shrink-0 pt-3 mx-4 z-30">
+          <div className="mx-auto flex w-fit items-center justify-center gap-3 rounded-[1.35rem] border border-border/60 bg-background/75 px-2 py-2 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <TrainingSubsetSelect
+              value={resolvedSubsetFilter}
+              options={subsetOptions}
+              disabled={areControlsLocked || subsetOptions.length <= 1}
+              onValueChange={handleSubsetChange}
+            />
+            <TrainingOrderSelect
+              value={activeOrder}
+              disabled={areControlsLocked}
+              onValueChange={handleOrderChange}
+            />
+          </div>
+        </div>
+
         <div
-          className="flex-1 relative grid place-items-center px-4 sm:px-6"
+          className="flex-1 relative grid place-items-center px-4 py-4 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
@@ -555,12 +573,6 @@ export function TrainingSession({
                     setHasInteractionStarted(true);
                     return session.handleRate(rating);
                   }}
-                  onQuickForget={() => {
-                    setHasInteractionStarted(true);
-                    session.requestQuickForget();
-                  }}
-                  quickForgetLabel={session.quickForgetLabel}
-                  quickForgetDisabled={session.isActionPending}
                   hideRatingFooter={milestonePopup !== null}
                 />
               ) : (
@@ -578,30 +590,39 @@ export function TrainingSession({
           style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
           className="shrink-0 px-4 sm:px-6 z-40"
         >
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-            <div className="grid w-full grid-cols-2 gap-3">
-              <TrainingSubsetSelect
-                value={resolvedSubsetFilter}
-                options={subsetOptions}
-                disabled={areControlsLocked || subsetOptions.length <= 1}
-                onValueChange={handleSubsetChange}
-                className="max-w-none"
-              />
-              <TrainingOrderSelect
-                value={activeOrder}
-                disabled={areControlsLocked}
-                onValueChange={handleOrderChange}
-                className="max-w-none"
-              />
-            </div>
-            <Button
-              variant="outline"
-              className="flex gap-2 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl"
-              onClick={onClose}
-              disabled={session.isActionPending}
+          <div className="mx-auto w-full max-w-2xl">
+            <div
+              className={cn(
+                "grid gap-3",
+                showQuickForgetAction ? "grid-cols-2" : "grid-cols-1"
+              )}
             >
-              Завершить
-            </Button>
+              {showQuickForgetAction && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300"
+                  onClick={() => {
+                    setHasInteractionStarted(true);
+                    session.requestQuickForget();
+                  }}
+                  disabled={session.isActionPending}
+                >
+                  Забыл
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className={cn(
+                  "h-11 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl",
+                  !showQuickForgetAction && "col-span-full"
+                )}
+                onClick={onClose}
+                disabled={session.isActionPending}
+              >
+                Завершить
+              </Button>
+            </div>
           </div>
         </div>
 

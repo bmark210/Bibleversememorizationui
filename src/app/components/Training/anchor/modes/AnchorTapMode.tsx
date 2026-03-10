@@ -49,7 +49,7 @@ export function AnchorTapMode({
               disabled={isAnswered || isUsed || controlsLocked}
               onClick={() => onTapSelect(option.id)}
               className={cn(
-                "rounded-[1.45rem] border px-3.5 py-3 text-left text-sm transition-colors",
+                "rounded-[1.45rem] text-foreground/60! border px-3.5 py-3 text-left text-sm transition-colors",
                 isUsed
                   ? "border-primary/25 bg-primary/[0.08] text-foreground/84"
                   : "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35"

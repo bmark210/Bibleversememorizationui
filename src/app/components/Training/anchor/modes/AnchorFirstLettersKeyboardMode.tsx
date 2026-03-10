@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/app/components/ui/button";
-import { Textarea } from "@/app/components/ui/textarea";
 import { QuestionBadge } from "../AnchorTrainingCardUi";
 import type { TypeQuestion } from "../anchorTrainingTypes";
+import { Input } from "@/app/components/ui/input";
 
 function sanitizeCompactInput(value: string) {
   return value.replace(/[^\p{L}\p{N}]+/gu, "").toUpperCase();
@@ -69,7 +69,7 @@ export function AnchorFirstLettersKeyboardMode({
 
     mobileFocusTimeoutRef.current = window.setTimeout(() => {
       inputRef.current?.scrollIntoView({
-        block: "center",
+        block: "start",
         inline: "nearest",
         behavior: "smooth",
       });
@@ -84,8 +84,8 @@ export function AnchorFirstLettersKeyboardMode({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
         />
-        <Textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+        <Input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
           value={typedAnswer}
           onChange={(event) =>
             onTypedAnswerChange(
@@ -106,7 +106,7 @@ export function AnchorFirstLettersKeyboardMode({
           }}
           placeholder={question.placeholder}
           disabled={controlsLocked}
-          className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono text-base uppercase tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="relative resize-none border-0 bg-transparent p-4 font-mono text-base uppercase tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           autoCorrect="off"
           autoCapitalize="characters"
           spellCheck={false}
@@ -124,7 +124,7 @@ export function AnchorFirstLettersKeyboardMode({
         <Button
           type="button"
           size="sm"
-          className="h-8 rounded-xl px-4 text-xs font-medium"
+          className="h-8 rounded-xl px-4 text-xs font-medium text-foreground/60 border border-border/60 bg-background/80 hover:border-primary/35"
           disabled={!canSubmitTypeAnswer || controlsLocked}
           onClick={onTypeSubmit}
         >

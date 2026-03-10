@@ -82,7 +82,6 @@ export type UseTrainingSessionReturn = {
   handleNavigationStep: (delta: -1 | 1) => void;
   handleClose: () => void;
 
-  quickForgetLabel: string;
   quickForgetConfirmStage: QuickForgetConfirmStage | null;
   requestQuickForget: () => void;
   confirmQuickForget: () => void;
@@ -445,11 +444,6 @@ export function useTrainingSession({
   );
 
   // ── Quick forget ───────────────────────────────────────────────────────────
-  const quickForgetLabel =
-    trainingActiveVerse && isTrainingReviewVerse(trainingActiveVerse)
-      ? "Забыл"
-      : "Забыл";
-
   const requestQuickForget = useCallback(() => {
     if (trainingModeId === null || isActionPending) return;
     const current = trainingVerses[trainingIndex];
@@ -489,7 +483,6 @@ export function useTrainingSession({
     handleNavigationStep: stableJump,
     handleClose: onSessionComplete,
 
-    quickForgetLabel,
     quickForgetConfirmStage,
     requestQuickForget: stableRequestQuickForget,
     confirmQuickForget: stableConfirmQuickForget,

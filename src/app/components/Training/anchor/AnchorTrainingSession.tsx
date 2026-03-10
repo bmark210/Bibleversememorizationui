@@ -20,6 +20,8 @@ import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
+import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -33,6 +35,7 @@ import {
 import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
+import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import {
   AnchorTrainingQuestionCard,
   AnchorTrainingStateCard,
@@ -246,6 +249,117 @@ type TypeInputEvaluation = {
   isCorrect: boolean;
   acceptedWithTolerance: boolean;
 };
+
+type ContextTargetRelation = {
+  direction: "forward" | "backward";
+  distance: number;
+};
+
+function getPluralForm(
+  value: number,
+  one: string,
+  few: string,
+  many: string
+) {
+  const absValue = Math.abs(value) % 100;
+  const lastDigit = absValue % 10;
+
+  if (absValue > 10 && absValue < 20) return many;
+  if (lastDigit > 1 && lastDigit < 5) return few;
+  if (lastDigit === 1) return one;
+  return many;
+}
+
+function formatVerseGap(count: number) {
+  if (count === 1) return "один стих";
+  if (count === 2) return "два стиха";
+  if (count === 3) return "три стиха";
+  if (count === 4) return "четыре стиха";
+  return `${count} ${getPluralForm(count, "стих", "стиха", "стихов")}`;
+}
+
+function parseReferenceChapterAndVerseStart(reference: string): {
+  chapter: number;
+  verseStart: number;
+} | null {
+  const normalized = reference.replace(/\u00A0/g, " ").trim();
+  const match = normalized.match(
+    /^(.*?)(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?$/u
+  );
+  if (!match) return null;
+
+  const chapter = Number(match[2]);
+  const verseStart = Number(match[3]);
+  if (!Number.isInteger(chapter) || chapter <= 0) return null;
+  if (!Number.isInteger(verseStart) || verseStart <= 0) return null;
+
+  return {
+    chapter,
+    verseStart,
+  };
+}
+
+function resolveContextTargetRelation(
+  verse: ReferenceVerse
+): ContextTargetRelation | null {
+  const targetReference = parseExternalVerseId(verse.externalVerseId);
+  const promptReference = parseReferenceChapterAndVerseStart(
+    verse.contextPromptReference
+  );
+
+  if (
+    !targetReference ||
+    !promptReference ||
+    targetReference.chapter !== promptReference.chapter
+  ) {
+    return null;
+  }
+
+  const distance = Math.abs(targetReference.verseStart - promptReference.verseStart);
+  if (distance <= 0) return null;
+
+  return {
+    direction:
+      targetReference.verseStart > promptReference.verseStart
+        ? "forward"
+        : "backward",
+    distance,
+  };
+}
+
+function getContextTargetDescriptor(verse: ReferenceVerse) {
+  const relation = resolveContextTargetRelation(verse);
+  if (!relation) return "нужного стиха";
+
+  if (relation.direction === "forward") {
+    if (relation.distance === 1) return "следующего стиха";
+    return `стиха, который идёт через ${formatVerseGap(
+      relation.distance - 1
+    )} после подсказки`;
+  }
+
+  if (relation.distance === 1) return "предыдущего стиха";
+  return `стиха, который находится через ${formatVerseGap(
+    relation.distance - 1
+  )} до подсказки`;
+}
+
+function buildContextModeHint(
+  verse: ReferenceVerse,
+  mode: "incipit" | "tap" | "prefix"
+) {
+  const descriptor = getContextTargetDescriptor(verse);
+
+  if (mode === "tap") {
+    return `Соберите начало ${descriptor}.`;
+  }
+
+  if (mode === "prefix") {
+    return `Введите первые буквы начала ${descriptor}.`;
+  }
+
+  return `Введите начало ${descriptor}.`;
+}
 
 function getExpectedWordPrefixMatch(input: string, expected: string): boolean {
   const expectedTokens = expected.split(" ").filter(Boolean);
@@ -499,7 +613,7 @@ function buildReferenceChoiceQuestion(
     id: `reference-choice-${order}-${verse.externalVerseId}`,
     modeId: "reference-choice",
     track: "reference",
-    modeLabel: "Выбор ссылки",
+    // modeLabel: "Выбор ссылки",
     modeHint: "Выберите правильную ссылку.",
     verse,
     prompt: verse.text,
@@ -540,7 +654,7 @@ function buildBookChoiceQuestion(
     id: `book-choice-${order}-${verse.externalVerseId}`,
     modeId: "book-choice",
     track: "reference",
-    modeLabel: "Выбор книги",
+    // modeLabel: "Выбор книги",
     modeHint: "Выберите правильную книгу.",
     verse,
     prompt: verse.text,
@@ -563,7 +677,7 @@ function buildReferenceTypeQuestion(
     id: `reference-type-${order}-${verse.externalVerseId}`,
     modeId: "reference-type",
     track: "reference",
-    modeLabel: "Ввод ссылки",
+    // modeLabel: "Ввод ссылки",
     modeHint: "Введите ссылку вручную.",
     verse,
     prompt: verse.text,
@@ -600,7 +714,7 @@ function buildIncipitChoiceQuestion(
     id: `incipit-choice-${order}-${verse.externalVerseId}`,
     modeId: "incipit-choice",
     track: "incipit",
-    modeLabel: "Выбор начала",
+    // modeLabel: "Выбор начала",
     modeHint: "Выберите правильное начало стиха.",
     verse,
     prompt: verse.reference,
@@ -653,7 +767,7 @@ function buildIncipitTapQuestion(
     id: `incipit-tap-${order}-${verse.externalVerseId}`,
     modeId: "incipit-tap",
     track: "incipit",
-    modeLabel: "Сборка слов",
+    // modeLabel: "Сборка слов",
     modeHint: "Соберите начало стиха по словам.",
     verse,
     prompt: verse.reference,
@@ -678,7 +792,7 @@ function buildIncipitTypeQuestion(
     id: `incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "incipit-type",
     track: "incipit",
-    modeLabel: "Ввод начала",
+    // modeLabel: "Ввод начала",
     modeHint: "Введите первые слова стиха.",
     verse,
     prompt: verse.reference,
@@ -711,17 +825,15 @@ function buildContextIncipitTypeQuestion(
     id: `context-incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "context-incipit-type",
     track: "context",
-    modeLabel: "Отгадай стих по контексту",
-    modeHint: "О каком стихе идет речь? Введите начало стиха по контексту.",
+    modeHint: buildContextModeHint(verse, "incipit"),
     verse,
     prompt,
     answerLabel: verse.incipit,
     interaction: "type",
-    placeholder: "Введите начало стиха",
+    placeholder: `Введите начало ${getContextTargetDescriptor(verse)}`,
     maxAttempts: MAX_TYPING_ATTEMPTS,
     retryHint: initials ? `Первые буквы: ${initials}` : undefined,
-    isCorrectInput: (value: string) =>
-      matchesIncipitWithTolerance(value, verse.incipit),
+    isCorrectInput: (value: string) => matchesIncipitWithTolerance(value, verse.incipit),
   };
 }
 
@@ -767,8 +879,8 @@ function buildContextIncipitTapQuestion(
     id: `context-incipit-tap-${order}-${verse.externalVerseId}`,
     modeId: "context-incipit-tap",
     track: "context",
-    modeLabel: "Контекст: сборка слов",
-    modeHint: "О каком стихе идет речь? Соберите начало стиха по контексту.",
+    // modeLabel: "Контекст: сборка слов",
+    modeHint: buildContextModeHint(verse, "tap"),
     verse,
     prompt,
     answerLabel: verse.incipit,
@@ -795,8 +907,8 @@ function buildContextPrefixTypeQuestion(
     id: `context-prefix-type-${order}-${verse.externalVerseId}`,
     modeId: "context-prefix-type",
     track: "context",
-    modeLabel: "Контекст: первые буквы",
-    modeHint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
+    // modeLabel: "Контекст: первые буквы",
+    modeHint: buildContextModeHint(verse, "prefix"),
     verse,
     prompt,
     answerLabel: compactUppercasePrefix,
@@ -813,7 +925,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "reference-choice",
     track: "reference",
-    label: "Выбор ссылки",
+    // label: "Выбор ссылки",
     hint: "Выберите правильную ссылку.",
     weight: 2,
     canBuild: (verse, pool) => buildReferenceChoiceQuestion(verse, pool, -1) !== null,
@@ -822,7 +934,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "book-choice",
     track: "reference",
-    label: "Выбор книги",
+    // label: "Выбор книги",
     hint: "Выберите правильную книгу.",
     weight: 1,
     canBuild: (verse, pool) => buildBookChoiceQuestion(verse, pool, -1) !== null,
@@ -831,7 +943,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "reference-type",
     track: "reference",
-    label: "Ввод ссылки",
+    // label: "Ввод ссылки",
     hint: "Введите ссылку вручную.",
     weight: 2,
     canBuild: () => true,
@@ -840,7 +952,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-choice",
     track: "incipit",
-    label: "Выбор начала",
+    // label: "Выбор начала",
     hint: "Выберите правильное начало стиха.",
     weight: 2,
     canBuild: (verse, pool) => buildIncipitChoiceQuestion(verse, pool, -1) !== null,
@@ -849,7 +961,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-tap",
     track: "incipit",
-    label: "Сборка слов",
+    // label: "Сборка слов",
     hint: "Соберите начало стиха по словам.",
     weight: 1,
     canBuild: (verse, pool) => buildIncipitTapQuestion(verse, pool, -1) !== null,
@@ -858,7 +970,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-type",
     track: "incipit",
-    label: "Ввод начала",
+    //  label: "Ввод начала",
     hint: "Введите первые слова стиха.",
     weight: 2,
     canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
@@ -867,7 +979,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-incipit-type",
     track: "context",
-    label: "Контекст: ввод начала",
+    // label: "Контекст: ввод начала",
     hint: "О каком стихе идет речь? Введите начало стиха по контексту.",
     weight: 2,
     canBuild: (verse, _pool) => buildContextIncipitTypeQuestion(verse, -1) !== null,
@@ -876,7 +988,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-incipit-tap",
     track: "context",
-    label: "Контекст: сборка слов",
+    // label: "Контекст: сборка слов",
     hint: "О каком стихе идет речь? Соберите начало стиха по контексту.",
     weight: 1,
     canBuild: (verse, pool) => buildContextIncipitTapQuestion(verse, pool, -1) !== null,
@@ -885,7 +997,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-prefix-type",
     track: "context",
-    label: "Контекст: первые буквы",
+    // label: "Контекст: первые буквы",
     hint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
     weight: 1,
     canBuild: (verse, _pool) => buildContextPrefixTypeQuestion(verse, -1) !== null,
@@ -1108,10 +1220,38 @@ export function AnchorTrainingSession({
     useState<SessionTrack | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isAutoAdvancePending, setIsAutoAdvancePending] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   useEffect(() => {
     writeStoredTrack(selectedTrack);
   }, [selectedTrack]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const tg = getTelegramWebApp();
+    const visualViewport = window.visualViewport;
+
+    const checkKeyboardState = () => {
+      if (tg?.viewportStableHeight && tg?.viewportHeight) {
+        setIsKeyboardOpen(tg.viewportStableHeight - tg.viewportHeight > 100);
+        return;
+      }
+
+      if (visualViewport) {
+        setIsKeyboardOpen(window.innerHeight - visualViewport.height > 150);
+      }
+    };
+
+    checkKeyboardState();
+    visualViewport?.addEventListener("resize", checkKeyboardState);
+    tg?.onEvent?.("viewportChanged", checkKeyboardState);
+
+    return () => {
+      visualViewport?.removeEventListener("resize", checkKeyboardState);
+      tg?.offEvent?.("viewportChanged", checkKeyboardState);
+    };
+  }, []);
 
   const markIntroAsSeen = useCallback(() => {
     if (!telegramId || typeof window === "undefined") {
@@ -1501,6 +1641,8 @@ export function AnchorTrainingSession({
     currentQuestion?.interaction === "type"
       ? typeInputReadiness?.canSubmit === true
       : false;
+  const shouldLiftTypeCard =
+    isKeyboardOpen && isTypeMode && !isAnswered && !sessionComplete;
   const revealedVerseText = getRevealedVerseText(currentQuestion);
   const requiresContinueAfterReveal =
     isAnswered &&
@@ -1512,6 +1654,15 @@ export function AnchorTrainingSession({
     : displayCount === 0
       ? 0
       : Math.min(currentQuestionIndex + 1, displayCount);
+  const showTrackSelector = !sessionComplete && telegramId && !isLoading;
+  const showForgotAnswerAction = Boolean(
+    telegramId &&
+      !isLoading &&
+      !errorMessage &&
+      !sessionComplete &&
+      currentQuestion &&
+      !isAnswered
+  );
 
   const confirmTrackChange = useCallback(() => {
     if (pendingTrackChange === null) return;
@@ -1741,8 +1892,25 @@ export function AnchorTrainingSession({
             </div>
           </div>
 
+          {showTrackSelector && (
+            <div className="shrink-0 px-4 pt-3 sm:px-6 z-30">
+              <div className="mx-auto w-full max-w-xs rounded-[1.35rem] border border-border/60 bg-background/75 px-3 py-3 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                <AnchorTrainingTrackSelect
+                  value={selectedTrack}
+                  onValueChange={handleTrackSelect}
+                  disabled={controlsLocked}
+                />
+              </div>
+            </div>
+          )}
+
           <div
-            className="flex-1 relative grid place-items-center px-4 sm:px-6"
+            className={cn(
+              "relative flex-1 grid px-4 py-4 sm:px-6",
+              shouldLiftTypeCard
+                ? "items-start justify-items-center pt-3 sm:pt-4"
+                : "place-items-center",
+            )}
             role="region"
             aria-roledescription="carousel"
             aria-label="Карточки закрепления"
@@ -1763,6 +1931,7 @@ export function AnchorTrainingSession({
                   title="Загружаем сессию"
                   description="Подбираем стихи для закрепления и собираем последовательность вопросов."
                   tone="catalog"
+                  visual="loading"
                 />
               </div>
             )}
@@ -1853,7 +2022,6 @@ export function AnchorTrainingSession({
                       onTapSelect={handleTapSelect}
                       onTypedAnswerChange={setTypedAnswer}
                       onTypeSubmit={handleTypeSubmit}
-                      onForgotAnswer={handleForgotAnswer}
                       onContinue={handleContinueAfterReveal}
                     />
                   </motion.div>
@@ -1887,21 +2055,35 @@ export function AnchorTrainingSession({
             style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
             className="shrink-0 px-4 sm:px-6 z-40"
           >
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-              {!sessionComplete && telegramId && !isLoading && (
-                <AnchorTrainingTrackSelect
-                  value={selectedTrack}
-                  onValueChange={handleTrackSelect}
-                  disabled={controlsLocked}
-                />
-              )}
-              <Button
-                variant="outline"
-                className="flex gap-2 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl"
-                onClick={requestClose}
+            <div className="mx-auto w-full max-w-2xl">
+              <div
+                className={cn(
+                  "grid gap-3",
+                  showForgotAnswerAction ? "grid-cols-2" : "grid-cols-1"
+                )}
               >
-                Завершить
-              </Button>
+                {showForgotAnswerAction && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300"
+                    onClick={handleForgotAnswer}
+                    disabled={controlsLocked}
+                  >
+                    Забыл
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-11 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl",
+                    !showForgotAnswerAction && "col-span-full"
+                  )}
+                  onClick={requestClose}
+                >
+                  Завершить
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1915,10 +2097,10 @@ export function AnchorTrainingSession({
       >
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
+            <AlertDialogTitle className="text-base text-foreground/60">
               Сменить режим закрепления?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
+            <AlertDialogDescription className="text-sm text-muted-foreground/60">
               При смене режима прогресс текущей сессии сбросится. Сохранение произойдёт
               только после завершения всех стихов.
             </AlertDialogDescription>

@@ -37,7 +37,7 @@ export function AnchorChoiceMode({
             disabled={isAnswered || controlsLocked}
             onClick={() => onChoiceSelect(option)}
             className={cn(
-              "rounded-[1.45rem] border px-4 py-3.5 text-left text-sm leading-relaxed transition-colors",
+              "rounded-[1.45rem] border px-4 py-3.5 text-left text-sm text-foreground/60 leading-relaxed transition-colors",
               stateClassName
             )}
           >
