@@ -219,8 +219,8 @@ export function Dashboard({
         <motion.div initial="hidden" animate="show" variants={dashboardVariants}>
           <DashboardWelcomeSection
             user={user}
-            todayVersesCount={todayVerses.length}
-            dueReviewVerses={dueReviewVerses}
+            // todayVersesCount={todayVerses.length}
+            // dueReviewVerses={dueReviewVerses}
             dailyStreak={dailyStreak}
             onOpenTraining={onOpenTraining}
             sectionVariants={sectionVariants}

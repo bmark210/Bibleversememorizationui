@@ -475,7 +475,7 @@ export function Profile({
                               </div>
                               <div className="mt-1 truncate text-xs text-foreground/48">
                                 {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                                {item.averageProgressPercent}% · {item.dailyStreak} дн.
+                                {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
                               </div>
                             </div>
 

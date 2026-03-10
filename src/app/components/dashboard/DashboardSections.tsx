@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import type { Variants } from "motion/react";
-import { Crown, Dumbbell, Medal, Trophy } from "lucide-react";
+import { Crown, Dumbbell, Medal, Trophy, FlameIcon } from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -157,8 +157,8 @@ function MetricChip({
 
 type DashboardWelcomeSectionProps = {
   user: DashboardUser;
-  todayVersesCount: number;
-  dueReviewVerses: number;
+  // todayVersesCount: number;
+  // dueReviewVerses: number;
   dailyStreak: number;
   onOpenTraining?: () => void;
   sectionVariants: Variants;
@@ -166,8 +166,6 @@ type DashboardWelcomeSectionProps = {
 
 export function DashboardWelcomeSection({
   user,
-  todayVersesCount,
-  dueReviewVerses,
   dailyStreak,
   onOpenTraining,
   sectionVariants,
@@ -208,16 +206,16 @@ export function DashboardWelcomeSection({
                   ? isFirstAppVisit
                     ? `Привет, ${user.firstName}.`
                     : `С возвращением, ${user.firstName}.`
-                  : "С возвращением."}
+                  : "С возвращением"}
               </h1>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <MetricChip>{todayVersesCount} сегодня</MetricChip>
-              {dueReviewVerses > 0 ? (
-                <MetricChip tone="review">{dueReviewVerses} повторить</MetricChip>
-              ) : null}
-              {dailyStreak > 0 ? <MetricChip>{dailyStreak} дн.</MetricChip> : null}
+              {dailyStreak > 0 ? <MetricChip>
+                <div className="flex items-center gap-2">
+                   <FlameIcon className="h-4 w-4 text-yellow-500" /> {dailyStreak} дн. подряд
+                   </div>
+                   </MetricChip> : null}
             </div>
           </div>
 
@@ -370,7 +368,7 @@ export function DashboardLeaderboardCard({
                       {entry.name}
                     </div>
                     <div className="mt-1 text-xs text-foreground/48">
-                      {entry.weeklyRepetitions} · {entry.streakDays} дн.
+                      {entry.weeklyRepetitions} · {entry.streakDays} дн. подряд
                     </div>
                   </div>
 
@@ -464,7 +462,7 @@ export function DashboardFriendsActivityCard({
                       {entry.name}
                     </div>
                     <div className="mt-1 text-xs text-foreground/48">
-                      {formatRelativeLastActive(entry.lastActiveAt)} · {entry.dailyStreak} дн.
+                      {formatRelativeLastActive(entry.lastActiveAt)} · {entry.dailyStreak} дн. подряд
                     </div>
                   </div>
 
