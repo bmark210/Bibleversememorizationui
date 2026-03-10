@@ -1,7 +1,6 @@
 "use client";
 
 import type { RefObject } from "react";
-import { AnchorFirstLettersKeyboardMode } from "./modes/AnchorFirstLettersKeyboardMode";
 import { AnchorChoiceMode } from "./modes/AnchorChoiceMode";
 import { AnchorTapMode } from "./modes/AnchorTapMode";
 import { AnchorTypeMode } from "./modes/AnchorTypeMode";
@@ -68,21 +67,6 @@ export function AnchorTrainingModeRenderer({
         isAnswered={isAnswered}
         controlsLocked={controlsLocked}
         onTapSelect={onTapSelect}
-      />
-    );
-  }
-
-  if (question.modeId === "context-prefix-type") {
-    return (
-      <AnchorFirstLettersKeyboardMode
-        question={question}
-        typedAnswer={typedAnswer}
-        typingAttempts={typingAttempts}
-        canSubmitTypeAnswer={canSubmitTypeAnswer}
-        controlsLocked={controlsLocked}
-        inputRef={inputRef}
-        onTypedAnswerChange={onTypedAnswerChange}
-        onTypeSubmit={onTypeSubmit}
       />
     );
   }
