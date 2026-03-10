@@ -10,6 +10,7 @@ import { FriendMarker } from './FriendMarker'
 import type { RaceTrackMarker } from './WindingPath'
 
 interface PlayerTrackMarker {
+  telegramId?: string | null
   name: string
   initials: string
   avatarUrl: string | null
@@ -41,6 +42,11 @@ interface PathContentProps {
   playerStepIndex: number
   hasBackgroundImage: boolean
   onActiveStepPress?: () => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
 }
 
 /**
@@ -60,6 +66,7 @@ export function PathContent({
   playerStepIndex,
   hasBackgroundImage,
   onActiveStepPress,
+  onOpenPlayerProfile,
 }: PathContentProps) {
   const milestoneSet = useMemo(() => new Set(milestoneSteps), [milestoneSteps])
   
@@ -161,6 +168,16 @@ export function PathContent({
               emphasis={marker.emphasis}
               badgeLabel={marker.badgeLabel}
               seed={marker.seed}
+              onClick={
+                onOpenPlayerProfile
+                  ? () =>
+                      onOpenPlayerProfile({
+                        telegramId: marker.id,
+                        name: marker.name,
+                        avatarUrl: marker.avatarUrl,
+                      })
+                  : undefined
+              }
             />
           )
         })}
@@ -173,6 +190,16 @@ export function PathContent({
           badgeLabel={playerMarker.badgeLabel}
           xPct={(points[playerStepIndex]!.x / width) * 100}
           yPct={(points[playerStepIndex]!.y / height) * 100}
+          onClick={
+            playerMarker.telegramId && onOpenPlayerProfile
+              ? () =>
+                  onOpenPlayerProfile({
+                    telegramId: playerMarker.telegramId,
+                    name: playerMarker.name,
+                    avatarUrl: playerMarker.avatarUrl,
+                  })
+              : undefined
+          }
         />
       )}
     </>

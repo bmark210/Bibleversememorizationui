@@ -15,6 +15,7 @@ interface FriendMarkerProps {
   emphasis?: FriendMarkerEmphasis
   badgeLabel?: string | null
   seed: string
+  onClick?: () => void
 }
 
 const FRIEND_PALETTE = [
@@ -95,6 +96,7 @@ export function FriendMarker({
   emphasis = 'default',
   badgeLabel,
   seed,
+  onClick,
 }: FriendMarkerProps) {
   const palette = FRIEND_PALETTE[toPaletteIndex(seed)] ?? FRIEND_PALETTE[0]!
   const size = emphasis === 'default' ? 22 : 28
@@ -105,20 +107,16 @@ export function FriendMarker({
         ? 'rgba(193, 142, 98, 0.72)'
         : 'rgba(255,255,255,0.54)'
   const label = emphasis === 'default' ? null : getShortName(name)
-
-  return (
-    <div
-      title={name}
-      aria-label={name}
-      style={{
-        position: 'absolute',
-        left: `${xPct}%`,
-        top: `${yPct}%`,
-        transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
-        zIndex: emphasis === 'default' ? 8 : 11,
-        pointerEvents: 'none',
-      }}
-    >
+  const markerStyle = {
+    position: 'absolute',
+    left: `${xPct}%`,
+    top: `${yPct}%`,
+    transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
+    zIndex: emphasis === 'default' ? 8 : 11,
+    pointerEvents: onClick ? 'auto' : 'none',
+  } as const
+  const markerContent = (
+    <>
       <div
         style={{
           position: 'relative',
@@ -193,6 +191,32 @@ export function FriendMarker({
           {label}
         </div>
       ) : null}
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        title={name}
+        aria-label={`Открыть профиль ${name}`}
+        onClick={onClick}
+        style={{
+          ...markerStyle,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {markerContent}
+      </button>
+    )
+  }
+
+  return (
+    <div title={name} aria-label={name} style={markerStyle}>
+      {markerContent}
     </div>
   )
 }

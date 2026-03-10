@@ -7,6 +7,7 @@ import { Crown, Dumbbell, Medal, Trophy, FlameIcon } from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
 import type {
   DashboardLeaderboard as DashboardLeaderboardData,
 } from "@/api/services/leaderboard";
@@ -24,7 +25,8 @@ const DASHBOARD_WELCOME_SEEN_STORAGE_KEY =
 type StatsCardItem = {
   key: string;
   label: string;
-  value: string;
+  value: string | null;
+  isLoading?: boolean;
   tone?: "neutral" | "learning" | "review" | "mastered";
 };
 
@@ -67,6 +69,14 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function pluralizeVerses(count: number) {
+  if (count % 10 === 1 && count % 100 !== 11) return "стих";
+  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
+    return "стиха";
+  }
+  return "стихов";
 }
 
 function formatRelativeLastActive(value: string | null): string {
@@ -157,17 +167,21 @@ function MetricChip({
 
 type DashboardWelcomeSectionProps = {
   user: DashboardUser;
-  // todayVersesCount: number;
-  // dueReviewVerses: number;
-  dailyStreak: number;
+  learningVersesCount: number;
+  dueReviewVerses: number;
+  dailyStreak?: number | null;
   onOpenTraining?: () => void;
+  onOpenCurrentUserProfile?: () => void;
   sectionVariants: Variants;
 };
 
 export function DashboardWelcomeSection({
   user,
+  learningVersesCount,
+  dueReviewVerses,
   dailyStreak,
   onOpenTraining,
+  onOpenCurrentUserProfile,
   sectionVariants,
 }: DashboardWelcomeSectionProps) {
   const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
@@ -183,39 +197,87 @@ export function DashboardWelcomeSection({
     }
   }, []);
 
+  const heroMessage =
+    dueReviewVerses > 0 && learningVersesCount > 0
+      ? `Сегодня ${dueReviewVerses} ждут повторения, ещё ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в изучении.`
+      : dueReviewVerses > 0
+        ? `Сегодня ${dueReviewVerses} ${pluralizeVerses(dueReviewVerses)} ждут повторения.`
+        : learningVersesCount > 0
+          ? `Сейчас ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в активной практике.`
+          : "Откройте тренировку и выберите следующую сессию.";
+  const trainingCtaLabel =
+    dueReviewVerses > 0
+      ? "Повторить сейчас"
+      : learningVersesCount > 0
+        ? "Продолжить практику"
+        : "Открыть тренировку";
+
   return (
     <motion.div className="mb-5" variants={sectionVariants}>
       <DashboardSurface className="rounded-[32px]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              {user ? (
-                <Avatar className="h-12 w-12 border border-border/60">
-                  {user.photoUrl ? (
-                    <AvatarImage src={user.photoUrl} alt={user.firstName} />
-                  ) : (
-                    <AvatarFallback className="bg-primary/12 text-primary">
-                      {user.firstName.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-              ) : null}
+            {user ? (
+              onOpenCurrentUserProfile ? (
+                <button
+                  type="button"
+                  onClick={onOpenCurrentUserProfile}
+                  className="flex items-center gap-3 text-left transition-opacity hover:opacity-90"
+                  aria-label={`Открыть профиль ${user.firstName}`}
+                >
+                  <Avatar className="h-12 w-12 border border-border/60">
+                    {user.photoUrl ? (
+                      <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                    ) : (
+                      <AvatarFallback className="bg-primary/12 text-primary">
+                        {user.firstName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
 
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                    {isFirstAppVisit
+                      ? `Привет, ${user.firstName}.`
+                      : `С возвращением, ${user.firstName}.`}
+                  </h1>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 border border-border/60">
+                    {user.photoUrl ? (
+                      <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                    ) : (
+                      <AvatarFallback className="bg-primary/12 text-primary">
+                        {user.firstName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                    {isFirstAppVisit
+                      ? `Привет, ${user.firstName}.`
+                      : `С возвращением, ${user.firstName}.`}
+                  </h1>
+                </div>
+              )
+            ) : (
               <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                {user
-                  ? isFirstAppVisit
-                    ? `Привет, ${user.firstName}.`
-                    : `С возвращением, ${user.firstName}.`
-                  : "С возвращением"}
+                С возвращением
               </h1>
-            </div>
+            )}
+
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-foreground/62">
+              {heroMessage}
+            </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {dailyStreak > 0 ? <MetricChip>
-                <div className="flex items-center gap-2">
-                   <FlameIcon className="h-4 w-4 text-yellow-500" /> {dailyStreak} дн. подряд
-                   </div>
-                   </MetricChip> : null}
+              {dailyStreak != null && dailyStreak > 0 ? (
+                <MetricChip>
+                  <div className="flex items-center gap-2">
+                    <FlameIcon className="h-4 w-4 text-yellow-500" /> {dailyStreak} дн. подряд
+                  </div>
+                </MetricChip>
+              ) : null}
             </div>
           </div>
 
@@ -227,7 +289,7 @@ export function DashboardWelcomeSection({
             className="h-11 min-w-[190px] rounded-2xl border border-primary/20 bg-primary/10 px-5 text-sm font-medium text-foreground shadow-none hover:bg-primary/14"
           >
             <Dumbbell className="h-4 w-4 text-primary" />
-            Тренировка
+            {trainingCtaLabel}
           </Button>
         </div>
       </DashboardSurface>
@@ -276,7 +338,15 @@ export function DashboardTrainingStatsCard({
                     tone.valueClassName,
                   )}
                 >
-                  {item.value}
+                  {item.isLoading ? (
+                    <Skeleton className="h-8 w-16 rounded-xl border-0 bg-background/70" />
+                  ) : item.value != null ? (
+                    item.value
+                  ) : (
+                    <span className="text-sm font-medium text-foreground/50">
+                      Нет данных
+                    </span>
+                  )}
                 </div>
               </motion.div>
             );
@@ -290,6 +360,12 @@ export function DashboardTrainingStatsCard({
 type DashboardLeaderboardCardProps = {
   leaderboard?: DashboardLeaderboardData | null;
   isLeaderboardLoading?: boolean;
+  onOpenTraining?: () => void;
+  onOpenPlayerProfile?: (player: {
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }) => void;
   cardItemVariants: Variants;
   groupStaggerVariants: Variants;
 };
@@ -297,6 +373,8 @@ type DashboardLeaderboardCardProps = {
 export function DashboardLeaderboardCard({
   leaderboard = null,
   isLeaderboardLoading = false,
+  onOpenTraining,
+  onOpenPlayerProfile,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardLeaderboardCardProps) {
@@ -323,78 +401,121 @@ export function DashboardLeaderboardCard({
             entries.map((entry) => {
               const rankMarker = getRankMarker(entry.rank);
               const RankIcon = rankMarker.icon;
+              const handleOpenProfile = () =>
+                onOpenPlayerProfile?.({
+                  telegramId: entry.telegramId,
+                  name: entry.name,
+                  avatarUrl: entry.avatarUrl,
+                });
 
               return (
                 <motion.div
                   key={entry.telegramId}
                   variants={cardItemVariants}
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl border px-3 py-2.5",
-                    entry.isCurrentUser
-                      ? "border-primary/20 bg-primary/[0.07]"
-                      : "border-border/60 bg-background/55",
-                  )}
                 >
-                  <div
+                  <button
+                    type="button"
+                    onClick={handleOpenProfile}
                     className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                      rankMarker.className,
+                      "flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors hover:bg-background/70",
+                      entry.isCurrentUser
+                        ? "border-primary/20 bg-primary/[0.07]"
+                        : "border-border/60 bg-background/55",
                     )}
-                    aria-hidden="true"
+                    aria-label={`Открыть профиль ${entry.name}`}
                   >
-                    {RankIcon ? (
-                      <RankIcon className="h-4 w-4" />
-                    ) : (
-                      <span>#{entry.rank}</span>
-                    )}
-                  </div>
-
-                  <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
-                    {entry.avatarUrl ? (
-                      <AvatarImage src={entry.avatarUrl} alt={entry.name} />
-                    ) : null}
-                    <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                      {getInitials(entry.name)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="min-w-0 flex-1">
                     <div
                       className={cn(
-                        "truncate text-sm font-medium",
-                        entry.isCurrentUser ? "text-primary" : "text-foreground/78",
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                        rankMarker.className,
                       )}
+                      aria-hidden="true"
                     >
-                      {entry.name}
+                      {RankIcon ? (
+                        <RankIcon className="h-4 w-4" />
+                      ) : (
+                        <span>#{entry.rank}</span>
+                      )}
                     </div>
-                    <div className="mt-1 text-xs text-foreground/48">
-                      {entry.weeklyRepetitions} · {entry.streakDays} дн. подряд
-                    </div>
-                  </div>
 
-                  <div className="text-sm font-semibold text-foreground/82">
-                    {entry.score}%
-                  </div>
+                    <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
+                      {entry.avatarUrl ? (
+                        <AvatarImage src={entry.avatarUrl} alt={entry.name} />
+                      ) : null}
+                      <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
+                        {getInitials(entry.name)}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className={cn(
+                          "truncate text-sm font-medium",
+                          entry.isCurrentUser
+                            ? "text-primary"
+                            : "text-foreground/78",
+                        )}
+                      >
+                        {entry.name}
+                      </div>
+                      <div className="mt-1 text-xs text-foreground/48">
+                        {entry.weeklyRepetitions} · {entry.streakDays} дн. подряд
+                      </div>
+                    </div>
+
+                    <div className="text-sm font-semibold text-foreground/82">
+                      {entry.score}%
+                    </div>
+                  </button>
                 </motion.div>
               );
             })
           ) : (
             <motion.div
               variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56"
+              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4"
             >
-              {isLeaderboardLoading ? "Обновляем..." : "Пока пусто"}
+              {isLeaderboardLoading ? (
+                <div className="text-sm text-foreground/56">Обновляем...</div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm leading-relaxed text-foreground/56">
+                    Рейтинг появится, когда у вас и других участников появится
+                    активность за неделю.
+                  </p>
+                  {onOpenTraining ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={onOpenTraining}
+                      className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                    >
+                      Открыть тренировку
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </motion.div>
           )}
         </motion.div>
 
         {shouldShowCurrentUserSnapshot ? (
           <div className="mt-3 border-t border-border/55 pt-3">
-            <div className="flex items-center justify-between gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() =>
+                onOpenPlayerProfile?.({
+                  telegramId: currentUser.telegramId,
+                  name: currentUser.name,
+                  avatarUrl: currentUser.avatarUrl,
+                })
+              }
+              className="flex w-full items-center justify-between gap-3 text-left text-sm"
+              aria-label="Открыть ваш профиль"
+            >
               <div className="min-w-0">
-                <div className="truncate font-medium text-primary">
-                  Вы
-                </div>
+                <div className="truncate font-medium text-primary">Вы</div>
                 <div className="mt-1 text-xs text-foreground/48">
                   {currentUser.rank ? `#${currentUser.rank}` : "Вне топа"} ·{" "}
                   {currentUser.weeklyRepetitions}
@@ -403,7 +524,7 @@ export function DashboardLeaderboardCard({
               <div className="font-semibold text-foreground/82">
                 {currentUser.score}%
               </div>
-            </div>
+            </button>
           </div>
         ) : null}
       </DashboardSurface>
@@ -414,6 +535,12 @@ export function DashboardLeaderboardCard({
 type DashboardFriendsActivityCardProps = {
   friendsActivity?: DashboardFriendsActivity | null;
   isFriendsActivityLoading?: boolean;
+  onOpenProfile?: () => void;
+  onOpenPlayerProfile?: (player: {
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }) => void;
   cardItemVariants: Variants;
   groupStaggerVariants: Variants;
 };
@@ -421,6 +548,8 @@ type DashboardFriendsActivityCardProps = {
 export function DashboardFriendsActivityCard({
   friendsActivity = null,
   isFriendsActivityLoading = false,
+  onOpenProfile,
+  onOpenPlayerProfile,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardFriendsActivityCardProps) {
@@ -442,10 +571,19 @@ export function DashboardFriendsActivityCard({
         <motion.div className="space-y-2.5" variants={groupStaggerVariants}>
           {entries.length > 0 ? (
             entries.map((entry) => (
-              <motion.div
+              <motion.button
                 key={entry.telegramId}
+                type="button"
+                onClick={() =>
+                  onOpenPlayerProfile?.({
+                    telegramId: entry.telegramId,
+                    name: entry.name,
+                    avatarUrl: entry.avatarUrl,
+                  })
+                }
                 variants={cardItemVariants}
-                className="rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5"
+                className="w-full rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5 text-left transition-colors hover:bg-background/70"
+                aria-label={`Открыть профиль ${entry.name}`}
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
@@ -470,14 +608,34 @@ export function DashboardFriendsActivityCard({
                     {entry.averageProgressPercent}%
                   </div>
                 </div>
-              </motion.div>
+              </motion.button>
             ))
           ) : (
             <motion.div
               variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56"
+              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4"
             >
-              {isFriendsActivityLoading ? "Обновляем..." : "Пока пусто"}
+              {isFriendsActivityLoading ? (
+                <div className="text-sm text-foreground/56">Обновляем...</div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm leading-relaxed text-foreground/56">
+                    Здесь появится прогресс друзей. Добавьте их в профиле, чтобы
+                    видеть активность без перехода из главного экрана.
+                  </p>
+                  {onOpenProfile ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={onOpenProfile}
+                      className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                    >
+                      Открыть профиль
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </motion.div>
           )}
         </motion.div>

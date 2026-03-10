@@ -38,6 +38,7 @@ interface LocationScreenProps {
   className?: string
   locations: LocationSnapshot[]
   currentLocationIndex: number
+  viewerTelegramId?: string | null
   playerName: string
   playerInitials: string
   playerAvatarUrl: string | null
@@ -50,6 +51,11 @@ interface LocationScreenProps {
   actionTitle?: string
   onAction?: () => void
   onStepPress?: () => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
 }
 
 const CAMERA_FRAME_WIDTH = 580
@@ -222,6 +228,7 @@ export function LocationScreen({
   className,
   locations,
   currentLocationIndex,
+  viewerTelegramId = null,
   playerName,
   playerInitials,
   playerAvatarUrl,
@@ -234,6 +241,7 @@ export function LocationScreen({
   actionTitle,
   onAction,
   onStepPress,
+  onOpenPlayerProfile,
 }: LocationScreenProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [focusedLocationIndex, setFocusedLocationIndex] = useState(currentLocationIndex)
@@ -495,6 +503,16 @@ export function LocationScreen({
                   emphasis={friend.emphasis}
                   badgeLabel={friend.overflowMastered > 0 ? `+${friend.overflowMastered}` : null}
                   seed={friend.seed}
+                  onClick={
+                    onOpenPlayerProfile
+                      ? () =>
+                          onOpenPlayerProfile({
+                            telegramId: friend.id,
+                            name: friend.name,
+                            avatarUrl: friend.avatarUrl,
+                          })
+                      : undefined
+                  }
                 />
               )
             }),
@@ -508,6 +526,16 @@ export function LocationScreen({
               badgeLabel={playerOverflowMastered > 0 ? `+${playerOverflowMastered}` : null}
               xPct={(currentPlayerPoint.x / PILGRIM_WORLD_WIDTH) * 100}
               yPct={(currentPlayerPoint.y / PILGRIM_WORLD_HEIGHT) * 100}
+              onClick={
+                viewerTelegramId && onOpenPlayerProfile
+                  ? () =>
+                      onOpenPlayerProfile({
+                        telegramId: viewerTelegramId,
+                        name: playerName,
+                        avatarUrl: playerAvatarUrl,
+                      })
+                  : undefined
+              }
             />
           ) : null}
         </motion.div>

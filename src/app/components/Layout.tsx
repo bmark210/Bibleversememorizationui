@@ -66,7 +66,12 @@ export function Layout({
   ];
 
   const handleNavigateClick = (page: string) => {
-    triggerHaptic(page === currentPage ? 'light' : 'medium');
+    if (page === currentPage) {
+      triggerHaptic('light');
+      return;
+    }
+
+    triggerHaptic('medium');
     onNavigate(page);
   };
 
@@ -117,7 +122,9 @@ export function Layout({
               
               return (
                 <button
+                  type="button"
                   key={item.id}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => handleNavigateClick(item.id)}
                   className={cn(
                   'flex min-h-8 w-full items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
@@ -166,7 +173,9 @@ export function Layout({
 
             return (
               <button
+                type="button"
                 key={item.id}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
                 className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
                   isActive

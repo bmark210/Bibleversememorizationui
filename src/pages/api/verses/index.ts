@@ -7,6 +7,7 @@ import {
   countCatalogVerses,
   getCatalogVersesPage,
   getGlobalOwnerCountByVerseIds,
+  getVerseOwnerPreviewByVerseIds,
   getUserCatalogProgressByVerseIds,
 } from "@/modules/verses/infrastructure/verseRepository";
 import {
@@ -29,6 +30,11 @@ const DEFAULT_CATALOG_ORDER = "desc";
 
 type CatalogOrderBy = "createdAt" | "bible" | "popularity";
 type CatalogOrder = "asc" | "desc";
+type PopularityPreviewUser = {
+  telegramId: string;
+  name: string;
+  avatarUrl: string | null;
+};
 
 function parseTagSlugs(value: string | string[] | undefined): string[] {
   if (!value) return [];
@@ -76,6 +82,41 @@ function normalizeProgress(value: number | null | undefined): number {
 function normalizeSkillScore(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 50;
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function buildPublicName(input: {
+  telegramId: string;
+  name: string | null;
+  nickname: string | null;
+}): string {
+  const name = input.name?.trim();
+  if (name) return name;
+
+  const nickname = input.nickname?.trim();
+  if (nickname) {
+    return nickname.startsWith("@") ? nickname : `@${nickname}`;
+  }
+
+  return `Участник #${input.telegramId.slice(-4) || input.telegramId}`;
+}
+
+function mapPopularityPreviewUsers(
+  users: Array<{
+    telegramId: string;
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+  }>
+): PopularityPreviewUser[] {
+  return users.map((user) => ({
+    telegramId: user.telegramId,
+    name: buildPublicName({
+      telegramId: user.telegramId,
+      name: user.name,
+      nickname: user.nickname,
+    }),
+    avatarUrl: user.avatarUrl ?? null,
+  }));
 }
 
 type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
@@ -287,7 +328,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const verseIds = verses.map((v) => v.id);
 
     // Fetch helloao texts, user's UserVerse rows and global owners counts in parallel
-    const [textsMap, userVerseRows, globalOwnerCountByVerseId] = await Promise.all([
+    const [textsMap, userVerseRows, globalOwnerCountByVerseId, previewUsersByVerseId] =
+      await Promise.all([
       fetchHelloaoTexts(groupedRequests),
       telegramIdParam && verseIds.length > 0
         ? getUserCatalogProgressByVerseIds({
@@ -296,6 +338,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })
         : Promise.resolve([] as UserVerseRow[]),
       getGlobalOwnerCountByVerseIds(verseIds),
+      getVerseOwnerPreviewByVerseIds({
+        verseIds,
+        scope: "players",
+        limitPerVerse: 3,
+      }),
     ]);
 
     // Build lookup: Verse.id → UserVerse progress
@@ -333,6 +380,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           tags,
           popularityScope: "players" as const,
           popularityValue: globalOwnersCount,
+          popularityPreviewUsers: mapPopularityPreviewUsers(
+            previewUsersByVerseId.get(verse.id) ?? []
+          ),
           text: enriched.text ?? "",
           reference: enriched.reference ?? verse.externalVerseId,
         };
@@ -352,6 +402,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tags,
         popularityScope: "players" as const,
         popularityValue: globalOwnersCount,
+        popularityPreviewUsers: mapPopularityPreviewUsers(
+          previewUsersByVerseId.get(verse.id) ?? []
+        ),
         text: enriched.text ?? "",
         reference: enriched.reference ?? verse.externalVerseId,
       };

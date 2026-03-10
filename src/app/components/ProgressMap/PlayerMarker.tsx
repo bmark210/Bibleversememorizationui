@@ -9,6 +9,7 @@ interface PlayerMarkerProps {
   badgeLabel?: string | null
   xPct: number
   yPct: number
+  onClick?: () => void
 }
 
 function AvatarFace({
@@ -63,19 +64,18 @@ export function PlayerMarker({
   badgeLabel,
   xPct,
   yPct,
+  onClick,
 }: PlayerMarkerProps) {
-  return (
-    <div
-      aria-label={`Ваша позиция: ${name}`}
-      style={{
-        position: 'absolute',
-        left: `${xPct}%`,
-        top: `${yPct}%`,
-        transform: 'translate(-50%, -50%)',
-        zIndex: 14,
-        pointerEvents: 'none',
-      }}
-    >
+  const markerStyle = {
+    position: 'absolute',
+    left: `${xPct}%`,
+    top: `${yPct}%`,
+    transform: 'translate(-50%, -50%)',
+    zIndex: 14,
+    pointerEvents: onClick ? 'auto' : 'none',
+  } as const
+  const markerContent = (
+    <>
       <div
         style={{
           width: 42,
@@ -124,6 +124,31 @@ export function PlayerMarker({
           {badgeLabel}
         </span>
       ) : null}
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        aria-label={`Открыть профиль ${name}`}
+        onClick={onClick}
+        style={{
+          ...markerStyle,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {markerContent}
+      </button>
+    )
+  }
+
+  return (
+    <div aria-label={`Ваша позиция: ${name}`} style={markerStyle}>
+      {markerContent}
     </div>
   )
 }

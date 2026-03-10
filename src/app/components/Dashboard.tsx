@@ -23,7 +23,14 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
+  currentTelegramId?: string | null
   onOpenTraining?: () => void
+  onOpenProfile?: () => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
   isInitializingData?: boolean
 }
 
@@ -103,30 +110,34 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
 export function Dashboard({
   todayVerses,
   dashboardStats = null,
-  isDashboardStatsLoading: _isDashboardStatsLoading = false,
+  isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
+  currentTelegramId = null,
   onOpenTraining,
+  onOpenProfile,
+  onOpenPlayerProfile,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
   const shouldReduceMotion = useReducedMotion()
   const todaySummary = summarizeTodayVerses(todayVerses)
+  const isStatsPending = isDashboardStatsLoading && dashboardStats == null
 
-  const avgRatingPercent =
-    dashboardStats?.averageProgressPercent ?? todaySummary.averageProgressPercent
-  const masteredVerses =
-    dashboardStats?.masteredVerses ?? todaySummary.masteredVerses
+  const learningVerses =
+    dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
-  const dailyStreak = dashboardStats?.dailyStreak ?? 0
+  const avgRatingPercent = dashboardStats?.averageProgressPercent ?? null
+  const masteredVerses = dashboardStats?.masteredVerses ?? null
+  const dailyStreak = dashboardStats?.dailyStreak ?? null
 
   const statsCards = [
     {
       key: 'learning',
       label: 'Изучение',
-      value: `${todaySummary.learningVersesCount}`,
+      value: `${learningVerses}`,
       tone: 'learning' as const,
     },
     {
@@ -138,13 +149,15 @@ export function Dashboard({
     {
       key: 'progress',
       label: 'Прогресс',
-      value: `${avgRatingPercent}%`,
+      value: avgRatingPercent != null ? `${avgRatingPercent}%` : null,
+      isLoading: isStatsPending,
       tone: 'neutral' as const,
     },
     {
       key: 'mastered',
       label: 'Выучено',
-      value: `${masteredVerses}`,
+      value: masteredVerses != null ? `${masteredVerses}` : null,
+      isLoading: isStatsPending,
       tone: 'mastered' as const,
     },
   ] as const
@@ -219,10 +232,20 @@ export function Dashboard({
         <motion.div initial="hidden" animate="show" variants={dashboardVariants}>
           <DashboardWelcomeSection
             user={user}
-            // todayVersesCount={todayVerses.length}
-            // dueReviewVerses={dueReviewVerses}
+            learningVersesCount={learningVerses}
+            dueReviewVerses={dueReviewVerses}
             dailyStreak={dailyStreak}
             onOpenTraining={onOpenTraining}
+            onOpenCurrentUserProfile={
+              currentTelegramId && onOpenPlayerProfile
+                ? () =>
+                    onOpenPlayerProfile({
+                      telegramId: currentTelegramId,
+                      name: user?.firstName?.trim() || 'Вы',
+                      avatarUrl: user?.photoUrl ?? null,
+                    })
+                : undefined
+            }
             sectionVariants={sectionVariants}
           />
 
@@ -239,12 +262,16 @@ export function Dashboard({
               <DashboardLeaderboardCard
                 leaderboard={dashboardLeaderboard}
                 isLeaderboardLoading={isDashboardLeaderboardLoading}
+                onOpenTraining={onOpenTraining}
+                onOpenPlayerProfile={onOpenPlayerProfile}
                 cardItemVariants={cardItemVariants}
                 groupStaggerVariants={groupStaggerVariants}
               />
               <DashboardFriendsActivityCard
                 friendsActivity={dashboardFriendsActivity}
                 isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+                onOpenProfile={onOpenProfile}
+                onOpenPlayerProfile={onOpenPlayerProfile}
                 cardItemVariants={cardItemVariants}
                 groupStaggerVariants={groupStaggerVariants}
               />

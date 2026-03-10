@@ -9,9 +9,10 @@ import {
   ChevronDown,
   Dumbbell,
   GraduationCap,
+  Layers,
   Play,
   Repeat,
-  Sparkles,
+  Shuffle,
   TextCursorInput,
   type LucideIcon,
 } from "lucide-react";
@@ -280,7 +281,7 @@ const CORE_MODE_PRESETS: CoreModePreset[] = [
     id: "mixed",
     label: "Все сразу",
     modes: ["learning", "review"],
-    icon: Sparkles,
+    icon: Layers, 
     theme: PRIMARY_ACCENT,
   },
 ];
@@ -289,7 +290,7 @@ const ANCHOR_TRACK_OPTIONS: AnchorTrackOption[] = [
   { track: "reference", icon: BookOpen, theme: SKY_ACCENT },
   { track: "incipit", icon: TextCursorInput, theme: ROSE_ACCENT },
   { track: "context", icon: Brain, theme: TEAL_ACCENT },
-  { track: "mixed", icon: Sparkles, theme: PRIMARY_ACCENT },
+  { track: "mixed", icon: Shuffle, theme: PRIMARY_ACCENT },
 ];
 
 function matchesModes(

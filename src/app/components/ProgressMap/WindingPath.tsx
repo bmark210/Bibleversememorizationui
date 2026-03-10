@@ -20,6 +20,7 @@ export interface RaceTrackMarker {
 }
 
 interface PlayerTrackMarker {
+  telegramId?: string | null
   name: string
   initials: string
   avatarUrl: string | null
@@ -35,6 +36,11 @@ interface WindingPathProps {
   friendMarkers?: RaceTrackMarker[]
   milestoneSteps?: number[]
   onActiveStepPress?: () => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
   /** Фоновая картинка с дорогой (обязательная) */
   backgroundImage: PilgrimLocationBackgroundImage
 }
@@ -48,6 +54,7 @@ export function WindingPath({
   friendMarkers = [],
   milestoneSteps = [],
   onActiveStepPress,
+  onOpenPlayerProfile,
   backgroundImage,
 }: WindingPathProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -137,6 +144,7 @@ export function WindingPath({
             playerStepIndex={playerStepIndex}
             hasBackgroundImage={true}
             onActiveStepPress={onActiveStepPress}
+            onOpenPlayerProfile={onOpenPlayerProfile}
           />
         )}
       </PathBackgroundImage>

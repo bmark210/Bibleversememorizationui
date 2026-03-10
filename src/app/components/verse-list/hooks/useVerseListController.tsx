@@ -37,6 +37,7 @@ import type { VersePatchEvent } from '@/app/types/verseSync';
 
 type UseVerseListControllerParams = {
   onAddVerse: () => void;
+  onOpenVerseOwners?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -46,6 +47,7 @@ type UseVerseListControllerParams = {
 
 export function useVerseListController({
   onAddVerse,
+  onOpenVerseOwners,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -320,6 +322,7 @@ export function useVerseListController({
       <SwipeableVerseCard
         verse={verse}
         onOpen={() => openVerseInGallery(verse)}
+        onOpenOwners={onOpenVerseOwners}
         onAddToLearning={(v) => {
           const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
           void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
@@ -330,7 +333,7 @@ export function useVerseListController({
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
       />
     ),
-    [actions, openVerseInGallery]
+    [actions, onOpenVerseOwners, openVerseInGallery]
   );
 
   const handleLoadMoreRows = useCallback(

@@ -46,6 +46,7 @@ import {
   ProgressMap,
   type ProgressMapAction,
 } from "./components/ProgressMap";
+import { PlayerProfileDrawer } from "./components/PlayerProfileDrawer";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -95,6 +96,11 @@ export type Verse = {
   tags?: Array<{ id: string; slug: string; title: string }>;
   popularityScope?: "friends" | "players" | "self";
   popularityValue?: number;
+  popularityPreviewUsers?: Array<{
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }>;
   text: string;
   reference: string;
 };
@@ -113,6 +119,13 @@ type AppVerseApiRecord = {
   tags?: Array<{ id: string; slug: string; title: string }> | null;
   popularityScope?: "friends" | "players" | "self" | null;
   popularityValue?: number | null;
+  popularityPreviewUsers?:
+    | Array<{
+        telegramId?: string | null;
+        name?: string | null;
+        avatarUrl?: string | null;
+      }>
+    | null;
   text?: string | null;
   reference?: string | null;
 };
@@ -126,7 +139,14 @@ type Page =
   // | "stats"
   | "profile";
 
+type RootPage = Exclude<Page, "progress-map">;
+
 type Theme = "light" | "dark";
+type PlayerProfilePreview = {
+  telegramId: string;
+  name: string;
+  avatarUrl: string | null;
+};
 
 type AppProps = {
   onInitialContentReady?: () => void;
@@ -266,6 +286,30 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     tags: verse.tags ?? [],
     popularityScope: verse.popularityScope ?? undefined,
     popularityValue: verse.popularityValue ?? undefined,
+    popularityPreviewUsers:
+      verse.popularityPreviewUsers
+        ?.map((user) => {
+          const telegramId = String(user.telegramId ?? "").trim();
+          const name = String(user.name ?? "").trim();
+          if (!telegramId || !name) return null;
+          return {
+            telegramId,
+            name,
+            avatarUrl:
+              typeof user.avatarUrl === "string" && user.avatarUrl.trim()
+                ? user.avatarUrl.trim()
+                : null,
+          };
+        })
+        .filter(
+          (
+            user
+          ): user is {
+            telegramId: string;
+            name: string;
+            avatarUrl: string | null;
+          } => user != null
+        ) ?? [],
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
   };
@@ -307,6 +351,11 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isProgressMapFriendsLoading, setIsProgressMapFriendsLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
+  const [activePlayerProfile, setActivePlayerProfile] =
+    useState<PlayerProfilePreview | null>(null);
+  const [isPlayerProfileDrawerOpen, setIsPlayerProfileDrawerOpen] =
+    useState(false);
   const currentPage = pageStack[pageStack.length - 1] ?? "dashboard";
 
   useEffect(() => {
@@ -604,14 +653,27 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
   }, []);
 
-  const handleNavigate = (page: string) => {
+  const pushPage = useCallback((page: Page) => {
     setPageStack((prev) => {
-      const nextPage = page as Page;
       const activePage = prev[prev.length - 1] ?? "dashboard";
-      if (activePage === nextPage) return prev;
-      return [...prev, nextPage];
+      if (activePage === page) return prev;
+      return [...prev, page];
     });
-  };
+  }, []);
+
+  const handleRootNavigate = useCallback((page: string) => {
+    const nextPage = page as RootPage;
+
+    setPageStack((prev) => {
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage === nextPage && prev.length === 1) {
+        return prev;
+      }
+      return [nextPage];
+    });
+
+    setTrainingDirectLaunch(null);
+  }, []);
 
   const handleNavigateBackInApp = useCallback(() => {
     setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -679,8 +741,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   /** Navigate to Training section and start a session for a specific verse */
   const handleNavigateToTrainingWithVerse = useCallback((verse: Verse) => {
     setTrainingDirectLaunch({ verse });
-    handleNavigate("training");
-  }, []);
+    pushPage("training");
+  }, [pushPage]);
 
   const handleDirectLaunchConsumed = useCallback(() => {
     setTrainingDirectLaunch(null);
@@ -738,6 +800,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   };
 
   const handleFriendsChanged = () => {
+    setFriendsRefreshVersion((prev) => prev + 1);
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
     hasLoadedProgressMapFriendsRef.current = false;
@@ -746,6 +809,23 @@ export default function App({ onInitialContentReady }: AppProps) {
       void loadProgressMapFriends(telegramIdValue);
     }
   };
+
+  const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
+    if (!player.telegramId) return;
+    setActivePlayerProfile({
+      telegramId: player.telegramId,
+      name: player.name,
+      avatarUrl: player.avatarUrl ?? null,
+    });
+    setIsPlayerProfileDrawerOpen(true);
+  }, []);
+
+  const handlePlayerProfileDrawerOpenChange = useCallback((open: boolean) => {
+    setIsPlayerProfileDrawerOpen(open);
+    if (!open) {
+      setActivePlayerProfile(null);
+    }
+  }, []);
 
   const openProgressMapTraining = (action: Exclude<ProgressMapAction, "open-verses">) => {
     const nextTrainingVerses = pickTrainingDashboardVerses([...verses]);
@@ -761,7 +841,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           ) ?? null;
 
     if (!targetVerse) {
-      handleNavigate("training");
+      pushPage("training");
       return;
     }
 
@@ -770,7 +850,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const handleProgressMapAction = (action: ProgressMapAction) => {
     if (action === "open-verses") {
-      handleNavigate("verses");
+      pushPage("verses");
       return;
     }
 
@@ -874,7 +954,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       >
         <Layout
           currentPage={currentPage}
-          onNavigate={handleNavigate}
+          onNavigate={handleRootNavigate}
           isContentReady={!isBootstrapping}
           hideChrome={currentPage === "training" && isTrainingSessionFullscreen}
           showTelegramExitButton={
@@ -902,7 +982,10 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onOpenTraining={() => handleNavigate("training")}
+                currentTelegramId={telegramId}
+                onOpenTraining={() => pushPage("training")}
+                onOpenProfile={() => handleRootNavigate("profile")}
+                onOpenPlayerProfile={handleOpenPlayerProfile}
                 isInitializingData={isBootstrapping}
               />
             </motion.div>
@@ -914,6 +997,8 @@ export default function App({ onInitialContentReady }: AppProps) {
               verseListExternalSyncVersion={verseListExternalSyncVersion}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
               onNavigateToTraining={handleNavigateToTrainingWithVerse}
+              telegramId={telegramId}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
             />
           )}
 
@@ -925,7 +1010,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               directLaunch={trainingDirectLaunch}
               onDirectLaunchConsumed={handleDirectLaunchConsumed}
               onVersePatched={handleTrainingVersePatched}
-              onRequestVerseSelection={() => handleNavigate("verses")}
+              onRequestVerseSelection={() => pushPage("verses")}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
               onSessionFullscreenChange={setIsTrainingSessionFullscreen}
             />
@@ -943,7 +1028,9 @@ export default function App({ onInitialContentReady }: AppProps) {
                 (dashboardLeaderboard == null && isDashboardLeaderboardLoading)
               }
               isFriendsLoading={isProgressMapFriendsLoading}
+              viewerTelegramId={telegramId}
               onAction={handleProgressMapAction}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
             />
           )}
 
@@ -953,6 +1040,8 @@ export default function App({ onInitialContentReady }: AppProps) {
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
               onFriendsChanged={handleFriendsChanged}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
+              friendsRefreshVersion={friendsRefreshVersion}
             />
           )}
         </Layout>
@@ -962,6 +1051,14 @@ export default function App({ onInitialContentReady }: AppProps) {
         open={showAddVerseDialog}
         onClose={() => setShowAddVerseDialog(false)}
         onAdd={handleVerseAdded}
+      />
+
+      <PlayerProfileDrawer
+        viewerTelegramId={telegramId}
+        preview={activePlayerProfile}
+        open={isPlayerProfileDrawerOpen}
+        onOpenChange={handlePlayerProfileDrawerOpenChange}
+        onFriendsChanged={handleFriendsChanged}
       />
 
 

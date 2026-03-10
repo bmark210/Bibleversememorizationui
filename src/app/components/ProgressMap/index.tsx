@@ -35,7 +35,13 @@ export interface ProgressMapProps {
   friendsOnMap: FriendPlayerListItem[]
   isLoading?: boolean
   isFriendsLoading?: boolean
+  viewerTelegramId?: string | null
   onAction: (action: ProgressMapAction) => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
 }
 
 function ProgressMapSkeleton() {
@@ -72,7 +78,9 @@ export function ProgressMap({
   friendsOnMap,
   isLoading = false,
   isFriendsLoading: _isFriendsLoading = false,
+  viewerTelegramId = null,
   onAction,
+  onOpenPlayerProfile,
 }: ProgressMapProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea()
   const topInset = contentSafeAreaInset.top
@@ -151,6 +159,7 @@ export function ProgressMap({
         className={className}
         locations={locationSnapshots}
         currentLocationIndex={viewModel.currentLocationIndex}
+        viewerTelegramId={viewerTelegramId}
         playerName={viewModel.playerName}
         playerInitials={viewModel.playerInitials}
         playerAvatarUrl={viewModel.playerAvatarUrl}
@@ -162,6 +171,7 @@ export function ProgressMap({
         actionTitle={viewModel.actionTitle}
         onAction={handlePrimaryAction}
         onStepPress={() => triggerHaptic('light')}
+        onOpenPlayerProfile={onOpenPlayerProfile}
       />
 
       <style>{`

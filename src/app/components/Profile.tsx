@@ -13,10 +13,12 @@ import {
   type FriendPlayersPageResponse,
 } from "@/api/services/friends";
 import { toast } from "@/app/lib/toast";
+import { useTelegram } from "../contexts/TelegramContext";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { cn } from "./ui/utils";
 
@@ -31,6 +33,12 @@ interface ProfileProps {
   onToggleTheme: () => void;
   telegramId?: string | null;
   onFriendsChanged?: () => void;
+  onOpenPlayerProfile?: (player: {
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }) => void;
+  friendsRefreshVersion?: number;
 }
 
 function getInitials(name: string) {
@@ -40,6 +48,14 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function pluralizePeople(count: number, one: string, few: string, many: string) {
+  if (count % 10 === 1 && count % 100 !== 11) return one;
+  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
+    return few;
+  }
+  return many;
 }
 
 function formatRelativeLastActive(value: string | null): string {
@@ -70,11 +86,16 @@ export function Profile({
   onToggleTheme,
   telegramId = null,
   onFriendsChanged,
+  onOpenPlayerProfile,
+  friendsRefreshVersion = 0,
 }: ProfileProps) {
+  const { user } = useTelegram();
   const shouldReduceMotion = useReducedMotion();
-  const [activeTab, setActiveTab] = React.useState<FriendsTab>("players");
-  const [searchInput, setSearchInput] = React.useState("");
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
+  const [playersSearchInput, setPlayersSearchInput] = React.useState("");
+  const [friendsSearchInput, setFriendsSearchInput] = React.useState("");
+  const [playersSearchQuery, setPlayersSearchQuery] = React.useState("");
+  const [friendsSearchQuery, setFriendsSearchQuery] = React.useState("");
   const [playersPageIndex, setPlayersPageIndex] = React.useState(1);
   const [friendsPageIndex, setFriendsPageIndex] = React.useState(1);
   const [playersPage, setPlayersPage] =
@@ -87,6 +108,7 @@ export function Profile({
     React.useState<Record<string, boolean>>({});
   const playersRequestIdRef = React.useRef(0);
   const friendsRequestIdRef = React.useRef(0);
+  const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
 
   const sectionVariants = {
     hidden: {
@@ -105,17 +127,29 @@ export function Profile({
 
   React.useEffect(() => {
     const timeout = window.setTimeout(() => {
-      setSearchQuery(searchInput.trim());
+      setPlayersSearchQuery(playersSearchInput.trim());
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [searchInput]);
+  }, [playersSearchInput]);
+
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setFriendsSearchQuery(friendsSearchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [friendsSearchInput]);
 
   React.useEffect(() => {
     setPlayersPageIndex(1);
+  }, [playersSearchQuery]);
+
+  React.useEffect(() => {
     setFriendsPageIndex(1);
-  }, [searchQuery]);
+  }, [friendsSearchQuery]);
 
   const fetchTabPage = React.useCallback(
     async (
@@ -146,15 +180,17 @@ export function Profile({
       setListError(null);
 
       try {
+        const activeSearchQuery =
+          tab === "players" ? playersSearchQuery : friendsSearchQuery;
         const nextPage =
           tab === "players"
             ? await fetchPlayersPage(telegramId, {
-                search: searchQuery || undefined,
+                search: activeSearchQuery || undefined,
                 limit: FRIENDS_PAGE_SIZE,
                 startWith,
               })
             : await fetchFriendsPage(telegramId, {
-                search: searchQuery || undefined,
+                search: activeSearchQuery || undefined,
                 limit: FRIENDS_PAGE_SIZE,
                 startWith,
               });
@@ -199,7 +235,7 @@ export function Profile({
         }
       }
     },
-    [searchQuery, telegramId],
+    [friendsSearchQuery, playersSearchQuery, telegramId],
   );
 
   React.useEffect(() => {
@@ -214,6 +250,16 @@ export function Profile({
       fetchTabPage("friends", friendsPageIndex, { withLoader: false }),
     ]);
   }, [fetchTabPage, friendsPageIndex, playersPageIndex]);
+
+  React.useEffect(() => {
+    if (!telegramId) return;
+    if (friendsRefreshVersion === lastExternalRefreshVersionRef.current) {
+      return;
+    }
+
+    lastExternalRefreshVersionRef.current = friendsRefreshVersion;
+    void refreshFriendsLists();
+  }, [friendsRefreshVersion, refreshFriendsLists, telegramId]);
 
   const setMutationPending = (targetTelegramId: string, isPending: boolean) => {
     setPendingMutationByTelegramId((prev) => {
@@ -283,6 +329,21 @@ export function Profile({
   const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
   const activeCount =
     activeTab === "players" ? playersPage.totalCount : friendsPage.totalCount;
+  const activeSearchInput =
+    activeTab === "players" ? playersSearchInput : friendsSearchInput;
+  const activeSearchQuery =
+    activeTab === "players" ? playersSearchQuery : friendsSearchQuery;
+  const profileName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    "Пользователь Telegram";
+  const usernameLabel = user?.username ? `@${user.username}` : "Без username";
+  const telegramStatusLabel = canManageFriends
+    ? "Telegram синхронизирован"
+    : "Ожидаем инициализацию Telegram";
+  const activeCountLabel =
+    activeTab === "players"
+      ? `${activeCount} ${pluralizePeople(activeCount, "игрок", "игрока", "игроков")}`
+      : `${activeCount} ${pluralizePeople(activeCount, "друг", "друга", "друзей")}`;
 
   const updatePage = (nextPage: number) => {
     if (activeTab === "players") {
@@ -290,6 +351,15 @@ export function Profile({
     } else {
       setFriendsPageIndex(nextPage);
     }
+  };
+
+  const handleSearchInputChange = (value: string) => {
+    if (activeTab === "players") {
+      setPlayersSearchInput(value);
+      return;
+    }
+
+    setFriendsSearchInput(value);
   };
 
   return (
@@ -325,31 +395,120 @@ export function Profile({
 
           <motion.div variants={sectionVariants}>
             <ProfileSurface>
+              {telegramId && onOpenPlayerProfile ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenPlayerProfile({
+                      telegramId,
+                      name: profileName,
+                      avatarUrl: user?.photoUrl ?? null,
+                    })
+                  }
+                  className="w-full text-left transition-opacity hover:opacity-90"
+                  aria-label="Открыть ваш профиль"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
+                        {user?.photoUrl ? (
+                          <AvatarImage src={user.photoUrl} alt={profileName} />
+                        ) : null}
+                        <AvatarFallback className="bg-secondary text-secondary-foreground">
+                          {getInitials(profileName || "TG")}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0">
+                        <div className="truncate text-base font-semibold text-foreground">
+                          {profileName}
+                        </div>
+                        <div className="mt-1 truncate text-sm text-foreground/56">
+                          {usernameLabel}
+                        </div>
+                        <div className="mt-2 inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                          {telegramStatusLabel}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <div className="inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                        {themeLabel} тема
+                      </div>
+                      {user?.isPremium ? (
+                        <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                          Telegram Premium
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
+                      {user?.photoUrl ? (
+                        <AvatarImage src={user.photoUrl} alt={profileName} />
+                      ) : null}
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        {getInitials(profileName || "TG")}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-semibold text-foreground">
+                        {profileName}
+                      </div>
+                      <div className="mt-1 truncate text-sm text-foreground/56">
+                        {usernameLabel}
+                      </div>
+                      <div className="mt-2 inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                        {telegramStatusLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <div className="inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                      {themeLabel} тема
+                    </div>
+                    {user?.isPremium ? (
+                      <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                        Telegram Premium
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-medium text-foreground/82">
-                    Тема
+                    Оформление
                   </div>
-                  <div className="mt-1 text-sm text-foreground/52">
-                    {themeLabel}
+                  <div className="mt-1 text-sm text-foreground/56">
+                    Переключение между светлой и тёмной темой интерфейса.
                   </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onToggleTheme}
-                  className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-foreground/78 shadow-none"
-                  aria-label={`Переключить на ${theme === "light" ? "тёмную" : "светлую"} тему`}
-                >
+                <div className="w-fit flex items-center gap-3 rounded-full border border-border/60 bg-background/55 px-4 py-2 text-sm text-foreground/78">
                   {theme === "dark" ? (
                     <Moon className="h-4 w-4" />
                   ) : (
                     <Sun className="h-4 w-4" />
                   )}
-                  {themeLabel}
-                </Button>
+                  <span>Тёмная тема</span>
+                  <Switch
+                    checked={theme === "dark"}
+                    onCheckedChange={onToggleTheme}
+                    aria-label="Тёмная тема"
+                  />
+                </div>
               </div>
             </ProfileSurface>
           </motion.div>
@@ -361,7 +520,7 @@ export function Profile({
                   Друзья
                 </h2>
                 {canManageFriends ? (
-                  <div className="text-sm text-foreground/45">{activeCount}</div>
+                  <div className="text-sm text-foreground/45">{activeCountLabel}</div>
                 ) : null}
               </div>
 
@@ -394,8 +553,8 @@ export function Profile({
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/38" />
                     <Input
-                      value={searchInput}
-                      onChange={(event) => setSearchInput(event.target.value)}
+                      value={activeSearchInput}
+                      onChange={(event) => handleSearchInputChange(event.target.value)}
                       placeholder={
                         activeTab === "players" ? "Поиск игроков" : "Поиск друзей"
                       }
@@ -404,7 +563,7 @@ export function Profile({
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-foreground/42">
-                    <span>{activeCount}</span>
+                    <span>{activeCountLabel}</span>
                     <span>
                       {currentPage}/{totalPages}
                     </span>
@@ -442,11 +601,26 @@ export function Profile({
                       </div>
                     ) : currentPageData.items.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56">
-                        {searchQuery
-                          ? "Ничего не найдено."
-                          : activeTab === "players"
-                            ? "Пока пусто."
-                            : "Пока нет друзей."}
+                        <div>
+                          {activeSearchQuery
+                            ? "Ничего не найдено."
+                            : activeTab === "players"
+                              ? "Сейчас список игроков пуст."
+                              : "Пока нет друзей. Перейдите во вкладку игроков, чтобы добавить их."}
+                        </div>
+                        {!activeSearchQuery && activeTab === "friends" ? (
+                          <div className="mt-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setActiveTab("players")}
+                              className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                            >
+                              Открыть игроков
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       currentPageData.items.map((item) => {
@@ -460,31 +634,70 @@ export function Profile({
                             key={`${activeTab}-${item.telegramId}`}
                             className="flex items-center gap-3 rounded-2xl border border-border/60 bg-background/45 px-3 py-3"
                           >
-                            <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
-                              {item.avatarUrl ? (
-                                <AvatarImage src={item.avatarUrl} alt={item.name} />
-                              ) : null}
-                              <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                                {getInitials(item.name)}
-                              </AvatarFallback>
-                            </Avatar>
+                            {onOpenPlayerProfile ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onOpenPlayerProfile({
+                                    telegramId: item.telegramId,
+                                    name: item.name,
+                                    avatarUrl: item.avatarUrl,
+                                  })
+                                }
+                                className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:bg-background/20"
+                                aria-label={`Открыть профиль ${item.name}`}
+                              >
+                                <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
+                                  {item.avatarUrl ? (
+                                    <AvatarImage src={item.avatarUrl} alt={item.name} />
+                                  ) : null}
+                                  <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
+                                    {getInitials(item.name)}
+                                  </AvatarFallback>
+                                </Avatar>
 
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-foreground/82">
-                                {item.name}
-                              </div>
-                              <div className="mt-1 truncate text-xs text-foreground/48">
-                                {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                                {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
-                              </div>
-                            </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-sm font-medium text-foreground/82">
+                                    {item.name}
+                                  </div>
+                                  <div className="mt-1 truncate text-xs text-foreground/48">
+                                    {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
+                                    {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
+                                  </div>
+                                </div>
+                              </button>
+                            ) : (
+                              <>
+                                <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
+                                  {item.avatarUrl ? (
+                                    <AvatarImage src={item.avatarUrl} alt={item.name} />
+                                  ) : null}
+                                  <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
+                                    {getInitials(item.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-sm font-medium text-foreground/82">
+                                    {item.name}
+                                  </div>
+                                  <div className="mt-1 truncate text-xs text-foreground/48">
+                                    {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
+                                    {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
+                                  </div>
+                                </div>
+                              </>
+                            )}
 
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
                               disabled={isMutationPending}
-                              onClick={() => void handleToggleFriend(item)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleToggleFriend(item);
+                              }}
                               className="h-9 rounded-full border-border/60 bg-background/55 px-3 text-xs text-foreground/78 shadow-none"
                             >
                               {showRemoveAction ? (
