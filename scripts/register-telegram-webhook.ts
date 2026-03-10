@@ -4,7 +4,7 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const botToken = String(process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
 const webhookSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET ?? "").trim();
-const appUrl = String(process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+const appUrl = String(process.env.NEXT_PUBLIC_WEB_APP_URL ?? "").trim();
 
 if (!botToken) {
   throw new Error("TELEGRAM_BOT_TOKEN is required");
@@ -15,7 +15,7 @@ if (!webhookSecret) {
 }
 
 if (!appUrl) {
-  throw new Error("NEXT_PUBLIC_APP_URL is required");
+  throw new Error("NEXT_PUBLIC_WEB_APP_URL is required");
 }
 
 const normalizedAppUrl = appUrl.replace(/\/+$/, "");
