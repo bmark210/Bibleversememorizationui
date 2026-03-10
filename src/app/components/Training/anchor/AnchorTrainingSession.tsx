@@ -1,0 +1,2098 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
+import { AnimatePresence, motion } from "motion/react";
+import type { UserVerse } from "@/api/models/UserVerse";
+import {
+  fetchReferenceTrainerVerses,
+  submitReferenceTrainerSession,
+  type ReferenceTrainerSessionOutcome,
+  type ReferenceTrainerSessionTrack,
+  type ReferenceTrainerSessionUpdate,
+} from "@/api/services/referenceTrainer";
+import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
+import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import { toast } from "@/app/lib/toast";
+import {
+  createVerticalTouchSwipeStart,
+  getVerticalTouchSwipeStep,
+  type VerticalTouchSwipeStart,
+} from "@/shared/ui/verticalTouchSwipe";
+import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
+import { swapArrayItems } from "@/shared/utils/swapArrayItems";
+import {
+  AnchorTrainingQuestionCard,
+  AnchorTrainingStateCard,
+  AnchorTrainingSummaryCard,
+} from "./AnchorTrainingCards";
+import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
+
+type AnchorTrainingSessionProps = {
+  telegramId: string | null;
+  initialTrack?: SessionTrack;
+  onClose: () => void;
+};
+
+type SessionTrack = "reference" | "incipit" | "context" | "mixed";
+type SkillTrack = "reference" | "incipit" | "context";
+
+type TrainerModeId =
+  | "reference-choice"
+  | "book-choice"
+  | "reference-type"
+  | "incipit-choice"
+  | "incipit-tap"
+  | "incipit-type"
+  | "context-incipit-type"
+  | "context-incipit-tap"
+  | "context-prefix-type";
+
+type ReferenceVerse = {
+  externalVerseId: string;
+  text: string;
+  reference: string;
+  status: DisplayVerseStatus;
+  bookName: string;
+  chapterVerse: string;
+  incipit: string;
+  incipitWords: string[];
+  referenceScore: number;
+  incipitScore: number;
+  contextScore: number;
+  contextPromptText: string;
+  contextPromptReference: string;
+};
+
+type TrainerQuestionBase = {
+  id: string;
+  modeId: TrainerModeId;
+  track: SkillTrack;
+  modeLabel: string;
+  modeHint: string;
+  verse: ReferenceVerse;
+  prompt: string;
+  answerLabel: string;
+};
+
+type ChoiceQuestion = TrainerQuestionBase & {
+  interaction: "choice";
+  options: string[];
+  isCorrectOption: (value: string) => boolean;
+};
+
+type TypeQuestion = TrainerQuestionBase & {
+  interaction: "type";
+  placeholder: string;
+  maxAttempts: number;
+  retryHint?: string;
+  isCorrectInput: (value: string) => boolean;
+};
+
+type TapQuestionOption = {
+  id: string;
+  label: string;
+  normalized: string;
+};
+
+type TapQuestion = TrainerQuestionBase & {
+  interaction: "tap";
+  options: TapQuestionOption[];
+  expectedNormalized: string[];
+};
+
+type TrainerQuestion = ChoiceQuestion | TypeQuestion | TapQuestion;
+
+type QuestionResult = {
+  track: SkillTrack;
+  modeId: TrainerModeId;
+  isCorrect: boolean;
+};
+
+type ModeStrategy = {
+  id: TrainerModeId;
+  track: SkillTrack;
+  label: string;
+  hint: string;
+  weight: number;
+  canBuild: (verse: ReferenceVerse, pool: ReferenceVerse[]) => boolean;
+  buildQuestion: (
+    verse: ReferenceVerse,
+    pool: ReferenceVerse[],
+    order: number
+  ) => TrainerQuestion | null;
+};
+
+const TRACK_STORAGE_KEY = "bible-memory.reference-trainer.track.v1";
+const REFERENCE_OPTIONS_COUNT = 4;
+const BOOK_OPTIONS_COUNT = 4;
+const INCIPIT_OPTIONS_COUNT = 4;
+const INCIPIT_TAP_DISTRACTORS_COUNT = 2;
+const SESSION_TARGET_VERSES = 12;
+const MAX_TYPING_ATTEMPTS = 2;
+const REFERENCE_TRAINER_POOL_LIMIT = 12;
+const MIXED_TRACK_WEIGHT_MIN = 5;
+const MIXED_TRACK_WEIGHT_BASE = 110;
+const TYPE_INPUT_SIMILARITY_THRESHOLD = 0.8;
+const TYPE_INPUT_READY_RATIO = 0.8;
+const TYPE_PREFIX_READY_RATIO = 0.8;
+const REFERENCE_TRAINER_INTRO_STORAGE_PREFIX =
+  "bible-memory.reference-trainer.intro.v1";
+const DEFERRED_VERSE_TOAST_MESSAGE = "Стих перенесён в конец";
+const DEFERRED_VERSE_LIMIT_TOAST_MESSAGE =
+  "Этот стих уже переносился в конец";
+const DOWN_SWIPE_UNAVAILABLE_TOAST_MESSAGE =
+  "В режиме закрепления свайп вниз недоступен. Чтобы отложить стих, смахните вверх.";
+
+const slideVariants = {
+  enter: (dir: number) =>
+    dir === 0
+      ? { opacity: 0, scale: 1, y: 0 }
+      : { y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 },
+  center: (dir: number) => ({
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    transition:
+      dir === 0
+        ? {
+            duration: 0.22,
+            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+          }
+        : { type: "spring" as const, stiffness: 320, damping: 32 },
+  }),
+  exit: (dir: number) =>
+    dir === 0
+      ? {
+          opacity: 0,
+          scale: 1,
+          transition: { duration: 0.15, ease: "easeIn" as const },
+        }
+      : {
+          y: dir > 0 ? "-18%" : "18%",
+          opacity: 0,
+          scale: 0.86,
+          transition: { duration: 0.2, ease: "easeIn" as const },
+        },
+};
+
+function randomFloat() {
+  if (typeof window !== "undefined") {
+    const maybeCrypto = window.crypto;
+    if (maybeCrypto?.getRandomValues) {
+      const values = new Uint32Array(1);
+      maybeCrypto.getRandomValues(values);
+      return (values[0] ?? 0) / 4294967296;
+    }
+  }
+  return Math.random();
+}
+
+function randomInt(max: number) {
+  if (max <= 0) return 0;
+  return Math.floor(randomFloat() * max);
+}
+
+function clampSkillScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function shuffle<T>(source: T[]) {
+  const next = [...source];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    swapArrayItems(next, index, swapIndex);
+  }
+  return next;
+}
+
+function normalizeBookName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function softenBookName(value: string) {
+  return value.replace(/^ко/u, "").replace(/^к/u, "").replace(/^от/u, "");
+}
+
+function normalizeIncipitText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}\s-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractWordTokens(value: string): string[] {
+  const matches = value.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu);
+  return matches ? matches.map((token) => token.trim()).filter(Boolean) : [];
+}
+
+function parseReferenceParts(reference: string): {
+  bookName: string;
+  chapterVerse: string;
+} | null {
+  const normalized = reference.replace(/\u00A0/g, " ").trim();
+  const match = normalized.match(/^(.*?)(\d+)\s*:\s*(\d+(?:\s*-\s*\d+)?)$/u);
+  if (!match) return null;
+
+  const bookName = match[1]?.trim() ?? "";
+  const chapter = match[2]?.trim() ?? "";
+  const verse = (match[3] ?? "").replace(/\s*-\s*/g, "-").trim();
+
+  if (!bookName || !chapter || !verse) return null;
+
+  return {
+    bookName,
+    chapterVerse: `${chapter}:${verse}`,
+  };
+}
+
+function normalizeReferenceForComparison(reference: string) {
+  const parsed = parseReferenceParts(reference);
+  if (parsed) {
+    return `${normalizeBookName(parsed.bookName)}:${parsed.chapterVerse.replace(/\s+/g, "")}`;
+  }
+
+  return reference
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}:-]+/gu, "")
+    .replace(/\s+/g, "");
+}
+
+function matchesReferenceWithTolerance(input: string, expected: string) {
+  const parsedInput = parseReferenceParts(input);
+  const parsedExpected = parseReferenceParts(expected);
+
+  if (!parsedInput || !parsedExpected) {
+    return (
+      normalizeReferenceForComparison(input) ===
+      normalizeReferenceForComparison(expected)
+    );
+  }
+
+  const inputChapterVerse = parsedInput.chapterVerse
+    .replace(/\s+/g, "")
+    .replace(/[—–]/g, "-");
+  const expectedChapterVerse = parsedExpected.chapterVerse
+    .replace(/\s+/g, "")
+    .replace(/[—–]/g, "-");
+
+  if (inputChapterVerse !== expectedChapterVerse) return false;
+
+  const inputBook = normalizeBookName(parsedInput.bookName);
+  const expectedBook = normalizeBookName(parsedExpected.bookName);
+  if (inputBook === expectedBook) return true;
+
+  const inputSoft = softenBookName(inputBook);
+  const expectedSoft = softenBookName(expectedBook);
+  if (inputSoft === expectedSoft) return true;
+  if (!inputSoft || !expectedSoft) return false;
+
+  const distance = levenshteinDistance(inputSoft, expectedSoft);
+  const maxLength = Math.max(inputSoft.length, expectedSoft.length);
+  const maxAllowedDistance = maxLength >= 10 ? 2 : 1;
+
+  return distance <= maxAllowedDistance;
+}
+
+function matchesIncipitWithTolerance(input: string, expected: string) {
+  const evaluation = evaluateIncipitInput(input, expected);
+  return evaluation.isCorrect;
+}
+
+type TypeInputEvaluation = {
+  isCorrect: boolean;
+  acceptedWithTolerance: boolean;
+};
+
+type TypeInputReadiness = {
+  canSubmit: boolean;
+  remainingChars: number;
+};
+
+function getExpectedWordPrefixMatch(input: string, expected: string): boolean {
+  const expectedTokens = expected.split(" ").filter(Boolean);
+  const inputTokens = input.split(" ").filter(Boolean);
+  if (expectedTokens.length === 0 || inputTokens.length < expectedTokens.length) {
+    return false;
+  }
+  return expectedTokens.every((token, index) => inputTokens[index] === token);
+}
+
+function evaluateIncipitInput(input: string, expected: string): TypeInputEvaluation {
+  const normalizedInput = normalizeIncipitText(input);
+  const normalizedExpected = normalizeIncipitText(expected);
+  if (!normalizedInput || !normalizedExpected) {
+    return { isCorrect: false, acceptedWithTolerance: false };
+  }
+  if (normalizedInput === normalizedExpected) {
+    return { isCorrect: true, acceptedWithTolerance: false };
+  }
+
+  if (getExpectedWordPrefixMatch(normalizedInput, normalizedExpected)) {
+    return { isCorrect: true, acceptedWithTolerance: true };
+  }
+
+  const distance = levenshteinDistance(normalizedInput, normalizedExpected);
+  const maxAllowedDistance = normalizedExpected.length >= 24 ? 2 : 1;
+  if (distance <= maxAllowedDistance) {
+    return { isCorrect: true, acceptedWithTolerance: true };
+  }
+
+  const similarity = similarityRatio(normalizedInput, normalizedExpected);
+  if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
+    return { isCorrect: true, acceptedWithTolerance: true };
+  }
+
+  return { isCorrect: false, acceptedWithTolerance: false };
+}
+
+function hasContextPrompt(verse: ReferenceVerse): boolean {
+  return verse.contextPromptText.trim().length > 0;
+}
+
+function buildContextPrompt(verse: ReferenceVerse): string {
+  const promptText = verse.contextPromptText.trim();
+  const promptReference = verse.contextPromptReference.trim();
+  if (!promptText) return "";
+  if (!promptReference) return promptText;
+  return `${promptText}`;
+}
+
+function getContextPrefixTokens(verse: ReferenceVerse): string[] {
+  return verse.incipitWords
+    .map((word) => normalizeIncipitText(word))
+    .filter(Boolean)
+    .map((word) => Array.from(word)[0] ?? "")
+    .filter(Boolean);
+}
+
+function matchesContextPrefixInput(input: string, expectedTokens: string[]): boolean {
+  return evaluateContextPrefixInput(input, expectedTokens).isCorrect;
+}
+
+function evaluateContextPrefixInput(
+  input: string,
+  expectedTokens: string[]
+): TypeInputEvaluation {
+  if (expectedTokens.length === 0) {
+    return { isCorrect: false, acceptedWithTolerance: false };
+  }
+
+  const normalizedInput = normalizeIncipitText(input);
+  if (!normalizedInput) {
+    return { isCorrect: false, acceptedWithTolerance: false };
+  }
+
+  const joinedExpected = expectedTokens.join("");
+  const joinedInput = normalizedInput.replace(/\s+/g, "");
+
+  if (!joinedInput || !joinedExpected) {
+    return { isCorrect: false, acceptedWithTolerance: false };
+  }
+
+  if (joinedInput === joinedExpected) {
+    return { isCorrect: true, acceptedWithTolerance: false };
+  }
+
+  if (joinedInput.startsWith(joinedExpected)) {
+    return { isCorrect: true, acceptedWithTolerance: true };
+  }
+
+  const similarity = similarityRatio(joinedInput, joinedExpected);
+  if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
+    return { isCorrect: true, acceptedWithTolerance: true };
+  }
+
+  return { isCorrect: false, acceptedWithTolerance: false };
+}
+
+function getTypeInputReadiness(
+  question: TypeQuestion | null,
+  input: string
+): TypeInputReadiness {
+  const raw = input.trim();
+  if (!question || raw.length === 0) {
+    return { canSubmit: false, remainingChars: 0 };
+  }
+
+  if (question.modeId === "reference-type") {
+    return { canSubmit: true, remainingChars: 0 };
+  }
+
+  if (question.modeId === "context-prefix-type") {
+    const expected = getContextPrefixTokens(question.verse).join("");
+    const normalizedInput = normalizeIncipitText(raw).replace(/\s+/g, "");
+    const expectedLength = Array.from(expected).length;
+    if (expectedLength === 0) return { canSubmit: true, remainingChars: 0 };
+
+    const minLength = Math.max(
+      1,
+      Math.ceil(expectedLength * TYPE_PREFIX_READY_RATIO)
+    );
+    const inputLength = Array.from(normalizedInput).length;
+    const remainingChars = Math.max(0, minLength - inputLength);
+    return { canSubmit: remainingChars === 0, remainingChars };
+  }
+
+  const expected = normalizeIncipitText(question.verse.incipit);
+  const normalizedInput = normalizeIncipitText(raw);
+  const expectedLength = Array.from(expected).length;
+  if (expectedLength === 0) return { canSubmit: true, remainingChars: 0 };
+
+  const minLength = Math.max(1, Math.ceil(expectedLength * TYPE_INPUT_READY_RATIO));
+  const inputLength = Array.from(normalizedInput).length;
+  const remainingChars = Math.max(0, minLength - inputLength);
+  return { canSubmit: remainingChars === 0, remainingChars };
+}
+
+function evaluateTypeInput(
+  question: TypeQuestion,
+  input: string
+): TypeInputEvaluation {
+  if (question.modeId === "incipit-type" || question.modeId === "context-incipit-type") {
+    return evaluateIncipitInput(input, question.verse.incipit);
+  }
+
+  if (question.modeId === "context-prefix-type") {
+    return evaluateContextPrefixInput(input, getContextPrefixTokens(question.verse));
+  }
+
+  return {
+    isCorrect: question.isCorrectInput(input),
+    acceptedWithTolerance: false,
+  };
+}
+
+function readStoredTrack(): SessionTrack {
+  if (typeof window === "undefined") return "mixed";
+  try {
+    const value = window.localStorage.getItem(TRACK_STORAGE_KEY);
+    if (
+      value === "reference" ||
+      value === "incipit" ||
+      value === "context" ||
+      value === "mixed"
+    ) {
+      return value;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return "mixed";
+}
+
+function writeStoredTrack(track: SessionTrack) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TRACK_STORAGE_KEY, track);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getReferenceTrainerIntroStorageKey(telegramId: string) {
+  return `${REFERENCE_TRAINER_INTRO_STORAGE_PREFIX}:${telegramId}`;
+}
+
+function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
+  const text = String(verse.text ?? "").trim();
+  const reference = String(verse.reference ?? verse.externalVerseId ?? "").trim();
+  if (!text || !reference) return null;
+
+  const parsedReference = parseReferenceParts(reference);
+  const words = extractWordTokens(text);
+  const incipitLength =
+    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const incipitWords = words.slice(0, incipitLength);
+  const rawVerse = verse as Record<string, unknown>;
+  const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
+  const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
+
+  return {
+    externalVerseId: verse.externalVerseId,
+    text,
+    reference,
+    status: normalizeDisplayVerseStatus(verse.status),
+    bookName: parsedReference?.bookName ?? "",
+    chapterVerse: parsedReference?.chapterVerse ?? "",
+    incipit: incipitWords.join(" "),
+    incipitWords,
+    referenceScore: clampSkillScore(rawVerse.referenceScore as number | undefined),
+    incipitScore: clampSkillScore(rawVerse.incipitScore as number | undefined),
+    contextScore: clampSkillScore(rawVerse.contextScore as number | undefined),
+    contextPromptText,
+    contextPromptReference,
+  };
+}
+
+function getRevealedVerseText(question: TrainerQuestion | null): string {
+  if (!question) return "";
+  const reference = question.verse.reference.trim();
+  const text = question.verse.text.trim();
+  if (reference && text) return `${reference}\n${text}`;
+  if (text) return text;
+  if (reference) return reference;
+  return question.answerLabel;
+}
+
+function buildReferenceChoiceQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): ChoiceQuestion | null {
+  const normalizedCorrect = normalizeReferenceForComparison(verse.reference);
+  const distractors = shuffle(
+    pool
+      .map((item) => item.reference)
+      .filter(
+        (candidate) =>
+          normalizeReferenceForComparison(candidate) !== normalizedCorrect
+      )
+  );
+
+  if (distractors.length < REFERENCE_OPTIONS_COUNT - 1) return null;
+
+  const options = shuffle([
+    verse.reference,
+    ...distractors.slice(0, REFERENCE_OPTIONS_COUNT - 1),
+  ]);
+
+  return {
+    id: `reference-choice-${order}-${verse.externalVerseId}`,
+    modeId: "reference-choice",
+    track: "reference",
+    modeLabel: "Выбор ссылки",
+    modeHint: "Выберите правильную ссылку.",
+    verse,
+    prompt: verse.text,
+    answerLabel: verse.reference,
+    interaction: "choice",
+    options,
+    isCorrectOption: (value: string) =>
+      normalizeReferenceForComparison(value) === normalizedCorrect,
+  };
+}
+
+function buildBookChoiceQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): ChoiceQuestion | null {
+  if (!verse.bookName) return null;
+
+  const uniqueBooks = Array.from(
+    new Map(
+      pool
+        .map((item) => item.bookName)
+        .filter(Boolean)
+        .map((book) => [normalizeBookName(book), book])
+    ).values()
+  );
+
+  const distractorBooks = shuffle(
+    uniqueBooks.filter(
+      (book) => normalizeBookName(book) !== normalizeBookName(verse.bookName)
+    )
+  );
+  if (distractorBooks.length < BOOK_OPTIONS_COUNT - 1) return null;
+
+  const normalizedCorrect = normalizeBookName(verse.bookName);
+
+  return {
+    id: `book-choice-${order}-${verse.externalVerseId}`,
+    modeId: "book-choice",
+    track: "reference",
+    modeLabel: "Выбор книги",
+    modeHint: "Выберите правильную книгу.",
+    verse,
+    prompt: verse.text,
+    answerLabel: verse.bookName,
+    interaction: "choice",
+    options: shuffle([
+      verse.bookName,
+      ...distractorBooks.slice(0, BOOK_OPTIONS_COUNT - 1),
+    ]),
+    isCorrectOption: (value: string) =>
+      normalizeBookName(value) === normalizedCorrect,
+  };
+}
+
+function buildReferenceTypeQuestion(
+  verse: ReferenceVerse,
+  order: number
+): TypeQuestion {
+  return {
+    id: `reference-type-${order}-${verse.externalVerseId}`,
+    modeId: "reference-type",
+    track: "reference",
+    modeLabel: "Ввод ссылки",
+    modeHint: "Введите ссылку вручную.",
+    verse,
+    prompt: verse.text,
+    answerLabel: verse.reference,
+    interaction: "type",
+    placeholder: "Например: Иоанна 3:16",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: `${verse.bookName} ${verse.chapterVerse}`.trim(),
+    isCorrectInput: (value: string) =>
+      matchesReferenceWithTolerance(value, verse.reference),
+  };
+}
+
+function buildIncipitChoiceQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): ChoiceQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+  const normalizedCorrect = normalizeIncipitText(verse.incipit);
+
+  const distractors = shuffle(
+    pool
+      .map((item) => item.incipit)
+      .filter((candidate) => candidate.trim().length > 0)
+      .filter(
+        (candidate) => normalizeIncipitText(candidate) !== normalizedCorrect
+      )
+  );
+
+  if (distractors.length < INCIPIT_OPTIONS_COUNT - 1) return null;
+
+  return {
+    id: `incipit-choice-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-choice",
+    track: "incipit",
+    modeLabel: "Выбор начала",
+    modeHint: "Выберите правильное начало стиха.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "choice",
+    options: shuffle([
+      verse.incipit,
+      ...distractors.slice(0, INCIPIT_OPTIONS_COUNT - 1),
+    ]),
+    isCorrectOption: (value: string) =>
+      normalizeIncipitText(value) === normalizedCorrect,
+  };
+}
+
+function buildIncipitTapQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): TapQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+
+  const expectedNormalized = verse.incipitWords.map((word) =>
+    normalizeIncipitText(word)
+  );
+  const expectedSet = new Set(expectedNormalized);
+  const distractorCandidates = Array.from(
+    new Map(
+      pool
+        .flatMap((item) => item.incipitWords)
+        .filter((word) => word.trim().length > 0)
+        .filter((word) => !expectedSet.has(normalizeIncipitText(word)))
+        .map((word) => [normalizeIncipitText(word), word])
+    ).values()
+  );
+
+  const distractors = shuffle(distractorCandidates).slice(
+    0,
+    INCIPIT_TAP_DISTRACTORS_COUNT
+  );
+
+  const options = shuffle([...verse.incipitWords, ...distractors]).map(
+    (word, index) => ({
+      id: `incipit-tap-${order}-${index}`,
+      label: word,
+      normalized: normalizeIncipitText(word),
+    })
+  );
+
+  return {
+    id: `incipit-tap-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-tap",
+    track: "incipit",
+    modeLabel: "Сборка слов",
+    modeHint: "Соберите начало стиха по словам.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "tap",
+    options,
+    expectedNormalized,
+  };
+}
+
+function buildIncipitTypeQuestion(
+  verse: ReferenceVerse,
+  order: number
+): TypeQuestion | null {
+  if (verse.incipitWords.length < 2) return null;
+  const initials = verse.incipitWords
+    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    id: `incipit-type-${order}-${verse.externalVerseId}`,
+    modeId: "incipit-type",
+    track: "incipit",
+    modeLabel: "Ввод начала",
+    modeHint: "Введите первые слова стиха.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.incipit,
+    interaction: "type",
+    placeholder: "Напишите начало стиха",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
+    isCorrectInput: (value: string) =>
+      matchesIncipitWithTolerance(value, verse.incipit),
+  };
+}
+
+function buildContextIncipitTypeQuestion(
+  verse: ReferenceVerse,
+  order: number
+): TypeQuestion | null {
+  if (!hasContextPrompt(verse)) return null;
+  if (verse.incipitWords.length < 2) return null;
+
+  const prompt = buildContextPrompt(verse);
+  if (!prompt) return null;
+
+  const initials = verse.incipitWords
+    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    id: `context-incipit-type-${order}-${verse.externalVerseId}`,
+    modeId: "context-incipit-type",
+    track: "context",
+    modeLabel: "Отгадай стих по контексту",
+    modeHint: "О каком стихе идет речь? Введите начало стиха по контексту.",
+    verse,
+    prompt,
+    answerLabel: verse.incipit,
+    interaction: "type",
+    placeholder: "Введите начало стиха",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
+    isCorrectInput: (value: string) =>
+      matchesIncipitWithTolerance(value, verse.incipit),
+  };
+}
+
+function buildContextIncipitTapQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): TapQuestion | null {
+  if (!hasContextPrompt(verse)) return null;
+  if (verse.incipitWords.length < 2) return null;
+
+  const prompt = buildContextPrompt(verse);
+  if (!prompt) return null;
+
+  const expectedNormalized = verse.incipitWords.map((word) =>
+    normalizeIncipitText(word)
+  );
+  const expectedSet = new Set(expectedNormalized);
+  const distractorCandidates = Array.from(
+    new Map(
+      pool
+        .flatMap((item) => item.incipitWords)
+        .filter((word) => word.trim().length > 0)
+        .filter((word) => !expectedSet.has(normalizeIncipitText(word)))
+        .map((word) => [normalizeIncipitText(word), word])
+    ).values()
+  );
+
+  const distractors = shuffle(distractorCandidates).slice(
+    0,
+    INCIPIT_TAP_DISTRACTORS_COUNT
+  );
+
+  const options = shuffle([...verse.incipitWords, ...distractors]).map(
+    (word, index) => ({
+      id: `context-incipit-tap-${order}-${index}`,
+      label: word,
+      normalized: normalizeIncipitText(word),
+    })
+  );
+
+  return {
+    id: `context-incipit-tap-${order}-${verse.externalVerseId}`,
+    modeId: "context-incipit-tap",
+    track: "context",
+    modeLabel: "Контекст: сборка слов",
+    modeHint: "О каком стихе идет речь? Соберите начало стиха по контексту.",
+    verse,
+    prompt,
+    answerLabel: verse.incipit,
+    interaction: "tap",
+    options,
+    expectedNormalized,
+  };
+}
+
+function buildContextPrefixTypeQuestion(
+  verse: ReferenceVerse,
+  order: number
+): TypeQuestion | null {
+  if (!hasContextPrompt(verse)) return null;
+
+  const prompt = buildContextPrompt(verse);
+  if (!prompt) return null;
+
+  const prefixTokens = getContextPrefixTokens(verse);
+  if (prefixTokens.length === 0) return null;
+  const uppercasePrefix = prefixTokens.join(" ").toUpperCase();
+
+  return {
+    id: `context-prefix-type-${order}-${verse.externalVerseId}`,
+    modeId: "context-prefix-type",
+    track: "context",
+    modeLabel: "Контекст: первые буквы",
+    modeHint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
+    verse,
+    prompt,
+    answerLabel: uppercasePrefix,
+    interaction: "type",
+    placeholder: "Например: ИТВБМ...",
+    maxAttempts: MAX_TYPING_ATTEMPTS,
+    retryHint: `Формат: ${uppercasePrefix}`,
+    isCorrectInput: (value: string) =>
+      matchesContextPrefixInput(value, prefixTokens),
+  };
+}
+
+const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
+  {
+    id: "reference-choice",
+    track: "reference",
+    label: "Выбор ссылки",
+    hint: "Выберите правильную ссылку.",
+    weight: 2,
+    canBuild: (verse, pool) => buildReferenceChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildReferenceChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "book-choice",
+    track: "reference",
+    label: "Выбор книги",
+    hint: "Выберите правильную книгу.",
+    weight: 1,
+    canBuild: (verse, pool) => buildBookChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildBookChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "reference-type",
+    track: "reference",
+    label: "Ввод ссылки",
+    hint: "Введите ссылку вручную.",
+    weight: 2,
+    canBuild: () => true,
+    buildQuestion: (verse, _pool, order) => buildReferenceTypeQuestion(verse, order),
+  },
+  {
+    id: "incipit-choice",
+    track: "incipit",
+    label: "Выбор начала",
+    hint: "Выберите правильное начало стиха.",
+    weight: 2,
+    canBuild: (verse, pool) => buildIncipitChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildIncipitChoiceQuestion(verse, pool, order),
+  },
+  {
+    id: "incipit-tap",
+    track: "incipit",
+    label: "Сборка слов",
+    hint: "Соберите начало стиха по словам.",
+    weight: 1,
+    canBuild: (verse, pool) => buildIncipitTapQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildIncipitTapQuestion(verse, pool, order),
+  },
+  {
+    id: "incipit-type",
+    track: "incipit",
+    label: "Ввод начала",
+    hint: "Введите первые слова стиха.",
+    weight: 2,
+    canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
+    buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
+  },
+  {
+    id: "context-incipit-type",
+    track: "context",
+    label: "Контекст: ввод начала",
+    hint: "О каком стихе идет речь? Введите начало стиха по контексту.",
+    weight: 2,
+    canBuild: (verse, _pool) => buildContextIncipitTypeQuestion(verse, -1) !== null,
+    buildQuestion: (verse, _pool, order) => buildContextIncipitTypeQuestion(verse, order),
+  },
+  {
+    id: "context-incipit-tap",
+    track: "context",
+    label: "Контекст: сборка слов",
+    hint: "О каком стихе идет речь? Соберите начало стиха по контексту.",
+    weight: 1,
+    canBuild: (verse, pool) => buildContextIncipitTapQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildContextIncipitTapQuestion(verse, pool, order),
+  },
+  {
+    id: "context-prefix-type",
+    track: "context",
+    label: "Контекст: первые буквы",
+    hint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
+    weight: 1,
+    canBuild: (verse, _pool) => buildContextPrefixTypeQuestion(verse, -1) !== null,
+    buildQuestion: (verse, _pool, order) => buildContextPrefixTypeQuestion(verse, order),
+  },
+];
+
+function pickWeightedStrategy(strategies: ReadonlyArray<ModeStrategy>) {
+  const totalWeight = strategies.reduce(
+    (sum, strategy) => sum + Math.max(1, strategy.weight),
+    0
+  );
+  let cursor = randomFloat() * totalWeight;
+  for (const strategy of strategies) {
+    cursor -= Math.max(1, strategy.weight);
+    if (cursor <= 0) return strategy;
+  }
+  return strategies[strategies.length - 1] ?? null;
+}
+
+function resolveMixedTrack(verse: ReferenceVerse): SkillTrack {
+  const weightedTracks: Array<{ track: SkillTrack; weight: number }> = [
+    {
+      track: "reference",
+      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.referenceScore),
+    },
+    {
+      track: "incipit",
+      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.incipitScore),
+    },
+    {
+      track: "context",
+      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.contextScore),
+    },
+  ];
+
+  const totalWeight = weightedTracks.reduce((sum, item) => sum + item.weight, 0);
+  let cursor = randomFloat() * totalWeight;
+
+  for (const item of weightedTracks) {
+    cursor -= item.weight;
+    if (cursor <= 0) return item.track;
+  }
+
+  return weightedTracks[weightedTracks.length - 1]?.track ?? "reference";
+}
+
+function buildQuestionForTrack(params: {
+  track: SkillTrack;
+  verse: ReferenceVerse;
+  pool: ReferenceVerse[];
+  order: number;
+  previousModeId: TrainerModeId | null;
+}): TrainerQuestion | null {
+  const { track, verse, pool, order, previousModeId } = params;
+  const allStrategies = MODE_STRATEGIES.filter(
+    (strategy) => strategy.track === track && strategy.canBuild(verse, pool)
+  );
+  if (allStrategies.length === 0) return null;
+
+  const candidateStrategies =
+    previousModeId &&
+    allStrategies.some((strategy) => strategy.id !== previousModeId)
+      ? allStrategies.filter((strategy) => strategy.id !== previousModeId)
+      : allStrategies;
+
+  const remaining = [...candidateStrategies];
+  while (remaining.length > 0) {
+    const picked = pickWeightedStrategy(remaining);
+    if (!picked) break;
+    const question = picked.buildQuestion(verse, pool, order);
+    if (question) return question;
+    const pickedIndex = remaining.findIndex((strategy) => strategy.id === picked.id);
+    if (pickedIndex >= 0) remaining.splice(pickedIndex, 1);
+  }
+
+  return null;
+}
+
+function buildRandomSessionQuestions(
+  pool: ReferenceVerse[],
+  sessionTrack: SessionTrack
+): TrainerQuestion[] {
+  if (pool.length === 0) return [];
+
+  const uniquePool = Array.from(
+    new Map(pool.map((verse) => [verse.externalVerseId, verse] as const)).values()
+  );
+  const verseOrder = shuffle(uniquePool);
+  const targetQuestionCount = Math.min(SESSION_TARGET_VERSES, verseOrder.length);
+
+  const questions: TrainerQuestion[] = [];
+  let previousModeId: TrainerModeId | null = null;
+
+  for (const verse of verseOrder) {
+    if (questions.length >= targetQuestionCount) break;
+
+    const order = questions.length;
+    let question: TrainerQuestion | null = null;
+
+    if (sessionTrack === "mixed") {
+      const preferredTrack = resolveMixedTrack(verse);
+      question = buildQuestionForTrack({
+        track: preferredTrack,
+        verse,
+        pool: uniquePool,
+        order,
+        previousModeId,
+      });
+
+      if (!question) {
+        const fallbackTracks = shuffle(
+          (["reference", "incipit", "context"] as const).filter(
+            (track) => track !== preferredTrack
+          )
+        );
+
+        for (const fallbackTrack of fallbackTracks) {
+          question = buildQuestionForTrack({
+            track: fallbackTrack,
+            verse,
+            pool: uniquePool,
+            order,
+            previousModeId,
+          });
+          if (question) break;
+        }
+      }
+    } else {
+      question = buildQuestionForTrack({
+        track: sessionTrack,
+        verse,
+        pool: uniquePool,
+        order,
+        previousModeId,
+      });
+    }
+
+    if (!question) continue;
+
+    questions.push(question);
+    previousModeId = question.modeId;
+  }
+
+  return questions;
+}
+
+function getResultCaption(percent: number) {
+  if (percent >= 90) return "Отличная точность. Якоря закрепляются уверенно.";
+  if (percent >= 70) return "Хороший результат. Ещё одна сессия усилит запоминание.";
+  return "Нужна дополнительная практика. Попробуйте новый микс режимов.";
+}
+
+function mergeUpdatedSkillScores(
+  pool: ReferenceVerse[],
+  updated: Array<{
+    externalVerseId: string;
+    referenceScore: number;
+    incipitScore: number;
+    contextScore: number;
+  }>
+) {
+  const map = new Map(
+    updated.map((item) => [item.externalVerseId, item] as const)
+  );
+  return pool.map((verse) => {
+    const next = map.get(verse.externalVerseId);
+    if (!next) return verse;
+    return {
+      ...verse,
+      referenceScore: clampSkillScore(next.referenceScore),
+      incipitScore: clampSkillScore(next.incipitScore),
+      contextScore: clampSkillScore(next.contextScore),
+    };
+  });
+}
+
+export function AnchorTrainingSession({
+  telegramId,
+  initialTrack,
+  onClose,
+}: AnchorTrainingSessionProps) {
+  const { contentSafeAreaInset } = useTelegramSafeArea();
+  const topInset = contentSafeAreaInset.top;
+  const bottomInset = contentSafeAreaInset.bottom;
+  const initializedTelegramIdRef = useRef<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const savedSessionKeyRef = useRef<string | null>(null);
+  const deferredVerseIdsRef = useRef<Set<string>>(new Set());
+  const touchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(null);
+
+  const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
+    initialTrack ?? readStoredTrack()
+  );
+  const [sessionTrack, setSessionTrack] = useState<SessionTrack>(() =>
+    initialTrack ?? readStoredTrack()
+  );
+  const [versePool, setVersePool] = useState<ReferenceVerse[]>([]);
+  const [questions, setQuestions] = useState<TrainerQuestion[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [results, setResults] = useState<QuestionResult[]>([]);
+  const [sessionUpdates, setSessionUpdates] = useState<
+    ReferenceTrainerSessionUpdate[]
+  >([]);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [typedAnswer, setTypedAnswer] = useState("");
+  const [typingAttempts, setTypingAttempts] = useState(0);
+  const [tapSequence, setTapSequence] = useState<string[]>([]);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const [lastAnswerUsedTolerance, setLastAnswerUsedTolerance] = useState(false);
+  const [lastAnswerForgotten, setLastAnswerForgotten] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [saveSucceeded, setSaveSucceeded] = useState(false);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isIntroDialogOpen, setIsIntroDialogOpen] = useState(false);
+  const [direction, setDirection] = useState(0);
+  const [pendingTrackChange, setPendingTrackChange] =
+    useState<SessionTrack | null>(null);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [isAutoAdvancePending, setIsAutoAdvancePending] = useState(false);
+
+  useEffect(() => {
+    writeStoredTrack(selectedTrack);
+  }, [selectedTrack]);
+
+  const markIntroAsSeen = useCallback(() => {
+    if (!telegramId || typeof window === "undefined") {
+      setIsIntroDialogOpen(false);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        getReferenceTrainerIntroStorageKey(telegramId),
+        "1"
+      );
+    } catch {
+      // ignore storage errors
+    }
+
+    setIsIntroDialogOpen(false);
+  }, [telegramId]);
+
+  const handleIntroDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsIntroDialogOpen(true);
+        return;
+      }
+      markIntroAsSeen();
+    },
+    [markIntroAsSeen]
+  );
+
+  const currentQuestion = questions[currentQuestionIndex] ?? null;
+  const answeredCount = results.length;
+  const correctCount = useMemo(
+    () => results.filter((result) => result.isCorrect).length,
+    [results]
+  );
+  const sessionComplete = questions.length > 0 && answeredCount >= questions.length;
+  const resultPercent =
+    questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+  const referenceStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "reference");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
+  const incipitStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "incipit");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
+  const contextStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "context");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
+  const resetAnswerState = useCallback(() => {
+    setSelectedOption(null);
+    setTypedAnswer("");
+    setTypingAttempts(0);
+    setTapSequence([]);
+    setIsAnswered(false);
+    setLastAnswerCorrect(null);
+    setLastAnswerUsedTolerance(false);
+    setLastAnswerForgotten(false);
+  }, []);
+
+  const startSessionFromPool = useCallback(
+    (pool: ReferenceVerse[], nextTrack?: SessionTrack) => {
+      const effectiveTrack = nextTrack ?? selectedTrack;
+      const nextQuestions = buildRandomSessionQuestions(pool, effectiveTrack);
+      setQuestions(nextQuestions);
+      setCurrentQuestionIndex(0);
+      setResults([]);
+      setSessionUpdates([]);
+      setSessionTrack(effectiveTrack);
+      setSaveSucceeded(false);
+      setSaveErrorMessage(null);
+      savedSessionKeyRef.current = null;
+      deferredVerseIdsRef.current = new Set();
+      resetAnswerState();
+    },
+    [resetAnswerState, selectedTrack]
+  );
+
+  const loadVersePool = useCallback(
+    async (telegramIdValue: string) => {
+      setErrorMessage(null);
+      setIsLoading(true);
+
+      try {
+        const verses = await fetchReferenceTrainerVerses(telegramIdValue, {
+          limit: REFERENCE_TRAINER_POOL_LIMIT,
+        });
+        const merged = verses
+          .map(mapUserVerseToReferenceVerse)
+          .filter((verse): verse is ReferenceVerse => verse !== null);
+        setVersePool(merged);
+        startSessionFromPool(merged, selectedTrack);
+      } catch (error) {
+        console.error("Не удалось загрузить стихи для закрепления:", error);
+        setErrorMessage("Не удалось загрузить стихи для закрепления.");
+        toast.error("Не удалось загрузить закрепление", {
+          description: "Проверьте соединение и попробуйте снова.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedTrack, startSessionFromPool]
+  );
+
+  useEffect(() => {
+    if (!telegramId) {
+      initializedTelegramIdRef.current = null;
+      setVersePool([]);
+      setQuestions([]);
+      setResults([]);
+      setSessionUpdates([]);
+      setErrorMessage(null);
+      setSaveSucceeded(false);
+      setSaveErrorMessage(null);
+      setIsIntroDialogOpen(false);
+      deferredVerseIdsRef.current = new Set();
+      return;
+    }
+    if (initializedTelegramIdRef.current === telegramId) return;
+    initializedTelegramIdRef.current = telegramId;
+    void loadVersePool(telegramId);
+  }, [loadVersePool, telegramId]);
+
+  useEffect(() => {
+    if (!telegramId || typeof window === "undefined") {
+      setIsIntroDialogOpen(false);
+      return;
+    }
+
+    try {
+      const key = getReferenceTrainerIntroStorageKey(telegramId);
+      const seenValue = window.localStorage.getItem(key);
+      setIsIntroDialogOpen(seenValue !== "1");
+    } catch {
+      setIsIntroDialogOpen(true);
+    }
+  }, [telegramId]);
+
+  const persistSessionUpdates = useCallback(
+    async (
+      updates: ReferenceTrainerSessionUpdate[],
+      activeTrack: SessionTrack
+    ) => {
+      if (!telegramId || updates.length === 0) return;
+      setIsSavingSession(true);
+      setSaveSucceeded(false);
+      setSaveErrorMessage(null);
+
+      const doSubmit = async () =>
+        submitReferenceTrainerSession({
+          telegramId,
+          sessionTrack: activeTrack as ReferenceTrainerSessionTrack,
+          updates,
+        });
+
+      try {
+        let response:
+          | {
+              updated: Array<{
+                externalVerseId: string;
+                referenceScore: number;
+                incipitScore: number;
+                contextScore: number;
+              }>;
+            }
+          | null = null;
+
+        try {
+          response = await doSubmit();
+        } catch (firstError) {
+          console.warn("Session save failed, retrying once:", firstError);
+          response = await doSubmit();
+        }
+
+        setVersePool((prev) => mergeUpdatedSkillScores(prev, response.updated));
+        setSaveSucceeded(true);
+      } catch (error) {
+        console.error("Не удалось сохранить прогресс закрепления:", error);
+        setSaveSucceeded(false);
+        setSaveErrorMessage("Не удалось сохранить прогресс. Попробуйте пройти новую сессию позже.");
+        toast.error("Прогресс закрепления не сохранён", {
+          description: "Попробуйте открыть режим позже и повторить сессию.",
+        });
+      } finally {
+        setIsSavingSession(false);
+      }
+    },
+    [telegramId]
+  );
+
+  const sessionKey = useMemo(
+    () => questions.map((question) => question.id).join("|"),
+    [questions]
+  );
+
+  useEffect(() => {
+    if (!telegramId || !sessionComplete || sessionUpdates.length === 0 || !sessionKey) {
+      return;
+    }
+    if (savedSessionKeyRef.current === sessionKey) return;
+    savedSessionKeyRef.current = sessionKey;
+    void persistSessionUpdates(sessionUpdates, sessionTrack);
+  }, [
+    persistSessionUpdates,
+    sessionComplete,
+    sessionKey,
+    sessionTrack,
+    sessionUpdates,
+    telegramId,
+  ]);
+
+  const finalizeAnswer = useCallback(
+    (
+      isCorrect: boolean,
+      attemptsUsed: number,
+      options?: { acceptedWithTolerance?: boolean; forgotten?: boolean }
+    ) => {
+      if (!currentQuestion || isAnswered) return;
+      const outcome: ReferenceTrainerSessionOutcome = isCorrect
+        ? attemptsUsed <= 1
+          ? "correct_first"
+          : "correct_retry"
+        : "wrong";
+
+      setIsAnswered(true);
+      setLastAnswerCorrect(isCorrect);
+      setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
+      setLastAnswerForgotten(Boolean(options?.forgotten));
+      setResults((prev) => [
+        ...prev,
+        {
+          track: currentQuestion.track,
+          modeId: currentQuestion.modeId,
+          isCorrect,
+        },
+      ]);
+      setSessionUpdates((prev) => [
+        ...prev,
+        {
+          externalVerseId: currentQuestion.verse.externalVerseId,
+          track: currentQuestion.track,
+          outcome,
+        },
+      ]);
+    },
+    [currentQuestion, isAnswered]
+  );
+
+  const handleChoiceSelect = (value: string) => {
+    if (!currentQuestion || currentQuestion.interaction !== "choice") return;
+    if (isAnswered || sessionComplete) return;
+    setSelectedOption(value);
+    finalizeAnswer(currentQuestion.isCorrectOption(value), 1);
+  };
+
+  const handleTapSelect = (optionId: string) => {
+    if (!currentQuestion || currentQuestion.interaction !== "tap") return;
+    if (isAnswered || sessionComplete) return;
+    if (tapSequence.includes(optionId)) return;
+
+    const option = currentQuestion.options.find((item) => item.id === optionId);
+    if (!option) return;
+
+    const nextSequence = [...tapSequence, optionId];
+    setTapSequence(nextSequence);
+
+    const expectedIndex = nextSequence.length - 1;
+    const expectedValue = currentQuestion.expectedNormalized[expectedIndex];
+    if (option.normalized !== expectedValue) {
+      finalizeAnswer(false, 1);
+      return;
+    }
+
+    if (nextSequence.length >= currentQuestion.expectedNormalized.length) {
+      finalizeAnswer(true, 1);
+    }
+  };
+
+  const handleTypeSubmit = () => {
+    if (!currentQuestion || currentQuestion.interaction !== "type") return;
+    if (isAnswered || sessionComplete) return;
+
+    const input = typedAnswer.trim();
+    if (!input) return;
+    const readiness = getTypeInputReadiness(currentQuestion, input);
+    if (!readiness.canSubmit) return;
+
+    const nextAttempt = typingAttempts + 1;
+    setTypingAttempts(nextAttempt);
+
+    const evaluation = evaluateTypeInput(currentQuestion, input);
+    if (evaluation.isCorrect) {
+      finalizeAnswer(true, nextAttempt, {
+        acceptedWithTolerance: evaluation.acceptedWithTolerance,
+      });
+      return;
+    }
+
+    if (nextAttempt >= currentQuestion.maxAttempts) {
+      finalizeAnswer(false, nextAttempt);
+    }
+  };
+
+  const handleForgotAnswer = () => {
+    if (!currentQuestion) return;
+    if (isAnswered || sessionComplete) return;
+
+    const attemptsUsed =
+      currentQuestion.interaction === "type" ? currentQuestion.maxAttempts : 1;
+    finalizeAnswer(false, attemptsUsed, { forgotten: true });
+  };
+
+  const advanceToNextQuestion = useCallback(() => {
+    if (!isAnswered || !currentQuestion) return;
+    if (currentQuestionIndex >= questions.length - 1) return;
+
+    setCurrentQuestionIndex((prev) => prev + 1);
+    resetAnswerState();
+  }, [currentQuestion, currentQuestionIndex, isAnswered, questions.length, resetAnswerState]);
+
+  const deferCurrentQuestion = useCallback(() => {
+    if (!currentQuestion || isAnswered || sessionComplete) return;
+    if (currentQuestionIndex >= questions.length - 1) return;
+
+    const verseId = currentQuestion.verse.externalVerseId;
+    if (deferredVerseIdsRef.current.has(verseId)) {
+      toast.info(DEFERRED_VERSE_LIMIT_TOAST_MESSAGE);
+      return;
+    }
+
+    const nextQuestions = [...questions];
+    const [deferredQuestion] = nextQuestions.splice(currentQuestionIndex, 1);
+    if (!deferredQuestion) return;
+
+    nextQuestions.push(deferredQuestion);
+    deferredVerseIdsRef.current.add(verseId);
+    setDirection(1);
+    setQuestions(nextQuestions);
+    resetAnswerState();
+    toast.info(DEFERRED_VERSE_TOAST_MESSAGE);
+  }, [
+    currentQuestion,
+    currentQuestionIndex,
+    isAnswered,
+    questions,
+    resetAnswerState,
+    sessionComplete,
+  ]);
+
+  const handleTrackSelect = useCallback(
+    (nextTrack: SessionTrack) => {
+      if (nextTrack === selectedTrack) return;
+      if (versePool.length === 0 || questions.length === 0) {
+        setDirection(0);
+        setSelectedTrack(nextTrack);
+        if (versePool.length > 0) {
+          startSessionFromPool(versePool, nextTrack);
+        }
+        return;
+      }
+
+      setPendingTrackChange(nextTrack);
+    },
+    [questions.length, selectedTrack, startSessionFromPool, versePool]
+  );
+
+  const isTypeMode = currentQuestion?.interaction === "type";
+  const isContextPrefixTypeMode = currentQuestion?.modeId === "context-prefix-type";
+  const typeInputReadiness =
+    currentQuestion?.interaction === "type"
+      ? getTypeInputReadiness(currentQuestion, typedAnswer)
+      : null;
+  const canSubmitTypeAnswer =
+    currentQuestion?.interaction === "type"
+      ? typeInputReadiness?.canSubmit === true
+      : false;
+  const revealedVerseText = getRevealedVerseText(currentQuestion);
+  const requiresContinueAfterReveal =
+    isAnswered &&
+    lastAnswerCorrect === false &&
+    !sessionComplete &&
+    currentQuestionIndex < questions.length - 1;
+  const displayCount = Math.max(questions.length, 0);
+  const displayIndex = sessionComplete
+    ? displayCount
+    : displayCount === 0
+      ? 0
+      : Math.min(currentQuestionIndex + 1, displayCount);
+
+  const confirmTrackChange = useCallback(() => {
+    if (pendingTrackChange === null) return;
+
+    setDirection(0);
+    setSelectedTrack(pendingTrackChange);
+    setPendingTrackChange(null);
+    if (versePool.length > 0) {
+      startSessionFromPool(versePool, pendingTrackChange);
+    }
+  }, [pendingTrackChange, startSessionFromPool, versePool]);
+
+  const cancelTrackChange = useCallback(() => {
+    setPendingTrackChange(null);
+  }, []);
+
+  const handleContinueAfterReveal = useCallback(() => {
+    if (!requiresContinueAfterReveal) return;
+    setDirection(1);
+    setIsAutoAdvancePending(false);
+    advanceToNextQuestion();
+  }, [advanceToNextQuestion, requiresContinueAfterReveal]);
+
+  const requestClose = useCallback(() => {
+    if (isIntroDialogOpen) {
+      handleIntroDialogOpenChange(false);
+      return;
+    }
+
+    if (!sessionComplete && questions.length > 0) {
+      setIsExitConfirmOpen(true);
+      return;
+    }
+
+    onClose();
+  }, [
+    handleIntroDialogOpenChange,
+    isIntroDialogOpen,
+    onClose,
+    questions.length,
+    sessionComplete,
+  ]);
+
+  const handleBackAction = useCallback(() => {
+    if (pendingTrackChange !== null) {
+      setPendingTrackChange(null);
+      return;
+    }
+
+    if (isExitConfirmOpen) {
+      setIsExitConfirmOpen(false);
+      return;
+    }
+
+    requestClose();
+  }, [isExitConfirmOpen, pendingTrackChange, requestClose]);
+
+  useTelegramBackButton({
+    enabled: true,
+    onBack: handleBackAction,
+    priority: 50,
+  });
+
+  useEffect(() => {
+    if (!isTypeMode || isAnswered) return;
+    const t1 = window.setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      50
+    );
+    const t2 = window.setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      250
+    );
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [currentQuestion?.id, isAnswered, isTypeMode]);
+
+  const selectedTapLabels =
+    currentQuestion?.interaction === "tap"
+      ? tapSequence
+          .map((id) => currentQuestion.options.find((option) => option.id === id)?.label)
+          .filter((value): value is string => Boolean(value))
+      : [];
+  const controlsLocked =
+    isLoading ||
+    isSavingSession ||
+    isAutoAdvancePending ||
+    pendingTrackChange !== null ||
+    isExitConfirmOpen ||
+    isIntroDialogOpen;
+
+  const handleQuestionTouchStart = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      if (
+        controlsLocked ||
+        isAnswered ||
+        sessionComplete ||
+        currentQuestion === null ||
+        currentQuestionIndex >= questions.length - 1
+      ) {
+        touchSwipeStartRef.current = null;
+        return;
+      }
+
+      touchSwipeStartRef.current = createVerticalTouchSwipeStart(event);
+    },
+    [
+      controlsLocked,
+      currentQuestion,
+      currentQuestionIndex,
+      isAnswered,
+      questions.length,
+      sessionComplete,
+    ]
+  );
+
+  const handleQuestionTouchEnd = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      const swipeStep = getVerticalTouchSwipeStep(touchSwipeStartRef.current, event);
+      touchSwipeStartRef.current = null;
+
+      if (swipeStep === -1) {
+        toast.info(DOWN_SWIPE_UNAVAILABLE_TOAST_MESSAGE);
+        return;
+      }
+      if (swipeStep !== 1) return;
+      if (controlsLocked || isAnswered || sessionComplete) return;
+
+      deferCurrentQuestion();
+    },
+    [controlsLocked, deferCurrentQuestion, isAnswered, sessionComplete]
+  );
+
+  useEffect(() => {
+    if (
+      !isAnswered ||
+      requiresContinueAfterReveal ||
+      sessionComplete ||
+      currentQuestion === null ||
+      currentQuestionIndex >= questions.length - 1 ||
+      pendingTrackChange !== null ||
+      isExitConfirmOpen
+    ) {
+      setIsAutoAdvancePending(false);
+      return;
+    }
+
+    setIsAutoAdvancePending(true);
+    const timeoutId = window.setTimeout(() => {
+      setDirection(1);
+      advanceToNextQuestion();
+      setIsAutoAdvancePending(false);
+    }, 1100);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      setIsAutoAdvancePending(false);
+    };
+  }, [
+    advanceToNextQuestion,
+    currentQuestion,
+    currentQuestionIndex,
+    isAnswered,
+    isExitConfirmOpen,
+    pendingTrackChange,
+    questions.length,
+    requiresContinueAfterReveal,
+    sessionComplete,
+  ]);
+
+  useEffect(() => {
+    if (direction === 0 || typeof window === "undefined") return;
+
+    const timeoutId = window.setTimeout(() => {
+      setDirection(0);
+    }, 260);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [direction, currentQuestion?.id]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      handleBackAction();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleBackAction]);
+
+  return (
+    <>
+      <AlertDialog
+        open={isIntroDialogOpen}
+        onOpenChange={handleIntroDialogOpenChange}
+      >
+        <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
+          <div className="relative px-6 py-6 sm:px-7">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-500/20 blur-2xl" />
+            </div>
+
+            <AlertDialogHeader className="relative gap-3">
+              <AlertDialogTitle className="text-xl text-primary">
+                Раздел «Якоря»
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
+                Здесь вы закрепляете уже изученный материал в разных режимах:
+                ссылка, начало стиха, контекст и смешанный формат.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="relative mt-4 rounded-2xl border border-border/60 bg-background/65 p-3 text-xs leading-relaxed text-foreground/75">
+              Чем регулярнее практика в этом разделе, тем стабильнее
+              долговременное запоминание и быстрее восстановление стиха по
+              подсказкам.
+            </div>
+
+            <AlertDialogFooter className="relative mt-5">
+              <AlertDialogAction
+                className="h-10 rounded-xl border border-primary/25 bg-primary/10 text-primary px-5 text-sm font-medium"
+                onClick={markIntroAsSeen}
+              >
+                Понятно, начать
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+      >
+        <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
+          <div
+            className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
+            style={{ paddingTop: `${topInset}px` }}
+          >
+            <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
+              <div className="flex items-center justify-center">
+                <div
+                  role="status"
+                  aria-label={`Стих ${displayIndex} из ${displayCount}`}
+                  className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
+                >
+                  <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
+                    {displayIndex} / {displayCount}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="flex-1 relative grid place-items-center px-4 sm:px-6"
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Карточки закрепления"
+          >
+            {!telegramId && (
+              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                <AnchorTrainingStateCard
+                  title="Нет Telegram ID"
+                  description="Не удалось определить пользователя. Откройте закрепление из Telegram Mini App и попробуйте снова."
+                  tone="catalog"
+                />
+              </div>
+            )}
+
+            {telegramId && isLoading && (
+              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                <AnchorTrainingStateCard
+                  title="Загружаем сессию"
+                  description="Подбираем стихи для закрепления и собираем последовательность вопросов."
+                  tone="catalog"
+                />
+              </div>
+            )}
+
+            {telegramId && !isLoading && errorMessage && (
+              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                <AnchorTrainingStateCard
+                  title="Не удалось загрузить стихи"
+                  description={errorMessage}
+                  tone="stopped"
+                  action={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void loadVersePool(telegramId)}
+                    >
+                      Повторить
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+
+            {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
+              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                <AnchorTrainingStateCard
+                  title="Нет стихов для закрепления"
+                  description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
+                  tone="catalog"
+                />
+              </div>
+            )}
+
+            {telegramId &&
+              !isLoading &&
+              !errorMessage &&
+              versePool.length > 0 &&
+              questions.length === 0 && (
+                <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                  <AnchorTrainingStateCard
+                    title="Недостаточно данных для режима"
+                    description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
+                    tone="catalog"
+                  />
+                </div>
+              )}
+
+            {telegramId &&
+              !isLoading &&
+              !errorMessage &&
+              versePool.length > 0 &&
+              questions.length > 0 &&
+              !sessionComplete &&
+              currentQuestion && (
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div
+                    key={currentQuestion.id}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
+                    tabIndex={-1}
+                    onTouchStart={handleQuestionTouchStart}
+                    onTouchEnd={handleQuestionTouchEnd}
+                    onTouchCancel={() => {
+                      touchSwipeStartRef.current = null;
+                    }}
+                  >
+                    <AnchorTrainingQuestionCard
+                      question={currentQuestion}
+                      sessionTrack={sessionTrack}
+                      selectedOption={selectedOption}
+                      isAnswered={isAnswered}
+                      controlsLocked={controlsLocked}
+                      tapSequence={tapSequence}
+                      selectedTapLabels={selectedTapLabels}
+                      typedAnswer={typedAnswer}
+                      typingAttempts={typingAttempts}
+                      canSubmitTypeAnswer={canSubmitTypeAnswer}
+                      isContextPrefixTypeMode={Boolean(isContextPrefixTypeMode)}
+                      typeInputReadiness={typeInputReadiness}
+                      inputRef={inputRef}
+                      lastAnswerCorrect={lastAnswerCorrect}
+                      lastAnswerUsedTolerance={lastAnswerUsedTolerance}
+                      lastAnswerForgotten={lastAnswerForgotten}
+                      revealedVerseText={revealedVerseText}
+                      isAutoAdvancePending={isAutoAdvancePending}
+                      showContinueButton={requiresContinueAfterReveal}
+                      onChoiceSelect={handleChoiceSelect}
+                      onTapSelect={handleTapSelect}
+                      onTypedAnswerChange={setTypedAnswer}
+                      onTypeSubmit={handleTypeSubmit}
+                      onForgotAnswer={handleForgotAnswer}
+                      onContinue={handleContinueAfterReveal}
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              )}
+
+            {telegramId &&
+              !isLoading &&
+              !errorMessage &&
+              versePool.length > 0 &&
+              sessionComplete && (
+                <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
+                  <AnchorTrainingSummaryCard
+                    resultPercent={resultPercent}
+                    correctCount={correctCount}
+                    totalCount={questions.length}
+                    referenceStats={referenceStats}
+                    incipitStats={incipitStats}
+                    contextStats={contextStats}
+                    caption={getResultCaption(resultPercent)}
+                    isSavingSession={isSavingSession}
+                    saveSucceeded={saveSucceeded}
+                    saveErrorMessage={saveErrorMessage}
+                    selectedTrack={selectedTrack}
+                  />
+                </div>
+              )}
+          </div>
+
+          <div
+            style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
+            className="shrink-0 px-4 sm:px-6 z-40"
+          >
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
+              {!sessionComplete && telegramId && !isLoading && (
+                <AnchorTrainingTrackSelect
+                  value={selectedTrack}
+                  onValueChange={handleTrackSelect}
+                  disabled={controlsLocked}
+                />
+              )}
+              <Button
+                variant="outline"
+                className="flex gap-2 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl"
+                onClick={requestClose}
+              >
+                Завершить
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <AlertDialog
+        open={pendingTrackChange !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelTrackChange();
+        }}
+      >
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base text-foreground/90">
+              Сменить режим закрепления?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground/90">
+              При смене режима прогресс текущей сессии сбросится. Сохранение произойдёт
+              только после завершения всех стихов.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              onClick={cancelTrackChange}
+            >
+              Остаться
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              onClick={confirmTrackChange}
+            >
+              Сменить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isExitConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setIsExitConfirmOpen(false);
+        }}
+      >
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base text-foreground/90">
+              Завершить сессию?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground/90">
+              Если выйти сейчас, прогресс текущей сессии не сохранится.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              onClick={() => setIsExitConfirmOpen(false)}
+            >
+              Остаться
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              onClick={onClose}
+            >
+              Выйти
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

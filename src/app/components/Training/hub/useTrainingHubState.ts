@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import type { TrainingMode } from "../types";
+import type { CoreTrainingMode, TrainingMode } from "../types";
 
 export type TrainingCounts = {
   learningCount: number;
@@ -50,10 +50,12 @@ export function getCountForMode(
 
 /** Total count for a multi-mode selection (deduplicated) */
 export function getCountForModes(
-  modes: TrainingMode[],
+  modes: CoreTrainingMode[] | TrainingMode[],
   counts: TrainingCounts
 ): number {
-  if (modes.includes("anchor")) return counts.allCount;
+  if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
+    return counts.allCount;
+  }
 
   let total = 0;
   if (modes.includes("learning")) total += counts.learningCount;

@@ -11,44 +11,43 @@ export interface PilgrimLocationPalette {
   badgeBorder: string
 }
 
-export interface PilgrimLocationPathPoint {
-  /** X координата точки пути (0-1, относительно ширины картинки) */
+export interface PilgrimWorldPoint {
   x: number
-  /** Y координата точки пути (0-1, относительно высоты картинки) */
+  y: number
+}
+
+export interface PilgrimLocationCamera {
+  x: number
+  y: number
+  zoom: number
+}
+
+export interface PilgrimLocationLandmark {
+  x: number
+  y: number
+}
+
+export interface PilgrimLocationMap {
+  track: PilgrimWorldPoint[]
+  camera: PilgrimLocationCamera
+  landmark: PilgrimLocationLandmark
+}
+
+// Legacy types kept for compatibility with older path/image components.
+export interface PilgrimLocationPathPoint {
+  x: number
   y: number
 }
 
 export interface PilgrimLocationBackgroundImage {
-  /** URL картинки (относительный или абсолютный) */
   url: string
-  /** 
-   * Кастомные точки пути дороги на картинке.
-   * Если заданы - используются вместо автоматической генерации.
-   * Координаты 0-1 (относительные).
-   * Должно быть точек = STEPS_PER_LOCATION (12)
-   */
   pathPoints?: PilgrimLocationPathPoint[]
-  /** 
-   * Режим заполнения картинки:
-   * - 'cover' - заполняет весь экран, обрезает лишнее (для 16:9)
-   * - 'contain' - вмещает всю картинку, возможны поля
-   * - 'fill' - растягивает до размеров контейнера
-   */
   fitMode?: 'cover' | 'contain' | 'fill'
-  /** 
-   * Фокусная точка для cover режима (0-1).
-   * Где на картинке находится центр дороги.
-   */
   focalPoint?: { x: number; y: number }
-  /** Где начинается дорога на картинке (0-1, от top) - deprecated, используйте pathPoints */
   roadStartY?: number
-  /** Где заканчивается дорога на картинке (0-1, от top) - deprecated, используйте pathPoints */
   roadEndY?: number
-  /** Отступы для fine-tuning позиционирования */
   padding?: { top: number; bottom: number; left: number; right: number }
-  /** Масштаб по горизонтали для совпадения амплитуды волнения пути */
   horizontalScale?: number
-  /** Прозрачность картинки */
   opacity?: number
 }
 
@@ -57,17 +56,52 @@ export interface PilgrimLocation {
   slug: string
   nameRu: string
   emoji: string
-  verse: string
-  verseRef: string
-  description: string
   palette: PilgrimLocationPalette
-  /** Опциональная фоновая картинка с дорогой */
+  map: PilgrimLocationMap
   backgroundImage?: PilgrimLocationBackgroundImage
 }
 
 export const STEPS_PER_LOCATION = 12
 export const MAP_MAX_MASTERED = 96
 export const PILGRIM_TOTAL_STEPS = MAP_MAX_MASTERED
+export const PILGRIM_WORLD_WIDTH = 1000
+export const PILGRIM_WORLD_HEIGHT = 6760
+
+const LOCATION_STEP_GAP = 58
+
+function average(values: number[]) {
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function buildLocationMap(config: {
+  topY: number
+  baseX: number
+  xOffsets: number[]
+  zoom: number
+}): PilgrimLocationMap {
+  const track = config.xOffsets.map((offset, index) => ({
+    x: config.baseX + offset,
+    y: config.topY + index * LOCATION_STEP_GAP,
+  }))
+
+  const centerX = average(track.map((point) => point.x))
+  const centerY = average(track.map((point) => point.y))
+  const anchor = track[0] ?? { x: config.baseX, y: config.topY }
+
+  return {
+    track,
+    camera: {
+      x: centerX,
+      y: centerY,
+      zoom: config.zoom,
+    },
+    landmark: {
+      x: anchor.x,
+      y: anchor.y - 108,
+    },
+  }
+}
 
 export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
   {
@@ -75,45 +109,40 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
     slug: 'nazareth',
     nameRu: 'Назарет',
     emoji: '🌄',
-    verse: '…и возрастал в премудрости и возрасте',
-    verseRef: 'Лк 2:52',
-    description: 'Тихое начало пути. Здесь формируется привычка возвращаться к Писанию каждый день.',
     palette: {
-      background:
-        'linear-gradient(180deg, #efe1c9 0%, #dcc19b 45%, #9d7750 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(248,239,225,0.84) 0%, rgba(233,216,189,0.64) 100%)',
-      panelBorder: 'rgba(92, 69, 42, 0.22)',
-      accent: '#6f5431',
-      accentSoft: 'rgba(111, 84, 49, 0.16)',
-      path: 'rgba(252, 243, 227, 0.92)',
-      pathGlow: 'rgba(197, 148, 82, 0.38)',
-      pathShadow: 'rgba(88, 59, 30, 0.22)',
-      badgeBg: 'rgba(255, 248, 236, 0.66)',
-      badgeBorder: 'rgba(112, 82, 51, 0.18)',
+      background: 'linear-gradient(180deg, #f2ebdd 0%, #dfcfb0 58%, #8d7047 100%)',
+      panel: 'linear-gradient(180deg, rgba(249,243,232,0.92) 0%, rgba(235,221,193,0.8) 100%)',
+      panelBorder: 'rgba(98, 74, 44, 0.18)',
+      accent: '#775933',
+      accentSoft: 'rgba(119, 89, 51, 0.14)',
+      path: 'rgba(250, 244, 232, 0.96)',
+      pathGlow: 'rgba(198, 160, 104, 0.28)',
+      pathShadow: 'rgba(95, 68, 34, 0.18)',
+      badgeBg: 'rgba(255, 249, 238, 0.76)',
+      badgeBorder: 'rgba(116, 86, 49, 0.14)',
     },
-    // Пример фоновой картинки 16:9 с кастомными точками пути:
+    map: buildLocationMap({
+      topY: 240,
+      baseX: 470,
+      xOffsets: [-18, 32, 86, 116, 92, 42, -14, -70, -110, -88, -32, 24],
+      zoom: 1.02,
+    }),
     backgroundImage: {
       url: '/images/locations/1.png',
-      fitMode: 'cover',    // Заполняет весь экран на телефоне
-      focalPoint: { x: 0.5, y: 0.6 }, // Центр дороги на картинке
-      // Кастомные точки пути (12 точек для 12 шагов).
-      // Координаты 0-1 относительно картинки.
-      // Можно задать точные позиции сгибов дороги.
       pathPoints: [
-        { x: 0.53, y: 0.32 }, // Step 0 - начало дороги
-        { x: 0.53, y: 0.40 }, // Step 1 - первый поворот
-        { x: 0.50, y: 0.44 }, // Step 2
-        { x: 0.40, y: 0.51 }, // Step 3
-        { x: 0.42, y: 0.54 }, // Step 4 - середина
-        { x: 0.48, y: 0.57 }, // Step 5
-        { x: 0.41, y: 0.64 }, // Step 6
-        { x: 0.48, y: 0.68  }, // Step 7
-        { x: 0.63, y: 0.75 }, // Step 8
-        { x: 0.70, y: 0.80 }, // Step 9
-        { x: 0.70, y: 0.85 }, // Step 10
-        { x: 0.63, y: 0.90 }, // Step 11 - конец дороги
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
+        { x: 0.53, y: 0.32 },
       ],
+      fitMode: 'cover',
+      focalPoint: { x: 0.53, y: 0.32 },
     },
   },
   {
@@ -121,209 +150,174 @@ export const PILGRIM_LOCATIONS: PilgrimLocation[] = [
     slug: 'galilee',
     nameRu: 'Галилея',
     emoji: '🌾',
-    verse: 'Следуй за Мною, и Я сделаю вас ловцами человеков',
-    verseRef: 'Мф 4:19',
-    description: 'Путь становится осознанным. Каждое повторение превращается в движение вперёд.',
     palette: {
-      background:
-        'linear-gradient(180deg, #e8dcc1 0%, #c9b48d 42%, #7a6647 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(244,236,221,0.82) 0%, rgba(222,205,174,0.60) 100%)',
-      panelBorder: 'rgba(96, 80, 51, 0.2)',
-      accent: '#7f643d',
-      accentSoft: 'rgba(127, 100, 61, 0.18)',
-      path: 'rgba(250, 242, 227, 0.92)',
-      pathGlow: 'rgba(187, 154, 94, 0.34)',
-      pathShadow: 'rgba(70, 55, 33, 0.24)',
-      badgeBg: 'rgba(250, 244, 233, 0.62)',
-      badgeBorder: 'rgba(110, 88, 55, 0.16)',
+      background: 'linear-gradient(180deg, #efe5d5 0%, #d8c4a3 56%, #756541 100%)',
+      panel: 'linear-gradient(180deg, rgba(248,240,227,0.9) 0%, rgba(229,211,180,0.78) 100%)',
+      panelBorder: 'rgba(101, 84, 51, 0.16)',
+      accent: '#7c643e',
+      accentSoft: 'rgba(124, 100, 62, 0.14)',
+      path: 'rgba(250, 244, 233, 0.94)',
+      pathGlow: 'rgba(188, 158, 101, 0.28)',
+      pathShadow: 'rgba(81, 66, 35, 0.18)',
+      badgeBg: 'rgba(252, 246, 236, 0.72)',
+      badgeBorder: 'rgba(112, 90, 55, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 1020,
+      baseX: 542,
+      xOffsets: [24, 72, 110, 92, 44, -12, -66, -108, -118, -78, -18, 36],
+      zoom: 1.03,
+    }),
   },
   {
     index: 2,
     slug: 'samaria',
     nameRu: 'Самария',
     emoji: '🫒',
-    verse: 'Бог есть дух, и поклоняющиеся Ему должны поклоняться в духе и истине',
-    verseRef: 'Ин 4:24',
-    description: 'Место глубины. Память начинает держаться не на усилии, а на внутренней связи.',
     palette: {
-      background:
-        'linear-gradient(180deg, #d9d1bd 0%, #a8a07f 44%, #5d5f46 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(241,237,224,0.8) 0%, rgba(212,209,189,0.58) 100%)',
-      panelBorder: 'rgba(70, 75, 49, 0.22)',
-      accent: '#59603f',
-      accentSoft: 'rgba(89, 96, 63, 0.18)',
-      path: 'rgba(246, 242, 231, 0.88)',
-      pathGlow: 'rgba(127, 139, 92, 0.32)',
-      pathShadow: 'rgba(47, 52, 34, 0.22)',
-      badgeBg: 'rgba(244, 241, 231, 0.6)',
-      badgeBorder: 'rgba(83, 89, 61, 0.16)',
+      background: 'linear-gradient(180deg, #e8e3d8 0%, #b9b28f 56%, #5d6550 100%)',
+      panel: 'linear-gradient(180deg, rgba(244,240,230,0.9) 0%, rgba(216,212,194,0.76) 100%)',
+      panelBorder: 'rgba(72, 80, 52, 0.18)',
+      accent: '#616947',
+      accentSoft: 'rgba(97, 105, 71, 0.15)',
+      path: 'rgba(246, 243, 235, 0.9)',
+      pathGlow: 'rgba(130, 142, 101, 0.26)',
+      pathShadow: 'rgba(52, 57, 39, 0.18)',
+      badgeBg: 'rgba(244, 242, 235, 0.68)',
+      badgeBorder: 'rgba(86, 92, 65, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 1800,
+      baseX: 452,
+      xOffsets: [-26, 24, 76, 112, 94, 48, -6, -62, -104, -118, -72, -10],
+      zoom: 1.04,
+    }),
   },
   {
     index: 3,
     slug: 'bethlehem',
     nameRu: 'Вифлеем',
     emoji: '⭐',
-    verse: 'Из тебя произойдёт Мне Тот, Который должен быть Владыкою',
-    verseRef: 'Мих 5:2',
-    description: 'На этом этапе путь становится светлее: повторение начинает давать устойчивую уверенность.',
     palette: {
-      background:
-        'linear-gradient(180deg, #ede1c7 0%, #d1b17e 42%, #7d5b2f 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(248,239,220,0.82) 0%, rgba(228,202,153,0.56) 100%)',
-      panelBorder: 'rgba(112, 77, 29, 0.22)',
-      accent: '#8e6628',
-      accentSoft: 'rgba(142, 102, 40, 0.18)',
-      path: 'rgba(253, 244, 223, 0.92)',
-      pathGlow: 'rgba(212, 173, 93, 0.32)',
-      pathShadow: 'rgba(95, 64, 20, 0.22)',
-      badgeBg: 'rgba(255, 245, 223, 0.6)',
-      badgeBorder: 'rgba(129, 90, 31, 0.16)',
+      background: 'linear-gradient(180deg, #f4ecdc 0%, #dcc294 56%, #816536 100%)',
+      panel: 'linear-gradient(180deg, rgba(249,242,227,0.92) 0%, rgba(232,210,168,0.78) 100%)',
+      panelBorder: 'rgba(117, 85, 36, 0.18)',
+      accent: '#926a2c',
+      accentSoft: 'rgba(146, 106, 44, 0.14)',
+      path: 'rgba(253, 246, 229, 0.95)',
+      pathGlow: 'rgba(214, 175, 101, 0.28)',
+      pathShadow: 'rgba(96, 66, 22, 0.18)',
+      badgeBg: 'rgba(255, 247, 228, 0.72)',
+      badgeBorder: 'rgba(131, 94, 39, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 2580,
+      baseX: 556,
+      xOffsets: [18, 62, 104, 114, 70, 18, -42, -96, -114, -82, -28, 18],
+      zoom: 1.03,
+    }),
   },
   {
     index: 4,
     slug: 'jericho',
     nameRu: 'Иерихон',
     emoji: '🏛️',
-    verse: 'Верою пали стены Иерихонские',
-    verseRef: 'Евр 11:30',
-    description: 'Ритм становится сильнее. Стихи перестают выпадать и собираются в устойчивый запас.',
     palette: {
-      background:
-        'linear-gradient(180deg, #e7d6bf 0%, #c18f63 40%, #744427 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(245,234,220,0.82) 0%, rgba(221,184,157,0.58) 100%)',
-      panelBorder: 'rgba(112, 62, 31, 0.22)',
-      accent: '#8a4f24',
-      accentSoft: 'rgba(138, 79, 36, 0.18)',
-      path: 'rgba(250, 239, 224, 0.9)',
-      pathGlow: 'rgba(205, 122, 78, 0.32)',
-      pathShadow: 'rgba(76, 38, 17, 0.22)',
-      badgeBg: 'rgba(252, 241, 230, 0.58)',
-      badgeBorder: 'rgba(124, 69, 37, 0.16)',
+      background: 'linear-gradient(180deg, #eedfcd 0%, #cca075 54%, #77472d 100%)',
+      panel: 'linear-gradient(180deg, rgba(247,238,227,0.9) 0%, rgba(227,193,168,0.76) 100%)',
+      panelBorder: 'rgba(114, 66, 37, 0.18)',
+      accent: '#8d5428',
+      accentSoft: 'rgba(141, 84, 40, 0.14)',
+      path: 'rgba(251, 241, 228, 0.92)',
+      pathGlow: 'rgba(208, 127, 84, 0.28)',
+      pathShadow: 'rgba(82, 42, 21, 0.18)',
+      badgeBg: 'rgba(253, 244, 234, 0.68)',
+      badgeBorder: 'rgba(124, 72, 39, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 3360,
+      baseX: 464,
+      xOffsets: [-22, 20, 68, 102, 88, 36, -18, -72, -106, -94, -38, 8],
+      zoom: 1.04,
+    }),
   },
   {
     index: 5,
     slug: 'jerusalem',
     nameRu: 'Иерусалим',
     emoji: '🕍',
-    verse: 'Если я забуду тебя, Иерусалим, — забудь меня десница моя',
-    verseRef: 'Пс 136:5',
-    description: 'Слово закрепляется в памяти. Здесь виден результат дисциплины и долгого маршрута.',
     palette: {
-      background:
-        'linear-gradient(180deg, #e4d7c1 0%, #bfa06b 40%, #6a5228 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(245,237,221,0.82) 0%, rgba(225,202,158,0.58) 100%)',
-      panelBorder: 'rgba(104, 82, 35, 0.22)',
-      accent: '#7a612a',
-      accentSoft: 'rgba(122, 97, 42, 0.18)',
-      path: 'rgba(252, 242, 223, 0.9)',
-      pathGlow: 'rgba(190, 161, 93, 0.3)',
-      pathShadow: 'rgba(70, 54, 22, 0.22)',
-      badgeBg: 'rgba(252, 245, 230, 0.58)',
-      badgeBorder: 'rgba(108, 86, 40, 0.16)',
+      background: 'linear-gradient(180deg, #ece1cf 0%, #cfb58b 54%, #6a562f 100%)',
+      panel: 'linear-gradient(180deg, rgba(248,241,227,0.9) 0%, rgba(230,211,174,0.78) 100%)',
+      panelBorder: 'rgba(110, 87, 41, 0.18)',
+      accent: '#80662e',
+      accentSoft: 'rgba(128, 102, 46, 0.14)',
+      path: 'rgba(253, 245, 228, 0.93)',
+      pathGlow: 'rgba(196, 165, 97, 0.26)',
+      pathShadow: 'rgba(76, 58, 24, 0.18)',
+      badgeBg: 'rgba(253, 247, 232, 0.7)',
+      badgeBorder: 'rgba(109, 88, 41, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 4140,
+      baseX: 550,
+      xOffsets: [16, 58, 96, 108, 76, 28, -30, -88, -110, -86, -34, 10],
+      zoom: 1.03,
+    }),
   },
   {
     index: 6,
     slug: 'golgotha',
     nameRu: 'Голгофа',
     emoji: '✝️',
-    verse: 'Слово Божие живо и действенно и острее всякого меча обоюдоострого',
-    verseRef: 'Евр 4:12',
-    description: 'Самая строгая часть дороги. Здесь остаётся только то, что по-настоящему закреплено.',
     palette: {
-      background:
-        'linear-gradient(180deg, #d7cbc2 0%, #9b7965 42%, #4a3027 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(240,232,227,0.82) 0%, rgba(194,163,147,0.54) 100%)',
-      panelBorder: 'rgba(85, 53, 43, 0.24)',
-      accent: '#72463a',
-      accentSoft: 'rgba(114, 70, 58, 0.18)',
-      path: 'rgba(247, 240, 234, 0.88)',
-      pathGlow: 'rgba(153, 105, 94, 0.3)',
-      pathShadow: 'rgba(46, 27, 22, 0.22)',
-      badgeBg: 'rgba(247, 238, 234, 0.56)',
-      badgeBorder: 'rgba(98, 61, 50, 0.18)',
+      background: 'linear-gradient(180deg, #e6ddd6 0%, #b08d7b 54%, #4a332b 100%)',
+      panel: 'linear-gradient(180deg, rgba(244,236,232,0.9) 0%, rgba(206,176,163,0.74) 100%)',
+      panelBorder: 'rgba(89, 56, 46, 0.2)',
+      accent: '#764b40',
+      accentSoft: 'rgba(118, 75, 64, 0.15)',
+      path: 'rgba(248, 242, 237, 0.9)',
+      pathGlow: 'rgba(160, 111, 99, 0.26)',
+      pathShadow: 'rgba(51, 31, 25, 0.18)',
+      badgeBg: 'rgba(248, 241, 236, 0.66)',
+      badgeBorder: 'rgba(100, 64, 54, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 4920,
+      baseX: 458,
+      xOffsets: [-12, 34, 82, 110, 94, 48, -4, -58, -102, -112, -74, -18],
+      zoom: 1.04,
+    }),
   },
   {
     index: 7,
     slug: 'new-jerusalem',
     nameRu: 'Новый Иерусалим',
     emoji: '👑',
-    verse: 'Слово Твоё — светильник ноге моей и свет стезе моей',
-    verseRef: 'Пс 118:105',
-    description: 'Финиш маршрута. Карта пройдена, а дальше начинается запас сверх цели.',
     palette: {
-      background:
-        'linear-gradient(180deg, #efe4ce 0%, #d2b78c 38%, #8a6b41 100%)',
-      panel:
-        'linear-gradient(180deg, rgba(249,240,225,0.84) 0%, rgba(232,210,176,0.6) 100%)',
-      panelBorder: 'rgba(120, 92, 46, 0.22)',
-      accent: '#8b6a2e',
-      accentSoft: 'rgba(139, 106, 46, 0.18)',
-      path: 'rgba(255, 246, 227, 0.94)',
-      pathGlow: 'rgba(220, 179, 92, 0.36)',
-      pathShadow: 'rgba(86, 63, 26, 0.24)',
-      badgeBg: 'rgba(255, 248, 232, 0.64)',
-      badgeBorder: 'rgba(137, 105, 43, 0.18)',
+      background: 'linear-gradient(180deg, #f5ecdb 0%, #ddc59b 54%, #8f7248 100%)',
+      panel: 'linear-gradient(180deg, rgba(250,244,231,0.92) 0%, rgba(236,216,184,0.8) 100%)',
+      panelBorder: 'rgba(123, 95, 49, 0.18)',
+      accent: '#917237',
+      accentSoft: 'rgba(145, 114, 55, 0.14)',
+      path: 'rgba(255, 248, 233, 0.96)',
+      pathGlow: 'rgba(221, 183, 103, 0.28)',
+      pathShadow: 'rgba(90, 67, 29, 0.18)',
+      badgeBg: 'rgba(255, 249, 236, 0.74)',
+      badgeBorder: 'rgba(138, 108, 47, 0.14)',
     },
-    backgroundImage: {
-      url: 'https://img.freepik.com/free-photo/beautiful-mountain-landscape_23-2149063331.jpg',
-      fitMode: 'cover',
-      focalPoint: { x: 0.5, y: 0.5 },
-      opacity: 0.9,
-    },
+    map: buildLocationMap({
+      topY: 5700,
+      baseX: 548,
+      xOffsets: [20, 70, 110, 118, 82, 30, -24, -78, -112, -100, -48, 4],
+      zoom: 1.02,
+    }),
   },
 ]
 
 export const PILGRIM_MILESTONE_STEPS = Array.from(
   { length: STEPS_PER_LOCATION },
-  (_, index) => index
+  (_, index) => index,
 ).filter((index) => (index + 1) % 3 === 0)
 
 export function clampMasteredVerses(masteredVerses: number): number {
@@ -391,4 +385,13 @@ export function getLocationMasteredRange(locIndex: number): {
   const from = locIndex * STEPS_PER_LOCATION
   const to = from + STEPS_PER_LOCATION
   return { from, to }
+}
+
+export function getLocationTrackPoint(
+  locIndex: number,
+  stepIndex: number,
+): PilgrimWorldPoint {
+  const location = PILGRIM_LOCATIONS[locIndex]!
+  const clampedStepIndex = Math.max(0, Math.min(STEPS_PER_LOCATION - 1, stepIndex))
+  return location.map.track[clampedStepIndex]!
 }
