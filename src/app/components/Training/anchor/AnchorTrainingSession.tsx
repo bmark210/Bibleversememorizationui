@@ -654,8 +654,7 @@ function buildBookChoiceQuestion(
     id: `book-choice-${order}-${verse.externalVerseId}`,
     modeId: "book-choice",
     track: "reference",
-    // modeLabel: "Выбор книги",
-    modeHint: "Выберите правильную книгу.",
+    modeHint: "Выберите правильную книгу",
     verse,
     prompt: verse.text,
     answerLabel: verse.bookName,
@@ -677,13 +676,12 @@ function buildReferenceTypeQuestion(
     id: `reference-type-${order}-${verse.externalVerseId}`,
     modeId: "reference-type",
     track: "reference",
-    // modeLabel: "Ввод ссылки",
-    modeHint: "Введите ссылку вручную.",
+    modeHint: "Введите ссылку вручную",
     verse,
     prompt: verse.text,
     answerLabel: verse.reference,
     interaction: "type",
-    placeholder: "Например: Иоанна 3:16",
+    placeholder: "Иоанна 3:16",
     maxAttempts: MAX_TYPING_ATTEMPTS,
     retryHint: `${verse.bookName} ${verse.chapterVerse}`.trim(),
     isCorrectInput: (value: string) =>
@@ -714,7 +712,6 @@ function buildIncipitChoiceQuestion(
     id: `incipit-choice-${order}-${verse.externalVerseId}`,
     modeId: "incipit-choice",
     track: "incipit",
-    // modeLabel: "Выбор начала",
     modeHint: "Выберите правильное начало стиха.",
     verse,
     prompt: verse.reference,
@@ -767,7 +764,6 @@ function buildIncipitTapQuestion(
     id: `incipit-tap-${order}-${verse.externalVerseId}`,
     modeId: "incipit-tap",
     track: "incipit",
-    // modeLabel: "Сборка слов",
     modeHint: "Соберите начало стиха по словам.",
     verse,
     prompt: verse.reference,
@@ -792,7 +788,6 @@ function buildIncipitTypeQuestion(
     id: `incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "incipit-type",
     track: "incipit",
-    // modeLabel: "Ввод начала",
     modeHint: "Введите первые слова стиха.",
     verse,
     prompt: verse.reference,
@@ -879,7 +874,6 @@ function buildContextIncipitTapQuestion(
     id: `context-incipit-tap-${order}-${verse.externalVerseId}`,
     modeId: "context-incipit-tap",
     track: "context",
-    // modeLabel: "Контекст: сборка слов",
     modeHint: buildContextModeHint(verse, "tap"),
     verse,
     prompt,
@@ -907,13 +901,12 @@ function buildContextPrefixTypeQuestion(
     id: `context-prefix-type-${order}-${verse.externalVerseId}`,
     modeId: "context-prefix-type",
     track: "context",
-    // modeLabel: "Контекст: первые буквы",
     modeHint: buildContextModeHint(verse, "prefix"),
     verse,
     prompt,
     answerLabel: compactUppercasePrefix,
     interaction: "type",
-    placeholder: "Например: ИТВБМ",
+    placeholder: "ИТВБМ",
     maxAttempts: MAX_TYPING_ATTEMPTS,
     retryHint: `Формат: ${compactUppercasePrefix}`,
     isCorrectInput: (value: string) =>
@@ -925,8 +918,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "reference-choice",
     track: "reference",
-    // label: "Выбор ссылки",
-    hint: "Выберите правильную ссылку.",
+    hint: "Выберите правильную ссылку",
     weight: 2,
     canBuild: (verse, pool) => buildReferenceChoiceQuestion(verse, pool, -1) !== null,
     buildQuestion: (verse, pool, order) => buildReferenceChoiceQuestion(verse, pool, order),
@@ -934,8 +926,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "book-choice",
     track: "reference",
-    // label: "Выбор книги",
-    hint: "Выберите правильную книгу.",
+    hint: "Выберите правильную книгу",
     weight: 1,
     canBuild: (verse, pool) => buildBookChoiceQuestion(verse, pool, -1) !== null,
     buildQuestion: (verse, pool, order) => buildBookChoiceQuestion(verse, pool, order),
@@ -943,8 +934,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "reference-type",
     track: "reference",
-    // label: "Ввод ссылки",
-    hint: "Введите ссылку вручную.",
+    hint: "Введите ссылку вручную",
     weight: 2,
     canBuild: () => true,
     buildQuestion: (verse, _pool, order) => buildReferenceTypeQuestion(verse, order),
@@ -952,8 +942,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-choice",
     track: "incipit",
-    // label: "Выбор начала",
-    hint: "Выберите правильное начало стиха.",
+    hint: "Выберите правильное начало стиха",
     weight: 2,
     canBuild: (verse, pool) => buildIncipitChoiceQuestion(verse, pool, -1) !== null,
     buildQuestion: (verse, pool, order) => buildIncipitChoiceQuestion(verse, pool, order),
@@ -961,8 +950,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-tap",
     track: "incipit",
-    // label: "Сборка слов",
-    hint: "Соберите начало стиха по словам.",
+    hint: "Соберите начало стиха по словам",
     weight: 1,
     canBuild: (verse, pool) => buildIncipitTapQuestion(verse, pool, -1) !== null,
     buildQuestion: (verse, pool, order) => buildIncipitTapQuestion(verse, pool, order),
@@ -970,8 +958,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-type",
     track: "incipit",
-    //  label: "Ввод начала",
-    hint: "Введите первые слова стиха.",
+    hint: "Введите первые слова стиха",
     weight: 2,
     canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
     buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
@@ -979,8 +966,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-incipit-type",
     track: "context",
-    // label: "Контекст: ввод начала",
-    hint: "О каком стихе идет речь? Введите начало стиха по контексту.",
+    hint: "Введите начало стиха по контексту",
     weight: 2,
     canBuild: (verse, _pool) => buildContextIncipitTypeQuestion(verse, -1) !== null,
     buildQuestion: (verse, _pool, order) => buildContextIncipitTypeQuestion(verse, order),
@@ -988,8 +974,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-incipit-tap",
     track: "context",
-    // label: "Контекст: сборка слов",
-    hint: "О каком стихе идет речь? Соберите начало стиха по контексту.",
+    hint: "Соберите начало стиха по контексту",
     weight: 1,
     canBuild: (verse, pool) => buildContextIncipitTapQuestion(verse, pool, -1) !== null,
     buildQuestion: (verse, pool, order) => buildContextIncipitTapQuestion(verse, pool, order),
@@ -997,8 +982,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "context-prefix-type",
     track: "context",
-    // label: "Контекст: первые буквы",
-    hint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
+    hint: "Введите первые буквы начала стиха",
     weight: 1,
     canBuild: (verse, _pool) => buildContextPrefixTypeQuestion(verse, -1) !== null,
     buildQuestion: (verse, _pool, order) => buildContextPrefixTypeQuestion(verse, order),
@@ -1843,7 +1827,7 @@ export function AnchorTrainingSession({
 
             <AlertDialogHeader className="relative gap-3">
               <AlertDialogTitle className="text-xl text-primary">
-                Раздел «Якоря»
+                Режим Закрепления
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
                 Здесь вы закрепляете уже изученный материал в разных режимах:

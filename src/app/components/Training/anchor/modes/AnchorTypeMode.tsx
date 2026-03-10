@@ -1,10 +1,29 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { QuestionBadge } from "../AnchorTrainingCardUi";
 import type { TypeInputReadiness, TypeQuestion } from "../anchorTrainingTypes";
+import { cn } from "@/app/components/ui/utils";
+
+function sanitizeCompactInput(value: string) {
+  return value.replace(/[^\p{L}\p{N}]+/gu, "").toUpperCase();
+}
+
+function trimToMaxLetters(rawValue: string, maxLetters: number) {
+  let lettersSeen = 0;
+  let out = "";
+
+  for (const ch of rawValue) {
+    if (!/[\p{L}\p{N}]/u.test(ch)) continue;
+    if (lettersSeen >= maxLetters) break;
+    lettersSeen += 1;
+    out += ch;
+  }
+
+  return out;
+}
 
 type AnchorTypeModeProps = {
   question: TypeQuestion;
@@ -32,6 +51,13 @@ export function AnchorTypeMode({
   onTypeSubmit,
 }: AnchorTypeModeProps) {
   const mobileFocusTimeoutRef = useRef<number | null>(null);
+  const contextPrefixExpectedLength = useMemo(
+    () =>
+      isContextPrefixTypeMode
+        ? Array.from(sanitizeCompactInput(question.answerLabel)).length
+        : 0,
+    [isContextPrefixTypeMode, question.answerLabel]
+  );
 
   useEffect(() => {
     return () => {
@@ -74,7 +100,10 @@ export function AnchorTypeMode({
             onChange={(event) =>
               onTypedAnswerChange(
                 isContextPrefixTypeMode
-                  ? event.target.value.toUpperCase()
+                  ? trimToMaxLetters(
+                      sanitizeCompactInput(event.target.value),
+                      contextPrefixExpectedLength
+                    )
                   : event.target.value
               )
             }
@@ -87,7 +116,11 @@ export function AnchorTypeMode({
               }
             }}
             placeholder={question.placeholder}
-            className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35"
+            className={cn(
+              "h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35",
+              isContextPrefixTypeMode &&
+                "font-mono uppercase tracking-[0.16em]"
+            )}
             onFocus={handleInputFocus}
             autoCapitalize={isContextPrefixTypeMode ? "characters" : "none"}
             autoCorrect="off"
@@ -100,7 +133,7 @@ export function AnchorTypeMode({
             <Button
               type="submit"
               size="sm"
-              className="rounded-xl px-4 text-xs font-medium bg-primary/80 border border-border/60 text-foreground"
+              className="rounded-xl px-4 text-xs font-medium bg-primary/80 border border-border/60 text-primary-foreground"
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
