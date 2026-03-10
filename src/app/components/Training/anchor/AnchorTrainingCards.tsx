@@ -67,6 +67,7 @@ type AnchorTrainingQuestionCardProps = {
   revealedVerseText: string;
   isAutoAdvancePending: boolean;
   showContinueButton: boolean;
+  onSwipeStep: (step: 1 | -1) => void;
   onChoiceSelect: (value: string) => void;
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
@@ -227,13 +228,13 @@ function getChoiceStateClass(params: {
   optionIsSelected: boolean;
 }) {
   if (!params.isAnswered) {
-    return "border-border/60 bg-background/88 text-foreground/86 hover:border-foreground/15 hover:bg-muted/45";
+    return "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35";
   }
   if (params.optionIsCorrect) {
-    return "border-emerald-500/30 bg-emerald-500/[0.12] text-emerald-800 dark:text-emerald-300";
+    return "border-emerald-500/24 bg-emerald-500/[0.08] text-emerald-800 dark:text-emerald-300";
   }
   if (params.optionIsSelected) {
-    return "border-rose-500/30 bg-rose-500/[0.11] text-rose-700 dark:text-rose-300";
+    return "border-rose-500/24 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300";
   }
   return "border-border/55 bg-muted/25 text-foreground/62";
 }
@@ -242,16 +243,16 @@ function getResultTheme(isCorrect: boolean | null) {
   if (isCorrect) {
     return {
       panelClassName:
-        "border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.12] via-background to-background",
-      iconWrapClassName: "bg-emerald-500/18 text-emerald-600",
+        "border-emerald-500/24 bg-emerald-500/[0.07]",
+      iconWrapClassName: "bg-emerald-500/14 text-emerald-600",
       titleClassName: "text-emerald-800 dark:text-emerald-300",
     };
   }
 
   return {
     panelClassName:
-      "border-rose-500/30 bg-gradient-to-br from-rose-500/[0.12] via-background to-background",
-    iconWrapClassName: "bg-rose-500/18 text-rose-600",
+      "border-rose-500/24 bg-rose-500/[0.07]",
+    iconWrapClassName: "bg-rose-500/14 text-rose-600",
     titleClassName: "text-rose-700 dark:text-rose-300",
   };
 }
@@ -272,7 +273,7 @@ function QuestionBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium shadow-sm",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium",
         className
       )}
     >
@@ -291,7 +292,7 @@ function SurfacePanel({
   return (
     <div
       className={cn(
-        "rounded-[1.9rem] border border-border/60 bg-gradient-to-br from-background/95 via-background/88 to-muted/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
+        "rounded-[1.7rem] border border-border/60 bg-background/82",
         className
       )}
     >
@@ -320,6 +321,7 @@ export function AnchorTrainingQuestionCard({
   revealedVerseText,
   isAutoAdvancePending,
   showContinueButton,
+  onSwipeStep,
   onChoiceSelect,
   onTapSelect,
   onTypedAnswerChange,
@@ -328,7 +330,6 @@ export function AnchorTrainingQuestionCard({
   onContinue,
 }: AnchorTrainingQuestionCardProps) {
   const questionAccent = TRACK_ACCENTS[question.track];
-  const sessionAccent = TRACK_ACCENTS[sessionTrack];
   const resultTheme = getResultTheme(lastAnswerCorrect);
 
   return (
@@ -336,21 +337,12 @@ export function AnchorTrainingQuestionCard({
       isActive
       minHeight="training"
       bodyScrollable
+      onVerticalSwipeStep={onSwipeStep}
       shellClassName="!max-w-[46rem]"
       contentClassName="pb-2"
       header={
-        <div className="space-y-4 text-center">
+        <div className="space-y-3 text-center">
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <QuestionBadge className="border-border/60 bg-background/82 text-foreground/62">
-              Закрепление
-            </QuestionBadge>
-            <QuestionBadge className={sessionAccent.badgeClassName}>
-              <span
-                aria-hidden="true"
-                className={cn("h-1.5 w-1.5 rounded-full", sessionAccent.dotClassName)}
-              />
-              {SESSION_TRACK_LABELS[sessionTrack]}
-            </QuestionBadge>
             {sessionTrack === "mixed" && (
               <QuestionBadge className={questionAccent.badgeClassName}>
                 <span
@@ -364,35 +356,32 @@ export function AnchorTrainingQuestionCard({
               variant="outline"
               className="rounded-full border-border/60 bg-background/82 px-3 py-1 text-[11px] text-foreground/72 shadow-sm"
             >
-              {question.modeLabel}
+                {question.modeLabel}
             </Badge>
+            {!isAnswered && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full border px-3 text-[11px] font-semibold border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                onClick={onForgotAnswer}
+                disabled={controlsLocked}
+              >
+                Забыл
+              </Button>
+            )}
           </div>
-
-          <SurfacePanel className="px-4 py-4 sm:px-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/42">
-              Подсказка
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/78">
-              {question.modeHint}
-            </p>
-          </SurfacePanel>
+          <p className="text-sm leading-relaxed text-foreground/66">
+            {question.modeHint}
+          </p>
         </div>
       }
       body={
         <div className="space-y-5">
-          <div className={cn("rounded-[2rem] border p-[1px]", questionAccent.panelClassName)}>
-            <div className="rounded-[calc(2rem-1px)] bg-card/96 px-4 py-5 sm:px-6 sm:py-6">
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "mx-auto mb-4 h-px w-20 bg-gradient-to-r",
-                  questionAccent.lineClassName
-                )}
-              />
-              <p className="whitespace-pre-line text-center text-[1.04rem] leading-relaxed text-foreground/94 sm:text-[1.14rem]">
-                {question.prompt}
-              </p>
-            </div>
+          <div className="rounded-[1.85rem] border border-border/60 bg-background/90 px-4 py-5 sm:px-6 sm:py-6">
+            <p className="whitespace-pre-line text-center text-[1.02rem] leading-relaxed text-foreground/92 sm:text-[1.1rem]">
+              {question.prompt}
+            </p>
           </div>
 
           {question.interaction === "choice" && (
@@ -413,7 +402,7 @@ export function AnchorTrainingQuestionCard({
                     disabled={isAnswered || controlsLocked}
                     onClick={() => onChoiceSelect(option)}
                     className={cn(
-                      "rounded-[1.5rem] border px-4 py-3.5 text-left text-sm leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors",
+                      "rounded-[1.45rem] border px-4 py-3.5 text-left text-sm leading-relaxed transition-colors",
                       stateClassName
                     )}
                   >
@@ -426,7 +415,7 @@ export function AnchorTrainingQuestionCard({
 
           {question.interaction === "tap" && (
             <div className="space-y-3">
-              <SurfacePanel className={cn("px-4 py-3.5", questionAccent.softPanelClassName)}>
+              <SurfacePanel className="px-4 py-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-medium text-foreground/72">Собрано</span>
                   <span className="text-xs font-semibold tabular-nums text-foreground/82">
@@ -452,10 +441,10 @@ export function AnchorTrainingQuestionCard({
                       disabled={isAnswered || isUsed || controlsLocked}
                       onClick={() => onTapSelect(option.id)}
                       className={cn(
-                        "rounded-[1.45rem] border px-3.5 py-3 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors",
+                        "rounded-[1.45rem] border px-3.5 py-3 text-left text-sm transition-colors",
                         isUsed
-                          ? questionAccent.softPanelClassName
-                          : "border-border/60 bg-background/88 text-foreground/86 hover:border-foreground/15 hover:bg-muted/45"
+                          ? "border-primary/25 bg-primary/[0.08] text-foreground/84"
+                          : "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35"
                       )}
                     >
                       {option.label}
@@ -494,7 +483,7 @@ export function AnchorTrainingQuestionCard({
                       }
                     }}
                     placeholder={question.placeholder}
-                    className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-24 text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] transition-colors focus:border-primary/35"
+                    className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-24 text-base transition-colors focus:border-primary/35"
                     autoCapitalize={isContextPrefixTypeMode ? "characters" : "none"}
                     autoCorrect="off"
                     spellCheck={false}
@@ -506,7 +495,7 @@ export function AnchorTrainingQuestionCard({
                     <Button
                       type="submit"
                       size="sm"
-                      className="h-8 rounded-xl px-4 text-xs font-medium shadow-sm"
+                      className="h-8 rounded-xl px-4 text-xs font-medium"
                       disabled={!canSubmitTypeAnswer || controlsLocked}
                     >
                       {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
@@ -516,7 +505,7 @@ export function AnchorTrainingQuestionCard({
               </form>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <QuestionBadge className="border-border/60 bg-background/82 text-foreground/70">
+                <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[10px] font-semibold text-primary tabular-nums">
                     {Math.min(typingAttempts + 1, question.maxAttempts)}
                   </span>
@@ -581,7 +570,7 @@ export function AnchorTrainingQuestionCard({
                     <div className="mt-4 flex justify-end">
                       <Button
                         type="button"
-                        className="rounded-full px-5 shadow-sm"
+                        className="rounded-full px-5"
                         onClick={onContinue}
                       >
                         Продолжить
@@ -592,19 +581,10 @@ export function AnchorTrainingQuestionCard({
               </div>
             </SurfacePanel>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <div className="flex justify-center">
+              <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                 Свайп вверх переносит стих в конец сессии.
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full border border-border/60 bg-background/82 text-foreground/78 shadow-sm"
-                onClick={onForgotAnswer}
-                disabled={controlsLocked}
-              >
-                Забыл
-              </Button>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ interface LayoutProps {
   isContentReady?: boolean;
   showTelegramExitButton?: boolean;
   onTelegramExit?: () => void;
+  hideChrome?: boolean;
 }
 
 export function Layout({
@@ -24,6 +25,7 @@ export function Layout({
   isContentReady = false,
   showTelegramExitButton = false,
   onTelegramExit,
+  hideChrome = false,
 }: LayoutProps) {
   const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -70,14 +72,15 @@ export function Layout({
   };
 
   const isFullscreenPage = currentPage === 'progress-map'
+  const hideAppChrome = isFullscreenPage || hideChrome;
 
   return (
     <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
-      {/* Header — hidden on fullscreen pages (progress-map) */}
+      {/* Header — hidden on fullscreen pages and active immersive sessions */}
       <header
         className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
           isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
-        }${isFullscreenPage ? ' hidden' : ''}`}
+        }${hideAppChrome ? ' hidden' : ''}`}
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
@@ -135,7 +138,9 @@ export function Layout({
         <main
           className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
           style={{
-            paddingBottom: currentPage === 'progress-map'
+            paddingBottom: hideAppChrome
+              ? `${bottomInset}px`
+              : currentPage === 'progress-map'
               ? 0
               : isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
           }}
@@ -147,7 +152,7 @@ export function Layout({
       {/* Mobile Bottom Navigation */}
       <div
         className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-300 ease-out ${
-          !isContentReady
+          hideAppChrome || !isContentReady
             ? 'opacity-0 translate-y-3 pointer-events-none'
             : isKeyboardOpen
               ? 'opacity-0 translate-y-full pointer-events-none'

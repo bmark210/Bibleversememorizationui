@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { UserVerse } from "@/api/models/UserVerse";
@@ -33,11 +32,6 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { toast } from "@/app/lib/toast";
-import {
-  createVerticalTouchSwipeStart,
-  getVerticalTouchSwipeStep,
-  type VerticalTouchSwipeStart,
-} from "@/shared/ui/verticalTouchSwipe";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import {
@@ -1163,7 +1157,6 @@ export function AnchorTrainingSession({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const savedSessionKeyRef = useRef<string | null>(null);
   const deferredVerseIdsRef = useRef<Set<string>>(new Set());
-  const touchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(null);
 
   const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
     initialTrack ?? readStoredTrack()
@@ -1593,7 +1586,6 @@ export function AnchorTrainingSession({
   const revealedVerseText = getRevealedVerseText(currentQuestion);
   const requiresContinueAfterReveal =
     isAnswered &&
-    lastAnswerCorrect === false &&
     !sessionComplete &&
     currentQuestionIndex < questions.length - 1;
   const displayCount = Math.max(questions.length, 0);
@@ -1695,42 +1687,14 @@ export function AnchorTrainingSession({
     isExitConfirmOpen ||
     isIntroDialogOpen;
 
-  const handleQuestionTouchStart = useCallback(
-    (event: ReactTouchEvent<HTMLDivElement>) => {
-      if (
-        controlsLocked ||
-        isAnswered ||
-        sessionComplete ||
-        currentQuestion === null ||
-        currentQuestionIndex >= questions.length - 1
-      ) {
-        touchSwipeStartRef.current = null;
-        return;
-      }
+  const handleQuestionSwipeStep = useCallback(
+    (step: 1 | -1) => {
+      if (controlsLocked || isAnswered || sessionComplete) return;
 
-      touchSwipeStartRef.current = createVerticalTouchSwipeStart(event);
-    },
-    [
-      controlsLocked,
-      currentQuestion,
-      currentQuestionIndex,
-      isAnswered,
-      questions.length,
-      sessionComplete,
-    ]
-  );
-
-  const handleQuestionTouchEnd = useCallback(
-    (event: ReactTouchEvent<HTMLDivElement>) => {
-      const swipeStep = getVerticalTouchSwipeStep(touchSwipeStartRef.current, event);
-      touchSwipeStartRef.current = null;
-
-      if (swipeStep === -1) {
+      if (step === -1) {
         toast.info(DOWN_SWIPE_UNAVAILABLE_TOAST_MESSAGE);
         return;
       }
-      if (swipeStep !== 1) return;
-      if (controlsLocked || isAnswered || sessionComplete) return;
 
       deferCurrentQuestion();
     },
@@ -1945,11 +1909,6 @@ export function AnchorTrainingSession({
                     exit="exit"
                     className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
                     tabIndex={-1}
-                    onTouchStart={handleQuestionTouchStart}
-                    onTouchEnd={handleQuestionTouchEnd}
-                    onTouchCancel={() => {
-                      touchSwipeStartRef.current = null;
-                    }}
                   >
                     <AnchorTrainingQuestionCard
                       question={currentQuestion}
@@ -1971,6 +1930,7 @@ export function AnchorTrainingSession({
                       revealedVerseText={revealedVerseText}
                       isAutoAdvancePending={isAutoAdvancePending}
                       showContinueButton={requiresContinueAfterReveal}
+                      onSwipeStep={handleQuestionSwipeStep}
                       onChoiceSelect={handleChoiceSelect}
                       onTapSelect={handleTapSelect}
                       onTypedAnswerChange={setTypedAnswer}

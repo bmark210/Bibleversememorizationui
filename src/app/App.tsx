@@ -305,6 +305,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
   const [progressMapFriends, setProgressMapFriends] = useState<FriendPlayerListItem[]>([]);
   const [isProgressMapFriendsLoading, setIsProgressMapFriendsLoading] = useState(false);
+  const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const currentPage = pageStack[pageStack.length - 1] ?? "dashboard";
 
@@ -859,6 +860,12 @@ export default function App({ onInitialContentReady }: AppProps) {
     onInitialContentReady?.();
   }, [isBootstrapping, onInitialContentReady]);
 
+  useEffect(() => {
+    if (currentPage !== "training" && isTrainingSessionFullscreen) {
+      setIsTrainingSessionFullscreen(false);
+    }
+  }, [currentPage, isTrainingSessionFullscreen]);
+
   return (
     <>
       <div
@@ -869,6 +876,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           currentPage={currentPage}
           onNavigate={handleNavigate}
           isContentReady={!isBootstrapping}
+          hideChrome={currentPage === "training" && isTrainingSessionFullscreen}
           showTelegramExitButton={
             isDashboardRootPage &&
             !showAddVerseDialog
@@ -920,6 +928,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               onVersePatched={handleTrainingVersePatched}
               onRequestVerseSelection={() => handleNavigate("verses")}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
+              onSessionFullscreenChange={setIsTrainingSessionFullscreen}
             />
           )}
 

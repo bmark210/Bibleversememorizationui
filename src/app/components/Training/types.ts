@@ -39,6 +39,7 @@ export interface TrainingProps {
   onVersePatched: (event: VersePatchEvent) => void;
   onRequestVerseSelection: () => void;
   onVerseMutationCommitted?: () => void;
+  onSessionFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export const TRAINING_MODE_LABELS: Record<TrainingMode, string> = {
