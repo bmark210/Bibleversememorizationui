@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { haptic } from "../utils";
 import type { GalleryStatusAction } from "../types";
@@ -30,13 +30,13 @@ export function GalleryFooter({
       <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
         <Button
           variant="outline"
-          className="flex gap-2 backdrop-blur-xl rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75"
+          className="flex gap-2 backdrop-blur-xl rounded-2xl !border border-border/60 bg-muted/35 text-foreground/75"
           ref={closeButtonRef}
           onClick={onClose}
           disabled={isActionPending}
           aria-label="Закрыть"
         >
-          Завершить
+          <X className="h-4 w-4" />
         </Button>
 
         {previewStatusAction ? (

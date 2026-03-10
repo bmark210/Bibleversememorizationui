@@ -135,7 +135,7 @@ export function VerseListFilterCard({
     <div className="mb-3">
       <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
-          <div className="inline-flex items-center gap-2 text-[13px] text-muted-foreground">
+          <div onClick={() => setIsCollapsed((prev) => !prev)} className="inline-flex items-center gap-2 text-[13px] text-muted-foreground">
             <span className="font-medium uppercase">{`Фильтры`}</span>
           </div>
 
@@ -159,11 +159,11 @@ export function VerseListFilterCard({
               onClick={() => setIsCollapsed((prev) => !prev)}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/60"
             >
-              {isCollapsed ? 'Развернуть' : 'Свернуть'}
+              {/* {isCollapsed ? 'Развернуть' : 'Свернуть'} */}
               {isCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-5 w-5" />
               ) : (
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-5 w-5" />
               )}
             </button>
           </div>

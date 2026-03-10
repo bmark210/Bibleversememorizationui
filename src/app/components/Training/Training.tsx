@@ -169,6 +169,7 @@ export function Training({
             <TrainingHub
               allVerses={allVerses}
               dashboardStats={dashboardStats}
+              telegramId={telegramId}
               selectionVerses={selectionVerses}
               selectedScenario={selectedScenario}
               selectedModes={selectedModes}

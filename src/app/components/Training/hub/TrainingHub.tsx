@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
@@ -8,6 +8,7 @@ import {
   Brain,
   ChevronDown,
   Dumbbell,
+  GraduationCap,
   Play,
   Repeat,
   Sparkles,
@@ -41,6 +42,15 @@ import {
   CollapsibleTrigger,
 } from "../../ui/collapsible";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -53,6 +63,7 @@ import { cn } from "../../ui/utils";
 interface TrainingHubProps {
   allVerses: Verse[];
   dashboardStats?: UserDashboardStats | null;
+  telegramId?: string | null;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
@@ -106,6 +117,7 @@ type OrderTheme = {
 };
 
 const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
+const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
   core: {
@@ -294,9 +306,15 @@ function triggerSelectionHaptic(isChanged: boolean) {
   triggerHaptic(isChanged ? "medium" : "light");
 }
 
+function getTrainingIntroStorageKey(telegramId?: string | null) {
+  const normalizedTelegramId = telegramId?.trim() || "anonymous";
+  return `${TRAINING_INTRO_STORAGE_PREFIX}:${normalizedTelegramId}`;
+}
+
 export function TrainingHub({
   allVerses,
   dashboardStats,
+  telegramId = null,
   selectionVerses,
   selectedScenario,
   selectedModes,
@@ -312,6 +330,7 @@ export function TrainingHub({
   const shouldReduceMotion = useReducedMotion();
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
   const practiceCount = counts.learningCount + counts.reviewCount;
@@ -345,6 +364,51 @@ export function TrainingHub({
   const startLabel =
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
+
+  const markTrainingIntroAsSeen = useCallback(() => {
+    if (typeof window === "undefined") {
+      setIsAboutDialogOpen(false);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
+    } catch {
+      // ignore storage errors
+    }
+
+    setIsAboutDialogOpen(false);
+  }, [telegramId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const storageKey = getTrainingIntroStorageKey(telegramId);
+      const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
+      if (!hasSeenIntro) {
+        setIsAboutDialogOpen(true);
+      }
+    } catch {
+      setIsAboutDialogOpen(true);
+    }
+  }, [telegramId]);
+
+  const handleAboutDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsAboutDialogOpen(true);
+        return;
+      }
+
+      markTrainingIntroAsSeen();
+    },
+    [markTrainingIntroAsSeen],
+  );
+
+  const handleAboutDialogOpen = useCallback(() => {
+    setIsAboutDialogOpen(true);
+  }, []);
 
   const handleScenarioChange = (value: string) => {
     const nextScenario = value as TrainingScenario;
@@ -384,29 +448,90 @@ export function TrainingHub({
   };
 
   return (
-    <div
-      className="mx-auto w-full p-4 sm:pt-6 md:pb-8 lg:pt-8 h-full"
-      style={
-        {
-          "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
-        } as CSSProperties
-      }
-    >
-      <motion.div
-        initial={shouldReduceMotion ? undefined : { opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: shouldReduceMotion ? 0 : 0.18,
-          ease: "easeOut",
-        }}
-        className="flex flex-col gap-4 h-full"
+    <>
+      <AlertDialog
+        open={isAboutDialogOpen}
+        onOpenChange={handleAboutDialogOpenChange}
       >
-        <header className="space-y-1.5">
-          <div className="flex items-center gap-2.5">
-            <Dumbbell className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold text-primary">Тренировка</h1>
+        <AlertDialogContent className="overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-emerald-500/12 via-background to-amber-500/10 p-0 shadow-2xl backdrop-blur-xl">
+          <div className="relative px-6 py-6 sm:px-7">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-emerald-500/18 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-500/18 blur-2xl" />
+            </div>
+
+            <AlertDialogHeader className="relative gap-3">
+              <AlertDialogTitle className="text-xl text-primary">
+                Раздел «Тренировка»
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
+                Здесь вы выбираете сценарий сессии под текущую задачу: пройти
+                новые карточки, закрыть повторения или закрепить уже знакомые
+                стихи.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="relative mt-4 rounded-2xl border border-border/90 bg-background/40 p-3 text-xs leading-relaxed text-foreground/75">
+              <p>
+                <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                  Практика
+                </span>{" "}
+                подходит для изучения и повторения.
+              </p>
+              <p className="mt-2">
+                <span className="font-medium text-amber-700 dark:text-amber-300">
+                  Закрепление
+                </span>{" "}
+                проверяет ссылку, начало стиха, контекст и смешанный формат.
+              </p>
+            </div>
+
+            <AlertDialogFooter className="relative mt-5">
+              <AlertDialogAction
+                className="h-10 rounded-xl border border-border/90 bg-background/40 px-5 text-sm font-medium text-foreground/75"
+                onClick={markTrainingIntroAsSeen}
+              >
+                Понятно
+              </AlertDialogAction>
+            </AlertDialogFooter>
           </div>
-        </header>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div
+        className="mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8"
+        style={
+          {
+            "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
+          } as CSSProperties
+        }
+      >
+        <motion.div
+          initial={shouldReduceMotion ? undefined : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.18,
+            ease: "easeOut",
+          }}
+          className="flex h-full flex-col gap-4"
+        >
+          <header className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Dumbbell className="h-5 w-5 text-primary" />
+                <h1 className="text-xl font-semibold text-primary">Тренировка</h1>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAboutDialogOpen}
+                className="h-8 rounded-2xl border border-border bg-background/40 px-2.5 text-xs text-primary"
+              >
+                <GraduationCap className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </header>
 
         <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
           <Tabs
@@ -533,10 +658,10 @@ export function TrainingHub({
           >
             <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground/80">
+                <p className="text-sm font-medium text-foreground/80 mb-1">
                   Дополнительно
                 </p>
-                <p className={cn("text-xs", activeOrderTheme.hintClassName)}>
+                <p className="text-xs">
                   Порядок: {TRAINING_ORDER_LABELS[selectedOrder]}
                 </p>
               </div>
@@ -582,7 +707,12 @@ export function TrainingHub({
         ) : null}
 
         <div className="mx-auto w-full flex-1 content-end">
-          <div className="rounded-[26px] border border-border/60 bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl">
+          <div
+            className={cn(
+              "rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
+              currentAccentTheme.summaryClassName,
+            )}
+          >
             <p
               className={cn(
                 "mb-3 px-1 text-sm font-medium",
@@ -599,8 +729,9 @@ export function TrainingHub({
               onClick={onStart}
               className={cn(
                 "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
-                "rounded-2xl border !border-primary/20 !bg-primary/10 px-5 text-sm font-medium !text-foreground",
+                "rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium !shadow-none",
                 currentAccentTheme.checkedDotClassName,
+                currentAccentTheme.ctaClassName,
               )}
             >
               <Play className="h-4 w-4" />
@@ -608,8 +739,9 @@ export function TrainingHub({
             </Button>
           </div>
         </div>
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
+    </>
   );
 }
 

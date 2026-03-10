@@ -529,8 +529,7 @@ export function TrainingSession({
           </div>
         </div>
 
-        <div className="shrink-0 pt-3 mx-4 z-30">
-          <div className="mx-auto flex w-fit items-center justify-center gap-3 rounded-[1.35rem] border border-border/60 bg-background/75 px-2 py-2 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+        <div className=" shrink-0 pt-3 z-30 flex gap-3 justify-center max-w-2xl mx-auto">
             <TrainingSubsetSelect
               value={resolvedSubsetFilter}
               options={subsetOptions}
@@ -542,7 +541,6 @@ export function TrainingSession({
               disabled={areControlsLocked}
               onValueChange={handleOrderChange}
             />
-          </div>
         </div>
 
         <div
@@ -593,8 +591,8 @@ export function TrainingSession({
           <div className="mx-auto w-full max-w-2xl">
             <div
               className={cn(
-                "grid gap-3",
-                showQuickForgetAction ? "grid-cols-2" : "grid-cols-1"
+                "flex gap-3",
+                showQuickForgetAction ? "justify-center" : "justify-end"
               )}
             >
               {showQuickForgetAction && (
@@ -614,9 +612,8 @@ export function TrainingSession({
               <Button
                 variant="outline"
                 className={cn(
-                  "h-11 rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75 backdrop-blur-xl",
-                  !showQuickForgetAction && "col-span-full",
-                  "text-destructive"
+                  "h-11 rounded-2xl bg-background border backdrop-blur-xl w-fit",
+                  "text-foreground/75"
                 )}
                 onClick={onClose}
                 disabled={session.isActionPending}

@@ -78,8 +78,6 @@ const MIXED_TRACK_WEIGHT_BASE = 110;
 const TYPE_INPUT_SIMILARITY_THRESHOLD = 0.8;
 const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
-const REFERENCE_TRAINER_INTRO_STORAGE_PREFIX =
-  "bible-memory.reference-trainer.intro.v1";
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -538,10 +536,6 @@ function writeStoredTrack(track: SessionTrack) {
   } catch {
     // ignore storage errors
   }
-}
-
-function getReferenceTrainerIntroStorageKey(telegramId: string) {
-  return `${REFERENCE_TRAINER_INTRO_STORAGE_PREFIX}:${telegramId}`;
 }
 
 function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
@@ -1212,7 +1206,6 @@ export function AnchorTrainingSession({
   const [saveSucceeded, setSaveSucceeded] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isIntroDialogOpen, setIsIntroDialogOpen] = useState(false);
   const [direction, setDirection] = useState(0);
   const [pendingTrackChange, setPendingTrackChange] =
     useState<SessionTrack | null>(null);
@@ -1250,35 +1243,6 @@ export function AnchorTrainingSession({
       tg?.offEvent?.("viewportChanged", checkKeyboardState);
     };
   }, []);
-
-  const markIntroAsSeen = useCallback(() => {
-    if (!telegramId || typeof window === "undefined") {
-      setIsIntroDialogOpen(false);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        getReferenceTrainerIntroStorageKey(telegramId),
-        "1"
-      );
-    } catch {
-      // ignore storage errors
-    }
-
-    setIsIntroDialogOpen(false);
-  }, [telegramId]);
-
-  const handleIntroDialogOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        setIsIntroDialogOpen(true);
-        return;
-      }
-      markIntroAsSeen();
-    },
-    [markIntroAsSeen]
-  );
 
   const questionById = useMemo(
     () => new Map(questions.map((question) => [question.id, question] as const)),
@@ -1428,7 +1392,6 @@ export function AnchorTrainingSession({
       setErrorMessage(null);
       setSaveSucceeded(false);
       setSaveErrorMessage(null);
-      setIsIntroDialogOpen(false);
       setIsAutoAdvancePending(false);
       return;
     }
@@ -1436,21 +1399,6 @@ export function AnchorTrainingSession({
     initializedTelegramIdRef.current = telegramId;
     void loadVersePool(telegramId);
   }, [loadVersePool, telegramId]);
-
-  useEffect(() => {
-    if (!telegramId || typeof window === "undefined") {
-      setIsIntroDialogOpen(false);
-      return;
-    }
-
-    try {
-      const key = getReferenceTrainerIntroStorageKey(telegramId);
-      const seenValue = window.localStorage.getItem(key);
-      setIsIntroDialogOpen(seenValue !== "1");
-    } catch {
-      setIsIntroDialogOpen(true);
-    }
-  }, [telegramId]);
 
   useEffect(() => {
     if (isAnswered) return;
@@ -1676,8 +1624,7 @@ export function AnchorTrainingSession({
     isSavingSession ||
     isAutoAdvancePending ||
     pendingTrackChange !== null ||
-    isExitConfirmOpen ||
-    isIntroDialogOpen;
+    isExitConfirmOpen;
 
   const advanceToNextQuestion = useCallback(() => {
     if (!isAnswered || !currentPendingQuestionId) return;
@@ -1796,24 +1743,13 @@ export function AnchorTrainingSession({
   }, [advanceToNextQuestion, requiresContinueAfterReveal]);
 
   const requestClose = useCallback(() => {
-    if (isIntroDialogOpen) {
-      handleIntroDialogOpenChange(false);
-      return;
-    }
-
     if (!sessionComplete && questions.length > 0) {
       setIsExitConfirmOpen(true);
       return;
     }
 
     onClose();
-  }, [
-    handleIntroDialogOpenChange,
-    isIntroDialogOpen,
-    onClose,
-    questions.length,
-    sessionComplete,
-  ]);
+  }, [onClose, questions.length, sessionComplete]);
 
   const handleBackAction = useCallback(() => {
     if (pendingTrackChange !== null) {
@@ -1922,39 +1858,6 @@ export function AnchorTrainingSession({
 
   return (
     <>
-      <AlertDialog
-        open={isIntroDialogOpen}
-        onOpenChange={handleIntroDialogOpenChange}
-      >
-        <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
-          <div className="relative px-6 py-6 sm:px-7">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
-              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-500/20 blur-2xl" />
-            </div>
-
-            <AlertDialogHeader className="relative gap-3">
-              <AlertDialogTitle className="text-xl text-primary">
-                Режим Закрепления
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
-                Здесь вы закрепляете уже изученный материал в разных режимах:
-                ссылка, начало стиха, контекст и смешанный формат.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <AlertDialogFooter className="relative mt-5">
-              <AlertDialogAction
-                className="h-10 rounded-xl border border-primary/25 bg-primary/10 text-primary px-5 text-sm font-medium"
-                onClick={markIntroAsSeen}
-              >
-                Понятно, начать
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <div
         className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
       >
@@ -2142,8 +2045,8 @@ export function AnchorTrainingSession({
             <div className="mx-auto w-full max-w-2xl">
               <div
                 className={cn(
-                  "grid gap-3",
-                  showForgotAnswerAction ? "grid-cols-2" : "grid-cols-1"
+                  "flex gap-3",
+                  showForgotAnswerAction ? "justify-center" : "justify-end"
                 )}
               >
                 {showForgotAnswerAction && (
@@ -2160,9 +2063,8 @@ export function AnchorTrainingSession({
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-11 rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75 backdrop-blur-xl",
-                    !showForgotAnswerAction && "col-span-full",
-                    "text-destructive"
+                    "h-11 rounded-2xl bg-background border border-border/60 backdrop-blur-xl w-fit",
+                    "text-foreground/75"
                   )}
                   onClick={requestClose}
                 >
