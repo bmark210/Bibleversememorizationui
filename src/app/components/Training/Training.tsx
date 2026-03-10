@@ -59,6 +59,7 @@ export function Training({
   onDirectLaunchConsumed,
   onVersePatched,
   onVerseMutationCommitted: _onVerseMutationCommitted,
+  onSessionFullscreenChange,
 }: TrainingProps) {
   const [view, setView] = useState<TrainingView>({ mode: "hub" });
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
@@ -143,6 +144,14 @@ export function Training({
     onBack: goToHub,
     priority: 50,
   });
+
+  useEffect(() => {
+    onSessionFullscreenChange?.(view.mode !== "hub");
+
+    return () => {
+      onSessionFullscreenChange?.(false);
+    };
+  }, [onSessionFullscreenChange, view.mode]);
 
   return (
     <div className="h-full">
