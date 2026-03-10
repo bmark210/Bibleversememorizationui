@@ -447,7 +447,7 @@ export function useTrainingSession({
   // ── Quick forget ───────────────────────────────────────────────────────────
   const quickForgetLabel =
     trainingActiveVerse && isTrainingReviewVerse(trainingActiveVerse)
-      ? "Не вспомнил"
+      ? "Забыл"
       : "Забыл";
 
   const requestQuickForget = useCallback(() => {

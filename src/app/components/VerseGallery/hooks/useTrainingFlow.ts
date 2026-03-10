@@ -1274,7 +1274,7 @@ export function useTrainingFlow({
 
   const quickForgetLabel =
     trainingActiveVerse && isTrainingReviewVerse(trainingActiveVerse)
-      ? "Не вспомнил"
+      ? "Забыл"
       : "Забыл";
 
   const requestQuickForget = useCallback(() => {
