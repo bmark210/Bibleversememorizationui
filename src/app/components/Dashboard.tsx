@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Brain, Flame, Repeat, Target, Trophy } from 'lucide-react'
+import { Brain, Dumbbell, Flame, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
@@ -25,7 +25,6 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
-  onViewAll: () => void
   onOpenTraining?: () => void
   isInitializingData?: boolean
 }
@@ -50,7 +49,6 @@ export function Dashboard({
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
-  onViewAll,
   onOpenTraining: _onOpenTraining,
   isInitializingData = false,
 }: DashboardProps) {
@@ -237,10 +235,16 @@ export function Dashboard({
           />
 
           <motion.div className="mb-6" variants={sectionVariants}>
-            <Button type="button" size="lg" onClick={onViewAll} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
-              <Brain className="h-4 w-4" />
-              Перейти в стихи
-            </Button>
+            <Button
+                type="button"
+                size="lg"
+                haptic="medium"
+                onClick={_onOpenTraining}
+                className="h-14 w-full font-medium gap-2 border border-primary/30 bg-primary/12 text-foreground/90 dark:bg-primary/50 rounded-2xl text-base shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)]"
+              >
+                <Dumbbell className="h-4 w-4 text-foreground/90" />
+                Тренировка
+              </Button>
           </motion.div>
 
           <motion.div

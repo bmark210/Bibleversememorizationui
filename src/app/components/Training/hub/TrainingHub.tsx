@@ -2,7 +2,19 @@
 
 import type { CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Dumbbell, Play } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  Dumbbell,
+  History,
+  Play,
+  Repeat,
+  Sparkles,
+  Target,
+  TextCursorInput,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -41,6 +53,27 @@ interface TrainingHubProps {
   onStartSelection: () => void;
 }
 
+type ScenarioVisualMeta = {
+  icon: LucideIcon;
+  activeButtonClassName: string;
+  activeIconWrapClassName: string;
+  activeBadgeClassName: string;
+};
+
+type TileVisualMeta = {
+  icon: LucideIcon;
+  panelClassName: string;
+  activeButtonClassName: string;
+  activeIconWrapClassName: string;
+  activeCountClassName: string;
+};
+
+type ChipVisualMeta = {
+  icon: LucideIcon;
+  activeClassName: string;
+  activeIconClassName: string;
+};
+
 const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
 const ANCHOR_TRACKS: AnchorTrainingTrack[] = [
   "reference",
@@ -48,43 +81,158 @@ const ANCHOR_TRACKS: AnchorTrainingTrack[] = [
   "context",
   "mixed",
 ];
+
+const SCENARIO_META: Record<TrainingScenario, ScenarioVisualMeta> = {
+  core: {
+    icon: Dumbbell,
+    activeButtonClassName:
+      "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-900 shadow-[0_14px_34px_-26px_rgba(16,185,129,0.9)] dark:text-emerald-200",
+    activeIconWrapClassName:
+      "border-emerald-500/20 bg-emerald-500/14 text-emerald-700 dark:text-emerald-300",
+    activeBadgeClassName:
+      "border-emerald-500/25 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+  },
+  anchor: {
+    icon: Target,
+    activeButtonClassName:
+      "border-amber-500/25 bg-amber-500/[0.08] text-amber-900 shadow-[0_14px_34px_-26px_rgba(245,158,11,0.95)] dark:text-amber-200",
+    activeIconWrapClassName:
+      "border-amber-500/20 bg-amber-500/14 text-amber-700 dark:text-amber-300",
+    activeBadgeClassName:
+      "border-amber-500/25 bg-amber-500/12 text-amber-800 dark:text-amber-300",
+  },
+};
+
 const CORE_MODE_PRESETS: Array<{
   id: "learning" | "review" | "mixed";
   label: string;
   modes: CoreTrainingMode[];
+  visual: TileVisualMeta;
 }> = [
   {
     id: "learning",
     label: "Изучение",
     modes: ["learning"],
+    visual: {
+      icon: Brain,
+      panelClassName:
+        "mt-3 grid gap-3 rounded-[24px] border border-emerald-500/15 bg-emerald-500/[0.06] p-3",
+      activeButtonClassName:
+        "border-emerald-500/30 bg-emerald-500/[0.10] text-emerald-800 shadow-[0_12px_26px_-20px_rgba(16,185,129,0.85)] dark:text-emerald-300",
+      activeIconWrapClassName:
+        "border-emerald-500/20 bg-emerald-500/14 text-emerald-700 dark:text-emerald-300",
+      activeCountClassName:
+        "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    },
   },
   {
     id: "review",
     label: "Повторение",
     modes: ["review"],
+    visual: {
+      icon: Repeat,
+      panelClassName:
+        "mt-3 grid gap-3 rounded-[24px] border border-violet-500/15 bg-violet-500/[0.06] p-3",
+      activeButtonClassName:
+        "border-violet-500/30 bg-violet-500/[0.10] text-violet-800 shadow-[0_12px_26px_-20px_rgba(139,92,246,0.82)] dark:text-violet-300",
+      activeIconWrapClassName:
+        "border-violet-500/20 bg-violet-500/14 text-violet-700 dark:text-violet-300",
+      activeCountClassName:
+        "border-violet-500/20 bg-violet-500/12 text-violet-700 dark:text-violet-300",
+    },
   },
   {
     id: "mixed",
     label: "Все сразу",
     modes: ["learning", "review"],
+    visual: {
+      icon: Sparkles,
+      panelClassName:
+        "mt-3 grid gap-3 rounded-[24px] border border-primary/15 bg-primary/[0.06] p-3",
+      activeButtonClassName:
+        "border-primary/25 bg-primary/[0.10] text-primary shadow-[0_12px_26px_-20px_rgba(217,169,102,0.9)]",
+      activeIconWrapClassName:
+        "border-primary/15 bg-primary/12 text-primary",
+      activeCountClassName: "border-primary/15 bg-primary/10 text-primary",
+    },
   },
 ];
 
+const ORDER_META: Record<TrainingOrder, ChipVisualMeta> = {
+  updatedAt: {
+    icon: History,
+    activeClassName:
+      "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_12px_28px_-24px_rgba(245,158,11,0.6)]",
+    activeIconClassName: "text-amber-700 dark:text-amber-300",
+  },
+  bible: {
+    icon: BookOpen,
+    activeClassName:
+      "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300 shadow-[0_12px_28px_-24px_rgba(14,165,233,0.55)]",
+    activeIconClassName: "text-sky-700 dark:text-sky-300",
+  },
+  popularity: {
+    icon: TrendingUp,
+    activeClassName:
+      "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300 shadow-[0_12px_28px_-24px_rgba(244,63,94,0.55)]",
+    activeIconClassName: "text-rose-700 dark:text-rose-300",
+  },
+};
+
+const ANCHOR_TRACK_META: Record<AnchorTrainingTrack, TileVisualMeta> = {
+  reference: {
+    icon: BookOpen,
+    panelClassName:
+      "mt-3 grid gap-3 rounded-[24px] border border-sky-500/15 bg-sky-500/[0.06] p-3",
+    activeButtonClassName:
+      "border-sky-500/30 bg-sky-500/[0.10] text-sky-800 shadow-[0_12px_26px_-20px_rgba(14,165,233,0.72)] dark:text-sky-300",
+    activeIconWrapClassName:
+      "border-sky-500/20 bg-sky-500/14 text-sky-700 dark:text-sky-300",
+    activeCountClassName:
+      "border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-300",
+  },
+  incipit: {
+    icon: TextCursorInput,
+    panelClassName:
+      "mt-3 grid gap-3 rounded-[24px] border border-rose-500/15 bg-rose-500/[0.06] p-3",
+    activeButtonClassName:
+      "border-rose-500/30 bg-rose-500/[0.10] text-rose-800 shadow-[0_12px_26px_-20px_rgba(244,63,94,0.72)] dark:text-rose-300",
+    activeIconWrapClassName:
+      "border-rose-500/20 bg-rose-500/14 text-rose-700 dark:text-rose-300",
+    activeCountClassName:
+      "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:text-rose-300",
+  },
+  context: {
+    icon: Brain,
+    panelClassName:
+      "mt-3 grid gap-3 rounded-[24px] border border-teal-500/15 bg-teal-500/[0.06] p-3",
+    activeButtonClassName:
+      "border-teal-500/30 bg-teal-500/[0.10] text-teal-800 shadow-[0_12px_26px_-20px_rgba(20,184,166,0.72)] dark:text-teal-300",
+    activeIconWrapClassName:
+      "border-teal-500/20 bg-teal-500/14 text-teal-700 dark:text-teal-300",
+    activeCountClassName:
+      "border-teal-500/20 bg-teal-500/12 text-teal-700 dark:text-teal-300",
+  },
+  mixed: {
+    icon: Sparkles,
+    panelClassName:
+      "mt-3 grid gap-3 rounded-[24px] border border-primary/15 bg-primary/[0.06] p-3",
+    activeButtonClassName:
+      "border-primary/25 bg-primary/[0.10] text-primary shadow-[0_12px_26px_-20px_rgba(217,169,102,0.9)]",
+    activeIconWrapClassName:
+      "border-primary/15 bg-primary/12 text-primary",
+    activeCountClassName: "border-primary/15 bg-primary/10 text-primary",
+  },
+};
+
 function matchesModes(
   current: CoreTrainingMode[],
-  candidate: CoreTrainingMode[]
+  candidate: CoreTrainingMode[],
 ): boolean {
   return (
     current.length === candidate.length &&
     candidate.every((mode) => current.includes(mode))
   );
-}
-
-function getCorePresetCount(
-  presetModes: CoreTrainingMode[],
-  counts: ReturnType<typeof useTrainingHubState>
-) {
-  return getCountForModes(presetModes, counts);
 }
 
 export function TrainingHub({
@@ -114,16 +262,20 @@ export function TrainingHub({
     selectedScenario === "core" &&
     Boolean(selectionVerses && selectionVerses.length > 0);
   const activeCorePreset =
-    CORE_MODE_PRESETS.find((preset) => matchesModes(selectedModes, preset.modes)) ??
-    CORE_MODE_PRESETS[0];
+    CORE_MODE_PRESETS.find((preset) =>
+      matchesModes(selectedModes, preset.modes),
+    ) ?? CORE_MODE_PRESETS[0];
+  const activeAnchorTrackVisual = ANCHOR_TRACK_META[selectedAnchorTrack];
+  const currentVisual =
+    selectedScenario === "anchor"
+      ? activeAnchorTrackVisual
+      : activeCorePreset.visual;
+  const CurrentVisualIcon = currentVisual.icon;
   const sessionSummary =
     selectedScenario === "anchor"
       ? `${TRAINING_SCENARIO_LABELS.anchor} · ${ANCHOR_TRAINING_TRACK_LABELS[selectedAnchorTrack]}`
       : `${activeCorePreset.label} · ${TRAINING_ORDER_LABELS[selectedOrder]}`;
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
-  // const stickyStyle = {
-  //   "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
-  // } as CSSProperties;
 
   const revealVariants = {
     hidden: {
@@ -144,9 +296,11 @@ export function TrainingHub({
   return (
     <div
       className="mx-auto max-w-2xl px-4 pb-52 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8"
-      style={{
-        "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
-      } as CSSProperties}
+      style={
+        {
+          "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
+        } as CSSProperties
+      }
     >
       <motion.div
         initial={shouldReduceMotion ? {} : { opacity: 0 }}
@@ -162,10 +316,16 @@ export function TrainingHub({
         >
           <div className="mb-1 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Dumbbell className="w-5 h-5 text-primary" />
+              <Dumbbell className="h-5 w-5 text-primary" />
               <h1 className="text-xl font-semibold text-primary">Тренировка</h1>
             </div>
-            <span className="shrink-0 rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 text-[11px] font-medium text-primary">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                currentVisual.activeCountClassName,
+              )}
+            >
+              <CurrentVisualIcon className="h-3.5 w-3.5" />
               {currentCount}
             </span>
           </div>
@@ -183,19 +343,19 @@ export function TrainingHub({
           custom={0.04}
           className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4"
         >
-          <div className="grid gap-2 grid-cols-2">
+          <div className="grid sm:grid-cols-2 gap-2">
             <ScenarioOption
+              scenario="core"
               title={TRAINING_SCENARIO_LABELS.core}
               count={counts.learningCount + counts.reviewCount}
               isActive={selectedScenario === "core"}
-              accent="core"
               onClick={() => onScenarioChange("core")}
             />
             <ScenarioOption
+              scenario="anchor"
               title={TRAINING_SCENARIO_LABELS.anchor}
               count={anchorAvailableCount}
               isActive={selectedScenario === "anchor"}
-              accent="anchor"
               onClick={() => onScenarioChange("anchor")}
             />
           </div>
@@ -208,69 +368,37 @@ export function TrainingHub({
                 animate={{ opacity: 1, y: 0 }}
                 exit={shouldReduceMotion ? {} : { opacity: 0, y: -6 }}
                 transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                className="mt-3 grid gap-3 rounded-[24px] border border-emerald-500/15 bg-emerald-500/[0.06] p-3"
+                className={activeCorePreset.visual.panelClassName}
               >
                 <SectionLabel>Режим</SectionLabel>
 
                 <div className="grid gap-2 sm:grid-cols-3">
-                  {CORE_MODE_PRESETS.map((preset) => {
-                    const isActive = matchesModes(selectedModes, preset.modes);
-                    const count = getCorePresetCount(preset.modes, counts);
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => onModesChange(preset.modes)}
-                        className={cn(
-                          "rounded-2xl border px-3 py-3 text-left transition-all duration-150",
-                          isActive
-                            ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-800 shadow-[0_12px_26px_-20px_rgba(16,185,129,0.85)] dark:text-emerald-300"
-                            : "border-border/60 bg-background/75 text-foreground/65 hover:bg-background"
-                        )}
-                        aria-pressed={isActive}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium">
-                            {preset.label}
-                          </span>
-                          <span
-                            className={cn(
-                              "rounded-full px-1.5 py-0.5 text-[11px]",
-                              isActive
-                                ? "bg-emerald-500/12 text-emerald-800/85 dark:text-emerald-200/90"
-                                : "bg-foreground/5 text-foreground/45"
-                            )}
-                          >
-                            {count}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {CORE_MODE_PRESETS.map((preset) => (
+                    <TileOption
+                      key={preset.id}
+                      label={preset.label}
+                      count={getCountForModes(preset.modes, counts)}
+                      icon={preset.visual.icon}
+                      visual={preset.visual}
+                      isActive={matchesModes(selectedModes, preset.modes)}
+                      onClick={() => onModesChange(preset.modes)}
+                    />
+                  ))}
                 </div>
 
                 <SectionLabel>Порядок</SectionLabel>
 
                 <div className="flex flex-wrap gap-2">
-                  {ORDERS.map((order) => {
-                    const isActive = selectedOrder === order;
-                    return (
-                      <button
-                        key={order}
-                        type="button"
-                        onClick={() => onOrderChange(order)}
-                        className={cn(
-                          "rounded-full border px-3 py-2 text-sm font-medium transition-all duration-150",
-                          isActive
-                            ? "border-primary/30 bg-primary/10 text-primary shadow-[0_12px_28px_-24px_rgba(217,169,102,0.9)]"
-                            : "border-border/60 bg-background/70 text-foreground/60 hover:bg-background"
-                        )}
-                        aria-pressed={isActive}
-                      >
-                        {TRAINING_ORDER_LABELS[order]}
-                      </button>
-                    );
-                  })}
+                  {ORDERS.map((order) => (
+                    <ChipOption
+                      key={order}
+                      label={TRAINING_ORDER_LABELS[order]}
+                      icon={ORDER_META[order].icon}
+                      visual={ORDER_META[order]}
+                      isActive={selectedOrder === order}
+                      onClick={() => onOrderChange(order)}
+                    />
+                  ))}
                 </div>
               </motion.div>
             ) : (
@@ -280,32 +408,21 @@ export function TrainingHub({
                 animate={{ opacity: 1, y: 0 }}
                 exit={shouldReduceMotion ? {} : { opacity: 0, y: -6 }}
                 transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                className="mt-3 grid gap-3 rounded-[24px] border border-amber-500/15 bg-amber-500/[0.06] p-3"
+                className={activeAnchorTrackVisual.panelClassName}
               >
                 <SectionLabel>Формат</SectionLabel>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {ANCHOR_TRACKS.map((track) => {
-                    const isActive = selectedAnchorTrack === track;
-                    return (
-                      <button
-                        key={track}
-                        type="button"
-                        onClick={() => onAnchorTrackChange(track)}
-                        className={cn(
-                          "rounded-2xl border px-3 py-3 text-left transition-all duration-150",
-                          isActive
-                            ? "border-amber-500/35 bg-amber-500/12 text-amber-900 shadow-[0_12px_26px_-20px_rgba(245,158,11,0.9)] dark:text-amber-200"
-                            : "border-border/60 bg-background/75 text-foreground/65 hover:bg-background"
-                        )}
-                        aria-pressed={isActive}
-                      >
-                        <div className="text-sm font-medium">
-                          {ANCHOR_TRAINING_TRACK_LABELS[track]}
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {ANCHOR_TRACKS.map((track) => (
+                    <TileOption
+                      key={track}
+                      label={ANCHOR_TRAINING_TRACK_LABELS[track]}
+                      icon={ANCHOR_TRACK_META[track].icon}
+                      visual={ANCHOR_TRACK_META[track]}
+                      isActive={selectedAnchorTrack === track}
+                      onClick={() => onAnchorTrackChange(track)}
+                    />
+                  ))}
                 </div>
               </motion.div>
             )}
@@ -322,7 +439,7 @@ export function TrainingHub({
           >
             <div className="text-sm text-foreground/70">
               <span className="font-medium text-primary">Подборка</span>
-              <span className="text-foreground/60 ml-1.5">
+              <span className="ml-1.5 text-foreground/60">
                 {selectionVerses.length} {pluralVerses(selectionVerses.length)}
               </span>
             </div>
@@ -346,10 +463,25 @@ export function TrainingHub({
           <div className="mx-auto max-w-2xl">
             <div className="rounded-[26px] border border-primary/15 bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-2xl">
               <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                <span className="truncate text-sm font-medium text-foreground/78">
-                  {hasVerses ? sessionSummary : "Нет доступных стихов"}
-                </span>
-                <span className="shrink-0 rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 text-[11px] font-medium text-primary">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border",
+                      currentVisual.activeIconWrapClassName,
+                    )}
+                  >
+                    <CurrentVisualIcon className="h-4 w-4" />
+                  </span>
+                  <span className="truncate text-sm font-medium text-foreground/78">
+                    {hasVerses ? sessionSummary : "Нет доступных стихов"}
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                    currentVisual.activeCountClassName,
+                  )}
+                >
                   {currentCount} {pluralVerses(currentCount)}
                 </span>
               </div>
@@ -360,9 +492,9 @@ export function TrainingHub({
                 haptic="medium"
                 disabled={!hasVerses}
                 onClick={onStart}
-                className="h-14 w-full gap-2 rounded-2xl text-base font-semibold shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)]"
+                className="h-14 w-full font-medium gap-2 border border-primary/30 bg-primary/12 text-foreground/90 dark:bg-primary/50 rounded-2xl text-base shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)]"
               >
-                <Play className="w-4 h-4" />
+                <Play className="h-4 w-4 text-foreground/90" />
                 Начать
               </Button>
             </div>
@@ -374,62 +506,152 @@ export function TrainingHub({
 }
 
 function ScenarioOption({
+  scenario,
   title,
   count,
   isActive,
-  accent,
   onClick,
 }: {
+  scenario: TrainingScenario;
   title: string;
   count: number;
   isActive: boolean;
-  accent: "core" | "anchor";
   onClick: () => void;
 }) {
+  const meta = SCENARIO_META[scenario];
+  const Icon = meta.icon;
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={isActive}
       className={cn(
-        "rounded-[24px] border px-4 py-3 text-left transition-all duration-200",
+        "rounded-[24px] border px-3.5 py-3 text-left transition-all duration-200",
         isActive
-          ? accent === "core"
-            ? "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-900 shadow-[0_14px_34px_-26px_rgba(16,185,129,0.9)] dark:text-emerald-200"
-            : "border-amber-500/25 bg-amber-500/[0.08] text-amber-900 shadow-[0_14px_34px_-26px_rgba(245,158,11,0.95)] dark:text-amber-200"
-          : "border-border/60 bg-background/70 text-foreground/70 hover:bg-background"
+          ? meta.activeButtonClassName
+          : "border-border/60 bg-background/70 text-foreground/70 hover:bg-background",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={cn(
-                "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full border",
-                isActive
-                  ? accent === "core"
-                    ? "border-emerald-500 bg-emerald-500 shadow-[0_0_0_5px_rgba(16,185,129,0.12)]"
-                    : "border-amber-500 bg-amber-500 shadow-[0_0_0_5px_rgba(245,158,11,0.14)]"
-                  : "border-foreground/20 bg-transparent"
-              )}
-              aria-hidden="true"
-            />
-            <span className="text-sm font-semibold">{title}</span>
-          </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border transition-colors",
+              isActive
+                ? meta.activeIconWrapClassName
+                : "border-border/60 bg-background/70 text-foreground/45",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="truncate text-sm font-semibold">{title}</span>
         </div>
         <span
           className={cn(
-            "shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium",
+            "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium",
             isActive
-              ? accent === "core"
-                ? "border-emerald-500/25 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                : "border-amber-500/25 bg-amber-500/12 text-amber-800 dark:text-amber-300"
-              : "border-border/60 bg-background/45 text-foreground/50"
+              ? meta.activeBadgeClassName
+              : "border-border/60 bg-background/45 text-foreground/50",
           )}
         >
           {count}
         </span>
       </div>
+    </button>
+  );
+}
+
+function TileOption({
+  label,
+  count,
+  icon: Icon,
+  visual,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  icon: LucideIcon;
+  visual: TileVisualMeta;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-2xl border px-3 py-3 text-left transition-all duration-150",
+        isActive
+          ? visual.activeButtonClassName
+          : "border-border/60 bg-background/75 text-foreground/65 hover:bg-background",
+      )}
+      aria-pressed={isActive}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
+              isActive
+                ? visual.activeIconWrapClassName
+                : "border-border/60 bg-background/70 text-foreground/45",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="truncate text-sm font-medium">{label}</span>
+        </div>
+        {typeof count === "number" && (
+          <span
+            className={cn(
+              "shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium",
+              isActive
+                ? visual.activeCountClassName
+                : "border-border/60 bg-background/45 text-foreground/45",
+            )}
+          >
+            {count}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ChipOption({
+  label,
+  icon: Icon,
+  visual,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  icon: LucideIcon;
+  visual: ChipVisualMeta;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-all duration-150",
+        isActive
+          ? visual.activeClassName
+          : "border-border/60 bg-background/70 text-foreground/60 hover:bg-background",
+      )}
+      aria-pressed={isActive}
+    >
+      <Icon
+        className={cn(
+          "h-3.5 w-3.5 shrink-0",
+          isActive ? visual.activeIconClassName : "text-foreground/40",
+        )}
+      />
+      {label}
     </button>
   );
 }

@@ -789,7 +789,7 @@ function buildContextPrefixTypeQuestion(
 
   const prefixTokens = getContextPrefixTokens(verse);
   if (prefixTokens.length === 0) return null;
-  const uppercasePrefix = prefixTokens.join(" ").toUpperCase();
+  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
 
   return {
     id: `context-prefix-type-${order}-${verse.externalVerseId}`,
@@ -799,11 +799,11 @@ function buildContextPrefixTypeQuestion(
     modeHint: "О каком стихе идет речь? Введите первые буквы начала стиха.",
     verse,
     prompt,
-    answerLabel: uppercasePrefix,
+    answerLabel: compactUppercasePrefix,
     interaction: "type",
-    placeholder: "Например: ИТВБМ...",
+    placeholder: "Например: ИТВБМ",
     maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: `Формат: ${uppercasePrefix}`,
+    retryHint: `Формат: ${compactUppercasePrefix}`,
     isCorrectInput: (value: string) =>
       matchesContextPrefixInput(value, prefixTokens),
   };
@@ -1072,7 +1072,7 @@ export function AnchorTrainingSession({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const initializedTelegramIdRef = useRef<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const savedSessionKeyRef = useRef<string | null>(null);
   const deferredVerseIdsRef = useRef<Set<string>>(new Set());
 

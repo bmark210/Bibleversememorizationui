@@ -14,7 +14,7 @@ type AnchorTypeModeProps = {
   isContextPrefixTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
   controlsLocked: boolean;
-  inputRef: RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
 };
@@ -41,7 +41,7 @@ export function AnchorTypeMode({
       >
         <div className="relative">
           <Input
-            ref={inputRef}
+            ref={inputRef as RefObject<HTMLInputElement>}
             value={typedAnswer}
             onChange={(event) =>
               onTypedAnswerChange(

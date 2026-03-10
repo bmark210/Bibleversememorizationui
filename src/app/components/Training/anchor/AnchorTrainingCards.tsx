@@ -34,7 +34,7 @@ type AnchorTrainingQuestionCardProps = {
   canSubmitTypeAnswer: boolean;
   isContextPrefixTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
-  inputRef: RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   lastAnswerCorrect: boolean | null;
   lastAnswerUsedTolerance: boolean;
   lastAnswerForgotten: boolean;
