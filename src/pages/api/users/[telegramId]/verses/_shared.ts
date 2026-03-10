@@ -10,6 +10,7 @@ import {
   countUserVerses,
   findUserVerses,
   findUserVersesByVerseIds,
+  getVerseOwnerPreviewByVerseIds,
   getVerseTagsByExternalVerseIds,
   getVersesByIds,
 } from "@/modules/verses/infrastructure/verseRepository";
@@ -32,8 +33,10 @@ import {
   type VerseCardDto,
   type VersePopularityScope,
   type VerseCardTagDto,
+  type VersePopularityPreviewUserDto,
 } from "./verseCard.types";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { buildPublicName } from "../friends/_shared";
 
 const DEFAULT_HELLOAO_TRANSLATION = "rus_syn";
 
@@ -514,12 +517,16 @@ function computeSelfPopularityValue(input: {
 function withPopularity(
   verse: VerseCardDto,
   scope: VersePopularityScope,
-  value: number
+  value: number,
+  popularityPreviewUsers?: VersePopularityPreviewUserDto[]
 ): VerseCardDto {
   return {
     ...verse,
     popularityScope: scope,
     popularityValue: Math.max(0, Math.round(value)),
+    ...(popularityPreviewUsers && popularityPreviewUsers.length > 0
+      ? { popularityPreviewUsers }
+      : {}),
   };
 }
 
@@ -532,6 +539,25 @@ function withSelfPopularity(verse: VerseCardDto): VerseCardDto {
       repetitions: verse.repetitions,
     })
   );
+}
+
+function mapPopularityPreviewUsers(
+  users: Array<{
+    telegramId: string;
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+  }>
+): VersePopularityPreviewUserDto[] {
+  return users.map((user) => ({
+    telegramId: user.telegramId,
+    name: buildPublicName({
+      telegramId: user.telegramId,
+      name: user.name,
+      nickname: user.nickname,
+    }),
+    avatarUrl: user.avatarUrl ?? null,
+  }));
 }
 
 function sortVerseCardsByBibleOrder(
@@ -1049,6 +1075,12 @@ async function fetchPaginatedFriendVerses(options: {
   const [enrichedByExternalVerseId] = await Promise.all([
     enrichExternalVerseIds(externalVerseIds, options.translation),
   ]);
+  const previewUsersByVerseId = await getVerseOwnerPreviewByVerseIds({
+    verseIds,
+    scope: "friends",
+    followerTelegramId: options.telegramId,
+    limitPerVerse: 3,
+  });
 
   const myRowByVerseId = new Map(
     myRows.map((row) => [row.verseId, row] as const)
@@ -1096,7 +1128,14 @@ async function fetchPaginatedFriendVerses(options: {
         toMillis(lastFriendActivityAt)
       );
 
-      return withPopularity(baseCard, "friends", friendsCount);
+      return withPopularity(
+        baseCard,
+        "friends",
+        friendsCount,
+        mapPopularityPreviewUsers(
+          previewUsersByVerseId.get(aggregate.verseId) ?? []
+        )
+      );
     })
     .filter((item): item is VerseCardDto => Boolean(item));
 

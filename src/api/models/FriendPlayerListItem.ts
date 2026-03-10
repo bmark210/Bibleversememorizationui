@@ -8,8 +8,12 @@ export type FriendPlayerListItem = {
     avatarUrl: string | null;
     isFriend: boolean;
     lastActiveAt: string | null;
+    masteredVerses: number;
     weeklyRepetitions: number;
     dailyStreak: number;
+    /**
+     * Композитный рейтинг друга (прогресс + навыки + регулярность).
+     */
     averageProgressPercent: number;
 };
 

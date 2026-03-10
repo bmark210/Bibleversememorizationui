@@ -4,6 +4,7 @@ export type FriendPlayerListItem = {
   avatarUrl: string | null;
   isFriend: boolean;
   lastActiveAt: string | null;
+  masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
   averageProgressPercent: number;
@@ -25,6 +26,7 @@ export type DashboardFriendActivityEntry = {
   name: string;
   avatarUrl: string | null;
   lastActiveAt: string | null;
+  masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
   averageProgressPercent: number;
@@ -83,7 +85,7 @@ function toSafeInt(value: unknown, options?: { min?: number; max?: number }) {
   return Math.max(min, Math.min(max, Math.round(numeric)));
 }
 
-function normalizeFriendPlayerListItem(value: unknown): FriendPlayerListItem | null {
+export function normalizeFriendPlayerListItem(value: unknown): FriendPlayerListItem | null {
   if (!value || typeof value !== "object") return null;
   const data = value as Partial<FriendPlayerListItem>;
   const telegramId = toSafeString(data.telegramId);
@@ -95,6 +97,7 @@ function normalizeFriendPlayerListItem(value: unknown): FriendPlayerListItem | n
     avatarUrl: toNullableString(data.avatarUrl),
     isFriend: Boolean(data.isFriend),
     lastActiveAt: toNullableString(data.lastActiveAt),
+    masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
     averageProgressPercent: toSafeInt(data.averageProgressPercent, {
@@ -134,7 +137,7 @@ function normalizeFriendsMutationResponse(value: unknown): FriendsMutationRespon
   return { status: "already-following" };
 }
 
-function normalizeDashboardFriendActivityEntry(
+export function normalizeDashboardFriendActivityEntry(
   value: unknown
 ): DashboardFriendActivityEntry | null {
   if (!value || typeof value !== "object") return null;
@@ -147,6 +150,7 @@ function normalizeDashboardFriendActivityEntry(
     name: toSafeString(data.name, `Участник #${telegramId.slice(-4)}`),
     avatarUrl: toNullableString(data.avatarUrl),
     lastActiveAt: toNullableString(data.lastActiveAt),
+    masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
     averageProgressPercent: toSafeInt(data.averageProgressPercent, {
@@ -318,4 +322,3 @@ export async function fetchDashboardFriendsActivity(
 
   return normalizeDashboardFriendsActivity(await response.json());
 }
-

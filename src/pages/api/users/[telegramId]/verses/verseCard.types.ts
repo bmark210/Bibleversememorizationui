@@ -22,6 +22,11 @@ export type DisplayStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 export type VersePopularityScope = "friends" | "players" | "self";
 
 export type VerseCardTagDto = Pick<PrismaTag, "id" | "slug" | "title">;
+export type VersePopularityPreviewUserDto = {
+  telegramId: string;
+  name: string;
+  avatarUrl: string | null;
+};
 
 export interface VerseCardDto {
   externalVerseId: string;
@@ -37,6 +42,7 @@ export interface VerseCardDto {
   tags: VerseCardTagDto[];
   popularityScope?: VersePopularityScope;
   popularityValue?: number;
+  popularityPreviewUsers?: VersePopularityPreviewUserDto[];
   text?: string;
   reference?: string;
   contextPromptText?: string;
@@ -87,6 +93,7 @@ export type EnrichedUserVerseSource = UserVerseWithLegacyNullableProgress & {
   tags?: VerseCardTagDto[];
   popularityScope?: VersePopularityScope;
   popularityValue?: number;
+  popularityPreviewUsers?: VersePopularityPreviewUserDto[];
 };
 
 export function normalizeProgressValue(value: number | null | undefined): number {
@@ -178,6 +185,24 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
       : {}),
     ...(typeof verse.popularityValue === "number"
       ? { popularityValue: Math.max(0, Math.round(verse.popularityValue)) }
+      : {}),
+    ...(Array.isArray(verse.popularityPreviewUsers)
+      ? {
+          popularityPreviewUsers: verse.popularityPreviewUsers
+            .filter(
+              (user): user is VersePopularityPreviewUserDto =>
+                Boolean(
+                  user &&
+                    typeof user.telegramId === "string" &&
+                    typeof user.name === "string"
+                )
+            )
+            .map((user) => ({
+              telegramId: user.telegramId,
+              name: user.name,
+              avatarUrl: user.avatarUrl ?? null,
+            })),
+        }
       : {}),
     ...(typeof verse.text === "string" ? { text: verse.text } : {}),
     ...(typeof verse.reference === "string" ? { reference: verse.reference } : {}),

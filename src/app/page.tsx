@@ -1,10 +1,21 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
 import App from './App'
 import { TelegramProvider } from './contexts/TelegramContext'
 import { BookOpen } from 'lucide-react'
+import { getTelegramWebApp } from './lib/telegramWebApp'
+
+const TelegramDevPanel =
+  process.env.NODE_ENV === 'development'
+    ? dynamic(
+        () => import('./components/dev/TelegramDevPanel').then((module) => module.TelegramDevPanel),
+        { ssr: false }
+      )
+    : function EmptyTelegramDevPanel() {
+        return null
+      }
 
 const TELEGRAM_BOT_URL = 'https://t.me/bible_memory_bot'
 const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
@@ -33,9 +44,7 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const hasTelegramWebApp = Boolean(
-      (window as Window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp
-    )
+    const hasTelegramWebApp = Boolean(getTelegramWebApp())
     setIsTelegramWebApp(hasTelegramWebApp)
   }, [])
 
@@ -109,6 +118,7 @@ export default function Page() {
           <TelegramProvider>
             <App onInitialContentReady={() => setIsAppReady(true)} />
           </TelegramProvider>
+          <TelegramDevPanel />
         </div>
       ) : null}
 
@@ -137,12 +147,9 @@ export default function Page() {
               <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
             </div>
               <div className="mt-2.5 relative h-2 overflow-hidden rounded-full bg-muted">
-                <motion.div
+                <div
                   aria-hidden="true"
-                  className="absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
-                  initial={{ left: '-40%', width: '40%' }}
-                  animate={{ left: ['-40%', '100%'] }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: [0.4, 0, 0.2, 1] }}
+                  className="boot-progress-indicator absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
                 />
               </div>
             </div>

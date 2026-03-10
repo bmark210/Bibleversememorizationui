@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
-import { VerseStatus } from '@/generated/prisma';
+import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
   DEFAULT_VERSE_LIST_STATUS_FILTER,
@@ -37,6 +37,7 @@ import type { VersePatchEvent } from '@/app/types/verseSync';
 
 type UseVerseListControllerParams = {
   onAddVerse: () => void;
+  onOpenVerseOwners?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -46,6 +47,7 @@ type UseVerseListControllerParams = {
 
 export function useVerseListController({
   onAddVerse,
+  onOpenVerseOwners,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -320,6 +322,7 @@ export function useVerseListController({
       <SwipeableVerseCard
         verse={verse}
         onOpen={() => openVerseInGallery(verse)}
+        onOpenOwners={onOpenVerseOwners}
         onAddToLearning={(v) => {
           const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
           void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
@@ -330,7 +333,7 @@ export function useVerseListController({
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
       />
     ),
-    [actions, openVerseInGallery]
+    [actions, onOpenVerseOwners, openVerseInGallery]
   );
 
   const handleLoadMoreRows = useCallback(

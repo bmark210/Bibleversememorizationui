@@ -39,9 +39,9 @@ const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "relative rounded-[1.1rem]! border! px-4! pb-3! !mt-20 backdrop-blur-xl! shadow-[0_24px_50px_-24px_rgba(34,24,14,0.6)]!",
-          title: "text-[0.94rem]! leading-tight! font-semibold!",
-          description: "mt-0.5 text-[0.78rem]! leading-relaxed!",
+            "relative text-foreground/60 rounded-[1.1rem]! border! px-4! pb-3! !mt-20 backdrop-blur-xl! shadow-[0_24px_50px_-24px_rgba(34,24,14,0.6)]!",
+          title: "text-[0.94rem]! text-foreground/60! leading-tight! font-semibold!",
+          description: "mt-0.5 text-[0.78rem]! text-foreground/60! leading-relaxed!",
           content: "gap-1.5!",
           icon: "opacity-95!",
           closeButton:
@@ -52,9 +52,9 @@ const Toaster = ({ id = APP_TOASTER_ID, ...props }: ToasterProps) => {
           warning: "shadow-[0_18px_42px_-24px_rgba(202,138,4,0.75)]!",
           error: "shadow-[0_18px_42px_-24px_rgba(220,38,38,0.75)]!",
           actionButton:
-            "rounded-lg! border border-border/60! bg-background/70! text-foreground! ",
+            "rounded-lg! border border-border/60! bg-background/70! text-foreground/60! ",
           cancelButton:
-            "rounded-lg! border border-border/60! bg-background/70! text-muted-foreground! ",
+            "rounded-lg! border border-border/60! bg-background/70! text-muted-foreground/60! ",
         },
       }}
       {...props}

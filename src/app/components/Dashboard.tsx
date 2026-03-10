@@ -1,15 +1,12 @@
 'use client'
 
-import React from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import { Brain, Flame, Repeat, Target, Trophy } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
 import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
-import { Button } from './ui/button'
 import {
   DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
@@ -25,10 +22,23 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
-  onViewAll: () => void
-  canOpenReferences?: boolean
-  onOpenReferences?: () => void
+  currentTelegramId?: string | null
+  onOpenTraining?: () => void
+  onOpenProfile?: () => void
+  onOpenPlayerProfile?: (player: {
+    telegramId: string
+    name: string
+    avatarUrl: string | null
+  }) => void
   isInitializingData?: boolean
+}
+
+type TodayVersesSummary = {
+  learningVersesCount: number
+  reviewVersesCount: number
+  dueReviewCount: number
+  masteredVerses: number
+  averageProgressPercent: number
 }
 
 function clampPercent(value: number) {
@@ -43,6 +53,59 @@ export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
   return clampPercent((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100)
 }
 
+function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
+  const now = Date.now()
+
+  const summary = todayVerses.reduce(
+    (acc, verse) => {
+      const progress = toMasteryPercent(verse.masteryLevel, verse.repetitions)
+
+      acc.progressTotal += progress
+
+      if (verse.status === 'LEARNING') {
+        acc.learningVersesCount += 1
+      }
+
+      if (verse.status === 'REVIEW') {
+        acc.reviewVersesCount += 1
+
+        if (!verse.nextReviewAt) {
+          acc.dueReviewCount += 1
+        } else {
+          const nextReviewTime = new Date(verse.nextReviewAt).getTime()
+          if (Number.isNaN(nextReviewTime) || nextReviewTime <= now) {
+            acc.dueReviewCount += 1
+          }
+        }
+      }
+
+      if (verse.status === 'MASTERED') {
+        acc.masteredVerses += 1
+      }
+
+      return acc
+    },
+    {
+      learningVersesCount: 0,
+      reviewVersesCount: 0,
+      dueReviewCount: 0,
+      masteredVerses: 0,
+      progressTotal: 0,
+    }
+  )
+
+  return {
+    learningVersesCount: summary.learningVersesCount,
+    reviewVersesCount: summary.reviewVersesCount,
+    dueReviewCount: summary.dueReviewCount,
+    masteredVerses: summary.masteredVerses,
+    averageProgressPercent:
+      todayVerses.length > 0
+        ? clampPercent(summary.progressTotal / todayVerses.length)
+        : 0,
+  }
+}
+
 export function Dashboard({
   todayVerses,
   dashboardStats = null,
@@ -51,237 +114,97 @@ export function Dashboard({
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
-  onViewAll,
-  canOpenReferences: _canOpenReferences = false,
-  onOpenReferences: _onOpenReferences,
+  currentTelegramId = null,
+  onOpenTraining,
+  onOpenProfile,
+  onOpenPlayerProfile,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
-  const shouldReduceMotion = useReducedMotion()
-  const now = Date.now()
+  const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
+  const isStatsPending = isDashboardStatsLoading && dashboardStats == null
 
-  const learningVersesCount = todayVerses.filter((verse) => verse.status === 'LEARNING').length
-  const reviewVersesCount = todayVerses.filter((verse) => verse.status === 'REVIEW').length
-  const dueReviewCount = todayVerses.filter((verse) => {
-    if (verse.status !== 'REVIEW') return false
-    if (!verse.nextReviewAt) return true
-    const nextReviewTime = new Date(verse.nextReviewAt).getTime()
-    return Number.isNaN(nextReviewTime) || nextReviewTime <= now
-  }).length
+  const learningVerses =
+    dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
+  const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
+  const avgRatingPercent = dashboardStats?.averageProgressPercent ?? null
+  const masteredVerses = dashboardStats?.masteredVerses ?? null
+  const dailyStreak = dashboardStats?.dailyStreak ?? null
 
-  const fallbackTotalRepetitions = todayVerses.reduce(
-    (sum, verse) => sum + (verse.repetitions ?? 0),
-    0
+  const statsCards = useMemo(
+    () =>
+      [
+        {
+          key: 'learning',
+          label: 'Изучение',
+          value: `${learningVerses}`,
+          tone: 'learning' as const,
+        },
+        {
+          key: 'review',
+          label: 'Повторение',
+          value: `${dueReviewVerses}`,
+          tone: 'review' as const,
+        },
+        {
+          key: 'progress',
+          label: 'Прогресс',
+          value: avgRatingPercent != null ? `${avgRatingPercent}%` : null,
+          isLoading: isStatsPending,
+          tone: 'neutral' as const,
+        },
+        {
+          key: 'mastered',
+          label: 'Выучено',
+          value: masteredVerses != null ? `${masteredVerses}` : null,
+          isLoading: isStatsPending,
+          tone: 'mastered' as const,
+        },
+      ] as const,
+    [avgRatingPercent, dueReviewVerses, isStatsPending, learningVerses, masteredVerses]
   )
-  const fallbackMasteredVerses = todayVerses.filter(
-    (verse) => verse.status === 'MASTERED'
-  ).length
-  const fallbackAvgRatingPercent =
-    todayVerses.length > 0
-      ? clampPercent(
-          todayVerses.reduce(
-            (sum, verse) =>
-              sum + toMasteryPercent(verse.masteryLevel, verse.repetitions),
-            0
-          ) /
-            todayVerses.length
-        )
-      : 0
-
-  const fallbackBestVerse = todayVerses.reduce<Verse | null>((best, verse) => {
-    if (!best) return verse
-    return toMasteryPercent(verse.masteryLevel, verse.repetitions) >
-      toMasteryPercent(best.masteryLevel, best.repetitions)
-      ? verse
-      : best
-  }, null)
-
-  const avgRatingPercent =
-    dashboardStats?.averageProgressPercent ?? fallbackAvgRatingPercent
-  const totalRepetitions =
-    dashboardStats?.totalRepetitions ?? fallbackTotalRepetitions
-  const masteredVerses =
-    dashboardStats?.masteredVerses ?? fallbackMasteredVerses
-  const dueReviewVerses = dashboardStats?.dueReviewVerses ?? dueReviewCount
-  const bestVerseReference =
-    dashboardStats?.bestVerseReference ?? fallbackBestVerse?.reference ?? null
-  const dailyStreak = dashboardStats?.dailyStreak ?? 0
-
-  const statsCards = [
-    {
-      key: 'planned',
-      label: 'Активность',
-      value: `${todayVerses.length} ${formatWordsCount(todayVerses.length)}`,
-      hint: `${learningVersesCount} ${formatWordsCount(learningVersesCount)} в изучении, ${reviewVersesCount} ${formatWordsCount(reviewVersesCount)} к повторению`,
-      icon: Target,
-      accent: 'from-primary/35 to-primary/10',
-      iconColor: 'text-primary',
-      textColor: 'text-primary/70',
-    },
-    {
-      key: 'reps',
-      label: 'Повторения в подборке',
-      value: `${totalRepetitions}`,
-      hint: dueReviewVerses > 0 ? `${dueReviewVerses} к повторению сейчас` : 'Нет просроченных повторений',
-      icon: Repeat,
-      accent: 'from-violet-500/30 to-violet-500/10',
-      iconColor: 'text-violet-500',
-      textColor: 'text-violet-500/70',
-    },
-    {
-      key: 'mastery',
-      label: 'Средний рейтинг',
-      value: `${avgRatingPercent}%`,
-      hint: bestVerseReference
-        ? `Баланс прогресса, навыков и регулярности. Лучший стих: ${bestVerseReference}`
-        : isDashboardStatsLoading
-          ? 'Загружаем вашу статистику...'
-          : 'Добавьте стихи для старта',
-      icon: Brain,
-      accent: 'from-success/35 to-success/10',
-      iconColor: 'text-success',
-      textColor: 'text-success/70',
-    },
-    {
-      key: 'mastered',
-      label: 'Выучено',
-      value: `${masteredVerses}`,
-      hint: masteredVerses > 0 ? 'Стихи, закреплённые в долгой памяти' : 'Пока нет выученных стихов',
-      icon: Trophy,
-      accent: 'from-amber-500/35 to-amber-500/10',
-      iconColor: 'text-amber-600 dark:text-amber-300',
-      textColor: 'text-amber-500/70',
-    },
-    {
-      key: 'streak',
-      label: 'Серия тренировок',
-      value: `${dailyStreak} дн.`,
-      hint: isDashboardStatsLoading ? 'Обновляем прогресс...' : 'Ваш лучший непрерывный ритм',
-      icon: Flame,
-      accent: 'from-rose-500/30 to-rose-500/10',
-      iconColor: 'text-rose-500',
-      textColor: 'text-rose-400/70',
-    },
-  ] as const
-
-  const dashboardVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.07,
-        delayChildren: shouldReduceMotion ? 0 : 0.03,
-      },
-    },
-  }
-
-  const sectionVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 12,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.26,
-        ease: 'easeOut' as const,
-      },
-    },
-  }
-
-  const groupStaggerVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.06,
-        delayChildren: shouldReduceMotion ? 0 : 0.02,
-      },
-    },
-  }
-
-  const cardItemVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 10,
-      scale: shouldReduceMotion ? 1 : 0.99,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.22,
-        ease: 'easeOut' as const,
-      },
-    },
-  }
 
   if (isInitializingData) {
     return <div className="min-h-[60vh]" />
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <motion.div
-        {...(shouldReduceMotion
-          ? {}
-          : {
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              transition: { duration: 0.2, ease: 'easeOut' as const },
-            })}
-      >
-        <motion.div initial="hidden" animate="show" variants={dashboardVariants}>
-          <DashboardWelcomeSection
-            user={user}
-            todayVersesCount={todayVerses.length}
-            sectionVariants={sectionVariants}
+    <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
+      <DashboardWelcomeSection
+        user={user}
+        learningVersesCount={learningVerses}
+        dueReviewVerses={dueReviewVerses}
+        dailyStreak={dailyStreak}
+        onOpenTraining={onOpenTraining}
+        onOpenCurrentUserProfile={
+          currentTelegramId && onOpenPlayerProfile
+            ? () =>
+                onOpenPlayerProfile({
+                  telegramId: currentTelegramId,
+                  name: user?.firstName?.trim() || 'Вы',
+                  avatarUrl: user?.photoUrl ?? null,
+                })
+            : undefined
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]">
+        <DashboardTrainingStatsCard statsCards={statsCards} />
+        <div className="space-y-5">
+          <DashboardLeaderboardCard
+            leaderboard={dashboardLeaderboard}
+            isLeaderboardLoading={isDashboardLeaderboardLoading}
+            onOpenTraining={onOpenTraining}
+            onOpenPlayerProfile={onOpenPlayerProfile}
           />
-
-          <motion.div className="mb-6" variants={sectionVariants}>
-            <Button type="button" size="lg" onClick={onViewAll} className="w-full text-primary sm:w-auto border border-primary/10 bg-input-background rounded-2xl">
-              <Brain className="h-4 w-4" />
-              Перейти в стихи
-            </Button>
-          </motion.div>
-
-          <motion.div
-            className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"
-            variants={groupStaggerVariants}
-          >
-            <DashboardTrainingStatsCard
-              avgRatingPercent={avgRatingPercent}
-              todayVersesCount={todayVerses.length}
-              statsCards={statsCards}
-              cardItemVariants={cardItemVariants}
-              groupStaggerVariants={groupStaggerVariants}
-            />
-            <div className="space-y-6">
-              <DashboardLeaderboardCard
-                avgRatingPercent={avgRatingPercent}
-                leaderboard={dashboardLeaderboard}
-                isLeaderboardLoading={isDashboardLeaderboardLoading}
-                cardItemVariants={cardItemVariants}
-                groupStaggerVariants={groupStaggerVariants}
-              />
-              <DashboardFriendsActivityCard
-                friendsActivity={dashboardFriendsActivity}
-                isFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                cardItemVariants={cardItemVariants}
-                groupStaggerVariants={groupStaggerVariants}
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      </motion.div>
+          <DashboardFriendsActivityCard
+            friendsActivity={dashboardFriendsActivity}
+            isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+            onOpenProfile={onOpenProfile}
+            onOpenPlayerProfile={onOpenPlayerProfile}
+          />
+        </div>
+      </div>
     </div>
   )
-}
-
-
-function formatWordsCount(count: number) {
-  if (count === 0) return 'стихов'
-  if (count === 1) return 'стих'
-  if (count < 5) return 'стиха'
-  return 'стихов'
 }

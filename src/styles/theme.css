@@ -5,6 +5,11 @@
 body[data-theme='light'] {
   --font-size: 16px;
   --background: #e3d2b9;
+  /* Pre-computed rgba for body::before gradient (avoids color-mix() in old WebViews) */
+  --bg-gradient-spot-accent: rgba(122, 97, 54, 0.14);
+  --bg-gradient-spot-primary: rgba(95, 79, 45, 0.14);
+  --bg-gradient-from: #e5d5bd;
+  --bg-gradient-to: #deceb5;
   --foreground: #241a11;
   --card: #efe0c8;
   --card-foreground: #2a1f14;
@@ -34,6 +39,35 @@ body[data-theme='light'] {
   --chart-3: #b6844e;
   --chart-4: #4f7258;
   --chart-5: #b84a3a;
+  /* RGB tuples for the PostCSS rgba() fallback injected before Tailwind color-mix(). */
+  --color-background-rgb: 227, 210, 185;
+  --color-foreground-rgb: 36, 26, 17;
+  --color-card-rgb: 239, 224, 200;
+  --color-card-foreground-rgb: 42, 31, 20;
+  --color-popover-rgb: 240, 226, 202;
+  --color-popover-foreground-rgb: 36, 26, 17;
+  --color-primary-rgb: 95, 79, 45;
+  --color-primary-foreground-rgb: 251, 247, 239;
+  --color-secondary-rgb: 213, 192, 159;
+  --color-secondary-foreground-rgb: 42, 31, 20;
+  --color-muted-rgb: 217, 197, 167;
+  --color-muted-foreground-rgb: 82, 67, 49;
+  --color-accent-rgb: 122, 97, 54;
+  --color-accent-foreground-rgb: 32, 23, 15;
+  --color-destructive-rgb: 184, 74, 58;
+  --color-destructive-foreground-rgb: 251, 248, 240;
+  --color-success-rgb: 79, 114, 88;
+  --color-success-foreground-rgb: 251, 248, 240;
+  --color-border-rgb: 183, 159, 126;
+  --color-input-rgb: 175, 150, 111;
+  --color-input-background-rgb: 229, 211, 184;
+  --color-switch-background-rgb: 189, 165, 129;
+  --color-ring-rgb: 166, 122, 71;
+  --color-chart-1-rgb: 95, 79, 45;
+  --color-chart-2-rgb: 122, 97, 54;
+  --color-chart-3-rgb: 182, 132, 78;
+  --color-chart-4-rgb: 79, 114, 88;
+  --color-chart-5-rgb: 184, 74, 58;
   --radius: 0.5rem;
   --sidebar: #eee0c8;
   --sidebar-foreground: #241a11;
@@ -43,12 +77,25 @@ body[data-theme='light'] {
   --sidebar-accent-foreground: #241a11;
   --sidebar-border: #b79f7e;
   --sidebar-ring: #a67a47;
+  --color-sidebar-rgb: 238, 224, 200;
+  --color-sidebar-foreground-rgb: 36, 26, 17;
+  --color-sidebar-primary-rgb: 95, 79, 45;
+  --color-sidebar-primary-foreground-rgb: 251, 247, 239;
+  --color-sidebar-accent-rgb: 217, 197, 167;
+  --color-sidebar-accent-foreground-rgb: 36, 26, 17;
+  --color-sidebar-border-rgb: 183, 159, 126;
+  --color-sidebar-ring-rgb: 166, 122, 71;
 }
 
 .dark,
 :root[data-theme='dark'],
 body[data-theme='dark'] {
   --background: #1a1410;
+  /* Pre-computed rgba for body::before gradient (avoids color-mix() in old WebViews) */
+  --bg-gradient-spot-accent: rgba(184, 147, 95, 0.14);
+  --bg-gradient-spot-primary: rgba(212, 165, 116, 0.14);
+  --bg-gradient-from: #28221e;
+  --bg-gradient-to: #191410;
   --foreground: #f5ead5;
   --card: #24201a;
   --card-foreground: #f5ead5;
@@ -78,6 +125,35 @@ body[data-theme='dark'] {
   --chart-3: #a0825a;
   --chart-4: #6d9472;
   --chart-5: #e05b4d;
+  /* RGB tuples for the PostCSS rgba() fallback injected before Tailwind color-mix(). */
+  --color-background-rgb: 26, 20, 16;
+  --color-foreground-rgb: 245, 234, 213;
+  --color-card-rgb: 36, 32, 26;
+  --color-card-foreground-rgb: 245, 234, 213;
+  --color-popover-rgb: 36, 32, 26;
+  --color-popover-foreground-rgb: 245, 234, 213;
+  --color-primary-rgb: 212, 165, 116;
+  --color-primary-foreground-rgb: 26, 20, 16;
+  --color-secondary-rgb: 45, 39, 33;
+  --color-secondary-foreground-rgb: 245, 234, 213;
+  --color-muted-rgb: 42, 37, 31;
+  --color-muted-foreground-rgb: 181, 164, 144;
+  --color-accent-rgb: 184, 147, 95;
+  --color-accent-foreground-rgb: 255, 254, 248;
+  --color-destructive-rgb: 224, 91, 77;
+  --color-destructive-foreground-rgb: 255, 254, 248;
+  --color-success-rgb: 109, 148, 114;
+  --color-success-foreground-rgb: 255, 254, 248;
+  --color-border-rgb: 61, 54, 45;
+  --color-input-rgb: 69, 61, 50;
+  --color-input-background-rgb: 42, 37, 31;
+  --color-switch-background-rgb: 61, 54, 45;
+  --color-ring-rgb: 212, 165, 116;
+  --color-chart-1-rgb: 212, 165, 116;
+  --color-chart-2-rgb: 184, 147, 95;
+  --color-chart-3-rgb: 160, 130, 90;
+  --color-chart-4-rgb: 109, 148, 114;
+  --color-chart-5-rgb: 224, 91, 77;
   --sidebar: #24201a;
   --sidebar-foreground: #f5ead5;
   --sidebar-primary: #d4a574;
@@ -86,6 +162,14 @@ body[data-theme='dark'] {
   --sidebar-accent-foreground: #f5ead5;
   --sidebar-border: #3d362d;
   --sidebar-ring: #d4a574;
+  --color-sidebar-rgb: 36, 32, 26;
+  --color-sidebar-foreground-rgb: 245, 234, 213;
+  --color-sidebar-primary-rgb: 212, 165, 116;
+  --color-sidebar-primary-foreground-rgb: 26, 20, 16;
+  --color-sidebar-accent-rgb: 42, 37, 31;
+  --color-sidebar-accent-foreground-rgb: 245, 234, 213;
+  --color-sidebar-border-rgb: 61, 54, 45;
+  --color-sidebar-ring-rgb: 212, 165, 116;
 }
 
 @theme inline {
@@ -136,6 +220,18 @@ body[data-theme='dark'] {
   to { opacity: 0; }
 }
 
+@keyframes boot-progress-slide {
+  from {
+    left: -40%;
+    width: 40%;
+  }
+
+  to {
+    left: 100%;
+    width: 40%;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -153,6 +249,10 @@ body[data-theme='dark'] {
   html,
   body {
     min-height: 100%;
+  }
+
+  .boot-progress-indicator {
+    animation: boot-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
   #root {
@@ -177,9 +277,9 @@ body[data-theme='dark'] {
     bottom: 0;
     z-index: -1;
     background-image:
-      radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%),
-      radial-gradient(circle at 82% 6%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 36%),
-      linear-gradient(180deg, color-mix(in srgb, var(--background) 94%, #ffffff 6%), color-mix(in srgb, var(--background) 98%, #000000 2%));
+      radial-gradient(circle at 18% 22%, var(--bg-gradient-spot-accent), transparent 42%),
+      radial-gradient(circle at 82% 6%, var(--bg-gradient-spot-primary), transparent 36%),
+      linear-gradient(180deg, var(--bg-gradient-from), var(--bg-gradient-to));
     pointer-events: none;
   }
 

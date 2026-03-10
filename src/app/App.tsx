@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, useReducedMotion } from "motion/react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -19,7 +18,6 @@ import type { ApiError } from "@/api/core/ApiError";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import {
   fetchAllUserVerses,
-  fetchUserVersesPage,
 } from "@/api/services/userVersesPagination";
 import {
   fetchDashboardLeaderboard,
@@ -27,21 +25,23 @@ import {
 } from "@/api/services/leaderboard";
 import {
   fetchDashboardFriendsActivity,
+  fetchFriendsPage,
   type DashboardFriendsActivity,
+  type FriendPlayerListItem,
 } from "@/api/services/friends";
 import {
   fetchUserDashboardStats,
   type UserDashboardStats,
 } from "@/api/services/userStats";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
+import type { VersePatchEvent } from "@/app/types/verseSync";
 import {
   getVerseSyncKey,
   mergeVersePatch,
-  pickMutableVersePatchFromApiResponse,
 } from "@/app/utils/versePatch";
+import type { ProgressMapAction } from "./components/ProgressMap";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -64,17 +64,24 @@ const AddVerseDialog = dynamic(
   }
 );
 
-const VerseGallery = dynamic(
-  () => import("./components/VerseGallery").then((m) => m.VerseGallery),
+const Training = dynamic(
+  () => import("./components/Training").then((m) => m.Training),
   {
-    loading: () => <div className="fixed inset-0 z-50" />,
+    loading: () => <div className="min-h-[60vh]" />,
   }
 );
 
-const ReferenceTrainer = dynamic(
-  () => import("./components/ReferenceTrainer").then((m) => m.ReferenceTrainer),
+const ProgressMap = dynamic(
+  () => import("./components/ProgressMap").then((m) => m.ProgressMap),
   {
     loading: () => <div className="min-h-[60vh]" />,
+  }
+);
+
+const PlayerProfileDrawer = dynamic(
+  () => import("./components/PlayerProfileDrawer").then((m) => m.PlayerProfileDrawer),
+  {
+    loading: () => null,
   }
 );
 
@@ -98,6 +105,11 @@ export type Verse = {
   tags?: Array<{ id: string; slug: string; title: string }>;
   popularityScope?: "friends" | "players" | "self";
   popularityValue?: number;
+  popularityPreviewUsers?: Array<{
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }>;
   text: string;
   reference: string;
 };
@@ -116,6 +128,13 @@ type AppVerseApiRecord = {
   tags?: Array<{ id: string; slug: string; title: string }> | null;
   popularityScope?: "friends" | "players" | "self" | null;
   popularityValue?: number | null;
+  popularityPreviewUsers?:
+    | Array<{
+        telegramId?: string | null;
+        name?: string | null;
+        avatarUrl?: string | null;
+      }>
+    | null;
   text?: string | null;
   reference?: string | null;
 };
@@ -123,13 +142,25 @@ type AppVerseApiRecord = {
 type Page =
   | "dashboard"
   | "verses"
-  | "references"
+  | "training"
+  | "progress-map"
   // | "collections"
   // | "stats"
-  | "profile"
-  // | "training";
+  | "profile";
+
+type RootPage = Exclude<Page, "progress-map">;
 
 type Theme = "light" | "dark";
+type PlayerProfilePreview = {
+  telegramId: string;
+  name: string;
+  avatarUrl: string | null;
+};
+type IdleTaskHandle = number | ReturnType<typeof setTimeout>;
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
 
 type AppProps = {
   onInitialContentReady?: () => void;
@@ -137,8 +168,8 @@ type AppProps = {
 
 const THEME_STORAGE_KEY = "theme";
 const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
-const TRAINING_GALLERY_PAGE_SIZE = 40;
-const REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT = 10;
+const TRAINING_VERSE_PREFETCH_DELAY_MS = 350;
+const TRAINING_VERSE_PREFETCH_TIMEOUT_MS = 1500;
 const TELEGRAM_THEME_COLORS: Record<Theme, { background: string; header: string; bottomBar: string }> = {
   light: {
     background: "#ede3d2",
@@ -234,6 +265,33 @@ function getPreferredTheme(): Theme {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function scheduleIdleTask(callback: () => void): IdleTaskHandle | null {
+  if (typeof window === "undefined") return null;
+
+  const idleWindow = window as IdleWindow;
+
+  if (typeof idleWindow.requestIdleCallback === "function") {
+    return idleWindow.requestIdleCallback(() => callback(), {
+      timeout: TRAINING_VERSE_PREFETCH_TIMEOUT_MS,
+    });
+  }
+
+  return setTimeout(callback, TRAINING_VERSE_PREFETCH_DELAY_MS);
+}
+
+function cancelIdleTask(handle: IdleTaskHandle | null) {
+  if (handle == null || typeof window === "undefined") return;
+
+  const idleWindow = window as IdleWindow;
+
+  if (typeof idleWindow.cancelIdleCallback === "function" && typeof handle === "number") {
+    idleWindow.cancelIdleCallback(handle);
+    return;
+  }
+
+  clearTimeout(handle);
+}
+
 function parseDateValue(value: unknown): Date | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(String(value));
@@ -271,6 +329,30 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     tags: verse.tags ?? [],
     popularityScope: verse.popularityScope ?? undefined,
     popularityValue: verse.popularityValue ?? undefined,
+    popularityPreviewUsers:
+      verse.popularityPreviewUsers
+        ?.map((user) => {
+          const telegramId = String(user.telegramId ?? "").trim();
+          const name = String(user.name ?? "").trim();
+          if (!telegramId || !name) return null;
+          return {
+            telegramId,
+            name,
+            avatarUrl:
+              typeof user.avatarUrl === "string" && user.avatarUrl.trim()
+                ? user.avatarUrl.trim()
+                : null,
+          };
+        })
+        .filter(
+          (
+            user
+          ): user is {
+            telegramId: string;
+            name: string;
+            avatarUrl: string | null;
+          } => user != null
+        ) ?? [],
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
   };
@@ -285,17 +367,22 @@ function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {
   return allVerses.filter(isTrainingDashboardVerse).sort(sortByUpdatedAtDesc);
 }
 
+function isDueReviewVerse(verse: Pick<Verse, "status" | "nextReviewAt">) {
+  if (normalizeDisplayVerseStatus(verse.status) !== "REVIEW") return false;
+  if (!verse.nextReviewAt) return true;
+  const nextReviewTime = new Date(verse.nextReviewAt).getTime();
+  return Number.isNaN(nextReviewTime) || nextReviewTime <= Date.now();
+}
+
 export default function App({ onInitialContentReady }: AppProps) {
-  const shouldReduceMotion = useReducedMotion();
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
   const [pageStack, setPageStack] = useState<Page[]>(["dashboard"]);
   const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [verses, setVerses] = useState<Array<Verse>>([]);
-  const [dashboardGalleryVerses, setDashboardGalleryVerses] = useState<Array<Verse>>([]);
-  const [dashboardGalleryIndex, setDashboardGalleryIndex] = useState<number | null>(null);
-  const [dashboardGalleryLaunchMode, setDashboardGalleryLaunchMode] = useState<"preview" | "training">("preview");
-  const [, setIsLoading] = useState(true);
+  const [hasLoadedTrainingVerses, setHasLoadedTrainingVerses] = useState(false);
+  const [isTrainingVersesLoading, setIsTrainingVersesLoading] = useState(false);
+  const [trainingDirectLaunch, setTrainingDirectLaunch] = useState<{ verse: Verse } | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
@@ -303,9 +390,15 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
+  const [progressMapFriends, setProgressMapFriends] = useState<FriendPlayerListItem[]>([]);
+  const [isProgressMapFriendsLoading, setIsProgressMapFriendsLoading] = useState(false);
+  const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
-  const [dashboardTrainingHasMore, setDashboardTrainingHasMore] = useState(false);
-  const [dashboardTrainingIsLoadingMore, setDashboardTrainingIsLoadingMore] = useState(false);
+  const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
+  const [activePlayerProfile, setActivePlayerProfile] =
+    useState<PlayerProfilePreview | null>(null);
+  const [isPlayerProfileDrawerOpen, setIsPlayerProfileDrawerOpen] =
+    useState(false);
   const currentPage = pageStack[pageStack.length - 1] ?? "dashboard";
 
   useEffect(() => {
@@ -342,29 +435,13 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
-  const dashboardTrainingStartWithRef = useRef(0);
-  const dashboardTrainingTotalCountRef = useRef(0);
-  const dashboardTrainingHasMoreRef = useRef(false);
-  const canAccessReferenceTrainer =
-    (dashboardStats?.learningStatusVerses ?? 0) >=
-    REFERENCE_SECTION_MIN_LEARNING_STATUS_COUNT;
+  const trainingVersesRequestIdRef = useRef(0);
+  const trainingVersesPromiseRef = useRef<Promise<Array<Verse>> | null>(null);
+  const trainingVersesPrefetchHandleRef = useRef<IdleTaskHandle | null>(null);
+  const progressMapFriendsRequestIdRef = useRef(0);
+  const hasLoadedProgressMapFriendsRef = useRef(false);
   const canGoBackInApp = pageStack.length > 1;
   const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
-
-  const replaceCurrentPage = useCallback((page: Page) => {
-    setPageStack((prev) => {
-      const activePage = prev[prev.length - 1] ?? "dashboard";
-      if (activePage === page) return prev;
-      if (prev.length <= 1) return [page];
-
-      const next = [...prev.slice(0, -1), page];
-      const previousPage = next[next.length - 2];
-      if (previousPage === page) {
-        return next.slice(0, -1);
-      }
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -391,7 +468,18 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
   }, [theme]);
 
-  const loadDashboardStats = async (telegramIdValue: string) => {
+  useEffect(() => {
+    return () => {
+      cancelIdleTask(trainingVersesPrefetchHandleRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedTrainingVerses) return;
+    cancelIdleTask(trainingVersesPrefetchHandleRef.current);
+  }, [hasLoadedTrainingVerses]);
+
+  const loadDashboardStats = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
 
     const requestId = ++dashboardStatsRequestIdRef.current;
@@ -414,9 +502,9 @@ export default function App({ onInitialContentReady }: AppProps) {
         setIsDashboardStatsLoading(false);
       }
     }
-  };
+  }, []);
 
-  const loadDashboardLeaderboard = async (telegramIdValue: string) => {
+  const loadDashboardLeaderboard = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
 
     const requestId = ++dashboardLeaderboardRequestIdRef.current;
@@ -442,9 +530,9 @@ export default function App({ onInitialContentReady }: AppProps) {
         setIsDashboardLeaderboardLoading(false);
       }
     }
-  };
+  }, []);
 
-  const loadDashboardFriendsActivity = async (telegramIdValue: string) => {
+  const loadDashboardFriendsActivity = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
 
     const requestId = ++dashboardFriendsActivityRequestIdRef.current;
@@ -469,7 +557,206 @@ export default function App({ onInitialContentReady }: AppProps) {
         setIsDashboardFriendsActivityLoading(false);
       }
     }
+  }, []);
+
+  const loadProgressMapFriends = useCallback(async (telegramIdValue: string) => {
+    if (!telegramIdValue) return [];
+
+    const requestId = ++progressMapFriendsRequestIdRef.current;
+    setIsProgressMapFriendsLoading(true);
+
+    try {
+      const nextFriends: FriendPlayerListItem[] = [];
+      const seen = new Set<string>();
+      let startWith = 0;
+      let totalCount = Number.POSITIVE_INFINITY;
+
+      while (startWith < totalCount) {
+        const page = await fetchFriendsPage(telegramIdValue, {
+          limit: 50,
+          startWith,
+        });
+
+        totalCount = page.totalCount;
+        for (const item of page.items) {
+          if (seen.has(item.telegramId)) continue;
+          seen.add(item.telegramId);
+          nextFriends.push(item);
+        }
+
+        if (page.items.length === 0) break;
+        startWith += page.items.length;
+      }
+
+      nextFriends.sort((a, b) => {
+        if (b.masteredVerses !== a.masteredVerses) {
+          return b.masteredVerses - a.masteredVerses;
+        }
+        if (b.weeklyRepetitions !== a.weeklyRepetitions) {
+          return b.weeklyRepetitions - a.weeklyRepetitions;
+        }
+        return a.telegramId.localeCompare(b.telegramId);
+      });
+
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setProgressMapFriends(nextFriends);
+      }
+
+      return nextFriends;
+    } catch (error) {
+      console.error("Не удалось получить друзей для карты:", error);
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setProgressMapFriends([]);
+      }
+      return [];
+    } finally {
+      if (progressMapFriendsRequestIdRef.current === requestId) {
+        setIsProgressMapFriendsLoading(false);
+      }
+    }
+  }, []);
+
+  const pushPage = useCallback((page: Page) => {
+    setPageStack((prev) => {
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage === page) return prev;
+      return [...prev, page];
+    });
+  }, []);
+
+  const handleRootNavigate = useCallback((page: string) => {
+    const nextPage = page as RootPage;
+
+    setPageStack((prev) => {
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage === nextPage && prev.length === 1) {
+        return prev;
+      }
+      return [nextPage];
+    });
+
+    setTrainingDirectLaunch(null);
+  }, []);
+
+  const handleNavigateBackInApp = useCallback(() => {
+    setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  }, []);
+
+  useEffect(() => {
+    const previousPage = previousPageRef.current;
+    previousPageRef.current = currentPage;
+
+    const hasEnteredDashboard =
+      currentPage === "dashboard" && previousPage !== "dashboard";
+    if (!hasEnteredDashboard || !telegramId) return;
+
+    void loadDashboardFriendsActivity(telegramId);
+  }, [currentPage, loadDashboardFriendsActivity, telegramId]);
+
+  useEffect(() => {
+    if (currentPage !== "progress-map" || !telegramId) return;
+    if (hasLoadedProgressMapFriendsRef.current) return;
+
+    hasLoadedProgressMapFriendsRef.current = true;
+    void loadProgressMapFriends(telegramId);
+  }, [currentPage, loadProgressMapFriends, telegramId]);
+
+  const handleToggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
+
+  const loadAllUserVerses = useCallback(async (telegramIdValue: string) => {
+    try {
+      const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
+      const allVerses = response as Array<AppVerseApiRecord>;
+      return allVerses;
+    } catch (err) {
+      console.error("Не удалось получить стихи пользователя:", err);
+      throw err;
+    }
+  }, []);
+
+  const loadTrainingVersesForDashboard = useCallback(async (telegramIdValue: string) => {
+    if (!telegramIdValue) return [];
+    if (trainingVersesPromiseRef.current) {
+      return trainingVersesPromiseRef.current;
+    }
+
+    const requestId = ++trainingVersesRequestIdRef.current;
+    setIsTrainingVersesLoading(true);
+
+    const requestPromise = loadAllUserVerses(telegramIdValue)
+      .then((allVerses) => {
+        const trainingPool = pickTrainingDashboardVerses(
+          allVerses.map((verse) => mapUserVerseToAppVerse(verse))
+        );
+
+        if (trainingVersesRequestIdRef.current === requestId) {
+          setVerses(trainingPool);
+          setHasLoadedTrainingVerses(true);
+        }
+
+        return trainingPool;
+      })
+      .catch((err) => {
+        if (trainingVersesRequestIdRef.current === requestId) {
+          setVerses([]);
+          setHasLoadedTrainingVerses(false);
+        }
+        throw err;
+      })
+      .finally(() => {
+        if (trainingVersesPromiseRef.current === requestPromise) {
+          trainingVersesPromiseRef.current = null;
+        }
+        if (trainingVersesRequestIdRef.current === requestId) {
+          setIsTrainingVersesLoading(false);
+        }
+      });
+
+    trainingVersesPromiseRef.current = requestPromise;
+    return requestPromise;
+  }, [loadAllUserVerses]);
+
+  const ensureTrainingVersesLoaded = useCallback(
+    async (telegramIdValue?: string | null) => {
+      const resolvedTelegramId =
+        telegramIdValue?.trim() ??
+        telegramId?.trim() ??
+        (typeof window !== "undefined" ? window.localStorage.getItem("telegramId") ?? "" : "");
+
+      if (!resolvedTelegramId) {
+        return verses;
+      }
+
+      if (trainingVersesPromiseRef.current) {
+        return trainingVersesPromiseRef.current;
+      }
+
+      if (hasLoadedTrainingVerses) {
+        return verses;
+      }
+
+      return loadTrainingVersesForDashboard(resolvedTelegramId);
+    },
+    [hasLoadedTrainingVerses, loadTrainingVersesForDashboard, telegramId, verses]
+  );
+
+  const scheduleTrainingVersePrefetch = useCallback(
+    (telegramIdValue: string) => {
+      cancelIdleTask(trainingVersesPrefetchHandleRef.current);
+      trainingVersesPrefetchHandleRef.current = scheduleIdleTask(() => {
+        if (hasLoadedTrainingVerses || trainingVersesPromiseRef.current) {
+          return;
+        }
+
+        void loadTrainingVersesForDashboard(telegramIdValue).catch((error) => {
+          console.warn("Не удалось предзагрузить стихи для тренировки:", error);
+        });
+      });
+    },
+    [hasLoadedTrainingVerses, loadTrainingVersesForDashboard]
+  );
 
   // Инициализация пользователя в окружении Telegram (idempotent).
   useEffect(() => {
@@ -498,7 +785,6 @@ export default function App({ onInitialContentReady }: AppProps) {
       const telegramAvatarUrl = String(telegramWebUser?.photo_url ?? "").trim();
 
       if (!telegramId) {
-        setIsLoading(false);
         setDashboardStats(null);
         setDashboardLeaderboard(null);
         setDashboardFriendsActivity(null);
@@ -538,174 +824,42 @@ export default function App({ onInitialContentReady }: AppProps) {
         }
       }
 
-      const fetchDashboardData = async () => {
-        try {
-          setIsLoading(true);
-          await Promise.all([
-            loadTrainingVersesForDashboard(telegramId),
-            loadDashboardStats(telegramId),
-            loadDashboardLeaderboard(telegramId),
-            loadDashboardFriendsActivity(telegramId),
-          ]);
-        } catch (err) {
-          console.error("Не удалось получить данные дашборда:", err);
-          toast.error("Ошибка при подключении к базе данных");
-          setVerses([]);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      await fetchDashboardData();
-      finishBootstrapping();
+      try {
+        await Promise.all([
+          loadDashboardStats(telegramId),
+          loadDashboardLeaderboard(telegramId),
+          loadDashboardFriendsActivity(telegramId),
+        ]);
+      } catch (err) {
+        console.error("Не удалось получить данные дашборда:", err);
+        toast.error("Ошибка при подключении к базе данных");
+      } finally {
+        finishBootstrapping();
+        scheduleTrainingVersePrefetch(telegramId);
+      }
     })();
 
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  const handleNavigate = (page: string) => {
-    if (page === "references" && !canAccessReferenceTrainer) {
-      toast.info("Раздел «Якоря» пока недоступен", {
-        description: "Добавьте более 10 стихов в статусе LEARNING.",
-      });
-      return;
-    }
-    setPageStack((prev) => {
-      const nextPage = page as Page;
-      const activePage = prev[prev.length - 1] ?? "dashboard";
-      if (activePage === nextPage) return prev;
-      return [...prev, nextPage];
-    });
-    setDashboardGalleryIndex(null);
-    setDashboardGalleryVerses([]);
-    setDashboardGalleryLaunchMode("preview");
-  };
-
-  const handleNavigateBackInApp = useCallback(() => {
-    setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  }, []);
+  }, [
+    loadDashboardFriendsActivity,
+    loadDashboardLeaderboard,
+    loadDashboardStats,
+    scheduleTrainingVersePrefetch,
+  ]);
 
   useEffect(() => {
-    const previousPage = previousPageRef.current;
-    previousPageRef.current = currentPage;
+    if (!telegramId) return;
+    if (currentPage !== "training" && currentPage !== "progress-map") return;
+    if (hasLoadedTrainingVerses || trainingVersesPromiseRef.current) return;
 
-    const hasEnteredDashboard =
-      currentPage === "dashboard" && previousPage !== "dashboard";
-    if (!hasEnteredDashboard || !telegramId) return;
-
-    void loadDashboardFriendsActivity(telegramId);
-  }, [currentPage, telegramId]);
-
-  useEffect(() => {
-    if (currentPage === "references" && !canAccessReferenceTrainer) {
-      replaceCurrentPage("dashboard");
-    }
-  }, [canAccessReferenceTrainer, currentPage, replaceCurrentPage]);
-
-  const handleToggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
-  };
-
-  const loadAllUserVerses = async (telegramIdValue: string) => {
-    try {
-      const response = await fetchAllUserVerses({ telegramId: telegramIdValue });
-      const allVerses = response as Array<AppVerseApiRecord>;
-      return allVerses;
-    } catch (err) {
-      console.error("Не удалось получить стихи пользователя:", err);
-      throw err;
-    }
-  };
-
-  const loadTrainingVersesForDashboard = async (telegramIdValue: string) => {
-    try {
-      const allVerses = await loadAllUserVerses(telegramIdValue);
-      const trainingPool = pickTrainingDashboardVerses(
-        allVerses.map((verse) => mapUserVerseToAppVerse(verse))
-      );
-      setVerses(trainingPool);
-      return trainingPool;
-    } catch (err) {
-      setVerses([]);
-      throw err;
-    }
-  };
-
-  const mergeVerseListsUnique = (base: Array<Verse>, incoming: Array<Verse>) => {
-    if (incoming.length === 0) return base;
-    const seen = new Set(base.map((verse) => getVerseSyncKey(verse)));
-    const additions = incoming.filter((verse) => {
-      const key = getVerseSyncKey(verse);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    return additions.length > 0 ? [...base, ...additions] : base;
-  };
-
-  const loadDashboardTrainingGalleryChunk = async (
-    options?: { reset?: boolean }
-  ): Promise<Array<Verse>> => {
-    const reset = options?.reset === true;
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (!telegramIdValue) return [];
-    if (dashboardTrainingIsLoadingMore) return [];
-    if (!reset && !dashboardTrainingHasMoreRef.current) return [];
-
-    if (reset) {
-      dashboardTrainingStartWithRef.current = 0;
-      dashboardTrainingTotalCountRef.current = 0;
-      dashboardTrainingHasMoreRef.current = true;
-      setDashboardTrainingHasMore(true);
-    }
-
-    setDashboardTrainingIsLoadingMore(true);
-    try {
-      const page = await fetchUserVersesPage({
-        telegramId: telegramIdValue,
-        status: VerseStatus.LEARNING,
-        orderBy: "createdAt",
-        order: "desc",
-        limit: TRAINING_GALLERY_PAGE_SIZE,
-        startWith: dashboardTrainingStartWithRef.current,
-      });
-
-      const mappedChunk = (page.items as Array<AppVerseApiRecord>)
-        .map((item) => mapUserVerseToAppVerse(item))
-        .filter(isTrainingDashboardVerse)
-        .sort(sortByUpdatedAtDesc);
-
-      dashboardTrainingStartWithRef.current += page.items.length;
-      dashboardTrainingTotalCountRef.current = page.totalCount;
-      const hasMore = dashboardTrainingStartWithRef.current < page.totalCount;
-      dashboardTrainingHasMoreRef.current = hasMore;
-      setDashboardTrainingHasMore(hasMore);
-
-      if (reset) {
-        setDashboardGalleryVerses(mappedChunk);
-      } else {
-        setDashboardGalleryVerses((prev) => mergeVerseListsUnique(prev, mappedChunk));
-      }
-
-      return mappedChunk;
-    } catch (error) {
-      console.error("Не удалось подгрузить стихи для тренировки:", error);
-      dashboardTrainingHasMoreRef.current = false;
-      setDashboardTrainingHasMore(false);
-      return [];
-    } finally {
-      setDashboardTrainingIsLoadingMore(false);
-    }
-  };
+    void loadTrainingVersesForDashboard(telegramId);
+  }, [currentPage, hasLoadedTrainingVerses, loadTrainingVersesForDashboard, telegramId]);
 
 
-  const getVerseKey = (verse: Pick<Verse, "id" | "externalVerseId">) =>
-    getVerseSyncKey(verse);
-
-  const applyPatchToDashboardGalleryVerses = (event: VersePatchEvent) => {
-    setDashboardGalleryVerses((prev) =>
+  const handleTrainingVersePatched = (event: VersePatchEvent) => {
+    setVerses((prev) =>
       prev.map((verse) =>
         getVerseSyncKey(verse) === getVerseSyncKey(event.target)
           ? mergeVersePatch(verse, event.patch)
@@ -714,23 +868,15 @@ export default function App({ onInitialContentReady }: AppProps) {
     );
   };
 
-  const handleDashboardGalleryClose = () => {
-    setDashboardGalleryIndex(null);
-    setDashboardGalleryVerses([]);
-    setDashboardGalleryLaunchMode("preview");
-    dashboardTrainingStartWithRef.current = 0;
-    dashboardTrainingTotalCountRef.current = 0;
-    dashboardTrainingHasMoreRef.current = false;
-    setDashboardTrainingHasMore(false);
-    setDashboardTrainingIsLoadingMore(false);
+  /** Navigate to Training section and start a session for a specific verse */
+  const handleNavigateToTrainingWithVerse = useCallback((verse: Verse) => {
+    setTrainingDirectLaunch({ verse });
+    pushPage("training");
+  }, [pushPage]);
 
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (telegramIdValue) {
-      void loadTrainingVersesForDashboard(telegramIdValue);
-      void loadDashboardStats(telegramIdValue);
-      void loadDashboardLeaderboard(telegramIdValue);
-    }
-  };
+  const handleDirectLaunchConsumed = useCallback(() => {
+    setTrainingDirectLaunch(null);
+  }, []);
 
   const handleTelegramExitRequest = useCallback(() => {
     const webApp = getTelegramWebApp();
@@ -764,68 +910,17 @@ export default function App({ onInitialContentReady }: AppProps) {
       return;
     }
 
-    if (dashboardGalleryIndex !== null) {
-      handleDashboardGalleryClose();
-      return;
-    }
-
     handleNavigateBackInApp();
   }, [
-    dashboardGalleryIndex,
-    handleDashboardGalleryClose,
     handleNavigateBackInApp,
     showAddVerseDialog,
   ]);
 
   useTelegramBackButton({
-    enabled: showAddVerseDialog || dashboardGalleryIndex !== null || canGoBackInApp,
+    enabled: showAddVerseDialog || canGoBackInApp,
     onBack: handleTelegramBack,
     priority: 10,
   });
-
-  const handleDashboardGalleryStatusChange = async (
-    verse: Verse,
-    status: VerseStatus
-  ): Promise<VerseMutablePatch | void> => {
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (!telegramIdValue) throw new Error("No telegramId");
-
-    const response = await UserVersesService.patchApiUsersVerses(telegramIdValue, verse.externalVerseId, {
-      status,
-    });
-    const patch = pickMutableVersePatchFromApiResponse(response) ?? { status };
-    applyPatchToDashboardGalleryVerses({
-      target: { id: verse.id, externalVerseId: verse.externalVerseId },
-      patch,
-    });
-
-    void loadTrainingVersesForDashboard(telegramIdValue);
-    void loadDashboardStats(telegramIdValue);
-    void loadDashboardLeaderboard(telegramIdValue);
-
-    return patch;
-  };
-
-  const handleDashboardGalleryVersePatched = (event: VersePatchEvent) => {
-    applyPatchToDashboardGalleryVerses(event);
-  };
-
-  const handleDashboardGalleryDelete = async (verse: Verse) => {
-    const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
-    if (!telegramIdValue) throw new Error("No telegramId");
-
-    await UserVersesService.deleteApiUsersVerses(telegramIdValue, verse.externalVerseId);
-
-    setDashboardGalleryVerses((prev) => prev.filter((v) => getVerseKey(v) !== getVerseKey(verse)));
-
-    void loadTrainingVersesForDashboard(telegramIdValue);
-    void loadDashboardStats(telegramIdValue);
-    void loadDashboardLeaderboard(telegramIdValue);
-  };
-
-  const requestMoreDashboardTrainingVerses = async (): Promise<Array<Verse>> => {
-    return loadDashboardTrainingGalleryChunk({ reset: false });
-  };
 
   const handleVerseListMutationCommitted = () => {
     if (!telegramId) return;
@@ -835,10 +930,86 @@ export default function App({ onInitialContentReady }: AppProps) {
   };
 
   const handleFriendsChanged = () => {
+    setFriendsRefreshVersion((prev) => prev + 1);
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
+    hasLoadedProgressMapFriendsRef.current = false;
     void loadDashboardFriendsActivity(telegramIdValue);
+    if (currentPage === "progress-map") {
+      void loadProgressMapFriends(telegramIdValue);
+    }
   };
+
+  const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
+    if (!player.telegramId) return;
+    setActivePlayerProfile({
+      telegramId: player.telegramId,
+      name: player.name,
+      avatarUrl: player.avatarUrl ?? null,
+    });
+    setIsPlayerProfileDrawerOpen(true);
+  }, []);
+
+  const handlePlayerProfileDrawerOpenChange = useCallback((open: boolean) => {
+    setIsPlayerProfileDrawerOpen(open);
+    if (!open) {
+      setActivePlayerProfile(null);
+    }
+  }, []);
+
+  const openProgressMapTraining = useCallback(async (action: Exclude<ProgressMapAction, "open-verses">) => {
+    let nextTrainingVerses = verses;
+
+    if (!hasLoadedTrainingVerses) {
+      try {
+        nextTrainingVerses = await ensureTrainingVersesLoaded();
+      } catch (error) {
+        console.error("Не удалось подготовить стихи для тренировки:", error);
+        pushPage("training");
+        return;
+      }
+    }
+
+    const targetVerse =
+      action === "start-review"
+        ? nextTrainingVerses.find(isDueReviewVerse) ??
+          nextTrainingVerses.find(
+            (verse) => normalizeDisplayVerseStatus(verse.status) === "REVIEW"
+          ) ??
+          null
+        : nextTrainingVerses.find(
+            (verse) => normalizeDisplayVerseStatus(verse.status) === VerseStatus.LEARNING
+          ) ?? null;
+
+    if (!targetVerse) {
+      pushPage("training");
+      return;
+    }
+
+    handleNavigateToTrainingWithVerse(targetVerse);
+  }, [
+    ensureTrainingVersesLoaded,
+    handleNavigateToTrainingWithVerse,
+    hasLoadedTrainingVerses,
+    pushPage,
+    verses,
+  ]);
+
+  const handleProgressMapAction = useCallback((action: ProgressMapAction) => {
+    if (action === "open-verses") {
+      pushPage("verses");
+      return;
+    }
+
+    void openProgressMapTraining(action);
+  }, [openProgressMapTraining, pushPage]);
+
+  const handleOpenTraining = useCallback(() => {
+    if (telegramId) {
+      void ensureTrainingVersesLoaded(telegramId);
+    }
+    pushPage("training");
+  }, [ensureTrainingVersesLoaded, pushPage, telegramId]);
 
   const handleVerseAdded = async (verse: {
     externalVerseId: string;
@@ -923,35 +1094,31 @@ export default function App({ onInitialContentReady }: AppProps) {
     onInitialContentReady?.();
   }, [isBootstrapping, onInitialContentReady]);
 
+  useEffect(() => {
+    if (currentPage !== "training" && isTrainingSessionFullscreen) {
+      setIsTrainingSessionFullscreen(false);
+    }
+  }, [currentPage, isTrainingSessionFullscreen]);
+
   return (
     <>
       <div
-        aria-hidden={dashboardGalleryIndex !== null}
+        aria-hidden={false}
         className="min-h-screen transition-colors"
       >
         <Layout
           currentPage={currentPage}
-          onNavigate={handleNavigate}
+          onNavigate={handleRootNavigate}
           isContentReady={!isBootstrapping}
-          showReferencesSection={canAccessReferenceTrainer}
+          hideChrome={currentPage === "training" && isTrainingSessionFullscreen}
           showTelegramExitButton={
             isDashboardRootPage &&
-            !showAddVerseDialog &&
-            dashboardGalleryIndex === null
+            !showAddVerseDialog
           }
           onTelegramExit={handleTelegramExitRequest}
         >
           {currentPage === "dashboard" && (
-            <motion.div
-              aria-busy={isBootstrapping}
-              {...(shouldReduceMotion
-                ? {}
-                : {
-                    initial: { opacity: 0 },
-                    animate: { opacity: 1 },
-                    transition: { duration: 0.2, ease: "easeOut" as const },
-                  })}
-            >
+            <div aria-busy={isBootstrapping}>
               <Dashboard
                 todayVerses={verses}
                 dashboardStats={dashboardStats}
@@ -960,12 +1127,13 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onViewAll={() => handleNavigate("verses")}
-                canOpenReferences={canAccessReferenceTrainer}
-                onOpenReferences={() => handleNavigate("references")}
+                currentTelegramId={telegramId}
+                onOpenTraining={handleOpenTraining}
+                onOpenProfile={() => handleRootNavigate("profile")}
+                onOpenPlayerProfile={handleOpenPlayerProfile}
                 isInitializingData={isBootstrapping}
               />
-            </motion.div>
+            </div>
           )}
 
           {currentPage === "verses" && (
@@ -973,22 +1141,44 @@ export default function App({ onInitialContentReady }: AppProps) {
               onVerseAdded={handleVerseAdded}
               verseListExternalSyncVersion={verseListExternalSyncVersion}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
+              onNavigateToTraining={handleNavigateToTrainingWithVerse}
+              telegramId={telegramId}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
             />
           )}
 
-          {currentPage === "references" && canAccessReferenceTrainer && (
-            <ReferenceTrainer telegramId={telegramId} />
+          {currentPage === "training" && (
+            <Training
+              allVerses={verses}
+              isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
+              dashboardStats={dashboardStats}
+              telegramId={telegramId}
+              directLaunch={trainingDirectLaunch}
+              onDirectLaunchConsumed={handleDirectLaunchConsumed}
+              onVersePatched={handleTrainingVersePatched}
+              onRequestVerseSelection={() => pushPage("verses")}
+              onVerseMutationCommitted={handleVerseListMutationCommitted}
+              onSessionFullscreenChange={setIsTrainingSessionFullscreen}
+            />
           )}
 
-          {/* {currentPage === "collections" && (
-            <Collections
-              collections={mockCollections}
-              onCreateCollection={handleCreateCollection}
-              onSelectCollection={handleSelectCollection}
+          {currentPage === "progress-map" && (
+            <ProgressMap
+              dashboardStats={dashboardStats}
+              dashboardLeaderboard={dashboardLeaderboard}
+              trainingVerses={verses}
+              friendsOnMap={progressMapFriends}
+              isLoading={
+                isBootstrapping ||
+                (dashboardStats == null && isDashboardStatsLoading) ||
+                (dashboardLeaderboard == null && isDashboardLeaderboardLoading)
+              }
+              isFriendsLoading={isProgressMapFriendsLoading}
+              viewerTelegramId={telegramId}
+              onAction={handleProgressMapAction}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
             />
-          )} */}
-
-          {/* {currentPage === "stats" && <Statistics stats={mockStats} />} */}
+          )}
 
           {currentPage === "profile" && (
             <Profile
@@ -996,6 +1186,8 @@ export default function App({ onInitialContentReady }: AppProps) {
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
               onFriendsChanged={handleFriendsChanged}
+              onOpenPlayerProfile={handleOpenPlayerProfile}
+              friendsRefreshVersion={friendsRefreshVersion}
             />
           )}
         </Layout>
@@ -1007,24 +1199,14 @@ export default function App({ onInitialContentReady }: AppProps) {
         onAdd={handleVerseAdded}
       />
 
-      {dashboardGalleryIndex !== null && dashboardGalleryVerses[dashboardGalleryIndex] && (
-        <VerseGallery
-          verses={dashboardGalleryVerses}
-          initialIndex={dashboardGalleryIndex}
-          launchMode={dashboardGalleryLaunchMode}
-          onClose={handleDashboardGalleryClose}
-          onStatusChange={handleDashboardGalleryStatusChange}
-          onVersePatched={handleDashboardGalleryVersePatched}
-          onDelete={handleDashboardGalleryDelete}
-          previewHasMore={dashboardTrainingHasMore}
-          previewIsLoadingMore={dashboardTrainingIsLoadingMore}
-          onRequestMorePreviewVerses={async () => {
-            const nextChunk = await requestMoreDashboardTrainingVerses();
-            return nextChunk.length > 0;
-          }}
-          onRequestMoreTrainingVerses={requestMoreDashboardTrainingVerses}
-        />
-      )}
+      <PlayerProfileDrawer
+        viewerTelegramId={telegramId}
+        preview={activePlayerProfile}
+        open={isPlayerProfileDrawerOpen}
+        onOpenChange={handlePlayerProfileDrawerOpenChange}
+        onFriendsChanged={handleFriendsChanged}
+      />
+
 
       {/* {isTrainingBatchPromptOpen && (
         <div className="fixed inset-0 z-[450] bg-background/70 backdrop-blur-sm p-4 flex items-center justify-center">

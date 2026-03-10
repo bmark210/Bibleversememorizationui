@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { UserVerse } from "@/api/models/UserVerse";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import { computeDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import type { Verse } from "@/app/App";
 import {

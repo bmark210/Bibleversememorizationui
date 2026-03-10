@@ -1,5 +1,5 @@
 import { Pause, Play, Plus } from "lucide-react";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 export { clamp } from "@/shared/utils/clamp";
 import {
   normalizeDisplayVerseStatus,

@@ -340,6 +340,186 @@ export async function getGlobalOwnerCountByVerseIds(
   );
 }
 
+export type VerseOwnerPreviewUserRecord = {
+  verseId: string;
+  telegramId: string;
+  name: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+};
+
+export type VerseOwnerListUserRecord = {
+  telegramId: string;
+  name: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+  dailyStreak: number;
+};
+
+export async function getVerseOwnerPreviewByVerseIds(params: {
+  verseIds: string[];
+  scope: "friends" | "players";
+  followerTelegramId?: string;
+  limitPerVerse?: number;
+}): Promise<Map<string, VerseOwnerPreviewUserRecord[]>> {
+  const uniqueVerseIds = Array.from(new Set(params.verseIds.filter(Boolean)));
+  if (uniqueVerseIds.length === 0) {
+    return new Map();
+  }
+
+  if (params.scope === "friends" && !params.followerTelegramId) {
+    return new Map();
+  }
+
+  const limitPerVerse = Math.max(
+    1,
+    Math.min(5, Math.round(params.limitPerVerse ?? 3))
+  );
+  const followJoinSql =
+    params.scope === "friends"
+      ? Prisma.sql`
+          INNER JOIN "UserFollow" uf
+            ON uf."followingTelegramId" = uv."telegramId"
+           AND uf."followerTelegramId" = ${params.followerTelegramId!}
+        `
+      : Prisma.empty;
+
+  const rows = await prisma.$queryRaw<
+    Array<{
+      verseId: string;
+      telegramId: string;
+      name: string | null;
+      nickname: string | null;
+      avatarUrl: string | null;
+    }>
+  >(Prisma.sql`
+    WITH ranked_owners AS (
+      SELECT
+        uv."verseId" AS "verseId",
+        uv."telegramId" AS "telegramId",
+        u.name AS "name",
+        u.nickname AS "nickname",
+        u."avatarUrl" AS "avatarUrl",
+        ROW_NUMBER() OVER (
+          PARTITION BY uv."verseId"
+          ORDER BY uv."updatedAt" DESC, uv."createdAt" DESC, uv."telegramId" ASC
+        ) AS "rowNumber"
+      FROM "UserVerse" uv
+      INNER JOIN "User" u
+        ON u."telegramId" = uv."telegramId"
+      ${followJoinSql}
+      WHERE uv."verseId" IN (${Prisma.join(uniqueVerseIds)})
+    )
+    SELECT
+      "verseId",
+      "telegramId",
+      "name",
+      "nickname",
+      "avatarUrl"
+    FROM ranked_owners
+    WHERE "rowNumber" <= ${limitPerVerse}
+    ORDER BY "verseId" ASC, "rowNumber" ASC
+  `);
+
+  const result = new Map<string, VerseOwnerPreviewUserRecord[]>();
+  for (const row of rows) {
+    const bucket = result.get(row.verseId) ?? [];
+    bucket.push({
+      verseId: row.verseId,
+      telegramId: row.telegramId,
+      name: row.name,
+      nickname: row.nickname,
+      avatarUrl: row.avatarUrl,
+    });
+    result.set(row.verseId, bucket);
+  }
+
+  return result;
+}
+
+function buildVerseOwnersWhere(params: {
+  verseId: string;
+  scope: "friends" | "players";
+  followerTelegramId?: string;
+}) {
+  if (params.scope === "friends") {
+    if (!params.followerTelegramId) {
+      return {
+        verseId: "__missing__",
+      };
+    }
+
+    return {
+      verseId: params.verseId,
+      user: {
+        followers: {
+          some: {
+            followerTelegramId: params.followerTelegramId,
+          },
+        },
+      },
+    };
+  }
+
+  return {
+    verseId: params.verseId,
+  };
+}
+
+export async function countVerseOwners(params: {
+  verseId: string;
+  scope: "friends" | "players";
+  followerTelegramId?: string;
+}): Promise<number> {
+  return prisma.userVerse.count({
+    where: buildVerseOwnersWhere(params),
+  });
+}
+
+export async function getVerseOwnersPage(params: {
+  verseId: string;
+  scope: "friends" | "players";
+  followerTelegramId?: string;
+  startWith: number;
+  limit: number;
+}): Promise<VerseOwnerListUserRecord[]> {
+  const rows = await prisma.userVerse.findMany({
+    where: buildVerseOwnersWhere(params),
+    orderBy: [
+      {
+        updatedAt: "desc",
+      },
+      {
+        createdAt: "desc",
+      },
+      {
+        telegramId: "asc",
+      },
+    ],
+    skip: params.startWith,
+    take: params.limit,
+    select: {
+      user: {
+        select: {
+          telegramId: true,
+          name: true,
+          nickname: true,
+          avatarUrl: true,
+          dailyStreak: true,
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => ({
+    telegramId: row.user.telegramId,
+    name: row.user.name,
+    nickname: row.user.nickname,
+    avatarUrl: row.user.avatarUrl,
+    dailyStreak: row.user.dailyStreak,
+  }));
+}
+
 export async function getUserCatalogProgressByVerseIds(params: {
   telegramId: string;
   verseIds: string[];

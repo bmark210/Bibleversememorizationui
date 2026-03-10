@@ -34,7 +34,7 @@ const BUTTON_STYLE_BY_RATING: Record<TrainingModeRating, string> = {
 function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
   if (stage === 'review') {
     return [
-      { rating: 0, label: 'Не вспомнил', className: BUTTON_STYLE_BY_RATING[0] },
+      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
       { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
     ];
   }

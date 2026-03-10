@@ -10,6 +10,9 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export type { DashboardFriendActivityEntry } from './models/DashboardFriendActivityEntry';
 export type { DashboardFriendsActivityResponse } from './models/DashboardFriendsActivityResponse';
 export type { DashboardFriendsActivitySummary } from './models/DashboardFriendsActivitySummary';
+export type { FeedbackAuthor } from './models/FeedbackAuthor';
+export type { FeedbackEntry } from './models/FeedbackEntry';
+export type { FeedbackPageResponse } from './models/FeedbackPageResponse';
 export type { FriendPlayerListItem } from './models/FriendPlayerListItem';
 export type { FriendPlayersPageResponse } from './models/FriendPlayersPageResponse';
 export { FriendsMutationResponse } from './models/FriendsMutationResponse';
@@ -26,6 +29,7 @@ export type { UserWithVerses } from './models/UserWithVerses';
 export type { VerseTag } from './models/VerseTag';
 
 export { DocsService } from './services/DocsService';
+export { FeedbackService } from './services/FeedbackService';
 export { FriendsService } from './services/FriendsService';
 export { TagsService } from './services/TagsService';
 export { UsersService } from './services/UsersService';

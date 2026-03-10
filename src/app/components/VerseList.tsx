@@ -26,10 +26,12 @@ import { VerseListFilterCard } from "./verse-list/components/VerseListFilterCard
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
+import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import type { VerseListStatusFilter } from "./verse-list/constants";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
+import type { Verse } from "@/app/App";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -43,6 +45,13 @@ interface VerseListProps {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
+  onNavigateToTraining?: (verse: import("@/app/App").Verse) => void;
+  telegramId?: string | null;
+  onOpenPlayerProfile?: (player: {
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }) => void;
 }
 
 const VERSE_LIST_INTRO_STORAGE_PREFIX = "bible-memory.verse-list.intro.v1";
@@ -61,10 +70,20 @@ export function VerseList({
   onReopenGalleryHandled,
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
+  onNavigateToTraining,
+  telegramId = null,
+  onOpenPlayerProfile,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
+  const [isVerseOwnersDrawerOpen, setIsVerseOwnersDrawerOpen] = useState(false);
+  const [verseOwnersTarget, setVerseOwnersTarget] = useState<{
+    externalVerseId: string;
+    reference: string;
+    scope: "friends" | "players";
+    totalCount: number;
+  } | null>(null);
 
   const markVerseListIntroAsSeen = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -110,6 +129,23 @@ export function VerseList({
       setAddDialogMode("verse");
       setAddDialogOpen(true);
     },
+    onOpenVerseOwners: (verse: Verse) => {
+      if (
+        !verse.popularityScope ||
+        verse.popularityScope === "self" ||
+        !verse.popularityValue
+      ) {
+        return;
+      }
+
+      setVerseOwnersTarget({
+        externalVerseId: verse.externalVerseId,
+        reference: verse.reference,
+        scope: verse.popularityScope,
+        totalCount: Math.max(0, Math.round(verse.popularityValue)),
+      });
+      setIsVerseOwnersDrawerOpen(true);
+    },
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
@@ -141,6 +177,11 @@ export function VerseList({
       return;
     }
 
+    if (isVerseOwnersDrawerOpen) {
+      setIsVerseOwnersDrawerOpen(false);
+      return;
+    }
+
     if (isAboutDialogOpen) {
       handleAboutDialogOpenChange(false);
     }
@@ -150,12 +191,18 @@ export function VerseList({
     isAboutDialogOpen,
     isDeleteModalOpen,
     isGalleryOpen,
+    isVerseOwnersDrawerOpen,
     vm.gallery,
     vm.modal,
   ]);
 
   useTelegramBackButton({
-    enabled: addDialogOpen || isDeleteModalOpen || isGalleryOpen || isAboutDialogOpen,
+    enabled:
+      addDialogOpen ||
+      isDeleteModalOpen ||
+      isGalleryOpen ||
+      isVerseOwnersDrawerOpen ||
+      isAboutDialogOpen,
     onBack: handleTelegramBack,
     priority: 60,
   });
@@ -363,11 +410,13 @@ export function VerseList({
               verses={vm.pagination.verses}
               initialIndex={vm.gallery.galleryIndex}
               activeTagSlugs={vm.tagFilter.selectedTagSlugs}
-              launchMode="preview"
               onClose={vm.gallery.onClose}
               onStatusChange={vm.gallery.onStatusChange}
-              onVersePatched={vm.gallery.onVersePatched}
               onDelete={vm.gallery.onDelete}
+              onNavigateToTraining={(verse) => {
+                vm.gallery.onClose();
+                onNavigateToTraining?.(verse);
+              }}
               previewTotalCount={vm.pagination.totalCount}
               previewHasMore={vm.pagination.hasMoreVerses}
               previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}
@@ -375,6 +424,19 @@ export function VerseList({
             />,
             document.body,
           )}
+
+        <VerseOwnersDrawer
+          viewerTelegramId={telegramId}
+          target={verseOwnersTarget}
+          open={isVerseOwnersDrawerOpen}
+          onOpenChange={(open) => {
+            setIsVerseOwnersDrawerOpen(open);
+            if (!open) {
+              setVerseOwnersTarget(null);
+            }
+          }}
+          onOpenPlayerProfile={onOpenPlayerProfile}
+        />
       </motion.div>
     </>
   );

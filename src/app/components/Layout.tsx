@@ -1,11 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { Anchor, BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
-import { Button } from './ui/button';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -13,9 +12,9 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
-  showReferencesSection?: boolean;
   showTelegramExitButton?: boolean;
   onTelegramExit?: () => void;
+  hideChrome?: boolean;
 }
 
 export function Layout({
@@ -23,16 +22,16 @@ export function Layout({
   currentPage,
   onNavigate,
   isContentReady = false,
-  showReferencesSection = false,
-  showTelegramExitButton = false,
-  onTelegramExit,
+  // showTelegramExitButton = false,
+  // onTelegramExit,
+  hideChrome = false,
 }: LayoutProps) {
-  const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
+  const { contentSafeAreaInset } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-  const shouldShowTelegramExitButton =
-    isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
+  // const shouldShowTelegramExitButton =
+  //   isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,34 +60,41 @@ export function Layout({
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
-    ...(showReferencesSection
-      ? [{ id: 'references', label: 'Якоря', icon: Anchor }]
-      : []),
+    { id: 'training', label: 'Тренировка', icon: Dumbbell },
+    // { id: 'progress-map', label: 'Прогресс', icon: ChartLine },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
   const handleNavigateClick = (page: string) => {
-    triggerHaptic(page === currentPage ? 'light' : 'medium');
+    if (page === currentPage) {
+      triggerHaptic('light');
+      return;
+    }
+
+    triggerHaptic('medium');
     onNavigate(page);
   };
 
+  const isFullscreenPage = currentPage === 'progress-map'
+  const hideAppChrome = isFullscreenPage || hideChrome;
+
   return (
-    <div className="min-h-dvh flex flex-col">
-      {/* Header */}
-      <header 
+    <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
+      {/* Header — hidden on fullscreen pages and active immersive sessions */}
+      <header
         className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
           isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
-        }`}
+        }${hideAppChrome ? ' hidden' : ''}`}
         style={{ paddingTop: `${topInset}px` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
           <div className="relative flex items-center justify-center h-10">
             <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold text-primary">B Memory</h1>
+                {/* <BookOpen className="w-5 h-5 text-primary" /> */}
+              {/* <h1 className="text-xl font-semibold text-primary">B Memory</h1> */}
             </div>
 
-            {shouldShowTelegramExitButton ? (
+            {/* {shouldShowTelegramExitButton ? (
               <Button
                 type="button"
                 variant="outline"
@@ -101,7 +107,7 @@ export function Layout({
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Выйти</span>
               </Button>
-            ) : null}
+            ) : null} */}
           </div>
         </div>
       </header>
@@ -116,7 +122,9 @@ export function Layout({
               
               return (
                 <button
+                  type="button"
                   key={item.id}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => handleNavigateClick(item.id)}
                   className={cn(
                   'flex min-h-8 w-full items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
@@ -136,7 +144,11 @@ export function Layout({
         <main
           className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
           style={{
-            paddingBottom: isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
+            paddingBottom: hideAppChrome
+              ? `${bottomInset}px`
+              : currentPage === 'progress-map'
+              ? 0
+              : isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
           }}
         >
           {children}
@@ -146,7 +158,7 @@ export function Layout({
       {/* Mobile Bottom Navigation */}
       <div
         className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-300 ease-out ${
-          !isContentReady
+          hideAppChrome || !isContentReady
             ? 'opacity-0 translate-y-3 pointer-events-none'
             : isKeyboardOpen
               ? 'opacity-0 translate-y-full pointer-events-none'
@@ -155,15 +167,17 @@ export function Layout({
         style={{ paddingBottom: `${bottomInset}px` }}
       >
         <nav className="flex justify-around p-2 pt-2.5">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
-            
+
             return (
               <button
+                type="button"
                 key={item.id}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'text-primary'
                     : 'text-muted-foreground'

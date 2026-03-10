@@ -7,6 +7,7 @@ export type DashboardFriendActivityEntry = {
     name: string;
     avatarUrl: string | null;
     lastActiveAt: string | null;
+    masteredVerses: number;
     weeklyRepetitions: number;
     dailyStreak: number;
     averageProgressPercent: number;

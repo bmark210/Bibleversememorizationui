@@ -1,6 +1,6 @@
 import type * as React from 'react';
 import type { Verse } from '@/app/App';
-import type { VerseStatus } from '@/generated/prisma';
+import type { VerseStatus } from '@/shared/domain/verseStatus';
 import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';

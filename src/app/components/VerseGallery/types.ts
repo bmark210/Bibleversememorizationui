@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import type { VerseStatus } from "@/generated/prisma";
+import type { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 import type { Verse } from "@/app/App";
-import type { VerseMutablePatch, VersePatchEvent } from "@/app/types/verseSync";
+import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
 
 export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
@@ -53,14 +53,13 @@ export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
   activeTagSlugs?: Iterable<string> | null;
-  launchMode?: VerseGalleryLaunchMode;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
-  onVersePatched?: (event: VersePatchEvent) => void;
   onDelete: (verse: Verse) => Promise<void>;
+  /** Navigate to the Training section to train the given verse */
+  onNavigateToTraining: (verse: Verse) => void;
   previewTotalCount?: number;
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;
   onRequestMorePreviewVerses?: () => Promise<boolean>;
-  onRequestMoreTrainingVerses?: () => Promise<Verse[]>;
 };

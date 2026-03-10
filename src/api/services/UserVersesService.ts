@@ -105,6 +105,64 @@ export class UserVersesService {
         });
     }
     /**
+     * Пул стихов для раздела «Якоря»
+     * @param telegramId
+     * @returns UserVerse OK
+     * @throws ApiError
+     */
+    public static getApiUsersVersesReferenceTrainer(
+        telegramId: string,
+    ): CancelablePromise<Array<UserVerse>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/verses/reference-trainer',
+            path: {
+                'telegramId': telegramId,
+            },
+        });
+    }
+    /**
+     * Сохранить skill-score по итогам сессии раздела «Якоря»
+     * @param telegramId
+     * @param requestBody
+     * @returns any OK
+     * @throws ApiError
+     */
+    public static postApiUsersVersesReferenceTrainerSession(
+        telegramId: string,
+        requestBody: {
+            sessionTrack: 'reference' | 'incipit' | 'context' | 'mixed';
+            updates: Array<{
+                /**
+                 * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
+                 */
+                externalVerseId: string;
+                track: 'reference' | 'incipit' | 'context';
+                outcome: 'correct_first' | 'correct_retry' | 'wrong';
+            }>;
+        },
+    ): CancelablePromise<{
+        updated: Array<{
+            /**
+             * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
+             */
+            externalVerseId: string;
+            referenceScore: number;
+            incipitScore: number;
+            contextScore: number;
+        }>;
+    }> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/{telegramId}/verses/reference-trainer/session',
+            path: {
+                'telegramId': telegramId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
+    /**
      * Обновить прогресс по стиху (сервер защищает инварианты mastery/review и валидирует lastTrainingModeId)
      * @param telegramId
      * @param externalVerseId

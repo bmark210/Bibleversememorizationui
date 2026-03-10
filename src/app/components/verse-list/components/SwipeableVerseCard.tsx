@@ -3,9 +3,10 @@ import { Brain, Clock3, Globe2, Pause, Play, Plus, Repeat, Trash2, Trophy, Users
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { cn } from '@/app/components/ui/utils';
 import { Verse } from '@/app/App';
-import { VerseStatus } from '@/generated/prisma';
+import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
@@ -19,6 +20,7 @@ import { haptic } from '../haptics';
 export type SwipeCardProps = {
   verse: Verse;
   onOpen: () => void;
+  onOpenOwners?: (verse: Verse) => void;
   onAddToLearning: (verse: Verse) => void;
   onPauseLearning: (verse: Verse) => void;
   onResumeLearning: (verse: Verse) => void;
@@ -29,6 +31,7 @@ export type SwipeCardProps = {
 export const SwipeableVerseCard = ({
   verse,
   onOpen,
+  onOpenOwners,
   onAddToLearning,
   onPauseLearning,
   onResumeLearning,
@@ -71,6 +74,15 @@ export const SwipeableVerseCard = ({
     }
     return null;
   })();
+  const popularityPreviewUsers = Array.isArray(verse.popularityPreviewUsers)
+    ? verse.popularityPreviewUsers.slice(0, 3)
+    : [];
+  const hasOwnersTrigger =
+    Boolean(onOpenOwners) &&
+    popularityChip != null &&
+    popularityValue != null &&
+    popularityValue > 0 &&
+    (verse.popularityScope === 'friends' || verse.popularityScope === 'players');
   const waitingUntilLabel = (() => {
     if (!verse.nextReviewAt) return null;
     const date = new Date(verse.nextReviewAt);
@@ -96,6 +108,14 @@ export const SwipeableVerseCard = ({
   const stopCardOpen = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
   };
+
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
 
   const renderActions = () => {
     // Глобальный стих, не добавленный пользователем — только кнопка "Добавить"
@@ -389,7 +409,37 @@ export const SwipeableVerseCard = ({
                 </motion.div>
               ) : <div className="w-full h-4"></div>}
 
-        {popularityChip && (
+        {hasOwnersTrigger ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              stopCardOpen(event);
+              onOpenOwners?.(verse);
+            }}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border border-border/40 bg-muted/25 px-2 py-1 text-[10px] text-muted-foreground/70 shadow-sm transition-colors hover:bg-muted/45',
+              popularityChip?.className
+            )}
+            aria-label={popularityChip?.label ?? 'Открыть список пользователей'}
+          >
+            <span className="font-semibold tabular-nums">{popularityValue}</span>
+            <span className="flex -space-x-1.5">
+              {popularityPreviewUsers.map((user) => (
+                <Avatar
+                  key={user.telegramId}
+                  className="h-4 w-4 border border-background shadow-sm"
+                >
+                  {user.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  ) : null}
+                  <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </span>
+          </button>
+        ) : popularityChip ? (
           <div className="pointer-events-none">
             <Badge
               className={cn(
@@ -401,7 +451,7 @@ export const SwipeableVerseCard = ({
               {popularityChip.label}
             </Badge>
           </div>
-        )}
+        ) : null}
         </div>
       </div>
     </div>

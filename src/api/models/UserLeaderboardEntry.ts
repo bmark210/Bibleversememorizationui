@@ -7,6 +7,9 @@ export type UserLeaderboardEntry = {
     telegramId: string;
     name: string;
     avatarUrl: string | null;
+    /**
+     * Композитный рейтинг участника (прогресс + навыки + регулярность).
+     */
     score: number;
     streakDays: number;
     weeklyRepetitions: number;

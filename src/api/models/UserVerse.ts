@@ -10,9 +10,9 @@ export type UserVerse = {
     status: UserVerse.status;
     masteryLevel: number;
     repetitions: number;
-    referenceScore?: number;
-    incipitScore?: number;
-    contextScore?: number;
+    referenceScore: number;
+    incipitScore: number;
+    contextScore: number;
     lastTrainingModeId?: number | null;
     lastReviewedAt: string | null;
     nextReviewAt: string | null;

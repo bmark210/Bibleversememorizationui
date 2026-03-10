@@ -435,6 +435,7 @@ export function VerseCard({
           "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
           "shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]",
           isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border/50",
+          onVerticalSwipeStep && "touch-none overscroll-none",
           "transition-[opacity,transform] duration-300",
           MIN_HEIGHT_CLASS_BY_KIND[minHeight],
           isActive ? "opacity-100 scale-100" : "opacity-60 scale-95"

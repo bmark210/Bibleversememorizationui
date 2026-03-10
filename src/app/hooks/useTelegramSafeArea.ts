@@ -39,21 +39,27 @@ function normalizeInsets(value: unknown): SafeAreaInsets | null {
   };
 }
 
-function readCssInsetVar(varName: string): number {
-  if (typeof window === "undefined") return 0;
-  const raw = window.getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+function readCssInsetVar(
+  styles: CSSStyleDeclaration,
+  varName: string
+): number {
+  const raw = styles.getPropertyValue(varName).trim();
   if (!raw) return 0;
   const parsed = Number.parseFloat(raw.replace("px", ""));
   return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
 }
 
 function readCssInsets(kind: "safe" | "content"): SafeAreaInsets {
+  if (typeof window === "undefined") return ZERO_INSETS;
+
   const prefix = kind === "content" ? "--tg-content-safe-area-inset-" : "--tg-safe-area-inset-";
+  const styles = window.getComputedStyle(document.documentElement);
+
   return {
-    top: readCssInsetVar(`${prefix}top`),
-    bottom: readCssInsetVar(`${prefix}bottom`),
-    left: readCssInsetVar(`${prefix}left`),
-    right: readCssInsetVar(`${prefix}right`),
+    top: readCssInsetVar(styles, `${prefix}top`),
+    bottom: readCssInsetVar(styles, `${prefix}bottom`),
+    left: readCssInsetVar(styles, `${prefix}left`),
+    right: readCssInsetVar(styles, `${prefix}right`),
   };
 }
 
