@@ -17,6 +17,7 @@ import { useTelegram } from "../contexts/TelegramContext";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Feedback } from "./Feedback";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
@@ -749,6 +750,12 @@ export function Profile({
                   </div>
                 </div>
               )}
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface>
+              <Feedback telegramId={telegramId} />
             </ProfileSurface>
           </motion.div>
         </motion.div>
