@@ -63,6 +63,13 @@ function useEventCallback<Args extends unknown[], Result>(
   return useCallback((...args: Args) => fnRef.current(...args), []);
 }
 
+function normalizeTrainingSessionVerses(verses: Verse[]): TrainingVerseState[] {
+  return verses
+    .map(toTrainingVerseState)
+    .filter((v): v is TrainingVerseState => v !== null)
+    .filter(isTrainingEligibleVerse);
+}
+
 export type UseTrainingSessionReturn = {
   trainingActiveVerse: TrainingVerseState | null;
   trainingIndex: number;
@@ -94,20 +101,11 @@ export function useTrainingSession({
 }: Params): UseTrainingSessionReturn {
   // ── Core state ─────────────────────────────────────────────────────────────
   const [trainingVerses, setTrainingVerses] = useState<TrainingVerseState[]>(
-    () => {
-      const normalized = verses
-        .map(toTrainingVerseState)
-        .filter((v): v is TrainingVerseState => v !== null)
-        .filter(isTrainingEligibleVerse);
-      return normalized;
-    }
+    () => normalizeTrainingSessionVerses(verses)
   );
   const [trainingIndex, setTrainingIndex] = useState(0);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(() => {
-    const initial = verses
-      .map(toTrainingVerseState)
-      .filter((v): v is TrainingVerseState => v !== null)
-      .filter(isTrainingEligibleVerse);
+    const initial = normalizeTrainingSessionVerses(verses);
     return initial[0] ? chooseModeId(initial[0]) : null;
   });
   const [isActionPending, setIsActionPending] = useState(false);
@@ -123,6 +121,14 @@ export function useTrainingSession({
   const rendererRef = useRef<TrainingModeRendererHandle | null>(null);
 
   const trainingActiveVerse = trainingVerses[trainingIndex] ?? null;
+
+  useEffect(() => {
+    const normalized = normalizeTrainingSessionVerses(verses);
+    setTrainingVerses(normalized);
+    setTrainingIndex(0);
+    setTrainingModeId(normalized[0] ? chooseModeId(normalized[0]) : null);
+    setQuickForgetConfirmStage(null);
+  }, [verses]);
 
   // ── Feedback helpers ───────────────────────────────────────────────────────
   const showFeedback = useCallback((message: string) => {

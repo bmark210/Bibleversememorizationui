@@ -50,14 +50,21 @@ type TrainingSubsetSelectProps = {
   value: TrainingSubsetSelectValue;
   onValueChange: (value: TrainingSubsetSelectValue) => void;
   className?: string;
+  options?: TrainingSubsetSelectValue[];
+  disabled?: boolean;
 };
 
 export function TrainingSubsetSelect({
   value,
   onValueChange,
   className,
+  options = TRAINING_SUBSET_OPTIONS.map((option) => option.key),
+  disabled = false,
 }: TrainingSubsetSelectProps) {
   const activeTheme = TRAINING_SUBSET_THEME[value];
+  const visibleOptions = TRAINING_SUBSET_OPTIONS.filter((option) =>
+    options.includes(option.key)
+  );
 
   return (
     <div
@@ -66,7 +73,11 @@ export function TrainingSubsetSelect({
         className
       )}
     >
-      <Select value={value} onValueChange={(next) => onValueChange(next as TrainingSubsetSelectValue)}>
+      <Select
+        value={value}
+        disabled={disabled}
+        onValueChange={(next) => onValueChange(next as TrainingSubsetSelectValue)}
+      >
         <SelectTrigger
           size="sm"
           className={cn(
@@ -78,7 +89,7 @@ export function TrainingSubsetSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent className={activeTheme.contentClassName}>
-          {TRAINING_SUBSET_OPTIONS.map((option) => (
+          {visibleOptions.map((option) => (
             <SelectItem
               key={option.key}
               value={option.key}
@@ -101,4 +112,3 @@ export function TrainingSubsetSelect({
     </div>
   );
 }
-

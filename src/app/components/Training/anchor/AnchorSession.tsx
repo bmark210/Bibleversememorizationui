@@ -1,19 +1,32 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { AnchorTrainingTrack } from "../types";
 
-const ReferenceTrainer = dynamic(
+const AnchorTrainingSession = dynamic(
   () =>
-    import("@/app/components/ReferenceTrainer/ReferenceTrainer").then(
-      (m) => m.ReferenceTrainer
+    import("@/app/components/Training/anchor/AnchorTrainingSession").then(
+      (m) => m.AnchorTrainingSession
     ),
   { loading: () => <div className="min-h-[60vh]" /> }
 );
 
 interface AnchorSessionProps {
   telegramId: string | null;
+  initialTrack: AnchorTrainingTrack;
+  onClose: () => void;
 }
 
-export function AnchorSession({ telegramId }: AnchorSessionProps) {
-  return <ReferenceTrainer telegramId={telegramId} />;
+export function AnchorSession({
+  telegramId,
+  initialTrack,
+  onClose,
+}: AnchorSessionProps) {
+  return (
+    <AnchorTrainingSession
+      telegramId={telegramId}
+      initialTrack={initialTrack}
+      onClose={onClose}
+    />
+  );
 }

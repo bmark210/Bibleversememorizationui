@@ -2,27 +2,29 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft } from "lucide-react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
 import { AnchorSession } from "./anchor/AnchorSession";
 import { TrainingSession } from "./session/TrainingSession";
+import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type {
   TrainingProps,
   TrainingView,
   TrainingMode,
+  CoreTrainingMode,
   TrainingOrder,
+  TrainingScenario,
+  AnchorTrainingTrack,
 } from "./types";
-import { TRAINING_MODE_LABELS } from "./types";
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 
+const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
+
 function pickVersesForModes(
-  modes: TrainingMode[],
+  modes: CoreTrainingMode[],
   allVerses: Verse[]
 ): Verse[] {
-  if (modes.includes("anchor")) return allVerses;
-
   const statuses = new Set<string>();
   if (modes.includes("learning")) statuses.add("LEARNING");
   if (modes.includes("review")) statuses.add("REVIEW");
@@ -39,6 +41,15 @@ function autoModeForVerse(verse: Verse): TrainingMode {
   return "learning";
 }
 
+function getInitialSubsetFilter(
+  modes: CoreTrainingMode[]
+): TrainingSubsetSelectValue {
+  if (modes.length === 1) {
+    return modes[0];
+  }
+  return "catalog";
+}
+
 export function Training({
   allVerses,
   dashboardStats,
@@ -50,8 +61,11 @@ export function Training({
   onVerseMutationCommitted: _onVerseMutationCommitted,
 }: TrainingProps) {
   const [view, setView] = useState<TrainingView>({ mode: "hub" });
-  const [selectedModes, setSelectedModes] = useState<TrainingMode[]>(["learning"]);
+  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
+  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(["learning"]);
   const [selectedOrder, setSelectedOrder] = useState<TrainingOrder>("updatedAt");
+  const [selectedAnchorTrack, setSelectedAnchorTrack] =
+    useState<AnchorTrainingTrack>("mixed");
   const directLaunchConsumedRef = useRef(false);
 
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
@@ -62,11 +76,11 @@ export function Training({
     const mode = autoModeForVerse(directLaunch.verse);
 
     if (mode === "anchor") {
-      setView({ mode: "anchor" });
+      setView({ mode: "anchor", track: selectedAnchorTrack });
     } else {
       // Build a verse list: put the target verse first, then add other eligible verses
       const targetKey = `${directLaunch.verse.externalVerseId}`;
-      const eligibleVerses = pickVersesForModes([mode], allVerses);
+      const eligibleVerses = pickVersesForModes(CORE_SESSION_MODES, allVerses);
       const otherVerses = eligibleVerses.filter(
         (v) => v.externalVerseId !== targetKey,
       );
@@ -79,7 +93,7 @@ export function Training({
         order: "updatedAt",
       });
     }
-  }, [directLaunch, allVerses]);
+  }, [directLaunch, allVerses, selectedAnchorTrack]);
 
   // Reset consumed ref when directLaunch changes to a new value
   useEffect(() => {
@@ -95,12 +109,25 @@ export function Training({
   }, [onDirectLaunchConsumed]);
 
   const handleStart = useCallback(() => {
-    // If only "anchor" is selected, go directly to anchor session
-    if (selectedModes.length === 1 && selectedModes[0] === "anchor") {
-      setView({ mode: "anchor" });
+    if (selectedScenario === "anchor") {
+      setView({ mode: "anchor", track: selectedAnchorTrack });
       return;
     }
-    const verses = pickVersesForModes(selectedModes, allVerses);
+    const selectedVerses = pickVersesForModes(selectedModes, allVerses);
+    if (selectedVerses.length === 0) return;
+    const verses = pickVersesForModes(CORE_SESSION_MODES, allVerses);
+    setView({
+      mode: "verse-session",
+      verses,
+      trainingModes: selectedModes,
+      order: selectedOrder,
+    });
+  }, [allVerses, selectedAnchorTrack, selectedModes, selectedOrder, selectedScenario]);
+
+  const handleStartSelection = useCallback(() => {
+    if (selectedScenario !== "core") return;
+    if (!selectionVerses || selectionVerses.length === 0) return;
+    const verses = pickVersesForModes(CORE_SESSION_MODES, selectionVerses);
     if (verses.length === 0) return;
     setView({
       mode: "verse-session",
@@ -108,65 +135,17 @@ export function Training({
       trainingModes: selectedModes,
       order: selectedOrder,
     });
-  }, [selectedModes, selectedOrder, allVerses]);
+  }, [selectionVerses, selectedModes, selectedOrder, selectedScenario]);
 
-  const handleStartSelection = useCallback(() => {
-    if (!selectionVerses || selectionVerses.length === 0) return;
-    setView({
-      mode: "verse-session",
-      verses: selectionVerses,
-      trainingModes: selectedModes,
-      order: selectedOrder,
-    });
-  }, [selectionVerses, selectedModes, selectedOrder]);
-
-  // Telegram back: go back to hub from any sub-view
+  // Telegram back for core training only. Anchor mode handles back internally.
   useTelegramBackButton({
-    enabled: view.mode !== "hub",
+    enabled: view.mode === "verse-session",
     onBack: goToHub,
     priority: 50,
   });
 
-  const isSubView = view.mode !== "hub";
-
-  const sessionLabel =
-    view.mode === "verse-session"
-      ? view.trainingModes.map((m) => TRAINING_MODE_LABELS[m]).join(" + ")
-      : "";
-
   return (
     <div className="h-full">
-      {/* Sub-view top bar */}
-      <AnimatePresence>
-        {isSubView && (
-          <motion.div
-            key="sub-header"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="sticky top-0 z-10 flex items-center gap-2 bg-card/90 backdrop-blur-lg border-b border-border/50 px-4 py-2.5"
-          >
-            <button
-              type="button"
-              onClick={goToHub}
-              className="flex items-center gap-1 text-sm text-foreground/70 hover:text-foreground transition-colors rounded-lg px-1 py-0.5 -mx-1"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Тренировка
-            </button>
-            {view.mode === "verse-session" && (
-              <span className="text-sm text-foreground/40 truncate">
-                / {sessionLabel}
-              </span>
-            )}
-            {view.mode === "anchor" && (
-              <span className="text-sm text-foreground/40">/ Якоря</span>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Main content */}
       <AnimatePresence mode="wait">
         {view.mode === "hub" && (
@@ -181,10 +160,14 @@ export function Training({
               allVerses={allVerses}
               dashboardStats={dashboardStats}
               selectionVerses={selectionVerses}
+              selectedScenario={selectedScenario}
               selectedModes={selectedModes}
               selectedOrder={selectedOrder}
+              selectedAnchorTrack={selectedAnchorTrack}
+              onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
               onOrderChange={setSelectedOrder}
+              onAnchorTrackChange={setSelectedAnchorTrack}
               onStart={handleStart}
               onStartSelection={handleStartSelection}
             />
@@ -199,7 +182,11 @@ export function Training({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <AnchorSession telegramId={telegramId} />
+            <AnchorSession
+              telegramId={telegramId}
+              initialTrack={view.track}
+              onClose={goToHub}
+            />
           </motion.div>
         )}
 
@@ -210,10 +197,11 @@ export function Training({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="flex flex-col flex-1 max-w-4xl mx-auto w-full"
           >
             <TrainingSession
               verses={view.verses}
+              initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
+              initialOrder={view.order}
               onClose={goToHub}
               onVersePatched={onVersePatched}
             />
