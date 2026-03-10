@@ -37,8 +37,8 @@ function buildWelcomeText(firstName: string | undefined) {
   return [
     `Привет, ${userName}! 🌟`,
     "",
-    "Я бот-помощник для приложения Bible Memory 📖",
-    "Это игра для запоминания стихов из Библии",
+    "Bible Memory 📖 — это игра для запоминания стихов из Библии.",
+    "Играй, запоминай и соревнуйся вместе с друзьями",
   ].join("\n");
 }
 

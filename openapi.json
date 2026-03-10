@@ -21,6 +21,10 @@
       "description": "Прогресс запоминания стихов"
     },
     {
+      "name": "Feedback",
+      "description": "Обратная связь от пользователей"
+    },
+    {
       "name": "Tags",
       "description": "Теги и привязка к стихам"
     },
@@ -30,6 +34,106 @@
     }
   ],
   "paths": {
+    "/api/feedback": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Получить все отзывы с пагинацией (только для админов)",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "startWith",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPageResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для админов"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "summary": "Отправить отзыв",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "telegramId",
+                  "text"
+                ],
+                "properties": {
+                  "telegramId": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Создано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
     "/api/users": {
       "post": {
         "tags": [
@@ -118,7 +222,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Персональная статистика пользователя для дашборда",
+        "summary": "Персональная статистика пользователя для дашборда (включая композитный рейтинг)",
         "parameters": [
           {
             "name": "telegramId",
@@ -366,7 +470,7 @@
         "tags": [
           "Friends"
         ],
-        "summary": "Последняя активность друзей для дашборда",
+        "summary": "Последняя активность друзей для дашборда (с композитным рейтингом)",
         "parameters": [
           {
             "name": "telegramId",
@@ -409,7 +513,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Таблица лидеров для главной страницы",
+        "summary": "Таблица лидеров для главной страницы (рейтинг: прогресс + навыки + регулярность)",
         "parameters": [
           {
             "name": "telegramId",
@@ -736,6 +840,175 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/UserVerse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/verses/reference-trainer": {
+      "get": {
+        "tags": [
+          "User Verses"
+        ],
+        "summary": "Пул стихов для раздела «Якоря»",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserVerse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/verses/reference-trainer/session": {
+      "post": {
+        "tags": [
+          "User Verses"
+        ],
+        "summary": "Сохранить skill-score по итогам сессии раздела «Якоря»",
+        "parameters": [
+          {
+            "name": "telegramId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sessionTrack",
+                  "updates"
+                ],
+                "properties": {
+                  "sessionTrack": {
+                    "type": "string",
+                    "enum": [
+                      "reference",
+                      "incipit",
+                      "context",
+                      "mixed"
+                    ]
+                  },
+                  "updates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "externalVerseId",
+                        "track",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "externalVerseId": {
+                          "type": "string",
+                          "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+                          "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+                          "examples": [
+                            "43-3-16",
+                            "43-3-16-18"
+                          ]
+                        },
+                        "track": {
+                          "type": "string",
+                          "enum": [
+                            "reference",
+                            "incipit",
+                            "context"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "correct_first",
+                            "correct_retry",
+                            "wrong"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "updated"
+                  ],
+                  "properties": {
+                    "updated": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "externalVerseId",
+                          "referenceScore",
+                          "incipitScore",
+                          "contextScore"
+                        ],
+                        "properties": {
+                          "externalVerseId": {
+                            "type": "string",
+                            "pattern": "^\\d+-\\d+-\\d+(?:-\\d+)?$",
+                            "description": "ID стиха: \"book-chapter-verse\" или диапазон в пределах главы \"book-chapter-verseStart-verseEnd\" (максимум 5 стихов в диапазоне).",
+                            "examples": [
+                              "43-3-16",
+                              "43-3-16-18"
+                            ]
+                          },
+                          "referenceScore": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "incipitScore": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "contextScore": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -1214,6 +1487,95 @@
   },
   "components": {
     "schemas": {
+      "FeedbackAuthor": {
+        "type": "object",
+        "required": [
+          "telegramId",
+          "name",
+          "nickname",
+          "avatarUrl"
+        ],
+        "properties": {
+          "telegramId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "nickname": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FeedbackEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "telegramId",
+          "text",
+          "createdAt",
+          "updatedAt",
+          "user"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "telegramId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "$ref": "#/components/schemas/FeedbackAuthor"
+          }
+        }
+      },
+      "FeedbackPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "totalCount",
+          "limit",
+          "startWith"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackEntry"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "startWith": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "User": {
         "type": "object",
         "properties": {
@@ -1251,6 +1613,9 @@
           "status",
           "masteryLevel",
           "repetitions",
+          "referenceScore",
+          "incipitScore",
+          "contextScore",
           "lastReviewedAt",
           "nextReviewAt"
         ],
@@ -1280,6 +1645,21 @@
           },
           "repetitions": {
             "type": "integer"
+          },
+          "referenceScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "incipitScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "contextScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
           },
           "lastTrainingModeId": {
             "type": "integer",
@@ -1335,6 +1715,12 @@
             "type": "string"
           },
           "reference": {
+            "type": "string"
+          },
+          "contextPromptText": {
+            "type": "string"
+          },
+          "contextPromptReference": {
             "type": "string"
           }
         }
@@ -1422,7 +1808,8 @@
           "averageProgressPercent": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "description": "Композитный рейтинг пользователя (прогресс + навыки + регулярность)."
           },
           "bestVerseReference": {
             "type": "string",
@@ -1464,7 +1851,8 @@
           "score": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "description": "Композитный рейтинг участника (прогресс + навыки + регулярность)."
           },
           "streakDays": {
             "type": "integer",
@@ -1509,7 +1897,8 @@
           "score": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "description": "Композитный рейтинг пользователя (прогресс + навыки + регулярность)."
           },
           "streakDays": {
             "type": "integer",
@@ -1562,6 +1951,7 @@
           "avatarUrl",
           "isFriend",
           "lastActiveAt",
+          "masteredVerses",
           "weeklyRepetitions",
           "dailyStreak",
           "averageProgressPercent"
@@ -1585,6 +1975,10 @@
             "format": "date-time",
             "nullable": true
           },
+          "masteredVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
           "weeklyRepetitions": {
             "type": "integer",
             "minimum": 0
@@ -1596,7 +1990,8 @@
           "averageProgressPercent": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "description": "Композитный рейтинг друга (прогресс + навыки + регулярность)."
           }
         }
       },
@@ -1637,6 +2032,7 @@
           "name",
           "avatarUrl",
           "lastActiveAt",
+          "masteredVerses",
           "weeklyRepetitions",
           "dailyStreak",
           "averageProgressPercent"
@@ -1656,6 +2052,10 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "masteredVerses": {
+            "type": "integer",
+            "minimum": 0
           },
           "weeklyRepetitions": {
             "type": "integer",
@@ -1701,7 +2101,8 @@
           "avgProgressPercent": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "description": "Средний композитный рейтинг по друзьям."
           }
         }
       },

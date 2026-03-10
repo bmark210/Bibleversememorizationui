@@ -122,7 +122,7 @@ export class FriendsService {
         });
     }
     /**
-     * Последняя активность друзей для дашборда
+     * Последняя активность друзей для дашборда (с композитным рейтингом)
      * @param telegramId
      * @param limit
      * @returns DashboardFriendsActivityResponse OK

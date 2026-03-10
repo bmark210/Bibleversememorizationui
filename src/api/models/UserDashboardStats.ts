@@ -10,6 +10,9 @@ export type UserDashboardStats = {
     stoppedVerses: number;
     dueReviewVerses: number;
     totalRepetitions: number;
+    /**
+     * Композитный рейтинг пользователя (прогресс + навыки + регулярность).
+     */
     averageProgressPercent: number;
     bestVerseReference: string | null;
     dailyStreak: number;

@@ -53,7 +53,7 @@ export class UsersService {
         });
     }
     /**
-     * Персональная статистика пользователя для дашборда
+     * Персональная статистика пользователя для дашборда (включая композитный рейтинг)
      * @param telegramId
      * @returns UserDashboardStats OK
      * @throws ApiError
@@ -73,7 +73,7 @@ export class UsersService {
         });
     }
     /**
-     * Таблица лидеров для главной страницы
+     * Таблица лидеров для главной страницы (рейтинг: прогресс + навыки + регулярность)
      * @param telegramId
      * @param limit
      * @returns UserLeaderboardResponse OK

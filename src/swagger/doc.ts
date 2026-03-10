@@ -19,10 +19,64 @@ const swaggerDoc = {
     { name: "Users", description: "Работа с пользователями" },
     { name: "Friends", description: "Подписки и активность друзей" },
     { name: "User Verses", description: "Прогресс запоминания стихов" },
+    { name: "Feedback", description: "Обратная связь от пользователей" },
     { name: "Tags", description: "Теги и привязка к стихам" },
     { name: "Docs", description: "Спецификация и служебные маршруты" },
   ],
   paths: {
+    "/api/feedback": {
+      get: {
+        tags: ["Feedback"],
+        summary: "Получить все отзывы с пагинацией (только для админов)",
+        parameters: [
+          { name: "telegramId", in: "query", required: false, schema: { type: "string" } },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 50 } },
+          { name: "startWith", in: "query", required: false, schema: { type: "integer", minimum: 0 } },
+        ],
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FeedbackPageResponse" },
+              },
+            },
+          },
+          403: { description: "Только для админов" },
+        },
+      },
+      post: {
+        tags: ["Feedback"],
+        summary: "Отправить отзыв",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["telegramId", "text"],
+                properties: {
+                  telegramId: { type: "string" },
+                  text: { type: "string", minLength: 1, maxLength: 2000 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Создано",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FeedbackEntry" },
+              },
+            },
+          },
+          400: { description: "Некорректный запрос" },
+          404: { description: "Пользователь не найден" },
+        },
+      },
+    },
     "/api/users": {
       post: {
         tags: ["Users"],
@@ -685,6 +739,48 @@ const swaggerDoc = {
   },
   components: {
     schemas: {
+      FeedbackAuthor: {
+        type: "object",
+        required: ["telegramId", "name", "nickname", "avatarUrl"],
+        properties: {
+          telegramId: { type: "string" },
+          name: { type: "string", nullable: true },
+          nickname: { type: "string", nullable: true },
+          avatarUrl: { type: "string", nullable: true },
+        },
+      },
+      FeedbackEntry: {
+        type: "object",
+        required: [
+          "id",
+          "telegramId",
+          "text",
+          "createdAt",
+          "updatedAt",
+          "user",
+        ],
+        properties: {
+          id: { type: "string" },
+          telegramId: { type: "string" },
+          text: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          user: { $ref: "#/components/schemas/FeedbackAuthor" },
+        },
+      },
+      FeedbackPageResponse: {
+        type: "object",
+        required: ["items", "totalCount", "limit", "startWith"],
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/FeedbackEntry" },
+          },
+          totalCount: { type: "integer", minimum: 0 },
+          limit: { type: "integer", minimum: 1, maximum: 50 },
+          startWith: { type: "integer", minimum: 0 },
+        },
+      },
       User: {
         type: "object",
         properties: {

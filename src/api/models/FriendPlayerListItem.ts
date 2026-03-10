@@ -11,6 +11,9 @@ export type FriendPlayerListItem = {
     masteredVerses: number;
     weeklyRepetitions: number;
     dailyStreak: number;
+    /**
+     * Композитный рейтинг друга (прогресс + навыки + регулярность).
+     */
     averageProgressPercent: number;
 };
 

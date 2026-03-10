@@ -7,6 +7,9 @@ export type DashboardFriendsActivitySummary = {
     activeLast7Days: number;
     avgWeeklyRepetitions: number;
     avgStreakDays: number;
+    /**
+     * Средний композитный рейтинг по друзьям.
+     */
     avgProgressPercent: number;
 };
 
