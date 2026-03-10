@@ -69,6 +69,14 @@ export type TapQuestion = TrainerQuestionBase & {
 
 export type TrainerQuestion = ChoiceQuestion | TypeQuestion | TapQuestion;
 
+export type QuestionTerminalState = "correct" | "wrong" | "forgotten";
+
+export type QuestionSessionState = {
+  questionId: string;
+  status: "pending" | QuestionTerminalState;
+  outcome: "correct_first" | "correct_retry" | "wrong" | null;
+};
+
 export type QuestionResult = {
   track: SkillTrack;
   modeId: TrainerModeId;

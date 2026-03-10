@@ -30,7 +30,7 @@ export function GalleryFooter({
       <div className="mx-auto w-full flex flex-wrap items-center justify-center max-w-2xl gap-3">
         <Button
           variant="outline"
-          className="flex gap-2 backdrop-blur-xl rounded-2xl text-foreground/75 !border !border-border/60 bg-muted/35"
+          className="flex gap-2 backdrop-blur-xl rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75"
           ref={closeButtonRef}
           onClick={onClose}
           disabled={isActionPending}

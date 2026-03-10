@@ -3,15 +3,15 @@
 import React from "react";
 import { motion } from "motion/react";
 import type { Variants } from "motion/react";
-import { Activity, Clock3, Crown, Medal, Trophy, Users } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Crown, Dumbbell, Medal, Trophy } from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
-import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import type {
   DashboardLeaderboard as DashboardLeaderboardData,
 } from "@/api/services/leaderboard";
 import type { DashboardFriendsActivity } from "@/api/services/friends";
+import { cn } from "../ui/utils";
 
 type DashboardUser = {
   firstName: string;
@@ -25,12 +25,40 @@ type StatsCardItem = {
   key: string;
   label: string;
   value: string;
-  hint: string;
-  icon: LucideIcon;
-  iconColor: string;
-  textColor: string;
-  accent: string;
+  tone?: "neutral" | "learning" | "review" | "mastered";
 };
+
+const STAT_TONE_STYLES = {
+  neutral: {
+    panelClassName: "border-border/60 bg-background/55",
+    labelClassName: "text-foreground/42",
+    valueClassName: "text-foreground/88",
+  },
+  learning: {
+    panelClassName:
+      "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    labelClassName: "text-emerald-700/80 dark:text-emerald-300/80",
+    valueClassName: "text-emerald-700 dark:text-emerald-300",
+  },
+  review: {
+    panelClassName:
+      "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    labelClassName: "text-violet-700/80 dark:text-violet-300/80",
+    valueClassName: "text-violet-700 dark:text-violet-300",
+  },
+  mastered: {
+    panelClassName:
+      "border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300",
+    labelClassName: "text-amber-800/80 dark:text-amber-300/80",
+    valueClassName: "text-amber-800 dark:text-amber-300",
+  },
+} as const;
+
+const CHIP_TONE_STYLES = {
+  neutral: "border-border/60 bg-background/55 text-foreground/62",
+  review:
+    "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+} as const;
 
 function getInitials(name: string) {
   return name
@@ -42,62 +70,106 @@ function getInitials(name: string) {
 }
 
 function formatRelativeLastActive(value: string | null): string {
-  if (!value) return "Пока без активности";
+  if (!value) return "Без активности";
   const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return "Пока без активности";
+  if (Number.isNaN(parsed)) return "Без активности";
   const deltaMs = Date.now() - parsed;
 
-  if (deltaMs < 2 * 60 * 1000) return "Активен(а) только что";
+  if (deltaMs < 2 * 60 * 1000) return "Только что";
 
   const minutes = Math.floor(deltaMs / (60 * 1000));
-  if (minutes < 60) return `Активен(а) ${minutes} мин назад`;
+  if (minutes < 60) return `${minutes} мин назад`;
 
   const hours = Math.floor(deltaMs / (60 * 60 * 1000));
-  if (hours < 24) return `Активен(а) ${hours} ч назад`;
+  if (hours < 24) return `${hours} ч назад`;
 
   const days = Math.floor(deltaMs / (24 * 60 * 60 * 1000));
-  if (days < 7) return `Активен(а) ${days} дн назад`;
+  if (days < 7) return `${days} дн назад`;
 
-  return `Активен(а) ${new Date(parsed).toLocaleDateString("ru-RU", {
+  return new Date(parsed).toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
-  })}`;
+  });
 }
 
-function getRankBadge(rank: number) {
+function getRankMarker(rank: number) {
   if (rank === 1) {
     return {
       icon: Crown,
       className:
-        "border-amber-400/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
-      chipClassName: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+        "border-amber-400/35 bg-amber-500/12 text-amber-700 dark:text-amber-300",
     };
   }
   if (rank === 2) {
     return {
       icon: Medal,
       className:
-        "border-slate-400/40 bg-slate-500/10 text-slate-700 dark:text-slate-200",
-      chipClassName: "bg-slate-500/10 text-slate-700 dark:text-slate-200",
+        "border-slate-400/35 bg-slate-500/10 text-slate-700 dark:text-slate-200",
     };
   }
+  if (rank === 3) {
+    return {
+      icon: Trophy,
+      className:
+        "border-orange-400/35 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+    };
+  }
+
   return {
-    icon: Trophy,
-    className:
-      "border-orange-400/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-    chipClassName: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
+    icon: null,
+    className: "border-border/60 bg-background/80 text-foreground/55",
   };
+}
+
+function DashboardSurface({
+  className,
+  ...props
+}: React.ComponentProps<typeof Card>) {
+  return (
+    <Card
+      className={cn(
+        "gap-0 rounded-[28px] border-border/65 bg-card/55 p-4 shadow-none backdrop-blur-xl sm:p-5",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function MetricChip({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: keyof typeof CHIP_TONE_STYLES;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium",
+        CHIP_TONE_STYLES[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
 }
 
 type DashboardWelcomeSectionProps = {
   user: DashboardUser;
   todayVersesCount: number;
+  dueReviewVerses: number;
+  dailyStreak: number;
+  onOpenTraining?: () => void;
   sectionVariants: Variants;
 };
 
 export function DashboardWelcomeSection({
   user,
   todayVersesCount,
+  dueReviewVerses,
+  dailyStreak,
+  onOpenTraining,
   sectionVariants,
 }: DashboardWelcomeSectionProps) {
   const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
@@ -114,139 +186,110 @@ export function DashboardWelcomeSection({
   }, []);
 
   return (
-    <motion.div className="mb-8" variants={sectionVariants}>
-      {user ? (
-        <div className="flex items-center gap-4 mb-4">
-          <Avatar className="h-16 w-16">
-            {user.photoUrl ? (
-              <AvatarImage src={user.photoUrl} alt={user.firstName} />
-            ) : (
-              <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                {user.firstName.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div>
-            <h1 className="mb-1 text-primary">
-              {isFirstAppVisit
-                ? `Привет, ${user.firstName}.`
-                : `С возвращением, ${user.firstName}!`}
-            </h1>
+    <motion.div className="mb-5" variants={sectionVariants}>
+      <DashboardSurface className="rounded-[32px]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              {user ? (
+                <Avatar className="h-12 w-12 border border-border/60">
+                  {user.photoUrl ? (
+                    <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                  ) : (
+                    <AvatarFallback className="bg-primary/12 text-primary">
+                      {user.firstName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              ) : null}
+
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                {user
+                  ? isFirstAppVisit
+                    ? `Привет, ${user.firstName}.`
+                    : `С возвращением, ${user.firstName}.`
+                  : "С возвращением."}
+              </h1>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <MetricChip>{todayVersesCount} сегодня</MetricChip>
+              {dueReviewVerses > 0 ? (
+                <MetricChip tone="review">{dueReviewVerses} повторить</MetricChip>
+              ) : null}
+              {dailyStreak > 0 ? <MetricChip>{dailyStreak} дн.</MetricChip> : null}
+            </div>
           </div>
+
+          <Button
+            type="button"
+            size="lg"
+            haptic="medium"
+            onClick={onOpenTraining}
+            className="h-11 min-w-[190px] rounded-2xl border border-primary/20 bg-primary/10 px-5 text-sm font-medium text-foreground shadow-none hover:bg-primary/14"
+          >
+            <Dumbbell className="h-4 w-4 text-primary" />
+            Тренировка
+          </Button>
         </div>
-      ) : (
-        <h1 className="mb-2 text-primary">С возвращением!</h1>
-      )}
-      <p className="text-muted-foreground">
-        У вас {todayVersesCount}{" "}
-        {todayVersesCount === 1
-          ? "стих"
-          : todayVersesCount < 5
-            ? "стиха"
-            : "стихов"}{" "}
-        для изучения сегодня.
-      </p>
+      </DashboardSurface>
     </motion.div>
   );
 }
 
 type DashboardTrainingStatsCardProps = {
-  avgRatingPercent: number;
-  todayVersesCount: number;
   statsCards: ReadonlyArray<StatsCardItem>;
   cardItemVariants: Variants;
   groupStaggerVariants: Variants;
 };
 
 export function DashboardTrainingStatsCard({
-  avgRatingPercent: _avgRatingPercent,
-  todayVersesCount: _todayVersesCount,
   statsCards,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardTrainingStatsCardProps) {
   return (
     <motion.div variants={cardItemVariants}>
-      <Card className="relative overflow-hidden border-border/70 rounded-3xl bg-gradient-to-br from-primary/10 via-background to-amber-500/5 p-5 sm:p-6 gap-0">
-        <div className="pointer-events-none absolute inset-0 opacity-60">
-          <div className="absolute -top-16 -right-10 h-44 w-44 rounded-full bg-primary/15 blur-2xl" />
-          <div className="absolute -bottom-20 left-0 h-40 w-40 rounded-full bg-amber-500/10 blur-2xl" />
-        </div>
+      <DashboardSurface>
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          variants={groupStaggerVariants}
+        >
+          {statsCards.map((item) => {
+            const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
 
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                {/* <Badge className="rounded-full px-3 py-1">Краткая статистика</Badge> */}
-                {/* <Badge variant="outline" className="rounded-full px-3 py-1">
-                  Сегодня
-                </Badge> */}
-              </div>
-              <h2 className="text-lg sm:text-xl font-semibold text-primary">
-                Статистика сегодня
-              </h2>
-              <p className="text-sm text-foreground/75 mt-1">
-                Короткий обзор статистики на текущий день.
-              </p>
-            </div>
-            {/* <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Среднее освоение
-              </div>
-              <div className="text-2xl font-semibold mt-1">{avgMasteryPercent}%</div>
-            </div> */}
-          </div>
-
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-            variants={groupStaggerVariants}
-          > 
-            {statsCards.map((item) => {
-              const Icon = item.icon;
-              return (
-                <motion.div
-                  key={item.key}
-                  variants={cardItemVariants}
-                  className={`rounded-2xl border border-border/70 bg-gradient-to-br ${item.accent} p-4 backdrop-blur-sm`}
+            return (
+              <motion.div
+                key={item.key}
+                variants={cardItemVariants}
+                className={cn("rounded-2xl border px-4 py-3", tone.panelClassName)}
+              >
+                <div
+                  className={cn(
+                    "text-[11px] font-medium uppercase tracking-[0.16em]",
+                    tone.labelClassName,
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-foreground/70">
-                        {item.label}
-                      </div>
-                      <div className={`mt-2 text-2xl font-semibold dark:text-foreground/75  ${item.textColor}`}>
-                        {item.value}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-border/70 bg-background/70 p-2">
-                      <Icon className={`h-4 w-4 ${item.iconColor}`} />
-                    </div>
-                  </div>
-                  <p className={`mt-3 text-xs dark:text-foreground/75 text-foreground/70 leading-relaxed`}>
-                    {item.hint}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-
-          {/* <motion.div className="mt-5 rounded-2xl border border-border/70 bg-background/60 p-4" variants={cardItemVariants}>
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="text-sm font-medium">Подготовка к тренировке</div>
-              <div className="text-xs text-muted-foreground">
-                {todayVersesCount === 0 ? 'Нет стихов в плане' : `${todayVersesCount} стихов в сессии`}
-              </div>
-            </div>
-            <Progress value={todayVersesCount === 0 ? 0 : Math.min(100, 25 + todayVersesCount * 8)} className="h-2.5" />
-          </motion.div> */}
-        </div>
-      </Card>
+                  {item.label}
+                </div>
+                <div
+                  className={cn(
+                    "mt-2 text-2xl font-semibold tracking-tight",
+                    tone.valueClassName,
+                  )}
+                >
+                  {item.value}
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </DashboardSurface>
     </motion.div>
   );
 }
 
 type DashboardLeaderboardCardProps = {
-  avgRatingPercent: number;
   leaderboard?: DashboardLeaderboardData | null;
   isLeaderboardLoading?: boolean;
   cardItemVariants: Variants;
@@ -254,55 +297,61 @@ type DashboardLeaderboardCardProps = {
 };
 
 export function DashboardLeaderboardCard({
-  avgRatingPercent: _avgRatingPercent,
   leaderboard = null,
   isLeaderboardLoading = false,
   cardItemVariants,
   groupStaggerVariants,
 }: DashboardLeaderboardCardProps) {
   const entries = leaderboard?.entries ?? [];
+  const currentUser = leaderboard?.currentUser ?? null;
+  const shouldShowCurrentUserSnapshot =
+    currentUser != null &&
+    !entries.some((entry) => entry.telegramId === currentUser.telegramId);
 
   return (
     <motion.div variants={cardItemVariants}>
-      <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-primary/5">
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-primary">Лучшие игроки</h2>
-            <p className="text-sm text-foreground/75 mt-1">
-              По прогрессу, качеству навыков и регулярности тренировок.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
-              Рейтинг
-            </Badge>
+      <DashboardSurface>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">
+            Рейтинг
+          </h2>
+          <div className="text-xs text-foreground/45">
+            {leaderboard?.totalParticipants ?? 0}
           </div>
         </div>
 
-        <motion.div className="space-y-3" variants={groupStaggerVariants}>
+        <motion.div className="space-y-2.5" variants={groupStaggerVariants}>
           {entries.length > 0 ? (
             entries.map((entry) => {
-              const rank = entry.rank;
-              const rankBadge = getRankBadge(rank);
+              const rankMarker = getRankMarker(entry.rank);
+              const RankIcon = rankMarker.icon;
 
               return (
                 <motion.div
                   key={entry.telegramId}
                   variants={cardItemVariants}
-                  className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border px-3 py-2.5",
                     entry.isCurrentUser
-                      ? "border-primary/40 bg-primary/10"
-                      : "border-border/70 bg-background/70 "
-                  }`}
+                      ? "border-primary/20 bg-primary/[0.07]"
+                      : "border-border/60 bg-background/55",
+                  )}
                 >
-                  {/* <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${rankBadge.className}`}
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                      rankMarker.className,
+                    )}
                     aria-hidden="true"
                   >
-                    <RankIcon className="h-4 w-4" />
-                  </div> */}
+                    {RankIcon ? (
+                      <RankIcon className="h-4 w-4" />
+                    ) : (
+                      <span>#{entry.rank}</span>
+                    )}
+                  </div>
 
-                  <Avatar className="h-10 w-10 !border-3 border-border/60 bg-background/70 shadow-lg">
+                  <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
                     {entry.avatarUrl ? (
                       <AvatarImage src={entry.avatarUrl} alt={entry.name} />
                     ) : null}
@@ -312,30 +361,21 @@ export function DashboardLeaderboardCard({
                   </Avatar>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="truncate font-medium text-muted-foreground">{entry.name}</div>
-                      <Badge
-                        variant="outline"
-                        className={`rounded-full px-2 py-0.5 text-[10px] ${rankBadge.chipClassName}`}
-                      >
-                        #{rank}
-                      </Badge>
+                    <div
+                      className={cn(
+                        "truncate text-sm font-medium",
+                        entry.isCurrentUser ? "text-primary" : "text-foreground/78",
+                      )}
+                    >
+                      {entry.name}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span>
-                        {entry.weeklyRepetitions} повторений за неделю
-                      </span>
-                      <span>{entry.streakDays} дн. подряд</span>
+                    <div className="mt-1 text-xs text-foreground/48">
+                      {entry.weeklyRepetitions} · {entry.streakDays} дн.
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="text-lg font-semibold leading-none text-primary">
-                      {entry.score}%
-                    </div>
-                    <div className="text-[11px] text-card-foreground/50 mt-1">
-                      рейтинг
-                    </div>
+                  <div className="text-sm font-semibold text-foreground/82">
+                    {entry.score}%
                   </div>
                 </motion.div>
               );
@@ -343,30 +383,32 @@ export function DashboardLeaderboardCard({
           ) : (
             <motion.div
               variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground"
+              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56"
             >
-              {isLeaderboardLoading
-                ? "Обновляем рейтинг..."
-                : "Пока нет данных для таблицы лидеров. Добавьте стихи и начните тренировки."}
+              {isLeaderboardLoading ? "Обновляем..." : "Пока пусто"}
             </motion.div>
           )}
         </motion.div>
 
-        {/* <motion.div
-          className="mt-4 rounded-2xl border border-dashed border-border/70 bg-background/50 p-4"
-          variants={cardItemVariants}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium">{footerTitle}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {footerHint}
+        {shouldShowCurrentUserSnapshot ? (
+          <div className="mt-3 border-t border-border/55 pt-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <div className="truncate font-medium text-primary">
+                  Вы
+                </div>
+                <div className="mt-1 text-xs text-foreground/48">
+                  {currentUser.rank ? `#${currentUser.rank}` : "Вне топа"} ·{" "}
+                  {currentUser.weeklyRepetitions}
+                </div>
+              </div>
+              <div className="font-semibold text-foreground/82">
+                {currentUser.score}%
               </div>
             </div>
-            <Badge className="rounded-full px-3 py-1">{footerScore}</Badge>
           </div>
-        </motion.div> */}
-      </Card>
+        ) : null}
+      </DashboardSurface>
     </motion.div>
   );
 }
@@ -387,93 +429,28 @@ export function DashboardFriendsActivityCard({
   const entries = friendsActivity?.entries ?? [];
   const summary = friendsActivity?.summary ?? {
     friendsTotal: 0,
-    activeLast7Days: 0,
-    avgWeeklyRepetitions: 0,
-    avgStreakDays: 0,
-    avgProgressPercent: 0,
   };
 
   return (
     <motion.div variants={cardItemVariants}>
-      <Card className="border-border/70 rounded-3xl p-5 sm:p-6 gap-0 bg-gradient-to-b from-background to-cyan-500/5">
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-primary">
-              Активность друзей
-            </h2>
-            <p className="text-sm text-foreground/75 mt-1">
-              Последние тренировки тех, на кого вы подписаны.
-            </p>
-          </div>
-          <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground/75">
+      <DashboardSurface>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">
             Друзья
-          </Badge>
+          </h2>
+          <div className="text-xs text-foreground/45">{summary.friendsTotal}</div>
         </div>
 
-        <motion.div
-          className="grid grid-cols-2 gap-2.5 mb-4"
-          variants={groupStaggerVariants}
-        >
-          <motion.div
-            variants={cardItemVariants}
-            className="rounded-xl border border-border/70 bg-background/65 p-3"
-          >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              Друзей
-            </div>
-            <div className="mt-1 text-lg font-semibold text-primary">
-              {summary.friendsTotal}
-            </div>
-          </motion.div>
-          <motion.div
-            variants={cardItemVariants}
-            className="rounded-xl border border-border/70 bg-background/65 p-3"
-          >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Activity className="h-3.5 w-3.5" />
-              Активны 7д
-            </div>
-            <div className="mt-1 text-lg font-semibold text-primary">
-              {summary.activeLast7Days}
-            </div>
-          </motion.div>
-          <motion.div
-            variants={cardItemVariants}
-            className="rounded-xl border border-border/70 bg-background/65 p-3"
-          >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock3 className="h-3.5 w-3.5" />
-              Ср. серия
-            </div>
-            <div className="mt-1 text-lg font-semibold text-primary">
-              {summary.avgStreakDays} дн
-            </div>
-          </motion.div>
-          <motion.div
-            variants={cardItemVariants}
-            className="rounded-xl border border-border/70 bg-background/65 p-3"
-          >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Activity className="h-3.5 w-3.5" />
-              Ср. рейтинг
-            </div>
-            <div className="mt-1 text-lg font-semibold text-primary">
-              {summary.avgProgressPercent}%
-            </div>
-          </motion.div>
-        </motion.div>
-
-        <motion.div className="space-y-3" variants={groupStaggerVariants}>
+        <motion.div className="space-y-2.5" variants={groupStaggerVariants}>
           {entries.length > 0 ? (
             entries.map((entry) => (
               <motion.div
                 key={entry.telegramId}
                 variants={cardItemVariants}
-                className="rounded-2xl border border-border/70 bg-background/70 p-3"
+                className="rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5"
               >
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-10 w-10 !border-3 border-border/60 bg-background/70 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
                     {entry.avatarUrl ? (
                       <AvatarImage src={entry.avatarUrl} alt={entry.name} />
                     ) : null}
@@ -483,36 +460,30 @@ export function DashboardFriendsActivityCard({
                   </Avatar>
 
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-muted-foreground">
+                    <div className="truncate text-sm font-medium text-foreground/78">
                       {entry.name}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formatRelativeLastActive(entry.lastActiveAt)}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span>{entry.weeklyRepetitions} повторений за 7 дн</span>
-                      <span>Серия {entry.dailyStreak} дн</span>
+                    <div className="mt-1 text-xs text-foreground/48">
+                      {formatRelativeLastActive(entry.lastActiveAt)} · {entry.dailyStreak} дн.
                     </div>
                   </div>
 
-                  <Badge className="rounded-full px-2.5 py-0.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
+                  <div className="text-xs font-medium text-foreground/68">
                     {entry.averageProgressPercent}%
-                  </Badge>
+                  </div>
                 </div>
               </motion.div>
             ))
           ) : (
             <motion.div
               variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground"
+              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56"
             >
-              {isFriendsActivityLoading
-                ? "Обновляем активность друзей..."
-                : "Добавьте друзей в профиле, чтобы видеть их активность здесь."}
+              {isFriendsActivityLoading ? "Обновляем..." : "Пока пусто"}
             </motion.div>
           )}
         </motion.div>
-      </Card>
+      </DashboardSurface>
     </motion.div>
   );
 }

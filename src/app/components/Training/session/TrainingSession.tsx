@@ -614,8 +614,9 @@ export function TrainingSession({
               <Button
                 variant="outline"
                 className={cn(
-                  "h-11 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl",
-                  !showQuickForgetAction && "col-span-full"
+                  "h-11 rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75 backdrop-blur-xl",
+                  !showQuickForgetAction && "col-span-full",
+                  "text-destructive"
                 )}
                 onClick={onClose}
                 disabled={session.isActionPending}

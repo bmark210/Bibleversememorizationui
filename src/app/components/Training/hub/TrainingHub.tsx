@@ -385,7 +385,7 @@ export function TrainingHub({
 
   return (
     <div
-      className="mx-auto w-full px-4 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8 h-full"
+      className="mx-auto w-full p-4 sm:pt-6 md:pb-8 lg:pt-8 h-full"
       style={
         {
           "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
@@ -581,7 +581,7 @@ export function TrainingHub({
           </Collapsible>
         ) : null}
 
-        <div className="mx-auto w-full mb-4 flex-1 content-end">
+        <div className="mx-auto w-full flex-1 content-end">
           <div className="rounded-[26px] border border-border/60 bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl">
             <p
               className={cn(
@@ -599,8 +599,8 @@ export function TrainingHub({
               onClick={onStart}
               className={cn(
                 "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
-                "border !bg-card/55",
-                currentAccentTheme.ctaClassName,
+                "rounded-2xl border !border-primary/20 !bg-primary/10 px-5 text-sm font-medium !text-foreground",
+                currentAccentTheme.checkedDotClassName,
               )}
             >
               <Play className="h-4 w-4" />
@@ -640,7 +640,7 @@ function RadioCardOption({
   subtitle,
   icon: Icon,
   theme,
-  compact = false,
+  compact = true,
 }: {
   value: string;
   title: string;
@@ -655,7 +655,7 @@ function RadioCardOption({
       className={cn(
         "group/radio w-full rounded-[22px] border border-border/60 bg-background/55 p-4 text-left transition-all duration-150 outline-none hover:bg-background/80 focus-visible:border-ring focus-visible:ring-ring/40 focus-visible:ring-[3px]",
         theme.checkedItemClassName,
-        compact && "px-3.5 py-3.5",
+        compact && "px-3 py-3",
       )}
     >
       <div className="flex items-start justify-between gap-3">

@@ -2,14 +2,12 @@
 
 import React from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Brain, Dumbbell, Flame, Repeat, Target, Trophy } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
 import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
-import { Button } from './ui/button'
 import {
   DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
@@ -29,6 +27,14 @@ interface DashboardProps {
   isInitializingData?: boolean
 }
 
+type TodayVersesSummary = {
+  learningVersesCount: number
+  reviewVersesCount: number
+  dueReviewCount: number
+  masteredVerses: number
+  averageProgressPercent: number
+}
+
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
@@ -41,122 +47,105 @@ export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
   return clampPercent((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100)
 }
 
+function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
+  const now = Date.now()
+
+  const summary = todayVerses.reduce(
+    (acc, verse) => {
+      const progress = toMasteryPercent(verse.masteryLevel, verse.repetitions)
+
+      acc.progressTotal += progress
+
+      if (verse.status === 'LEARNING') {
+        acc.learningVersesCount += 1
+      }
+
+      if (verse.status === 'REVIEW') {
+        acc.reviewVersesCount += 1
+
+        if (!verse.nextReviewAt) {
+          acc.dueReviewCount += 1
+        } else {
+          const nextReviewTime = new Date(verse.nextReviewAt).getTime()
+          if (Number.isNaN(nextReviewTime) || nextReviewTime <= now) {
+            acc.dueReviewCount += 1
+          }
+        }
+      }
+
+      if (verse.status === 'MASTERED') {
+        acc.masteredVerses += 1
+      }
+
+      return acc
+    },
+    {
+      learningVersesCount: 0,
+      reviewVersesCount: 0,
+      dueReviewCount: 0,
+      masteredVerses: 0,
+      progressTotal: 0,
+    }
+  )
+
+  return {
+    learningVersesCount: summary.learningVersesCount,
+    reviewVersesCount: summary.reviewVersesCount,
+    dueReviewCount: summary.dueReviewCount,
+    masteredVerses: summary.masteredVerses,
+    averageProgressPercent:
+      todayVerses.length > 0
+        ? clampPercent(summary.progressTotal / todayVerses.length)
+        : 0,
+  }
+}
+
 export function Dashboard({
   todayVerses,
   dashboardStats = null,
-  isDashboardStatsLoading = false,
+  isDashboardStatsLoading: _isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
-  onOpenTraining: _onOpenTraining,
+  onOpenTraining,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
   const shouldReduceMotion = useReducedMotion()
-  const now = Date.now()
-
-  const learningVersesCount = todayVerses.filter((verse) => verse.status === 'LEARNING').length
-  const reviewVersesCount = todayVerses.filter((verse) => verse.status === 'REVIEW').length
-  const dueReviewCount = todayVerses.filter((verse) => {
-    if (verse.status !== 'REVIEW') return false
-    if (!verse.nextReviewAt) return true
-    const nextReviewTime = new Date(verse.nextReviewAt).getTime()
-    return Number.isNaN(nextReviewTime) || nextReviewTime <= now
-  }).length
-
-  const fallbackTotalRepetitions = todayVerses.reduce(
-    (sum, verse) => sum + (verse.repetitions ?? 0),
-    0
-  )
-  const fallbackMasteredVerses = todayVerses.filter(
-    (verse) => verse.status === 'MASTERED'
-  ).length
-  const fallbackAvgRatingPercent =
-    todayVerses.length > 0
-      ? clampPercent(
-          todayVerses.reduce(
-            (sum, verse) =>
-              sum + toMasteryPercent(verse.masteryLevel, verse.repetitions),
-            0
-          ) /
-            todayVerses.length
-        )
-      : 0
-
-  const fallbackBestVerse = todayVerses.reduce<Verse | null>((best, verse) => {
-    if (!best) return verse
-    return toMasteryPercent(verse.masteryLevel, verse.repetitions) >
-      toMasteryPercent(best.masteryLevel, best.repetitions)
-      ? verse
-      : best
-  }, null)
+  const todaySummary = summarizeTodayVerses(todayVerses)
 
   const avgRatingPercent =
-    dashboardStats?.averageProgressPercent ?? fallbackAvgRatingPercent
-  const totalRepetitions =
-    dashboardStats?.totalRepetitions ?? fallbackTotalRepetitions
+    dashboardStats?.averageProgressPercent ?? todaySummary.averageProgressPercent
   const masteredVerses =
-    dashboardStats?.masteredVerses ?? fallbackMasteredVerses
-  const dueReviewVerses = dashboardStats?.dueReviewVerses ?? dueReviewCount
-  const bestVerseReference =
-    dashboardStats?.bestVerseReference ?? fallbackBestVerse?.reference ?? null
+    dashboardStats?.masteredVerses ?? todaySummary.masteredVerses
+  const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
   const dailyStreak = dashboardStats?.dailyStreak ?? 0
 
   const statsCards = [
     {
-      key: 'planned',
-      label: 'Активность',
-      value: `${todayVerses.length} ${formatWordsCount(todayVerses.length)}`,
-      hint: `${learningVersesCount} ${formatWordsCount(learningVersesCount)} в изучении, ${reviewVersesCount} ${formatWordsCount(reviewVersesCount)} к повторению`,
-      icon: Target,
-      accent: 'from-primary/35 to-primary/10',
-      iconColor: 'text-primary',
-      textColor: 'text-primary/70',
+      key: 'learning',
+      label: 'Изучение',
+      value: `${todaySummary.learningVersesCount}`,
+      tone: 'learning' as const,
     },
     {
-      key: 'reps',
-      label: 'Повторения в подборке',
-      value: `${totalRepetitions}`,
-      hint: dueReviewVerses > 0 ? `${dueReviewVerses} к повторению сейчас` : 'Нет просроченных повторений',
-      icon: Repeat,
-      accent: 'from-violet-500/30 to-violet-500/10',
-      iconColor: 'text-violet-500',
-      textColor: 'text-violet-500/70',
+      key: 'review',
+      label: 'Повторение',
+      value: `${dueReviewVerses}`,
+      tone: 'review' as const,
     },
     {
-      key: 'mastery',
-      label: 'Средний рейтинг',
+      key: 'progress',
+      label: 'Прогресс',
       value: `${avgRatingPercent}%`,
-      hint: bestVerseReference
-        ? `Баланс прогресса, навыков и регулярности. Лучший стих: ${bestVerseReference}`
-        : isDashboardStatsLoading
-          ? 'Загружаем вашу статистику...'
-          : 'Добавьте стихи для старта',
-      icon: Brain,
-      accent: 'from-success/35 to-success/10',
-      iconColor: 'text-success',
-      textColor: 'text-success/70',
+      tone: 'neutral' as const,
     },
     {
       key: 'mastered',
       label: 'Выучено',
       value: `${masteredVerses}`,
-      hint: masteredVerses > 0 ? 'Стихи, закреплённые в долгой памяти' : 'Пока нет выученных стихов',
-      icon: Trophy,
-      accent: 'from-amber-500/35 to-amber-500/10',
-      iconColor: 'text-amber-600 dark:text-amber-300',
-      textColor: 'text-amber-500/70',
-    },
-    {
-      key: 'streak',
-      label: 'Серия тренировок',
-      value: `${dailyStreak} дн.`,
-      hint: isDashboardStatsLoading ? 'Обновляем прогресс...' : 'Ваш лучший непрерывный ритм',
-      icon: Flame,
-      accent: 'from-rose-500/30 to-rose-500/10',
-      iconColor: 'text-rose-500',
-      textColor: 'text-rose-400/70',
+      tone: 'mastered' as const,
     },
   ] as const
 
@@ -217,7 +206,7 @@ export function Dashboard({
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <motion.div
         {...(shouldReduceMotion
           ? {}
@@ -231,36 +220,23 @@ export function Dashboard({
           <DashboardWelcomeSection
             user={user}
             todayVersesCount={todayVerses.length}
+            dueReviewVerses={dueReviewVerses}
+            dailyStreak={dailyStreak}
+            onOpenTraining={onOpenTraining}
             sectionVariants={sectionVariants}
           />
 
-          <motion.div className="mb-6" variants={sectionVariants}>
-            <Button
-                type="button"
-                size="lg"
-                haptic="medium"
-                onClick={_onOpenTraining}
-                className="h-14 w-full font-medium gap-2 border border-primary/30 bg-primary/12 text-foreground/90 dark:bg-primary/50 rounded-2xl text-base shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)]"
-              >
-                <Dumbbell className="h-4 w-4 text-foreground/90" />
-                Тренировка
-              </Button>
-          </motion.div>
-
           <motion.div
-            className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-6 mb-8"
+            className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]"
             variants={groupStaggerVariants}
           >
             <DashboardTrainingStatsCard
-              avgRatingPercent={avgRatingPercent}
-              todayVersesCount={todayVerses.length}
               statsCards={statsCards}
               cardItemVariants={cardItemVariants}
               groupStaggerVariants={groupStaggerVariants}
             />
-            <div className="space-y-6">
+            <div className="space-y-5">
               <DashboardLeaderboardCard
-                avgRatingPercent={avgRatingPercent}
                 leaderboard={dashboardLeaderboard}
                 isLeaderboardLoading={isDashboardLeaderboardLoading}
                 cardItemVariants={cardItemVariants}
@@ -278,12 +254,4 @@ export function Dashboard({
       </motion.div>
     </div>
   )
-}
-
-
-function formatWordsCount(count: number) {
-  if (count === 0) return 'стихов'
-  if (count === 1) return 'стих'
-  if (count < 5) return 'стиха'
-  return 'стихов'
 }

@@ -19,6 +19,7 @@ import {
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
@@ -45,6 +46,8 @@ import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
 import type {
   ChoiceQuestion,
   ModeStrategy,
+  QuestionSessionState,
+  QuestionTerminalState,
   QuestionResult,
   ReferenceVerse,
   SessionTrack,
@@ -77,11 +80,6 @@ const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
 const REFERENCE_TRAINER_INTRO_STORAGE_PREFIX =
   "bible-memory.reference-trainer.intro.v1";
-const DEFERRED_VERSE_TOAST_MESSAGE = "Стих перенесён в конец";
-const DEFERRED_VERSE_LIMIT_TOAST_MESSAGE =
-  "Этот стих уже переносился в конец";
-const DOWN_SWIPE_UNAVAILABLE_TOAST_MESSAGE =
-  "В режиме закрепления свайп вниз недоступен. Чтобы отложить стих, смахните вверх.";
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -1159,6 +1157,21 @@ function mergeUpdatedSkillScores(
   });
 }
 
+function buildInitialQuestionSessionState(
+  questions: TrainerQuestion[]
+): Record<string, QuestionSessionState> {
+  return Object.fromEntries(
+    questions.map((question) => [
+      question.id,
+      {
+        questionId: question.id,
+        status: "pending",
+        outcome: null,
+      } satisfies QuestionSessionState,
+    ])
+  );
+}
+
 export function AnchorTrainingSession({
   telegramId,
   initialTrack,
@@ -1170,7 +1183,6 @@ export function AnchorTrainingSession({
   const initializedTelegramIdRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const savedSessionKeyRef = useRef<string | null>(null);
-  const deferredVerseIdsRef = useRef<Set<string>>(new Set());
 
   const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
     initialTrack ?? readStoredTrack()
@@ -1180,11 +1192,13 @@ export function AnchorTrainingSession({
   );
   const [versePool, setVersePool] = useState<ReferenceVerse[]>([]);
   const [questions, setQuestions] = useState<TrainerQuestion[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [results, setResults] = useState<QuestionResult[]>([]);
-  const [sessionUpdates, setSessionUpdates] = useState<
-    ReferenceTrainerSessionUpdate[]
-  >([]);
+  const [questionStates, setQuestionStates] = useState<
+    Record<string, QuestionSessionState>
+  >({});
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [currentPendingQuestionId, setCurrentPendingQuestionId] = useState<
+    string | null
+  >(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingAttempts, setTypingAttempts] = useState(0);
@@ -1266,15 +1280,64 @@ export function AnchorTrainingSession({
     [markIntroAsSeen]
   );
 
-  const currentQuestion = questions[currentQuestionIndex] ?? null;
-  const answeredCount = results.length;
+  const questionById = useMemo(
+    () => new Map(questions.map((question) => [question.id, question] as const)),
+    [questions]
+  );
+  const pendingQuestions = useMemo(
+    () =>
+      questions.filter(
+        (question) => (questionStates[question.id]?.status ?? "pending") === "pending"
+      ),
+    [questionStates, questions]
+  );
+  const pendingQuestionIds = useMemo(
+    () => pendingQuestions.map((question) => question.id),
+    [pendingQuestions]
+  );
+  const currentQuestion = currentQuestionId
+    ? questionById.get(currentQuestionId) ?? null
+    : null;
+  const totalCount = questions.length;
+  const pendingCount = pendingQuestions.length;
+  const completedCount = totalCount - pendingCount;
+  const results = useMemo<QuestionResult[]>(
+    () =>
+      questions.flatMap((question) => {
+        const state = questionStates[question.id];
+        if (!state || state.status === "pending") return [];
+        return [
+          {
+            track: question.track,
+            modeId: question.modeId,
+            isCorrect: state.status === "correct",
+          },
+        ];
+      }),
+    [questionStates, questions]
+  );
+  const sessionUpdates = useMemo<ReferenceTrainerSessionUpdate[]>(
+    () =>
+      questions.flatMap((question) => {
+        const state = questionStates[question.id];
+        if (!state || state.status === "pending" || !state.outcome) return [];
+        return [
+          {
+            externalVerseId: question.verse.externalVerseId,
+            track: question.track,
+            outcome: state.outcome,
+          },
+        ];
+      }),
+    [questionStates, questions]
+  );
   const correctCount = useMemo(
     () => results.filter((result) => result.isCorrect).length,
     [results]
   );
-  const sessionComplete = questions.length > 0 && answeredCount >= questions.length;
+  const sessionComplete = totalCount > 0 && pendingCount === 0;
   const resultPercent =
-    questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
   const referenceStats = useMemo(() => {
     const trackResults = results.filter((item) => item.track === "reference");
@@ -1312,15 +1375,16 @@ export function AnchorTrainingSession({
     (pool: ReferenceVerse[], nextTrack?: SessionTrack) => {
       const effectiveTrack = nextTrack ?? selectedTrack;
       const nextQuestions = buildRandomSessionQuestions(pool, effectiveTrack);
+      const firstQuestionId = nextQuestions[0]?.id ?? null;
       setQuestions(nextQuestions);
-      setCurrentQuestionIndex(0);
-      setResults([]);
-      setSessionUpdates([]);
+      setQuestionStates(buildInitialQuestionSessionState(nextQuestions));
+      setCurrentQuestionId(firstQuestionId);
+      setCurrentPendingQuestionId(firstQuestionId);
       setSessionTrack(effectiveTrack);
       setSaveSucceeded(false);
       setSaveErrorMessage(null);
       savedSessionKeyRef.current = null;
-      deferredVerseIdsRef.current = new Set();
+      setIsAutoAdvancePending(false);
       resetAnswerState();
     },
     [resetAnswerState, selectedTrack]
@@ -1358,13 +1422,14 @@ export function AnchorTrainingSession({
       initializedTelegramIdRef.current = null;
       setVersePool([]);
       setQuestions([]);
-      setResults([]);
-      setSessionUpdates([]);
+      setQuestionStates({});
+      setCurrentQuestionId(null);
+      setCurrentPendingQuestionId(null);
       setErrorMessage(null);
       setSaveSucceeded(false);
       setSaveErrorMessage(null);
       setIsIntroDialogOpen(false);
-      deferredVerseIdsRef.current = new Set();
+      setIsAutoAdvancePending(false);
       return;
     }
     if (initializedTelegramIdRef.current === telegramId) return;
@@ -1386,6 +1451,33 @@ export function AnchorTrainingSession({
       setIsIntroDialogOpen(true);
     }
   }, [telegramId]);
+
+  useEffect(() => {
+    if (isAnswered) return;
+
+    if (pendingQuestionIds.length === 0) {
+      if (currentPendingQuestionId !== null) setCurrentPendingQuestionId(null);
+      if (currentQuestionId !== null) setCurrentQuestionId(null);
+      return;
+    }
+
+    const fallbackPendingId =
+      currentPendingQuestionId && pendingQuestionIds.includes(currentPendingQuestionId)
+        ? currentPendingQuestionId
+        : pendingQuestionIds[0];
+
+    if (currentPendingQuestionId !== fallbackPendingId) {
+      setCurrentPendingQuestionId(fallbackPendingId);
+    }
+    if (!currentQuestionId || !pendingQuestionIds.includes(currentQuestionId)) {
+      setCurrentQuestionId(fallbackPendingId);
+    }
+  }, [
+    currentPendingQuestionId,
+    currentQuestionId,
+    isAnswered,
+    pendingQuestionIds,
+  ]);
 
   const persistSessionUpdates = useCallback(
     async (
@@ -1472,29 +1564,47 @@ export function AnchorTrainingSession({
           ? "correct_first"
           : "correct_retry"
         : "wrong";
+      const nextStatus: QuestionTerminalState = options?.forgotten
+        ? "forgotten"
+        : isCorrect
+          ? "correct"
+          : "wrong";
+      const currentPendingOrderIndex = Math.max(
+        0,
+        pendingQuestionIds.findIndex((questionId) => questionId === currentQuestion.id)
+      );
+      const nextPendingQuestionIds = pendingQuestionIds.filter(
+        (questionId) => questionId !== currentQuestion.id
+      );
+      const nextPendingQuestionId =
+        nextPendingQuestionIds.length > 0
+          ? nextPendingQuestionIds[
+              Math.min(currentPendingOrderIndex, nextPendingQuestionIds.length - 1)
+            ] ?? nextPendingQuestionIds[0] ?? null
+          : null;
 
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
       setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
       setLastAnswerForgotten(Boolean(options?.forgotten));
-      setResults((prev) => [
-        ...prev,
-        {
-          track: currentQuestion.track,
-          modeId: currentQuestion.modeId,
-          isCorrect,
-        },
-      ]);
-      setSessionUpdates((prev) => [
-        ...prev,
-        {
-          externalVerseId: currentQuestion.verse.externalVerseId,
-          track: currentQuestion.track,
-          outcome,
-        },
-      ]);
+      setQuestionStates((prev) => {
+        const previousState = prev[currentQuestion.id];
+        if (previousState && previousState.status !== "pending") {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [currentQuestion.id]: {
+            questionId: currentQuestion.id,
+            status: nextStatus,
+            outcome,
+          },
+        };
+      });
+      setCurrentPendingQuestionId(nextPendingQuestionId);
     },
-    [currentQuestion, isAnswered]
+    [currentQuestion, isAnswered, pendingQuestionIds]
   );
 
   const handleChoiceSelect = (value: string) => {
@@ -1561,42 +1671,65 @@ export function AnchorTrainingSession({
     finalizeAnswer(false, attemptsUsed, { forgotten: true });
   };
 
+  const controlsLocked =
+    isLoading ||
+    isSavingSession ||
+    isAutoAdvancePending ||
+    pendingTrackChange !== null ||
+    isExitConfirmOpen ||
+    isIntroDialogOpen;
+
   const advanceToNextQuestion = useCallback(() => {
-    if (!isAnswered || !currentQuestion) return;
-    if (currentQuestionIndex >= questions.length - 1) return;
+    if (!isAnswered || !currentPendingQuestionId) return;
 
-    setCurrentQuestionIndex((prev) => prev + 1);
+    setCurrentQuestionId(currentPendingQuestionId);
     resetAnswerState();
-  }, [currentQuestion, currentQuestionIndex, isAnswered, questions.length, resetAnswerState]);
+  }, [currentPendingQuestionId, isAnswered, resetAnswerState]);
 
-  const deferCurrentQuestion = useCallback(() => {
-    if (!currentQuestion || isAnswered || sessionComplete) return;
-    if (currentQuestionIndex >= questions.length - 1) return;
+  const navigatePendingQuestion = useCallback(
+    (step: 1 | -1) => {
+      if (controlsLocked || isAnswered || sessionComplete) return;
+      if (pendingQuestionIds.length === 0) return;
 
-    const verseId = currentQuestion.verse.externalVerseId;
-    if (deferredVerseIdsRef.current.has(verseId)) {
-      toast.info(DEFERRED_VERSE_LIMIT_TOAST_MESSAGE);
-      return;
-    }
+      const activePendingQuestionId =
+        currentPendingQuestionId && pendingQuestionIds.includes(currentPendingQuestionId)
+          ? currentPendingQuestionId
+          : currentQuestionId && pendingQuestionIds.includes(currentQuestionId)
+            ? currentQuestionId
+            : pendingQuestionIds[0];
+      const activePendingIndex = pendingQuestionIds.indexOf(activePendingQuestionId);
+      if (activePendingIndex < 0) return;
 
-    const nextQuestions = [...questions];
-    const [deferredQuestion] = nextQuestions.splice(currentQuestionIndex, 1);
-    if (!deferredQuestion) return;
+      if (step === -1 && activePendingIndex === 0) {
+        triggerHaptic("light");
+        return;
+      }
 
-    nextQuestions.push(deferredQuestion);
-    deferredVerseIdsRef.current.add(verseId);
-    setDirection(1);
-    setQuestions(nextQuestions);
-    resetAnswerState();
-    toast.info(DEFERRED_VERSE_TOAST_MESSAGE);
-  }, [
-    currentQuestion,
-    currentQuestionIndex,
-    isAnswered,
-    questions,
-    resetAnswerState,
-    sessionComplete,
-  ]);
+      if (step === 1 && pendingQuestionIds.length <= 1) return;
+
+      const nextPendingIndex =
+        step === 1
+          ? (activePendingIndex + 1) % pendingQuestionIds.length
+          : activePendingIndex - 1;
+      const nextPendingQuestionId = pendingQuestionIds[nextPendingIndex];
+
+      if (!nextPendingQuestionId || nextPendingQuestionId === currentQuestionId) return;
+
+      setDirection(step);
+      setCurrentPendingQuestionId(nextPendingQuestionId);
+      setCurrentQuestionId(nextPendingQuestionId);
+      resetAnswerState();
+    },
+    [
+      controlsLocked,
+      currentPendingQuestionId,
+      currentQuestionId,
+      isAnswered,
+      pendingQuestionIds,
+      resetAnswerState,
+      sessionComplete,
+    ]
+  );
 
   const handleTrackSelect = useCallback(
     (nextTrack: SessionTrack) => {
@@ -1629,15 +1762,7 @@ export function AnchorTrainingSession({
     isKeyboardOpen && isTypeMode && !isAnswered && !sessionComplete;
   const revealedVerseText = getRevealedVerseText(currentQuestion);
   const requiresContinueAfterReveal =
-    isAnswered &&
-    !sessionComplete &&
-    currentQuestionIndex < questions.length - 1;
-  const displayCount = Math.max(questions.length, 0);
-  const displayIndex = sessionComplete
-    ? displayCount
-    : displayCount === 0
-      ? 0
-      : Math.min(currentQuestionIndex + 1, displayCount);
+    isAnswered && !sessionComplete && currentPendingQuestionId !== null;
   const showTrackSelector = !sessionComplete && telegramId && !isLoading;
   const showForgotAnswerAction = Boolean(
     telegramId &&
@@ -1732,35 +1857,20 @@ export function AnchorTrainingSession({
           .map((id) => currentQuestion.options.find((option) => option.id === id)?.label)
           .filter((value): value is string => Boolean(value))
       : [];
-  const controlsLocked =
-    isLoading ||
-    isSavingSession ||
-    isAutoAdvancePending ||
-    pendingTrackChange !== null ||
-    isExitConfirmOpen ||
-    isIntroDialogOpen;
 
   const handleQuestionSwipeStep = useCallback(
     (step: 1 | -1) => {
-      if (controlsLocked || isAnswered || sessionComplete) return;
-
-      if (step === -1) {
-        toast.info(DOWN_SWIPE_UNAVAILABLE_TOAST_MESSAGE);
-        return;
-      }
-
-      deferCurrentQuestion();
+      navigatePendingQuestion(step);
     },
-    [controlsLocked, deferCurrentQuestion, isAnswered, sessionComplete]
+    [navigatePendingQuestion]
   );
 
   useEffect(() => {
     if (
       !isAnswered ||
-      requiresContinueAfterReveal ||
       sessionComplete ||
-      currentQuestion === null ||
-      currentQuestionIndex >= questions.length - 1 ||
+      !requiresContinueAfterReveal ||
+      currentPendingQuestionId === null ||
       pendingTrackChange !== null ||
       isExitConfirmOpen
     ) {
@@ -1781,12 +1891,10 @@ export function AnchorTrainingSession({
     };
   }, [
     advanceToNextQuestion,
-    currentQuestion,
-    currentQuestionIndex,
+    currentPendingQuestionId,
     isAnswered,
     isExitConfirmOpen,
     pendingTrackChange,
-    questions.length,
     requiresContinueAfterReveal,
     sessionComplete,
   ]);
@@ -1835,12 +1943,6 @@ export function AnchorTrainingSession({
               </AlertDialogDescription>
             </AlertDialogHeader>
 
-            <div className="relative mt-4 rounded-2xl border border-border/60 bg-background/65 p-3 text-xs leading-relaxed text-foreground/75">
-              Чем регулярнее практика в этом разделе, тем стабильнее
-              долговременное запоминание и быстрее восстановление стиха по
-              подсказкам.
-            </div>
-
             <AlertDialogFooter className="relative mt-5">
               <AlertDialogAction
                 className="h-10 rounded-xl border border-primary/25 bg-primary/10 text-primary px-5 text-sm font-medium"
@@ -1865,11 +1967,11 @@ export function AnchorTrainingSession({
               <div className="flex items-center justify-center">
                 <div
                   role="status"
-                  aria-label={`Стих ${displayIndex} из ${displayCount}`}
+                  aria-label={`Готово ${completedCount} из ${totalCount}.`}
                   className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
                 >
                   <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
-                    {displayIndex} / {displayCount}
+                    {completedCount} / {totalCount}
                   </span>
                 </div>
               </div>
@@ -1878,13 +1980,11 @@ export function AnchorTrainingSession({
 
           {showTrackSelector && (
             <div className="shrink-0 px-4 pt-3 sm:px-6 z-30">
-              <div className="mx-auto w-full max-w-xs rounded-[1.35rem] border border-border/60 bg-background/75 px-3 py-3 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                 <AnchorTrainingTrackSelect
                   value={selectedTrack}
                   onValueChange={handleTrackSelect}
                   disabled={controlsLocked}
                 />
-              </div>
             </div>
           )}
 
@@ -2021,7 +2121,7 @@ export function AnchorTrainingSession({
                   <AnchorTrainingSummaryCard
                     resultPercent={resultPercent}
                     correctCount={correctCount}
-                    totalCount={questions.length}
+                    totalCount={totalCount}
                     referenceStats={referenceStats}
                     incipitStats={incipitStats}
                     contextStats={contextStats}
@@ -2060,8 +2160,9 @@ export function AnchorTrainingSession({
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-11 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl",
-                    !showForgotAnswerAction && "col-span-full"
+                    "h-11 rounded-2xl bg-destructive/10 border border-destructive/30 text-foreground/75 backdrop-blur-xl",
+                    !showForgotAnswerAction && "col-span-full",
+                    "text-destructive"
                   )}
                   onClick={requestClose}
                 >
@@ -2129,7 +2230,7 @@ export function AnchorTrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              className="bg-destructive hover:bg-destructive/90 text-white rounded-full border border-border/60"
               onClick={onClose}
             >
               Выйти

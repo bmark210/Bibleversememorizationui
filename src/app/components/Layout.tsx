@@ -1,11 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Dumbbell, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
-import { Button } from './ui/button';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -23,16 +22,16 @@ export function Layout({
   currentPage,
   onNavigate,
   isContentReady = false,
-  showTelegramExitButton = false,
-  onTelegramExit,
+  // showTelegramExitButton = false,
+  // onTelegramExit,
   hideChrome = false,
 }: LayoutProps) {
-  const { contentSafeAreaInset, isInTelegram } = useTelegramSafeArea();
+  const { contentSafeAreaInset } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-  const shouldShowTelegramExitButton =
-    isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
+  // const shouldShowTelegramExitButton =
+  //   isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -86,11 +85,11 @@ export function Layout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
           <div className="relative flex items-center justify-center h-10">
             <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold text-primary">B Memory</h1>
+                {/* <BookOpen className="w-5 h-5 text-primary" /> */}
+              {/* <h1 className="text-xl font-semibold text-primary">B Memory</h1> */}
             </div>
 
-            {shouldShowTelegramExitButton ? (
+            {/* {shouldShowTelegramExitButton ? (
               <Button
                 type="button"
                 variant="outline"
@@ -103,7 +102,7 @@ export function Layout({
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Выйти</span>
               </Button>
-            ) : null}
+            ) : null} */}
           </div>
         </div>
       </header>
