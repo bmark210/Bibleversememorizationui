@@ -49,7 +49,7 @@ export const TRAINING_MODE_LABELS: Record<TrainingMode, string> = {
 };
 
 export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
-  core: "Изучение и повторение",
+  core: "Практика",
   anchor: "Закрепление",
 };
 

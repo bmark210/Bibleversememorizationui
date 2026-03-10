@@ -5,47 +5,21 @@ import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
 import { VerseCard, type VerseCardPreviewTone } from "@/app/components/VerseCard";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
-
-type SessionTrack = "reference" | "incipit" | "context" | "mixed";
-type SkillTrack = "reference" | "incipit" | "context";
-
-type TapQuestionOption = {
-  id: string;
-  label: string;
-  normalized: string;
-};
-
-type QuestionBase = {
-  id: string;
-  track: SkillTrack;
-  modeLabel: string;
-  modeHint: string;
-  prompt: string;
-  answerLabel: string;
-};
-
-type ChoiceQuestion = QuestionBase & {
-  interaction: "choice";
-  options: string[];
-  isCorrectOption: (value: string) => boolean;
-};
-
-type TypeQuestion = QuestionBase & {
-  interaction: "type";
-  placeholder: string;
-  maxAttempts: number;
-  retryHint?: string;
-};
-
-type TapQuestion = QuestionBase & {
-  interaction: "tap";
-  options: TapQuestionOption[];
-  expectedNormalized: string[];
-};
-
-type TrainerQuestion = ChoiceQuestion | TypeQuestion | TapQuestion;
+import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
+import { QuestionBadge, SurfacePanel } from "./AnchorTrainingCardUi";
+import {
+  getSummaryLabel,
+  TRACK_ACCENTS,
+  TRACK_LABELS,
+  type TrackAccent,
+} from "./anchorTrainingTrackMeta";
+import type {
+  SessionTrack,
+  TrackStat,
+  TrainerQuestion,
+  TypeInputReadiness,
+} from "./anchorTrainingTypes";
 
 type AnchorTrainingQuestionCardProps = {
   question: TrainerQuestion;
@@ -59,8 +33,8 @@ type AnchorTrainingQuestionCardProps = {
   typingAttempts: number;
   canSubmitTypeAnswer: boolean;
   isContextPrefixTypeMode: boolean;
-  typeInputReadiness: { canSubmit: boolean; remainingChars: number } | null;
-  inputRef: RefObject<HTMLInputElement | null>;
+  typeInputReadiness: TypeInputReadiness | null;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   lastAnswerCorrect: boolean | null;
   lastAnswerUsedTolerance: boolean;
   lastAnswerForgotten: boolean;
@@ -74,11 +48,6 @@ type AnchorTrainingQuestionCardProps = {
   onTypeSubmit: () => void;
   onForgotAnswer: () => void;
   onContinue: () => void;
-};
-
-type TrackStat = {
-  total: number;
-  correct: number;
 };
 
 type AnchorTrainingSummaryCardProps = {
@@ -100,79 +69,6 @@ type AnchorTrainingStateCardProps = {
   description: string;
   tone?: VerseCardPreviewTone;
   action?: ReactNode;
-};
-
-type TrackAccent = {
-  badgeClassName: string;
-  panelClassName: string;
-  softPanelClassName: string;
-  statClassName: string;
-  dotClassName: string;
-  lineClassName: string;
-};
-
-const TRACK_LABELS: Record<SkillTrack, string> = {
-  reference: "Ссылка",
-  incipit: "Начала",
-  context: "Контекст",
-};
-
-const SESSION_TRACK_LABELS: Record<SessionTrack, string> = {
-  reference: "Ссылка",
-  incipit: "Начала",
-  context: "Контекст",
-  mixed: "Смешанный",
-};
-
-const TRACK_ACCENTS: Record<SessionTrack | SkillTrack, TrackAccent> = {
-  reference: {
-    badgeClassName:
-      "border-sky-500/20 bg-sky-500/[0.08] text-sky-700 dark:text-sky-300",
-    panelClassName:
-      "border-sky-500/18 bg-gradient-to-br from-sky-500/[0.10] via-background to-background",
-    softPanelClassName:
-      "border-sky-500/14 bg-sky-500/[0.07] text-sky-800 dark:text-sky-300",
-    statClassName:
-      "border-sky-500/18 bg-sky-500/[0.08] text-sky-800 dark:text-sky-300",
-    dotClassName: "bg-sky-500",
-    lineClassName: "from-transparent via-sky-500/45 to-transparent",
-  },
-  incipit: {
-    badgeClassName:
-      "border-rose-500/20 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300",
-    panelClassName:
-      "border-rose-500/18 bg-gradient-to-br from-rose-500/[0.10] via-background to-background",
-    softPanelClassName:
-      "border-rose-500/14 bg-rose-500/[0.07] text-rose-800 dark:text-rose-300",
-    statClassName:
-      "border-rose-500/18 bg-rose-500/[0.08] text-rose-800 dark:text-rose-300",
-    dotClassName: "bg-rose-500",
-    lineClassName: "from-transparent via-rose-500/45 to-transparent",
-  },
-  context: {
-    badgeClassName:
-      "border-teal-500/20 bg-teal-500/[0.08] text-teal-700 dark:text-teal-300",
-    panelClassName:
-      "border-teal-500/18 bg-gradient-to-br from-teal-500/[0.10] via-background to-background",
-    softPanelClassName:
-      "border-teal-500/14 bg-teal-500/[0.07] text-teal-800 dark:text-teal-300",
-    statClassName:
-      "border-teal-500/18 bg-teal-500/[0.08] text-teal-800 dark:text-teal-300",
-    dotClassName: "bg-teal-500",
-    lineClassName: "from-transparent via-teal-500/45 to-transparent",
-  },
-  mixed: {
-    badgeClassName:
-      "border-primary/20 bg-primary/[0.08] text-primary",
-    panelClassName:
-      "border-primary/18 bg-gradient-to-br from-primary/[0.10] via-background to-background",
-    softPanelClassName:
-      "border-primary/14 bg-primary/[0.07] text-primary",
-    statClassName:
-      "border-primary/18 bg-primary/[0.08] text-primary",
-    dotClassName: "bg-primary",
-    lineClassName: "from-transparent via-primary/45 to-transparent",
-  },
 };
 
 const STATE_THEME: Record<
@@ -222,23 +118,6 @@ const STATE_THEME: Record<
   },
 };
 
-function getChoiceStateClass(params: {
-  isAnswered: boolean;
-  optionIsCorrect: boolean;
-  optionIsSelected: boolean;
-}) {
-  if (!params.isAnswered) {
-    return "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35";
-  }
-  if (params.optionIsCorrect) {
-    return "border-emerald-500/24 bg-emerald-500/[0.08] text-emerald-800 dark:text-emerald-300";
-  }
-  if (params.optionIsSelected) {
-    return "border-rose-500/24 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300";
-  }
-  return "border-border/55 bg-muted/25 text-foreground/62";
-}
-
 function getResultTheme(isCorrect: boolean | null) {
   if (isCorrect) {
     return {
@@ -255,50 +134,6 @@ function getResultTheme(isCorrect: boolean | null) {
     iconWrapClassName: "bg-rose-500/14 text-rose-600",
     titleClassName: "text-rose-700 dark:text-rose-300",
   };
-}
-
-function getSummaryLabel(selectedTrack: SessionTrack) {
-  return selectedTrack === "mixed"
-    ? "Смешанная сессия"
-    : `Режим: ${SESSION_TRACK_LABELS[selectedTrack]}`;
-}
-
-function QuestionBadge({
-  className,
-  children,
-}: {
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium",
-        className
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-function SurfacePanel({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-[1.7rem] border border-border/60 bg-background/82",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
 }
 
 export function AnchorTrainingQuestionCard({
@@ -384,148 +219,25 @@ export function AnchorTrainingQuestionCard({
             </p>
           </div>
 
-          {question.interaction === "choice" && (
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {question.options.map((option) => {
-                const optionIsSelected = selectedOption === option;
-                const optionIsCorrect = question.isCorrectOption(option);
-                const stateClassName = getChoiceStateClass({
-                  isAnswered,
-                  optionIsCorrect,
-                  optionIsSelected,
-                });
-
-                return (
-                  <button
-                    key={`${question.id}-${option}`}
-                    type="button"
-                    disabled={isAnswered || controlsLocked}
-                    onClick={() => onChoiceSelect(option)}
-                    className={cn(
-                      "rounded-[1.45rem] border px-4 py-3.5 text-left text-sm leading-relaxed transition-colors",
-                      stateClassName
-                    )}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {question.interaction === "tap" && (
-            <div className="space-y-3">
-              <SurfacePanel className="px-4 py-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-medium text-foreground/72">Собрано</span>
-                  <span className="text-xs font-semibold tabular-nums text-foreground/82">
-                    {Math.min(tapSequence.length, question.expectedNormalized.length)}/
-                    {question.expectedNormalized.length}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-relaxed text-foreground/82">
-                  {selectedTapLabels.length > 0
-                    ? selectedTapLabels.join(" ")
-                    : "Нажимайте слова по порядку"}
-                </p>
-              </SurfacePanel>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                {question.options.map((option) => {
-                  const isUsed = tapSequence.includes(option.id);
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      disabled={isAnswered || isUsed || controlsLocked}
-                      onClick={() => onTapSelect(option.id)}
-                      className={cn(
-                        "rounded-[1.45rem] border px-3.5 py-3 text-left text-sm transition-colors",
-                        isUsed
-                          ? "border-primary/25 bg-primary/[0.08] text-foreground/84"
-                          : "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35"
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {question.interaction === "type" && !isAnswered && (
-            <div className="space-y-3">
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  onTypeSubmit();
-                }}
-              >
-                <div className="relative">
-                  <Input
-                    ref={inputRef}
-                    value={typedAnswer}
-                    onChange={(event) =>
-                      onTypedAnswerChange(
-                        isContextPrefixTypeMode
-                          ? event.target.value.toUpperCase()
-                          : event.target.value
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        if (canSubmitTypeAnswer) {
-                          onTypeSubmit();
-                        }
-                      }
-                    }}
-                    placeholder={question.placeholder}
-                    className="h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-24 text-base transition-colors focus:border-primary/35"
-                    autoCapitalize={isContextPrefixTypeMode ? "characters" : "none"}
-                    autoCorrect="off"
-                    spellCheck={false}
-                    inputMode="text"
-                    enterKeyHint="done"
-                    disabled={controlsLocked}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <Button
-                      type="submit"
-                      size="sm"
-                      className="h-8 rounded-xl px-4 text-xs font-medium"
-                      disabled={!canSubmitTypeAnswer || controlsLocked}
-                    >
-                      {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[10px] font-semibold text-primary tabular-nums">
-                    {Math.min(typingAttempts + 1, question.maxAttempts)}
-                  </span>
-                  из {question.maxAttempts} попыток
-                </QuestionBadge>
-                {typingAttempts > 0 && question.retryHint && (
-                  <p className="text-xs font-medium text-foreground/72">
-                    {question.retryHint}
-                  </p>
-                )}
-              </div>
-
-              {typeInputReadiness &&
-                !typeInputReadiness.canSubmit &&
-                typeInputReadiness.remainingChars > 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Введите ещё минимум {typeInputReadiness.remainingChars} симв. для проверки.
-                  </p>
-                )}
-            </div>
+          {(question.interaction !== "type" || !isAnswered) && (
+            <AnchorTrainingModeRenderer
+              question={question}
+              selectedOption={selectedOption}
+              isAnswered={isAnswered}
+              controlsLocked={controlsLocked}
+              tapSequence={tapSequence}
+              selectedTapLabels={selectedTapLabels}
+              typedAnswer={typedAnswer}
+              typingAttempts={typingAttempts}
+              canSubmitTypeAnswer={canSubmitTypeAnswer}
+              isContextPrefixTypeMode={isContextPrefixTypeMode}
+              typeInputReadiness={typeInputReadiness}
+              inputRef={inputRef}
+              onChoiceSelect={onChoiceSelect}
+              onTapSelect={onTapSelect}
+              onTypedAnswerChange={onTypedAnswerChange}
+              onTypeSubmit={onTypeSubmit}
+            />
           )}
         </div>
       }

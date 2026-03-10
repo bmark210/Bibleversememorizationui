@@ -181,9 +181,7 @@ export const TrainingCard = memo(function TrainingCard({
                 disabled={quickForgetDisabled}
                 className={cn(
                   "rounded-full border px-3 text-[11px] font-semibold",
-                  isReviewStage
-                    ? "border-rose-500/35 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
-                    : "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                  "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
                 )}
                 onClick={onQuickForget}
               >

@@ -902,7 +902,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onViewAll={() => handleNavigate("verses")}
                 onOpenTraining={() => handleNavigate("training")}
                 isInitializingData={isBootstrapping}
               />
