@@ -341,7 +341,7 @@ export function TrainingHub({
 
   return (
     <div
-      className="mx-auto max-w-2xl px-4 pb-44 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8"
+      className="mx-auto max-w-2xl px-4 pb-32 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8"
       style={
         {
           "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
@@ -358,11 +358,6 @@ export function TrainingHub({
             <Dumbbell className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-semibold text-primary">Тренировка</h1>
           </div>
-          <p className="text-sm text-foreground/55">
-            {counts.allCount > 0
-              ? `${counts.allCount} ${pluralVerses(counts.allCount)} доступно для практики и закрепления`
-              : "Добавьте стихи, чтобы открыть тренировку"}
-          </p>
         </header>
 
         <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
@@ -563,7 +558,9 @@ export function TrainingHub({
                 onClick={onStart}
                 className={cn(
                   "h-14 w-full gap-2 rounded-2xl text-base",
-                  'text-base border-primary/30 bg-primary/12 text-foreground/90 shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)] dark:bg-primary/50',
+                  'border border-border/60 dark:bg-primary/50 !bg-primary/12',
+                  currentAccentTheme.summaryClassName,
+                  currentAccentTheme.ctaClassName,
                 )}
               >
                 <Play className="h-4 w-4" />
