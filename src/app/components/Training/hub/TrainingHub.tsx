@@ -17,6 +17,7 @@ import {
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { triggerHaptic } from "@/app/lib/haptics";
 import {
   useTrainingHubState,
   getCountForMode,
@@ -289,6 +290,10 @@ function matchesModes(
   );
 }
 
+function triggerSelectionHaptic(isChanged: boolean) {
+  triggerHaptic(isChanged ? "medium" : "light");
+}
+
 export function TrainingHub({
   allVerses,
   dashboardStats,
@@ -341,6 +346,43 @@ export function TrainingHub({
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
 
+  const handleScenarioChange = (value: string) => {
+    const nextScenario = value as TrainingScenario;
+    triggerSelectionHaptic(nextScenario !== selectedScenario);
+    onScenarioChange(nextScenario);
+  };
+
+  const handleCorePresetChange = (value: string) => {
+    const nextPreset = CORE_MODE_PRESETS.find((preset) => preset.id === value);
+    if (!nextPreset) return;
+
+    triggerSelectionHaptic(!matchesModes(selectedModes, nextPreset.modes));
+    onModesChange(nextPreset.modes);
+  };
+
+  const handleAnchorTrackChange = (value: string) => {
+    const nextTrack = value as AnchorTrainingTrack;
+    triggerSelectionHaptic(nextTrack !== selectedAnchorTrack);
+    onAnchorTrackChange(nextTrack);
+  };
+
+  const handleAdvancedOpenChange = (open: boolean) => {
+    triggerHaptic("light");
+    setIsAdvancedOpen(open);
+  };
+
+  const handleOrderOpenChange = (open: boolean) => {
+    if (open) {
+      triggerHaptic("light");
+    }
+  };
+
+  const handleOrderChange = (value: string) => {
+    const nextOrder = value as TrainingOrder;
+    triggerSelectionHaptic(nextOrder !== selectedOrder);
+    onOrderChange(nextOrder);
+  };
+
   return (
     <div
       className="mx-auto w-full px-4 pt-4 sm:px-6 sm:pt-6 md:pb-8 lg:px-8 lg:pt-8 h-full"
@@ -359,7 +401,7 @@ export function TrainingHub({
         }}
         className="flex flex-col gap-4 h-full"
       >
-        <header className="mb-5 space-y-1.5">
+        <header className="space-y-1.5">
           <div className="flex items-center gap-2.5">
             <Dumbbell className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-semibold text-primary">Тренировка</h1>
@@ -369,9 +411,7 @@ export function TrainingHub({
         <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
           <Tabs
             value={selectedScenario}
-            onValueChange={(value) =>
-              onScenarioChange(value as TrainingScenario)
-            }
+            onValueChange={handleScenarioChange}
             className="gap-4"
           >
             <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
@@ -411,12 +451,7 @@ export function TrainingHub({
                   <SectionLabel>Режим практики</SectionLabel>
                   <RadioGroupPrimitive.Root
                     value={activeCorePreset.id}
-                    onValueChange={(value) => {
-                      const nextPreset = CORE_MODE_PRESETS.find(
-                        (preset) => preset.id === value,
-                      );
-                      if (nextPreset) onModesChange(nextPreset.modes);
-                    }}
+                    onValueChange={handleCorePresetChange}
                     aria-label="Режим практики"
                     className="mt-2 grid gap-2 sm:grid-cols-3"
                   >
@@ -447,9 +482,7 @@ export function TrainingHub({
                   <SectionLabel>Формат закрепления</SectionLabel>
                   <RadioGroupPrimitive.Root
                     value={selectedAnchorTrack}
-                    onValueChange={(value) =>
-                      onAnchorTrackChange(value as AnchorTrainingTrack)
-                    }
+                    onValueChange={handleAnchorTrackChange}
                     aria-label="Формат закрепления"
                     className="mt-2 grid sm:grid-cols-2 gap-2"
                   >
@@ -495,7 +528,7 @@ export function TrainingHub({
         {selectedScenario === "core" ? (
           <Collapsible
             open={isAdvancedOpen}
-            onOpenChange={setIsAdvancedOpen}
+            onOpenChange={handleAdvancedOpenChange}
             className="rounded-[24px] border border-border/60 bg-card/45 backdrop-blur-xl"
           >
             <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none">
@@ -519,9 +552,8 @@ export function TrainingHub({
                 <SectionLabel>Порядок карточек</SectionLabel>
                 <Select
                   value={selectedOrder}
-                  onValueChange={(value) =>
-                    onOrderChange(value as TrainingOrder)
-                  }
+                  onOpenChange={handleOrderOpenChange}
+                  onValueChange={handleOrderChange}
                 >
                   <SelectTrigger
                     aria-label="Порядок карточек"
