@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { VerseStatus } from "@/generated/prisma";
+import type { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";

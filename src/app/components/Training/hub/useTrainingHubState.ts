@@ -18,13 +18,17 @@ export function useTrainingHubState(params: {
   const { allVerses, dashboardStats } = params;
 
   return useMemo(() => {
-    const learningCount = allVerses.filter(
-      (v) => normalizeDisplayVerseStatus(v.status) === "LEARNING"
-    ).length;
+    const learningCount =
+      dashboardStats?.learningVerses ??
+      allVerses.filter(
+        (v) => normalizeDisplayVerseStatus(v.status) === "LEARNING"
+      ).length;
 
-    const reviewCount = allVerses.filter(
-      (v) => normalizeDisplayVerseStatus(v.status) === "REVIEW"
-    ).length;
+    const reviewCount =
+      dashboardStats?.reviewVerses ??
+      allVerses.filter(
+        (v) => normalizeDisplayVerseStatus(v.status) === "REVIEW"
+      ).length;
 
     const masteredCount = dashboardStats?.masteredVerses ?? 0;
     const allCount = learningCount + reviewCount + masteredCount;

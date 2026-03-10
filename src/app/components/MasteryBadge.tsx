@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "./ui/badge";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 
 const getMasteryColor = (status: DisplayVerseStatus) => {

@@ -220,6 +220,18 @@ body[data-theme='dark'] {
   to { opacity: 0; }
 }
 
+@keyframes boot-progress-slide {
+  from {
+    left: -40%;
+    width: 40%;
+  }
+
+  to {
+    left: 100%;
+    width: 40%;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -237,6 +249,10 @@ body[data-theme='dark'] {
   html,
   body {
     min-height: 100%;
+  }
+
+  .boot-progress-indicator {
+    animation: boot-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
   #root {

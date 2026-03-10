@@ -11,20 +11,8 @@ import {
 } from '@/app/lib/telegramWebApp';
 import { triggerHaptic } from '../lib/haptics';
 
-// Динамический импорт SDK только на клиенте
-let webAppSdk: TelegramWebApp | null = null;
-if (typeof window !== 'undefined') {
-  webAppSdk = getTelegramWebApp();
-  void import('@twa-dev/sdk')
-    .then((sdkModule) => {
-      webAppSdk =
-        ((sdkModule.default as unknown) as TelegramWebApp | undefined) ??
-        getTelegramWebApp();
-    })
-    .catch(() => {
-      webAppSdk = getTelegramWebApp();
-    });
-}
+let webAppSdk: TelegramWebApp | null =
+  typeof window !== 'undefined' ? getTelegramWebApp() : null;
 
 /**
  * Информация о пользователе Telegram
@@ -72,6 +60,8 @@ export function useTelegramWebApp() {
   });
 
   useEffect(() => {
+    webAppSdk = getTelegramWebApp();
+
     // Проверяем, запущено ли приложение в Telegram
     if (typeof window !== 'undefined' && webAppSdk) {
       try {

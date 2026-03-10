@@ -10,7 +10,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";

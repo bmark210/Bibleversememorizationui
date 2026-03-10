@@ -52,6 +52,7 @@ function getInitialSubsetFilter(
 
 export function Training({
   allVerses,
+  isLoadingVerses = false,
   dashboardStats,
   telegramId,
   selectionVerses,
@@ -152,6 +153,10 @@ export function Training({
       onSessionFullscreenChange?.(false);
     };
   }, [onSessionFullscreenChange, view.mode]);
+
+  if (view.mode === "hub" && isLoadingVerses && allVerses.length === 0) {
+    return <div className="min-h-[60vh]" />;
+  }
 
   return (
     <div className="h-full">

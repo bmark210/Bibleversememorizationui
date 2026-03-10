@@ -2,7 +2,7 @@ import type { UserVerse } from "@/api/models/UserVerse";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { TrainingVerseState } from "./types";
 
 export function getTelegramId(): string | null {

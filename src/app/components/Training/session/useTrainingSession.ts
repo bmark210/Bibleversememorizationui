@@ -5,7 +5,7 @@ import {
   useRef,
   type RefObject,
 } from "react";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type {

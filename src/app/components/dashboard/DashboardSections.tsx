@@ -1,8 +1,6 @@
 "use client";
 
 import React from "react";
-import { motion } from "motion/react";
-import type { Variants } from "motion/react";
 import { Crown, Dumbbell, Medal, Trophy, FlameIcon } from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
@@ -172,7 +170,6 @@ type DashboardWelcomeSectionProps = {
   dailyStreak?: number | null;
   onOpenTraining?: () => void;
   onOpenCurrentUserProfile?: () => void;
-  sectionVariants: Variants;
 };
 
 export function DashboardWelcomeSection({
@@ -182,7 +179,6 @@ export function DashboardWelcomeSection({
   dailyStreak,
   onOpenTraining,
   onOpenCurrentUserProfile,
-  sectionVariants,
 }: DashboardWelcomeSectionProps) {
   const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
 
@@ -213,7 +209,7 @@ export function DashboardWelcomeSection({
         : "Открыть тренировку";
 
   return (
-    <motion.div className="mb-5" variants={sectionVariants}>
+    <div className="mb-5">
       <DashboardSurface className="rounded-[32px]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
@@ -235,10 +231,10 @@ export function DashboardWelcomeSection({
                     )}
                   </Avatar>
 
-                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl whitespace-normal break-words line-clamp-2 overflow-hidden text-ellipsis">
                     {isFirstAppVisit
-                      ? `Привет, ${user.firstName}.`
-                      : `С возвращением, ${user.firstName}.`}
+                      ? `Привет, ${user.firstName}`
+                      : `С возвращением, ${user.firstName}`}
                   </h1>
                 </button>
               ) : (
@@ -293,35 +289,27 @@ export function DashboardWelcomeSection({
           </Button>
         </div>
       </DashboardSurface>
-    </motion.div>
+    </div>
   );
 }
 
 type DashboardTrainingStatsCardProps = {
   statsCards: ReadonlyArray<StatsCardItem>;
-  cardItemVariants: Variants;
-  groupStaggerVariants: Variants;
 };
 
 export function DashboardTrainingStatsCard({
   statsCards,
-  cardItemVariants,
-  groupStaggerVariants,
 }: DashboardTrainingStatsCardProps) {
   return (
-    <motion.div variants={cardItemVariants}>
+    <div>
       <DashboardSurface>
-        <motion.div
-          className="grid grid-cols-2 gap-3"
-          variants={groupStaggerVariants}
-        >
+        <div className="grid grid-cols-2 gap-3">
           {statsCards.map((item) => {
             const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
 
             return (
-              <motion.div
+              <div
                 key={item.key}
-                variants={cardItemVariants}
                 className={cn("rounded-2xl border px-4 py-3", tone.panelClassName)}
               >
                 <div
@@ -348,12 +336,12 @@ export function DashboardTrainingStatsCard({
                     </span>
                   )}
                 </div>
-              </motion.div>
+              </div>
             );
           })}
-        </motion.div>
+        </div>
       </DashboardSurface>
-    </motion.div>
+    </div>
   );
 }
 
@@ -366,8 +354,6 @@ type DashboardLeaderboardCardProps = {
     name: string;
     avatarUrl: string | null;
   }) => void;
-  cardItemVariants: Variants;
-  groupStaggerVariants: Variants;
 };
 
 export function DashboardLeaderboardCard({
@@ -375,8 +361,6 @@ export function DashboardLeaderboardCard({
   isLeaderboardLoading = false,
   onOpenTraining,
   onOpenPlayerProfile,
-  cardItemVariants,
-  groupStaggerVariants,
 }: DashboardLeaderboardCardProps) {
   const entries = leaderboard?.entries ?? [];
   const currentUser = leaderboard?.currentUser ?? null;
@@ -385,7 +369,7 @@ export function DashboardLeaderboardCard({
     !entries.some((entry) => entry.telegramId === currentUser.telegramId);
 
   return (
-    <motion.div variants={cardItemVariants}>
+    <div>
       <DashboardSurface>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -396,7 +380,7 @@ export function DashboardLeaderboardCard({
           </div>
         </div>
 
-        <motion.div className="space-y-2.5" variants={groupStaggerVariants}>
+        <div className="space-y-2.5">
           {entries.length > 0 ? (
             entries.map((entry) => {
               const rankMarker = getRankMarker(entry.rank);
@@ -409,10 +393,7 @@ export function DashboardLeaderboardCard({
                 });
 
               return (
-                <motion.div
-                  key={entry.telegramId}
-                  variants={cardItemVariants}
-                >
+                <div key={entry.telegramId}>
                   <button
                     type="button"
                     onClick={handleOpenProfile}
@@ -467,14 +448,11 @@ export function DashboardLeaderboardCard({
                       {entry.score}%
                     </div>
                   </button>
-                </motion.div>
+                </div>
               );
             })
           ) : (
-            <motion.div
-              variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4"
-            >
+            <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4">
               {isLeaderboardLoading ? (
                 <div className="text-sm text-foreground/56">Обновляем...</div>
               ) : (
@@ -496,9 +474,9 @@ export function DashboardLeaderboardCard({
                   ) : null}
                 </div>
               )}
-            </motion.div>
+            </div>
           )}
-        </motion.div>
+        </div>
 
         {shouldShowCurrentUserSnapshot ? (
           <div className="mt-3 border-t border-border/55 pt-3">
@@ -528,7 +506,7 @@ export function DashboardLeaderboardCard({
           </div>
         ) : null}
       </DashboardSurface>
-    </motion.div>
+    </div>
   );
 }
 
@@ -541,8 +519,6 @@ type DashboardFriendsActivityCardProps = {
     name: string;
     avatarUrl: string | null;
   }) => void;
-  cardItemVariants: Variants;
-  groupStaggerVariants: Variants;
 };
 
 export function DashboardFriendsActivityCard({
@@ -550,8 +526,6 @@ export function DashboardFriendsActivityCard({
   isFriendsActivityLoading = false,
   onOpenProfile,
   onOpenPlayerProfile,
-  cardItemVariants,
-  groupStaggerVariants,
 }: DashboardFriendsActivityCardProps) {
   const entries = friendsActivity?.entries ?? [];
   const summary = friendsActivity?.summary ?? {
@@ -559,7 +533,7 @@ export function DashboardFriendsActivityCard({
   };
 
   return (
-    <motion.div variants={cardItemVariants}>
+    <div>
       <DashboardSurface>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -568,10 +542,10 @@ export function DashboardFriendsActivityCard({
           <div className="text-xs text-foreground/45">{summary.friendsTotal}</div>
         </div>
 
-        <motion.div className="space-y-2.5" variants={groupStaggerVariants}>
+        <div className="space-y-2.5">
           {entries.length > 0 ? (
             entries.map((entry) => (
-              <motion.button
+              <button
                 key={entry.telegramId}
                 type="button"
                 onClick={() =>
@@ -581,7 +555,6 @@ export function DashboardFriendsActivityCard({
                     avatarUrl: entry.avatarUrl,
                   })
                 }
-                variants={cardItemVariants}
                 className="w-full rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5 text-left transition-colors hover:bg-background/70"
                 aria-label={`Открыть профиль ${entry.name}`}
               >
@@ -608,13 +581,10 @@ export function DashboardFriendsActivityCard({
                     {entry.averageProgressPercent}%
                   </div>
                 </div>
-              </motion.button>
+              </button>
             ))
           ) : (
-            <motion.div
-              variants={cardItemVariants}
-              className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4"
-            >
+            <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4">
               {isFriendsActivityLoading ? (
                 <div className="text-sm text-foreground/56">Обновляем...</div>
               ) : (
@@ -636,10 +606,10 @@ export function DashboardFriendsActivityCard({
                   ) : null}
                 </div>
               )}
-            </motion.div>
+            </div>
           )}
-        </motion.div>
+        </div>
       </DashboardSurface>
-    </motion.div>
+    </div>
   );
 }

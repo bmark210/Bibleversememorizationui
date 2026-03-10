@@ -29,6 +29,7 @@ export interface DirectLaunchVerse {
 
 export interface TrainingProps {
   allVerses: Verse[];
+  isLoadingVerses?: boolean;
   dashboardStats?: UserDashboardStats | null;
   telegramId: string | null;
   selectionVerses?: Verse[];

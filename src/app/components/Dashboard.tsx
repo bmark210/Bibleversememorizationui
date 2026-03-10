@@ -1,7 +1,6 @@
 'use client'
 
-import React from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
@@ -122,8 +121,7 @@ export function Dashboard({
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
-  const shouldReduceMotion = useReducedMotion()
-  const todaySummary = summarizeTodayVerses(todayVerses)
+  const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
 
   const learningVerses =
@@ -133,86 +131,38 @@ export function Dashboard({
   const masteredVerses = dashboardStats?.masteredVerses ?? null
   const dailyStreak = dashboardStats?.dailyStreak ?? null
 
-  const statsCards = [
-    {
-      key: 'learning',
-      label: 'Изучение',
-      value: `${learningVerses}`,
-      tone: 'learning' as const,
-    },
-    {
-      key: 'review',
-      label: 'Повторение',
-      value: `${dueReviewVerses}`,
-      tone: 'review' as const,
-    },
-    {
-      key: 'progress',
-      label: 'Прогресс',
-      value: avgRatingPercent != null ? `${avgRatingPercent}%` : null,
-      isLoading: isStatsPending,
-      tone: 'neutral' as const,
-    },
-    {
-      key: 'mastered',
-      label: 'Выучено',
-      value: masteredVerses != null ? `${masteredVerses}` : null,
-      isLoading: isStatsPending,
-      tone: 'mastered' as const,
-    },
-  ] as const
-
-  const dashboardVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.07,
-        delayChildren: shouldReduceMotion ? 0 : 0.03,
-      },
-    },
-  }
-
-  const sectionVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 12,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.26,
-        ease: 'easeOut' as const,
-      },
-    },
-  }
-
-  const groupStaggerVariants = {
-    hidden: {},
-    show: {
-      transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.06,
-        delayChildren: shouldReduceMotion ? 0 : 0.02,
-      },
-    },
-  }
-
-  const cardItemVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 10,
-      scale: shouldReduceMotion ? 1 : 0.99,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.22,
-        ease: 'easeOut' as const,
-      },
-    },
-  }
+  const statsCards = useMemo(
+    () =>
+      [
+        {
+          key: 'learning',
+          label: 'Изучение',
+          value: `${learningVerses}`,
+          tone: 'learning' as const,
+        },
+        {
+          key: 'review',
+          label: 'Повторение',
+          value: `${dueReviewVerses}`,
+          tone: 'review' as const,
+        },
+        {
+          key: 'progress',
+          label: 'Прогресс',
+          value: avgRatingPercent != null ? `${avgRatingPercent}%` : null,
+          isLoading: isStatsPending,
+          tone: 'neutral' as const,
+        },
+        {
+          key: 'mastered',
+          label: 'Выучено',
+          value: masteredVerses != null ? `${masteredVerses}` : null,
+          isLoading: isStatsPending,
+          tone: 'mastered' as const,
+        },
+      ] as const,
+    [avgRatingPercent, dueReviewVerses, isStatsPending, learningVerses, masteredVerses]
+  )
 
   if (isInitializingData) {
     return <div className="min-h-[60vh]" />
@@ -220,65 +170,41 @@ export function Dashboard({
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
-      <motion.div
-        {...(shouldReduceMotion
-          ? {}
-          : {
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              transition: { duration: 0.2, ease: 'easeOut' as const },
-            })}
-      >
-        <motion.div initial="hidden" animate="show" variants={dashboardVariants}>
-          <DashboardWelcomeSection
-            user={user}
-            learningVersesCount={learningVerses}
-            dueReviewVerses={dueReviewVerses}
-            dailyStreak={dailyStreak}
-            onOpenTraining={onOpenTraining}
-            onOpenCurrentUserProfile={
-              currentTelegramId && onOpenPlayerProfile
-                ? () =>
-                    onOpenPlayerProfile({
-                      telegramId: currentTelegramId,
-                      name: user?.firstName?.trim() || 'Вы',
-                      avatarUrl: user?.photoUrl ?? null,
-                    })
-                : undefined
-            }
-            sectionVariants={sectionVariants}
-          />
+      <DashboardWelcomeSection
+        user={user}
+        learningVersesCount={learningVerses}
+        dueReviewVerses={dueReviewVerses}
+        dailyStreak={dailyStreak}
+        onOpenTraining={onOpenTraining}
+        onOpenCurrentUserProfile={
+          currentTelegramId && onOpenPlayerProfile
+            ? () =>
+                onOpenPlayerProfile({
+                  telegramId: currentTelegramId,
+                  name: user?.firstName?.trim() || 'Вы',
+                  avatarUrl: user?.photoUrl ?? null,
+                })
+            : undefined
+        }
+      />
 
-          <motion.div
-            className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]"
-            variants={groupStaggerVariants}
-          >
-            <DashboardTrainingStatsCard
-              statsCards={statsCards}
-              cardItemVariants={cardItemVariants}
-              groupStaggerVariants={groupStaggerVariants}
-            />
-            <div className="space-y-5">
-              <DashboardLeaderboardCard
-                leaderboard={dashboardLeaderboard}
-                isLeaderboardLoading={isDashboardLeaderboardLoading}
-                onOpenTraining={onOpenTraining}
-                onOpenPlayerProfile={onOpenPlayerProfile}
-                cardItemVariants={cardItemVariants}
-                groupStaggerVariants={groupStaggerVariants}
-              />
-              <DashboardFriendsActivityCard
-                friendsActivity={dashboardFriendsActivity}
-                isFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                onOpenProfile={onOpenProfile}
-                onOpenPlayerProfile={onOpenPlayerProfile}
-                cardItemVariants={cardItemVariants}
-                groupStaggerVariants={groupStaggerVariants}
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      </motion.div>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]">
+        <DashboardTrainingStatsCard statsCards={statsCards} />
+        <div className="space-y-5">
+          <DashboardLeaderboardCard
+            leaderboard={dashboardLeaderboard}
+            isLeaderboardLoading={isDashboardLeaderboardLoading}
+            onOpenTraining={onOpenTraining}
+            onOpenPlayerProfile={onOpenPlayerProfile}
+          />
+          <DashboardFriendsActivityCard
+            friendsActivity={dashboardFriendsActivity}
+            isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+            onOpenProfile={onOpenProfile}
+            onOpenPlayerProfile={onOpenPlayerProfile}
+          />
+        </div>
+      </div>
     </div>
   )
 }

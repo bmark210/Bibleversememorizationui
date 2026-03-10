@@ -24,7 +24,7 @@ import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   createVerticalTouchSwipeStart,
   getVerticalTouchSwipeStep,

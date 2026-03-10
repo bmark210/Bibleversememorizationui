@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
-import { VerseStatus } from '@/generated/prisma';
+import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
   DEFAULT_VERSE_LIST_STATUS_FILTER,

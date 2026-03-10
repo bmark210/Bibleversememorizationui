@@ -1,4 +1,4 @@
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 
 export type DisplayVerseStatus = VerseStatus | "REVIEW" | "MASTERED" | "CATALOG";
 

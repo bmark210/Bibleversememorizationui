@@ -1,8 +1,9 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 
+import { DisableViewportZoom } from './components/DisableViewportZoom'
 import './globals.css'
 
 const inter = Inter({
@@ -16,6 +17,14 @@ export const metadata: Metadata = {
   description: 'Приложение для заучивания и повторения библейских стихов',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+}
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
@@ -23,7 +32,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={inter.variable}
     >
       <head>
-      <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
       <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="beforeInteractive"
@@ -44,6 +52,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       `}} />
       </head>
       <body className="text-foreground">
+        <DisableViewportZoom />
         <div className="app-scroll">
           {children}
         </div>

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { Verse } from '@/app/App';
-import { VerseStatus } from '@/generated/prisma';
+import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
