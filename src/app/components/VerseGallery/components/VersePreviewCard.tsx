@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   Brain,
   Clock3,
@@ -37,6 +38,9 @@ export function VersePreviewCard({
   onStartTraining,
   onStatusAction,
 }: Props) {
+  const previewBodyRef = useRef<HTMLDivElement>(null);
+  const previewTextRef = useRef<HTMLParagraphElement>(null);
+  const [lineClamp, setLineClamp] = useState(8);
   const status = normalizeVerseStatus(verse.status);
   const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
@@ -110,6 +114,67 @@ export function VersePreviewCard({
   const showFooter =
     status !== "CATALOG" && status !== VerseStatus.MY;
 
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const bodyEl = previewBodyRef.current;
+    const textEl = previewTextRef.current;
+    if (!bodyEl || !textEl) return;
+
+    let rafId: number | null = null;
+
+    const updateLineClamp = () => {
+      const currentBodyEl = previewBodyRef.current;
+      const currentTextEl = previewTextRef.current;
+      if (!currentBodyEl || !currentTextEl) return;
+
+      const bodyStyle = window.getComputedStyle(currentBodyEl);
+      const textStyle = window.getComputedStyle(currentTextEl);
+      const paddingTop = Number.parseFloat(bodyStyle.paddingTop || "0") || 0;
+      const paddingBottom =
+        Number.parseFloat(bodyStyle.paddingBottom || "0") || 0;
+      const availableHeight = Math.max(
+        0,
+        currentBodyEl.clientHeight - paddingTop - paddingBottom,
+      );
+
+      let lineHeight = Number.parseFloat(textStyle.lineHeight || "");
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        const fontSize = Number.parseFloat(textStyle.fontSize || "0") || 16;
+        lineHeight = fontSize * 1.625;
+      }
+
+      const nextClamp = Math.max(2, Math.floor(availableHeight / lineHeight));
+      setLineClamp((prev) => (prev === nextClamp ? prev : nextClamp));
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateLineClamp();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleUpdate())
+        : null;
+
+    resizeObserver?.observe(bodyEl);
+    resizeObserver?.observe(textEl);
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    scheduleUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [verse.text, showFooter]);
+
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
@@ -140,8 +205,15 @@ export function VersePreviewCard({
           </div>
         }
         body={
-          <div className="h-full min-w-0 flex items-center justify-center overflow-hidden px-2">
-            <p className="max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center font-light break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:8] sm:[-webkit-line-clamp:10] overflow-hidden text-ellipsis">
+          <div
+            ref={previewBodyRef}
+            className="h-full min-w-0 flex items-start justify-center overflow-hidden px-2 pt-2 sm:pt-4"
+          >
+            <p
+              ref={previewTextRef}
+              style={{ WebkitLineClamp: lineClamp }}
+              className="w-full max-h-full max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center font-light break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis"
+            >
               «{verse.text}»
             </p>
           </div>
