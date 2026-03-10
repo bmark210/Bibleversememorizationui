@@ -1654,6 +1654,15 @@ export function AnchorTrainingSession({
     : displayCount === 0
       ? 0
       : Math.min(currentQuestionIndex + 1, displayCount);
+  const showTrackSelector = !sessionComplete && telegramId && !isLoading;
+  const showForgotAnswerAction = Boolean(
+    telegramId &&
+      !isLoading &&
+      !errorMessage &&
+      !sessionComplete &&
+      currentQuestion &&
+      !isAnswered
+  );
 
   const confirmTrackChange = useCallback(() => {
     if (pendingTrackChange === null) return;
@@ -1883,9 +1892,21 @@ export function AnchorTrainingSession({
             </div>
           </div>
 
+          {showTrackSelector && (
+            <div className="shrink-0 px-4 pt-3 sm:px-6 z-30">
+              <div className="mx-auto w-full max-w-xs rounded-[1.35rem] border border-border/60 bg-background/75 px-3 py-3 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                <AnchorTrainingTrackSelect
+                  value={selectedTrack}
+                  onValueChange={handleTrackSelect}
+                  disabled={controlsLocked}
+                />
+              </div>
+            </div>
+          )}
+
           <div
             className={cn(
-              "relative flex-1 grid px-4 sm:px-6",
+              "relative flex-1 grid px-4 py-4 sm:px-6",
               shouldLiftTypeCard
                 ? "items-start justify-items-center pt-3 sm:pt-4"
                 : "place-items-center",
@@ -2001,7 +2022,6 @@ export function AnchorTrainingSession({
                       onTapSelect={handleTapSelect}
                       onTypedAnswerChange={setTypedAnswer}
                       onTypeSubmit={handleTypeSubmit}
-                      onForgotAnswer={handleForgotAnswer}
                       onContinue={handleContinueAfterReveal}
                     />
                   </motion.div>
@@ -2035,21 +2055,35 @@ export function AnchorTrainingSession({
             style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
             className="shrink-0 px-4 sm:px-6 z-40"
           >
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-              {!sessionComplete && telegramId && !isLoading && (
-                <AnchorTrainingTrackSelect
-                  value={selectedTrack}
-                  onValueChange={handleTrackSelect}
-                  disabled={controlsLocked}
-                />
-              )}
-              <Button
-                variant="outline"
-                className="flex gap-2 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl"
-                onClick={requestClose}
+            <div className="mx-auto w-full max-w-2xl">
+              <div
+                className={cn(
+                  "grid gap-3",
+                  showForgotAnswerAction ? "grid-cols-2" : "grid-cols-1"
+                )}
               >
-                Завершить
-              </Button>
+                {showForgotAnswerAction && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300"
+                    onClick={handleForgotAnswer}
+                    disabled={controlsLocked}
+                  >
+                    Забыл
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-11 rounded-2xl border border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl",
+                    !showForgotAnswerAction && "col-span-full"
+                  )}
+                  onClick={requestClose}
+                >
+                  Завершить
+                </Button>
+              </div>
             </div>
           </div>
         </div>

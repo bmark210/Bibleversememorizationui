@@ -45,7 +45,6 @@ type AnchorTrainingQuestionCardProps = {
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
-  onForgotAnswer: () => void;
   onContinue: () => void;
 };
 
@@ -137,48 +136,17 @@ function getResultTheme(isCorrect: boolean | null) {
 }
 
 function AnchorTrainingLoadingVisual() {
-  const stages = ["Стихи", "Режимы", "Порядок"] as const;
-
   return (
-    <div className="mx-auto w-full max-w-lg">
-      <SurfacePanel className="border-border/60 bg-background/84 px-4 py-4 sm:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
-            <span className="h-2 w-2 rounded-full bg-primary/80 animate-pulse" />
-            Подготовка
-          </QuestionBadge>
-          <span className="text-[11px] text-muted-foreground">Закрепление</span>
-        </div>
-
-        <div className="mt-4">
-          <div className="h-2 overflow-hidden rounded-full bg-muted/55">
-            <div
-              aria-hidden="true"
-              className="h-full w-[68%] rounded-full bg-primary/75 animate-pulse"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {stages.map((stage, index) => (
-            <div
-              key={stage}
-              className={cn(
-                "rounded-full border px-2.5 py-1.5 text-center text-[11px] font-medium",
-                index === 0
-                  ? "border-primary/25 bg-primary/10 text-primary/80"
-                  : "border-border/55 bg-background/72 text-muted-foreground",
-              )}
-            >
-              {stage}
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-          Загружаем подходящие стихи и собираем последовательность вопросов.
-        </p>
-      </SurfacePanel>
+    <div className="mx-auto w-full max-w-sm">
+      <p className="text-center text-sm text-muted-foreground">
+        Подготавливаем закрепление...
+      </p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/50">
+        <div
+          aria-hidden="true"
+          className="h-full w-[68%] rounded-full bg-primary/75 animate-pulse"
+        />
+      </div>
     </div>
   );
 }
@@ -208,7 +176,6 @@ export function AnchorTrainingQuestionCard({
   onTapSelect,
   onTypedAnswerChange,
   onTypeSubmit,
-  onForgotAnswer,
   onContinue,
 }: AnchorTrainingQuestionCardProps) {
   const questionAccent = TRACK_ACCENTS[question.track];
@@ -247,8 +214,8 @@ export function AnchorTrainingQuestionCard({
       contentClassName="pb-2"
       header={
         <div className="space-y-3 text-center">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {sessionTrack === "mixed" && (
+          {sessionTrack === "mixed" && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <QuestionBadge className={questionAccent.badgeClassName}>
                 <span
                   aria-hidden="true"
@@ -256,26 +223,8 @@ export function AnchorTrainingQuestionCard({
                 />
                 {TRACK_LABELS[question.track]}
               </QuestionBadge>
-            )}
-            {/* <Badge
-              variant="outline"
-              className="rounded-full border-border/60 bg-background/82 px-3 py-1 text-[11px] text-foreground/72 shadow-sm"
-            >
-                {question.modeLabel}
-            </Badge> */}
-            {!isAnswered && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-full border px-3 text-[11px] font-semibold border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
-                onClick={onForgotAnswer}
-                disabled={controlsLocked}
-              >
-                Забыл
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
           <p className="text-sm leading-relaxed text-foreground/66">
             {question.modeHint}
           </p>
