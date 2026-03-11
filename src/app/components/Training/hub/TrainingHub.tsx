@@ -19,7 +19,6 @@ import {
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import { BIBLE_BOOKS } from "@/app/types/bible";
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import {
