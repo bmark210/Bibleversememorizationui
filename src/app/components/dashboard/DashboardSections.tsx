@@ -34,7 +34,7 @@ const STAT_TONE_STYLES = {
   neutral: {
     panelClassName: "border-border/60 bg-background/55",
     labelClassName: "text-foreground/42",
-    valueClassName: "text-foreground/88",
+    valueClassName: "text-foreground/66",
   },
   learning: {
     panelClassName:
@@ -233,7 +233,7 @@ export function DashboardWelcomeSection({
                     )}
                   </Avatar>
 
-                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl whitespace-normal break-words line-clamp-2 overflow-hidden text-ellipsis">
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-primary sm:text-3xl whitespace-normal break-words line-clamp-2 overflow-hidden text-ellipsis">
                     {isFirstAppVisit
                       ? `Привет, ${user.firstName}`
                       : `С возвращением, ${user.firstName}`}
@@ -251,7 +251,7 @@ export function DashboardWelcomeSection({
                     )}
                   </Avatar>
 
-                  <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
                     {isFirstAppVisit
                       ? `Привет, ${user.firstName}.`
                       : `С возвращением, ${user.firstName}.`}
@@ -259,7 +259,7 @@ export function DashboardWelcomeSection({
                 </div>
               )
             ) : (
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
                 С возвращением
               </h1>
             )}
@@ -284,7 +284,7 @@ export function DashboardWelcomeSection({
             size="lg"
             haptic="medium"
             onClick={onOpenTraining}
-            className="h-11 min-w-[190px] rounded-2xl border border-primary/20 bg-primary/10 px-5 text-sm font-medium text-foreground shadow-none hover:bg-primary/14"
+            className="h-11 min-w-[190px] rounded-2xl border border-primary/20 bg-primary/10 px-5 text-sm font-medium text-primary shadow-none hover:bg-primary/14"
           >
             <Dumbbell className="h-4 w-4 text-primary" />
             {trainingCtaLabel}
@@ -391,7 +391,7 @@ export function DashboardLeaderboardCard({
     <div>
       <DashboardSurface>
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">
+          <h2 className="text-base font-semibold tracking-tight text-foreground/80">
             Рейтинг
           </h2>
           <div className="text-xs text-foreground/45">
@@ -570,7 +570,7 @@ export function DashboardFriendsActivityCard({
     <div>
       <DashboardSurface>
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">
+          <h2 className="text-base font-semibold tracking-tight text-foreground/80">
             Друзья
           </h2>
           <div className="text-xs text-foreground/45">{summary.friendsTotal}</div>

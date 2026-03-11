@@ -430,7 +430,7 @@ export function Profile({
           className="space-y-5"
         >
           <motion.div variants={sectionVariants}>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
               Профиль
             </h1>
           </motion.div>
@@ -462,7 +462,7 @@ export function Profile({
                       </Avatar>
 
                       <div className="min-w-0">
-                        <div className="truncate text-base font-semibold text-foreground">
+                        <div className="truncate text-base font-semibold text-foreground/80">
                           {profileName}
                         </div>
                         <div className="mt-1 truncate text-sm text-foreground/56">
@@ -499,7 +499,7 @@ export function Profile({
                     </Avatar>
 
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-foreground">
+                      <div className="truncate text-base font-semibold text-foreground/80">
                         {profileName}
                       </div>
                       <div className="mt-1 truncate text-sm text-foreground/56">
@@ -558,7 +558,7 @@ export function Profile({
           <motion.div variants={sectionVariants}>
             <ProfileSurface>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-semibold tracking-tight text-foreground/80">
                   Друзья
                 </h2>
                 {canManageFriends ? (
@@ -579,13 +579,13 @@ export function Profile({
                     <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-border/60 bg-background/45 p-1">
                       <TabsTrigger
                         value="players"
-                        className="h-9 rounded-xl text-sm text-foreground/55 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                        className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
                       >
                         Игроки
                       </TabsTrigger>
                       <TabsTrigger
                         value="friends"
-                        className="h-9 rounded-xl text-sm text-foreground/55 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                        className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
                       >
                         Друзья
                       </TabsTrigger>

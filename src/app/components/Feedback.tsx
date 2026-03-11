@@ -182,7 +182,7 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 justify-between">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground/80">
               Обратная связь
             </h2>
             {isAdmin ? (
