@@ -21,21 +21,21 @@ enum VerseStatus {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  telegramId   String      @unique
-  name         String?
-  nickname     String?
-  avatarUrl    String?
-  translation  Translation @default(SYNOD)
-  createdAt    DateTime    @default(now())
+  id          String      @id @default(cuid())
+  telegramId  String      @unique
+  name        String?
+  nickname    String?
+  avatarUrl   String?
+  translation Translation @default(SYNOD)
+  createdAt   DateTime    @default(now())
 
   // Максимальное количество дней
-  dailyStreak         Int @default(0)
+  dailyStreak Int @default(0)
 
-  verses       UserVerse[]
-  following    UserFollow[] @relation("UserFollowing")
-  followers    UserFollow[] @relation("UserFollowers")
-  feedbacks    Feedback[]
+  verses    UserVerse[]
+  following UserFollow[] @relation("UserFollowing")
+  followers UserFollow[] @relation("UserFollowers")
+  feedbacks Feedback[]
 }
 
 model UserFollow {
@@ -55,13 +55,13 @@ model UserFollow {
 // Глобальный каталог стихов — один стих существует в системе один раз,
 // независимо от того, сколько пользователей его добавили себе.
 model Verse {
-  id              String   @id @default(cuid())
-  externalVerseId String   @unique // "43-3-16" в формате "book-chapter-verse"
+  id              String @id @default(cuid())
+  externalVerseId String @unique // "43-3-16" или "43-3-16-18" в формате "book-chapter-verse" / "book-chapter-verseStart-verseEnd" (до 5 стихов)
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  userVerses      UserVerse[]
-  tags            VerseTag[]
+  userVerses UserVerse[]
+  tags       VerseTag[]
 }
 
 // Личный стих пользователя — факт что пользователь добавил стих к себе
@@ -72,7 +72,7 @@ model UserVerse {
   telegramId String // Actual Telegram ID
   verseId    String // FK → Verse.id
 
-  status     VerseStatus @default(MY)
+  status VerseStatus @default(MY)
 
   masteryLevel       Int       @default(0)
   repetitions        Int       @default(0)
