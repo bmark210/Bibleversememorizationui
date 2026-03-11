@@ -2,37 +2,43 @@
 
 // nextEnv.loadEnvConfig(process.cwd());
 
-// const DATASET_NAME = "genesis-foundations";
-// const EXPECTED_SEED_ENTRY_COUNT = 33;
+// const DATASET_NAME = "galatians-popular";
+// const EXPECTED_SEED_ENTRY_COUNT = 27;
 // const CREATOR_TELEGRAM_ID = "891739957";
 
 // const TAG_TITLES = {
-//   blessing: "Благословение",
+//   adoption: "Усыновление",
 //   calling: "Призвание",
-//   covenant: "Завет",
-//   creation: "Творение",
-//   dominion: "Владычество",
+//   cross: "Крест",
+//   discipleship: "Ученичество",
+//   encouragement: "Ободрение",
 //   faith: "Вера",
-//   family: "Семья",
-//   fall: "Грехопадение",
+//   flesh: "Плоть",
+//   freedom: "Свобода",
+//   fruit: "Плод Духа",
+//   gospel: "Евангелие",
 //   grace: "Благодать",
-//   humanity: "Человек",
-//   "image-of-god": "Образ Божий",
+//   holiness: "Святость",
+//   humility: "Смирение",
+//   "holy-spirit": "Святой Дух",
+//   identity: "Идентичность",
+//   "jesus-christ": "Иисус Христос",
 //   judgment: "Суд",
-//   life: "Жизнь",
-//   marriage: "Брак",
+//   law: "Закон",
+//   love: "Любовь",
 //   obedience: "Послушание",
-//   presence: "Божье присутствие",
+//   perseverance: "Стойкость",
 //   promise: "Обетование",
-//   protection: "Защита",
-//   provision: "Божье обеспечение",
+//   revelation: "Откровение",
 //   righteousness: "Праведность",
-//   sacrifice: "Жертва",
 //   salvation: "Спасение",
-//   sin: "Грех",
-//   sovereignty: "Божий промысел",
-//   temptation: "Искушение",
+//   service: "Служение",
+//   suffering: "Страдания",
+//   truth: "Истина",
+//   unity: "Единство",
+//   warning: "Предостережение",
 //   worship: "Поклонение",
+//   zeal: "Ревность",
 // } as const;
 
 // type TagSlug = keyof typeof TAG_TITLES;
@@ -43,48 +49,40 @@
 // };
 
 // const BOOK_NAME_TO_ID: Record<string, number> = {
-//   genesis: 1,
-//   "бытие": 1,
+//   galatians: 48,
+//   "к галатам": 48,
+//   галатам: 48,
 // };
 
-// // Набор уже нормализован: дубли удалены, соседние стихи объединены в диапазоны до 5 стихов.
+// // Набор нормализован по Top Verses: соседние популярные стихи объединены в диапазоны до 5 стихов.
 // const NORMALIZED_SEED_ENTRIES: readonly SeedEntry[] = [
-//   { reference: "Бытие 1:1", tags: ["creation", "sovereignty"] },
-//   {
-//     reference: "Бытие 1:26-28",
-//     tags: ["creation", "humanity", "image-of-god", "dominion", "blessing"],
-//   },
-//   { reference: "Бытие 2:7", tags: ["creation", "humanity", "life"] },
-//   { reference: "Бытие 2:18", tags: ["humanity", "family", "marriage"] },
-//   { reference: "Бытие 2:24", tags: ["family", "marriage"] },
-//   { reference: "Бытие 3:1", tags: ["temptation", "fall", "sin"] },
-//   { reference: "Бытие 3:6", tags: ["temptation", "fall", "sin"] },
-//   { reference: "Бытие 3:15", tags: ["salvation", "promise", "grace"] },
-//   { reference: "Бытие 3:19", tags: ["judgment", "sin", "humanity"] },
-//   { reference: "Бытие 4:7", tags: ["sin", "temptation", "obedience"] },
-//   { reference: "Бытие 6:5", tags: ["sin", "judgment"] },
-//   { reference: "Бытие 6:8", tags: ["grace"] },
-//   { reference: "Бытие 6:14", tags: ["obedience", "protection", "provision"] },
-//   { reference: "Бытие 7:16", tags: ["protection", "judgment"] },
-//   { reference: "Бытие 8:21-22", tags: ["grace", "covenant", "promise", "creation"] },
-//   { reference: "Бытие 9:13", tags: ["covenant", "promise"] },
-//   { reference: "Бытие 9:15", tags: ["covenant", "promise", "grace"] },
-//   { reference: "Бытие 12:1-3", tags: ["calling", "promise", "blessing"] },
-//   { reference: "Бытие 14:20", tags: ["worship", "blessing", "sovereignty"] },
-//   { reference: "Бытие 15:1", tags: ["promise", "protection"] },
-//   { reference: "Бытие 15:6", tags: ["faith", "righteousness", "promise"] },
-//   { reference: "Бытие 17:5", tags: ["covenant", "promise", "blessing"] },
-//   { reference: "Бытие 17:7", tags: ["covenant", "promise"] },
-//   { reference: "Бытие 18:14", tags: ["faith", "promise", "sovereignty"] },
-//   { reference: "Бытие 22:2", tags: ["obedience", "faith", "sacrifice"] },
-//   { reference: "Бытие 22:8", tags: ["faith", "sacrifice", "provision"] },
-//   { reference: "Бытие 22:12", tags: ["obedience", "faith"] },
-//   { reference: "Бытие 22:14", tags: ["provision", "worship", "faith"] },
-//   { reference: "Бытие 22:16-17", tags: ["obedience", "blessing", "covenant", "promise"] },
-//   { reference: "Бытие 24:7", tags: ["calling", "promise", "protection"] },
-//   { reference: "Бытие 28:15", tags: ["presence", "promise", "protection"] },
-//   { reference: "Бытие 39:2", tags: ["presence", "blessing", "protection"] },
-//   { reference: "Бытие 50:20", tags: ["sovereignty", "grace", "salvation"] },
+//   { reference: "Галатам 5:22-23", tags: ["holy-spirit", "fruit", "holiness", "love"] },
+//   { reference: "Галатам 2:20", tags: ["faith", "jesus-christ", "cross", "identity", "love"] },
+//   { reference: "Галатам 3:26-28", tags: ["faith", "identity", "unity", "adoption"] },
+//   { reference: "Галатам 5:16", tags: ["holy-spirit", "flesh", "obedience"] },
+//   { reference: "Галатам 5:1", tags: ["freedom", "grace", "faith"] },
+//   { reference: "Галатам 3:4", tags: ["suffering", "perseverance"] },
+//   { reference: "Галатам 6:7", tags: ["judgment", "truth", "obedience"] },
+//   { reference: "Галатам 4:4", tags: ["jesus-christ", "salvation", "grace"] },
+//   { reference: "Галатам 6:1-2", tags: ["love", "service", "humility", "unity"] },
+//   { reference: "Галатам 1:6-8", tags: ["gospel", "grace", "warning", "truth"] },
+//   { reference: "Галатам 3:13", tags: ["cross", "grace", "salvation"] },
+//   { reference: "Галатам 5:13-15", tags: ["freedom", "love", "service", "unity"] },
+//   { reference: "Галатам 6:9-10", tags: ["perseverance", "love", "service", "encouragement"] },
+//   { reference: "Галатам 2:3", tags: ["freedom", "grace", "gospel"] },
+//   { reference: "Галатам 2:16", tags: ["faith", "righteousness", "law", "grace"] },
+//   { reference: "Галатам 1:5", tags: ["worship", "jesus-christ"] },
+//   { reference: "Галатам 4:6", tags: ["holy-spirit", "adoption", "faith"] },
+//   { reference: "Галатам 3:1", tags: ["truth", "faith", "jesus-christ"] },
+//   { reference: "Галатам 5:6-8", tags: ["faith", "love", "calling", "truth"] },
+//   { reference: "Галатам 2:11", tags: ["truth", "obedience", "unity"] },
+//   { reference: "Галатам 6:14", tags: ["cross", "grace", "identity"] },
+//   { reference: "Галатам 3:10", tags: ["law", "judgment"] },
+//   { reference: "Галатам 3:16", tags: ["promise", "jesus-christ"] },
+//   { reference: "Галатам 3:23-24", tags: ["law", "faith", "discipleship"] },
+//   { reference: "Галатам 1:10-12", tags: ["gospel", "calling", "revelation", "truth"] },
+//   { reference: "Галатам 1:1", tags: ["calling", "gospel", "jesus-christ"] },
+//   { reference: "Галатам 1:14", tags: ["law", "zeal"] },
 // ];
 
 // function normalizeBookName(value: string): string {
@@ -201,7 +199,6 @@
 //     );
 //   }
 
-//   const tagIdBySlug = new Map<TagSlug, string>();
 //   const stats = {
 //     createdCreatorUser: 0,
 //     reusedCreatorUser: 0,
@@ -215,6 +212,8 @@
 //     createdLinks: 0,
 //     reusedLinks: 0,
 //   };
+
+//   const tagIdBySlug = new Map<TagSlug, string>();
 
 //   try {
 //     if (!dryRun) {
