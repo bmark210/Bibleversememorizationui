@@ -134,7 +134,7 @@ export function ModeFirstLettersKeyboardExercise({
 
     if (shouldResetInput) {
       setInputValue('');
-      toast.error(
+      toast.warning(
         `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Ввод сброшен.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -142,7 +142,7 @@ export function ModeFirstLettersKeyboardExercise({
         }
       );
     } else {
-      toast.error(
+      toast.warning(
         `Неверная буква. До сброса: ${
           MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
         }.`,

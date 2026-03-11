@@ -212,7 +212,7 @@ export function ModeFirstLettersHintedExercise({
 
     if (shouldResetSequence) {
       setSelectedChoiceIds([]);
-      toast.error(
+      toast.warning(
         `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -220,7 +220,7 @@ export function ModeFirstLettersHintedExercise({
         }
       );
     } else {
-      toast.error(
+      toast.warning(
         `Неверная буква. До сброса: ${
           MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
         }.`,

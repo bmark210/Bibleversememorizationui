@@ -18,20 +18,9 @@ import type {
 } from "./types";
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import { pickVersesForCoreModes } from "./coreTrainingAvailability";
 
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
-
-function pickVersesForModes(
-  modes: CoreTrainingMode[],
-  allVerses: Verse[]
-): Verse[] {
-  const statuses = new Set<string>();
-  if (modes.includes("learning")) statuses.add("LEARNING");
-  if (modes.includes("review")) statuses.add("REVIEW");
-
-  if (statuses.size === 0) return [];
-  return allVerses.filter((v) => statuses.has(normalizeDisplayVerseStatus(v.status)));
-}
 
 /** Pick the training mode that best matches a verse's current status */
 function autoModeForVerse(verse: Verse): TrainingMode {
@@ -59,12 +48,13 @@ export function Training({
   directLaunch,
   onDirectLaunchConsumed,
   onVersePatched,
-  onVerseMutationCommitted: _onVerseMutationCommitted,
+  onVerseMutationCommitted,
   onSessionFullscreenChange,
 }: TrainingProps) {
   const [view, setView] = useState<TrainingView>({ mode: "hub" });
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
-  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(["learning"]);
+  const [selectedModes, setSelectedModes] =
+    useState<CoreTrainingMode[]>(CORE_SESSION_MODES);
   const [selectedOrder, setSelectedOrder] = useState<TrainingOrder>("updatedAt");
   const [selectedAnchorTrack, setSelectedAnchorTrack] =
     useState<AnchorTrainingTrack>("mixed");
@@ -83,7 +73,7 @@ export function Training({
     } else {
       // Build a verse list: put the target verse first, then add other eligible verses
       const targetKey = `${directLaunch.verse.externalVerseId}`;
-      const eligibleVerses = pickVersesForModes(CORE_SESSION_MODES, allVerses);
+      const eligibleVerses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
       const otherVerses = eligibleVerses.filter(
         (v) => v.externalVerseId !== targetKey,
       );
@@ -116,9 +106,9 @@ export function Training({
       setView({ mode: "anchor", track: selectedAnchorTrack, bookId: selectedBookId });
       return;
     }
-    const selectedVerses = pickVersesForModes(selectedModes, allVerses);
+    const selectedVerses = pickVersesForCoreModes(selectedModes, allVerses);
     if (selectedVerses.length === 0) return;
-    const verses = pickVersesForModes(CORE_SESSION_MODES, allVerses);
+    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
     setView({
       mode: "verse-session",
       verses,
@@ -130,8 +120,9 @@ export function Training({
   const handleStartSelection = useCallback(() => {
     if (selectedScenario !== "core") return;
     if (!selectionVerses || selectionVerses.length === 0) return;
-    const verses = pickVersesForModes(CORE_SESSION_MODES, selectionVerses);
-    if (verses.length === 0) return;
+    const selectedVerses = pickVersesForCoreModes(selectedModes, selectionVerses);
+    if (selectedVerses.length === 0) return;
+    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, selectionVerses);
     setView({
       mode: "verse-session",
       verses,
@@ -205,6 +196,7 @@ export function Training({
               telegramId={telegramId}
               initialTrack={view.track}
               bookId={view.bookId}
+              onSessionCommitted={onVerseMutationCommitted}
               onClose={goToHub}
             />
           </motion.div>
@@ -224,6 +216,7 @@ export function Training({
               initialOrder={view.order}
               onClose={goToHub}
               onVersePatched={onVersePatched}
+              onMutationCommitted={onVerseMutationCommitted}
             />
           </motion.div>
         )}

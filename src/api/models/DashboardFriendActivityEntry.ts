@@ -10,6 +10,6 @@ export type DashboardFriendActivityEntry = {
     masteredVerses: number;
     weeklyRepetitions: number;
     dailyStreak: number;
-    averageProgressPercent: number;
+    xp: number;
 };
 

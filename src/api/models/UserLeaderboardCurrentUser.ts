@@ -8,9 +8,9 @@ export type UserLeaderboardCurrentUser = {
     avatarUrl: string | null;
     rank: number | null;
     /**
-     * Композитный рейтинг пользователя (прогресс + навыки + регулярность).
+     * Реактивный XP-рейтинг пользователя.
      */
-    score: number;
+    xp: number;
     streakDays: number;
     weeklyRepetitions: number;
 };

@@ -139,7 +139,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
 
     if (shouldResetSequence) {
       setSelectedTokenIds([]);
-      toast.error(
+      toast.warning(
         `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -147,7 +147,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
         }
       );
     } else {
-      toast.error(
+      toast.warning(
         `Неверное слово. До сброса: ${
           MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
         }.`,

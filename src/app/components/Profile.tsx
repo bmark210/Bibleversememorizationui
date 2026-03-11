@@ -13,6 +13,8 @@ import {
   type FriendPlayersPageResponse,
 } from "@/api/services/friends";
 import { toast } from "@/app/lib/toast";
+import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
+import { formatXp } from "@/shared/social/formatXp";
 import { useTelegram } from "../contexts/TelegramContext";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -91,6 +93,11 @@ export function Profile({
   friendsRefreshVersion = 0,
 }: ProfileProps) {
   const { user } = useTelegram();
+  const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak
+  );
   const shouldReduceMotion = useReducedMotion();
   const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
   const [playersSearchInput, setPlayersSearchInput] = React.useState("");
@@ -110,6 +117,28 @@ export function Profile({
   const playersRequestIdRef = React.useRef(0);
   const friendsRequestIdRef = React.useRef(0);
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
+
+  const getDisplayXp = React.useCallback(
+    (item: FriendPlayerListItem) =>
+      telegramId &&
+      currentUserTelegramId === telegramId &&
+      item.telegramId === telegramId &&
+      currentUserXp != null
+        ? currentUserXp
+        : item.xp,
+    [currentUserTelegramId, currentUserXp, telegramId]
+  );
+
+  const getDisplayDailyStreak = React.useCallback(
+    (item: FriendPlayerListItem) =>
+      telegramId &&
+      currentUserTelegramId === telegramId &&
+      item.telegramId === telegramId &&
+      currentUserDailyStreak != null
+        ? currentUserDailyStreak
+        : item.dailyStreak,
+    [currentUserDailyStreak, currentUserTelegramId, telegramId]
+  );
 
   const sectionVariants = {
     hidden: {
@@ -279,7 +308,9 @@ export function Profile({
 
   const handleToggleFriend = async (item: FriendPlayerListItem) => {
     if (!telegramId) {
-      toast.error("Не найден telegramId");
+      toast.warning("Не найден telegramId", {
+        label: "Друзья",
+      });
       return;
     }
     if (pendingMutationByTelegramId[item.telegramId]) {
@@ -291,16 +322,24 @@ export function Profile({
       if (item.isFriend) {
         const response = await removeFriend(telegramId, item.telegramId);
         if (response.status === "removed") {
-          toast.success("Друг удалён");
+          toast.success("Друг удалён", {
+            label: "Друзья",
+          });
         } else {
-          toast.info("Пользователь уже не был у вас в друзьях");
+          toast.info("Пользователь уже не был у вас в друзьях", {
+            label: "Друзья",
+          });
         }
       } else {
         const response = await addFriend(telegramId, item.telegramId);
         if (response.status === "added") {
-          toast.success("Друг добавлен");
+          toast.success("Друг добавлен", {
+            label: "Друзья",
+          });
         } else {
-          toast.info("Пользователь уже добавлен в друзья");
+          toast.info("Пользователь уже добавлен в друзья", {
+            label: "Друзья",
+          });
         }
       }
 
@@ -311,7 +350,9 @@ export function Profile({
         error instanceof Error
           ? error.message
           : "Не удалось изменить список друзей";
-      toast.error(message);
+      toast.error(message, {
+        label: "Друзья",
+      });
     } finally {
       setMutationPending(item.telegramId, false);
     }
@@ -663,7 +704,8 @@ export function Profile({
                                   </div>
                                   <div className="mt-1 truncate text-xs text-foreground/48">
                                     {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                                    {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
+                                    {formatXp(getDisplayXp(item))} ·{" "}
+                                    {getDisplayDailyStreak(item)} дн. подряд
                                   </div>
                                 </div>
                               </button>
@@ -684,7 +726,8 @@ export function Profile({
                                   </div>
                                   <div className="mt-1 truncate text-xs text-foreground/48">
                                     {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                                    {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
+                                    {formatXp(getDisplayXp(item))} ·{" "}
+                                    {getDisplayDailyStreak(item)} дн. подряд
                                   </div>
                                 </div>
                               </>

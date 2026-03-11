@@ -38,6 +38,7 @@ export type CatalogUserVerseProgressRecord = {
   repetitions: number;
   referenceScore: number;
   incipitScore: number;
+  contextScore: number;
   lastTrainingModeId: number | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;

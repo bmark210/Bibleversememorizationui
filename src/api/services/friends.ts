@@ -7,7 +7,7 @@ export type FriendPlayerListItem = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
 };
 
 export type FriendPlayersPageResponse = {
@@ -29,7 +29,7 @@ export type DashboardFriendActivityEntry = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
 };
 
 export type DashboardFriendsActivitySummary = {
@@ -37,7 +37,7 @@ export type DashboardFriendsActivitySummary = {
   activeLast7Days: number;
   avgWeeklyRepetitions: number;
   avgStreakDays: number;
-  avgProgressPercent: number;
+  avgXp: number;
 };
 
 export type DashboardFriendsActivity = {
@@ -60,7 +60,7 @@ export const EMPTY_DASHBOARD_FRIENDS_ACTIVITY: DashboardFriendsActivity = {
     activeLast7Days: 0,
     avgWeeklyRepetitions: 0,
     avgStreakDays: 0,
-    avgProgressPercent: 0,
+    avgXp: 0,
   },
   entries: [],
 };
@@ -100,10 +100,7 @@ export function normalizeFriendPlayerListItem(value: unknown): FriendPlayerListI
     masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
-    averageProgressPercent: toSafeInt(data.averageProgressPercent, {
-      min: 0,
-      max: 100,
-    }),
+    xp: toSafeInt(data.xp, { min: 0 }),
   };
 }
 
@@ -153,10 +150,7 @@ export function normalizeDashboardFriendActivityEntry(
     masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
-    averageProgressPercent: toSafeInt(data.averageProgressPercent, {
-      min: 0,
-      max: 100,
-    }),
+    xp: toSafeInt(data.xp, { min: 0 }),
   };
 }
 
@@ -174,10 +168,7 @@ function normalizeDashboardFriendsActivity(
       activeLast7Days: toSafeInt(summary.activeLast7Days, { min: 0 }),
       avgWeeklyRepetitions: toSafeInt(summary.avgWeeklyRepetitions, { min: 0 }),
       avgStreakDays: toSafeInt(summary.avgStreakDays, { min: 0 }),
-      avgProgressPercent: toSafeInt(summary.avgProgressPercent, {
-        min: 0,
-        max: 100,
-      }),
+      avgXp: toSafeInt(summary.avgXp, { min: 0 }),
     },
     entries: entriesRaw
       .map((entry) => normalizeDashboardFriendActivityEntry(entry))
@@ -263,9 +254,7 @@ export async function addFriend(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      targetTelegramId: targetTelegramId.trim(),
-    }),
+    body: JSON.stringify({ targetTelegramId }),
   });
 
   if (!response.ok) {
@@ -278,11 +267,11 @@ export async function addFriend(
 
 export async function removeFriend(
   telegramId: string,
-  friendTelegramId: string
+  targetTelegramId: string
 ): Promise<FriendsMutationResponse> {
   const response = await fetch(
     `/api/users/${encodeURIComponent(telegramId)}/friends/${encodeURIComponent(
-      friendTelegramId
+      targetTelegramId
     )}`,
     {
       method: "DELETE",
@@ -299,13 +288,11 @@ export async function removeFriend(
 
 export async function fetchDashboardFriendsActivity(
   telegramId: string,
-  params: {
-    limit?: number;
-  } = {}
+  params: { limit?: number } = {}
 ): Promise<DashboardFriendsActivity> {
   const searchParams = new URLSearchParams();
   if (params.limit != null && Number.isFinite(params.limit)) {
-    searchParams.set("limit", String(Math.max(1, Math.round(params.limit))));
+    searchParams.set("limit", String(Math.round(params.limit)));
   }
 
   const url = `/api/users/${encodeURIComponent(telegramId)}/friends/activity${
@@ -315,8 +302,7 @@ export async function fetchDashboardFriendsActivity(
   if (!response.ok) {
     const payload = await parseResponsePayload(response);
     throw new Error(
-      payload?.error ||
-        `Failed to fetch dashboard friends activity: ${response.status}`
+      payload?.error || `Failed to fetch friends activity: ${response.status}`
     );
   }
 

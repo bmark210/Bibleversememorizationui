@@ -138,7 +138,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const handleStartListening = () => {
     const recognition = ensureRecognition();
     if (!recognition) {
-      toast.error('Голосовой ввод недоступен в этом браузере', {
+      toast.info('Голосовой ввод недоступен в этом браузере', {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
@@ -170,7 +170,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
-      toast.error('Сначала продиктуйте или введите стих', {
+      toast.warning('Сначала продиктуйте или введите стих', {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
@@ -189,7 +189,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
       return;
     }
 
-    toast.error(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
+    toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
     });

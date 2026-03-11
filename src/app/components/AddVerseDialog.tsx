@@ -413,7 +413,9 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         | null;
 
       if (!response.ok) {
-        toast.error(payload?.error || "Не удалось переименовать тег");
+        toast.error(payload?.error || "Не удалось переименовать тег", {
+          label: "Теги",
+        });
         return;
       }
 
@@ -428,9 +430,13 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
       setEditingTagId(null);
       setEditingTagTitle("");
-      toast.success("Название тега обновлено");
+      toast.success("Название тега обновлено", {
+        label: "Теги",
+      });
     } catch {
-      toast.error("Не удалось переименовать тег");
+      toast.error("Не удалось переименовать тег", {
+        label: "Теги",
+      });
     } finally {
       setSavingTagId(null);
     }
@@ -458,23 +464,32 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       if (!response.ok) {
         if (response.status === 409) {
           const links = payload?.userLinksCount;
-          toast.error(
+          toast.warning(
             typeof links === "number" && links > 0
               ? `Стих используется у ${links} пользователей`
-              : "Стих ещё используется пользователями"
+              : "Стих ещё используется пользователями",
+            {
+              label: "База стихов",
+            }
           );
           return;
         }
-        toast.error(payload?.error || "Не удалось удалить стих из базы");
+        toast.error(payload?.error || "Не удалось удалить стих из базы", {
+          label: "База стихов",
+        });
         return;
       }
 
       setAdminVerseSummary(null);
       setSelectedTagSlugs(new Set());
-      toast.success("Стих удалён из общей базы");
+      toast.success("Стих удалён из общей базы", {
+        label: "База стихов",
+      });
     } catch (error) {
       console.error("Не удалось удалить стих из общей базы:", error);
-      toast.error("Не удалось удалить стих из базы");
+      toast.error("Не удалось удалить стих из базы", {
+        label: "База стихов",
+      });
     } finally {
       setIsDeletingVerseFromCatalog(false);
     }
@@ -500,7 +515,9 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       setNewTagTitle("");
       setCreateTagMode(false);
     } catch {
-      toast.error("Не удалось создать тег");
+      toast.error("Не удалось создать тег", {
+        label: "Теги",
+      });
     } finally {
       setCreatingTag(false);
     }
@@ -531,15 +548,20 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
       if (!response.ok) {
         if (response.status === 409) {
           const linksCount = payload?.linksCount;
-          toast.error(
+          toast.warning(
             typeof linksCount === "number" && linksCount > 0
               ? `Тег «${tag.title}» используется в ${linksCount} стихах`
-              : `Тег «${tag.title}» нельзя удалить, пока он связан со стихами`
+              : `Тег «${tag.title}» нельзя удалить, пока он связан со стихами`,
+            {
+              label: "Теги",
+            }
           );
           return;
         }
 
-        toast.error(payload?.error || "Не удалось удалить тег");
+        toast.error(payload?.error || "Не удалось удалить тег", {
+          label: "Теги",
+        });
         return;
       }
 
@@ -553,9 +575,13 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
           return next;
         });
       }
-      toast.success(`Тег «${tag.title}» удалён`);
+      toast.success(`Тег «${tag.title}» удалён`, {
+        label: "Теги",
+      });
     } catch {
-      toast.error("Не удалось удалить тег");
+      toast.error("Не удалось удалить тег", {
+        label: "Теги",
+      });
     } finally {
       setDeletingTagId(null);
     }

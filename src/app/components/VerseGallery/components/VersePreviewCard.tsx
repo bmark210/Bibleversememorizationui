@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import {
+  Anchor,
   Brain,
   Clock3,
+  Lock,
   Pause,
   Play,
   Plus,
@@ -26,6 +28,7 @@ type Props = {
   verse: Verse;
   isActionPending: boolean;
   activeTagSlugs?: Iterable<string> | null;
+  isAnchorEligible?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
 };
@@ -34,6 +37,7 @@ export function VersePreviewCard({
   verse,
   isActionPending,
   activeTagSlugs = null,
+  isAnchorEligible = false,
   onStartTraining,
   onStatusAction,
 }: Props) {
@@ -98,6 +102,7 @@ export function VersePreviewCard({
     isNotYetDue,
     notYetDueLabel,
     isReviewStage,
+    isAnchorEligible,
     onStartTraining,
     onStatusAction,
   });
@@ -322,10 +327,11 @@ function buildPrimaryAction(params: {
   isNotYetDue: boolean;
   notYetDueLabel: string | null;
   isReviewStage: boolean;
+  isAnchorEligible: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
 }): PrimaryAction | null {
-  const { status, isNotYetDue, isReviewStage, onStartTraining, onStatusAction } = params;
+  const { status, isNotYetDue, isReviewStage, isAnchorEligible, onStartTraining, onStatusAction } = params;
 
   if (status === "CATALOG") {
     return {
@@ -369,10 +375,20 @@ function buildPrimaryAction(params: {
     };
   }
   if (status === "MASTERED") {
+    if (isAnchorEligible) {
+      return {
+        label: "Закрепить",
+        ariaLabel: "Перейти к закреплению стиха",
+        icon: Anchor,
+        onClick: onStartTraining,
+        className:
+          "border border-amber-500/30 bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-800 hover:bg-amber-500/25 dark:text-amber-300",
+      };
+    }
     return {
-      label: "Выучен",
-      ariaLabel: "Стих полностью выучен",
-      icon: Trophy,
+      label: "Закрепить",
+      ariaLabel: "Недостаточно стихов для закрепления",
+      icon: Lock,
       onClick: () => {},
       disabled: true,
       className:

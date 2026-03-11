@@ -105,7 +105,7 @@ export function normalizeProgressValue(value: number | null | undefined): number
 
 export function normalizeSkillScore(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 50;
+    return 0;
   }
   return Math.max(0, Math.min(100, Math.round(value)));
 }

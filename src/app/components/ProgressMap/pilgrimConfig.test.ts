@@ -38,7 +38,7 @@ test('adding new verses does not roll back map position when mastered count stay
     name: 'Mark Brown',
     avatarUrl: null,
     rank: 3,
-    score: 74,
+    xp: 740,
     streakDays: 6,
     weeklyRepetitions: 11,
   }
@@ -52,7 +52,7 @@ test('adding new verses does not roll back map position when mastered count stay
     stoppedVerses: 0,
     dueReviewVerses: 1,
     totalRepetitions: 40,
-    averageProgressPercent: 61,
+    xp: 610,
     bestVerseReference: null,
     dailyStreak: 6,
   }
@@ -87,4 +87,48 @@ test('adding new verses does not roll back map position when mastered count stay
   assert.equal(after.currentLocationIndex, before.currentLocationIndex)
   assert.equal(after.playerLocalCompletedSteps, before.playerLocalCompletedSteps)
   assert.equal(after.overflowMastered, before.overflowMastered)
+})
+
+test('prefers current user stats override for xp and journey progress', () => {
+  const viewModel = buildProgressMapViewModel({
+    dashboardStats: {
+      totalVerses: 18,
+      learningStatusVerses: 0,
+      learningVerses: 2,
+      reviewVerses: 3,
+      masteredVerses: 4,
+      stoppedVerses: 0,
+      dueReviewVerses: 1,
+      totalRepetitions: 15,
+      xp: 210,
+      bestVerseReference: null,
+      dailyStreak: 2,
+    },
+    dashboardLeaderboard: {
+      generatedAt: new Date(0).toISOString(),
+      totalParticipants: 1,
+      entries: [],
+      currentUser: {
+        telegramId: '1',
+        name: 'Mark Brown',
+        avatarUrl: null,
+        rank: 5,
+        xp: 190,
+        streakDays: 1,
+        weeklyRepetitions: 9,
+      },
+    },
+    trainingVerses: [],
+    friendsOnMap: [],
+    currentUserStats: {
+      xp: 480,
+      dailyStreak: 7,
+      masteredVerses: 13,
+    },
+  })
+
+  assert.equal(viewModel.xp, 480)
+  assert.equal(viewModel.streakDays, 7)
+  assert.equal(viewModel.masteredVerses, 13)
+  assert.equal(viewModel.currentLocationIndex, masteredToLocationIndex(13))
 })

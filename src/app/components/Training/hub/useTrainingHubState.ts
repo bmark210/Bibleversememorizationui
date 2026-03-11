@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { CoreTrainingMode, TrainingMode } from "../types";
+import {
+  getCoreTrainingCountsFromVerses,
+  getCountForCoreModes,
+  type CoreTrainingCounts,
+} from "../coreTrainingAvailability";
 
-export type TrainingCounts = {
-  learningCount: number;
-  reviewCount: number;
-  masteredCount: number;
-  allCount: number;
-};
+export type TrainingCounts = CoreTrainingCounts;
 
 export function useTrainingHubState(params: {
   allVerses: Verse[];
@@ -18,22 +17,25 @@ export function useTrainingHubState(params: {
   const { allVerses, dashboardStats } = params;
 
   return useMemo(() => {
-    const learningCount =
-      dashboardStats?.learningVerses ??
-      allVerses.filter(
-        (v) => normalizeDisplayVerseStatus(v.status) === "LEARNING"
-      ).length;
+    if (allVerses.length > 0) {
+      return getCoreTrainingCountsFromVerses(allVerses);
+    }
 
-    const reviewCount =
-      dashboardStats?.reviewVerses ??
-      allVerses.filter(
-        (v) => normalizeDisplayVerseStatus(v.status) === "REVIEW"
-      ).length;
-
+    const learningCount = dashboardStats?.learningVerses ?? 0;
+    const dueReviewCount =
+      dashboardStats?.dueReviewVerses ?? dashboardStats?.reviewVerses ?? 0;
+    const totalReviewCount = dashboardStats?.reviewVerses ?? dueReviewCount;
     const masteredCount = dashboardStats?.masteredVerses ?? 0;
-    const allCount = learningCount + reviewCount + masteredCount;
 
-    return { learningCount, reviewCount, masteredCount, allCount };
+    return {
+      learningCount,
+      dueReviewCount,
+      totalReviewCount,
+      waitingReviewCount: Math.max(0, totalReviewCount - dueReviewCount),
+      masteredCount,
+      allCount: learningCount + totalReviewCount + masteredCount,
+      earliestWaitingReviewAt: null,
+    };
   }, [allVerses, dashboardStats]);
 }
 
@@ -46,10 +48,10 @@ export function getCountForMode(
     case "learning":
       return counts.learningCount;
     case "review":
-      return counts.reviewCount;
+      return counts.dueReviewCount;
     case "anchor":
       // Only REVIEW + MASTERED are eligible for anchor (no LEARNING)
-      return counts.reviewCount + counts.masteredCount;
+      return counts.totalReviewCount + counts.masteredCount;
   }
 }
 
@@ -59,11 +61,8 @@ export function getCountForModes(
   counts: TrainingCounts
 ): number {
   if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
-    return counts.reviewCount + counts.masteredCount;
+    return counts.totalReviewCount + counts.masteredCount;
   }
 
-  let total = 0;
-  if (modes.includes("learning")) total += counts.learningCount;
-  if (modes.includes("review")) total += counts.reviewCount;
-  return total;
+  return getCountForCoreModes(modes as CoreTrainingMode[], counts);
 }

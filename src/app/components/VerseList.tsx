@@ -48,6 +48,7 @@ interface VerseListProps {
   onNavigateToTraining?: (verse: import("@/app/App").Verse) => void;
   telegramId?: string | null;
   hasFriends?: boolean;
+  isAnchorEligible?: boolean;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
     name: string;
@@ -75,6 +76,7 @@ export function VerseList({
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
+  isAnchorEligible = false,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -428,6 +430,7 @@ export function VerseList({
               previewHasMore={vm.pagination.hasMoreVerses}
               previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}
               onRequestMorePreviewVerses={vm.gallery.onRequestMorePreviewVerses}
+              isAnchorEligible={isAnchorEligible}
             />,
             document.body,
           )}

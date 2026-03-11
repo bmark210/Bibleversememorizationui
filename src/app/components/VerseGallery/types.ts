@@ -55,9 +55,11 @@ export type VerseGalleryProps = {
   activeTagSlugs?: Iterable<string> | null;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
-  onDelete: (verse: Verse) => Promise<void>;
+  onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
   /** Navigate to the Training section to train the given verse */
   onNavigateToTraining: (verse: Verse) => void;
+  /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */
+  isAnchorEligible?: boolean;
   previewTotalCount?: number;
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;

@@ -8,8 +8,8 @@ export type DashboardFriendsActivitySummary = {
     avgWeeklyRepetitions: number;
     avgStreakDays: number;
     /**
-     * Средний композитный рейтинг по друзьям.
+     * Средний реактивный XP по друзьям.
      */
-    avgProgressPercent: number;
+    avgXp: number;
 };
 

@@ -7,7 +7,7 @@ export type UserDashboardStats = {
   stoppedVerses: number;
   dueReviewVerses: number;
   totalRepetitions: number;
-  averageProgressPercent: number;
+  xp: number;
   bestVerseReference: string | null;
   dailyStreak: number;
 };
@@ -21,7 +21,7 @@ export const EMPTY_USER_DASHBOARD_STATS: UserDashboardStats = {
   stoppedVerses: 0,
   dueReviewVerses: 0,
   totalRepetitions: 0,
-  averageProgressPercent: 0,
+  xp: 0,
   bestVerseReference: null,
   dailyStreak: 0,
 };
@@ -50,10 +50,7 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
     stoppedVerses: toSafeNonNegativeInt(data.stoppedVerses),
     dueReviewVerses: toSafeNonNegativeInt(data.dueReviewVerses),
     totalRepetitions: toSafeNonNegativeInt(data.totalRepetitions),
-    averageProgressPercent: Math.max(
-      0,
-      Math.min(100, toSafeNonNegativeInt(data.averageProgressPercent))
-    ),
+    xp: toSafeNonNegativeInt(data.xp),
     bestVerseReference: toNullableString(data.bestVerseReference),
     dailyStreak: toSafeNonNegativeInt(data.dailyStreak),
   };

@@ -12,8 +12,8 @@ export type FriendPlayerListItem = {
     weeklyRepetitions: number;
     dailyStreak: number;
     /**
-     * Композитный рейтинг друга (прогресс + навыки + регулярность).
+     * Реактивный XP-рейтинг игрока.
      */
-    averageProgressPercent: number;
+    xp: number;
 };
 

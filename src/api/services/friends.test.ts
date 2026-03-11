@@ -14,7 +14,7 @@ test('normalizes friend player items with avatar and mastered-verse fallbacks', 
     lastActiveAt: '2026-03-07T12:00:00.000Z',
     weeklyRepetitions: 5,
     dailyStreak: 2,
-    averageProgressPercent: 88,
+    xp: 188,
   })
 
   assert.deepEqual(item, {
@@ -26,7 +26,7 @@ test('normalizes friend player items with avatar and mastered-verse fallbacks', 
     masteredVerses: 0,
     weeklyRepetitions: 5,
     dailyStreak: 2,
-    averageProgressPercent: 88,
+    xp: 188,
   })
 })
 
@@ -39,7 +39,7 @@ test('normalizes dashboard activity entries and clamps invalid mastered counts t
     masteredVerses: -4,
     weeklyRepetitions: 9,
     dailyStreak: 4,
-    averageProgressPercent: 101,
+    xp: 1010,
   })
 
   assert.deepEqual(entry, {
@@ -50,6 +50,6 @@ test('normalizes dashboard activity entries and clamps invalid mastered counts t
     masteredVerses: 0,
     weeklyRepetitions: 9,
     dailyStreak: 4,
-    averageProgressPercent: 100,
+    xp: 1010,
   })
 })

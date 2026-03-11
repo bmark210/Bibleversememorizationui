@@ -6,7 +6,14 @@ type GetApiUsersVersesParams = {
   status?: "MY" | "LEARNING" | "STOPPED";
   orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
-  filter?: "catalog" | 'friends' | 'my' | "learning" | "review" | "mastered" | "stopped";
+  filter?:
+    | "catalog"
+    | "friends"
+    | "my"
+    | "learning"
+    | "review"
+    | "mastered"
+    | "stopped";
   bookId?: number;
   search?: string;
   tagSlugs?: string[];
@@ -37,7 +44,9 @@ export async function fetchUserVersesPage(
   const url = `/api/users/${encodeURIComponent(params.telegramId)}/verses?${searchParams.toString()}`;
   const response = await fetch(url);
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
     throw new Error(payload?.error || `Failed to fetch user verses: ${response.status}`);
   }
 

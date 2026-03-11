@@ -8,6 +8,8 @@ import {
   type PlayerProfile,
 } from "@/api/services/playerProfile";
 import { toast } from "@/app/lib/toast";
+import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
+import { formatXp } from "@/shared/social/formatXp";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
@@ -118,6 +120,14 @@ export function PlayerProfileDrawer({
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [isMutating, setIsMutating] = React.useState(false);
   const requestIdRef = React.useRef(0);
+  const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
+  const currentUserMasteredVerses = useCurrentUserStatsStore(
+    (state) => state.masteredVerses
+  );
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak
+  );
 
   const loadProfile = React.useCallback(async () => {
     if (!open || !viewerTelegramId || !preview?.telegramId) {
@@ -185,7 +195,10 @@ export function PlayerProfileDrawer({
         )(
           response.status === "removed"
             ? "Друг удалён"
-            : "Пользователь уже не был у вас в друзьях"
+            : "Пользователь уже не был у вас в друзьях",
+          {
+            label: "Друзья",
+          }
         );
       } else {
         const response = await addFriend(viewerTelegramId, profile.telegramId);
@@ -204,7 +217,10 @@ export function PlayerProfileDrawer({
         )(
           response.status === "added"
             ? "Друг добавлен"
-            : "Пользователь уже у вас в друзьях"
+            : "Пользователь уже у вас в друзьях",
+          {
+            label: "Друзья",
+          }
         );
       }
 
@@ -213,7 +229,10 @@ export function PlayerProfileDrawer({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Не удалось изменить список друзей"
+          : "Не удалось изменить список друзей",
+        {
+          label: "Друзья",
+        }
       );
     } finally {
       setIsMutating(false);
@@ -228,6 +247,22 @@ export function PlayerProfileDrawer({
   const joinedAtLabel = formatJoinDate(profile?.createdAt ?? null);
   const subtitle =
     profile != null ? formatHandle(profile.nickname, profile.telegramId) : null;
+  const isCurrentUserProfile =
+    profile?.isCurrentUser === true &&
+    currentUserTelegramId != null &&
+    profile.telegramId === currentUserTelegramId;
+  const profileXp =
+    isCurrentUserProfile && currentUserXp != null
+      ? currentUserXp
+      : profile?.xp ?? 0;
+  const profileMasteredVerses =
+    isCurrentUserProfile && currentUserMasteredVerses != null
+      ? currentUserMasteredVerses
+      : profile?.masteredVerses ?? 0;
+  const profileDailyStreak =
+    isCurrentUserProfile && currentUserDailyStreak != null
+      ? currentUserDailyStreak
+      : profile?.dailyStreak ?? 0;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
@@ -316,18 +351,18 @@ export function PlayerProfileDrawer({
 
               <div className="grid grid-cols-2 gap-3">
                 <StatCard
-                  label="Рейтинг"
-                  value={`${profile.averageProgressPercent}%`}
+                  label="XP"
+                  value={formatXp(profileXp)}
                 />
                 <StatCard
                   label="Выучено"
-                  value={`${profile.masteredVerses}`}
+                  value={`${profileMasteredVerses}`}
                 />
                 <StatCard
                   label="За 7 дней"
                   value={`${profile.weeklyRepetitions}`}
                 />
-                <StatCard label="Серия" value={`${profile.dailyStreak} дн`} />
+                <StatCard label="Серия" value={`${profileDailyStreak} дн`} />
               </div>
             </div>
           ) : null}

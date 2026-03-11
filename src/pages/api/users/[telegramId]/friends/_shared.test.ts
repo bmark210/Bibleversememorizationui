@@ -53,5 +53,5 @@ test('summarizes friend metric rows with mastered verses and weekly activity', (
   assert.equal(summary.weeklyRepetitions, 2)
   assert.equal(summary.dailyStreak, 5)
   assert.equal(summary.lastActiveAt, '2026-03-07T10:00:00.000Z')
-  assert.equal(summary.averageProgressPercent > 0, true)
+  assert.equal(summary.xp > 0, true)
 })

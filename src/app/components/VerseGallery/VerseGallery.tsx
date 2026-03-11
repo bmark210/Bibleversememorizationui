@@ -23,8 +23,9 @@ import {
 import { Toaster } from "@/app/components/ui/toaster";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
+import { GALLERY_TOASTER_ID, TOAST_TOP_OFFSET_PX, toast } from "@/app/lib/toast";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { buildVerseDeletionXpFeedback } from "@/app/utils/verseXp";
 import {
   createVerticalTouchSwipeStart,
   getVerticalTouchSwipeStep,
@@ -157,6 +158,7 @@ export function VerseGallery({
   onStatusChange,
   onDelete,
   onNavigateToTraining,
+  isAnchorEligible = false,
   previewTotalCount = verses.length,
   previewHasMore = false,
   previewIsLoadingMore = false,
@@ -265,9 +267,26 @@ export function VerseGallery({
     if (!previewActiveVerse) return;
     try {
       aux.setIsActionPending(true);
-      await onDelete(previewActiveVerse);
+      const result = await onDelete(previewActiveVerse);
+      const xpLoss =
+        result && typeof result === "object" && "xpLoss" in result
+          ? Number(result.xpLoss ?? 0)
+          : 0;
+      const feedback = buildVerseDeletionXpFeedback({
+        xpLoss,
+      });
       haptic("success");
-      aux.showFeedback("Стих удалён", "success");
+      toast.success(feedback.title, {
+        description: feedback.description,
+        toasterId: GALLERY_TOASTER_ID,
+        label: "Галерея",
+      });
+      aux.showFeedback(
+        xpLoss > 0
+          ? `${feedback.title}. -${xpLoss} XP`
+          : feedback.title,
+        "success"
+      );
       if (verses.length <= 1) {
         onClose();
       } else {
@@ -388,7 +407,7 @@ export function VerseGallery({
         createPortal(
           <Toaster
             id={GALLERY_TOASTER_ID}
-            offset={{ top: `${Math.max(topInset, 0) + 12}px` }}
+            offset={{ top: `${Math.max(topInset, 0) + TOAST_TOP_OFFSET_PX}px` }}
           />,
           document.body,
         )}
@@ -443,6 +462,7 @@ export function VerseGallery({
                   verse={previewActiveVerse}
                   isActionPending={aux.isActionPending}
                   activeTagSlugs={activeTagSlugs}
+                  isAnchorEligible={isAnchorEligible}
                   onStartTraining={() => onNavigateToTraining(previewActiveVerse)}
                   onStatusAction={() => void handlePreviewStatusAction()}
                 />

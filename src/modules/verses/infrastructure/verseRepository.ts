@@ -54,6 +54,7 @@ function mapCatalogUserVerseProgressRecord(row: {
   repetitions: number;
   referenceScore: number;
   incipitScore: number;
+  contextScore: number;
   lastTrainingModeId: number | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
@@ -65,6 +66,7 @@ function mapCatalogUserVerseProgressRecord(row: {
     repetitions: row.repetitions,
     referenceScore: row.referenceScore,
     incipitScore: row.incipitScore,
+    contextScore: row.contextScore,
     lastTrainingModeId: row.lastTrainingModeId,
     lastReviewedAt: row.lastReviewedAt,
     nextReviewAt: row.nextReviewAt,
@@ -562,6 +564,7 @@ export async function getUserCatalogProgressByVerseIds(params: {
       repetitions: true,
       referenceScore: true,
       incipitScore: true,
+      contextScore: true,
       lastTrainingModeId: true,
       lastReviewedAt: true,
       nextReviewAt: true,

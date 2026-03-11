@@ -15,6 +15,7 @@ interface AnchorSessionProps {
   telegramId: string | null;
   initialTrack: AnchorTrainingTrack;
   bookId?: number;
+  onSessionCommitted?: () => void;
   onClose: () => void;
 }
 
@@ -22,6 +23,7 @@ export function AnchorSession({
   telegramId,
   initialTrack,
   bookId,
+  onSessionCommitted,
   onClose,
 }: AnchorSessionProps) {
   return (
@@ -29,6 +31,7 @@ export function AnchorSession({
       telegramId={telegramId}
       initialTrack={initialTrack}
       bookId={bookId}
+      onSessionCommitted={onSessionCommitted}
       onClose={onClose}
     />
   );

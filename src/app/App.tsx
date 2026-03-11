@@ -42,6 +42,7 @@ import {
   mergeVersePatch,
 } from "@/app/utils/versePatch";
 import type { ProgressMapAction } from "./components/ProgressMap";
+import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -95,6 +96,9 @@ export type Verse = {
   status: DisplayVerseStatus;
   masteryLevel: number;
   repetitions: number;
+  referenceScore?: number;
+  incipitScore?: number;
+  contextScore?: number;
   lastTrainingModeId?: number | null;
   lastReviewedAt: string | null;
   createdAt?: string | null;
@@ -120,6 +124,9 @@ type AppVerseApiRecord = {
   status?: string | null;
   masteryLevel?: number | null;
   repetitions?: number | null;
+  referenceScore?: number | null;
+  incipitScore?: number | null;
+  contextScore?: number | null;
   lastTrainingModeId?: number | null;
   lastReviewedAt?: string | null;
   nextReviewAt?: string | null;
@@ -321,6 +328,9 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     status: normalizeDisplayVerseStatus(verse.status),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+    referenceScore: Math.max(0, Math.round(Number(verse.referenceScore ?? 0))),
+    incipitScore: Math.max(0, Math.round(Number(verse.incipitScore ?? 0))),
+    contextScore: Math.max(0, Math.round(Number(verse.contextScore ?? 0))),
     lastTrainingModeId: verse.lastTrainingModeId ?? null,
     lastReviewedAt: verse.lastReviewedAt ?? null,
     createdAt: verse.createdAt ?? null,
@@ -491,12 +501,18 @@ export default function App({ onInitialContentReady }: AppProps) {
       const nextStats = await fetchUserDashboardStats(telegramIdValue);
       if (dashboardStatsRequestIdRef.current === requestId) {
         setDashboardStats(nextStats);
+        useCurrentUserStatsStore
+          .getState()
+          .setFromDashboardStats(telegramIdValue, nextStats);
       }
       return nextStats;
     } catch (error) {
       console.error("Не удалось получить статистику пользователя:", error);
       if (dashboardStatsRequestIdRef.current === requestId) {
         setDashboardStats(null);
+        useCurrentUserStatsStore
+          .getState()
+          .setFromDashboardStats(telegramIdValue, null);
       }
       return null;
     } finally {
@@ -790,6 +806,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         setDashboardStats(null);
         setDashboardLeaderboard(null);
         setDashboardFriendsActivity(null);
+        useCurrentUserStatsStore.getState().clear();
         finishBootstrapping();
         return;
       }
@@ -834,7 +851,10 @@ export default function App({ onInitialContentReady }: AppProps) {
         ]);
       } catch (err) {
         console.error("Не удалось получить данные дашборда:", err);
-        toast.error("Ошибка при подключении к базе данных");
+        toast.error("Ошибка при подключении к базе данных", {
+          description: "Стартовые данные не загрузились. Попробуйте открыть приложение ещё раз.",
+          label: "Дашборд",
+        });
       } finally {
         finishBootstrapping();
         scheduleTrainingVersePrefetch(telegramId);
@@ -1080,11 +1100,14 @@ export default function App({ onInitialContentReady }: AppProps) {
 
       toast.success("Стих добавлен", {
         description: `${verse.reference} добавлен в ваши стихи.`,
+        label: "Коллекция",
       });
     } catch (err) {
       const errorMessage = (err as ApiError)?.body?.error as string;
       console.error("Не удалось добавить стих:", errorMessage);
-      toast.error(errorMessage ?? "Не удалось добавить стих");
+      toast.error(errorMessage ?? "Не удалось добавить стих", {
+        label: "Коллекция",
+      });
       throw err;
     }
   };
@@ -1147,6 +1170,10 @@ export default function App({ onInitialContentReady }: AppProps) {
               telegramId={telegramId}
               hasFriends={hasVerseListFriends}
               onOpenPlayerProfile={handleOpenPlayerProfile}
+              isAnchorEligible={
+                (dashboardStats?.reviewVerses ?? 0) >= 10 ||
+                (dashboardStats?.masteredVerses ?? 0) >= 10
+              }
             />
           )}
 

@@ -1,23 +1,14 @@
 import type { ParsedUrlQuery } from "querystring";
-import { VerseStatus } from "@/generated/prisma";
+import type { VerseStatus } from "@/generated/prisma";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { userExists } from "@/modules/users/infrastructure/userRepository";
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
-import {
-  computeDisplayStatus,
-  normalizeProgressValue,
-} from "../verses/verseCard.types";
+import { computeSocialUserXpSummary } from "@/shared/social/xp";
 
 const DEFAULT_LIST_LIMIT = 8;
 const DEFAULT_ACTIVITY_LIMIT = 6;
 const MAX_LIMIT = 50;
 const MAX_SEARCH_LENGTH = 80;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const RATING_PROGRESS_WEIGHT = 0.4;
-const RATING_SKILLS_WEIGHT = 0.3;
-const RATING_STREAK_WEIGHT = 0.2;
-const RATING_WEEKLY_WEIGHT = 0.1;
 
 export type FriendListItemResponse = {
   telegramId: string;
@@ -28,7 +19,7 @@ export type FriendListItemResponse = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
 };
 
 export type FriendsPageResponse = {
@@ -47,7 +38,7 @@ export type DashboardFriendsActivityResponse = {
     activeLast7Days: number;
     avgWeeklyRepetitions: number;
     avgStreakDays: number;
-    avgProgressPercent: number;
+    avgXp: number;
   };
   entries: FriendActivityEntryResponse[];
 };
@@ -79,6 +70,7 @@ type UserMetricAggregate = {
     incipitScore: number;
     contextScore: number;
     lastReviewedAt: Date | null;
+    nextReviewAt?: Date | null;
   }>;
 };
 
@@ -87,7 +79,7 @@ export type UserFriendMetrics = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
 };
 
 function getSingleQueryValue(
@@ -97,58 +89,6 @@ function getSingleQueryValue(
   const value = query[key];
   if (Array.isArray(value)) return value[0];
   return typeof value === "string" ? value : undefined;
-}
-
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function toProgressPercent(masteryLevel: number, repetitions: number) {
-  const totalProgressPoints = Math.min(
-    normalizeProgressValue(masteryLevel) + normalizeProgressValue(repetitions),
-    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
-  );
-  return clampPercent(
-    (totalProgressPoints / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
-  );
-}
-
-function normalizeSkillScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function toSkillsPercent(
-  referenceScore: number | null | undefined,
-  incipitScore: number | null | undefined,
-  contextScore: number | null | undefined
-): number {
-  return clampPercent(
-    (normalizeSkillScore(referenceScore) +
-      normalizeSkillScore(incipitScore) +
-      normalizeSkillScore(contextScore)) /
-      3
-  );
-}
-
-function computeRatingPercent(params: {
-  averageProgressPercent: number;
-  averageSkillsPercent: number;
-  streakDays: number;
-  weeklyRepetitions: number;
-}): number {
-  const streakPercent = Math.min(100, Math.max(0, params.streakDays) * 5);
-  const weeklyActivityPercent = Math.min(
-    100,
-    Math.max(0, params.weeklyRepetitions) * 10
-  );
-
-  return clampPercent(
-    params.averageProgressPercent * RATING_PROGRESS_WEIGHT +
-      params.averageSkillsPercent * RATING_SKILLS_WEIGHT +
-      streakPercent * RATING_STREAK_WEIGHT +
-      weeklyActivityPercent * RATING_WEEKLY_WEIGHT
-  );
 }
 
 function parseLimit(value: string | undefined, fallback: number): number {
@@ -195,77 +135,18 @@ export function summarizeFriendMetricRows(params: {
   storedStreak: number;
   now?: number;
 }): UserFriendMetrics {
-  const now = params.now ?? Date.now();
-  const weeklyCutoff = now - WEEK_MS;
-  let progressSum = 0;
-  let skillsSum = 0;
-  let progressCount = 0;
-  let masteredVerses = 0;
-  let weeklyRepetitions = 0;
-  let latestReviewedAt: Date | null = null;
-
-  for (const row of params.rows) {
-    const masteryLevel = normalizeProgressValue(row.masteryLevel);
-    const repetitions = normalizeProgressValue(row.repetitions);
-    const displayStatus = computeDisplayStatus(
-      row.status,
-      masteryLevel,
-      repetitions
-    );
-    const isProgressStatus =
-      displayStatus === VerseStatus.LEARNING ||
-      displayStatus === "REVIEW" ||
-      displayStatus === "MASTERED";
-
-    if (isProgressStatus) {
-      progressSum += toProgressPercent(masteryLevel, repetitions);
-      skillsSum += toSkillsPercent(
-        row.referenceScore,
-        row.incipitScore,
-        row.contextScore
-      );
-      progressCount += 1;
-
-      if (displayStatus === "MASTERED") {
-        masteredVerses += 1;
-      }
-
-      const reviewedAtTime = row.lastReviewedAt?.getTime() ?? Number.NaN;
-      if (!Number.isNaN(reviewedAtTime) && reviewedAtTime >= weeklyCutoff) {
-        weeklyRepetitions += 1;
-      }
-    }
-
-    if (
-      row.lastReviewedAt &&
-      (!latestReviewedAt ||
-        row.lastReviewedAt.getTime() > latestReviewedAt.getTime())
-    ) {
-      latestReviewedAt = row.lastReviewedAt;
-    }
-  }
-
-  const dailyStreak = computeActiveDailyStreak({
+  const summary = computeSocialUserXpSummary({
+    verses: params.rows,
     storedStreak: params.storedStreak,
-    latestReviewedAt,
-    now: new Date(now),
+    now: params.now,
   });
-  const averageProgressPercent =
-    progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
-  const averageSkillsPercent =
-    progressCount > 0 ? clampPercent(skillsSum / progressCount) : 0;
 
   return {
-    lastActiveAt: latestReviewedAt ? latestReviewedAt.toISOString() : null,
-    masteredVerses,
-    weeklyRepetitions,
-    dailyStreak,
-    averageProgressPercent: computeRatingPercent({
-      averageProgressPercent,
-      averageSkillsPercent,
-      streakDays: dailyStreak,
-      weeklyRepetitions,
-    }),
+    lastActiveAt: summary.lastActiveAt,
+    masteredVerses: summary.masteredVerses,
+    weeklyRepetitions: summary.weeklyRepetitions,
+    dailyStreak: summary.dailyStreak,
+    xp: summary.xp,
   };
 }
 
@@ -386,7 +267,7 @@ export function mapUsersToFriendListItems(params: {
       masteredVerses: metrics?.masteredVerses ?? 0,
       weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,
       dailyStreak: metrics?.dailyStreak ?? 0,
-      averageProgressPercent: metrics?.averageProgressPercent ?? 0,
+      xp: metrics?.xp ?? 0,
     };
   });
 }
@@ -414,7 +295,7 @@ export function buildFriendsActivityResponse(params: {
         masteredVerses: metrics?.masteredVerses ?? 0,
         weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,
         dailyStreak: metrics?.dailyStreak ?? 0,
-        averageProgressPercent: metrics?.averageProgressPercent ?? 0,
+        xp: metrics?.xp ?? 0,
       } satisfies FriendActivityEntryResponse;
     })
     .sort((a, b) => {
@@ -450,11 +331,9 @@ export function buildFriendsActivityResponse(params: {
         entries.reduce((sum, entry) => sum + entry.dailyStreak, 0),
         friendsTotal
       ),
-      avgProgressPercent: clampPercent(
-        friendsTotal > 0
-          ? entries.reduce((sum, entry) => sum + entry.averageProgressPercent, 0) /
-              friendsTotal
-          : 0
+      avgXp: roundAverage(
+        entries.reduce((sum, entry) => sum + entry.xp, 0),
+        friendsTotal
       ),
     },
     entries: limitedEntries,

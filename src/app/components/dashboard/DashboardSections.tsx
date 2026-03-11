@@ -10,6 +10,8 @@ import type {
   DashboardLeaderboard as DashboardLeaderboardData,
 } from "@/api/services/leaderboard";
 import type { DashboardFriendsActivity } from "@/api/services/friends";
+import { formatXp } from "@/shared/social/formatXp";
+import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
 
 type DashboardUser = {
@@ -362,11 +364,28 @@ export function DashboardLeaderboardCard({
   onOpenTraining,
   onOpenPlayerProfile,
 }: DashboardLeaderboardCardProps) {
+  const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak
+  );
   const entries = leaderboard?.entries ?? [];
   const currentUser = leaderboard?.currentUser ?? null;
   const shouldShowCurrentUserSnapshot =
     currentUser != null &&
     !entries.some((entry) => entry.telegramId === currentUser.telegramId);
+  const currentUserSnapshotDisplayXp =
+    currentUser != null &&
+    currentUserTelegramId === currentUser.telegramId &&
+    currentUserXp != null
+      ? currentUserXp
+      : currentUser?.xp ?? 0;
+  const currentUserSnapshotDisplayStreakDays =
+    currentUser != null &&
+    currentUserTelegramId === currentUser.telegramId &&
+    currentUserDailyStreak != null
+      ? currentUserDailyStreak
+      : currentUser?.streakDays ?? 0;
 
   return (
     <div>
@@ -385,6 +404,20 @@ export function DashboardLeaderboardCard({
             entries.map((entry) => {
               const rankMarker = getRankMarker(entry.rank);
               const RankIcon = rankMarker.icon;
+              const isCurrentUserEntry =
+                entry.isCurrentUser || entry.telegramId === currentUserTelegramId;
+              const displayXp =
+                isCurrentUserEntry &&
+                currentUserTelegramId === entry.telegramId &&
+                currentUserXp != null
+                  ? currentUserXp
+                  : entry.xp;
+              const displayStreakDays =
+                isCurrentUserEntry &&
+                currentUserTelegramId === entry.telegramId &&
+                currentUserDailyStreak != null
+                  ? currentUserDailyStreak
+                  : entry.streakDays;
               const handleOpenProfile = () =>
                 onOpenPlayerProfile?.({
                   telegramId: entry.telegramId,
@@ -399,7 +432,7 @@ export function DashboardLeaderboardCard({
                     onClick={handleOpenProfile}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors hover:bg-background/70",
-                      entry.isCurrentUser
+                      isCurrentUserEntry
                         ? "border-primary/20 bg-primary/[0.07]"
                         : "border-border/60 bg-background/55",
                     )}
@@ -432,7 +465,7 @@ export function DashboardLeaderboardCard({
                       <div
                         className={cn(
                           "truncate text-sm font-medium",
-                          entry.isCurrentUser
+                          isCurrentUserEntry
                             ? "text-primary"
                             : "text-foreground/78",
                         )}
@@ -440,12 +473,12 @@ export function DashboardLeaderboardCard({
                         {entry.name}
                       </div>
                       <div className="mt-1 text-xs text-foreground/48">
-                        {entry.weeklyRepetitions} · {entry.streakDays} дн. подряд
+                        {entry.weeklyRepetitions} · {displayStreakDays} дн. подряд
                       </div>
                     </div>
 
                     <div className="text-sm font-semibold text-foreground/82">
-                      {entry.score}%
+                      {formatXp(displayXp)}
                     </div>
                   </button>
                 </div>
@@ -459,7 +492,7 @@ export function DashboardLeaderboardCard({
                 <div className="space-y-3">
                   <p className="text-sm leading-relaxed text-foreground/56">
                     Рейтинг появится, когда у вас и других участников появится
-                    активность за неделю.
+                    прогресс по стихам.
                   </p>
                   {onOpenTraining ? (
                     <Button
@@ -484,9 +517,9 @@ export function DashboardLeaderboardCard({
               type="button"
               onClick={() =>
                 onOpenPlayerProfile?.({
-                  telegramId: currentUser.telegramId,
-                  name: currentUser.name,
-                  avatarUrl: currentUser.avatarUrl,
+                  telegramId: currentUser?.telegramId ?? "",
+                  name: currentUser?.name ?? "Вы",
+                  avatarUrl: currentUser?.avatarUrl ?? null,
                 })
               }
               className="flex w-full items-center justify-between gap-3 text-left text-sm"
@@ -495,12 +528,13 @@ export function DashboardLeaderboardCard({
               <div className="min-w-0">
                 <div className="truncate font-medium text-primary">Вы</div>
                 <div className="mt-1 text-xs text-foreground/48">
-                  {currentUser.rank ? `#${currentUser.rank}` : "Вне топа"} ·{" "}
-                  {currentUser.weeklyRepetitions}
+                  {currentUser?.rank ? `#${currentUser.rank}` : "Вне топа"} ·{" "}
+                  {currentUser?.weeklyRepetitions ?? 0} ·{" "}
+                  {currentUserSnapshotDisplayStreakDays} дн. подряд
                 </div>
               </div>
               <div className="font-semibold text-foreground/82">
-                {currentUser.score}%
+                {formatXp(currentUserSnapshotDisplayXp)}
               </div>
             </button>
           </div>
@@ -578,7 +612,7 @@ export function DashboardFriendsActivityCard({
                   </div>
 
                   <div className="text-xs font-medium text-foreground/68">
-                    {entry.averageProgressPercent}%
+                    {formatXp(entry.xp)}
                   </div>
                 </div>
               </button>

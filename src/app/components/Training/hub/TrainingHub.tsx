@@ -6,7 +6,7 @@ import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
   BookOpen,
   Brain,
-  ChevronDown,
+  // ChevronDown,
   Dumbbell,
   GraduationCap,
   Layers,
@@ -28,6 +28,12 @@ import {
   getCountForMode,
   getCountForModes,
 } from "./useTrainingHubState";
+import {
+  getAnchorEligibleVerseCount,
+  getCoreTrainingCountsFromVerses,
+  getSelectableCountForCoreModes,
+  getWaitingReviewCountForCoreModes,
+} from "../coreTrainingAvailability";
 import type {
   AnchorTrainingTrack,
   CoreTrainingMode,
@@ -36,15 +42,15 @@ import type {
 } from "../types";
 import {
   ANCHOR_TRAINING_TRACK_LABELS,
-  TRAINING_ORDER_LABELS,
+  // TRAINING_ORDER_LABELS,
   TRAINING_SCENARIO_LABELS,
 } from "../types";
 import { Button } from "../../ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../../ui/collapsible";
+// import {
+//   Collapsible,
+//   CollapsibleContent,
+//   CollapsibleTrigger,
+// } from "../../ui/collapsible";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,6 +99,14 @@ type CoreModePreset = {
   theme: AccentTheme;
 };
 
+type CorePresetState = CoreModePreset & {
+  availableCount: number;
+  selectableCount: number;
+  waitingReviewCount: number;
+  startable: boolean;
+  disabled: boolean;
+};
+
 type AnchorTrackOption = {
   track: AnchorTrainingTrack;
   icon: LucideIcon;
@@ -122,7 +136,7 @@ type OrderTheme = {
   hintClassName: string;
 };
 
-const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
+// const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
 const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
@@ -240,32 +254,32 @@ const TEAL_ACCENT: AccentTheme = {
     "border-teal-500/30 bg-teal-500/[0.10] text-teal-900 shadow-[0_18px_36px_-24px_rgba(20,184,166,0.68)] dark:text-teal-100",
 };
 
-const ORDER_THEME: Record<TrainingOrder, OrderTheme> = {
-  updatedAt: {
-    triggerClassName:
-      "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_6px_18px_-12px_rgba(245,158,11,0.55)]",
-    contentClassName: "border-amber-500/20 bg-background/95 backdrop-blur-xl",
-    itemClassName:
-      "focus:bg-amber-500/8 focus:text-amber-800 dark:focus:text-amber-300 data-[state=checked]:bg-amber-500/10 data-[state=checked]:text-amber-800 dark:data-[state=checked]:text-amber-300",
-    hintClassName: "text-amber-700 dark:text-amber-300",
-  },
-  bible: {
-    triggerClassName:
-      "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300 shadow-[0_6px_18px_-12px_rgba(14,165,233,0.5)]",
-    contentClassName: "border-sky-500/20 bg-background/95 backdrop-blur-xl",
-    itemClassName:
-      "focus:bg-sky-500/8 focus:text-sky-700 dark:focus:text-sky-300 data-[state=checked]:bg-sky-500/10 data-[state=checked]:text-sky-700 dark:data-[state=checked]:text-sky-300",
-    hintClassName: "text-sky-700 dark:text-sky-300",
-  },
-  popularity: {
-    triggerClassName:
-      "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300 shadow-[0_6px_18px_-12px_rgba(244,63,94,0.5)]",
-    contentClassName: "border-rose-500/20 bg-background/95 backdrop-blur-xl",
-    itemClassName:
-      "focus:bg-rose-500/8 focus:text-rose-700 dark:focus:text-rose-300 data-[state=checked]:bg-rose-500/10 data-[state=checked]:text-rose-700 dark:data-[state=checked]:text-rose-300",
-    hintClassName: "text-rose-700 dark:text-rose-300",
-  },
-};
+// const ORDER_THEME: Record<TrainingOrder, OrderTheme> = {
+//   updatedAt: {
+//     triggerClassName:
+//       "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_6px_18px_-12px_rgba(245,158,11,0.55)]",
+//     contentClassName: "border-amber-500/20 bg-background/95 backdrop-blur-xl",
+//     itemClassName:
+//       "focus:bg-amber-500/8 focus:text-amber-800 dark:focus:text-amber-300 data-[state=checked]:bg-amber-500/10 data-[state=checked]:text-amber-800 dark:data-[state=checked]:text-amber-300",
+//     hintClassName: "text-amber-700 dark:text-amber-300",
+//   },
+//   bible: {
+//     triggerClassName:
+//       "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300 shadow-[0_6px_18px_-12px_rgba(14,165,233,0.5)]",
+//     contentClassName: "border-sky-500/20 bg-background/95 backdrop-blur-xl",
+//     itemClassName:
+//       "focus:bg-sky-500/8 focus:text-sky-700 dark:focus:text-sky-300 data-[state=checked]:bg-sky-500/10 data-[state=checked]:text-sky-700 dark:data-[state=checked]:text-sky-300",
+//     hintClassName: "text-sky-700 dark:text-sky-300",
+//   },
+//   popularity: {
+//     triggerClassName:
+//       "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300 shadow-[0_6px_18px_-12px_rgba(244,63,94,0.5)]",
+//     contentClassName: "border-rose-500/20 bg-background/95 backdrop-blur-xl",
+//     itemClassName:
+//       "focus:bg-rose-500/8 focus:text-rose-700 dark:focus:text-rose-300 data-[state=checked]:bg-rose-500/10 data-[state=checked]:text-rose-700 dark:data-[state=checked]:text-rose-300",
+//     hintClassName: "text-rose-700 dark:text-rose-300",
+//   },
+// };
 
 const CORE_MODE_PRESETS: CoreModePreset[] = [
   {
@@ -324,12 +338,12 @@ export function TrainingHub({
   selectionVerses,
   selectedScenario,
   selectedModes,
-  selectedOrder,
+  // selectedOrder,
   selectedAnchorTrack,
   selectedBookId,
   onScenarioChange,
   onModesChange,
-  onOrderChange,
+  // onOrderChange,
   onAnchorTrackChange,
   onBookIdChange,
   onStart,
@@ -337,40 +351,115 @@ export function TrainingHub({
 }: TrainingHubProps) {
   const shouldReduceMotion = useReducedMotion();
   const { contentSafeAreaInset } = useTelegramSafeArea();
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  // const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
-  const practiceCount = counts.learningCount + counts.reviewCount;
-  const anchorAvailableCount = getCountForMode("anchor", counts);
-  const activeCorePreset =
-    CORE_MODE_PRESETS.find((preset) =>
-      matchesModes(selectedModes, preset.modes),
-    ) ?? CORE_MODE_PRESETS[0];
+  const practiceCount = counts.learningCount + counts.dueReviewCount;
+  const anchorTotalAvailableCount = useMemo(() => {
+    if (allVerses.length > 0) {
+      return getAnchorEligibleVerseCount(allVerses);
+    }
+
+    return getCountForMode("anchor", counts);
+  }, [allVerses, counts]);
+  const anchorAvailableCount = useMemo(() => {
+    if (allVerses.length > 0) {
+      return getAnchorEligibleVerseCount(allVerses, selectedBookId);
+    }
+
+    return anchorTotalAvailableCount;
+  }, [allVerses, anchorTotalAvailableCount, selectedBookId]);
+  const corePresetStates = useMemo<CorePresetState[]>(
+    () =>
+      CORE_MODE_PRESETS.map((preset) => {
+        const availableCount = getCountForModes(preset.modes, counts);
+        const selectableCount = getSelectableCountForCoreModes(preset.modes, counts);
+        const waitingReviewCount = getWaitingReviewCountForCoreModes(
+          preset.modes,
+          counts,
+        );
+
+        return {
+          ...preset,
+          availableCount,
+          selectableCount,
+          waitingReviewCount,
+          startable: availableCount > 0,
+          disabled: selectableCount === 0,
+        };
+      }),
+    [counts],
+  );
+  const preferredCorePreset = useMemo(
+    () => pickPreferredCorePreset(corePresetStates),
+    [corePresetStates],
+  );
+  const selectedCorePreset = corePresetStates.find((preset) =>
+    matchesModes(selectedModes, preset.modes),
+  );
+  const activeCorePreset = selectedCorePreset ?? preferredCorePreset;
   const activeAnchorTrack =
     ANCHOR_TRACK_OPTIONS.find(
       (option) => option.track === selectedAnchorTrack,
     ) ?? ANCHOR_TRACK_OPTIONS[0];
+  const anchorBookOptions = useMemo(() => {
+    const bookIds = new Set<number>();
+    for (const verse of allVerses) {
+      const parsed = parseExternalVerseId(verse.externalVerseId);
+      if (parsed) bookIds.add(parsed.book);
+    }
+    return Array.from(bookIds)
+      .sort((a, b) => a - b)
+      .map((id) => ({
+        id,
+        name: BIBLE_BOOKS[id]?.nameRu ?? `Книга ${id}`,
+      }));
+  }, [allVerses]);
+  const selectedBookName =
+    anchorBookOptions.find((book) => book.id === selectedBookId)?.name ?? null;
   const currentAccentTheme =
     selectedScenario === "anchor"
       ? activeAnchorTrack.theme
       : activeCorePreset.theme;
-  const activeOrderTheme = ORDER_THEME[selectedOrder];
+  // const activeOrderTheme = ORDER_THEME[selectedOrder];
 
   const ANCHOR_MIN_REQUIRED = 10;
+  const selectionCounts = useMemo(
+    () =>
+      selectionVerses && selectionVerses.length > 0
+        ? getCoreTrainingCountsFromVerses(selectionVerses)
+        : null,
+    [selectionVerses],
+  );
   const currentCount =
     selectedScenario === "anchor"
       ? anchorAvailableCount
       : getCountForModes(selectedModes, counts);
+  const currentWaitingReviewCount =
+    selectedScenario === "anchor"
+      ? 0
+      : getWaitingReviewCountForCoreModes(selectedModes, counts);
   const anchorLocked =
     selectedScenario === "anchor" && anchorAvailableCount < ANCHOR_MIN_REQUIRED;
+  const reviewWaitingLocked =
+    selectedScenario === "core" &&
+    currentCount === 0 &&
+    currentWaitingReviewCount > 0;
+  const learningAndReviewingLocked =
+    selectedScenario === "core" && currentCount === 0;
+  const startLocked = anchorLocked || learningAndReviewingLocked;
 
-  const learningAndReviewingLocked = selectedScenario === "core" && currentCount < 10;
-
-  const hasVerses = anchorLocked ? false : currentCount > 0;
   const hasSelection =
     selectedScenario === "core" &&
     Boolean(selectionVerses && selectionVerses.length > 0);
+  const selectionAvailableCount =
+    selectionCounts === null ? 0 : getCountForModes(selectedModes, selectionCounts);
+  const selectionWaitingReviewCount =
+    selectionCounts === null
+      ? 0
+      : getWaitingReviewCountForCoreModes(selectedModes, selectionCounts);
+  const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
   const sessionSummary =
     selectedScenario === "anchor"
       ? `${TRAINING_SCENARIO_LABELS.anchor} · ${ANCHOR_TRAINING_TRACK_LABELS[selectedAnchorTrack]}`
@@ -378,6 +467,48 @@ export function TrainingHub({
   const startLabel =
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
+  const lockedStartLabel =
+    selectedScenario === "anchor"
+      ? "Закрепление пока недоступно"
+      : reviewWaitingLocked
+        ? selectedModes.length === 1 && selectedModes[0] === "review"
+          ? "Повторение на ожидании"
+          : "Практика на ожидании"
+        : "Практика пока недоступна";
+  const lockedSummaryText =
+    selectedScenario === "anchor"
+      ? getAnchorLockMessage({
+          currentCount: anchorAvailableCount,
+          totalCount: anchorTotalAvailableCount,
+          minRequired: ANCHOR_MIN_REQUIRED,
+          selectedBookName,
+        })
+      : reviewWaitingLocked
+        ? getReviewWaitingMessage(
+            currentWaitingReviewCount,
+            counts.earliestWaitingReviewAt,
+          )
+        : getCoreLockMessage(selectedModes);
+
+  useEffect(() => {
+    if (selectedScenario !== "core") return;
+    if (matchesModes(selectedModes, preferredCorePreset.modes)) return;
+    if (
+      selectedCorePreset &&
+      !selectedCorePreset.disabled &&
+      (selectedCorePreset.startable || !preferredCorePreset.startable)
+    ) {
+      return;
+    }
+    onModesChange(preferredCorePreset.modes);
+  }, [
+    onModesChange,
+    preferredCorePreset.modes,
+    preferredCorePreset.startable,
+    selectedCorePreset,
+    selectedModes,
+    selectedScenario,
+  ]);
 
   const markTrainingIntroAsSeen = useCallback(() => {
     if (typeof window === "undefined") {
@@ -444,10 +575,10 @@ export function TrainingHub({
     onAnchorTrackChange(nextTrack);
   };
 
-  const handleAdvancedOpenChange = (open: boolean) => {
-    triggerHaptic("light");
-    setIsAdvancedOpen(open);
-  };
+  // const handleAdvancedOpenChange = (open: boolean) => {
+  //   triggerHaptic("light");
+  //   setIsAdvancedOpen(open);
+  // };
 
   const handleOrderOpenChange = (open: boolean) => {
     if (open) {
@@ -455,32 +586,17 @@ export function TrainingHub({
     }
   };
 
-  const handleOrderChange = (value: string) => {
-    const nextOrder = value as TrainingOrder;
-    triggerSelectionHaptic(nextOrder !== selectedOrder);
-    onOrderChange(nextOrder);
-  };
+  // const handleOrderChange = (value: string) => {
+  //   const nextOrder = value as TrainingOrder;
+  //   triggerSelectionHaptic(nextOrder !== selectedOrder);
+  //   onOrderChange(nextOrder);
+  // };
 
   const handleBookIdChange = (value: string) => {
     const nextBookId = value === "all" ? undefined : Number(value);
     triggerSelectionHaptic(nextBookId !== selectedBookId);
     onBookIdChange(nextBookId);
   };
-
-  // Build book options from user's verses (only books that have verses)
-  const anchorBookOptions = useMemo(() => {
-    const bookIds = new Set<number>();
-    for (const verse of allVerses) {
-      const parsed = parseExternalVerseId(verse.externalVerseId);
-      if (parsed) bookIds.add(parsed.book);
-    }
-    return Array.from(bookIds)
-      .sort((a, b) => a - b)
-      .map((id) => ({
-        id,
-        name: BIBLE_BOOKS[id]?.nameRu ?? `Книга ${id}`,
-      }));
-  }, [allVerses]);
 
   const ANCHOR_BOOK_THEME: OrderTheme = {
     triggerClassName:
@@ -600,7 +716,7 @@ export function TrainingHub({
               >
                 <ScenarioTabLabel
                   title={TRAINING_SCENARIO_LABELS.anchor}
-                  count={anchorAvailableCount}
+                  count={anchorTotalAvailableCount}
                   countClassName={SCENARIO_THEME.anchor.countClassName}
                 />
               </TabsTrigger>
@@ -624,20 +740,17 @@ export function TrainingHub({
                     aria-label="Режим практики"
                     className="mt-2 grid gap-2 sm:grid-cols-3"
                   >
-                    {CORE_MODE_PRESETS.map((preset) => {
-                      const count = getCountForModes(preset.modes, counts);
-
-                      return (
-                        <RadioCardOption
-                          key={preset.id}
-                          value={preset.id}
-                          title={preset.label}
-                          subtitle={getModeAvailabilityLabel(count)}
-                          icon={preset.icon}
-                          theme={preset.theme}
-                        />
-                      );
-                    })}
+                    {corePresetStates.map((preset) => (
+                      <RadioCardOption
+                        key={preset.id}
+                        value={preset.id}
+                        title={preset.label}
+                        subtitle={getModeAvailabilityLabel(preset)}
+                        icon={preset.icon}
+                        theme={preset.theme}
+                        disabled={preset.disabled}
+                      />
+                    ))}
                   </RadioGroupPrimitive.Root>
                 </motion.div>
               ) : (
@@ -715,8 +828,12 @@ export function TrainingHub({
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground/78">Подборка</p>
               <p className="text-xs text-foreground/50">
-                {selectionVerses.length} {pluralVerses(selectionVerses.length)}{" "}
-                в готовом наборе
+                {getSelectionSummaryText({
+                  totalCount: selectionVerses.length,
+                  availableCount: selectionAvailableCount,
+                  waitingReviewCount: selectionWaitingReviewCount,
+                  selectedModes,
+                })}
               </p>
             </div>
             <Button
@@ -724,6 +841,7 @@ export function TrainingHub({
               variant="outline"
               size="sm"
               haptic="medium"
+              disabled={selectionStartLocked}
               onClick={onStartSelection}
               className="rounded-xl border-border/60 bg-background/70 text-foreground/78 hover:bg-background"
             >
@@ -732,7 +850,7 @@ export function TrainingHub({
           </section>
         ) : null}
 
-        {selectedScenario === "core" ? (
+        {/* {selectedScenario === "core" ? (
           <Collapsible
             open={isAdvancedOpen}
             onOpenChange={handleAdvancedOpenChange}
@@ -786,7 +904,7 @@ export function TrainingHub({
               </div>
             </CollapsibleContent>
           </Collapsible>
-        ) : null}
+        ) : null} */}
 
         <div className="mx-auto w-full flex-1 content-end">
           <div
@@ -808,19 +926,19 @@ export function TrainingHub({
               {sessionSummary}
             </p>
 
-            {anchorLocked || learningAndReviewingLocked ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-foreground/8 bg-foreground/[0.03] px-4 py-3.5">
-                <Lock className="h-4 w-4 shrink-0 text-foreground/35" />
-                <p className="text-xs leading-relaxed text-foreground/55">
-                  Нужно минимум{" "}
-                  <span className="font-semibold text-foreground/75">
-                    {learningAndReviewingLocked ? 1 : ANCHOR_MIN_REQUIRED}
-                  </span>{" "}
-                  {pluralVerses(learningAndReviewingLocked ? 1 : ANCHOR_MIN_REQUIRED)} на этапе {learningAndReviewingLocked ? "изучения или повторения" : "повторения или выученных"}. Сейчас:{" "}
-                  <span className="font-semibold text-foreground/75">
-                    {learningAndReviewingLocked ? currentCount : anchorAvailableCount}
-                  </span>
-                  .
+            {startLocked ? (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled
+                  className="h-14 w-full gap-2 rounded-2xl border border-foreground/10 bg-foreground/[0.03] px-5 text-sm font-medium text-foreground/45 shadow-none"
+                >
+                  <Lock className="h-4 w-4" />
+                  {lockedStartLabel}
+                </Button>
+                <p className="px-1 text-xs leading-relaxed text-foreground/55">
+                  {lockedSummaryText}
                 </p>
               </div>
             ) : (
@@ -828,7 +946,6 @@ export function TrainingHub({
                 type="button"
                 size="lg"
                 haptic="medium"
-                disabled={!hasVerses}
                 onClick={onStart}
                 className={cn(
                   "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
@@ -876,6 +993,7 @@ function RadioCardOption({
   subtitle,
   icon: Icon,
   theme,
+  disabled = false,
   compact = true,
 }: {
   value: string;
@@ -883,14 +1001,18 @@ function RadioCardOption({
   subtitle?: string;
   icon: LucideIcon;
   theme: AccentTheme;
+  disabled?: boolean;
   compact?: boolean;
 }) {
   return (
     <RadioGroupPrimitive.Item
       value={value}
+      disabled={disabled}
       className={cn(
-        "group/radio w-full rounded-[22px] border border-border/60 bg-background/55 p-4 text-left transition-all duration-150 outline-none hover:bg-background/80 focus-visible:border-ring focus-visible:ring-ring/40 focus-visible:ring-[3px]",
+        "group/radio w-full rounded-[22px] border border-border/60 bg-background/55 p-4 text-left transition-all duration-150 outline-none focus-visible:border-ring focus-visible:ring-ring/40 focus-visible:ring-[3px] disabled:cursor-not-allowed",
+        !disabled && "hover:bg-background/80",
         theme.checkedItemClassName,
+        disabled && "border-border/45 bg-background/35 text-foreground/40 shadow-none",
         compact && "px-3 py-3",
       )}
     >
@@ -901,6 +1023,7 @@ function RadioCardOption({
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/75 text-foreground/50 transition-colors",
               theme.checkedIconClassName,
+              disabled && "border-border/40 bg-background/55 text-foreground/35",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -910,6 +1033,7 @@ function RadioCardOption({
               className={cn(
                 "block truncate text-sm font-medium text-foreground/82",
                 theme.checkedTitleClassName,
+                disabled && "text-foreground/42",
               )}
             >
               {title}
@@ -919,6 +1043,7 @@ function RadioCardOption({
                 className={cn(
                   "mt-1 block text-xs leading-relaxed text-foreground/50",
                   theme.checkedSubtitleClassName,
+                  disabled && "text-foreground/35",
                 )}
               >
                 {subtitle}
@@ -931,6 +1056,7 @@ function RadioCardOption({
           className={cn(
             "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80",
             theme.checkedIndicatorClassName,
+            disabled && "border-border/45 bg-background/60 opacity-60",
           )}
         >
           <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
@@ -952,9 +1078,127 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-function getModeAvailabilityLabel(count: number) {
-  if (count === 0) return "Пока нет стихов";
-  return `${count} ${pluralVerses(count)}`;
+function getModeAvailabilityLabel(preset: CorePresetState) {
+  if (preset.availableCount > 0 && preset.waitingReviewCount > 0) {
+    return `${preset.availableCount} сейчас · ${getWaitingReviewShortLabel(
+      preset.waitingReviewCount,
+    )}`;
+  }
+
+  if (preset.availableCount > 0) {
+    return `${preset.availableCount} ${pluralVerses(preset.availableCount)}`;
+  }
+
+  if (preset.waitingReviewCount > 0) {
+    return preset.waitingReviewCount === 1
+      ? "1 стих ждет времени"
+      : `${preset.waitingReviewCount} ${pluralVerses(preset.waitingReviewCount)} ждут времени`;
+  }
+
+  return "Пока нет стихов";
+}
+
+function getWaitingReviewShortLabel(waitingReviewCount: number) {
+  return waitingReviewCount === 1
+    ? "1 ждет"
+    : `${waitingReviewCount} ждут`;
+}
+
+function pickPreferredCorePreset(presets: CorePresetState[]) {
+  return (
+    presets.find((preset) => preset.id === "mixed" && preset.startable) ??
+    presets.find((preset) => preset.startable) ??
+    presets.find((preset) => preset.id === "mixed" && !preset.disabled) ??
+    presets.find((preset) => !preset.disabled) ??
+    presets.find((preset) => preset.id === "mixed") ??
+    presets[0]
+  );
+}
+
+function getAnchorLockMessage(params: {
+  currentCount: number;
+  totalCount: number;
+  minRequired: number;
+  selectedBookName: string | null;
+}) {
+  const { currentCount, totalCount, minRequired, selectedBookName } = params;
+
+  if (selectedBookName && totalCount >= minRequired) {
+    return `В книге «${selectedBookName}» доступно ${currentCount} ${pluralVerses(currentCount)}. Для закрепления нужно минимум ${minRequired}. Выберите все книги или другую книгу.`;
+  }
+
+  if (selectedBookName && totalCount > currentCount) {
+    return `В книге «${selectedBookName}» доступно ${currentCount} ${pluralVerses(currentCount)}. Даже без фильтра пока доступно только ${totalCount} из ${minRequired} нужных стихов.`;
+  }
+
+  return `Нужно минимум ${minRequired} ${pluralVerses(minRequired)} в статусах повторения или выученных. Сейчас доступно: ${currentCount}.`;
+}
+
+function getCoreLockMessage(selectedModes: CoreTrainingMode[]) {
+  if (selectedModes.length === 1 && selectedModes[0] === "learning") {
+    return "Для изучения пока нет стихов.";
+  }
+
+  if (selectedModes.length === 1 && selectedModes[0] === "review") {
+    return "Для повторения пока нет стихов.";
+  }
+
+  return "Добавьте хотя бы один стих в изучение или дождитесь доступного повторения.";
+}
+
+function getSelectionSummaryText(params: {
+  totalCount: number;
+  availableCount: number;
+  waitingReviewCount: number;
+  selectedModes: CoreTrainingMode[];
+}) {
+  const { totalCount, availableCount, waitingReviewCount, selectedModes } = params;
+
+  if (availableCount > 0) {
+    return `${totalCount} ${pluralVerses(totalCount)} в готовом наборе`;
+  }
+
+  if (waitingReviewCount > 0) {
+    return getReviewWaitingMessage(waitingReviewCount, null);
+  }
+
+  if (selectedModes.length === 1 && selectedModes[0] === "learning") {
+    return "В подборке нет стихов для изучения";
+  }
+
+  if (selectedModes.length === 1 && selectedModes[0] === "review") {
+    return "В подборке нет стихов для повторения";
+  }
+
+  return "В подборке нет стихов для текущего режима";
+}
+
+function getReviewWaitingMessage(
+  waitingReviewCount: number,
+  earliestWaitingReviewAt: Date | null,
+) {
+  const countLabel =
+    waitingReviewCount === 1
+      ? "1 стих еще ждет времени для повторения."
+      : `${waitingReviewCount} ${pluralVerses(waitingReviewCount)} еще ждут времени для повторения.`;
+
+  const unlockLabel = formatNextReviewWindow(earliestWaitingReviewAt);
+  return unlockLabel ? `${countLabel} ${unlockLabel}` : countLabel;
+}
+
+function formatNextReviewWindow(nextReviewAt: Date | null) {
+  if (!nextReviewAt) return null;
+
+  const dateLabel = nextReviewAt.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+  const timeLabel = nextReviewAt.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `Ближайшее повторение откроется ${dateLabel} в ${timeLabel}.`;
 }
 
 function pluralVerses(n: number) {

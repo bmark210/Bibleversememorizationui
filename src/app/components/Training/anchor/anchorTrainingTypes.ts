@@ -20,6 +20,8 @@ export type ReferenceVerse = {
   text: string;
   reference: string;
   status: DisplayVerseStatus;
+  masteryLevel: number;
+  repetitions: number;
   bookName: string;
   chapterVerse: string;
   incipit: string;

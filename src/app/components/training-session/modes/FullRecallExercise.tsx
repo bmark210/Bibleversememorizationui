@@ -99,7 +99,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
 
     const typedComparableText = normalizeComparableText(userInput);
     if (!typedComparableText || !targetComparableText) {
-      toast.error('Сначала введите текст стиха', {
+      toast.warning('Сначала введите текст стиха', {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
       });
@@ -122,7 +122,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
       return;
     }
 
-    toast.error(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
+    toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
     });

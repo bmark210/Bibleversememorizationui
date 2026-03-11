@@ -1,20 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { VerseStatus } from "@/generated/prisma";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { getAllUsers } from "@/modules/users/infrastructure/userRepository";
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
-import {
-  computeDisplayStatus,
-  normalizeProgressValue,
-} from "./[telegramId]/verses/verseCard.types";
+import { computeSocialUserXpSummary } from "@/shared/social/xp";
 
 type LeaderboardEntry = {
   rank: number;
   telegramId: string;
   name: string;
   avatarUrl: string | null;
-  score: number;
+  xp: number;
   streakDays: number;
   weeklyRepetitions: number;
   isCurrentUser: boolean;
@@ -25,7 +19,7 @@ type CurrentUserLeaderboardSnapshot = {
   name: string;
   avatarUrl: string | null;
   rank: number | null;
-  score: number;
+  xp: number;
   streakDays: number;
   weeklyRepetitions: number;
 };
@@ -41,23 +35,15 @@ type ComputedParticipant = {
   telegramId: string;
   name: string;
   avatarUrl: string | null;
-  score: number;
+  xp: number;
+  masteredVerses: number;
   streakDays: number;
   weeklyRepetitions: number;
-  hasActivity: boolean;
+  rankable: boolean;
 };
 
 const DEFAULT_LIMIT = 6;
 const MAX_LIMIT = 25;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const RATING_PROGRESS_WEIGHT = 0.4;
-const RATING_SKILLS_WEIGHT = 0.3;
-const RATING_STREAK_WEIGHT = 0.2;
-const RATING_WEEKLY_WEIGHT = 0.1;
-
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
 
 function parseLimit(value: string | string[] | undefined): number {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -95,51 +81,6 @@ function buildPublicName(input: {
   return buildFallbackName(input.telegramId);
 }
 
-function toProgressPercent(masteryLevel: number, repetitions: number) {
-  const totalProgressPoints = Math.min(
-    normalizeProgressValue(masteryLevel) + normalizeProgressValue(repetitions),
-    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
-  );
-  return clampPercent(
-    (totalProgressPoints / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
-  );
-}
-
-function normalizeSkillScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function toSkillsPercent(
-  referenceScore: number | null | undefined,
-  incipitScore: number | null | undefined,
-  contextScore: number | null | undefined
-): number {
-  return clampPercent(
-    (normalizeSkillScore(referenceScore) +
-      normalizeSkillScore(incipitScore) +
-      normalizeSkillScore(contextScore)) /
-      3
-  );
-}
-
-function computeLeaderboardScore(params: {
-  averageProgressPercent: number;
-  averageSkillsPercent: number;
-  streakDays: number;
-  weeklyRepetitions: number;
-}): number {
-  const streakScore = Math.min(100, Math.max(0, params.streakDays) * 5);
-  const weeklyScore = Math.min(100, Math.max(0, params.weeklyRepetitions) * 10);
-
-  return clampPercent(
-    params.averageProgressPercent * RATING_PROGRESS_WEIGHT +
-      params.averageSkillsPercent * RATING_SKILLS_WEIGHT +
-      streakScore * RATING_STREAK_WEIGHT +
-      weeklyScore * RATING_WEEKLY_WEIGHT
-  );
-}
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<LeaderboardResponse | { error: string; details?: string }>
@@ -152,26 +93,13 @@ export default async function handler(
   try {
     const limit = parseLimit(req.query.limit);
     const currentTelegramId = parseTelegramId(req.query.telegramId);
-    const weeklyCutoff = Date.now() - WEEK_MS;
 
     const users = await getAllUsers();
     const metricVerses = await getSocialMetricVerseRows(
       users.map((user) => user.telegramId)
     );
 
-    const versesByTelegramId = new Map<
-      string,
-      Array<{
-        status: VerseStatus;
-        masteryLevel: number;
-        repetitions: number;
-        referenceScore: number;
-        incipitScore: number;
-        contextScore: number;
-        lastReviewedAt: Date | null;
-      }>
-    >();
-
+    const versesByTelegramId = new Map<string, typeof metricVerses>();
     for (const verse of metricVerses) {
       const group = versesByTelegramId.get(verse.telegramId) ?? [];
       group.push(verse);
@@ -179,65 +107,10 @@ export default async function handler(
     }
 
     const participants: ComputedParticipant[] = users.map((user) => {
-      const verses = versesByTelegramId.get(user.telegramId) ?? [];
-      let progressSum = 0;
-      let skillsSum = 0;
-      let progressCount = 0;
-      let weeklyRepetitions = 0;
-      let latestReviewedAt: Date | null = null;
-
-      for (const verse of verses) {
-        const masteryLevel = normalizeProgressValue(verse.masteryLevel);
-        const repetitions = normalizeProgressValue(verse.repetitions);
-        const displayStatus = computeDisplayStatus(
-          verse.status,
-          masteryLevel,
-          repetitions
-        );
-
-        if (
-          displayStatus === VerseStatus.LEARNING ||
-          displayStatus === "REVIEW" ||
-          displayStatus === "MASTERED"
-        ) {
-          progressSum += toProgressPercent(masteryLevel, repetitions);
-          skillsSum += toSkillsPercent(
-            verse.referenceScore,
-            verse.incipitScore,
-            verse.contextScore
-          );
-          progressCount += 1;
-
-          const reviewedAt = verse.lastReviewedAt?.getTime() ?? Number.NaN;
-          if (!Number.isNaN(reviewedAt) && reviewedAt >= weeklyCutoff) {
-            weeklyRepetitions += 1;
-          }
-        }
-
-        if (
-          verse.lastReviewedAt &&
-          (!latestReviewedAt || verse.lastReviewedAt.getTime() > latestReviewedAt.getTime())
-        ) {
-          latestReviewedAt = verse.lastReviewedAt;
-        }
-      }
-
-      const streakDays = computeActiveDailyStreak({
+      const summary = computeSocialUserXpSummary({
+        verses: versesByTelegramId.get(user.telegramId) ?? [],
         storedStreak: user.dailyStreak,
-        latestReviewedAt,
       });
-      const averageProgressPercent =
-        progressCount > 0 ? clampPercent(progressSum / progressCount) : 0;
-      const averageSkillsPercent =
-        progressCount > 0 ? clampPercent(skillsSum / progressCount) : 0;
-      const score = computeLeaderboardScore({
-        averageProgressPercent,
-        averageSkillsPercent,
-        streakDays,
-        weeklyRepetitions,
-      });
-      // Keep leaderboard focused on recent activity, not historical progress.
-      const hasActivity = weeklyRepetitions > 0 || streakDays > 0;
 
       return {
         telegramId: user.telegramId,
@@ -247,22 +120,28 @@ export default async function handler(
           nickname: user.nickname,
         }),
         avatarUrl: user.avatarUrl ?? null,
-        score,
-        streakDays,
-        weeklyRepetitions,
-        hasActivity,
+        xp: summary.xp,
+        masteredVerses: summary.masteredVerses,
+        streakDays: summary.dailyStreak,
+        weeklyRepetitions: summary.weeklyRepetitions,
+        rankable: summary.rankable,
       };
     });
 
     const rankedParticipants = participants
-      .filter((participant) => participant.hasActivity)
-      .sort((a, b) => {
-        if (a.score !== b.score) return b.score - a.score;
-        if (a.weeklyRepetitions !== b.weeklyRepetitions) {
-          return b.weeklyRepetitions - a.weeklyRepetitions;
+      .filter((participant) => participant.rankable)
+      .sort((left, right) => {
+        if (left.xp !== right.xp) return right.xp - left.xp;
+        if (left.masteredVerses !== right.masteredVerses) {
+          return right.masteredVerses - left.masteredVerses;
         }
-        if (a.streakDays !== b.streakDays) return b.streakDays - a.streakDays;
-        return a.telegramId.localeCompare(b.telegramId);
+        if (left.weeklyRepetitions !== right.weeklyRepetitions) {
+          return right.weeklyRepetitions - left.weeklyRepetitions;
+        }
+        if (left.streakDays !== right.streakDays) {
+          return right.streakDays - left.streakDays;
+        }
+        return left.telegramId.localeCompare(right.telegramId);
       });
 
     const rankedEntries: LeaderboardEntry[] = rankedParticipants.map(
@@ -271,7 +150,7 @@ export default async function handler(
         telegramId: participant.telegramId,
         name: participant.name,
         avatarUrl: participant.avatarUrl,
-        score: participant.score,
+        xp: participant.xp,
         streakDays: participant.streakDays,
         weeklyRepetitions: participant.weeklyRepetitions,
         isCurrentUser:
@@ -298,7 +177,7 @@ export default async function handler(
             name: currentParticipant.name,
             avatarUrl: currentParticipant.avatarUrl,
             rank: currentRankedEntry?.rank ?? null,
-            score: currentParticipant.score,
+            xp: currentParticipant.xp,
             streakDays: currentParticipant.streakDays,
             weeklyRepetitions: currentParticipant.weeklyRepetitions,
           }

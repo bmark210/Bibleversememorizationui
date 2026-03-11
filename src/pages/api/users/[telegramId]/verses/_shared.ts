@@ -2,7 +2,7 @@ import type { ParsedUrlQuery } from "querystring";
 import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { getAnchorTrainerRows, getReferenceTrainerLearningRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
+import { getAnchorTrainerRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
 import { getFriendVerseAggregates } from "@/modules/social/infrastructure/socialRepository";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import type { UserVerseRecord } from "@/modules/verses/domain/Verse";
@@ -1217,9 +1217,9 @@ async function fetchPaginatedFriendVerses(options: {
             status: "CATALOG",
             masteryLevel: 0,
             repetitions: 0,
-            referenceScore: 50,
-            incipitScore: 50,
-            contextScore: 50,
+            referenceScore: 0,
+            incipitScore: 0,
+            contextScore: 0,
             lastTrainingModeId: null,
             lastReviewedAt: null,
             nextReviewAt: null,

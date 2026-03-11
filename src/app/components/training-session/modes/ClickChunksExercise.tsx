@@ -173,7 +173,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
     if (shouldResetSequence) {
       setSelectedIds([]);
-      toast.error(
+      toast.warning(
         `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -181,7 +181,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
         }
       );
     } else {
-      toast.error(
+      toast.warning(
         `Неверный фрагмент. До сброса: ${
           MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
         }.`,

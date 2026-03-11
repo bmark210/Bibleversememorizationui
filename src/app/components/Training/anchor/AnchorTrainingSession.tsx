@@ -16,6 +16,8 @@ import {
   type ReferenceTrainerSessionTrack,
   type ReferenceTrainerSessionUpdate,
 } from "@/api/services/referenceTrainer";
+import { applySessionResults } from "@/modules/reference-trainer/application/applySessionResults";
+import type { ReferenceTrainerScoreRow } from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -37,6 +39,9 @@ import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
+import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
+import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
 import {
   AnchorTrainingQuestionCard,
   AnchorTrainingStateCard,
@@ -63,6 +68,7 @@ type AnchorTrainingSessionProps = {
   telegramId: string | null;
   initialTrack?: SessionTrack;
   bookId?: number;
+  onSessionCommitted?: () => void;
   onClose: () => void;
 };
 
@@ -130,7 +136,7 @@ function randomInt(max: number) {
 }
 
 function clampSkillScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
@@ -564,6 +570,8 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     text,
     reference,
     status: normalizeDisplayVerseStatus(verse.status),
+    masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
+    repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
     chapterVerse: parsedReference?.chapterVerse ?? "",
     incipit: incipitWords.join(" "),
@@ -1157,6 +1165,51 @@ function mergeUpdatedSkillScores(
   });
 }
 
+function toReferenceTrainerScoreRow(verse: ReferenceVerse): ReferenceTrainerScoreRow {
+  return {
+    id: 0,
+    externalVerseId: verse.externalVerseId,
+    referenceScore: verse.referenceScore,
+    incipitScore: verse.incipitScore,
+    contextScore: verse.contextScore,
+  };
+}
+
+function applyOptimisticAnchorOutcome(params: {
+  verse: ReferenceVerse;
+  track: SkillTrack;
+  outcome: ReferenceTrainerSessionOutcome;
+}): ReferenceVerse {
+  const rowMap = new Map([
+    [
+      params.verse.externalVerseId,
+      {
+        ...toReferenceTrainerScoreRow(params.verse),
+      },
+    ] as const,
+  ]);
+
+  const [updatedRow] = applySessionResults({
+    rowsByExternalVerseId: rowMap,
+    updates: [
+      {
+        externalVerseId: params.verse.externalVerseId,
+        track: params.track,
+        outcome: params.outcome,
+      },
+    ],
+  });
+
+  if (!updatedRow) return params.verse;
+
+  return {
+    ...params.verse,
+    referenceScore: updatedRow.referenceScore,
+    incipitScore: updatedRow.incipitScore,
+    contextScore: updatedRow.contextScore,
+  };
+}
+
 function buildInitialQuestionSessionState(
   questions: TrainerQuestion[]
 ): Record<string, QuestionSessionState> {
@@ -1176,6 +1229,7 @@ export function AnchorTrainingSession({
   telegramId,
   initialTrack,
   bookId,
+  onSessionCommitted,
   onClose,
 }: AnchorTrainingSessionProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
@@ -1217,8 +1271,8 @@ export function AnchorTrainingSession({
   const [pendingTrackChange, setPendingTrackChange] =
     useState<SessionTrack | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [isAutoAdvancePending, setIsAutoAdvancePending] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const { progressPopup, showProgressPopup } = useTrainingProgressPopup();
 
   useEffect(() => {
     writeStoredTrack(selectedTrack);
@@ -1355,7 +1409,6 @@ export function AnchorTrainingSession({
       setSaveSucceeded(false);
       setSaveErrorMessage(null);
       savedSessionKeyRef.current = null;
-      setIsAutoAdvancePending(false);
       resetAnswerState();
     },
     [resetAnswerState, selectedTrack]
@@ -1388,6 +1441,7 @@ export function AnchorTrainingSession({
         setErrorMessage("Не удалось загрузить стихи для закрепления.");
         toast.error("Не удалось загрузить закрепление", {
           description: "Проверьте соединение и попробуйте снова.",
+          label: "Закрепление",
         });
       } finally {
         setIsLoading(false);
@@ -1407,7 +1461,6 @@ export function AnchorTrainingSession({
       setErrorMessage(null);
       setSaveSucceeded(false);
       setSaveErrorMessage(null);
-      setIsAutoAdvancePending(false);
       return;
     }
     if (initializedTelegramIdRef.current === telegramId) return;
@@ -1480,18 +1533,20 @@ export function AnchorTrainingSession({
 
         setVersePool((prev) => mergeUpdatedSkillScores(prev, response.updated));
         setSaveSucceeded(true);
+        onSessionCommitted?.();
       } catch (error) {
         console.error("Не удалось сохранить прогресс закрепления:", error);
         setSaveSucceeded(false);
         setSaveErrorMessage("Не удалось сохранить прогресс. Попробуйте пройти новую сессию позже.");
         toast.error("Прогресс закрепления не сохранён", {
           description: "Попробуйте открыть режим позже и повторить сессию.",
+          label: "Закрепление",
         });
       } finally {
         setIsSavingSession(false);
       }
     },
-    [telegramId]
+    [onSessionCommitted, telegramId]
   );
 
   const sessionKey = useMemo(
@@ -1545,11 +1600,46 @@ export function AnchorTrainingSession({
               Math.min(currentPendingOrderIndex, nextPendingQuestionIds.length - 1)
             ] ?? nextPendingQuestionIds[0] ?? null
           : null;
+      const activeVerse =
+        versePool.find(
+          (verse) => verse.externalVerseId === currentQuestion.verse.externalVerseId
+        ) ?? currentQuestion.verse;
+      const nextVerse = applyOptimisticAnchorOutcome({
+        verse: activeVerse,
+        track: currentQuestion.track,
+        outcome,
+      });
+      const progressPopupPayload = buildTrainingProgressPopupPayload({
+        reference: currentQuestion.verse.reference,
+        context: "anchor",
+        track: currentQuestion.track,
+        before: {
+          status: activeVerse.status,
+          masteryLevel: activeVerse.masteryLevel,
+          repetitions: activeVerse.repetitions,
+          referenceScore: activeVerse.referenceScore,
+          incipitScore: activeVerse.incipitScore,
+          contextScore: activeVerse.contextScore,
+        },
+        after: {
+          status: nextVerse.status,
+          masteryLevel: nextVerse.masteryLevel,
+          repetitions: nextVerse.repetitions,
+          referenceScore: nextVerse.referenceScore,
+          incipitScore: nextVerse.incipitScore,
+          contextScore: nextVerse.contextScore,
+        },
+      });
 
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
       setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
       setLastAnswerForgotten(Boolean(options?.forgotten));
+      setVersePool((prev) =>
+        prev.map((verse) =>
+          verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse
+        )
+      );
       setQuestionStates((prev) => {
         const previousState = prev[currentQuestion.id];
         if (previousState && previousState.status !== "pending") {
@@ -1566,8 +1656,11 @@ export function AnchorTrainingSession({
         };
       });
       setCurrentPendingQuestionId(nextPendingQuestionId);
+      if (progressPopupPayload) {
+        showProgressPopup(progressPopupPayload);
+      }
     },
-    [currentQuestion, isAnswered, pendingQuestionIds]
+    [currentQuestion, isAnswered, pendingQuestionIds, showProgressPopup, versePool]
   );
 
   const handleChoiceSelect = (value: string) => {
@@ -1637,7 +1730,6 @@ export function AnchorTrainingSession({
   const controlsLocked =
     isLoading ||
     isSavingSession ||
-    isAutoAdvancePending ||
     pendingTrackChange !== null ||
     isExitConfirmOpen;
 
@@ -1725,14 +1817,8 @@ export function AnchorTrainingSession({
   const shouldLiftTypeCard =
     isKeyboardOpen && isTypeMode && !isAnswered && !sessionComplete;
   const revealedVerseText = getRevealedVerseText(currentQuestion);
-  const requiresContinueAfterReveal =
+  const canContinueAfterReveal =
     isAnswered &&
-    lastAnswerCorrect === false &&
-    !sessionComplete &&
-    currentPendingQuestionId !== null;
-  const shouldAutoAdvanceAfterAnswer =
-    isAnswered &&
-    lastAnswerCorrect === true &&
     !sessionComplete &&
     currentPendingQuestionId !== null;
   const showTrackSelector = !sessionComplete && telegramId && !isLoading;
@@ -1761,11 +1847,10 @@ export function AnchorTrainingSession({
   }, []);
 
   const handleContinueAfterReveal = useCallback(() => {
-    if (!requiresContinueAfterReveal) return;
+    if (!canContinueAfterReveal) return;
     setDirection(1);
-    setIsAutoAdvancePending(false);
     advanceToNextQuestion();
-  }, [advanceToNextQuestion, requiresContinueAfterReveal]);
+  }, [advanceToNextQuestion, canContinueAfterReveal]);
 
   const requestClose = useCallback(() => {
     if (!sessionComplete && questions.length > 0) {
@@ -1825,40 +1910,6 @@ export function AnchorTrainingSession({
     },
     [navigatePendingQuestion]
   );
-
-  useEffect(() => {
-    if (
-      !isAnswered ||
-      sessionComplete ||
-      !shouldAutoAdvanceAfterAnswer ||
-      currentPendingQuestionId === null ||
-      pendingTrackChange !== null ||
-      isExitConfirmOpen
-    ) {
-      setIsAutoAdvancePending(false);
-      return;
-    }
-
-    setIsAutoAdvancePending(true);
-    const timeoutId = window.setTimeout(() => {
-      setDirection(1);
-      advanceToNextQuestion();
-      setIsAutoAdvancePending(false);
-    }, 1100);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      setIsAutoAdvancePending(false);
-    };
-  }, [
-    advanceToNextQuestion,
-    currentPendingQuestionId,
-    isAnswered,
-    isExitConfirmOpen,
-    pendingTrackChange,
-    sessionComplete,
-    shouldAutoAdvanceAfterAnswer,
-  ]);
 
   useEffect(() => {
     if (direction === 0 || typeof window === "undefined") return;
@@ -1927,6 +1978,8 @@ export function AnchorTrainingSession({
             aria-roledescription="carousel"
             aria-label="Карточки закрепления"
           >
+            <TrainingProgressPopup popup={progressPopup} />
+
             {!telegramId && (
               <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
                 <AnchorTrainingStateCard
@@ -2027,8 +2080,7 @@ export function AnchorTrainingSession({
                       lastAnswerUsedTolerance={lastAnswerUsedTolerance}
                       lastAnswerForgotten={lastAnswerForgotten}
                       revealedVerseText={revealedVerseText}
-                      isAutoAdvancePending={isAutoAdvancePending}
-                      showContinueButton={requiresContinueAfterReveal}
+                      showContinueButton={canContinueAfterReveal}
                       onSwipeStep={handleQuestionSwipeStep}
                       onChoiceSelect={handleChoiceSelect}
                       onTapSelect={handleTapSelect}

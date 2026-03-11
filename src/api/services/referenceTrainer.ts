@@ -43,7 +43,11 @@ export async function fetchReferenceTrainerVerses(
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     params.set("limit", String(Math.max(1, Math.round(options.limit))));
   }
-  if (typeof options?.bookId === "number" && Number.isFinite(options.bookId) && options.bookId > 0) {
+  if (
+    typeof options?.bookId === "number" &&
+    Number.isFinite(options.bookId) &&
+    options.bookId > 0
+  ) {
     params.set("bookId", String(Math.round(options.bookId)));
   }
   const query = params.toString();
@@ -62,10 +66,13 @@ export async function fetchReferenceTrainerVerses(
     );
   }
 
-  // Handle both old (array) and new (object with verses/totalCount/minRequired) response shapes
   const data = await response.json();
   if (Array.isArray(data)) {
-    return { verses: data as Array<UserVerse>, totalCount: data.length, minRequired: 10 };
+    return {
+      verses: data as Array<UserVerse>,
+      totalCount: data.length,
+      minRequired: 10,
+    };
   }
   return data as ReferenceTrainerVersesResponse;
 }

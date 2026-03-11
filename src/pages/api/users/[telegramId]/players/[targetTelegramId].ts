@@ -20,7 +20,7 @@ type PlayerProfileResponse = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
   createdAt: string;
 };
 
@@ -87,7 +87,7 @@ export default async function handler(
       masteredVerses: metrics?.masteredVerses ?? 0,
       weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,
       dailyStreak: metrics?.dailyStreak ?? 0,
-      averageProgressPercent: metrics?.averageProgressPercent ?? 0,
+      xp: metrics?.xp ?? 0,
       createdAt: targetUser.createdAt.toISOString(),
     });
   } catch (error) {

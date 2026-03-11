@@ -23,7 +23,7 @@ export const TRAINING_MODE_ID_MIN = 1;
 export const TRAINING_MODE_ID_MAX = 8;
 export const SKILL_SCORE_MIN = 0;
 export const SKILL_SCORE_MAX = 100;
-export const SKILL_SCORE_DEFAULT = 50;
+export const SKILL_SCORE_DEFAULT = 0;
 export const REFERENCE_TRAINER_OUTCOME_DELTAS = {
   correct_first: 5,
   correct_retry: 2,

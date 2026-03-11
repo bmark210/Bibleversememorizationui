@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { VerseCard, type VerseCardPreviewTone } from "@/app/components/VerseCard";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -38,7 +38,6 @@ type AnchorTrainingQuestionCardProps = {
   lastAnswerUsedTolerance: boolean;
   lastAnswerForgotten: boolean;
   revealedVerseText: string;
-  isAutoAdvancePending: boolean;
   showContinueButton: boolean;
   onSwipeStep: (step: 1 | -1) => void;
   onChoiceSelect: (value: string) => void;
@@ -202,7 +201,6 @@ export function AnchorTrainingQuestionCard({
   lastAnswerUsedTolerance,
   lastAnswerForgotten,
   revealedVerseText,
-  isAutoAdvancePending,
   showContinueButton,
   onSwipeStep,
   onChoiceSelect,
@@ -307,12 +305,6 @@ export function AnchorTrainingQuestionCard({
                   <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-foreground/78">
                     {revealedVerseText}
                   </p>
-                  {isAutoAdvancePending && (
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] text-foreground/62">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Переходим к следующему стиху...
-                    </div>
-                  )}
                   {showContinueButton && (
                     <div className="mt-4 flex justify-end">
                       <Button

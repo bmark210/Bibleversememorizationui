@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type UserDashboardStats = {
     totalVerses: number;
+    learningStatusVerses: number;
     learningVerses: number;
     reviewVerses: number;
     masteredVerses: number;
@@ -11,9 +12,9 @@ export type UserDashboardStats = {
     dueReviewVerses: number;
     totalRepetitions: number;
     /**
-     * Композитный рейтинг пользователя (прогресс + навыки + регулярность).
+     * Реактивный XP-рейтинг пользователя.
      */
-    averageProgressPercent: number;
+    xp: number;
     bestVerseReference: string | null;
     dailyStreak: number;
 };

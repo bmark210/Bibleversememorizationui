@@ -1766,18 +1766,23 @@
         "type": "object",
         "required": [
           "totalVerses",
+          "learningStatusVerses",
           "learningVerses",
           "reviewVerses",
           "masteredVerses",
           "stoppedVerses",
           "dueReviewVerses",
           "totalRepetitions",
-          "averageProgressPercent",
+          "xp",
           "bestVerseReference",
           "dailyStreak"
         ],
         "properties": {
           "totalVerses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "learningStatusVerses": {
             "type": "integer",
             "minimum": 0
           },
@@ -1805,11 +1810,10 @@
             "type": "integer",
             "minimum": 0
           },
-          "averageProgressPercent": {
+          "xp": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
-            "description": "Композитный рейтинг пользователя (прогресс + навыки + регулярность)."
+            "description": "Реактивный XP-рейтинг пользователя."
           },
           "bestVerseReference": {
             "type": "string",
@@ -1828,7 +1832,7 @@
           "telegramId",
           "name",
           "avatarUrl",
-          "score",
+          "xp",
           "streakDays",
           "weeklyRepetitions",
           "isCurrentUser"
@@ -1848,11 +1852,10 @@
             "type": "string",
             "nullable": true
           },
-          "score": {
+          "xp": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
-            "description": "Композитный рейтинг участника (прогресс + навыки + регулярность)."
+            "description": "Реактивный XP-рейтинг участника."
           },
           "streakDays": {
             "type": "integer",
@@ -1874,7 +1877,7 @@
           "name",
           "avatarUrl",
           "rank",
-          "score",
+          "xp",
           "streakDays",
           "weeklyRepetitions"
         ],
@@ -1894,11 +1897,10 @@
             "minimum": 1,
             "nullable": true
           },
-          "score": {
+          "xp": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
-            "description": "Композитный рейтинг пользователя (прогресс + навыки + регулярность)."
+            "description": "Реактивный XP-рейтинг пользователя."
           },
           "streakDays": {
             "type": "integer",
@@ -1954,7 +1956,7 @@
           "masteredVerses",
           "weeklyRepetitions",
           "dailyStreak",
-          "averageProgressPercent"
+          "xp"
         ],
         "properties": {
           "telegramId": {
@@ -1987,11 +1989,10 @@
             "type": "integer",
             "minimum": 0
           },
-          "averageProgressPercent": {
+          "xp": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
-            "description": "Композитный рейтинг друга (прогресс + навыки + регулярность)."
+            "description": "Реактивный XP-рейтинг игрока."
           }
         }
       },
@@ -2035,7 +2036,7 @@
           "masteredVerses",
           "weeklyRepetitions",
           "dailyStreak",
-          "averageProgressPercent"
+          "xp"
         ],
         "properties": {
           "telegramId": {
@@ -2065,10 +2066,9 @@
             "type": "integer",
             "minimum": 0
           },
-          "averageProgressPercent": {
+          "xp": {
             "type": "integer",
-            "minimum": 0,
-            "maximum": 100
+            "minimum": 0
           }
         }
       },
@@ -2079,7 +2079,7 @@
           "activeLast7Days",
           "avgWeeklyRepetitions",
           "avgStreakDays",
-          "avgProgressPercent"
+          "avgXp"
         ],
         "properties": {
           "friendsTotal": {
@@ -2098,11 +2098,10 @@
             "type": "integer",
             "minimum": 0
           },
-          "avgProgressPercent": {
+          "avgXp": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
-            "description": "Средний композитный рейтинг по друзьям."
+            "description": "Средний реактивный XP по друзьям."
           }
         }
       },

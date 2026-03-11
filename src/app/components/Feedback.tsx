@@ -127,17 +127,23 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
 
   const handleSubmit = async () => {
     if (!normalizedTelegramId) {
-      toast.error("Не найден telegramId");
+      toast.warning("Не найден telegramId", {
+        label: "Обратная связь",
+      });
       return;
     }
 
     if (!trimmedText) {
-      toast.error("Введите текст отзыва");
+      toast.warning("Введите текст отзыва", {
+        label: "Обратная связь",
+      });
       return;
     }
 
     if (text.length > MAX_FEEDBACK_LENGTH) {
-      toast.error(`Максимум ${MAX_FEEDBACK_LENGTH} символов`);
+      toast.warning(`Максимум ${MAX_FEEDBACK_LENGTH} символов`, {
+        label: "Обратная связь",
+      });
       return;
     }
 
@@ -149,7 +155,9 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
       });
 
       setText("");
-      toast.success("Отзыв отправлен");
+      toast.success("Отзыв отправлен", {
+        label: "Обратная связь",
+      });
 
       if (isAdmin) {
         if (adminPageIndex !== 1) {
@@ -161,7 +169,9 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Не удалось отправить отзыв";
-      toast.error(message);
+      toast.error(message, {
+        label: "Обратная связь",
+      });
     } finally {
       setIsSubmitting(false);
     }

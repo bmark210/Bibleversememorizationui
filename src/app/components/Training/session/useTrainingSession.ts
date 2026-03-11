@@ -8,10 +8,6 @@ import {
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
-import type {
-  TrainingContactToastPayload,
-  TrainingCompletionToastCardPayload,
-} from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import {
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
@@ -27,8 +23,6 @@ import {
   isTrainingReviewVerse,
   chooseModeId,
   getModeByShiftInProgressOrder,
-  getTrainingContactToastPayload,
-  getTrainingMilestonePopupPayload,
 } from "@/app/components/VerseGallery/utils";
 import {
   fetchTrainingVerseSnapshot,
@@ -43,6 +37,9 @@ import type {
   Rating,
   TrainingVerseState,
 } from "@/app/components/VerseGallery/types";
+import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
+import type { TrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
+import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
 
 type QuickForgetConfirmStage = "learning" | "review";
 
@@ -50,6 +47,7 @@ type Params = {
   /** Pre-filtered verses for this session */
   verses: Verse[];
   onVersePatched?: (event: VersePatchEvent) => void;
+  onMutationCommitted?: () => void;
   onSessionComplete: () => void;
 };
 
@@ -88,14 +86,13 @@ export type UseTrainingSessionReturn = {
   cancelQuickForget: () => void;
 
   feedbackMessage: string;
-  contactToastPayload: TrainingContactToastPayload | null;
-  milestonePopup: TrainingCompletionToastCardPayload | null;
-  confirmMilestonePopup: () => void;
+  progressPopup: TrainingProgressPopupPayload | null;
 };
 
 export function useTrainingSession({
   verses,
   onVersePatched,
+  onMutationCommitted,
   onSessionComplete,
 }: Params): UseTrainingSessionReturn {
   // ── Core state ─────────────────────────────────────────────────────────────
@@ -111,13 +108,11 @@ export function useTrainingSession({
   const [quickForgetConfirmStage, setQuickForgetConfirmStage] =
     useState<QuickForgetConfirmStage | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [contactToastPayload, setContactToastPayload] =
-    useState<TrainingContactToastPayload | null>(null);
-  const [milestonePopup, setMilestonePopup] =
-    useState<TrainingCompletionToastCardPayload | null>(null);
-  const milestoneResolveRef = useRef<(() => void) | null>(null);
+  const { progressPopup, showProgressPopup } = useTrainingProgressPopup();
 
   const rendererRef = useRef<TrainingModeRendererHandle | null>(null);
+  const hasCommittedMutationRef = useRef(false);
+  const isSessionClosedRef = useRef(false);
 
   const trainingActiveVerse = trainingVerses[trainingIndex] ?? null;
 
@@ -135,41 +130,24 @@ export function useTrainingSession({
     setTimeout(() => setFeedbackMessage(""), 2000);
   }, []);
 
-  const showContactToast = useCallback((payload: TrainingContactToastPayload) => {
-    setContactToastPayload(payload);
-  }, []);
+  const handleSessionClose = useCallback(() => {
+    if (isSessionClosedRef.current) return;
+    isSessionClosedRef.current = true;
 
-  const showMilestonePopup = useCallback(
-    (payload: TrainingCompletionToastCardPayload) =>
-      new Promise<void>((resolve) => {
-        milestoneResolveRef.current?.();
-        milestoneResolveRef.current = resolve;
-        setMilestonePopup(payload);
-      }),
-    []
-  );
+    if (hasCommittedMutationRef.current) {
+      hasCommittedMutationRef.current = false;
+      onMutationCommitted?.();
+    }
 
-  const confirmMilestonePopup = useCallback(() => {
-    setMilestonePopup(null);
-    const resolve = milestoneResolveRef.current;
-    milestoneResolveRef.current = null;
-    resolve?.();
-  }, []);
-
-  useEffect(
-    () => () => {
-      milestoneResolveRef.current?.();
-      milestoneResolveRef.current = null;
-    },
-    []
-  );
+    onSessionComplete();
+  }, [onMutationCommitted, onSessionComplete]);
 
   // ── Session complete when no verses left ───────────────────────────────────
   useEffect(() => {
     if (trainingVerses.length === 0 || !trainingActiveVerse) {
-      onSessionComplete();
+      handleSessionClose();
     }
-  }, [trainingActiveVerse, trainingVerses.length, onSessionComplete]);
+  }, [handleSessionClose, trainingActiveVerse, trainingVerses.length]);
 
   // ── Verse sync ─────────────────────────────────────────────────────────────
   const refetchVerse = useCallback(
@@ -291,7 +269,6 @@ export function useTrainingSession({
 
         const rawMasteryAfter = progressDelta.rawMasteryLevel;
         const graduatesToReview = progressDelta.graduatesToReview;
-        const reviewWasSuccessful = progressDelta.reviewWasSuccessful;
         const canUpdateRepetitions = progressDelta.canUpdateRepetitions;
         const nextRepetitions = progressDelta.repetitions;
         const nextReviewAt = progressDelta.nextReviewAt;
@@ -331,7 +308,6 @@ export function useTrainingSession({
 
         if (becameLearned) {
           haptic("success");
-          showFeedback("Стих выучен");
         }
 
         const nextMode = getModeByShiftInProgressOrder(
@@ -362,6 +338,7 @@ export function useTrainingSession({
             wasReviewExercise || becameLearned || persistedUpdated.status === "MASTERED";
 
           applyAuthoritativeVerse(current, persistedUpdated);
+          hasCommittedMutationRef.current = true;
 
           if (!finalShouldMove) {
             const persistedNextMode = becameLearned
@@ -372,31 +349,30 @@ export function useTrainingSession({
             setTrainingModeId(persistedNextMode);
           }
 
-          const contactToast = getTrainingContactToastPayload({
-            wasReviewExercise,
-            reviewWasSuccessful,
+          const progressPopupPayload = buildTrainingProgressPopupPayload({
             reference: persistedUpdated.raw.reference,
-            finalStatus: persistedUpdated.status,
-            nextReviewAt: persistedUpdated.nextReviewAt,
-            beforeRawMasteryLevel: current.rawMasteryLevel,
-            afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
+            context: "core",
+            before: {
+              status: current.status,
+              masteryLevel: current.rawMasteryLevel,
+              repetitions: current.repetitions,
+            },
+            after: {
+              status: persistedUpdated.status,
+              masteryLevel: persistedUpdated.rawMasteryLevel,
+              repetitions: persistedUpdated.repetitions,
+            },
           });
 
-          const milestone = getTrainingMilestonePopupPayload({
-            wasReviewExercise,
-            beforeStatus: current.status,
-            finalStatus: persistedUpdated.status,
-            reference: persistedUpdated.raw.reference,
-            nextReviewAt: persistedUpdated.nextReviewAt,
-            beforeRawMasteryLevel: current.rawMasteryLevel,
-            beforeRepetitions: current.repetitions,
-            afterRawMasteryLevel: persistedUpdated.rawMasteryLevel,
-            afterRepetitions: persistedUpdated.repetitions,
-          });
-
-          showContactToast(contactToast);
-          if (milestone) {
-            await showMilestonePopup(milestone);
+          if (progressPopupPayload) {
+            showProgressPopup(progressPopupPayload);
+            const xpDeltaLabel =
+              progressPopupPayload.xpDelta === 0
+                ? progressPopupPayload.stageLabel
+                : `${progressPopupPayload.xpDelta > 0 ? "+" : ""}${progressPopupPayload.xpDelta} XP`;
+            showFeedback(
+              `${progressPopupPayload.title}. ${progressPopupPayload.stageLabel}. ${xpDeltaLabel}`
+            );
           }
 
           if (finalShouldMove) {
@@ -437,9 +413,8 @@ export function useTrainingSession({
       trainingVerses,
       applyAuthoritativeVerse,
       removeCompletedVerseAndNavigate,
-      showContactToast,
       showFeedback,
-      showMilestonePopup,
+      showProgressPopup,
     ]
   );
 
@@ -467,6 +442,7 @@ export function useTrainingSession({
   // ── Stable refs ────────────────────────────────────────────────────────────
   const stableHandleRate = useEventCallback(handleRate);
   const stableJump = useEventCallback(jumpToAdjacentVerse);
+  const stableHandleClose = useEventCallback(handleSessionClose);
   const stableRequestQuickForget = useEventCallback(requestQuickForget);
   const stableConfirmQuickForget = useEventCallback(confirmQuickForget);
   const stableCancelQuickForget = useEventCallback(cancelQuickForget);
@@ -481,7 +457,7 @@ export function useTrainingSession({
 
     handleRate: stableHandleRate,
     handleNavigationStep: stableJump,
-    handleClose: onSessionComplete,
+    handleClose: stableHandleClose,
 
     quickForgetConfirmStage,
     requestQuickForget: stableRequestQuickForget,
@@ -489,8 +465,6 @@ export function useTrainingSession({
     cancelQuickForget: stableCancelQuickForget,
 
     feedbackMessage,
-    contactToastPayload,
-    milestonePopup,
-    confirmMilestonePopup,
+    progressPopup,
   };
 }

@@ -3,7 +3,7 @@ export type LeaderboardEntry = {
   telegramId: string;
   name: string;
   avatarUrl: string | null;
-  score: number;
+  xp: number;
   streakDays: number;
   weeklyRepetitions: number;
   isCurrentUser: boolean;
@@ -14,7 +14,7 @@ export type CurrentUserLeaderboardSnapshot = {
   name: string;
   avatarUrl: string | null;
   rank: number | null;
-  score: number;
+  xp: number;
   streakDays: number;
   weeklyRepetitions: number;
 };
@@ -70,7 +70,7 @@ function normalizeLeaderboardEntry(
     telegramId,
     name: toSafeString(data.name, fallbackName),
     avatarUrl: toNullableString(data.avatarUrl),
-    score: toSafeInt(data.score, { min: 0, max: 100 }),
+    xp: toSafeInt(data.xp, { min: 0 }),
     streakDays: toSafeInt(data.streakDays, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     isCurrentUser: Boolean(data.isCurrentUser),
@@ -98,7 +98,7 @@ function normalizeCurrentUserSnapshot(
     name: toSafeString(data.name, `Участник #${telegramId.slice(-4)}`),
     avatarUrl: toNullableString(data.avatarUrl),
     rank,
-    score: toSafeInt(data.score, { min: 0, max: 100 }),
+    xp: toSafeInt(data.xp, { min: 0 }),
     streakDays: toSafeInt(data.streakDays, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
   };

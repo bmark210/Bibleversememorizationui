@@ -10,7 +10,7 @@ export type PlayerProfile = {
   masteredVerses: number;
   weeklyRepetitions: number;
   dailyStreak: number;
-  averageProgressPercent: number;
+  xp: number;
   createdAt: string | null;
 };
 
@@ -57,10 +57,7 @@ function normalizePlayerProfile(value: unknown): PlayerProfile | null {
     masteredVerses: toSafeInt(data.masteredVerses, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
-    averageProgressPercent: toSafeInt(data.averageProgressPercent, {
-      min: 0,
-      max: 100,
-    }),
+    xp: toSafeInt(data.xp, { min: 0 }),
     createdAt: toNullableString(data.createdAt),
   };
 }

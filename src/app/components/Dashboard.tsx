@@ -7,6 +7,8 @@ import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/ser
 import type { UserDashboardStats } from '@/api/services/userStats'
 import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants'
+import { formatXp } from '@/shared/social/formatXp'
+import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
 import {
   DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
@@ -38,7 +40,7 @@ type TodayVersesSummary = {
   reviewVersesCount: number
   dueReviewCount: number
   masteredVerses: number
-  averageProgressPercent: number
+  averageTrainingProgressPercent: number
 }
 
 function clampPercent(value: number) {
@@ -99,7 +101,7 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
     reviewVersesCount: summary.reviewVersesCount,
     dueReviewCount: summary.dueReviewCount,
     masteredVerses: summary.masteredVerses,
-    averageProgressPercent:
+    averageTrainingProgressPercent:
       todayVerses.length > 0
         ? clampPercent(summary.progressTotal / todayVerses.length)
         : 0,
@@ -123,13 +125,21 @@ export function Dashboard({
   const { user } = useTelegram()
   const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp)
+  const currentUserMasteredVerses = useCurrentUserStatsStore(
+    (state) => state.masteredVerses,
+  )
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak,
+  )
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
-  const avgRatingPercent = dashboardStats?.averageProgressPercent ?? null
-  const masteredVerses = dashboardStats?.masteredVerses ?? null
-  const dailyStreak = dashboardStats?.dailyStreak ?? null
+  const userXp = currentUserXp ?? dashboardStats?.xp ?? null
+  const masteredVerses =
+    currentUserMasteredVerses ?? dashboardStats?.masteredVerses ?? null
+  const dailyStreak = currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null
 
   const statsCards = useMemo(
     () =>
@@ -147,9 +157,9 @@ export function Dashboard({
           tone: 'review' as const,
         },
         {
-          key: 'progress',
-          label: 'Прогресс',
-          value: avgRatingPercent != null ? `${avgRatingPercent}%` : null,
+          key: 'xp',
+          label: 'XP',
+          value: userXp != null ? formatXp(userXp) : null,
           isLoading: isStatsPending,
           tone: 'neutral' as const,
         },
@@ -161,7 +171,7 @@ export function Dashboard({
           tone: 'mastered' as const,
         },
       ] as const,
-    [avgRatingPercent, dueReviewVerses, isStatsPending, learningVerses, masteredVerses]
+    [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp]
   )
 
   if (isInitializingData) {

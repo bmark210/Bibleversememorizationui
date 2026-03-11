@@ -27,6 +27,11 @@ interface BuildProgressMapViewModelParams {
   dashboardLeaderboard: DashboardLeaderboard | null
   trainingVerses: ProgressMapVerse[]
   friendsOnMap: FriendPlayerListItem[]
+  currentUserStats?: {
+    xp: number | null
+    dailyStreak: number | null
+    masteredVerses: number | null
+  } | null
 }
 
 export interface ProgressMapViewModel {
@@ -39,7 +44,7 @@ export interface ProgressMapViewModel {
   dueReviewVerses: number
   weeklyRepetitions: number
   streakDays: number
-  ratingPercent: number
+  xp: number
   rank: number | null
   currentLocationIndex: number
   currentLocationName: string
@@ -149,13 +154,14 @@ export function buildProgressMapViewModel({
   dashboardLeaderboard,
   trainingVerses,
   friendsOnMap,
+  currentUserStats = null,
 }: BuildProgressMapViewModelParams): ProgressMapViewModel {
   const currentUser = dashboardLeaderboard?.currentUser
   const totalVerses = dashboardStats?.totalVerses ?? trainingVerses.length
   const learningVerses = dashboardStats?.learningVerses ?? trainingVerses.filter(isLearningVerse).length
   const reviewVerses = dashboardStats?.reviewVerses ?? trainingVerses.filter(isReviewVerse).length
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? trainingVerses.filter(isDueReviewVerse).length
-  const masteredVerses = dashboardStats?.masteredVerses ?? 0
+  const masteredVerses = currentUserStats?.masteredVerses ?? dashboardStats?.masteredVerses ?? 0
   const cappedMasteredVerses = clampMasteredVerses(masteredVerses)
   const overflowMastered = getOverflowMastered(masteredVerses)
   const currentLocationIndex = masteredToLocationIndex(masteredVerses)
@@ -176,11 +182,19 @@ export function buildProgressMapViewModel({
   const playerName = currentUser?.name?.trim() || 'Вы'
   const playerInitials = getInitials(playerName) || 'Я'
   const weeklyRepetitions = Math.max(0, Math.floor(currentUser?.weeklyRepetitions ?? 0))
-  const ratingPercent = Math.max(
+  const xp = Math.max(
     0,
-    Math.min(100, Math.round(currentUser?.score ?? dashboardStats?.averageProgressPercent ?? 0)),
+    Math.round(currentUserStats?.xp ?? currentUser?.xp ?? dashboardStats?.xp ?? 0),
   )
-  const streakDays = Math.max(0, Math.floor(dashboardStats?.dailyStreak ?? currentUser?.streakDays ?? 0))
+  const streakDays = Math.max(
+    0,
+    Math.floor(
+      currentUserStats?.dailyStreak ??
+        dashboardStats?.dailyStreak ??
+        currentUser?.streakDays ??
+        0,
+    ),
+  )
   const sortedFriends = [...friendsOnMap].sort(compareFriends)
 
   const nearestAhead =
@@ -252,7 +266,7 @@ export function buildProgressMapViewModel({
     dueReviewVerses,
     weeklyRepetitions,
     streakDays,
-    ratingPercent,
+    xp,
     rank: currentUser?.rank ?? null,
     currentLocationIndex,
     currentLocationName: currentLocation.nameRu,

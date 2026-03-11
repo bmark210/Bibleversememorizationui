@@ -16,6 +16,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "./ui/drawer";
+import { formatXp } from "@/shared/social/formatXp";
+import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 
 const OWNERS_PAGE_SIZE = 20;
 const LOAD_MORE_THRESHOLD_PX = 96;
@@ -84,6 +86,11 @@ export function VerseOwnersDrawer({
   const [isFetchingMore, setIsFetchingMore] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const requestIdRef = React.useRef(0);
+  const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak
+  );
   const pendingPlayerRef = React.useRef<{
     telegramId: string;
     name: string;
@@ -206,6 +213,22 @@ export function VerseOwnersDrawer({
     onOpenChange(false);
   };
 
+  const getDisplayXp = (item: FriendPlayerListItem) =>
+    viewerTelegramId &&
+    currentUserTelegramId === viewerTelegramId &&
+    item.telegramId === viewerTelegramId &&
+    currentUserXp != null
+      ? currentUserXp
+      : item.xp;
+
+  const getDisplayDailyStreak = (item: FriendPlayerListItem) =>
+    viewerTelegramId &&
+    currentUserTelegramId === viewerTelegramId &&
+    item.telegramId === viewerTelegramId &&
+    currentUserDailyStreak != null
+      ? currentUserDailyStreak
+      : item.dailyStreak;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
       <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
@@ -281,7 +304,8 @@ export function VerseOwnersDrawer({
                     </div>
                     <div className="mt-1 truncate text-xs text-foreground/48">
                       {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                      {item.averageProgressPercent}% · {item.dailyStreak} дн. подряд
+                      {formatXp(getDisplayXp(item))} ·{" "}
+                      {getDisplayDailyStreak(item)} дн. подряд
                     </div>
                   </div>
                 </button>

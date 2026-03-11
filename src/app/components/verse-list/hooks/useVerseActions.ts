@@ -6,6 +6,10 @@ import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
+import {
+  buildVerseDeletionXpFeedback,
+  computeVerseXpContribution,
+} from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -71,16 +75,29 @@ export function useVerseActions({
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
 
-  const pushToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+  const pushToast = useCallback((
+    message: string,
+    type: 'success' | 'error' | 'info',
+    options?: { description?: string }
+  ) => {
     if (type === 'success') {
-      toast.success(message);
+      toast.success(message, {
+        description: options?.description,
+        label: 'Стихи',
+      });
       return;
     }
     if (type === 'error') {
-      toast.error(message);
+      toast.error(message, {
+        description: options?.description,
+        label: 'Стихи',
+      });
       return;
     }
-    toast.info(message);
+    toast.info(message, {
+      description: options?.description,
+      label: 'Стихи',
+    });
   }, []);
 
   const getVerseKey = useCallback((verse: Pick<Verse, 'id' | 'externalVerseId'>) => {
@@ -242,6 +259,14 @@ export function useVerseActions({
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
+      const xpLoss = computeVerseXpContribution({
+        status: normalizeDisplayVerseStatus(verse.status),
+        masteryLevel: verse.masteryLevel,
+        repetitions: verse.repetitions,
+        referenceScore: verse.referenceScore,
+        incipitScore: verse.incipitScore,
+        contextScore: verse.contextScore,
+      });
       try {
         await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
       } catch (err: unknown) {
@@ -273,6 +298,7 @@ export function useVerseActions({
         });
       }
       onVerseMutationCommitted?.();
+      return { xpLoss };
     },
     [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
   );
@@ -294,11 +320,14 @@ export function useVerseActions({
     markVersePending(deleteTargetVerse, true);
 
     try {
-      await handleDeleteVerse(deleteTargetVerse);
+      const result = await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
-      const deleteMessage = statusFilter === 'catalog' ? 'Сброшено в каталог' : 'Удалено';
-      pushToast(deleteMessage, 'success');
-      setAnnouncement(`${deleteTargetVerse.reference}: ${deleteMessage}`);
+      const feedback = buildVerseDeletionXpFeedback({
+        xpLoss: result?.xpLoss ?? 0,
+        resetToCatalog: statusFilter === 'catalog',
+      });
+      pushToast(feedback.title, 'success', { description: feedback.description });
+      setAnnouncement(`${deleteTargetVerse.reference}: ${feedback.title}`);
       setDeleteTargetVerse(null);
     } catch (err) {
       console.error('Не удалось удалить стих:', err);

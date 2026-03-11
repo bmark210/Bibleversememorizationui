@@ -7,6 +7,7 @@ import type { UserDashboardStats } from '@/api/services/userStats'
 import { useTelegramSafeArea } from '@/app/hooks/useTelegramSafeArea'
 import { triggerHaptic } from '@/app/lib/haptics'
 import { toast } from '@/app/lib/toast'
+import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
 import {
   PILGRIM_LOCATIONS,
   getCurrentLocation,
@@ -85,6 +86,26 @@ export function ProgressMap({
   const { contentSafeAreaInset } = useTelegramSafeArea()
   const topInset = contentSafeAreaInset.top
   const bottomInset = contentSafeAreaInset.bottom
+  const currentUserXp = useCurrentUserStatsStore((state) => state.xp)
+  const currentUserDailyStreak = useCurrentUserStatsStore(
+    (state) => state.dailyStreak,
+  )
+  const currentUserMasteredVerses = useCurrentUserStatsStore(
+    (state) => state.masteredVerses,
+  )
+  const currentUserStats = useMemo(
+    () =>
+      currentUserXp != null ||
+      currentUserDailyStreak != null ||
+      currentUserMasteredVerses != null
+        ? {
+            xp: currentUserXp,
+            dailyStreak: currentUserDailyStreak,
+            masteredVerses: currentUserMasteredVerses,
+          }
+        : null,
+    [currentUserDailyStreak, currentUserMasteredVerses, currentUserXp],
+  )
 
   const viewModel = useMemo(
     () =>
@@ -93,8 +114,15 @@ export function ProgressMap({
         dashboardLeaderboard,
         trainingVerses,
         friendsOnMap,
+        currentUserStats,
       }),
-    [dashboardLeaderboard, dashboardStats, friendsOnMap, trainingVerses],
+    [
+      currentUserStats,
+      dashboardLeaderboard,
+      dashboardStats,
+      friendsOnMap,
+      trainingVerses,
+    ],
   )
 
   const prevLocationRef = useRef<number | null>(null)
@@ -113,7 +141,9 @@ export function ProgressMap({
     if (viewModel.currentLocationIndex > previousLocation) {
       const location = getCurrentLocation(viewModel.masteredVerses)
       triggerHaptic('success')
-      toast.success(`Открыта локация «${location.emoji} ${location.nameRu}»`)
+      toast.success(`Открыта локация «${location.emoji} ${location.nameRu}»`, {
+        label: 'Карта пути',
+      })
     } else if (viewModel.masteredVerses > previousMasteredVerses) {
       const passedFriends = countPassedFriends({
         previousMasteredVerses,
@@ -126,6 +156,9 @@ export function ProgressMap({
           passedFriends === 1
             ? 'Вы обошли попутчика'
             : `Вы обошли ${passedFriends} попутчиков`,
+          {
+            label: 'Карта пути',
+          }
         )
       }
     }

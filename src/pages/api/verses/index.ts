@@ -87,7 +87,7 @@ function normalizeProgress(value: number | null | undefined): number {
 }
 
 function normalizeSkillScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 50;
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
@@ -145,6 +145,7 @@ type UserVerseRow = {
   repetitions: number;
   referenceScore: number;
   incipitScore: number;
+  contextScore: number;
   lastTrainingModeId: number | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
@@ -395,6 +396,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           repetitions,
           referenceScore: normalizeSkillScore(uv.referenceScore),
           incipitScore: normalizeSkillScore(uv.incipitScore),
+          contextScore: normalizeSkillScore(uv.contextScore),
           lastTrainingModeId: typeof uv.lastTrainingModeId === "number" ? uv.lastTrainingModeId : null,
           lastReviewedAt: toIsoOrNull(uv.lastReviewedAt),
           nextReviewAt: toIsoOrNull(uv.nextReviewAt),
@@ -415,8 +417,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: "CATALOG" as DisplayStatus,
         masteryLevel: 0,
         repetitions: 0,
-        referenceScore: 50,
-        incipitScore: 50,
+        referenceScore: 0,
+        incipitScore: 0,
+        contextScore: 0,
         lastTrainingModeId: null,
         lastReviewedAt: null,
         nextReviewAt: null,
