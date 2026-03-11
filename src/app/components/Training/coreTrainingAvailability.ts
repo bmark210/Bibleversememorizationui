@@ -55,6 +55,23 @@ export function getAnchorEligibleVerseCount(
   return total;
 }
 
+export function getAnchorEligibleCountPerBook(
+  allVerses: Verse[],
+): Map<number, number> {
+  const counts = new Map<number, number>();
+
+  for (const verse of allVerses) {
+    if (!isAnchorEligibleVerse(verse)) continue;
+
+    const parsed = parseExternalVerseId(verse.externalVerseId);
+    if (!parsed) continue;
+
+    counts.set(parsed.book, (counts.get(parsed.book) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
 export function getCoreTrainingCountsFromVerses(
   allVerses: Verse[]
 ): CoreTrainingCounts {

@@ -6,7 +6,7 @@ import {
 } from "../_shared";
 import { getAnchorTrainerRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
 
-const MAX_REFERENCE_TRAINER_LIMIT = 12;
+const MAX_REFERENCE_TRAINER_LIMIT = 10;
 
 function parseReferenceTrainerLimit(value: string | string[] | undefined): number {
   const raw = Array.isArray(value) ? value[0] : value;

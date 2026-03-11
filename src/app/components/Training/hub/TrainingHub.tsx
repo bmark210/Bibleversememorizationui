@@ -29,6 +29,7 @@ import {
 } from "./useTrainingHubState";
 import {
   getAnchorEligibleVerseCount,
+  getAnchorEligibleCountPerBook,
   getCoreTrainingCountsFromVerses,
   getSelectableCountForCoreModes,
   getWaitingReviewCountForCoreModes,
@@ -403,12 +404,10 @@ export function TrainingHub({
       (option) => option.track === selectedAnchorTrack,
     ) ?? ANCHOR_TRACK_OPTIONS[0];
   const anchorBookOptions = useMemo(() => {
-    const bookIds = new Set<number>();
-    for (const verse of allVerses) {
-      const parsed = parseExternalVerseId(verse.externalVerseId);
-      if (parsed) bookIds.add(parsed.book);
-    }
-    return Array.from(bookIds)
+    const countsPerBook = getAnchorEligibleCountPerBook(allVerses);
+    return Array.from(countsPerBook.entries())
+      .filter(([, count]) => count >= ANCHOR_MIN_REQUIRED)
+      .map(([id]) => id)
       .sort((a, b) => a - b)
       .map((id) => ({
         id,
@@ -488,6 +487,12 @@ export function TrainingHub({
             counts.earliestWaitingReviewAt,
           )
         : getCoreLockMessage(selectedModes);
+
+  useEffect(() => {
+    if (selectedBookId == null) return;
+    if (anchorBookOptions.some((book) => book.id === selectedBookId)) return;
+    onBookIdChange(undefined);
+  }, [anchorBookOptions, selectedBookId, onBookIdChange]);
 
   useEffect(() => {
     if (selectedScenario !== "core") return;

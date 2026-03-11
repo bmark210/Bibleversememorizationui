@@ -121,7 +121,7 @@ const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
 const MAX_USER_VERSES_PAGE_LIMIT = 50;
 const MAX_USER_VERSES_SEARCH_LENGTH = 100;
 const MAX_USER_VERSES_TAG_FILTER_SIZE = 30;
-const DEFAULT_REFERENCE_TRAINER_LIMIT = 12;
+const DEFAULT_REFERENCE_TRAINER_LIMIT = 10;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -943,11 +943,11 @@ export const ANCHOR_MIN_VERSES = 10;
  * Priority-based verse selection for anchor (закрепление) sessions.
  * Only MASTERED and REVIEW verses are eligible (no LEARNING).
  *
- * Priority order:
- *  1. MASTERED verses (fully learned — most important to consolidate)
- *  2. REVIEW verses
+ * Ideal split: 6 MASTERED + 4 REVIEW.
+ * If one tier has fewer than its quota, the other tier fills the gap.
+ * If only one tier has verses, all slots come from that tier.
  *
- * Within each tier: weakest scores first, shuffled within ±5-point bands.
+ * Within each tier: weakest average score first, shuffled within ±5-point bands.
  */
 function selectPrioritizedAnchorVerses<
   T extends {
@@ -994,8 +994,31 @@ function selectPrioritizedAnchorVerses<
   shuffleWithinScoreBands(mastered);
   shuffleWithinScoreBands(review);
 
-  const ordered = [...mastered, ...review];
-  return ordered.slice(0, limit);
+  // Ideal split: 6 mastered + 4 review (out of 10)
+  const idealMastered = Math.round(limit * 0.6);
+  const idealReview = limit - idealMastered;
+
+  let takeMastered: number;
+  let takeReview: number;
+
+  if (mastered.length >= idealMastered && review.length >= idealReview) {
+    takeMastered = idealMastered;
+    takeReview = idealReview;
+  } else if (mastered.length < idealMastered) {
+    takeMastered = mastered.length;
+    takeReview = Math.min(review.length, limit - takeMastered);
+  } else {
+    takeReview = review.length;
+    takeMastered = Math.min(mastered.length, limit - takeReview);
+  }
+
+  const selected = [
+    ...mastered.slice(0, takeMastered),
+    ...review.slice(0, takeReview),
+  ];
+
+  shuffleInPlace(selected);
+  return selected;
 }
 
 export async function fetchRandomReferenceTrainerVerses(options: {
