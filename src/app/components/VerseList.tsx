@@ -23,6 +23,7 @@ import { VerseGallery } from "./VerseGallery";
 import { ConfirmDeleteModal } from "./verse-list/components/ConfirmDeleteModal";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
 import { VerseListFilterCard } from "./verse-list/components/VerseListFilterCard";
+import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
@@ -81,6 +82,7 @@ export function VerseList({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
+  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
   const [isVerseOwnersDrawerOpen, setIsVerseOwnersDrawerOpen] = useState(false);
   const [verseOwnersTarget, setVerseOwnersTarget] = useState<{
     externalVerseId: string;
@@ -182,6 +184,11 @@ export function VerseList({
       return;
     }
 
+    if (isFiltersDrawerOpen) {
+      setIsFiltersDrawerOpen(false);
+      return;
+    }
+
     if (isVerseOwnersDrawerOpen) {
       setIsVerseOwnersDrawerOpen(false);
       return;
@@ -195,6 +202,7 @@ export function VerseList({
     handleAboutDialogOpenChange,
     isAboutDialogOpen,
     isDeleteModalOpen,
+    isFiltersDrawerOpen,
     isGalleryOpen,
     isVerseOwnersDrawerOpen,
     vm.gallery,
@@ -206,6 +214,7 @@ export function VerseList({
       addDialogOpen ||
       isDeleteModalOpen ||
       isGalleryOpen ||
+      isFiltersDrawerOpen ||
       isVerseOwnersDrawerOpen ||
       isAboutDialogOpen,
     onBack: handleTelegramBack,
@@ -293,7 +302,40 @@ export function VerseList({
           />
         </motion.div>
 
-        <motion.div {...reveal(0.04)}>
+        <VerseListFiltersDrawer
+          open={isFiltersDrawerOpen}
+          onOpenChange={setIsFiltersDrawerOpen}
+          totalVisible={vm.ui.totalVisible}
+          totalCount={vm.pagination.totalCount}
+          currentFilterLabel={vm.ui.currentFilterLabel}
+          currentFilterTheme={vm.ui.currentFilterTheme}
+          statusFilter={vm.filters.statusFilter}
+          filterOptions={vm.filters.filterOptions}
+          hasFriends={hasFriends}
+          onTabClick={vm.filterTabs.onTabClick}
+          selectedBookId={vm.filters.selectedBookId}
+          bookOptions={vm.filters.bookOptions}
+          onBookChange={vm.filterTabs.onBookChange}
+          sortBy={vm.filters.sortBy}
+          sortOptions={vm.filters.sortOptions}
+          onSortChange={vm.filterTabs.onSortChange}
+          onResetFilters={vm.filterTabs.onResetFilters}
+          searchQuery={vm.search.searchQuery}
+          onSearchChange={vm.search.setSearchQuery}
+          allTags={vm.tagFilter.allTags}
+          isLoadingTags={vm.tagFilter.isLoadingTags}
+          selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
+          hasActiveTags={vm.tagFilter.hasActiveTags}
+          onTagClick={vm.tagFilter.onTagClick}
+          onClearTags={vm.tagFilter.onClearTags}
+          onCreateTagDialogOpen={() => {
+            setAddDialogMode("tag");
+            setAddDialogOpen(true);
+          }}
+          onDeleteTag={vm.tagFilter.deleteTag}
+        />
+
+        <motion.div className="hidden md:block" {...reveal(0.04)}>
           <VerseListFilterCard
             totalVisible={vm.ui.totalVisible}
             totalCount={vm.pagination.totalCount}
