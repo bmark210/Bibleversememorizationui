@@ -342,7 +342,7 @@ export function VerseList({
           />
         </motion.div>
 
-        <motion.div className="hidden shrink-0 md:block" {...reveal(0.04)}>
+        <motion.div className="hidden shrink-0 md:block px-4 sm:px-6 lg:px-8" {...reveal(0.04)}>
           <VerseListFilterCard
             totalVisible={vm.ui.totalVisible}
             totalCount={vm.pagination.totalCount}
