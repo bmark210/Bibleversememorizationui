@@ -15,6 +15,7 @@ import {
   type VerseListStatusFilter,
 } from '../constants';
 import {
+  parseStoredBookId,
   parseStoredSortBy,
   parseStoredStatusFilter,
   VERSE_LIST_STORAGE_KEYS,
@@ -34,6 +35,8 @@ import type {
   VerseListSortOption,
 } from '../types';
 import type { VersePatchEvent } from '@/app/types/verseSync';
+import { parseExternalVerseId } from '@/shared/bible/externalVerseId';
+import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
 
 type UseVerseListControllerParams = {
   onAddVerse: () => void;
@@ -77,6 +80,12 @@ export function useVerseListController({
       DEFAULT_VERSE_LIST_SORT_BY
     );
   });
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return parseStoredBookId(
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedBookId)
+    );
+  });
   const selectedTagSlugsForServer = useMemo(
     () => Array.from(tagFilter.selectedTagSlugs).sort(),
     [tagFilter.selectedTagSlugs]
@@ -94,6 +103,7 @@ export function useVerseListController({
     telegramId,
     statusFilter,
     searchQuery: searchQueryForServer,
+    bookId: selectedBookId,
     tagSlugs: selectedTagSlugsForServer,
     sortBy,
     pageSize: VERSE_LIST_PAGE_SIZE,
@@ -180,6 +190,18 @@ export function useVerseListController({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (selectedBookId == null) {
+      window.localStorage.removeItem(VERSE_LIST_STORAGE_KEYS.selectedBookId);
+      return;
+    }
+    window.localStorage.setItem(
+      VERSE_LIST_STORAGE_KEYS.selectedBookId,
+      String(selectedBookId)
+    );
+  }, [selectedBookId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.searchQuery, searchQuery);
   }, [searchQuery]);
 
@@ -239,15 +261,17 @@ export function useVerseListController({
     const useClientTextSearch = statusFilter === 'catalog';
     return pagination.verses.filter((verse) => {
       const matchesStatus = matchesListFilter(verse, statusFilter);
+      const verseBookId = parseExternalVerseId(verse.externalVerseId)?.book ?? null;
+      const matchesBook = selectedBookId == null || verseBookId === selectedBookId;
       const matchesSearch =
         !normalizedQuery ||
         !useClientTextSearch ||
         verse.reference.toLowerCase().includes(normalizedQuery) ||
         verse.text.toLowerCase().includes(normalizedQuery);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesBook && matchesSearch;
     });
-  }, [pagination.verses, statusFilter, matchesListFilter, searchQuery]);
+  }, [pagination.verses, selectedBookId, statusFilter, matchesListFilter, searchQuery]);
 
   const hasLocalClientSearchActive = statusFilter === 'catalog' && searchQuery.trim().length > 0;
   const hasLocalClientFiltersActive = hasLocalClientSearchActive;
@@ -294,6 +318,7 @@ export function useVerseListController({
         : filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Мои стихи';
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
+  const bookOptions = VERSE_LIST_BOOK_OPTIONS;
 
   const getRevealProps = useCallback(
     (delay = 0) => {
@@ -374,6 +399,13 @@ export function useVerseListController({
     setAnnouncement(`Фильтр: ${label}`);
   }, [statusFilter]);
 
+  const handleBookChange = useCallback((nextBookId: number | null, label: string) => {
+    if (selectedBookId === nextBookId) return;
+    haptic('light');
+    setSelectedBookId(nextBookId);
+    setAnnouncement(`Книга: ${label}`);
+  }, [selectedBookId]);
+
   const isMyScopeFilter = statusFilter !== 'catalog' && statusFilter !== 'friends';
   const sortOptions = useMemo<VerseListSortOption[]>(
     () => [
@@ -394,17 +426,19 @@ export function useVerseListController({
   const handleResetFilters = useCallback(() => {
     const hasChanges =
       statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+      selectedBookId !== null ||
       sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
       searchQuery.trim().length > 0 ||
       tagFilter.hasActiveTags;
     if (!hasChanges) return;
     haptic('light');
     setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+    setSelectedBookId(null);
     setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
     setSearchQuery('');
     tagFilter.clearTags();
     setAnnouncement('Фильтры сброшены');
-  }, [searchQuery, sortBy, statusFilter, tagFilter.clearTags, tagFilter.hasActiveTags]);
+  }, [searchQuery, selectedBookId, sortBy, statusFilter, tagFilter.clearTags, tagFilter.hasActiveTags]);
 
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
     if (statusFilter === 'catalog') return {
@@ -516,6 +550,8 @@ export function useVerseListController({
     filters: {
       statusFilter,
       filterOptions,
+      selectedBookId,
+      bookOptions,
       sortBy,
       sortOptions,
     },
@@ -562,6 +598,7 @@ export function useVerseListController({
     },
     filterTabs: {
       onTabClick: handleTabClick,
+      onBookChange: handleBookChange,
       onSortChange: handleSortChange,
       onResetFilters: handleResetFilters,
     },

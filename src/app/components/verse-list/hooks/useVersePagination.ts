@@ -13,6 +13,7 @@ type UseVersePaginationParams = {
   telegramId?: string;
   statusFilter: VerseListStatusFilter;
   sortBy: VerseListSortBy;
+  bookId?: number | null;
   searchQuery?: string;
   tagSlugs?: string[];
   pageSize: number;
@@ -29,6 +30,7 @@ export function useVersePagination({
   telegramId,
   statusFilter,
   sortBy,
+  bookId,
   searchQuery,
   tagSlugs,
   pageSize,
@@ -115,6 +117,7 @@ export function useVersePagination({
       if (filter === 'catalog') {
         const page = await fetchCatalogVersesPage({
           telegramId: id,
+          bookId: bookId ?? undefined,
           tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
           orderBy:
             sortBy === 'bible'
@@ -142,6 +145,7 @@ export function useVersePagination({
               : 'updatedAt',
         order: sortBy === 'bible' ? 'asc' : 'desc',
         filter,
+        bookId: bookId ?? undefined,
         search: normalizedSearchQuery || undefined,
         tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
         limit: pageSize,
@@ -153,7 +157,7 @@ export function useVersePagination({
         items: page.items as Array<Verse>,
       };
     },
-    [normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]
+    [bookId, normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]
   );
 
   const clearPaginationState = useCallback(() => {
@@ -316,7 +320,7 @@ export function useVersePagination({
       // We own offset computation locally: next page starts from the count of rows
       // already merged into the server-backed array.
       const startWith = loadedServerItemsCount;
-      const requestKey = `${telegramId}:${statusFilter}:${sortBy}:${normalizedSearchQuery}:${normalizedTagSlugsKey}:${startWith}`;
+      const requestKey = `${telegramId}:${statusFilter}:${sortBy}:${bookId ?? 'all'}:${normalizedSearchQuery}:${normalizedTagSlugsKey}:${startWith}`;
 
       if (source === 'auto' && lastFailedCursorRef.current === requestKey) return false;
       if (inFlightCursorRef.current === requestKey) return false;
@@ -398,6 +402,7 @@ export function useVersePagination({
       telegramId,
       statusFilter,
       sortBy,
+      bookId,
       normalizedSearchQuery,
       normalizedTagSlugsKey,
       isFetchingVerses,

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getBibleBookNameRu } from "@/app/types/bible";
+import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
@@ -62,6 +62,13 @@ function parseCatalogOrder(value: string | undefined): CatalogOrder | null {
   if (!value) return DEFAULT_CATALOG_ORDER;
   if (value === "asc" || value === "desc") return value;
   return null;
+}
+
+function parseBookId(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || !BIBLE_BOOKS[parsed]) return null;
+  return parsed;
 }
 
 function buildGroupKey(translation: string, book: number, chapter: number) {
@@ -263,6 +270,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const orderRaw = Array.isArray(req.query.order)
     ? req.query.order[0]
     : req.query.order;
+  const bookIdRaw = Array.isArray(req.query.bookId)
+    ? req.query.bookId[0]
+    : req.query.bookId;
 
   const orderBy = parseCatalogOrderBy(orderByRaw);
   if (!orderBy) {
@@ -275,6 +285,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!order) {
     return res.status(400).json({
       error: `order must be one of: asc, desc`,
+    });
+  }
+
+  const bookId = parseBookId(bookIdRaw);
+  if (bookIdRaw && bookId == null) {
+    return res.status(400).json({
+      error: "bookId must be a valid Bible book number",
     });
   }
 
@@ -298,13 +315,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch verses page, total count, and user's translation preference in parallel
     const [verses, totalCount, userRecord] = await Promise.all([
       getCatalogVersesPage({
+        bookId: bookId ?? undefined,
         tagSlugs,
         orderBy,
         order,
         startWith,
         limit,
       }),
-      countCatalogVerses(tagSlugs),
+      countCatalogVerses({
+        tagSlugs,
+        bookId: bookId ?? undefined,
+      }),
       telegramIdParam ? getUserByTelegramId(telegramIdParam) : Promise.resolve(null),
     ]);
 

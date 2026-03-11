@@ -145,46 +145,88 @@ export async function getVersesByIds(verseIds: string[]): Promise<VerseRecord[]>
   return verses.map(mapVerseRecord);
 }
 
-export async function countCatalogVerses(tagSlugs: string[]): Promise<number> {
-  const where =
-    tagSlugs.length > 0
-      ? {
-          tags: {
-            some: {
-              tag: {
-                slug: {
-                  in: tagSlugs,
-                },
-              },
+function buildCatalogVerseWhere(params: {
+  tagSlugs: string[];
+  bookId?: number;
+}): Prisma.VerseWhereInput | undefined {
+  const conditions: Prisma.VerseWhereInput[] = [];
+
+  if (params.tagSlugs.length > 0) {
+    conditions.push({
+      tags: {
+        some: {
+          tag: {
+            slug: {
+              in: params.tagSlugs,
             },
           },
-        }
-      : undefined;
+        },
+      },
+    });
+  }
+
+  if (params.bookId) {
+    conditions.push({
+      externalVerseId: {
+        startsWith: `${params.bookId}-`,
+      },
+    });
+  }
+
+  if (conditions.length === 0) return undefined;
+  if (conditions.length === 1) return conditions[0];
+  return { AND: conditions };
+}
+
+function buildCatalogVerseSqlWhereClause(params: {
+  tagSlugs: string[];
+  bookId?: number;
+}): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+
+  if (params.tagSlugs.length > 0) {
+    conditions.push(Prisma.sql`
+      EXISTS (
+        SELECT 1
+        FROM "VerseTag" vt
+        INNER JOIN "Tag" t ON t.id = vt."tagId"
+        WHERE vt."verseId" = v.id
+          AND t.slug IN (${Prisma.join(params.tagSlugs)})
+      )
+    `);
+  }
+
+  if (params.bookId) {
+    conditions.push(
+      Prisma.sql`CAST(split_part(v."externalVerseId", '-', 1) AS integer) = ${params.bookId}`
+    );
+  }
+
+  if (conditions.length === 0) {
+    return Prisma.empty;
+  }
+
+  return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
+}
+
+export async function countCatalogVerses(params: {
+  tagSlugs: string[];
+  bookId?: number;
+}): Promise<number> {
+  const where = buildCatalogVerseWhere(params);
 
   return prisma.verse.count({ where });
 }
 
 export async function getCatalogVersesPage(params: {
   tagSlugs: string[];
+  bookId?: number;
   orderBy: "createdAt" | "bible" | "popularity";
   order: "asc" | "desc";
   startWith: number;
   limit: number;
 }): Promise<CatalogVerseRecord[]> {
-  const where =
-    params.tagSlugs.length > 0
-      ? {
-          tags: {
-            some: {
-              tag: {
-                slug: {
-                  in: params.tagSlugs,
-                },
-              },
-            },
-          },
-        }
-      : undefined;
+  const where = buildCatalogVerseWhere(params);
 
   if (params.orderBy === "createdAt") {
     const verses = await prisma.verse.findMany({
@@ -206,24 +248,13 @@ export async function getCatalogVersesPage(params: {
 
   if (params.orderBy === "popularity") {
     const directionSql = params.order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-    const tagFilterSql =
-      params.tagSlugs.length > 0
-        ? Prisma.sql`
-            WHERE EXISTS (
-              SELECT 1
-              FROM "VerseTag" vt
-              INNER JOIN "Tag" t ON t.id = vt."tagId"
-              WHERE vt."verseId" = v.id
-                AND t.slug IN (${Prisma.join(params.tagSlugs)})
-            )
-          `
-        : Prisma.empty;
+    const whereClauseSql = buildCatalogVerseSqlWhereClause(params);
 
     const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT v.id
       FROM "Verse" v
       LEFT JOIN "UserVerse" uv ON uv."verseId" = v.id
-      ${tagFilterSql}
+      ${whereClauseSql}
       GROUP BY v.id, v."createdAt"
       ORDER BY COUNT(uv.id) ${directionSql}, v."createdAt" DESC, v.id ASC
       OFFSET ${params.startWith}
@@ -258,23 +289,12 @@ export async function getCatalogVersesPage(params: {
   }
 
   const directionSql = params.order === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-  const tagFilterSql =
-    params.tagSlugs.length > 0
-      ? Prisma.sql`
-          WHERE EXISTS (
-            SELECT 1
-            FROM "VerseTag" vt
-            INNER JOIN "Tag" t ON t.id = vt."tagId"
-            WHERE vt."verseId" = v.id
-              AND t.slug IN (${Prisma.join(params.tagSlugs)})
-          )
-        `
-      : Prisma.empty;
+  const whereClauseSql = buildCatalogVerseSqlWhereClause(params);
 
   const rawRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT v.id
     FROM "Verse" v
-    ${tagFilterSql}
+    ${whereClauseSql}
     ORDER BY
       CAST(split_part(v."externalVerseId", '-', 1) AS integer) ${directionSql},
       CAST(split_part(v."externalVerseId", '-', 2) AS integer) ${directionSql},

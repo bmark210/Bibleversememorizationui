@@ -5,6 +5,7 @@ import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from '
 import type { AppendRevealRange } from './hooks/useVersePagination';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import type { Tag } from '@/api/models/Tag';
+import type { VerseListBookOption } from './bookOptions';
 
 export type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
 export type VerseListLoadRange = { startIndex: number; stopIndex: number };
@@ -50,6 +51,8 @@ export type VerseListController = {
   filters: {
     statusFilter: VerseListStatusFilter;
     filterOptions: VerseListFilterOption[];
+    selectedBookId: number | null;
+    bookOptions: VerseListBookOption[];
     sortBy: VerseListSortBy;
     sortOptions: VerseListSortOption[];
   };
@@ -96,6 +99,7 @@ export type VerseListController = {
   };
   filterTabs: {
     onTabClick: (filter: VerseListStatusFilter, label: string) => void;
+    onBookChange: (bookId: number | null, label: string) => void;
     onSortChange: (sortBy: VerseListSortBy, label: string) => void;
     onResetFilters: () => void;
   };

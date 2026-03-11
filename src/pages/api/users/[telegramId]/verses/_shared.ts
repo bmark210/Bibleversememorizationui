@@ -1,5 +1,5 @@
 import type { ParsedUrlQuery } from "querystring";
-import { getBibleBookNameRu } from "@/app/types/bible";
+import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { getReferenceTrainerLearningRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
@@ -94,6 +94,7 @@ export type UserVersesListQuery = {
   orderBy?: UserVersesOrderBy;
   order?: UserVersesOrder;
   filter?: UserVersesFilter;
+  bookId?: number;
   search?: string;
   tagSlugs?: string[];
   limit?: number;
@@ -109,6 +110,7 @@ type FetchEnrichedUserVersesOptions = {
 
 type FetchPaginatedEnrichedUserVersesOptions = FetchEnrichedUserVersesOptions & {
   displayFilter?: UserVersesFilter;
+  bookId?: number;
   search?: string;
   tagSlugs?: string[];
   limit?: number;
@@ -308,6 +310,15 @@ function parseSearch(value: string | undefined): string | undefined {
   return normalized;
 }
 
+function parseBookId(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || !BIBLE_BOOKS[parsed]) {
+    throw new UserVersesApiError(400, "bookId must be a valid Bible book number");
+  }
+  return parsed;
+}
+
 function parseTagSlugs(value: string | string[] | undefined): string[] | undefined {
   if (!value) return undefined;
   const chunks = Array.isArray(value) ? value : [value];
@@ -336,6 +347,7 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
     orderBy: parseOrderBy(getSingleQueryValue(query, "orderBy")),
     order: parseOrder(getSingleQueryValue(query, "order")),
     filter: parseFilter(getSingleQueryValue(query, "filter")),
+    bookId: parseBookId(getSingleQueryValue(query, "bookId")),
     search: parseSearch(getSingleQueryValue(query, "search")),
     tagSlugs: parseTagSlugs(query.tagSlugs),
     limit: parsePageLimit(getSingleQueryValue(query, "limit")),
@@ -344,23 +356,44 @@ export function parseUserVersesListQuery(query: ParsedUrlQuery): UserVersesListQ
 }
 
 export function buildWhereForUserVersesListQuery(query: UserVersesListQuery): Record<string, unknown> | undefined {
+  let baseWhere: Record<string, unknown> | undefined;
+
   if (query.filter) {
-    if (query.filter === "catalog") return undefined;
-    if (query.filter === "friends") return undefined;
-    if (query.filter === "my") return undefined; // все стихи пользователя, без фильтра по статусу
-    if (query.filter === "stopped") return { status: VerseStatus.STOPPED };
-    if (
+    if (query.filter === "catalog") {
+      baseWhere = undefined;
+    } else if (query.filter === "friends") {
+      baseWhere = undefined;
+    } else if (query.filter === "my") {
+      baseWhere = undefined; // все стихи пользователя, без фильтра по статусу
+    } else if (query.filter === "stopped") {
+      baseWhere = { status: VerseStatus.STOPPED };
+    } else if (
       query.filter === "learning" ||
       query.filter === "review" ||
       query.filter === "mastered"
     ) {
       // Computed display statuses are filtered after DTO mapping to handle legacy null progress values safely.
-      return { status: VerseStatus.LEARNING };
+      baseWhere = { status: VerseStatus.LEARNING };
     }
+  } else if (query.status) {
+    baseWhere = { status: query.status };
   }
 
-  if (query.status) return { status: query.status };
-  return undefined;
+  if (!query.bookId) return baseWhere;
+
+  const bookWhere = {
+    verse: {
+      externalVerseId: {
+        startsWith: `${query.bookId}-`,
+      },
+    },
+  } satisfies Prisma.UserVerseWhereInput;
+
+  if (!baseWhere) return bookWhere;
+
+  return {
+    AND: [baseWhere, bookWhere],
+  };
 }
 
 type ComputedDisplayFilter = Extract<UserVersesFilter, "learning" | "review" | "mastered">;
@@ -400,6 +433,16 @@ function filterVerseCardsBySearch(verses: VerseCardDto[], search: string | undef
   const normalizedSearch = normalizeSearchTerm(search);
   if (!normalizedSearch) return verses;
   return verses.filter((verse) => matchesVerseCardSearch(verse, normalizedSearch));
+}
+
+function filterVerseCardsByBook(
+  verses: VerseCardDto[],
+  bookId: number | undefined
+): VerseCardDto[] {
+  if (!bookId) return verses;
+  return verses.filter(
+    (verse) => parseExternalVerseId(verse.externalVerseId)?.book === bookId
+  );
 }
 
 function buildUserVersesWhere(
@@ -1039,6 +1082,7 @@ async function fetchPaginatedFriendVerses(options: {
   translation: string;
   orderBy?: UserVersesOrderBy;
   order?: UserVersesOrder;
+  bookId?: number;
   search?: string;
   tagSlugs?: string[];
   limit: number;
@@ -1046,6 +1090,7 @@ async function fetchPaginatedFriendVerses(options: {
 }): Promise<UserVersesPageResponse> {
   const aggregatedFriendVerses = await getFriendVerseAggregates({
     telegramId: options.telegramId,
+    bookId: options.bookId,
     tagSlugs: options.tagSlugs,
   });
 
@@ -1139,7 +1184,10 @@ async function fetchPaginatedFriendVerses(options: {
     })
     .filter((item): item is VerseCardDto => Boolean(item));
 
-  const filteredItems = filterVerseCardsBySearch(items, options.search);
+  const filteredItems = filterVerseCardsBySearch(
+    filterVerseCardsByBook(items, options.bookId),
+    options.search
+  );
   const direction = options.order === "asc" ? -1 : 1;
   const sortedItems =
     options.orderBy === "bible"
@@ -1184,6 +1232,7 @@ export async function fetchPaginatedEnrichedUserVerses({
   orderBy,
   order,
   displayFilter,
+  bookId,
   search,
   tagSlugs,
   limit,
@@ -1202,6 +1251,7 @@ export async function fetchPaginatedEnrichedUserVerses({
       translation,
       orderBy,
       order,
+      bookId,
       search,
       tagSlugs,
       limit: pageLimit,
@@ -1260,7 +1310,10 @@ export async function fetchPaginatedEnrichedUserVerses({
       enrichedItems,
       displayFilter
     );
-    const filteredItems = filterVerseCardsBySearch(filteredByDisplay, search);
+    const filteredItems = filterVerseCardsBySearch(
+      filterVerseCardsByBook(filteredByDisplay, bookId),
+      search
+    );
 
     const sortedItems = usePopularityOrdering
       ? sortVerseCardsBySelfPopularity({

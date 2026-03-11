@@ -3,6 +3,7 @@ import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
 type FetchCatalogVersesPageParams = {
   telegramId?: string;
   translation?: string;
+  bookId?: number;
   tagSlugs?: string[];
   orderBy?: "createdAt" | "bible" | "popularity";
   order?: "asc" | "desc";
@@ -16,6 +17,7 @@ export async function fetchCatalogVersesPage(
   const searchParams = new URLSearchParams();
   if (params.telegramId) searchParams.set("telegramId", params.telegramId);
   if (params.translation) searchParams.set("translation", params.translation);
+  if (params.bookId != null) searchParams.set("bookId", String(params.bookId));
   if (params.tagSlugs && params.tagSlugs.length > 0) {
     searchParams.set("tagSlugs", params.tagSlugs.join(","));
   }

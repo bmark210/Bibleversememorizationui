@@ -7,6 +7,7 @@ type GetApiUsersVersesParams = {
   orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
   filter?: "catalog" | 'friends' | 'my' | "learning" | "review" | "mastered" | "stopped";
+  bookId?: number;
   search?: string;
   tagSlugs?: string[];
   limit?: number;
@@ -25,6 +26,7 @@ export async function fetchUserVersesPage(
   if (params.orderBy) searchParams.set("orderBy", params.orderBy);
   if (params.order) searchParams.set("order", params.order);
   if (params.filter) searchParams.set("filter", params.filter);
+  if (params.bookId != null) searchParams.set("bookId", String(params.bookId));
   if (params.search?.trim()) searchParams.set("search", params.search.trim());
   if (params.tagSlugs && params.tagSlugs.length > 0) {
     searchParams.set("tagSlugs", params.tagSlugs.join(","));

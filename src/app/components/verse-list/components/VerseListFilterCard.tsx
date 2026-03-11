@@ -17,6 +17,7 @@ import {
 } from '../constants';
 import { parseStoredBoolean, VERSE_LIST_STORAGE_KEYS } from '../storage';
 import type { VerseListFilterOption, VerseListSortOption } from '../types';
+import type { VerseListBookOption } from '../bookOptions';
 
 function ScrollRow({
   children,
@@ -54,6 +55,9 @@ type VerseListFilterCardProps = {
   statusFilter: VerseListStatusFilter;
   filterOptions: VerseListFilterOption[];
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
+  selectedBookId: number | null;
+  bookOptions: VerseListBookOption[];
+  onBookChange: (bookId: number | null, label: string) => void;
   sortBy: VerseListSortBy;
   sortOptions: VerseListSortOption[];
   onSortChange: (sortBy: VerseListSortBy, label: string) => void;
@@ -76,6 +80,8 @@ const ROOT_TABS = [
   { key: 'my', label: 'Мои стихи' },
 ] as const;
 
+const ALL_BOOKS_LABEL = 'Все';
+
 export function VerseListFilterCard({
   totalVisible: _totalVisible,
   totalCount: _totalCount,
@@ -84,6 +90,9 @@ export function VerseListFilterCard({
   statusFilter,
   filterOptions,
   onTabClick,
+  selectedBookId,
+  bookOptions,
+  onBookChange,
   sortBy,
   sortOptions,
   onSortChange,
@@ -125,8 +134,13 @@ export function VerseListFilterCard({
       : 'my';
   const isMyMode = activeRootTab === 'my';
   const trimmedSearchQuery = searchQuery.trim();
+  const selectedBook =
+    selectedBookId == null
+      ? null
+      : bookOptions.find((option) => option.id === selectedBookId) ?? null;
   const hasFiltersApplied =
     statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+    selectedBookId !== null ||
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
     trimmedSearchQuery.length > 0;
@@ -181,7 +195,7 @@ export function VerseListFilterCard({
             >
               <div className="mt-2 px-3">
                 <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-                  Основной фильтр
+                  Основной фильтр: {activeRootTab === 'my' ? 'Мои стихи' : activeRootTab === 'friends' ? 'Друзья' : 'Общий'}
                 </div>
               <div
                 role="tablist"
@@ -214,6 +228,81 @@ export function VerseListFilterCard({
                   );
                 })}
               </div>
+              </div>
+
+              <div className="mt-3 px-3">
+                <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
+                  <div className="min-w-0">
+                    {/* <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+                      Книга Библии
+                    </div> */}
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+                      Книга: {selectedBook?.label ?? ALL_BOOKS_LABEL}
+                    </div>
+                  </div>
+                  {/* {selectedBookId !== null && (
+                    <button
+                      type="button"
+                      onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
+                      className="rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/60"
+                    >
+                      Сбросить
+                    </button>
+                  )} */}
+                </div>
+                <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
+                  <ScrollRow className="py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
+                      className={cn(
+                        'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                        selectedBookId == null
+                          ? 'border-primary/30 bg-primary/12 text-primary'
+                          : 'border-border/55 bg-background/25 text-muted-foreground hover:bg-background/60'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          selectedBookId == null ? 'bg-primary/70' : 'bg-muted-foreground/35'
+                        )}
+                      />
+                      Все
+                    </button>
+                    {bookOptions.map((option) => {
+                      const isActive = selectedBookId === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          title={option.label}
+                          onClick={() => onBookChange(option.id, option.label)}
+                          className={cn(
+                            'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                            isActive
+                              ? 'border-primary/30 bg-primary/12 text-primary'
+                              : 'border-border/55 bg-background/25 text-foreground/75 hover:bg-background/60'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'h-1.5 w-1.5 rounded-full',
+                              option.testament === 'old'
+                                ? isActive
+                                  ? 'bg-amber-500'
+                                  : 'bg-amber-400/55'
+                                : isActive
+                                  ? 'bg-sky-500'
+                                  : 'bg-sky-400/55'
+                            )}
+                          />
+                          <span>{option.shortLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </ScrollRow>
+                </div>
               </div>
 
               {isMyMode && ( <div className="mt-3 px-3">
@@ -262,7 +351,7 @@ export function VerseListFilterCard({
 
               <div className="mt-3 px-3">
                   <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-                    Сортировка
+                    Сортировка: {sortBy === 'bible' ? 'По канону библии' : sortBy === 'popularity' ? 'По популярности' : 'По активности'}
                   </div>
                 <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
                   <div

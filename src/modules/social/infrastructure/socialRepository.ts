@@ -143,6 +143,7 @@ export async function getSocialMetricVerseRows(
 
 export async function getFriendVerseAggregates(params: {
   telegramId: string;
+  bookId?: number;
   tagSlugs?: string[];
 }): Promise<FriendVerseAggregate[]> {
   const followingTelegramIds = await getFollowingTelegramIds(params.telegramId);
@@ -150,27 +151,41 @@ export async function getFriendVerseAggregates(params: {
     return [];
   }
 
+  const verseFilter =
+    (params.tagSlugs && params.tagSlugs.length > 0) || params.bookId
+      ? {
+          verse: {
+            ...(params.tagSlugs && params.tagSlugs.length > 0
+              ? {
+                  tags: {
+                    some: {
+                      tag: {
+                        slug: {
+                          in: params.tagSlugs,
+                        },
+                      },
+                    },
+                  },
+                }
+              : {}),
+            ...(params.bookId
+              ? {
+                  externalVerseId: {
+                    startsWith: `${params.bookId}-`,
+                  },
+                }
+              : {}),
+          },
+        }
+      : {};
+
   const aggregates = await prisma.userVerse.groupBy({
     by: ["verseId"],
     where: {
       telegramId: {
         in: followingTelegramIds,
       },
-      ...(params.tagSlugs && params.tagSlugs.length > 0
-        ? {
-            verse: {
-              tags: {
-                some: {
-                  tag: {
-                    slug: {
-                      in: params.tagSlugs,
-                    },
-                  },
-                },
-              },
-            },
-          }
-        : {}),
+      ...verseFilter,
     },
     _count: {
       _all: true,

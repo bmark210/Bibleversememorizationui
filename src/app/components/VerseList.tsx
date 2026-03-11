@@ -297,6 +297,9 @@ export function VerseList({
             statusFilter={vm.filters.statusFilter}
             filterOptions={vm.filters.filterOptions}
             onTabClick={vm.filterTabs.onTabClick}
+            selectedBookId={vm.filters.selectedBookId}
+            bookOptions={vm.filters.bookOptions}
+            onBookChange={vm.filterTabs.onBookChange}
             sortBy={vm.filters.sortBy}
             sortOptions={vm.filters.sortOptions}
             onSortChange={vm.filterTabs.onSortChange}

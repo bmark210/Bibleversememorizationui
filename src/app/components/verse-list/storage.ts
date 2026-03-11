@@ -2,6 +2,7 @@ import type { VerseListSortBy, VerseListStatusFilter } from './constants';
 
 export const VERSE_LIST_STORAGE_KEYS = {
   statusFilter: 'verse-list:status-filter:v1',
+  selectedBookId: 'verse-list:selected-book-id:v1',
   sortBy: 'verse-list:sort-by:v1',
   searchQuery: 'verse-list:search-query:v1',
   selectedTagSlugs: 'verse-list:selected-tag-slugs:v1',
@@ -32,6 +33,13 @@ export function parseStoredSortBy(raw: string | null): VerseListSortBy | null {
   return SORT_BY_VALUES.includes(raw as VerseListSortBy)
     ? (raw as VerseListSortBy)
     : null;
+}
+
+export function parseStoredBookId(raw: string | null): number | null {
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 66) return null;
+  return parsed;
 }
 
 export function parseStoredTagSlugs(raw: string | null): Set<string> {
