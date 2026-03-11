@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
@@ -10,6 +10,7 @@ import {
   Dumbbell,
   GraduationCap,
   Layers,
+  Lock,
   Play,
   Repeat,
   Shuffle,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
+import { BIBLE_BOOKS } from "@/app/types/bible";
+import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import {
@@ -70,10 +73,12 @@ interface TrainingHubProps {
   selectedModes: CoreTrainingMode[];
   selectedOrder: TrainingOrder;
   selectedAnchorTrack: AnchorTrainingTrack;
+  selectedBookId?: number;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
   onOrderChange: (order: TrainingOrder) => void;
   onAnchorTrackChange: (track: AnchorTrainingTrack) => void;
+  onBookIdChange: (bookId: number | undefined) => void;
   onStart: () => void;
   onStartSelection: () => void;
 }
@@ -321,10 +326,12 @@ export function TrainingHub({
   selectedModes,
   selectedOrder,
   selectedAnchorTrack,
+  selectedBookId,
   onScenarioChange,
   onModesChange,
   onOrderChange,
   onAnchorTrackChange,
+  onBookIdChange,
   onStart,
   onStartSelection,
 }: TrainingHubProps) {
@@ -350,11 +357,17 @@ export function TrainingHub({
       : activeCorePreset.theme;
   const activeOrderTheme = ORDER_THEME[selectedOrder];
 
+  const ANCHOR_MIN_REQUIRED = 10;
   const currentCount =
     selectedScenario === "anchor"
       ? anchorAvailableCount
       : getCountForModes(selectedModes, counts);
-  const hasVerses = currentCount > 0;
+  const anchorLocked =
+    selectedScenario === "anchor" && anchorAvailableCount < ANCHOR_MIN_REQUIRED;
+
+  const learningAndReviewingLocked = selectedScenario === "core" && currentCount < 10;
+
+  const hasVerses = anchorLocked ? false : currentCount > 0;
   const hasSelection =
     selectedScenario === "core" &&
     Boolean(selectionVerses && selectionVerses.length > 0);
@@ -446,6 +459,36 @@ export function TrainingHub({
     const nextOrder = value as TrainingOrder;
     triggerSelectionHaptic(nextOrder !== selectedOrder);
     onOrderChange(nextOrder);
+  };
+
+  const handleBookIdChange = (value: string) => {
+    const nextBookId = value === "all" ? undefined : Number(value);
+    triggerSelectionHaptic(nextBookId !== selectedBookId);
+    onBookIdChange(nextBookId);
+  };
+
+  // Build book options from user's verses (only books that have verses)
+  const anchorBookOptions = useMemo(() => {
+    const bookIds = new Set<number>();
+    for (const verse of allVerses) {
+      const parsed = parseExternalVerseId(verse.externalVerseId);
+      if (parsed) bookIds.add(parsed.book);
+    }
+    return Array.from(bookIds)
+      .sort((a, b) => a - b)
+      .map((id) => ({
+        id,
+        name: BIBLE_BOOKS[id]?.nameRu ?? `Книга ${id}`,
+      }));
+  }, [allVerses]);
+
+  const ANCHOR_BOOK_THEME: OrderTheme = {
+    triggerClassName:
+      "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_6px_18px_-12px_rgba(245,158,11,0.55)]",
+    contentClassName: "border-amber-500/20 bg-background/95 backdrop-blur-xl",
+    itemClassName:
+      "focus:bg-amber-500/8 focus:text-amber-800 dark:focus:text-amber-300 data-[state=checked]:bg-amber-500/10 data-[state=checked]:text-amber-800 dark:data-[state=checked]:text-amber-300",
+    hintClassName: "text-amber-700 dark:text-amber-300",
   };
 
   return (
@@ -623,6 +666,44 @@ export function TrainingHub({
                       />
                     ))}
                   </RadioGroupPrimitive.Root>
+
+                  {anchorBookOptions.length > 1 && (
+                    <div className="mt-4 space-y-2">
+                      <SectionLabel>Книга Библии</SectionLabel>
+                      <Select
+                        value={selectedBookId != null ? String(selectedBookId) : "all"}
+                        onOpenChange={handleOrderOpenChange}
+                        onValueChange={handleBookIdChange}
+                      >
+                        <SelectTrigger
+                          aria-label="Книга Библии"
+                          className={cn(
+                            "h-11 rounded-2xl backdrop-blur-lg transition-colors",
+                            ANCHOR_BOOK_THEME.triggerClassName,
+                          )}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className={cn(ANCHOR_BOOK_THEME.contentClassName, "max-h-64")}>
+                          <SelectItem
+                            value="all"
+                            className={ANCHOR_BOOK_THEME.itemClassName}
+                          >
+                            Все книги
+                          </SelectItem>
+                          {anchorBookOptions.map((book) => (
+                            <SelectItem
+                              key={book.id}
+                              value={String(book.id)}
+                              className={ANCHOR_BOOK_THEME.itemClassName}
+                            >
+                              {book.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -711,33 +792,55 @@ export function TrainingHub({
           <div
             className={cn(
               "rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
-              currentAccentTheme.summaryClassName,
+              anchorLocked
+                ? "border-foreground/10"
+                : currentAccentTheme.summaryClassName,
             )}
           >
             <p
               className={cn(
                 "mb-3 px-1 text-sm font-medium",
-                currentAccentTheme.summaryClassName,
+                anchorLocked
+                  ? "text-foreground/50"
+                  : currentAccentTheme.summaryClassName,
               )}
             >
               {sessionSummary}
             </p>
-            <Button
-              type="button"
-              size="lg"
-              haptic="medium"
-              disabled={!hasVerses}
-              onClick={onStart}
-              className={cn(
-                "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
-                "rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium !shadow-none",
-                currentAccentTheme.checkedDotClassName,
-                currentAccentTheme.ctaClassName,
-              )}
-            >
-              <Play className="h-4 w-4" />
-              {startLabel}
-            </Button>
+
+            {anchorLocked || learningAndReviewingLocked ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-foreground/8 bg-foreground/[0.03] px-4 py-3.5">
+                <Lock className="h-4 w-4 shrink-0 text-foreground/35" />
+                <p className="text-xs leading-relaxed text-foreground/55">
+                  Нужно минимум{" "}
+                  <span className="font-semibold text-foreground/75">
+                    {learningAndReviewingLocked ? 1 : ANCHOR_MIN_REQUIRED}
+                  </span>{" "}
+                  {pluralVerses(learningAndReviewingLocked ? 1 : ANCHOR_MIN_REQUIRED)} на этапе {learningAndReviewingLocked ? "изучения или повторения" : "повторения или выученных"}. Сейчас:{" "}
+                  <span className="font-semibold text-foreground/75">
+                    {learningAndReviewingLocked ? currentCount : anchorAvailableCount}
+                  </span>
+                  .
+                </p>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                haptic="medium"
+                disabled={!hasVerses}
+                onClick={onStart}
+                className={cn(
+                  "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
+                  "rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium !shadow-none",
+                  currentAccentTheme.checkedDotClassName,
+                  currentAccentTheme.ctaClassName,
+                )}
+              >
+                <Play className="h-4 w-4" />
+                {startLabel}
+              </Button>
+            )}
           </div>
         </div>
         </motion.div>

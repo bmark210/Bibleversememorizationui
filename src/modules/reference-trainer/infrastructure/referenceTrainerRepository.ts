@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { VerseStatus } from "@/generated/prisma";
 import type {
+  ReferenceTrainerAnchorRow,
   ReferenceTrainerLearningRow,
   ReferenceTrainerScoreRow,
 } from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
@@ -121,4 +122,57 @@ export async function getReferenceTrainerLearningRows(
     lastReviewedAt: row.lastReviewedAt,
     nextReviewAt: row.nextReviewAt,
   }));
+}
+
+/**
+ * Fetch anchor-eligible verses (REVIEW + MASTERED display status).
+ * Queries base status LEARNING — display status is derived from masteryLevel/repetitions.
+ * Optionally filtered by bookId (first segment of externalVerseId).
+ */
+export async function getAnchorTrainerRows(
+  telegramId: string,
+  bookId?: number,
+): Promise<ReferenceTrainerAnchorRow[]> {
+  const rows = await prisma.userVerse.findMany({
+    where: {
+      telegramId,
+      status: VerseStatus.LEARNING,
+    },
+    select: {
+      status: true,
+      masteryLevel: true,
+      repetitions: true,
+      referenceScore: true,
+      incipitScore: true,
+      contextScore: true,
+      lastTrainingModeId: true,
+      lastReviewedAt: true,
+      nextReviewAt: true,
+      verse: {
+        select: {
+          externalVerseId: true,
+        },
+      },
+    },
+  });
+
+  let mapped: ReferenceTrainerAnchorRow[] = rows.map((row) => ({
+    externalVerseId: row.verse.externalVerseId,
+    status: row.status,
+    masteryLevel: row.masteryLevel,
+    repetitions: row.repetitions,
+    referenceScore: row.referenceScore,
+    incipitScore: row.incipitScore,
+    contextScore: row.contextScore,
+    lastTrainingModeId: row.lastTrainingModeId,
+    lastReviewedAt: row.lastReviewedAt,
+    nextReviewAt: row.nextReviewAt,
+  }));
+
+  if (typeof bookId === "number" && bookId > 0) {
+    const bookPrefix = `${bookId}-`;
+    mapped = mapped.filter((row) => row.externalVerseId.startsWith(bookPrefix));
+  }
+
+  return mapped;
 }

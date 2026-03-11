@@ -2,7 +2,7 @@ import type { ParsedUrlQuery } from "querystring";
 import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { getReferenceTrainerLearningRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
+import { getAnchorTrainerRows, getReferenceTrainerLearningRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
 import { getFriendVerseAggregates } from "@/modules/social/infrastructure/socialRepository";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import type { UserVerseRecord } from "@/modules/verses/domain/Verse";
@@ -937,20 +937,82 @@ async function buildReferenceTrainerContextPrompts(
   return prompts;
 }
 
+export const ANCHOR_MIN_VERSES = 10;
+
+/**
+ * Priority-based verse selection for anchor (закрепление) sessions.
+ * Only MASTERED and REVIEW verses are eligible (no LEARNING).
+ *
+ * Priority order:
+ *  1. MASTERED verses (fully learned — most important to consolidate)
+ *  2. REVIEW verses
+ *
+ * Within each tier: weakest scores first, shuffled within ±5-point bands.
+ */
+function selectPrioritizedAnchorVerses<
+  T extends {
+    displayStatus: ReferenceTrainerDisplayStatus;
+    referenceScore: number;
+    incipitScore: number;
+    contextScore: number;
+  },
+>(candidates: T[], limit: number): T[] {
+  const mastered: T[] = [];
+  const review: T[] = [];
+
+  for (const c of candidates) {
+    if (c.displayStatus === "MASTERED") mastered.push(c);
+    else if (c.displayStatus === "REVIEW") review.push(c);
+  }
+
+  const byWeakest = (a: T, b: T) => {
+    const avgA = (a.referenceScore + a.incipitScore + a.contextScore) / 3;
+    const avgB = (b.referenceScore + b.incipitScore + b.contextScore) / 3;
+    return avgA - avgB;
+  };
+
+  mastered.sort(byWeakest);
+  review.sort(byWeakest);
+
+  const shuffleWithinScoreBands = (arr: T[]) => {
+    let i = 0;
+    while (i < arr.length) {
+      const baseAvg = (arr[i].referenceScore + arr[i].incipitScore + arr[i].contextScore) / 3;
+      let j = i + 1;
+      while (j < arr.length) {
+        const avg = (arr[j].referenceScore + arr[j].incipitScore + arr[j].contextScore) / 3;
+        if (Math.abs(avg - baseAvg) > 5) break;
+        j++;
+      }
+      const band = arr.slice(i, j);
+      shuffleInPlace(band);
+      for (let k = 0; k < band.length; k++) arr[i + k] = band[k];
+      i = j;
+    }
+  };
+
+  shuffleWithinScoreBands(mastered);
+  shuffleWithinScoreBands(review);
+
+  const ordered = [...mastered, ...review];
+  return ordered.slice(0, limit);
+}
+
 export async function fetchRandomReferenceTrainerVerses(options: {
   telegramId: string;
   limit?: number;
+  bookId?: number;
 }): Promise<VerseCardDto[]> {
   const limit = Math.max(1, Math.min(DEFAULT_REFERENCE_TRAINER_LIMIT, Math.round(options.limit ?? DEFAULT_REFERENCE_TRAINER_LIMIT)));
   const translation = await getUserTranslationForTelegram(options.telegramId);
 
-  const learningRows = await getReferenceTrainerLearningRows(options.telegramId);
+  const anchorRows = await getAnchorTrainerRows(options.telegramId, options.bookId);
 
-  const candidates = learningRows
+  const candidates = anchorRows
     .map((row) => ({
       ...row,
       displayStatus: computeDisplayStatus(
-        row.status,
+        row.status as VerseStatus,
         row.masteryLevel,
         row.repetitions
       ),
@@ -961,14 +1023,13 @@ export async function fetchRandomReferenceTrainerVerses(options: {
       ): row is typeof row & {
         displayStatus: ReferenceTrainerDisplayStatus;
       } =>
-        row.displayStatus === VerseStatus.LEARNING ||
         row.displayStatus === "REVIEW" ||
         row.displayStatus === "MASTERED"
     );
 
   if (candidates.length === 0) return [];
 
-  const sampled = shuffleInPlace([...candidates]).slice(0, limit);
+  const sampled = selectPrioritizedAnchorVerses(candidates, limit);
   const enrichedById = await enrichExternalVerseIds(
     sampled.map((row) => row.externalVerseId),
     translation

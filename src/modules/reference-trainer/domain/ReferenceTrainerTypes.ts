@@ -40,3 +40,16 @@ export type ReferenceTrainerLearningRow = {
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
 };
+
+export type ReferenceTrainerAnchorRow = {
+  externalVerseId: string;
+  status: string;
+  masteryLevel: number;
+  repetitions: number;
+  referenceScore: number;
+  incipitScore: number;
+  contextScore: number;
+  lastTrainingModeId: number | null;
+  lastReviewedAt: Date | null;
+  nextReviewAt: Date | null;
+};

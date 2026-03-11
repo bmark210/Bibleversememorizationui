@@ -14,18 +14,21 @@ const AnchorTrainingSession = dynamic(
 interface AnchorSessionProps {
   telegramId: string | null;
   initialTrack: AnchorTrainingTrack;
+  bookId?: number;
   onClose: () => void;
 }
 
 export function AnchorSession({
   telegramId,
   initialTrack,
+  bookId,
   onClose,
 }: AnchorSessionProps) {
   return (
     <AnchorTrainingSession
       telegramId={telegramId}
       initialTrack={initialTrack}
+      bookId={bookId}
       onClose={onClose}
     />
   );

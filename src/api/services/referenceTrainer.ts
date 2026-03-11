@@ -26,15 +26,25 @@ export type ReferenceTrainerSessionResponse = {
   }>;
 };
 
+export type ReferenceTrainerVersesResponse = {
+  verses: Array<UserVerse>;
+  totalCount: number;
+  minRequired: number;
+};
+
 export async function fetchReferenceTrainerVerses(
   telegramId: string,
   options?: {
     limit?: number;
+    bookId?: number;
   }
-): Promise<Array<UserVerse>> {
+): Promise<ReferenceTrainerVersesResponse> {
   const params = new URLSearchParams();
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     params.set("limit", String(Math.max(1, Math.round(options.limit))));
+  }
+  if (typeof options?.bookId === "number" && Number.isFinite(options.bookId) && options.bookId > 0) {
+    params.set("bookId", String(Math.round(options.bookId)));
   }
   const query = params.toString();
   const response = await fetch(
@@ -52,7 +62,12 @@ export async function fetchReferenceTrainerVerses(
     );
   }
 
-  return response.json() as Promise<Array<UserVerse>>;
+  // Handle both old (array) and new (object with verses/totalCount/minRequired) response shapes
+  const data = await response.json();
+  if (Array.isArray(data)) {
+    return { verses: data as Array<UserVerse>, totalCount: data.length, minRequired: 10 };
+  }
+  return data as ReferenceTrainerVersesResponse;
 }
 
 export async function submitReferenceTrainerSession(params: {

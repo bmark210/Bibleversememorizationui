@@ -62,6 +62,7 @@ import type {
 type AnchorTrainingSessionProps = {
   telegramId: string | null;
   initialTrack?: SessionTrack;
+  bookId?: number;
   onClose: () => void;
 };
 
@@ -1174,6 +1175,7 @@ function buildInitialQuestionSessionState(
 export function AnchorTrainingSession({
   telegramId,
   initialTrack,
+  bookId,
   onClose,
 }: AnchorTrainingSessionProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
@@ -1365,10 +1367,18 @@ export function AnchorTrainingSession({
       setIsLoading(true);
 
       try {
-        const verses = await fetchReferenceTrainerVerses(telegramIdValue, {
+        const response = await fetchReferenceTrainerVerses(telegramIdValue, {
           limit: REFERENCE_TRAINER_POOL_LIMIT,
+          bookId,
         });
-        const merged = verses
+        if (response.verses.length === 0 && response.totalCount < response.minRequired) {
+          setErrorMessage(
+            `Недостаточно стихов на этапе повторения или выученных. Нужно минимум ${response.minRequired}, сейчас ${response.totalCount}.`
+          );
+          setVersePool([]);
+          return;
+        }
+        const merged = response.verses
           .map(mapUserVerseToReferenceVerse)
           .filter((verse): verse is ReferenceVerse => verse !== null);
         setVersePool(merged);
@@ -1383,7 +1393,7 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [selectedTrack, startSessionFromPool]
+    [bookId, selectedTrack, startSessionFromPool]
   );
 
   useEffect(() => {

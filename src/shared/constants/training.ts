@@ -30,6 +30,26 @@ export const REFERENCE_TRAINER_OUTCOME_DELTAS = {
   wrong: -4,
 } as const;
 
+/**
+ * Adaptive score delta multiplier based on current score level.
+ * At high scores, correct answers give less; wrong answers penalize more.
+ * At low scores, correct answers give more; wrong answers penalize less.
+ * Returns a multiplier [0.4 .. 1.6] applied to the base delta.
+ */
+export function getAdaptiveScoreMultiplier(
+  currentScore: number,
+  isPositive: boolean,
+): number {
+  const t = Math.max(0, Math.min(100, currentScore)) / 100;
+
+  if (isPositive) {
+    // High score → smaller gains (0.4x at 100), low score → bigger gains (1.6x at 0)
+    return 1.6 - 1.2 * t;
+  }
+  // High score → bigger penalty (1.6x at 100), low score → smaller penalty (0.4x at 0)
+  return 0.4 + 1.2 * t;
+}
+
 export const TRAINING_STAGE_MASTERY_MAX = MASTERY_MAX;
 export const REVIEW_REPETITION_INTERVAL_DAYS = REVIEW_INTERVALS_DAYS;
 export const REPEAT_THRESHOLD_FOR_MASTERED = REVIEW_REPETITIONS_MAX;

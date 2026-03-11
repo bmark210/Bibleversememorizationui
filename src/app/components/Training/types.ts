@@ -14,7 +14,7 @@ export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
   | { mode: "hub" }
-  | { mode: "anchor"; track: AnchorTrainingTrack }
+  | { mode: "anchor"; track: AnchorTrainingTrack; bookId?: number }
   | {
       mode: "verse-session";
       verses: Verse[];

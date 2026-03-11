@@ -48,7 +48,8 @@ export function getCountForMode(
     case "review":
       return counts.reviewCount;
     case "anchor":
-      return counts.allCount;
+      // Only REVIEW + MASTERED are eligible for anchor (no LEARNING)
+      return counts.reviewCount + counts.masteredCount;
   }
 }
 
@@ -58,7 +59,7 @@ export function getCountForModes(
   counts: TrainingCounts
 ): number {
   if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
-    return counts.allCount;
+    return counts.reviewCount + counts.masteredCount;
   }
 
   let total = 0;
