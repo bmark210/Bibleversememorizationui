@@ -4,6 +4,7 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const DATASET_NAME = "genesis-foundations";
 const EXPECTED_SEED_ENTRY_COUNT = 33;
+const CREATOR_TELEGRAM_ID = "891739957";
 
 const TAG_TITLES = {
   blessing: "Благословение",
@@ -202,16 +203,39 @@ async function main() {
 
   const tagIdBySlug = new Map<TagSlug, string>();
   const stats = {
+    createdCreatorUser: 0,
+    reusedCreatorUser: 0,
     createdTags: 0,
     reusedTags: 0,
     updatedTags: 0,
     createdVerses: 0,
     reusedVerses: 0,
+    createdOwnerLinks: 0,
+    reusedOwnerLinks: 0,
     createdLinks: 0,
     reusedLinks: 0,
   };
 
   try {
+    if (!dryRun) {
+      const existingCreator = await prisma.user.findUnique({
+        where: { telegramId: CREATOR_TELEGRAM_ID },
+        select: { id: true },
+      });
+
+      if (existingCreator) {
+        stats.reusedCreatorUser += 1;
+      } else {
+        await prisma.user.create({
+          data: {
+            telegramId: CREATOR_TELEGRAM_ID,
+          },
+          select: { id: true },
+        });
+        stats.createdCreatorUser += 1;
+      }
+    }
+
     for (const [slug, title] of Object.entries(TAG_TITLES) as [TagSlug, string][]) {
       const existing = await prisma.tag.findFirst({
         where: {
@@ -320,6 +344,33 @@ async function main() {
         stats.createdVerses += 1;
       }
 
+      const existingOwnerLink = dryRun
+        ? null
+        : await prisma.userVerse.findUnique({
+            where: {
+              telegramId_verseId: {
+                telegramId: CREATOR_TELEGRAM_ID,
+                verseId,
+              },
+            },
+            select: { id: true },
+          });
+
+      if (existingOwnerLink) {
+        stats.reusedOwnerLinks += 1;
+      } else {
+        if (!dryRun) {
+          await prisma.userVerse.create({
+            data: {
+              telegramId: CREATOR_TELEGRAM_ID,
+              verseId,
+            },
+            select: { id: true },
+          });
+        }
+        stats.createdOwnerLinks += 1;
+      }
+
       for (const tagSlug of entry.tags) {
         const tagId = tagIdBySlug.get(tagSlug);
         if (!tagId) {
@@ -360,12 +411,17 @@ async function main() {
         `dataset: ${DATASET_NAME}`,
         `mode: ${dryRun ? "dry-run" : "write"}`,
         `translation: ${DEFAULT_HELLOAO_TRANSLATION}`,
+        `creator telegramId: ${CREATOR_TELEGRAM_ID}`,
         `seed entries: ${seedEntries.length}`,
+        `creator user created: ${stats.createdCreatorUser}`,
+        `creator user reused: ${stats.reusedCreatorUser}`,
         `tags created: ${stats.createdTags}`,
         `tags updated: ${stats.updatedTags}`,
         `tags reused: ${stats.reusedTags}`,
         `verses created: ${stats.createdVerses}`,
         `verses reused: ${stats.reusedVerses}`,
+        `owner links created: ${stats.createdOwnerLinks}`,
+        `owner links reused: ${stats.reusedOwnerLinks}`,
         `verse-tag links created: ${stats.createdLinks}`,
         `verse-tag links reused: ${stats.reusedLinks}`,
         `ranges supported: yes (up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses in one chapter)`,
