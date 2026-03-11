@@ -12,8 +12,8 @@ export function VerseListHeader({
   onAboutSectionClick,
 }: VerseListHeaderProps) {
   return (
-    <div className="mb-4 flex justify-between items-start gap-3">
-      <h1 className="mb-1 text-primary">Cтихи</h1>
+    <div className="flex justify-between items-start gap-3">
+      <h1 className="text-primary">Cтихи</h1>
       <div className="flex items-center gap-2">
         {onAboutSectionClick && (
           <Button

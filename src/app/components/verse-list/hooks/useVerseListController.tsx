@@ -42,6 +42,7 @@ type UseVerseListControllerParams = {
   hasFriends?: boolean;
   onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
+  onOpenVerseTags?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -53,6 +54,7 @@ export function useVerseListController({
   hasFriends = false,
   onAddVerse,
   onOpenVerseOwners,
+  onOpenVerseTags,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -363,6 +365,7 @@ export function useVerseListController({
         verse={verse}
         onOpen={() => openVerseInGallery(verse)}
         onOpenOwners={onOpenVerseOwners}
+        onOpenTags={onOpenVerseTags}
         onAddToLearning={(v) => {
           const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
           void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
@@ -373,7 +376,7 @@ export function useVerseListController({
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
       />
     ),
-    [actions, onOpenVerseOwners, openVerseInGallery]
+    [actions, onOpenVerseOwners, onOpenVerseTags, openVerseInGallery]
   );
 
   const handleLoadMoreRows = useCallback(

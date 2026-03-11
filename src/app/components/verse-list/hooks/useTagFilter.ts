@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
 import type { Tag } from '@/api/models/Tag';
 import type { Verse } from '@/app/App';
+import { getTelegramUserId } from '@/app/lib/telegramWebApp';
+import { isAdminTelegramId } from '@/lib/admins';
 import { parseStoredTagSlugs, VERSE_LIST_STORAGE_KEYS } from '../storage';
 
 const TAG_TITLE_COLLATOR = new Intl.Collator(['ru', 'en'], {
@@ -73,7 +75,21 @@ export function useTagFilter() {
   }, []);
 
   const deleteTag = useCallback(async (id: string, slug: string) => {
-    const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+    const telegramId =
+      getTelegramUserId()?.toString().trim() ||
+      window.localStorage.getItem('telegramId')?.trim() ||
+      '';
+
+    if (!isAdminTelegramId(telegramId)) {
+      throw new Error('Удалять теги может только администратор');
+    }
+
+    const res = await fetch(`/api/tags/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-telegram-id': telegramId,
+      },
+    });
     if (!res.ok) {
       const payload = (await res.json().catch(() => null)) as
         | { error?: string; linksCount?: number }

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { isAdminTelegramId } from "@/lib/admins";
 import {
   countVerseTagLinks,
   deleteTagById,
@@ -7,10 +8,30 @@ import {
 } from "@/modules/verses/infrastructure/verseRepository";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
+function getSingleValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function resolveRequesterTelegramId(req: NextApiRequest): string {
+  const fromQuery = getSingleValue(req.query.telegramId);
+  if (fromQuery) return fromQuery;
+
+  const fromHeader = getSingleValue(req.headers["x-telegram-id"]);
+  if (fromHeader) return fromHeader;
+
+  return "";
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
   if (!id || Array.isArray(id)) {
     return res.status(400).json({ error: "Tag ID is required" });
+  }
+
+  const requesterTelegramId = resolveRequesterTelegramId(req);
+  if (!isAdminTelegramId(requesterTelegramId)) {
+    return res.status(403).json({ error: "Admin access required" });
   }
 
   if (req.method === "DELETE") {

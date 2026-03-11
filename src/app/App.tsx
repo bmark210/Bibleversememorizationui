@@ -1225,6 +1225,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
       <AddVerseDialog
         open={showAddVerseDialog}
+        viewerTelegramId={telegramId}
         onClose={() => setShowAddVerseDialog(false)}
         onAdd={handleVerseAdded}
       />

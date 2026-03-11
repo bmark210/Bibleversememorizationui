@@ -21,6 +21,7 @@ export type SwipeCardProps = {
   verse: Verse;
   onOpen: () => void;
   onOpenOwners?: (verse: Verse) => void;
+  onOpenTags?: (verse: Verse) => void;
   onAddToLearning: (verse: Verse) => void;
   onPauseLearning: (verse: Verse) => void;
   onResumeLearning: (verse: Verse) => void;
@@ -32,6 +33,7 @@ export const SwipeableVerseCard = ({
   verse,
   onOpen,
   onOpenOwners,
+  onOpenTags,
   onAddToLearning,
   onPauseLearning,
   onResumeLearning,
@@ -107,6 +109,14 @@ export const SwipeableVerseCard = ({
 
   const stopCardOpen = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
+  };
+
+  const handleOpenTags = (e: React.MouseEvent | React.KeyboardEvent) => {
+    stopCardOpen(e);
+    if (!verse.tags || verse.tags.length === 0) return;
+    if (!onOpenTags) return;
+    haptic('light');
+    onOpenTags?.(verse);
   };
 
   const getInitials = (name: string) =>
@@ -347,6 +357,7 @@ export const SwipeableVerseCard = ({
 
   return (
     <div className="relative isolate">
+      <AnimatePresence initial={false}>
       <div
         role="button"
         tabIndex={0}
@@ -369,26 +380,49 @@ export const SwipeableVerseCard = ({
               <h3 className="font-serif text-primary">{verse.reference}</h3>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
-            <AnimatePresence initial={false}>
+            
               {verse.tags && verse.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {verse.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag.slug}
-                      className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground"
-                    >
-                      <span className="opacity-50">#</span>
-                      {tag.title}
-                    </span>
-                  ))}
+                  {verse.tags.slice(0, 3).map((tag, index) =>
+                    onOpenTags ? (
+                      <button
+                        key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                        type="button"
+                        onClick={handleOpenTags}
+                        className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/45"
+                        aria-label={`Открыть все теги стиха ${verse.reference}`}
+                      >
+                        <span className="opacity-50">#</span>
+                        {tag.title}
+                      </button>
+                    ) : (
+                      <span
+                        key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                        className="inline-flex items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        <span className="opacity-50">#</span>
+                        {tag.title}
+                      </span>
+                    ),
+                  )}
                   {verse.tags.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground/45 self-center">
-                      +{verse.tags.length - 3}
-                    </span>
+                    onOpenTags ? (
+                      <button
+                        type="button"
+                        onClick={handleOpenTags}
+                        className="text-[10px] text-muted-foreground/45 self-center transition-colors hover:text-muted-foreground/75"
+                        aria-label={`Показать еще ${verse.tags.length - 3} тегов стиха ${verse.reference}`}
+                      >
+                        +{verse.tags.length - 3}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/45 self-center">
+                        +{verse.tags.length - 3}
+                      </span>
+                    )
                   )}
                 </div>
               )}
-            </AnimatePresence>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -454,6 +488,7 @@ export const SwipeableVerseCard = ({
         ) : null}
         </div>
       </div>
+        </AnimatePresence>
     </div>
   );
 };

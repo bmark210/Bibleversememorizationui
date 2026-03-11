@@ -119,6 +119,7 @@ interface AddVerseDialogProps {
   open: boolean;
   onClose: () => void;
   mode?: 'verse' | 'tag';
+  viewerTelegramId?: string | null;
   onAdd?: (verse: {
     externalVerseId: string;
     reference: string;
@@ -147,7 +148,14 @@ type VerseAdminSummary = {
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
 
-export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateTag }: AddVerseDialogProps) {
+export function AddVerseDialog({
+  open,
+  onClose,
+  mode = 'verse',
+  viewerTelegramId: viewerTelegramIdProp = null,
+  onAdd,
+  onCreateTag,
+}: AddVerseDialogProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
@@ -271,9 +279,18 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
 
     const fromTelegram = getTelegramUserId();
     const fromStorage = window.localStorage.getItem("telegramId");
-    const resolved = String(fromTelegram ?? fromStorage ?? "").trim();
+    const resolved = String(
+      viewerTelegramIdProp ?? fromTelegram ?? fromStorage ?? "",
+    ).trim();
     setViewerTelegramId(resolved);
-  }, [open]);
+  }, [open, viewerTelegramIdProp]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    setTagDeleteMode(false);
+    setEditingTagId(null);
+    setEditingTagTitle("");
+  }, [isAdmin]);
 
   // ── Загружаем количество стихов при выборе главы ────────────────────────────
 
@@ -384,11 +401,12 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   }, []);
 
   const beginTagRename = useCallback((tag: Tag) => {
+    if (!isAdmin) return;
     if (!tag.id) return;
     setEditingTagId(tag.id);
     setEditingTagTitle((tag.title ?? "").trim());
     setTagDeleteMode(false);
-  }, []);
+  }, [isAdmin]);
 
   const cancelTagRename = useCallback(() => {
     setEditingTagId(null);
@@ -396,6 +414,13 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   }, []);
 
   const handleRenameTag = useCallback(async () => {
+    if (!isAdmin) {
+      toast.error("Переименовывать теги может только администратор", {
+        label: "Теги",
+      });
+      return;
+    }
+
     const tagId = editingTagId;
     const nextTitle = editingTagTitle.trim();
     if (!tagId || !nextTitle) return;
@@ -404,7 +429,10 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     try {
       const response = await fetch(`/api/tags/${tagId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-id": viewerTelegramId,
+        },
         body: JSON.stringify({ title: nextTitle }),
       });
 
@@ -440,7 +468,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
     } finally {
       setSavingTagId(null);
     }
-  }, [editingTagId, editingTagTitle]);
+  }, [editingTagId, editingTagTitle, isAdmin, viewerTelegramId]);
 
   const handleDeleteVerseFromCatalog = useCallback(async () => {
     if (!selectedVerse || !isAdmin || !viewerTelegramId) return;
@@ -524,6 +552,12 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
   };
 
   const handleDeleteTag = async (tag: Tag) => {
+    if (!isAdmin) {
+      toast.error("Удалять теги может только администратор", {
+        label: "Теги",
+      });
+      return;
+    }
     if (!tag.id) return;
     setDeletingTagId(tag.id);
     try {
@@ -531,6 +565,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "x-telegram-id": viewerTelegramId,
         },
         body: JSON.stringify({
           tagId: tag.id,
@@ -725,7 +760,7 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
               Сбросить
             </button>
           )}
-          {!createTagMode && allTags.length > 0 && (
+          {!createTagMode && allTags.length > 0 && isAdmin && (
             <button
               type="button"
               onClick={() => setTagDeleteMode((prev) => !prev)}
@@ -762,11 +797,17 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
         </p>
       )}
 
-      {manageOnly && !createTagMode && !tagDeleteMode && allTags.length > 0 && (
+      {manageOnly && isAdmin && !createTagMode && !tagDeleteMode && allTags.length > 0 && (
         <p className="px-4 text-[11px] text-muted-foreground/75">
           Нажмите на тег, чтобы переименовать
         </p>
       )}
+
+      {manageOnly && !isAdmin ? (
+        <p className="px-4 text-[11px] text-muted-foreground/75">
+          Создавать теги можно всем. Переименовывать и удалять теги может только администратор.
+        </p>
+      ) : null}
 
       {createTagMode && (
         <div className="flex gap-2 items-center px-4">
@@ -815,7 +856,12 @@ export function AddVerseDialog({ open, onClose, mode = 'verse', onAdd, onCreateT
             {allTags.map((tag) => {
               const slug = tag.slug ?? "";
               const canToggle = !manageOnly && !tagDeleteMode && Boolean(slug);
-              const canRename = manageOnly && !tagDeleteMode && !createTagMode && Boolean(tag.id);
+              const canRename =
+                manageOnly &&
+                isAdmin &&
+                !tagDeleteMode &&
+                !createTagMode &&
+                Boolean(tag.id);
               const active = canToggle && selectedTagSlugs.has(slug);
               const isDeleting = deletingTagId === tag.id;
               const isEditing = manageOnly && editingTagId === tag.id;

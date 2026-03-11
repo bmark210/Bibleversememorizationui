@@ -125,7 +125,7 @@ export function VerseListFiltersDrawer({
         aria-label="Открыть фильтры стихов"
         onClick={() => onOpenChange(true)}
         className={cn(
-          'fixed bottom-0 left-4 right-4 z-30 rounded-[24px] border border-border/70 bg-card/88 px-4 py-3 text-left shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-2xl transition-[opacity,transform] duration-200 md:hidden',
+          'shrink-0 rounded-[24px] border border-border/70 bg-card/88 px-4 py-3 text-left shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-2xl transition-[opacity,transform] duration-200 md:hidden',
           open && 'pointer-events-none translate-y-2 opacity-0',
         )}
         style={{ bottom: `${triggerBottom}px` }}

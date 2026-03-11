@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { isAdminTelegramId } from "@/lib/admins";
 import {
   attachTagToVerse,
   countVerseTagLinks,
@@ -30,6 +31,21 @@ type ReplaceVerseTagsPayload = {
 
 const EXTERNAL_VERSE_ID_VALIDATION_ERROR =
   `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
+
+function getSingleValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function resolveRequesterTelegramId(req: NextApiRequest): string {
+  const fromQuery = getSingleValue(req.query.telegramId);
+  if (fromQuery) return fromQuery;
+
+  const fromHeader = getSingleValue(req.headers["x-telegram-id"]);
+  if (fromHeader) return fromHeader;
+
+  return "";
+}
 
 async function resolveTagId(payload: ModifyTagPayload) {
   if (payload.tagId) {
@@ -142,6 +158,11 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, externalV
     }
 
     if (body?.deleteTagIfUnused) {
+      const requesterTelegramId = resolveRequesterTelegramId(req);
+      if (!isAdminTelegramId(requesterTelegramId)) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
       const linksCount = await countVerseTagLinks(tagId);
 
       if (linksCount > 0) {
