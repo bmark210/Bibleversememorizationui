@@ -54,6 +54,7 @@ type VerseListFilterCardProps = {
   currentFilterTheme: FilterVisualTheme;
   statusFilter: VerseListStatusFilter;
   filterOptions: VerseListFilterOption[];
+  hasFriends?: boolean;
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
   selectedBookId: number | null;
   bookOptions: VerseListBookOption[];
@@ -89,6 +90,7 @@ export function VerseListFilterCard({
   currentFilterTheme: _currentFilterTheme,
   statusFilter,
   filterOptions,
+  hasFriends = false,
   onTabClick,
   selectedBookId,
   bookOptions,
@@ -132,6 +134,9 @@ export function VerseListFilterCard({
       : statusFilter === 'friends'
       ? 'friends'
       : 'my';
+  const visibleRootTabs = hasFriends
+    ? ROOT_TABS
+    : ROOT_TABS.filter((tab) => tab.key !== 'friends');
   const isMyMode = activeRootTab === 'my';
   const trimmedSearchQuery = searchQuery.trim();
   const selectedBook =
@@ -200,9 +205,12 @@ export function VerseListFilterCard({
               <div
                 role="tablist"
                 aria-label="Основной фильтр списка стихов"
-                className="grid grid-cols-3 gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
+                className="grid gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
+                style={{
+                  gridTemplateColumns: `repeat(${visibleRootTabs.length}, minmax(0, 1fr))`,
+                }}
               >
-                {ROOT_TABS.map(({ key, label }) => {
+                {visibleRootTabs.map(({ key, label }) => {
                   const isActive = activeRootTab === key;
                   return (
                     <button

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Clock3, Globe2, Pause, Play, Plus, Repeat, Trash2, Trophy, Users } from 'lucide-react';
+import { Brain, Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -66,7 +66,7 @@ export const SwipeableVerseCard = ({
     }
     if (verse.popularityScope === 'players') {
       return {
-        icon: Globe2,
+        icon: Users,
         label: `У игроков ${popularityValue}`,
         className:
           'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',

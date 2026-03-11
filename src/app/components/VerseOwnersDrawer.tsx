@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Globe2, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import {
   fetchVerseOwnersPage,
   type VerseOwnersScope,
@@ -180,7 +180,7 @@ export function VerseOwnersDrawer({
 
   const hasMore = items.length < totalCount;
   const scopeTitle = target?.scope === "friends" ? "Друзья со стихом" : "Игроки со стихом";
-  const ScopeIcon = target?.scope === "friends" ? Users : Globe2;
+  const ScopeIcon = target?.scope === "friends" ? Users : Users;
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     if (isInitialLoading || isFetchingMore || !hasMore) {

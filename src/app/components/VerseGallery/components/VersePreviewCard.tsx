@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
   Brain,
   Clock3,
-  Globe2,
   Pause,
   Play,
   Plus,
@@ -85,7 +84,7 @@ export function VersePreviewCard({
     }
     if (verse.popularityScope === "players") {
       return {
-        icon: Globe2,
+        icon: Users,
         label: `У игроков ${popularityValue}`,
         className:
           "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",

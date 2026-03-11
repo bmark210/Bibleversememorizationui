@@ -19,7 +19,7 @@ type AnchorTrainingModeRendererProps = {
   typedAnswer: string;
   typingAttempts: number;
   canSubmitTypeAnswer: boolean;
-  isContextPrefixTypeMode: boolean;
+  isCompactTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   onChoiceSelect: (value: string) => void;
@@ -38,7 +38,7 @@ export function AnchorTrainingModeRenderer({
   typedAnswer,
   typingAttempts,
   canSubmitTypeAnswer,
-  isContextPrefixTypeMode,
+  isCompactTypeMode,
   typeInputReadiness,
   inputRef,
   onChoiceSelect,
@@ -77,7 +77,7 @@ export function AnchorTrainingModeRenderer({
       typedAnswer={typedAnswer}
       typingAttempts={typingAttempts}
       canSubmitTypeAnswer={canSubmitTypeAnswer}
-      isContextPrefixTypeMode={isContextPrefixTypeMode}
+      isCompactTypeMode={isCompactTypeMode}
       typeInputReadiness={typeInputReadiness}
       controlsLocked={controlsLocked}
       inputRef={inputRef}

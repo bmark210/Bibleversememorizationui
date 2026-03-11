@@ -30,7 +30,7 @@ type AnchorTypeModeProps = {
   typedAnswer: string;
   typingAttempts: number;
   canSubmitTypeAnswer: boolean;
-  isContextPrefixTypeMode: boolean;
+  isCompactTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
   controlsLocked: boolean;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
@@ -43,7 +43,7 @@ export function AnchorTypeMode({
   typedAnswer,
   typingAttempts,
   canSubmitTypeAnswer,
-  isContextPrefixTypeMode,
+  isCompactTypeMode,
   typeInputReadiness,
   controlsLocked,
   inputRef,
@@ -51,12 +51,12 @@ export function AnchorTypeMode({
   onTypeSubmit,
 }: AnchorTypeModeProps) {
   const mobileFocusTimeoutRef = useRef<number | null>(null);
-  const contextPrefixExpectedLength = useMemo(
+  const compactExpectedLength = useMemo(
     () =>
-      isContextPrefixTypeMode
+      isCompactTypeMode
         ? Array.from(sanitizeCompactInput(question.answerLabel)).length
         : 0,
-    [isContextPrefixTypeMode, question.answerLabel]
+    [isCompactTypeMode, question.answerLabel]
   );
 
   useEffect(() => {
@@ -99,10 +99,10 @@ export function AnchorTypeMode({
             value={typedAnswer}
             onChange={(event) =>
               onTypedAnswerChange(
-                isContextPrefixTypeMode
+                isCompactTypeMode
                   ? trimToMaxLetters(
                       sanitizeCompactInput(event.target.value),
-                      contextPrefixExpectedLength
+                      compactExpectedLength
                     )
                   : event.target.value
               )
@@ -118,11 +118,11 @@ export function AnchorTypeMode({
             placeholder={question.placeholder}
             className={cn(
               "h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35",
-              isContextPrefixTypeMode &&
+              isCompactTypeMode &&
                 "font-mono uppercase tracking-[0.16em]"
             )}
             onFocus={handleInputFocus}
-            autoCapitalize={isContextPrefixTypeMode ? "characters" : "none"}
+            autoCapitalize={isCompactTypeMode ? "characters" : "none"}
             autoCorrect="off"
             spellCheck={false}
             inputMode="text"

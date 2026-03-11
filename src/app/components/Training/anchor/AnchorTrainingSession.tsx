@@ -406,7 +406,7 @@ function buildContextPrompt(verse: ReferenceVerse): string {
   return `${promptText}`;
 }
 
-function getContextPrefixTokens(verse: ReferenceVerse): string[] {
+function getIncipitPrefixTokens(verse: ReferenceVerse): string[] {
   return verse.incipitWords
     .map((word) => normalizeIncipitText(word))
     .filter(Boolean)
@@ -414,11 +414,11 @@ function getContextPrefixTokens(verse: ReferenceVerse): string[] {
     .filter(Boolean);
 }
 
-function matchesContextPrefixInput(input: string, expectedTokens: string[]): boolean {
-  return evaluateContextPrefixInput(input, expectedTokens).isCorrect;
+function matchesCompactPrefixInput(input: string, expectedTokens: string[]): boolean {
+  return evaluateCompactPrefixInput(input, expectedTokens).isCorrect;
 }
 
-function evaluateContextPrefixInput(
+function evaluateCompactPrefixInput(
   input: string,
   expectedTokens: string[]
 ): TypeInputEvaluation {
@@ -467,8 +467,11 @@ function getTypeInputReadiness(
     return { canSubmit: true, remainingChars: 0 };
   }
 
-  if (question.modeId === "context-prefix-type") {
-    const expected = getContextPrefixTokens(question.verse).join("");
+  if (
+    question.modeId === "context-prefix-type" ||
+    question.modeId === "incipit-type"
+  ) {
+    const expected = getIncipitPrefixTokens(question.verse).join("");
     const normalizedInput = normalizeIncipitText(raw).replace(/\s+/g, "");
     const expectedLength = Array.from(expected).length;
     if (expectedLength === 0) return { canSubmit: true, remainingChars: 0 };
@@ -497,12 +500,15 @@ function evaluateTypeInput(
   question: TypeQuestion,
   input: string
 ): TypeInputEvaluation {
-  if (question.modeId === "incipit-type" || question.modeId === "context-incipit-type") {
+  if (question.modeId === "context-incipit-type") {
     return evaluateIncipitInput(input, question.verse.incipit);
   }
 
-  if (question.modeId === "context-prefix-type") {
-    return evaluateContextPrefixInput(input, getContextPrefixTokens(question.verse));
+  if (
+    question.modeId === "context-prefix-type" ||
+    question.modeId === "incipit-type"
+  ) {
+    return evaluateCompactPrefixInput(input, getIncipitPrefixTokens(question.verse));
   }
 
   return {
@@ -771,25 +777,24 @@ function buildIncipitTypeQuestion(
   order: number
 ): TypeQuestion | null {
   if (verse.incipitWords.length < 2) return null;
-  const initials = verse.incipitWords
-    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
-    .filter(Boolean)
-    .join(" ");
+  const prefixTokens = getIncipitPrefixTokens(verse);
+  if (prefixTokens.length === 0) return null;
+  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
 
   return {
     id: `incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "incipit-type",
     track: "incipit",
-    modeHint: "Введите первые слова стиха.",
+    modeHint: "Введите первые буквы начала стиха.",
     verse,
     prompt: verse.reference,
-    answerLabel: verse.incipit,
+    answerLabel: compactUppercasePrefix,
     interaction: "type",
-    placeholder: "Напишите начало стиха",
+    placeholder: "ИТВБМ",
     maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
+    retryHint: `Формат: ${compactUppercasePrefix}`,
     isCorrectInput: (value: string) =>
-      matchesIncipitWithTolerance(value, verse.incipit),
+      matchesCompactPrefixInput(value, prefixTokens),
   };
 }
 
@@ -885,7 +890,7 @@ function buildContextPrefixTypeQuestion(
   const prompt = buildContextPrompt(verse);
   if (!prompt) return null;
 
-  const prefixTokens = getContextPrefixTokens(verse);
+  const prefixTokens = getIncipitPrefixTokens(verse);
   if (prefixTokens.length === 0) return null;
   const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
 
@@ -902,7 +907,7 @@ function buildContextPrefixTypeQuestion(
     maxAttempts: MAX_TYPING_ATTEMPTS,
     retryHint: `Формат: ${compactUppercasePrefix}`,
     isCorrectInput: (value: string) =>
-      matchesContextPrefixInput(value, prefixTokens),
+      matchesCompactPrefixInput(value, prefixTokens),
   };
 }
 
@@ -950,7 +955,7 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
   {
     id: "incipit-type",
     track: "incipit",
-    hint: "Введите первые слова стиха",
+    hint: "Введите первые буквы начала стиха",
     weight: 2,
     canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
     buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
@@ -1696,7 +1701,9 @@ export function AnchorTrainingSession({
   );
 
   const isTypeMode = currentQuestion?.interaction === "type";
-  const isContextPrefixTypeMode = currentQuestion?.modeId === "context-prefix-type";
+  const isCompactTypeMode =
+    currentQuestion?.modeId === "context-prefix-type" ||
+    currentQuestion?.modeId === "incipit-type";
   const typeInputReadiness =
     currentQuestion?.interaction === "type"
       ? getTypeInputReadiness(currentQuestion, typedAnswer)
@@ -1709,7 +1716,15 @@ export function AnchorTrainingSession({
     isKeyboardOpen && isTypeMode && !isAnswered && !sessionComplete;
   const revealedVerseText = getRevealedVerseText(currentQuestion);
   const requiresContinueAfterReveal =
-    isAnswered && !sessionComplete && currentPendingQuestionId !== null;
+    isAnswered &&
+    lastAnswerCorrect === false &&
+    !sessionComplete &&
+    currentPendingQuestionId !== null;
+  const shouldAutoAdvanceAfterAnswer =
+    isAnswered &&
+    lastAnswerCorrect === true &&
+    !sessionComplete &&
+    currentPendingQuestionId !== null;
   const showTrackSelector = !sessionComplete && telegramId && !isLoading;
   const showForgotAnswerAction = Boolean(
     telegramId &&
@@ -1805,7 +1820,7 @@ export function AnchorTrainingSession({
     if (
       !isAnswered ||
       sessionComplete ||
-      !requiresContinueAfterReveal ||
+      !shouldAutoAdvanceAfterAnswer ||
       currentPendingQuestionId === null ||
       pendingTrackChange !== null ||
       isExitConfirmOpen
@@ -1831,8 +1846,8 @@ export function AnchorTrainingSession({
     isAnswered,
     isExitConfirmOpen,
     pendingTrackChange,
-    requiresContinueAfterReveal,
     sessionComplete,
+    shouldAutoAdvanceAfterAnswer,
   ]);
 
   useEffect(() => {
@@ -1995,7 +2010,7 @@ export function AnchorTrainingSession({
                       typedAnswer={typedAnswer}
                       typingAttempts={typingAttempts}
                       canSubmitTypeAnswer={canSubmitTypeAnswer}
-                      isContextPrefixTypeMode={Boolean(isContextPrefixTypeMode)}
+                      isCompactTypeMode={Boolean(isCompactTypeMode)}
                       typeInputReadiness={typeInputReadiness}
                       inputRef={inputRef}
                       lastAnswerCorrect={lastAnswerCorrect}

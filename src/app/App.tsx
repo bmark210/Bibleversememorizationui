@@ -442,6 +442,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const hasLoadedProgressMapFriendsRef = useRef(false);
   const canGoBackInApp = pageStack.length > 1;
   const isDashboardRootPage = currentPage === "dashboard" && !canGoBackInApp;
+  const hasVerseListFriends =
+    (dashboardFriendsActivity?.summary.friendsTotal ?? 0) > 0;
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -1143,6 +1145,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               onVerseMutationCommitted={handleVerseListMutationCommitted}
               onNavigateToTraining={handleNavigateToTrainingWithVerse}
               telegramId={telegramId}
+              hasFriends={hasVerseListFriends}
               onOpenPlayerProfile={handleOpenPlayerProfile}
             />
           )}

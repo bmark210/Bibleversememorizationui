@@ -47,6 +47,7 @@ interface VerseListProps {
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (verse: import("@/app/App").Verse) => void;
   telegramId?: string | null;
+  hasFriends?: boolean;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
     name: string;
@@ -72,6 +73,7 @@ export function VerseList({
   onVerseMutationCommitted,
   onNavigateToTraining,
   telegramId = null,
+  hasFriends = false,
   onOpenPlayerProfile,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -125,6 +127,7 @@ export function VerseList({
   }, []);
 
   const vm = useVerseListController({
+    hasFriends,
     onAddVerse: () => {
       setAddDialogMode("verse");
       setAddDialogOpen(true);
@@ -296,6 +299,7 @@ export function VerseList({
             currentFilterTheme={vm.ui.currentFilterTheme}
             statusFilter={vm.filters.statusFilter}
             filterOptions={vm.filters.filterOptions}
+            hasFriends={hasFriends}
             onTabClick={vm.filterTabs.onTabClick}
             selectedBookId={vm.filters.selectedBookId}
             bookOptions={vm.filters.bookOptions}

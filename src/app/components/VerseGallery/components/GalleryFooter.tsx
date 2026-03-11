@@ -37,6 +37,7 @@ export function GalleryFooter({
           aria-label="Закрыть"
         >
           <X className="h-4 w-4" />
+          Закрыть
         </Button>
 
         {previewStatusAction ? (

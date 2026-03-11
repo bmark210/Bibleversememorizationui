@@ -31,7 +31,7 @@ type AnchorTrainingQuestionCardProps = {
   typedAnswer: string;
   typingAttempts: number;
   canSubmitTypeAnswer: boolean;
-  isContextPrefixTypeMode: boolean;
+  isCompactTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   lastAnswerCorrect: boolean | null;
@@ -149,9 +149,9 @@ function LoadingPlaceholder({ className }: { className: string }) {
 
 function AnchorTrainingLoadingVisual() {
   const loadingDots = [
-    { className: "bg-rose-500/70", delayMs: 0 },
+    { className: "bg-primary/70", delayMs: 0 },
     { className: "bg-primary/80", delayMs: 160 },
-    { className: "bg-sky-500/70", delayMs: 320 },
+    { className: "bg-primary/70", delayMs: 320 },
   ] as const;
 
   return (
@@ -195,7 +195,7 @@ export function AnchorTrainingQuestionCard({
   typedAnswer,
   typingAttempts,
   canSubmitTypeAnswer,
-  isContextPrefixTypeMode,
+  isCompactTypeMode,
   typeInputReadiness,
   inputRef,
   lastAnswerCorrect,
@@ -227,7 +227,7 @@ export function AnchorTrainingQuestionCard({
         typedAnswer={typedAnswer}
         typingAttempts={typingAttempts}
         canSubmitTypeAnswer={canSubmitTypeAnswer}
-        isContextPrefixTypeMode={isContextPrefixTypeMode}
+        isCompactTypeMode={isCompactTypeMode}
         typeInputReadiness={typeInputReadiness}
         inputRef={inputRef}
         onChoiceSelect={onChoiceSelect}
@@ -454,7 +454,7 @@ export function AnchorTrainingStateCard({
             <QuestionBadge className={theme.badgeClassName}>Закрепление</QuestionBadge>
           </div>
           <SurfacePanel className={cn("px-6 py-6 sm:px-8", theme.panelClassName)}>
-            <p className={cn("text-xl font-medium", theme.titleClassName)}>{title}</p>
+            <p className={cn("text-xl font-medium font-serif italic !text-primary/90", theme.titleClassName)}>{title}</p>
           </SurfacePanel>
         </div>
       }

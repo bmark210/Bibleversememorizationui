@@ -39,6 +39,7 @@ import { parseExternalVerseId } from '@/shared/bible/externalVerseId';
 import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
 
 type UseVerseListControllerParams = {
+  hasFriends?: boolean;
   onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
@@ -49,6 +50,7 @@ type UseVerseListControllerParams = {
 };
 
 export function useVerseListController({
+  hasFriends = false,
   onAddVerse,
   onOpenVerseOwners,
   reopenGalleryVerseId = null,
@@ -58,6 +60,7 @@ export function useVerseListController({
   onVerseMutationCommitted,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
+  const canUseFriendsFilter = hasFriends;
 
   const [searchQuery, setSearchQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -67,11 +70,13 @@ export function useVerseListController({
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
     if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
     if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_STATUS_FILTER;
-    return (
+    const stored =
       parseStoredStatusFilter(
         window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
-      ) ?? DEFAULT_VERSE_LIST_STATUS_FILTER
-    );
+      ) ?? DEFAULT_VERSE_LIST_STATUS_FILTER;
+    return stored === 'friends' && !canUseFriendsFilter
+      ? DEFAULT_VERSE_LIST_STATUS_FILTER
+      : stored;
   });
   const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
     if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
@@ -174,9 +179,19 @@ export function useVerseListController({
 
   useEffect(() => {
     if (!reopenGalleryStatusFilter) return;
+    if (reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter) {
+      setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+      return;
+    }
     if (statusFilter === reopenGalleryStatusFilter) return;
     setStatusFilter(reopenGalleryStatusFilter);
-  }, [reopenGalleryStatusFilter, statusFilter]);
+  }, [canUseFriendsFilter, reopenGalleryStatusFilter, statusFilter]);
+
+  useEffect(() => {
+    if (canUseFriendsFilter) return;
+    if (statusFilter !== 'friends') return;
+    setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+  }, [canUseFriendsFilter, statusFilter]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -393,11 +408,12 @@ export function useVerseListController({
   }, [onAddVerse]);
 
   const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
+    if (nextFilter === 'friends' && !canUseFriendsFilter) return;
     if (statusFilter === nextFilter) return;
     haptic('light');
     setStatusFilter(nextFilter);
     setAnnouncement(`Фильтр: ${label}`);
-  }, [statusFilter]);
+  }, [canUseFriendsFilter, statusFilter]);
 
   const handleBookChange = useCallback((nextBookId: number | null, label: string) => {
     if (selectedBookId === nextBookId) return;
