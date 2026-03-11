@@ -20,6 +20,7 @@ import {
   parseStoredStatusFilter,
   VERSE_LIST_STORAGE_KEYS,
 } from '../storage';
+import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { haptic } from '../haptics';
 import { SwipeableVerseCard } from '../components/SwipeableVerseCard';
 import { useTelegramId } from './useTelegramId';
@@ -50,6 +51,23 @@ type UseVerseListControllerParams = {
   onVerseMutationCommitted?: () => void;
 };
 
+function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
+  return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : 'catalog';
+}
+
+function readInitialStoredStatusFilter(
+  canUseFriendsFilter: boolean
+): VerseListStatusFilter | null {
+  if (typeof window === 'undefined') return null;
+
+  const stored =
+    parseStoredStatusFilter(
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
+    ) ?? null;
+
+  return stored === 'friends' && !canUseFriendsFilter ? null : stored;
+}
+
 export function useVerseListController({
   hasFriends = false,
   onAddVerse,
@@ -63,23 +81,23 @@ export function useVerseListController({
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
   const canUseFriendsFilter = hasFriends;
+  const hasOwnVersesRequestIdRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
     return window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? '';
   });
   const tagFilter = useTagFilter();
+  const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(() => {
+    if (reopenGalleryStatusFilter) return null;
+    return readInitialStoredStatusFilter(canUseFriendsFilter);
+  });
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
     if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
-    if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_STATUS_FILTER;
-    const stored =
-      parseStoredStatusFilter(
-        window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
-      ) ?? DEFAULT_VERSE_LIST_STATUS_FILTER;
-    return stored === 'friends' && !canUseFriendsFilter
-      ? DEFAULT_VERSE_LIST_STATUS_FILTER
-      : stored;
+    return initialStoredStatusFilter ?? 'catalog';
   });
+  const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(null);
+  const [previousHasOwnVerses, setPreviousHasOwnVerses] = useState<boolean | null>(null);
   const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
     if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
     return (
@@ -105,6 +123,60 @@ export function useVerseListController({
   );
 
   const { telegramId } = useTelegramId();
+  const defaultStatusFilter = getDefaultStatusFilter(Boolean(hasOwnVerses));
+  const hasStoredInitialStatusFilter = initialStoredStatusFilter !== null;
+  const shouldAutoSwitchToMy =
+    hasOwnVerses === true &&
+    !reopenGalleryStatusFilter &&
+    statusFilter === 'catalog' &&
+    (
+      previousHasOwnVerses === false ||
+      (previousHasOwnVerses === null && !hasStoredInitialStatusFilter)
+    );
+  const shouldAutoSwitchToCatalog =
+    hasOwnVerses === false &&
+    !reopenGalleryStatusFilter &&
+    statusFilter !== 'catalog' &&
+    statusFilter !== 'friends';
+  const shouldDelayListFetch =
+    Boolean(telegramId) &&
+    (hasOwnVerses === null || shouldAutoSwitchToMy || shouldAutoSwitchToCatalog);
+
+  const refreshHasOwnVerses = useCallback(
+    async (telegramIdOverride?: string | null) => {
+      const resolvedTelegramId = telegramIdOverride?.trim() || telegramId?.trim() || '';
+      if (!resolvedTelegramId) {
+        setHasOwnVerses(null);
+        setPreviousHasOwnVerses(null);
+        return null;
+      }
+
+      const requestId = ++hasOwnVersesRequestIdRef.current;
+
+      try {
+        const page = await fetchUserVersesPage({
+          telegramId: resolvedTelegramId,
+          filter: 'my',
+          orderBy: 'updatedAt',
+          order: 'desc',
+          limit: 1,
+        });
+
+        if (hasOwnVersesRequestIdRef.current !== requestId) return null;
+        const nextHasOwnVerses = page.totalCount > 0;
+        setHasOwnVerses(nextHasOwnVerses);
+        return nextHasOwnVerses;
+      } catch (error) {
+        if (hasOwnVersesRequestIdRef.current !== requestId) return null;
+        console.error('Не удалось определить наличие пользовательских стихов:', error);
+        const fallbackHasOwnVerses =
+          statusFilter !== 'catalog' && statusFilter !== 'friends';
+        setHasOwnVerses(fallbackHasOwnVerses);
+        return fallbackHasOwnVerses;
+      }
+    },
+    [statusFilter, telegramId]
+  );
 
   const pagination = useVersePagination({
     telegramId,
@@ -154,16 +226,43 @@ export function useVerseListController({
     setGalleryIndex,
     setAnnouncement,
     applyVersePatch: pagination.applyVersePatch,
-    onVerseMutationCommitted,
+    onVerseMutationCommitted: () => {
+      void refreshHasOwnVerses();
+      onVerseMutationCommitted?.();
+    },
   });
 
   useEffect(() => {
     if (!telegramId) {
       pagination.clearPaginationState();
+      setHasOwnVerses(null);
+      setPreviousHasOwnVerses(null);
       return;
     }
+    void refreshHasOwnVerses(telegramId);
+  }, [telegramId, pagination.clearPaginationState, refreshHasOwnVerses]);
+
+  useEffect(() => {
+    if (hasOwnVerses == null) return;
+
+    if (shouldAutoSwitchToCatalog) {
+      setStatusFilter('catalog');
+    } else if (shouldAutoSwitchToMy) {
+      setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+    }
+
+    setPreviousHasOwnVerses(hasOwnVerses);
+  }, [hasOwnVerses, shouldAutoSwitchToCatalog, shouldAutoSwitchToMy]);
+
+  useEffect(() => {
+    if (!telegramId || shouldDelayListFetch) return;
     void pagination.resetAndFetchFirstPage(telegramId, statusFilter);
-  }, [telegramId, statusFilter, pagination.clearPaginationState, pagination.resetAndFetchFirstPage]);
+  }, [
+    telegramId,
+    statusFilter,
+    shouldDelayListFetch,
+    pagination.resetAndFetchFirstPage,
+  ]);
 
   useEffect(() => {
     if (verseListExternalSyncVersion == null) return;
@@ -171,8 +270,10 @@ export function useVerseListController({
     lastHandledExternalSyncVersionRef.current = verseListExternalSyncVersion;
     if (!telegramId) return;
     if (!pagination.hasFetchedVersesOnce) return;
+    void refreshHasOwnVerses(telegramId);
     void pagination.refetchCurrentListFromExternalSync();
   }, [
+    refreshHasOwnVerses,
     telegramId,
     pagination.hasFetchedVersesOnce,
     pagination.refetchCurrentListFromExternalSync,
@@ -182,18 +283,18 @@ export function useVerseListController({
   useEffect(() => {
     if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter) {
-      setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+      setStatusFilter(defaultStatusFilter);
       return;
     }
     if (statusFilter === reopenGalleryStatusFilter) return;
     setStatusFilter(reopenGalleryStatusFilter);
-  }, [canUseFriendsFilter, reopenGalleryStatusFilter, statusFilter]);
+  }, [canUseFriendsFilter, defaultStatusFilter, reopenGalleryStatusFilter, statusFilter]);
 
   useEffect(() => {
     if (canUseFriendsFilter) return;
     if (statusFilter !== 'friends') return;
-    setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
-  }, [canUseFriendsFilter, statusFilter]);
+    setStatusFilter(defaultStatusFilter);
+  }, [canUseFriendsFilter, defaultStatusFilter, statusFilter]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -322,6 +423,7 @@ export function useVerseListController({
 
   const shouldReduceMotion = Boolean(useReducedMotion());
   const isListLoading =
+    (shouldDelayListFetch && !pagination.hasFetchedVersesOnce) ||
     pagination.isFetchingVerses && !pagination.hasFetchedVersesOnce && pagination.verses.length === 0;
   const isEmptyFiltered =
     pagination.hasFetchedVersesOnce && !pagination.isFetchingVerses && filteredVerses.length === 0;
@@ -444,20 +546,28 @@ export function useVerseListController({
 
   const handleResetFilters = useCallback(() => {
     const hasChanges =
-      statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+      statusFilter !== defaultStatusFilter ||
       selectedBookId !== null ||
       sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
       searchQuery.trim().length > 0 ||
       tagFilter.hasActiveTags;
     if (!hasChanges) return;
     haptic('light');
-    setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
+    setStatusFilter(defaultStatusFilter);
     setSelectedBookId(null);
     setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
     setSearchQuery('');
     tagFilter.clearTags();
     setAnnouncement('Фильтры сброшены');
-  }, [searchQuery, selectedBookId, sortBy, statusFilter, tagFilter.clearTags, tagFilter.hasActiveTags]);
+  }, [
+    defaultStatusFilter,
+    searchQuery,
+    selectedBookId,
+    sortBy,
+    statusFilter,
+    tagFilter.clearTags,
+    tagFilter.hasActiveTags,
+  ]);
 
   const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
     if (statusFilter === 'catalog') return {
@@ -568,6 +678,7 @@ export function useVerseListController({
     },
     filters: {
       statusFilter,
+      defaultStatusFilter,
       filterOptions,
       selectedBookId,
       bookOptions,

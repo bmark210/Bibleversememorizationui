@@ -349,6 +349,7 @@ export function VerseList({
             currentFilterLabel={vm.ui.currentFilterLabel}
             currentFilterTheme={vm.ui.currentFilterTheme}
             statusFilter={vm.filters.statusFilter}
+            defaultStatusFilter={vm.filters.defaultStatusFilter}
             filterOptions={vm.filters.filterOptions}
             hasFriends={hasFriends}
             onTabClick={vm.filterTabs.onTabClick}
@@ -438,6 +439,7 @@ export function VerseList({
           currentFilterLabel={vm.ui.currentFilterLabel}
           currentFilterTheme={vm.ui.currentFilterTheme}
           statusFilter={vm.filters.statusFilter}
+          defaultStatusFilter={vm.filters.defaultStatusFilter}
           filterOptions={vm.filters.filterOptions}
           hasFriends={hasFriends}
           onTabClick={vm.filterTabs.onTabClick}

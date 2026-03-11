@@ -16,7 +16,6 @@ import { cn } from '@/app/components/ui/utils';
 import type { Tag } from '@/api/models/Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
-  DEFAULT_VERSE_LIST_STATUS_FILTER,
   FILTER_VISUAL_THEME,
   type FilterVisualTheme,
   type VerseListSortBy,
@@ -112,6 +111,7 @@ export type VerseListFilterCardProps = {
   currentFilterLabel: string;
   currentFilterTheme: FilterVisualTheme;
   statusFilter: VerseListStatusFilter;
+  defaultStatusFilter: VerseListStatusFilter;
   filterOptions: VerseListFilterOption[];
   hasFriends?: boolean;
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
@@ -574,6 +574,7 @@ export function VerseListFilterCard({
   currentFilterLabel,
   currentFilterTheme,
   statusFilter,
+  defaultStatusFilter,
   filterOptions,
   hasFriends = false,
   onTabClick,
@@ -616,7 +617,7 @@ export function VerseListFilterCard({
 
   const trimmedSearchQuery = searchQuery.trim();
   const hasFiltersApplied =
-    statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+    statusFilter !== defaultStatusFilter ||
     selectedBookId !== null ||
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
@@ -628,6 +629,7 @@ export function VerseListFilterCard({
     currentFilterLabel,
     currentFilterTheme,
     statusFilter,
+    defaultStatusFilter,
     filterOptions,
     hasFriends,
     onTabClick,

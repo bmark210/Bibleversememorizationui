@@ -50,6 +50,7 @@ export type VerseListController = {
   };
   filters: {
     statusFilter: VerseListStatusFilter;
+    defaultStatusFilter: VerseListStatusFilter;
     filterOptions: VerseListFilterOption[];
     selectedBookId: number | null;
     bookOptions: VerseListBookOption[];

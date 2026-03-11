@@ -11,7 +11,6 @@ import {
 } from '@/app/components/ui/drawer';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
-  DEFAULT_VERSE_LIST_STATUS_FILTER,
 } from '../constants';
 import {
   VerseListFilterCard,
@@ -41,6 +40,7 @@ export function VerseListFiltersDrawer({
   currentFilterLabel,
   currentFilterTheme,
   statusFilter,
+  defaultStatusFilter,
   filterOptions,
   hasFriends = false,
   onTabClick,
@@ -69,13 +69,13 @@ export function VerseListFiltersDrawer({
       ? null
       : bookOptions.find((option) => option.id === selectedBookId) ?? null;
   const hasFiltersApplied =
-    statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER ||
+    statusFilter !== defaultStatusFilter ||
     selectedBookId !== null ||
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
     trimmedSearchQuery.length > 0;
   const activeFilterCount = [
-    statusFilter !== DEFAULT_VERSE_LIST_STATUS_FILTER,
+    statusFilter !== defaultStatusFilter,
     selectedBookId !== null,
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY,
     hasActiveTags,
@@ -95,6 +95,7 @@ export function VerseListFiltersDrawer({
     currentFilterLabel,
     currentFilterTheme,
     statusFilter,
+    defaultStatusFilter,
     filterOptions,
     hasFriends,
     onTabClick,
