@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor,
   Brain,
@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
@@ -31,6 +32,8 @@ type Props = {
   isAnchorEligible?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onOpenTags?: (verse: Verse) => void;
+  onOpenOwners?: (verse: Verse) => void;
 };
 
 export function VersePreviewCard({
@@ -40,6 +43,8 @@ export function VersePreviewCard({
   isAnchorEligible = false,
   onStartTraining,
   onStatusAction,
+  onOpenTags,
+  onOpenOwners,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const previewTextRef = useRef<HTMLParagraphElement>(null);
@@ -59,6 +64,67 @@ export function VersePreviewCard({
       ? `Доступно ${nextReviewAt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`
       : null;
   const isReviewStage = status === "REVIEW" || status === "MASTERED";
+  const activeTagSlugSet = useMemo(() => {
+    const next = new Set<string>();
+    if (!activeTagSlugs) return next;
+
+    for (const rawSlug of activeTagSlugs) {
+      const slug = String(rawSlug ?? "").trim();
+      if (!slug) continue;
+      next.add(slug);
+    }
+
+    return next;
+  }, [activeTagSlugs]);
+  const normalizedTags = useMemo(() => {
+    if (!Array.isArray(verse.tags) || verse.tags.length === 0) return [];
+
+    const seen = new Set<string>();
+    return verse.tags.reduce<Array<{ id?: string; slug?: string; title: string }>>(
+      (acc, tag) => {
+        const title = String(tag?.title ?? "").trim();
+        if (!title) return acc;
+
+        const key = String(tag?.id ?? tag?.slug ?? title.toLowerCase());
+        if (seen.has(key)) return acc;
+        seen.add(key);
+
+        acc.push({
+          id: tag?.id,
+          slug: tag?.slug,
+          title,
+        });
+        return acc;
+      },
+      [],
+    );
+  }, [verse.tags]);
+  const previewUsers = useMemo(() => {
+    if (!Array.isArray(verse.popularityPreviewUsers)) return [];
+
+    const seen = new Set<string>();
+    return verse.popularityPreviewUsers
+      .reduce<Array<{ telegramId: string; name: string; avatarUrl: string | null }>>(
+        (acc, user) => {
+          const telegramId = String(user?.telegramId ?? "").trim();
+          const name = String(user?.name ?? "").trim();
+          if (!telegramId || !name || seen.has(telegramId)) return acc;
+          seen.add(telegramId);
+
+          acc.push({
+            telegramId,
+            name,
+            avatarUrl:
+              typeof user?.avatarUrl === "string" && user.avatarUrl.trim()
+                ? user.avatarUrl.trim()
+                : null,
+          });
+          return acc;
+        },
+        [],
+      )
+      .slice(0, 4);
+  }, [verse.popularityPreviewUsers]);
 
   const tone: VerseCardPreviewTone | undefined =
     status === "CATALOG"
@@ -96,6 +162,12 @@ export function VersePreviewCard({
     }
     return null;
   })();
+  const hasOwnersTrigger =
+    Boolean(onOpenOwners) &&
+    popularityBadge != null &&
+    popularityValue != null &&
+    popularityValue > 0 &&
+    (verse.popularityScope === "friends" || verse.popularityScope === "players");
 
   const primaryAction = buildPrimaryAction({
     status,
@@ -179,6 +251,14 @@ export function VersePreviewCard({
     };
   }, [verse.text, showFooter]);
 
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
@@ -186,7 +266,43 @@ export function VersePreviewCard({
         minHeight="training"
         previewTone={tone}
         metaBadge={
-          popularityBadge && popularityValue && popularityValue > 0 ? (
+          hasOwnersTrigger ? (
+            <button
+              type="button"
+              onClick={() => onOpenOwners?.(verse)}
+              className={cn(
+                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] shadow-sm transition-colors hover:bg-muted/45",
+                "border-border/40 bg-muted/25 text-muted-foreground/70",
+                popularityBadge?.className,
+              )}
+              aria-label={popularityBadge?.label ?? "Открыть список пользователей"}
+            >
+              {previewUsers.length > 0 ? (
+                <span className="flex -space-x-1.5">
+                  {previewUsers.map((user) => (
+                    <Avatar
+                      key={user.telegramId}
+                      className="h-4 w-4 border border-background shadow-sm"
+                    >
+                      {user.avatarUrl ? (
+                        <AvatarImage src={user.avatarUrl} alt={user.name} />
+                      ) : null}
+                      <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                </span>
+              ) : (
+                <span className="inline-flex items-center justify-center">
+                  <popularityBadge.icon className="h-3.5 w-3.5" />
+                </span>
+              )}
+              <span className="truncate font-semibold">
+                {popularityBadge?.label}
+              </span>
+            </button>
+          ) : popularityBadge && popularityValue && popularityValue > 0 ? (
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
@@ -198,14 +314,67 @@ export function VersePreviewCard({
             </span>
           ) : null
         }
-        tags={verse.tags ?? []}
-        activeTagSlugs={activeTagSlugs}
         header={
-          <div className="w-full min-w-0 flex-shrink-0 text-center space-y-3">
+          <div className="w-full min-w-0 flex-shrink-0 text-center space-y-4">
             <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic break-words [overflow-wrap:anywhere]">
               {verse.reference}
             </h2>
             <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+
+            {normalizedTags.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {normalizedTags.slice(0, 3).map((tag, index) => {
+                  const slug = String(tag.slug ?? "").trim();
+                  const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
+
+                  return onOpenTags ? (
+                    <button
+                      key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                      type="button"
+                      onClick={() => onOpenTags(verse)}
+                      className={cn(
+                        "inline-flex min-h-9 items-center rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-wide transition-colors",
+                        isActive
+                          ? "border-primary/30 bg-primary/12 text-primary"
+                          : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
+                      )}
+                      aria-label={`Открыть теги стиха ${verse.reference}`}
+                    >
+                      #{tag.title}
+                    </button>
+                  ) : (
+                    <span
+                      key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                      className={cn(
+                        "inline-flex min-h-9 items-center rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-wide",
+                        isActive
+                          ? "border-primary/30 bg-primary/12 text-primary"
+                          : "border-border/60 bg-muted/35 text-muted-foreground",
+                      )}
+                    >
+                      #{tag.title}
+                    </span>
+                  );
+                })}
+
+                {normalizedTags.length > 3 ? (
+                  onOpenTags ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenTags(verse)}
+                      className="inline-flex min-h-9 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
+                      aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
+                    >
+                      +{normalizedTags.length - 3}
+                    </button>
+                  ) : (
+                    <span className="inline-flex min-h-9 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
+                      +{normalizedTags.length - 3}
+                    </span>
+                  )
+                ) : null}
+              </div>
+            ) : null}
           </div>
         }
         body={

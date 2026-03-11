@@ -932,7 +932,7 @@ export function TrainingHub({
                   type="button"
                   size="lg"
                   disabled
-                  className="h-14 w-full gap-2 rounded-2xl border border-foreground/10 bg-foreground/[0.03] px-5 text-sm font-medium text-foreground/45 shadow-none"
+                  className="h-14 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
                 >
                   <Lock className="h-4 w-4" />
                   {lockedStartLabel}

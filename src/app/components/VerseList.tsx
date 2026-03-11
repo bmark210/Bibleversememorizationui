@@ -51,6 +51,7 @@ interface VerseListProps {
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
+  onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
     name: string;
@@ -79,6 +80,7 @@ export function VerseList({
   hasFriends = false,
   onOpenPlayerProfile,
   isAnchorEligible = false,
+  onFriendsChanged,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -393,7 +395,7 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
-          <motion.div className="min-h-0" {...reveal(0.05)}>
+          <motion.div className="flex-1 min-h-0" {...reveal(0.05)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={{
@@ -407,6 +409,7 @@ export function VerseList({
               }}
               count={vm.pagination.totalCount}
               contentHeightMode="auto"
+              fillAvailableHeight
             >
               <VerseListEmptyState
                 currentFilterLabel={vm.ui.currentFilterLabel}
@@ -502,9 +505,12 @@ export function VerseList({
               verses={vm.pagination.verses}
               initialIndex={vm.gallery.galleryIndex}
               activeTagSlugs={vm.tagFilter.selectedTagSlugs}
+              viewerTelegramId={telegramId}
               onClose={vm.gallery.onClose}
               onStatusChange={vm.gallery.onStatusChange}
               onDelete={vm.gallery.onDelete}
+              onSelectTag={handleVerseTagSelect}
+              onFriendsChanged={onFriendsChanged}
               onNavigateToTraining={(verse) => {
                 vm.gallery.onClose();
                 onNavigateToTraining?.(verse);

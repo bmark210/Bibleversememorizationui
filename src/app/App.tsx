@@ -1169,6 +1169,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               onNavigateToTraining={handleNavigateToTrainingWithVerse}
               telegramId={telegramId}
               hasFriends={hasVerseListFriends}
+              onFriendsChanged={handleFriendsChanged}
               onOpenPlayerProfile={handleOpenPlayerProfile}
               isAnchorEligible={
                 (dashboardStats?.reviewVerses ?? 0) >= 10 ||

@@ -49,13 +49,22 @@ export type TrainingVerseState = {
   nextReviewAt: Date | null;
 };
 
+export type PlayerProfilePreview = {
+  telegramId: string;
+  name: string;
+  avatarUrl: string | null;
+};
+
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
   activeTagSlugs?: Iterable<string> | null;
+  viewerTelegramId?: string | null;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
   onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
+  onSelectTag: (slug: string) => void;
+  onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */
   onNavigateToTraining: (verse: Verse) => void;
   /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */

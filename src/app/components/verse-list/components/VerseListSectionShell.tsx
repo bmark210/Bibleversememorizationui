@@ -8,35 +8,38 @@ type VerseListSectionShellProps = {
   config: VerseListSectionConfig;
   count: number;
   contentHeightMode?: 'virtualized' | 'auto';
+  fillAvailableHeight?: boolean;
   children: React.ReactNode;
   totalCount: number;
 };
 
 export function VerseListSectionShell({
   config,
-  count,
+  count: _count,
   contentHeightMode = 'virtualized',
+  fillAvailableHeight = false,
   children,
   totalCount,
 }: VerseListSectionShellProps) {
-  const estimatedRows = count > 0 ? count : 3;
   const shouldUseVirtualizedViewport = contentHeightMode === 'virtualized';
+  const shouldFillAvailableHeight =
+    shouldUseVirtualizedViewport || fillAvailableHeight;
   const contentStyle = shouldUseVirtualizedViewport
     ? {
-        height: `min(100%, calc(${estimatedRows} * 13rem))`,
+        height: '100%',
         maxHeight: '100%',
       }
     : undefined;
 
   return (
     <section
-      className={cn('min-h-0', shouldUseVirtualizedViewport && 'h-full')}
+      className={cn('min-h-0', shouldFillAvailableHeight && 'h-full')}
       aria-labelledby={config.headingId}
     >
       <Card
         className={cn(
           'min-h-0 flex flex-col gap-0 overflow-hidden rounded-3xl border-border/70',
-          shouldUseVirtualizedViewport && 'h-full',
+          shouldFillAvailableHeight && 'h-full',
           config.borderClassName,
         )}
       >
@@ -60,12 +63,12 @@ export function VerseListSectionShell({
         <div
           className={cn(
             'min-h-0 bg-muted/10 px-3 sm:px-4',
-            shouldUseVirtualizedViewport && 'flex-1',
+            shouldFillAvailableHeight && 'flex-1',
           )}
         >
           <div
             className={cn(
-              shouldUseVirtualizedViewport ? 'h-full min-h-0' : 'h-fit',
+              shouldFillAvailableHeight ? 'h-full min-h-0' : 'h-fit',
             )}
             style={contentStyle}
           >

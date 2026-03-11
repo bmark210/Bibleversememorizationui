@@ -80,7 +80,7 @@ export type VerseListFilterCardProps = {
 };
 
 const ROOT_TABS = [
-  { key: 'catalog', label: 'Общий' },
+  { key: 'catalog', label: 'Каталог' },
   { key: 'friends', label: 'Друзья' },
   { key: 'my', label: 'Мои стихи' },
 ] as const;
@@ -176,6 +176,14 @@ function VerseListFilterSections({
               Книга: {selectedBook?.label ?? ALL_BOOKS_LABEL}
             </div>
           </div>
+          {selectedBookId !== null ? (<button
+            type="button"
+            onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
+            className="text-[11px] text-muted-foreground transition-colors"
+            >
+              Сбросить
+            </button>
+          ) : null} 
         </div>
         <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
           <ScrollRow className="py-0.5">

@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   useState,
   type TouchEvent as ReactTouchEvent,
 } from "react";
@@ -21,6 +22,9 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Toaster } from "@/app/components/ui/toaster";
+import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
+import { VerseOwnersDrawer } from "@/app/components/VerseOwnersDrawer";
+import { VerseTagsDrawer } from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { GALLERY_TOASTER_ID, TOAST_TOP_OFFSET_PX, toast } from "@/app/lib/toast";
@@ -48,7 +52,8 @@ import {
   clamp,
 } from "./utils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
-import type { VerseGalleryProps } from "./types";
+import type { Verse } from "@/app/App";
+import type { PlayerProfilePreview, VerseGalleryProps } from "./types";
 
 // Card slide animation — only animation kept intentionally
 const slideVariants = {
@@ -154,9 +159,12 @@ export function VerseGallery({
   verses,
   initialIndex,
   activeTagSlugs = null,
+  viewerTelegramId = null,
   onClose,
   onStatusChange,
   onDelete,
+  onSelectTag,
+  onFriendsChanged,
   onNavigateToTraining,
   isAnchorEligible = false,
   previewTotalCount = verses.length,
@@ -174,6 +182,22 @@ export function VerseGallery({
   );
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isVerseTagsDrawerOpen, setIsVerseTagsDrawerOpen] = useState(false);
+  const [verseTagsTarget, setVerseTagsTarget] = useState<Pick<
+    Verse,
+    "reference" | "tags"
+  > | null>(null);
+  const [isVerseOwnersDrawerOpen, setIsVerseOwnersDrawerOpen] = useState(false);
+  const [verseOwnersTarget, setVerseOwnersTarget] = useState<{
+    externalVerseId: string;
+    reference: string;
+    scope: "friends" | "players";
+    totalCount: number;
+  } | null>(null);
+  const [isPlayerProfileDrawerOpen, setIsPlayerProfileDrawerOpen] =
+    useState(false);
+  const [activePlayerProfile, setActivePlayerProfile] =
+    useState<PlayerProfilePreview | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -222,6 +246,83 @@ export function VerseGallery({
     : null;
 
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
+  const selectedTagSlugs = useMemo(() => {
+    const next = new Set<string>();
+    if (!activeTagSlugs) return next;
+
+    for (const rawSlug of activeTagSlugs) {
+      const slug = String(rawSlug ?? "").trim();
+      if (!slug) continue;
+      next.add(slug);
+    }
+
+    return next;
+  }, [activeTagSlugs]);
+
+  const closeVerseTagsDrawer = useCallback(() => {
+    setIsVerseTagsDrawerOpen(false);
+    setVerseTagsTarget(null);
+  }, []);
+
+  const closeVerseOwnersDrawer = useCallback(() => {
+    setIsVerseOwnersDrawerOpen(false);
+    setVerseOwnersTarget(null);
+  }, []);
+
+  const closePlayerProfileDrawer = useCallback(() => {
+    setIsPlayerProfileDrawerOpen(false);
+    setActivePlayerProfile(null);
+  }, []);
+
+  const handleOpenTagsDrawer = useCallback((verse: Verse) => {
+    if (!verse.tags || verse.tags.length === 0) return;
+
+    setVerseTagsTarget({
+      reference: verse.reference,
+      tags: verse.tags,
+    });
+    setIsVerseTagsDrawerOpen(true);
+  }, []);
+
+  const handleOpenOwnersDrawer = useCallback((verse: Verse) => {
+    if (
+      !verse.popularityScope ||
+      verse.popularityScope === "self" ||
+      !verse.popularityValue
+    ) {
+      return;
+    }
+
+    setVerseOwnersTarget({
+      externalVerseId: verse.externalVerseId,
+      reference: verse.reference,
+      scope: verse.popularityScope,
+      totalCount: Math.max(0, Math.round(verse.popularityValue)),
+    });
+    setIsVerseOwnersDrawerOpen(true);
+  }, []);
+
+  const handleVerseTagSelect = useCallback(
+    (slug: string) => {
+      onSelectTag(slug);
+      closeVerseTagsDrawer();
+    },
+    [closeVerseTagsDrawer, onSelectTag],
+  );
+
+  const handleOpenPlayerProfile = useCallback(
+    (player: PlayerProfilePreview) => {
+      if (!player.telegramId) return;
+
+      setActivePlayerProfile({
+        telegramId: player.telegramId,
+        name: player.name,
+        avatarUrl: player.avatarUrl ?? null,
+      });
+      setIsPlayerProfileDrawerOpen(true);
+    },
+    [],
+  );
 
   // ── Preview status action ────────────────────────────────────────────────────
   const handlePreviewStatusAction = useCallback(async () => {
@@ -306,10 +407,33 @@ export function VerseGallery({
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
     const handleWindowKeyDown = (e: KeyboardEvent) => {
-      if (aux.isDeleteDialogOpen) return;
       if (e.key === "Escape") {
         e.preventDefault();
+        if (aux.isDeleteDialogOpen) {
+          aux.setIsDeleteDialogOpen(false);
+          return;
+        }
+        if (isPlayerProfileDrawerOpen) {
+          closePlayerProfileDrawer();
+          return;
+        }
+        if (isVerseOwnersDrawerOpen) {
+          closeVerseOwnersDrawer();
+          return;
+        }
+        if (isVerseTagsDrawerOpen) {
+          closeVerseTagsDrawer();
+          return;
+        }
         onClose();
+        return;
+      }
+      if (
+        aux.isDeleteDialogOpen ||
+        isPlayerProfileDrawerOpen ||
+        isVerseOwnersDrawerOpen ||
+        isVerseTagsDrawerOpen
+      ) {
         return;
       }
       if (e.key === "ArrowDown" || e.key === "PageDown") {
@@ -324,7 +448,17 @@ export function VerseGallery({
     };
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [aux.isDeleteDialogOpen, nav, onClose]);
+  }, [
+    aux,
+    closePlayerProfileDrawer,
+    closeVerseOwnersDrawer,
+    closeVerseTagsDrawer,
+    isPlayerProfileDrawerOpen,
+    isVerseOwnersDrawerOpen,
+    isVerseTagsDrawerOpen,
+    nav,
+    onClose,
+  ]);
 
   // Initial focus
   useEffect(() => {
@@ -380,9 +514,30 @@ export function VerseGallery({
       aux.setIsDeleteDialogOpen(false);
       return;
     }
+    if (isPlayerProfileDrawerOpen) {
+      closePlayerProfileDrawer();
+      return;
+    }
+    if (isVerseOwnersDrawerOpen) {
+      closeVerseOwnersDrawer();
+      return;
+    }
+    if (isVerseTagsDrawerOpen) {
+      closeVerseTagsDrawer();
+      return;
+    }
 
     onClose();
-  }, [aux, onClose]);
+  }, [
+    aux,
+    closePlayerProfileDrawer,
+    closeVerseOwnersDrawer,
+    closeVerseTagsDrawer,
+    isPlayerProfileDrawerOpen,
+    isVerseOwnersDrawerOpen,
+    isVerseTagsDrawerOpen,
+    onClose,
+  ]);
 
   useTelegramBackButton({
     enabled: true,
@@ -465,6 +620,8 @@ export function VerseGallery({
                   isAnchorEligible={isAnchorEligible}
                   onStartTraining={() => onNavigateToTraining(previewActiveVerse)}
                   onStatusAction={() => void handlePreviewStatusAction()}
+                  onOpenTags={handleOpenTagsDrawer}
+                  onOpenOwners={handleOpenOwnersDrawer}
                 />
               </div>
             </motion.div>
@@ -510,6 +667,48 @@ export function VerseGallery({
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      <VerseTagsDrawer
+        target={verseTagsTarget}
+        open={isVerseTagsDrawerOpen}
+        selectedTagSlugs={selectedTagSlugs}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeVerseTagsDrawer();
+            return;
+          }
+          setIsVerseTagsDrawerOpen(true);
+        }}
+        onSelectTag={handleVerseTagSelect}
+      />
+
+      <VerseOwnersDrawer
+        viewerTelegramId={viewerTelegramId}
+        target={verseOwnersTarget}
+        open={isVerseOwnersDrawerOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeVerseOwnersDrawer();
+            return;
+          }
+          setIsVerseOwnersDrawerOpen(true);
+        }}
+        onOpenPlayerProfile={handleOpenPlayerProfile}
+      />
+
+      <PlayerProfileDrawer
+        viewerTelegramId={viewerTelegramId}
+        preview={activePlayerProfile}
+        open={isPlayerProfileDrawerOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePlayerProfileDrawer();
+            return;
+          }
+          setIsPlayerProfileDrawerOpen(true);
+        }}
+        onFriendsChanged={onFriendsChanged}
+      />
     </>
   );
 }
