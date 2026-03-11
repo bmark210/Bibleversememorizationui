@@ -50,6 +50,62 @@ const PANEL_TRANSITION = {
   ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
 };
 
+const TESTAMENT_GROUPS = [
+  { key: 'old', label: 'Ветхий Завет' },
+  { key: 'new', label: 'Новый Завет' },
+] as const;
+
+function SectionActionButton({
+  expanded,
+  onClick,
+  controls,
+}: {
+  expanded: boolean;
+  onClick: () => void;
+  controls: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={controls}
+      onClick={onClick}
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:bg-background"
+    >
+      <span>{expanded ? 'Свернуть' : 'Развернуть'}</span>
+      {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+function ExpandableSectionBody({
+  expanded,
+  controls,
+  collapsedContent,
+  expandedContent,
+}: {
+  expanded: boolean;
+  controls: string;
+  collapsedContent: React.ReactNode;
+  expandedContent: React.ReactNode;
+}) {
+  return (
+    <AnimatePresence initial={false} mode="wait">
+      <motion.div
+        key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
+        id={controls}
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={PANEL_TRANSITION}
+        className="overflow-hidden"
+      >
+        {expanded ? expandedContent : collapsedContent}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export type VerseListFilterCardProps = {
   totalVisible: number;
   totalCount: number;
@@ -107,6 +163,10 @@ function VerseListFilterSections({
   onCreateTagDialogOpen,
 }: Omit<VerseListFilterCardProps, 'presentation'>) {
   const deletingTagId = null;
+  const [areBooksExpanded, setAreBooksExpanded] = useState(false);
+  const [areTagsExpanded, setAreTagsExpanded] = useState(false);
+  const booksPanelId = React.useId();
+  const tagsPanelId = React.useId();
   const activeRootTab: (typeof ROOT_TABS)[number]['key'] =
     statusFilter === 'catalog'
       ? 'catalog'
@@ -121,6 +181,105 @@ function VerseListFilterSections({
     selectedBookId == null
       ? null
       : bookOptions.find((option) => option.id === selectedBookId) ?? null;
+  const bookGroups = TESTAMENT_GROUPS.map((group) => ({
+    ...group,
+    options: bookOptions.filter((option) => option.testament === group.key),
+  }));
+
+  const renderBookButton = (
+    option: VerseListBookOption,
+    layout: 'row' | 'grid',
+  ) => {
+    const isActive = selectedBookId === option.id;
+
+    return (
+      <button
+        key={option.id}
+        type="button"
+        title={option.label}
+        onClick={() => onBookChange(option.id, option.label)}
+        className={cn(
+          layout === 'row'
+            ? 'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors'
+            : 'inline-flex min-h-9 items-center justify-center rounded-xl border px-1.5 py-2 text-[10px] font-medium leading-none transition-colors',
+          isActive
+            ? 'border-primary/30 bg-primary/12 text-primary'
+            : 'border-border/55 bg-background/25 text-foreground/75 hover:bg-background/60',
+        )}
+      >
+        {layout === 'row' ? (
+          <>
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                option.testament === 'old'
+                  ? isActive
+                    ? 'bg-amber-500'
+                    : 'bg-amber-400/55'
+                  : isActive
+                    ? 'bg-sky-500'
+                    : 'bg-sky-400/55',
+              )}
+            />
+            <span>{option.shortLabel}</span>
+          </>
+        ) : (
+          <span className="truncate">{option.shortLabel}</span>
+        )}
+      </button>
+    );
+  };
+
+  const renderTagButton = (tag: Tag, index: number, layout: 'row' | 'wrap') => {
+    const slug = tag.slug ?? '';
+    const isActive = selectedTagSlugs.has(slug);
+    const isDeleting = deletingTagId === tag.id;
+    const canToggle = Boolean(slug) && !isDeleting;
+    const tagKey = tag.id ?? (slug || `tag-${index}`);
+
+    return (
+      <motion.div
+        key={tagKey}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          delay: Math.min(index * 0.045, 0.32),
+          duration: 0.18,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className={cn(
+          'group/tag',
+          layout === 'row' ? 'relative first:ml-3 last:mr-3 shrink-0' : 'relative',
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (!slug) return;
+            onTagClick?.(slug);
+          }}
+          disabled={!canToggle}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+            isActive
+              ? 'border-primary/40 bg-primary/12 text-primary'
+              : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
+            !canToggle && 'pointer-events-none opacity-40',
+          )}
+        >
+          <span
+            className={cn(
+              'text-[10px]',
+              isActive ? 'text-primary/55' : 'text-muted-foreground/45',
+            )}
+          >
+            #
+          </span>
+          {tag.title}
+        </button>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="overflow-hidden pb-2">
@@ -176,69 +335,67 @@ function VerseListFilterSections({
               Книга: {selectedBook?.label ?? ALL_BOOKS_LABEL}
             </div>
           </div>
-          {selectedBookId !== null ? (<button
-            type="button"
-            onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
-            className="text-[11px] text-muted-foreground transition-colors"
-            >
-              Сбросить
-            </button>
-          ) : null} 
+          <div className="flex items-center gap-2">
+            {selectedBookId !== null ? (
+              <button
+                type="button"
+                onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
+                className="text-[11px] text-destructive transition-colors"
+              >
+                Сбросить
+              </button>
+            ) : null}
+            <SectionActionButton
+              expanded={areBooksExpanded}
+              controls={booksPanelId}
+              onClick={() => setAreBooksExpanded((prev) => !prev)}
+            />
+          </div>
         </div>
-        <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
-          <ScrollRow className="py-0.5">
-            <button
-              type="button"
-              onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
-              className={cn(
-                'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
-                selectedBookId == null
-                  ? 'border-primary/30 bg-primary/12 text-primary'
-                  : 'border-border/55 bg-background/25 text-muted-foreground hover:bg-background/60',
-              )}
-            >
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 rounded-full',
-                  selectedBookId == null
-                    ? 'bg-primary/70'
-                    : 'bg-muted-foreground/35',
-                )}
-              />
-              Все
-            </button>
-            {bookOptions.map((option) => {
-              const isActive = selectedBookId === option.id;
-              return (
+        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5 p-1">
+          <ExpandableSectionBody
+            expanded={areBooksExpanded}
+            controls={booksPanelId}
+            collapsedContent={
+              <ScrollRow className="py-0.5">
                 <button
-                  key={option.id}
                   type="button"
-                  title={option.label}
-                  onClick={() => onBookChange(option.id, option.label)}
+                  onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
                   className={cn(
                     'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
-                    isActive
+                    selectedBookId == null
                       ? 'border-primary/30 bg-primary/12 text-primary'
-                      : 'border-border/55 bg-background/25 text-foreground/75 hover:bg-background/60',
+                      : 'border-border/55 bg-background/25 text-muted-foreground hover:bg-background/60',
                   )}
                 >
                   <span
                     className={cn(
                       'h-1.5 w-1.5 rounded-full',
-                      option.testament === 'old'
-                        ? isActive
-                          ? 'bg-amber-500'
-                          : 'bg-amber-400/55'
-                        : isActive
-                          ? 'bg-sky-500'
-                          : 'bg-sky-400/55',
+                      selectedBookId == null
+                        ? 'bg-primary/70'
+                        : 'bg-muted-foreground/35',
                     )}
                   />
-                  <span>{option.shortLabel}</span>
+                  Все
                 </button>
-              );
-            })}
-          </ScrollRow>
+                {bookOptions.map((option) => renderBookButton(option, 'row'))}
+              </ScrollRow>
+            }
+            expandedContent={
+              <div className="space-y-3 px-2 py-2.5">
+                {bookGroups.map((group) => (
+                  <div key={group.key} className="space-y-2">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
+                      {group.label}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
+                      {group.options.map((option) => renderBookButton(option, 'grid'))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -335,17 +492,19 @@ function VerseListFilterSections({
         </div>
       </div>
 
-      <div className="my-1 overflow-hidden rounded-2xl">
-        <div className="flex items-center justify-between gap-2 border-b border-border/35 px-5 pb-2 pt-2">
-          <span className="text-[11px] font-medium text-muted-foreground">
-            {hasActiveTags ? `Темы: ${selectedTagSlugs.size}` : 'Все темы'}
+      <div className="mt-3 px-3">
+        <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+            {hasActiveTags
+              ? `Темы: ${selectedTagSlugs.size}`
+              : `Темы: все${allTags.length > 0 ? ` • ${allTags.length}` : ''}`}
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {hasActiveTags ? (
               <button
                 type="button"
                 onClick={onClearTags}
-                className="text-[11px] text-muted-foreground transition-colors"
+                className="text-[11px] text-destructive transition-colors"
               >
                 Сбросить
               </button>
@@ -360,78 +519,50 @@ function VerseListFilterSections({
                 <span className="hidden sm:inline">Редактировать</span>
               </button>
             ) : null}
+            {allTags.length > 0 ? (
+              <SectionActionButton
+                expanded={areTagsExpanded}
+                controls={tagsPanelId}
+                onClick={() => setAreTagsExpanded((prev) => !prev)}
+              />
+            ) : null}
           </div>
         </div>
 
-        {isLoadingTags ? (
-          <div className="my-2.5 flex gap-2 px-3.5">
-            {[56, 72, 48, 64].map((w) => (
-              <Skeleton
-                key={w}
-                className="h-6 shrink-0 rounded-full"
-                style={{ width: w }}
-              />
-            ))}
-          </div>
-        ) : allTags.length > 0 ? (
-          <div className="py-2">
-            <ScrollRow>
-              {allTags.map((tag, index) => {
-                const slug = tag.slug ?? '';
-                const isActive = selectedTagSlugs.has(slug);
-                const isDeleting = deletingTagId === tag.id;
-                const canToggle = Boolean(slug) && !isDeleting;
-                const tagKey = tag.id ?? (slug || `tag-${index}`);
-
-                return (
-                  <motion.div
-                    key={tagKey}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{
-                      delay: Math.min(index * 0.045, 0.32),
-                      duration: 0.18,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    className="group/tag relative first:ml-3 last:mr-3 shrink-0"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!slug) return;
-                        onTagClick?.(slug);
-                      }}
-                      disabled={!canToggle}
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
-                        isActive
-                          ? 'border-primary/40 bg-primary/12 text-primary'
-                          : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
-                        !canToggle && 'pointer-events-none opacity-40',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'text-[10px]',
-                          isActive
-                            ? 'text-primary/55'
-                            : 'text-muted-foreground/45',
-                        )}
-                      >
-                        #
-                      </span>
-                      {tag.title}
-                    </button>
-                  </motion.div>
-                );
-              })}
-            </ScrollRow>
-          </div>
-        ) : (
-          <p className="px-3.5 py-2.5 text-xs italic text-muted-foreground/50 sm:px-4">
-            Нет тегов - создайте первый
-          </p>
-        )}
+        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5">
+          {isLoadingTags ? (
+            <div className="my-2.5 flex gap-2 px-3.5">
+              {[56, 72, 48, 64].map((w) => (
+                <Skeleton
+                  key={w}
+                  className="h-6 shrink-0 rounded-full"
+                  style={{ width: w }}
+                />
+              ))}
+            </div>
+          ) : allTags.length > 0 ? (
+            <ExpandableSectionBody
+              expanded={areTagsExpanded}
+              controls={tagsPanelId}
+              collapsedContent={
+                <div className="py-2">
+                  <ScrollRow>
+                    {allTags.map((tag, index) => renderTagButton(tag, index, 'row'))}
+                  </ScrollRow>
+                </div>
+              }
+              expandedContent={
+                <div className="flex flex-wrap gap-2 px-3 py-3">
+                  {allTags.map((tag, index) => renderTagButton(tag, index, 'wrap'))}
+                </div>
+              }
+            />
+          ) : (
+            <p className="px-3.5 py-2.5 text-xs italic text-muted-foreground/50 sm:px-4">
+              Нет тегов - создайте первый
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

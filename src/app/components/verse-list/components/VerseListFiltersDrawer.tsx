@@ -125,7 +125,7 @@ export function VerseListFiltersDrawer({
         aria-label="Открыть фильтры стихов"
         onClick={() => onOpenChange(true)}
         className={cn(
-          'shrink-0 rounded-[24px] border border-border/70 bg-card/88 px-4 py-3 text-left shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-2xl transition-[opacity,transform] duration-200 md:hidden',
+          'shrink-0 rounded-[24px] border border-border/70 bg-card/88 px-4 py-3 text-left backdrop-blur-2xl transition-[opacity,transform] duration-200 md:hidden',
           open && 'pointer-events-none translate-y-2 opacity-0',
         )}
         style={{ bottom: `${triggerBottom}px` }}
@@ -177,11 +177,14 @@ export function VerseListFiltersDrawer({
       </button>
 
       <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-        <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
+        <DrawerContent
+          className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6"
+          style={{ maxHeight: '90svh' }}
+        >
           <DrawerHeader className="px-0 pb-0 pt-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <DrawerTitle className="text-xl tracking-tight text-foreground/88">
+                <DrawerTitle className="text-xl tracking-tight text-primary">
                   Фильтры стихов
                 </DrawerTitle>
                 <DrawerDescription className="mt-1 text-sm text-foreground/56">
@@ -201,7 +204,7 @@ export function VerseListFiltersDrawer({
             </div>
           </DrawerHeader>
 
-          <div className="mt-4 min-h-0 overflow-y-auto pb-1">
+          <div className="mt-4 min-h-0 overflow-y-auto overscroll-contain pb-1">
             <VerseListFilterCard {...filterCardProps} />
           </div>
         </DrawerContent>
