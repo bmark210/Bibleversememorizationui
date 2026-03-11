@@ -22,6 +22,9 @@ type TelegramApiResponse<T> = {
   description?: string;
 };
 
+export const TELEGRAM_APP_URL =
+  "https://bibleversememorizationui-production.up.railway.app";
+
 export class TelegramBotApiError extends Error {
   readonly status: number;
   readonly errorCode?: number;
@@ -44,8 +47,10 @@ function getTelegramApiUrl(method: string) {
   return `https://api.telegram.org/bot${token}/${method}`;
 }
 
-export function buildOpenAppKeyboard(openAppUrl: string): TelegramInlineKeyboardMarkup | undefined {
-  const appUrl = String(openAppUrl ?? "").trim();
+export function buildOpenAppKeyboard(
+  openAppUrl: string = TELEGRAM_APP_URL
+): TelegramInlineKeyboardMarkup | undefined {
+  const appUrl = String(openAppUrl ?? "").trim() || TELEGRAM_APP_URL;
   if (!appUrl) return undefined;
 
   return {

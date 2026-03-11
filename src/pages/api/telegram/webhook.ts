@@ -1,5 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { buildOpenAppKeyboard, sendTelegramMessage } from "@/lib/telegramBot";
+import {
+  TELEGRAM_APP_URL,
+  buildOpenAppKeyboard,
+  sendTelegramMessage,
+} from "@/lib/telegramBot";
 import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
@@ -87,8 +91,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const telegramId = String(fromIdRaw);
     const firstName = message.from?.first_name?.trim() || null;
     const fallbackName = firstName || `Участник #${telegramId.slice(-4) || telegramId}`;
-    const openAppUrl = String(process.env.NEXT_PUBLIC_WEB_APP_URL ?? "").trim();
-    const replyMarkup = buildOpenAppKeyboard(openAppUrl);
+    const openAppUrl = TELEGRAM_APP_URL;
+    const replyMarkup = buildOpenAppKeyboard();
 
     const { command } = normalizeCommand(text);
 
