@@ -34,6 +34,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import type { Verse } from "@/app/App";
+import type { DirectLaunchVerse } from "@/app/components/Training/types";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -47,7 +48,7 @@ interface VerseListProps {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
-  onNavigateToTraining?: (verse: import("@/app/App").Verse) => void;
+  onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
@@ -321,7 +322,7 @@ export function VerseList({
       </AlertDialog>
 
       <motion.div
-        className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-hidden p-4 sm:p-6 lg:p-8"
+        className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-hidden"
         {...(shouldReduceMotion
           ? {}
           : {
@@ -375,7 +376,7 @@ export function VerseList({
         </motion.div>
 
         {vm.ui.isListLoading ? (
-          <motion.div className="flex-1 min-h-0" {...reveal(0.05)}>
+          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={
@@ -395,7 +396,7 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
-          <motion.div className="flex-1 min-h-0" {...reveal(0.05)}>
+          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={{
@@ -418,7 +419,7 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.list.sectionConfig ? (
-          <motion.div className="flex-1 min-h-0" {...reveal(0.06)}>
+          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.06)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={vm.list.sectionConfig}

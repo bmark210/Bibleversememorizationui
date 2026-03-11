@@ -53,6 +53,7 @@ import {
 } from "./utils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
 import type { Verse } from "@/app/App";
+import type { TrainingMode } from "@/app/components/Training/types";
 import type { PlayerProfilePreview, VerseGalleryProps } from "./types";
 
 // Card slide animation — only animation kept intentionally
@@ -153,6 +154,15 @@ function unlockScrollOnElement(element: HTMLElement) {
   }
 
   element.dataset[GALLERY_SCROLL_LOCK_COUNT_DATA_KEY] = String(lockCount - 1);
+}
+
+function getTrainingLaunchMode(
+  status: ReturnType<typeof normalizeVerseStatus>
+): TrainingMode | null {
+  if (status === "MASTERED") return "anchor";
+  if (status === "REVIEW") return "review";
+  if (status === VerseStatus.LEARNING) return "learning";
+  return null;
 }
 
 export function VerseGallery({
@@ -545,6 +555,20 @@ export function VerseGallery({
     priority: 100,
   });
 
+  const handleStartTraining = useCallback(() => {
+    if (!previewActiveVerse) return;
+
+    const launchMode = getTrainingLaunchMode(
+      normalizeVerseStatus(previewActiveVerse.status),
+    );
+    if (!launchMode) return;
+
+    onNavigateToTraining({
+      verse: previewActiveVerse,
+      preferredMode: launchMode,
+    });
+  }, [onNavigateToTraining, previewActiveVerse]);
+
   // ── Display values ───────────────────────────────────────────────────────────
   if (!previewActiveVerse) return null;
 
@@ -618,7 +642,7 @@ export function VerseGallery({
                   isActionPending={aux.isActionPending}
                   activeTagSlugs={activeTagSlugs}
                   isAnchorEligible={isAnchorEligible}
-                  onStartTraining={() => onNavigateToTraining(previewActiveVerse)}
+                  onStartTraining={handleStartTraining}
                   onStatusAction={() => void handlePreviewStatusAction()}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}

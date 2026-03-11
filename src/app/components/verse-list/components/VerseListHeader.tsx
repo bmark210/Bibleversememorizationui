@@ -12,7 +12,7 @@ export function VerseListHeader({
   onAboutSectionClick,
 }: VerseListHeaderProps) {
   return (
-    <div className="flex justify-between items-start gap-3">
+    <div className="flex justify-between items-start gap-3 px-4 sm:px-6 lg:px-8 pt-3 sm:pt-5 lg:pt-7">
       <h1 className="text-primary">Cтихи</h1>
       <div className="flex items-center gap-2">
         {onAboutSectionClick && (

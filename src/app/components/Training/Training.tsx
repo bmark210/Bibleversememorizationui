@@ -66,7 +66,7 @@ export function Training({
     if (!directLaunch || directLaunchConsumedRef.current) return;
     directLaunchConsumedRef.current = true;
 
-    const mode = autoModeForVerse(directLaunch.verse);
+    const mode = directLaunch.preferredMode ?? autoModeForVerse(directLaunch.verse);
 
     if (mode === "anchor") {
       setView({ mode: "anchor", track: selectedAnchorTrack });
@@ -84,6 +84,7 @@ export function Training({
         verses: sessionVerses,
         trainingModes: [mode],
         order: "updatedAt",
+        initialVerseExternalId: directLaunch.verse.externalVerseId,
       });
     }
   }, [directLaunch, allVerses, selectedAnchorTrack]);
@@ -214,6 +215,7 @@ export function Training({
               verses={view.verses}
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
               initialOrder={view.order}
+              initialVerseExternalId={view.initialVerseExternalId}
               onClose={goToHub}
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}

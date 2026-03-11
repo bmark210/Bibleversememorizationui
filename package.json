@@ -11,7 +11,6 @@
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:push": "prisma db push --schema prisma/schema.prisma",
     "prisma:studio": "prisma studio",
-    "prisma:reset": "prisma migrate reset --force && prisma db push",
     "prisma": "npm run prisma:generate && npm run prisma:push && npm run prisma:studio",
     "generate-api": "npx tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
     "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"

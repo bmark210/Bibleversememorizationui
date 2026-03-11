@@ -169,6 +169,7 @@ interface TrainingSessionProps {
   verses: Verse[];
   initialSubsetFilter: TrainingSubsetSelectValue;
   initialOrder: TrainingOrder;
+  initialVerseExternalId?: string | null;
   onClose: () => void;
   onVersePatched?: (event: VersePatchEvent) => void;
   onMutationCommitted?: () => void;
@@ -178,6 +179,7 @@ export function TrainingSession({
   verses: sourceVerses,
   initialSubsetFilter,
   initialOrder,
+  initialVerseExternalId = null,
   onClose,
   onVersePatched,
   onMutationCommitted,
@@ -226,6 +228,7 @@ export function TrainingSession({
 
   const session = useTrainingSession({
     verses: filteredVerses,
+    initialVerseExternalId,
     onVersePatched,
     onMutationCommitted,
     onSessionComplete: onClose,

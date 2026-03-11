@@ -20,11 +20,13 @@ export type TrainingView =
       verses: Verse[];
       trainingModes: CoreTrainingMode[];
       order: TrainingOrder;
+      initialVerseExternalId?: string | null;
     };
 
 /** When navigating directly to Training from VerseGallery or Dashboard */
 export interface DirectLaunchVerse {
   verse: Verse;
+  preferredMode?: TrainingMode;
 }
 
 export interface TrainingProps {

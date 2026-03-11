@@ -46,6 +46,7 @@ type QuickForgetConfirmStage = "learning" | "review";
 type Params = {
   /** Pre-filtered verses for this session */
   verses: Verse[];
+  initialVerseExternalId?: string | null;
   onVersePatched?: (event: VersePatchEvent) => void;
   onMutationCommitted?: () => void;
   onSessionComplete: () => void;
@@ -66,6 +67,19 @@ function normalizeTrainingSessionVerses(verses: Verse[]): TrainingVerseState[] {
     .map(toTrainingVerseState)
     .filter((v): v is TrainingVerseState => v !== null)
     .filter(isTrainingEligibleVerse);
+}
+
+function resolveInitialTrainingIndex(
+  verses: TrainingVerseState[],
+  initialVerseExternalId?: string | null
+): number {
+  const normalizedId = String(initialVerseExternalId ?? "").trim();
+  if (!normalizedId || verses.length === 0) return 0;
+
+  const nextIndex = verses.findIndex(
+    (verse) => verse.externalVerseId === normalizedId
+  );
+  return nextIndex >= 0 ? nextIndex : 0;
 }
 
 export type UseTrainingSessionReturn = {
@@ -91,18 +105,25 @@ export type UseTrainingSessionReturn = {
 
 export function useTrainingSession({
   verses,
+  initialVerseExternalId,
   onVersePatched,
   onMutationCommitted,
   onSessionComplete,
 }: Params): UseTrainingSessionReturn {
+  const initialTrainingVerses = normalizeTrainingSessionVerses(verses);
+  const initialTrainingIndex = resolveInitialTrainingIndex(
+    initialTrainingVerses,
+    initialVerseExternalId
+  );
+
   // ── Core state ─────────────────────────────────────────────────────────────
   const [trainingVerses, setTrainingVerses] = useState<TrainingVerseState[]>(
-    () => normalizeTrainingSessionVerses(verses)
+    () => initialTrainingVerses
   );
-  const [trainingIndex, setTrainingIndex] = useState(0);
+  const [trainingIndex, setTrainingIndex] = useState(initialTrainingIndex);
   const [trainingModeId, setTrainingModeId] = useState<ModeId | null>(() => {
-    const initial = normalizeTrainingSessionVerses(verses);
-    return initial[0] ? chooseModeId(initial[0]) : null;
+    const initial = initialTrainingVerses[initialTrainingIndex];
+    return initial ? chooseModeId(initial) : null;
   });
   const [isActionPending, setIsActionPending] = useState(false);
   const [quickForgetConfirmStage, setQuickForgetConfirmStage] =
@@ -118,11 +139,16 @@ export function useTrainingSession({
 
   useEffect(() => {
     const normalized = normalizeTrainingSessionVerses(verses);
+    const nextIndex = resolveInitialTrainingIndex(
+      normalized,
+      initialVerseExternalId
+    );
+    const nextActiveVerse = normalized[nextIndex];
     setTrainingVerses(normalized);
-    setTrainingIndex(0);
-    setTrainingModeId(normalized[0] ? chooseModeId(normalized[0]) : null);
+    setTrainingIndex(nextIndex);
+    setTrainingModeId(nextActiveVerse ? chooseModeId(nextActiveVerse) : null);
     setQuickForgetConfirmStage(null);
-  }, [verses]);
+  }, [initialVerseExternalId, verses]);
 
   // ── Feedback helpers ───────────────────────────────────────────────────────
   const showFeedback = useCallback((message: string) => {

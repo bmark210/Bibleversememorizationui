@@ -148,7 +148,7 @@ export function Layout({
               ? `${bottomInset}px`
               : currentPage === 'progress-map'
               ? 0
-              : isKeyboardOpen ? `${bottomInset}px` : `calc(82px + ${bottomInset}px)`
+              : isKeyboardOpen ? `${bottomInset}px` : `calc(74px + ${bottomInset}px)`
           }}
         >
           {children}

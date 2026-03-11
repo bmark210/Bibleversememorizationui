@@ -42,6 +42,7 @@ import {
   mergeVersePatch,
 } from "@/app/utils/versePatch";
 import type { ProgressMapAction } from "./components/ProgressMap";
+import type { DirectLaunchVerse } from "./components/Training/types";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 
 const VerseList = dynamic(
@@ -384,6 +385,16 @@ function isDueReviewVerse(verse: Pick<Verse, "status" | "nextReviewAt">) {
   return Number.isNaN(nextReviewTime) || nextReviewTime <= Date.now();
 }
 
+function toDirectLaunchPayload(
+  launchOrVerse: DirectLaunchVerse | Verse
+): DirectLaunchVerse {
+  if ("verse" in launchOrVerse) {
+    return launchOrVerse;
+  }
+
+  return { verse: launchOrVerse };
+}
+
 export default function App({ onInitialContentReady }: AppProps) {
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
   const [pageStack, setPageStack] = useState<Page[]>(["dashboard"]);
@@ -392,7 +403,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [verses, setVerses] = useState<Array<Verse>>([]);
   const [hasLoadedTrainingVerses, setHasLoadedTrainingVerses] = useState(false);
   const [isTrainingVersesLoading, setIsTrainingVersesLoading] = useState(false);
-  const [trainingDirectLaunch, setTrainingDirectLaunch] = useState<{ verse: Verse } | null>(null);
+  const [trainingDirectLaunch, setTrainingDirectLaunch] =
+    useState<DirectLaunchVerse | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
@@ -891,10 +903,14 @@ export default function App({ onInitialContentReady }: AppProps) {
   };
 
   /** Navigate to Training section and start a session for a specific verse */
-  const handleNavigateToTrainingWithVerse = useCallback((verse: Verse) => {
-    setTrainingDirectLaunch({ verse });
-    pushPage("training");
-  }, [pushPage]);
+  const handleNavigateToTrainingWithVerse = useCallback(
+    (launchOrVerse: DirectLaunchVerse | Verse) => {
+      const launch = toDirectLaunchPayload(launchOrVerse);
+      setTrainingDirectLaunch(launch);
+      pushPage("training");
+    },
+    [pushPage]
+  );
 
   const handleDirectLaunchConsumed = useCallback(() => {
     setTrainingDirectLaunch(null);
