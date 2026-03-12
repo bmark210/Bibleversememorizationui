@@ -279,7 +279,15 @@ export function useVerseActions({
         setVerses((prev) =>
           prev.map((v) =>
             isSameVerse(v, verse)
-              ? { ...v, status: 'CATALOG' as const, masteryLevel: 0, repetitions: 0, lastReviewedAt: null, nextReviewAt: null }
+              ? {
+                  ...v,
+                  status: 'CATALOG' as const,
+                  masteryLevel: 0,
+                  repetitions: 0,
+                  reviewLapseStreak: 0,
+                  lastReviewedAt: null,
+                  nextReviewAt: null,
+                }
               : v
           )
         );

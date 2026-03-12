@@ -38,6 +38,7 @@ function didTrainingVerseDesync(
     optimistic.status !== persisted.status ||
     optimistic.rawMasteryLevel !== persisted.rawMasteryLevel ||
     optimistic.repetitions !== persisted.repetitions ||
+    optimistic.reviewLapseStreak !== persisted.reviewLapseStreak ||
     optimistic.lastModeId !== persisted.lastModeId ||
     toTimestamp(optimistic.lastReviewedAt) !== toTimestamp(persisted.lastReviewedAt) ||
     toTimestamp(optimistic.nextReviewAt) !== toTimestamp(persisted.nextReviewAt)
@@ -57,6 +58,14 @@ export function normalizePersistedTrainingVerseState(
   const persistedRepetitions = Math.max(
     0,
     Math.round(Number(persistedResponse?.repetitions ?? currentVerse.repetitions))
+  );
+  const persistedReviewLapseStreak = Math.max(
+    0,
+    Math.round(
+      Number(
+        persistedResponse?.reviewLapseStreak ?? currentVerse.reviewLapseStreak
+      )
+    )
   );
   const persistedLastReviewedAt =
     parseDate(persistedResponse?.lastReviewedAt ?? currentVerse.lastReviewedAt) ??
@@ -84,6 +93,7 @@ export function normalizePersistedTrainingVerseState(
       status: persistedDisplayStatus,
       masteryLevel: persistedMasteryLevel,
       repetitions: persistedRepetitions,
+      reviewLapseStreak: persistedReviewLapseStreak,
       lastTrainingModeId: persistedLastModeId,
       lastReviewedAt: persistedLastReviewedAt
         ? persistedLastReviewedAt.toISOString()
@@ -95,6 +105,7 @@ export function normalizePersistedTrainingVerseState(
     rawMasteryLevel: persistedMasteryLevel,
     stageMasteryLevel: toStageMasteryLevel(persistedMasteryLevel),
     repetitions: persistedRepetitions,
+    reviewLapseStreak: persistedReviewLapseStreak,
     lastModeId: persistedLastModeId,
     lastReviewedAt: persistedLastReviewedAt,
     nextReviewAt: persistedNextReviewAt,

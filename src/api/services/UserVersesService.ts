@@ -185,6 +185,7 @@ export class UserVersesService {
         requestBody: {
             masteryLevel?: number;
             repetitions?: number;
+            reviewLapseStreak?: number;
             reviewRating?: 0 | 1 | 2 | 3;
             lastTrainingModeId?: number | null;
             lastReviewedAt?: string;

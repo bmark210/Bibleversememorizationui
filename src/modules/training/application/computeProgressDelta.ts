@@ -7,6 +7,11 @@ import {
   REVIEW_INTERVALS_DAYS,
   REVIEW_REPETITIONS_MAX,
   MAINTENANCE_REVIEW_DAYS,
+  REVIEW_LAPSE_FAIL_REPETITION_PENALTY,
+  REVIEW_LAPSE_FAIL_STRIKE,
+  REVIEW_LAPSE_HINT_REPETITION_PENALTY,
+  REVIEW_LAPSE_HINT_STRIKE,
+  REVIEW_LAPSE_STREAK_THRESHOLD,
   SPACED_REPETITION_MS_BY_STAGE,
   TRAINING_SCORE_BY_RATING,
 } from "@/shared/constants/training";
@@ -103,41 +108,70 @@ export function computeReviewNextReviewAt(
 }
 
 export function computeReviewResult(
-  rating: RatingValue,
-  currentRepetitions: number,
-  now: Date
+  params: {
+    rating: RatingValue;
+    currentRepetitions: number;
+    currentReviewLapseStreak: number;
+    now: Date;
+  }
 ): {
   repetitions: number;
+  reviewLapseStreak: number;
   nextReviewAt: Date;
   reviewWasSuccessful: boolean;
 } {
+  const {
+    rating,
+    currentRepetitions,
+    currentReviewLapseStreak,
+    now,
+  } = params;
   const repetitions = Math.max(0, Math.round(currentRepetitions));
+  const reviewLapseStreak = Math.max(0, Math.round(currentReviewLapseStreak));
 
   if (rating >= REVIEW_SUCCESS_RATING_MIN) {
     const nextRepetitions = repetitions + 1;
 
     return {
       repetitions: nextRepetitions,
+      reviewLapseStreak: 0,
       nextReviewAt: computeReviewNextReviewAt(nextRepetitions, now),
       reviewWasSuccessful: true,
     };
   }
 
-  if (rating === 1) {
+  const nextStreak =
+    reviewLapseStreak + (rating === 1 ? REVIEW_LAPSE_HINT_STRIKE : REVIEW_LAPSE_FAIL_STRIKE);
+  const retryMinutes =
+    rating === 1 ? REVIEW_HINT_RETRY_MINUTES : REVIEW_FAIL_RETRY_MINUTES;
+
+  if (nextStreak < REVIEW_LAPSE_STREAK_THRESHOLD) {
     return {
       repetitions,
-      nextReviewAt: new Date(
-        now.getTime() + REVIEW_HINT_RETRY_MINUTES * 60 * 1000
-      ),
+      reviewLapseStreak: nextStreak,
+      nextReviewAt: new Date(now.getTime() + retryMinutes * 60 * 1000),
+      reviewWasSuccessful: false,
+    };
+  }
+
+  const repetitionPenalty =
+    rating === 1
+      ? REVIEW_LAPSE_HINT_REPETITION_PENALTY
+      : REVIEW_LAPSE_FAIL_REPETITION_PENALTY;
+
+  if (rating === 1) {
+    return {
+      repetitions: Math.max(0, repetitions - repetitionPenalty),
+      reviewLapseStreak: 0,
+      nextReviewAt: new Date(now.getTime() + retryMinutes * 60 * 1000),
       reviewWasSuccessful: false,
     };
   }
 
   return {
-    repetitions,
-    nextReviewAt: new Date(
-      now.getTime() + REVIEW_FAIL_RETRY_MINUTES * 60 * 1000
-    ),
+    repetitions: Math.max(0, repetitions - repetitionPenalty),
+    reviewLapseStreak: 0,
+    nextReviewAt: new Date(now.getTime() + retryMinutes * 60 * 1000),
     reviewWasSuccessful: false,
   };
 }
@@ -147,6 +181,7 @@ export function computeProgressDelta(params: {
   rating: RatingValue;
   rawMasteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   now: Date;
   trainingModeId: TrainingModeId | null;
   isLearningVerse: boolean;
@@ -154,6 +189,7 @@ export function computeProgressDelta(params: {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   nextReviewAt: Date;
   graduatesToReview: boolean;
   reviewWasSuccessful: boolean;
@@ -164,13 +200,19 @@ export function computeProgressDelta(params: {
     rating,
     rawMasteryLevel,
     repetitions,
+    reviewLapseStreak,
     now,
     trainingModeId,
     isLearningVerse,
   } = params;
 
   if (phase === "review") {
-    const reviewResult = computeReviewResult(rating, repetitions, now);
+    const reviewResult = computeReviewResult({
+      rating,
+      currentRepetitions: repetitions,
+      currentReviewLapseStreak: reviewLapseStreak,
+      now,
+    });
 
     return {
       rawMasteryLevel,
@@ -180,6 +222,7 @@ export function computeProgressDelta(params: {
         MASTERY_MAX
       ),
       repetitions: reviewResult.repetitions,
+      reviewLapseStreak: reviewResult.reviewLapseStreak,
       nextReviewAt: reviewResult.nextReviewAt,
       graduatesToReview: false,
       reviewWasSuccessful: reviewResult.reviewWasSuccessful,
@@ -212,6 +255,7 @@ export function computeProgressDelta(params: {
     rawMasteryLevel: nextRawMasteryLevel,
     stageMasteryLevel,
     repetitions,
+    reviewLapseStreak: 0,
     nextReviewAt: graduatesToReview
       ? computeReviewNextReviewAt(0, now)
       : computeLearningNextReviewAt(stageMasteryLevel, rating, now),

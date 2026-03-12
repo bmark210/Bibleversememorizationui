@@ -25,6 +25,7 @@ export const patchVerseSchema = z
       .min(0)
       .max(REVIEW_REPETITIONS_MAX)
       .optional(),
+    reviewLapseStreak: z.number().finite().int().min(0).optional(),
     reviewRating: z
       .number()
       .finite()

@@ -1239,6 +1239,7 @@ async function fetchPaginatedFriendVerses(options: {
             status: "CATALOG",
             masteryLevel: 0,
             repetitions: 0,
+            reviewLapseStreak: 0,
             referenceScore: 0,
             incipitScore: 0,
             contextScore: 0,

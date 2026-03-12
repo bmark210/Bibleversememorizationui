@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { VerseStatus } from "@/generated/prisma";
+import { computeReviewResult } from "@/modules/training/application/computeProgressDelta";
+import type { RatingValue } from "@/modules/training/domain/VerseProgress";
 import { persistVerseProgressPatch } from "@/modules/training/infrastructure/verseProgressRepository";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import {
@@ -9,8 +11,6 @@ import {
   upsertUserVerseBinding,
 } from "@/modules/verses/infrastructure/verseRepository";
 import {
-  REVIEW_FAILED_RETRY_MINUTES,
-  REVIEW_HINT_RETRY_MINUTES,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
@@ -30,39 +30,6 @@ import {
 
 function clampMasteryForLearning(value: number): number {
   return Math.max(1, Math.min(TRAINING_STAGE_MASTERY_MAX, Math.round(value)));
-}
-
-function getForcedReviewRetryNextReviewAt(params: {
-  isCurrentReviewState: boolean;
-  bodyRepetitionsProvided: boolean;
-  requestedRepetitions: number;
-  currentRepetitions: number;
-  reviewRating?: number;
-  nowMs: number;
-}): Date | null {
-  const {
-    isCurrentReviewState,
-    bodyRepetitionsProvided,
-    requestedRepetitions,
-    currentRepetitions,
-    reviewRating,
-    nowMs,
-  } = params;
-
-  if (
-    !isCurrentReviewState ||
-    !bodyRepetitionsProvided ||
-    requestedRepetitions !== currentRepetitions
-  ) {
-    return null;
-  }
-
-  const retryMinutes =
-    reviewRating === 1
-      ? REVIEW_HINT_RETRY_MINUTES
-      : REVIEW_FAILED_RETRY_MINUTES;
-
-  return new Date(nowMs + retryMinutes * 60 * 1000);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -146,6 +113,7 @@ async function handlePatch(
       return res.status(400).json({ error: parsedBody.error.flatten() });
     }
     const body = parsedBody.data;
+    const reviewRating = body.reviewRating as RatingValue | undefined;
     const nowMs = Date.now();
     const reviewedAt = body.lastReviewedAt ? new Date(body.lastReviewedAt) : null;
     const nextLastTrainingModeId = body.lastTrainingModeId;
@@ -168,6 +136,9 @@ async function handlePatch(
     const currentBaseStatus = normalizeBaseStatus(existingVerseWithStatus.status);
     const currentMasteryLevel = normalizeProgressValue(existingVerseWithStatus.masteryLevel);
     const currentRepetitions = normalizeProgressValue(existingVerseWithStatus.repetitions);
+    const currentReviewLapseStreak = normalizeProgressValue(
+      existingVerseWithStatus.reviewLapseStreak
+    );
     const rawNextReviewAt = existingVerseWithStatus.nextReviewAt;
     const currentNextReviewAt =
       rawNextReviewAt instanceof Date
@@ -181,6 +152,10 @@ async function handlePatch(
       nowMs < currentNextReviewAt.getTime();
     const requestedRepetitions =
       body.repetitions !== undefined ? normalizeProgressValue(body.repetitions) : currentRepetitions;
+    const requestedReviewLapseStreak =
+      body.reviewLapseStreak !== undefined
+        ? normalizeProgressValue(body.reviewLapseStreak)
+        : currentReviewLapseStreak;
     const requestedMasteryLevelRaw =
       body.masteryLevel !== undefined
         ? normalizeProgressValue(body.masteryLevel)
@@ -228,19 +203,27 @@ async function handlePatch(
     const autoNextReviewAt = reachedWaitingThresholdNow
       ? new Date(nowMs + WAITING_NEXT_REVIEW_DELAY_HOURS * 60 * 60 * 1000)
       : null;
-    const forcedReviewRetryNextReviewAt = getForcedReviewRetryNextReviewAt({
-      isCurrentReviewState,
-      bodyRepetitionsProvided: body.repetitions !== undefined,
-      requestedRepetitions,
-      currentRepetitions,
-      reviewRating: body.reviewRating,
-      nowMs,
-    });
+    const normalizedReviewResult =
+      isCurrentReviewState && reviewRating !== undefined
+        ? computeReviewResult({
+            rating: reviewRating,
+            currentRepetitions,
+            currentReviewLapseStreak,
+            now: new Date(nowMs),
+          })
+        : null;
+    const resolvedRepetitions =
+      normalizedReviewResult?.repetitions ?? requestedRepetitions;
+    const resolvedReviewLapseStreak =
+      normalizedReviewResult?.reviewLapseStreak ?? requestedReviewLapseStreak;
+    const shouldPersistResolvedRepetitions =
+      !isNotYetDue &&
+      (body.repetitions !== undefined || normalizedReviewResult !== null);
 
     // Review retries are normalized on the server for backward compatibility.
     // Then client-computed nextReviewAt (spaced repetition), then server auto-value on graduation.
     const resolvedNextReviewAt =
-      forcedReviewRetryNextReviewAt ??
+      normalizedReviewResult?.nextReviewAt ??
       (body.nextReviewAt ? new Date(body.nextReviewAt) : autoNextReviewAt);
 
     const verse = await persistVerseProgressPatch({
@@ -250,8 +233,11 @@ async function handlePatch(
         ...(body.masteryLevel !== undefined
           ? { masteryLevel: requestedMasteryLevel }
           : {}),
-        ...(body.repetitions !== undefined && !isNotYetDue
-          ? { repetitions: requestedRepetitions }
+        ...(shouldPersistResolvedRepetitions
+          ? { repetitions: resolvedRepetitions }
+          : {}),
+        ...(body.reviewLapseStreak !== undefined || normalizedReviewResult
+          ? { reviewLapseStreak: resolvedReviewLapseStreak }
           : {}),
         ...(reviewedAt ? { lastReviewedAt: reviewedAt } : {}),
         ...(resolvedNextReviewAt ? { nextReviewAt: resolvedNextReviewAt } : {}),

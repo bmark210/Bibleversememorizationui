@@ -558,6 +558,7 @@ const swaggerDoc = {
                 properties: {
                   masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
                   repetitions: { type: "integer", minimum: 0, maximum: 7 },
+                  reviewLapseStreak: { type: "integer", minimum: 0 },
                   reviewRating: { type: "integer", minimum: 0, maximum: 3 },
                   lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
                   lastReviewedAt: { type: "string", format: "date-time" },
@@ -818,6 +819,7 @@ const swaggerDoc = {
           "status",
           "masteryLevel",
           "repetitions",
+          "reviewLapseStreak",
           "referenceScore",
           "incipitScore",
           "contextScore",
@@ -832,6 +834,7 @@ const swaggerDoc = {
           },
           masteryLevel: { type: "integer" },
           repetitions: { type: "integer" },
+          reviewLapseStreak: { type: "integer", minimum: 0 },
           referenceScore: { type: "integer", minimum: 0, maximum: 100 },
           incipitScore: { type: "integer", minimum: 0, maximum: 100 },
           contextScore: { type: "integer", minimum: 0, maximum: 100 },

@@ -4,6 +4,11 @@ export const REVIEW_REPETITIONS_MAX = 7;
 export const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60, 90] as const;
 export const REVIEW_FAIL_RETRY_MINUTES = 360;
 export const REVIEW_HINT_RETRY_MINUTES = 24 * 60;
+export const REVIEW_LAPSE_STREAK_THRESHOLD = 2;
+export const REVIEW_LAPSE_HINT_STRIKE = 1;
+export const REVIEW_LAPSE_FAIL_STRIKE = 2;
+export const REVIEW_LAPSE_HINT_REPETITION_PENALTY = 1;
+export const REVIEW_LAPSE_FAIL_REPETITION_PENALTY = 2;
 export const TRAINING_SCORE_BY_RATING = { 0: 35, 1: 60, 2: 84, 3: 96 } as const;
 export const SPACED_REPETITION_MS_BY_STAGE = {
   0: 10 * 60 * 1000,

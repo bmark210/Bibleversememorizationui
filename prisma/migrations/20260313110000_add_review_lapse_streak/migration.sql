@@ -1,0 +1,2 @@
+ALTER TABLE "UserVerse"
+ADD COLUMN "reviewLapseStreak" INTEGER NOT NULL DEFAULT 0;

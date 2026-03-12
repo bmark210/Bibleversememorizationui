@@ -32,6 +32,7 @@ export async function persistTrainingVerseProgress(
     {
       masteryLevel: verse.rawMasteryLevel,
       ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
+      reviewLapseStreak: verse.reviewLapseStreak,
       ...(options?.reviewRating !== undefined
         ? { reviewRating: options.reviewRating }
         : {}),

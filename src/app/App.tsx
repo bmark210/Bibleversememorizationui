@@ -90,6 +90,7 @@ export type Verse = {
   status: DisplayVerseStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak?: number;
   referenceScore?: number;
   incipitScore?: number;
   contextScore?: number;
@@ -118,6 +119,7 @@ type AppVerseApiRecord = {
   status?: string | null;
   masteryLevel?: number | null;
   repetitions?: number | null;
+  reviewLapseStreak?: number | null;
   referenceScore?: number | null;
   incipitScore?: number | null;
   contextScore?: number | null;
@@ -347,6 +349,10 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     status: normalizeDisplayVerseStatus(verse.status),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+    reviewLapseStreak: Math.max(
+      0,
+      Math.round(Number(verse.reviewLapseStreak ?? 0))
+    ),
     referenceScore: Math.max(0, Math.round(Number(verse.referenceScore ?? 0))),
     incipitScore: Math.max(0, Math.round(Number(verse.incipitScore ?? 0))),
     contextScore: Math.max(0, Math.round(Number(verse.contextScore ?? 0))),

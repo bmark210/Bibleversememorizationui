@@ -116,6 +116,10 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
     rawMasteryLevel,
     stageMasteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
+    reviewLapseStreak: Math.max(
+      0,
+      Math.round(Number((verse as Record<string, unknown>).reviewLapseStreak ?? 0))
+    ),
     lastModeId,
     lastReviewedAt: parseDate((verse as Record<string, unknown>).lastReviewedAt),
     nextReviewAt: parseDate(

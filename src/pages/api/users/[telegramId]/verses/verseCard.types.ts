@@ -33,6 +33,7 @@ export interface VerseCardDto {
   status: DisplayStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;
@@ -79,6 +80,7 @@ export type UserVerseWithLegacyNullableProgress = Omit<
   status?: VerseStatus | null;
   masteryLevel?: PrismaUserVerseWithVerse["masteryLevel"] | null;
   repetitions?: PrismaUserVerseWithVerse["repetitions"] | null;
+  reviewLapseStreak?: PrismaUserVerseWithVerse["reviewLapseStreak"] | null;
   referenceScore?: PrismaUserVerseWithVerse["referenceScore"] | null;
   incipitScore?: PrismaUserVerseWithVerse["incipitScore"] | null;
   contextScore?: PrismaUserVerseWithVerse["contextScore"] | null;
@@ -173,6 +175,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
     status: computeDisplayStatus(baseStatus, masteryLevel, repetitions),
     masteryLevel,
     repetitions,
+    reviewLapseStreak: normalizeProgressValue(verse.reviewLapseStreak),
     referenceScore: normalizeSkillScore(verse.referenceScore),
     incipitScore: normalizeSkillScore(verse.incipitScore),
     contextScore: normalizeSkillScore(verse.contextScore),
