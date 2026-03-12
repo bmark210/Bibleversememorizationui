@@ -675,7 +675,10 @@ export function TrainingHub({
       </AlertDialog>
 
       <div
-        className={cn("mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8", !isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "")}
+        className={cn(
+          "mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8",
+          isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
+        )}
         style={
           {
             "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
@@ -689,19 +692,17 @@ export function TrainingHub({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: "easeOut",
           }}
-          className="flex h-full flex-col gap-4"
+          className="flex h-full flex-col gap-4 "
         >
-          <header className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              {!isTelegramFullscreen ? (
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl font-semibold text-primary">
-                    Тренировка
-                  </h1>
-                </div>
-              ) : null}
-            </div>
-          </header>
+          {isTelegramFullscreen ? null : (
+            <header className="space-y-1.5">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl font-semibold text-primary">
+                  Тренировка
+                </h1>
+              </div>
+            </header>
+          )}
 
           <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
             <Tabs
