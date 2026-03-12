@@ -577,10 +577,10 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-background"
               onClick={confirmNavigationStep}
             >
-              Перейти
+              Перейти без сохранения
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
