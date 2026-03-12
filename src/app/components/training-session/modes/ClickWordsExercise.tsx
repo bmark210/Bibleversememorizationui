@@ -17,6 +17,7 @@ import {
   normalizeWord,
   cleanWordForDisplay,
   getMaxMistakes,
+  pickVisibleChoices,
 } from './wordUtils';
 
 interface ClickWordsExerciseProps {
@@ -142,6 +143,13 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     [uniqueChoices, remainingCountByNormalized]
   );
 
+  const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
+
+  const visibleChoices = useMemo(
+    () => pickVisibleChoices(availableChoices, expectedNormalized),
+    [availableChoices, expectedNormalized]
+  );
+
   const handleWordClick = (choice: UniqueChoice) => {
     if (isCompleted) return;
     const expectedToken = orderedTokens[selectedCount];
@@ -216,10 +224,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           )}
         </div>
 
-        {!isCompleted && availableChoices.length > 0 && (
-          <div className="sticky bottom-0 z-10 rounded-2xl border border-border/60 bg-background/95 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+        {!isCompleted && visibleChoices.length > 0 && (
+          <div className="sticky bottom-0 z-10 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm">
             <div className="flex flex-wrap gap-2">
-              {availableChoices.map((choice) => {
+              {visibleChoices.map((choice) => {
                 const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
                 return (
                   <Button
