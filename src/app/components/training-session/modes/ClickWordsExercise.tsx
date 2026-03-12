@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
-import { Button } from "@/app/components/ui/button";
+import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -17,8 +17,12 @@ import {
   normalizeWord,
   cleanWordForDisplay,
   getMaxMistakes,
+  getWordMask,
+  getWordMaskWidth,
   pickVisibleChoices,
 } from './wordUtils';
+import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
@@ -37,6 +41,9 @@ interface UniqueChoice {
   normalized: string;
   totalCount: number;
 }
+
+const MIN_CHOICE_TRAY_HEIGHT = 132;
+const CHOICE_TRAY_OFFSET_PX = 12;
 
 function shuffleTokens(words: string[]): WordToken[] {
   const tokens = words.map((word, index) => ({
@@ -88,26 +95,28 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const [tokens, setTokens] = useState<WordToken[]>([]);
   const [orderedTokens, setOrderedTokens] = useState<WordToken[]>([]);
   const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isSequenceExpanded, setIsSequenceExpanded] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const { ref: choiceTrayRef, size: choiceTraySize } =
+    useMeasuredElementSize<HTMLDivElement>(!isCompleted && !isSequenceExpanded);
 
   useEffect(() => {
     const words = tokenizeWords(verse.text);
     const shuffled = shuffleTokens(words);
     const ordered = [...shuffled].sort((a, b) => a.order - b.order);
 
-    setTokens(shuffled);
     setOrderedTokens(ordered);
     setUniqueChoices(shuffleArray(buildUniqueChoices(shuffled)));
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
+    setIsSequenceExpanded(false);
     setErrorFlashNormalized(null);
 
     return () => {
@@ -118,12 +127,29 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     };
   }, [verse]);
 
-  const totalWords = tokens.length;
+  const totalWords = orderedTokens.length;
   const maxMistakes = getMaxMistakes(totalWords);
+  const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
 
   const selectedTokens = useMemo(
     () => orderedTokens.slice(0, selectedCount),
     [orderedTokens, selectedCount]
+  );
+
+  const sequenceItems = useMemo<WordSequenceFieldItem[]>(
+    () =>
+      orderedTokens.map((token, index) => {
+        const isFilled = index < selectedCount;
+        const isActiveGap = !isCompleted && index === selectedCount;
+
+        return {
+          id: token.id,
+          content: isFilled ? token.text : getWordMask(token.text),
+          minWidth: isFilled ? undefined : getWordMaskWidth(token.text),
+          state: isFilled ? 'filled' : isActiveGap ? 'active-gap' : 'future-gap',
+        };
+      }),
+    [orderedTokens, selectedCount, isCompleted]
   );
 
   const remainingCountByNormalized = useMemo(() => {
@@ -138,16 +164,15 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     return counts;
   }, [uniqueChoices, selectedTokens]);
 
-  const availableChoices = useMemo(
-    () => uniqueChoices.filter((c) => (remainingCountByNormalized.get(c.normalized) ?? 0) > 0),
-    [uniqueChoices, remainingCountByNormalized]
-  );
-
-  const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
-
   const visibleChoices = useMemo(
-    () => pickVisibleChoices(availableChoices, expectedNormalized),
-    [availableChoices, expectedNormalized]
+    () =>
+      pickVisibleChoices(
+        uniqueChoices,
+        remainingCountByNormalized,
+        expectedNormalized,
+        choiceTraySize.width
+      ),
+    [uniqueChoices, remainingCountByNormalized, expectedNormalized, choiceTraySize.width]
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
@@ -191,7 +216,11 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     }, 260);
   };
 
-  const showChoices = !isCompleted && visibleChoices.length > 0;
+  const showChoices = !isCompleted && !isSequenceExpanded && visibleChoices.length > 0;
+  const reservedChoicesSpace = showChoices
+    ? (choiceTraySize.height > 0 ? choiceTraySize.height : MIN_CHOICE_TRAY_HEIGHT) +
+      CHOICE_TRAY_OFFSET_PX
+    : 0;
 
   return (
     <motion.div
@@ -199,32 +228,27 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-      <div className={`space-y-3 ${showChoices ? 'pb-20' : ''}`}>
+      <div
+        className="space-y-3"
+        style={showChoices ? { paddingBottom: `${reservedChoicesSpace}px` } : undefined}
+      >
         <label className="block text-center text-sm font-medium text-foreground/90">
           Соберите стих по словам
         </label>
 
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Последовательность</span>
-            <span className="tabular-nums">{selectedCount}/{totalWords}</span>
-          </div>
-
-          {selectedTokens.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedTokens.map((token) => (
-                <span
-                  key={token.id}
-                  className="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-sm"
-                >
-                  {token.text}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Нажимайте слова в правильном порядке.</p>
-          )}
-        </div>
+        <WordSequenceField
+          label="Строка стиха"
+          progressCurrent={selectedCount}
+          progressTotal={totalWords}
+          items={sequenceItems}
+          expanded={isSequenceExpanded}
+          onToggleExpanded={() => setIsSequenceExpanded((prev) => !prev)}
+          reviewHint={
+            !isCompleted
+              ? 'Режим обзора скрывает варианты слов. Сверните строку, чтобы продолжить заполнение.'
+              : undefined
+          }
+        />
 
         {isCompleted && (
           <TrainingRatingFooter>
@@ -238,8 +262,14 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
       </div>
 
       {showChoices && (
-        <div className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background p-3">
-          <div className="flex flex-wrap gap-2">
+        <div
+          ref={choiceTrayRef}
+          className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm"
+        >
+          <div className="mb-2 text-[11px] text-muted-foreground">
+            Выберите следующее слово
+          </div>
+          <div className="flex flex-wrap gap-1.5">
             {visibleChoices.map((choice) => {
               const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
               return (
@@ -247,16 +277,17 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                   key={choice.normalized}
                   type="button"
                   variant="outline"
-                  className={`h-auto rounded-xl px-3 py-2 transition-colors ${
+                  title={choice.displayText}
+                  className={`h-auto max-w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left whitespace-normal transition-colors ${
                     errorFlashNormalized === choice.normalized
                       ? 'border-destructive text-destructive'
                       : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                   }`}
                   onClick={() => handleWordClick(choice)}
                 >
-                  {choice.displayText}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{choice.displayText}</span>
                   {remaining > 1 && (
-                    <span className="ml-1 text-xs text-muted-foreground">×{remaining}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">×{remaining}</span>
                   )}
                 </Button>
               );

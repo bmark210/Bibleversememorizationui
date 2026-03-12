@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
-import { Button } from "@/app/components/ui/button";
+import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -17,8 +17,12 @@ import {
   normalizeWord,
   cleanWordForDisplay,
   getMaxMistakes,
+  getWordMask,
+  getWordMaskWidth,
   pickVisibleChoices,
 } from './wordUtils';
+import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
@@ -38,6 +42,9 @@ interface UniqueChoice {
   normalized: string;
   totalCount: number;
 }
+
+const MIN_CHOICE_TRAY_HEIGHT = 132;
+const CHOICE_TRAY_OFFSET_PX = 12;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -89,8 +96,8 @@ function buildExercise(text: string) {
   }));
 
   const hiddenSlots = slots.filter((s) => !s.revealed);
-
   const choiceMap = new Map<string, UniqueChoice>();
+
   for (const slot of hiddenSlots) {
     const existing = choiceMap.get(slot.normalized);
     if (existing) {
@@ -105,7 +112,6 @@ function buildExercise(text: string) {
   }
 
   const uniqueChoices = Array.from(choiceMap.values());
-  // shuffle
   for (let i = uniqueChoices.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     swapArrayItems(uniqueChoices, i, j);
@@ -124,8 +130,11 @@ export function ModeClickWordsHintedExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isSequenceExpanded, setIsSequenceExpanded] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const { ref: choiceTrayRef, size: choiceTraySize } =
+    useMeasuredElementSize<HTMLDivElement>(!isCompleted && !isSequenceExpanded);
 
   useEffect(() => {
     const exercise = buildExercise(verse.text);
@@ -134,6 +143,7 @@ export function ModeClickWordsHintedExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
+    setIsSequenceExpanded(false);
     setErrorFlashNormalized(null);
 
     return () => {
@@ -152,6 +162,7 @@ export function ModeClickWordsHintedExercise({
   const totalHiddenWords = hiddenSlots.length;
   const maxMistakes = getMaxMistakes(totalHiddenWords);
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
+  const nextHiddenNormalized = nextHiddenSlot?.normalized ?? null;
 
   const hiddenIndexByOrder = useMemo(() => {
     const map = new Map<number, number>();
@@ -159,29 +170,65 @@ export function ModeClickWordsHintedExercise({
     return map;
   }, [hiddenSlots]);
 
+  const sequenceItems = useMemo<WordSequenceFieldItem[]>(
+    () =>
+      slots.map((slot) => {
+        const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
+        const isHidden = hiddenIndex >= 0;
+        const isFilled = isHidden && hiddenIndex < selectedCount;
+        const isActiveGap = isHidden && !isCompleted && hiddenIndex === selectedCount;
+
+        if (slot.revealed) {
+          return {
+            id: slot.id,
+            content: slot.text,
+            state: 'revealed',
+          };
+        }
+
+        if (isFilled) {
+          return {
+            id: slot.id,
+            content: slot.text,
+            state: 'filled',
+          };
+        }
+
+        return {
+          id: slot.id,
+          content: getWordMask(slot.text),
+          minWidth: getWordMaskWidth(slot.text),
+          state: isActiveGap ? 'active-gap' : 'future-gap',
+        };
+      }),
+    [slots, hiddenIndexByOrder, selectedCount, isCompleted]
+  );
+
   const remainingCountByNormalized = useMemo(() => {
     const counts = new Map<string, number>();
     for (const choice of uniqueChoices) {
       counts.set(choice.normalized, choice.totalCount);
     }
-    // Subtract already placed words
-    for (let i = 0; i < selectedCount; i++) {
+
+    for (let i = 0; i < selectedCount; i += 1) {
       const slot = hiddenSlots[i];
       if (!slot) break;
       const current = counts.get(slot.normalized) ?? 0;
       if (current > 0) counts.set(slot.normalized, current - 1);
     }
+
     return counts;
   }, [uniqueChoices, selectedCount, hiddenSlots]);
 
-  const availableChoices = useMemo(
-    () => uniqueChoices.filter((c) => (remainingCountByNormalized.get(c.normalized) ?? 0) > 0),
-    [uniqueChoices, remainingCountByNormalized]
-  );
-
   const visibleChoices = useMemo(
-    () => pickVisibleChoices(availableChoices, nextHiddenSlot?.normalized ?? null),
-    [availableChoices, nextHiddenSlot]
+    () =>
+      pickVisibleChoices(
+        uniqueChoices,
+        remainingCountByNormalized,
+        nextHiddenNormalized,
+        choiceTraySize.width
+      ),
+    [uniqueChoices, remainingCountByNormalized, nextHiddenNormalized, choiceTraySize.width]
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
@@ -224,7 +271,11 @@ export function ModeClickWordsHintedExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && visibleChoices.length > 0;
+  const showChoices = !isCompleted && !isSequenceExpanded && visibleChoices.length > 0;
+  const reservedChoicesSpace = showChoices
+    ? (choiceTraySize.height > 0 ? choiceTraySize.height : MIN_CHOICE_TRAY_HEIGHT) +
+      CHOICE_TRAY_OFFSET_PX
+    : 0;
 
   return (
     <motion.div
@@ -232,56 +283,27 @@ export function ModeClickWordsHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-      <div className={`space-y-3 ${showChoices ? 'pb-20' : ''}`}>
+      <div
+        className="space-y-3"
+        style={showChoices ? { paddingBottom: `${reservedChoicesSpace}px` } : undefined}
+      >
         <label className="block text-center text-sm font-medium text-foreground/90">
           Восстановите скрытые слова по порядку
         </label>
 
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Стих с пропусками</span>
-            <span className="tabular-nums">{selectedCount}/{totalHiddenWords}</span>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 leading-relaxed">
-            {slots.map((slot) => {
-              const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
-              const isHidden = hiddenIndex >= 0;
-              const isFilled = isHidden && hiddenIndex < selectedCount;
-              const isNextGap = isHidden && hiddenIndex === selectedCount;
-
-              if (slot.revealed || isFilled) {
-                return (
-                  <span
-                    key={slot.id}
-                    className={`inline-flex items-center rounded-md px-2 py-1 text-sm ${
-                      slot.revealed
-                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                        : 'border border-primary/20 bg-primary/10'
-                    }`}
-                  >
-                    {slot.text}
-                  </span>
-                );
-              }
-
-              const width = clamp(slot.text.length * 8, 30, 140);
-              return (
-                <span
-                  key={slot.id}
-                  className={`inline-flex items-center justify-center rounded-md px-2 py-1 text-sm ${
-                    isNextGap
-                      ? 'border-2 border-primary/40 bg-primary/5 text-primary/60'
-                      : 'border border-border/60 bg-muted/20 text-muted-foreground'
-                  }`}
-                  style={{ minWidth: `${width}px` }}
-                >
-                  {'•'.repeat(clamp(slot.text.length, 3, 10))}
-                </span>
-              );
-            })}
-          </div>
-        </div>
+        <WordSequenceField
+          label="Строка стиха"
+          progressCurrent={selectedCount}
+          progressTotal={totalHiddenWords}
+          items={sequenceItems}
+          expanded={isSequenceExpanded}
+          onToggleExpanded={() => setIsSequenceExpanded((prev) => !prev)}
+          reviewHint={
+            !isCompleted
+              ? 'В режиме обзора видно весь стих с пропусками, но варианты слов скрыты до сворачивания.'
+              : undefined
+          }
+        />
 
         {isCompleted && (
           <TrainingRatingFooter>
@@ -295,8 +317,14 @@ export function ModeClickWordsHintedExercise({
       </div>
 
       {showChoices && (
-        <div className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background p-3">
-          <div className="flex flex-wrap gap-2">
+        <div
+          ref={choiceTrayRef}
+          className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm"
+        >
+          <div className="mb-2 text-[11px] text-muted-foreground">
+            Выберите следующее скрытое слово
+          </div>
+          <div className="flex flex-wrap gap-1.5">
             {visibleChoices.map((choice) => {
               const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
               return (
@@ -304,16 +332,17 @@ export function ModeClickWordsHintedExercise({
                   key={choice.normalized}
                   type="button"
                   variant="outline"
-                  className={`h-auto rounded-xl px-3 py-2 transition-colors ${
+                  title={choice.displayText}
+                  className={`h-auto max-w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left whitespace-normal transition-colors ${
                     errorFlashNormalized === choice.normalized
                       ? 'border-destructive text-destructive'
                       : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                   }`}
                   onClick={() => handleWordClick(choice)}
                 >
-                  {choice.displayText}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{choice.displayText}</span>
                   {remaining > 1 && (
-                    <span className="ml-1 text-xs text-muted-foreground">×{remaining}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">×{remaining}</span>
                   )}
                 </Button>
               );

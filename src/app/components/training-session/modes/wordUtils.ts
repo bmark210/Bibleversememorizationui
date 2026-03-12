@@ -5,11 +5,24 @@ const SACRED_STEMS = [
   'сын', 'отц', 'отец', 'отч',
 ];
 
-// Latin chars that look identical to Cyrillic — normalize to Cyrillic
+// Latin chars that look identical to Cyrillic - normalize to Cyrillic
 const LATIN_TO_CYRILLIC: Record<string, string> = {
   a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', x: 'х', y: 'у',
   k: 'к', n: 'н', t: 'т', m: 'м', b: 'в', h: 'н',
 };
+
+const DEFAULT_CHOICE_TRAY_WIDTH = 280;
+const MIN_CHOICE_TRAY_WIDTH = 220;
+const MAX_VISIBLE_CHOICE_ROWS = 3;
+const MAX_LEADING_CONTEXT_CHOICES = 2;
+const CHOICE_GAP_PX = 6;
+const CHOICE_CHAR_WIDTH_PX = 8.2;
+const CHOICE_BASE_WIDTH_PX = 28;
+const CHOICE_MIN_WIDTH_PX = 56;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
 
 function latinToCyrillic(text: string): string {
   return text.replace(/[a-z]/g, (ch) => LATIN_TO_CYRILLIC[ch] ?? ch);
@@ -53,47 +66,131 @@ export function getMaxMistakes(totalWords: number): number {
   return Math.max(5, Math.floor(totalWords * 0.3));
 }
 
-const MAX_CHOICES_CHARS = 75;
+export function getWordMask(word: string): string {
+  const cleanedLength = stripPunctuation(word).length || word.length;
+  return '•'.repeat(clamp(cleanedLength, 3, 10));
+}
+
+export function getWordMaskWidth(word: string): number {
+  const cleanedLength = stripPunctuation(word).length || word.length;
+  return clamp(cleanedLength * 8, 30, 140);
+}
 
 interface VisibleChoiceInput {
   displayText: string;
   normalized: string;
+  totalCount?: number;
 }
 
-/**
- * Pick a subset of choices that fits within ~MAX_CHOICES_CHARS characters.
- * Always includes the correct answer. Fills remaining budget with others.
- */
-export function pickVisibleChoices<T extends VisibleChoiceInput>(
-  available: T[],
-  correctNormalized: string | null,
-): T[] {
-  if (available.length === 0) return [];
-
-  // Calculate total chars of all choices
-  const totalChars = available.reduce((sum, c) => sum + c.displayText.length, 0);
-  if (totalChars <= MAX_CHOICES_CHARS) return available;
-
-  const result: T[] = [];
-  let usedChars = 0;
-
-  // Always add the correct answer first
-  const correct = correctNormalized
-    ? available.find((c) => c.normalized === correctNormalized)
-    : null;
-  if (correct) {
-    result.push(correct);
-    usedChars += correct.displayText.length;
+function getEffectiveTrayWidth(trayWidth: number) {
+  if (Number.isFinite(trayWidth) && trayWidth >= MIN_CHOICE_TRAY_WIDTH) {
+    return Math.floor(trayWidth);
   }
 
-  // Fill with others
-  for (const choice of available) {
-    if (correct && choice.normalized === correct.normalized) continue;
-    const nextChars = usedChars + choice.displayText.length;
-    if (nextChars > MAX_CHOICES_CHARS) continue;
-    result.push(choice);
-    usedChars = nextChars;
+  return DEFAULT_CHOICE_TRAY_WIDTH;
+}
+
+function estimateChoiceWidth(choice: VisibleChoiceInput, trayWidth: number) {
+  const textWidth = Math.ceil(choice.displayText.length * CHOICE_CHAR_WIDTH_PX);
+  const badgeWidth =
+    choice.totalCount && choice.totalCount > 1
+      ? 18 + String(choice.totalCount).length * 7
+      : 0;
+
+  return clamp(
+    textWidth + badgeWidth + CHOICE_BASE_WIDTH_PX,
+    CHOICE_MIN_WIDTH_PX,
+    trayWidth
+  );
+}
+
+function packChoiceWindow<T extends VisibleChoiceInput>(
+  choices: T[],
+  startIndex: number,
+  trayWidth: number,
+  maxRows = MAX_VISIBLE_CHOICE_ROWS,
+): T[] {
+  if (choices.length === 0 || startIndex >= choices.length) return [];
+
+  const effectiveTrayWidth = getEffectiveTrayWidth(trayWidth);
+  const result: T[] = [];
+  let currentRow = 1;
+  let currentRowWidth = 0;
+
+  for (let index = startIndex; index < choices.length; index += 1) {
+    const choice = choices[index];
+    const width = estimateChoiceWidth(choice, effectiveTrayWidth);
+    const nextRowWidth =
+      currentRowWidth === 0 ? width : currentRowWidth + CHOICE_GAP_PX + width;
+
+    if (result.length === 0 || nextRowWidth <= effectiveTrayWidth) {
+      result.push(choice);
+      currentRowWidth = nextRowWidth;
+      continue;
+    }
+
+    if (currentRow < maxRows) {
+      currentRow += 1;
+      result.push(choice);
+      currentRowWidth = width;
+      continue;
+    }
+
+    break;
   }
 
   return result;
+}
+
+export function pickVisibleChoices<T extends VisibleChoiceInput>(
+  orderedChoices: T[],
+  remainingCountByNormalized: Map<string, number>,
+  correctNormalized: string | null,
+  trayWidth: number,
+): T[] {
+  if (orderedChoices.length === 0) return [];
+
+  const hasRemaining = (choice: T) =>
+    (remainingCountByNormalized.get(choice.normalized) ?? 0) > 0;
+
+  const remainingChoices = orderedChoices.filter(hasRemaining);
+  if (remainingChoices.length === 0) return [];
+
+  const defaultWindow = packChoiceWindow(remainingChoices, 0, trayWidth);
+  if (defaultWindow.length === remainingChoices.length) {
+    return remainingChoices;
+  }
+
+  if (!correctNormalized) {
+    return defaultWindow;
+  }
+
+  const correctIndex = remainingChoices.findIndex(
+    (choice) => choice.normalized === correctNormalized
+  );
+
+  if (correctIndex < 0) {
+    return defaultWindow;
+  }
+
+  let startIndex = Math.max(0, correctIndex - MAX_LEADING_CONTEXT_CHOICES);
+  let visibleChoices = packChoiceWindow(remainingChoices, startIndex, trayWidth);
+
+  while (startIndex > 0 && visibleChoices.length < defaultWindow.length) {
+    const candidateStartIndex = startIndex - 1;
+    const candidateWindow = packChoiceWindow(
+      remainingChoices,
+      candidateStartIndex,
+      trayWidth
+    );
+
+    if (!candidateWindow.some((choice) => choice.normalized === correctNormalized)) {
+      break;
+    }
+
+    visibleChoices = candidateWindow;
+    startIndex = candidateStartIndex;
+  }
+
+  return visibleChoices.length > 0 ? visibleChoices : defaultWindow;
 }
