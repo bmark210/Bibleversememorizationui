@@ -433,7 +433,7 @@ export function Profile({
   };
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
+    <div className={cn("mx-auto max-w-5xl p-4 sm:p-6 lg:p-8", isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "")}>
       <motion.div
         {...(shouldReduceMotion
           ? {}
@@ -457,13 +457,13 @@ export function Profile({
           }}
           className="space-y-5"
         >
-          {!isTelegramFullscreen ? (
+          {isTelegramFullscreen ? null : (
             <motion.div variants={sectionVariants}>
               <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
                 Профиль
               </h1>
             </motion.div>
-          ) : null}
+          )}
           <motion.div variants={sectionVariants}>
             <ProfileSurface>
               {telegramId && onOpenPlayerProfile ? (

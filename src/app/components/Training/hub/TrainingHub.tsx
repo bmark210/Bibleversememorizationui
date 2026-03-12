@@ -675,7 +675,7 @@ export function TrainingHub({
       </AlertDialog>
 
       <div
-        className="mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8"
+        className={cn("mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8", !isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "")}
         style={
           {
             "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
