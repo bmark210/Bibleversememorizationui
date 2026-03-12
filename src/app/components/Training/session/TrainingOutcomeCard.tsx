@@ -116,7 +116,7 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
 }: TrainingOutcomeCardProps) {
   const verseTextViewportRef = useRef<HTMLDivElement>(null);
   const verseTextRef = useRef<HTMLParagraphElement>(null);
-  const [lineClamp, setLineClamp] = useState(6);
+  const [, setLineClamp] = useState(6);
   const isReviewOutcome = outcome.kind === "review-waiting";
   const copy = getOutcomeCopy(outcome);
   const availabilityText = isReviewOutcome
@@ -282,24 +282,6 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
                   </p>
                 </div>
               ) : null}
-            </div>
-
-            <div
-              ref={verseTextViewportRef}
-              className="mt-4 flex-1 min-h-0 overflow-hidden rounded-[2rem] border border-border/60 bg-background/70 px-4 py-3 shadow-sm"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/50">
-                Текст стиха
-              </p>
-              <div className="flex h-full min-h-0 items-center justify-center overflow-hidden pt-3">
-                <p
-                  ref={verseTextRef}
-                  style={{ WebkitLineClamp: lineClamp }}
-                  className="w-full max-h-full overflow-hidden text-ellipsis text-center font-serif italic text-[1rem] leading-relaxed text-primary/90 [display:-webkit-box] [-webkit-box-orient:vertical] sm:text-[1.06rem]"
-                >
-                  «{trainingVerse.raw.text}»
-                </p>
-              </div>
             </div>
           </div>
         }

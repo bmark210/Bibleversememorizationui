@@ -15,7 +15,6 @@ import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import {
   getStoppedVerseStageKind,
-  getVerseStageVisual,
 } from "@/app/components/verse-list/constants";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
@@ -104,6 +103,18 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   },
 };
 
+const PAUSE_SUMMARY_TONE: PhaseTone = {
+  cardClassName: "border-rose-500/18 bg-rose-500/[0.08]",
+  iconWrapClassName: "border-rose-500/25 bg-rose-500/12",
+  iconClassName: "text-rose-700 dark:text-rose-300",
+  badgeClassName: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  progressClassName: "from-rose-500 to-rose-400/85",
+  railDoneClassName: "border-rose-500/35 bg-rose-500/18 text-rose-800 dark:text-rose-200",
+  railCurrentClassName:
+    "border-rose-500/45 bg-rose-500/24 text-rose-900 ring-2 ring-rose-500/20 dark:text-rose-100",
+  railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+};
+
 function normalizeCount(value: unknown): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
@@ -160,6 +171,7 @@ function getPhaseBadgeLabel(state: PhaseState): string {
 function getCurrentStepText(params: {
   verse: Verse;
   currentPhase: PhaseKey;
+  masteryLevel: number;
   learningStage: number;
   reviewCompleted: number;
   reviewTarget: number;
@@ -169,6 +181,7 @@ function getCurrentStepText(params: {
   const {
     verse,
     currentPhase,
+    masteryLevel,
     learningStage,
     reviewCompleted,
     reviewTarget,
@@ -189,7 +202,13 @@ function getCurrentStepText(params: {
     if (currentPhase === "review") {
       return `Пауза на этапе повторения: засчитано ${reviewCompleted} из ${REPEAT_THRESHOLD_FOR_MASTERED}.`;
     }
+    if (masteryLevel <= 0) {
+      return "Пауза перед первой ступенью освоения. После возобновления стих вернется к старту изучения.";
+    }
     return `Пауза на этапе освоения: текущая ступень ${learningStage} из ${TRAINING_STAGE_MASTERY_MAX}.`;
+  }
+  if (currentPhase === "learning" && masteryLevel <= 0) {
+    return "Стих готов к первой ступени освоения. После первого успешного прохода начнется движение по этапам.";
   }
   if (currentPhase === "learning") {
     return `Сейчас стих на ступени ${learningStage} из ${TRAINING_STAGE_MASTERY_MAX}. После 7-й ступени он перейдет в повторение.`;
@@ -271,11 +290,30 @@ function buildPhaseDescription(params: {
   return "После 7 успешных повторов стих переходит в статус выученного.";
 }
 
-function buildSummaryIcon(phase: PhaseKey): LucideIcon {
+function buildSummaryIcon(params: {
+  phase: PhaseKey;
+  status: ReturnType<typeof normalizeDisplayVerseStatus>;
+}): LucideIcon {
+  const { phase, status } = params;
+  if (status === VerseStatus.STOPPED) return Pause;
   if (phase === "collection") return Bookmark;
   if (phase === "learning") return Brain;
   if (phase === "review") return Repeat;
   return Trophy;
+}
+
+function getSummaryLabel(params: {
+  phase: PhaseKey;
+  status: ReturnType<typeof normalizeDisplayVerseStatus>;
+}): string {
+  const { phase, status } = params;
+
+  if (status === "CATALOG") return "Каталог";
+  if (status === VerseStatus.MY) return "Мой список";
+  if (phase === "learning") return "Изучение";
+  if (phase === "review") return "Повторение";
+  if (phase === "mastered") return "Выучен";
+  return "В коллекции";
 }
 
 function StepRail({
@@ -386,7 +424,6 @@ export function VerseProgressDrawer({
 
     const status = normalizeDisplayVerseStatus(verse.status);
     const currentPhase = resolveCurrentPhase(verse);
-    const stageVisual = getVerseStageVisual(verse);
     const masteryLevel = normalizeCount(verse.masteryLevel);
     const repetitions = normalizeCount(verse.repetitions);
     const reviewLapseStreak = normalizeCount(verse.reviewLapseStreak);
@@ -423,13 +460,16 @@ export function VerseProgressDrawer({
     const progressPercent = Math.round(
       (totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100
     );
-    const currentTone = PHASE_TONES[currentPhase];
-    const SummaryIcon = buildSummaryIcon(currentPhase);
+    const currentTone =
+      status === VerseStatus.STOPPED
+        ? PAUSE_SUMMARY_TONE
+        : PHASE_TONES[currentPhase];
+    const SummaryIcon = buildSummaryIcon({ phase: currentPhase, status });
+    const summaryLabel = getSummaryLabel({ phase: currentPhase, status });
 
     return {
       status,
       currentPhase,
-      stageVisual,
       masteryLevel,
       repetitions,
       reviewLapseStreak,
@@ -444,9 +484,11 @@ export function VerseProgressDrawer({
       progressPercent,
       currentTone,
       SummaryIcon,
+      summaryLabel,
       currentStepText: getCurrentStepText({
         verse,
         currentPhase,
+        masteryLevel,
         learningStage,
         reviewCompleted,
         reviewTarget: reviewCurrent ?? REPEAT_THRESHOLD_FOR_MASTERED,
@@ -609,7 +651,7 @@ export function VerseProgressDrawer({
                     progressModel.currentTone.badgeClassName
                   )}
                 >
-                  {progressModel.stageVisual.label}
+                  {progressModel.summaryLabel}
                 </span>
                 {progressModel.status === VerseStatus.STOPPED ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
