@@ -1,18 +1,19 @@
 export const MASTERY_MAX = 7;
 export const MASTERY_MIN = 0;
-export const REVIEW_REPETITIONS_MAX = 3;
-export const REVIEW_INTERVALS_DAYS = [1, 3, 5] as const;
-export const REVIEW_FAIL_RETRY_MINUTES = 10;
+export const REVIEW_REPETITIONS_MAX = 7;
+export const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60, 90] as const;
+export const REVIEW_FAIL_RETRY_MINUTES = 360;
+export const REVIEW_HINT_RETRY_MINUTES = 24 * 60;
 export const TRAINING_SCORE_BY_RATING = { 0: 35, 1: 60, 2: 84, 3: 96 } as const;
 export const SPACED_REPETITION_MS_BY_STAGE = {
   0: 10 * 60 * 1000,
   1: 60 * 60 * 1000,
   2: 6 * 60 * 60 * 1000,
   3: 24 * 60 * 60 * 1000,
-  4: 3 * 24 * 60 * 60 * 1000,
+  4: 2 * 24 * 60 * 60 * 1000,
   5: 3 * 24 * 60 * 60 * 1000,
-  6: 3 * 24 * 60 * 60 * 1000,
-  7: 3 * 24 * 60 * 60 * 1000,
+  6: 5 * 24 * 60 * 60 * 1000,
+  7: 7 * 24 * 60 * 60 * 1000,
 } as const;
 export const REFERENCE_BIAS_THRESHOLD = 8;
 export const REFERENCE_POOL_SIZE = 12;
@@ -57,3 +58,4 @@ export const TOTAL_REPEATS_AND_STAGE_MASTERY_MAX =
   REVIEW_REPETITIONS_MAX + MASTERY_MAX;
 export const REVIEW_FAILED_RETRY_MINUTES = REVIEW_FAIL_RETRY_MINUTES;
 export const REFERENCE_TRAINER_POOL_SIZE = REFERENCE_POOL_SIZE;
+export const MAINTENANCE_REVIEW_DAYS = 180;

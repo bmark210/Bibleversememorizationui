@@ -3,8 +3,10 @@ import {
   MASTERY_MIN,
   RATING_MASTERY_DELTAS,
   REVIEW_FAIL_RETRY_MINUTES,
+  REVIEW_HINT_RETRY_MINUTES,
   REVIEW_INTERVALS_DAYS,
   REVIEW_REPETITIONS_MAX,
+  MAINTENANCE_REVIEW_DAYS,
   SPACED_REPETITION_MS_BY_STAGE,
   TRAINING_SCORE_BY_RATING,
 } from "@/shared/constants/training";
@@ -82,9 +84,11 @@ export function computeLearningNextReviewAt(
 export function computeReviewNextReviewAt(
   successfulRepetitions: number,
   now: Date
-): Date | null {
+): Date {
   if (successfulRepetitions >= REVIEW_REPETITIONS_MAX) {
-    return null;
+    return new Date(
+      now.getTime() + MAINTENANCE_REVIEW_DAYS * 24 * 60 * 60 * 1000
+    );
   }
 
   const intervalIndex = clamp(
@@ -104,7 +108,7 @@ export function computeReviewResult(
   now: Date
 ): {
   repetitions: number;
-  nextReviewAt: Date | null;
+  nextReviewAt: Date;
   reviewWasSuccessful: boolean;
 } {
   const repetitions = Math.max(0, Math.round(currentRepetitions));
@@ -116,6 +120,16 @@ export function computeReviewResult(
       repetitions: nextRepetitions,
       nextReviewAt: computeReviewNextReviewAt(nextRepetitions, now),
       reviewWasSuccessful: true,
+    };
+  }
+
+  if (rating === 1) {
+    return {
+      repetitions,
+      nextReviewAt: new Date(
+        now.getTime() + REVIEW_HINT_RETRY_MINUTES * 60 * 1000
+      ),
+      reviewWasSuccessful: false,
     };
   }
 
@@ -140,7 +154,7 @@ export function computeProgressDelta(params: {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
   repetitions: number;
-  nextReviewAt: Date | null;
+  nextReviewAt: Date;
   graduatesToReview: boolean;
   reviewWasSuccessful: boolean;
   canUpdateRepetitions: boolean;
