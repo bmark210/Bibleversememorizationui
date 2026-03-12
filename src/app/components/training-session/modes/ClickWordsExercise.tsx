@@ -256,7 +256,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                   data-card-swipe-ignore="true"
                   className="flex h-full items-start overflow-hidden py-2"
                 >
-                  <div className="flex w-full flex-wrap content-start gap-1.5">
+                  <div className="flex w-full flex-wrap content-start gap-1">
                     {visibleChoices.map((choice) => {
                       const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
                       return (
@@ -265,7 +265,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                           type="button"
                           variant="outline"
                           title={choice.displayText}
-                          className={`h-auto max-w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left whitespace-normal transition-colors ${
+                          className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-2.5 py-1.5 text-[13px] leading-4 text-left whitespace-normal transition-colors ${
                             errorFlashNormalized === choice.normalized
                               ? 'border-destructive text-destructive'
                               : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
@@ -276,7 +276,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
                             {choice.displayText}
                           </span>
                           {remaining > 1 && (
-                            <span className="shrink-0 text-xs text-muted-foreground">×{remaining}</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground">×{remaining}</span>
                           )}
                         </Button>
                       );

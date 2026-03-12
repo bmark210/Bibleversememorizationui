@@ -13,12 +13,13 @@ const LATIN_TO_CYRILLIC: Record<string, string> = {
 
 const DEFAULT_CHOICE_TRAY_WIDTH = 280;
 const MIN_CHOICE_TRAY_WIDTH = 220;
-const MAX_VISIBLE_CHOICE_ROWS = 3;
+const MAX_VISIBLE_CHOICE_ROWS = 4;
+const MAX_VISIBLE_CHOICE_ITEMS = 15;
 const MAX_LEADING_CONTEXT_CHOICES = 2;
-const CHOICE_GAP_PX = 6;
-const CHOICE_CHAR_WIDTH_PX = 8.2;
-const CHOICE_BASE_WIDTH_PX = 28;
-const CHOICE_MIN_WIDTH_PX = 56;
+const CHOICE_GAP_PX = 5;
+const CHOICE_CHAR_WIDTH_PX = 7.4;
+const CHOICE_BASE_WIDTH_PX = 20;
+const CHOICE_MIN_WIDTH_PX = 44;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -118,6 +119,8 @@ function packChoiceWindow<T extends VisibleChoiceInput>(
   let currentRowWidth = 0;
 
   for (let index = startIndex; index < choices.length; index += 1) {
+    if (result.length >= MAX_VISIBLE_CHOICE_ITEMS) break;
+
     const choice = choices[index];
     const width = estimateChoiceWidth(choice, effectiveTrayWidth);
     const nextRowWidth =
