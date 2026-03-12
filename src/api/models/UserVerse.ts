@@ -10,6 +10,7 @@ export type UserVerse = {
     status: UserVerse.status;
     masteryLevel: number;
     repetitions: number;
+    reviewLapseStreak: number;
     referenceScore: number;
     incipitScore: number;
     contextScore: number;

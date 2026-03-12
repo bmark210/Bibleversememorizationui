@@ -14,6 +14,8 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { ReviewHint } from './ReviewHint';
+import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 
 interface TypingModeProps {
   verse: Verse;
@@ -26,10 +28,13 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
 
 export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
+  const isReview = ratingStage === 'review';
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
+  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
+  const [hintUsed, setHintUsed] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -44,6 +49,8 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     setMatchPercent(null);
     setIsCompleted(false);
     setShakeInput(false);
+    setHintLevel(0);
+    setHintUsed(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
@@ -136,9 +143,18 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
       className="w-full"
     >
       <div className="space-y-3">
-        <label className="block text-center text-sm font-medium text-foreground/90">
-          Напечатайте стих по памяти
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-foreground/90">
+            Напечатайте стих по памяти
+          </label>
+          <ReviewHint
+            verseText={verse.text}
+            isReview={isReview}
+            hintLevel={hintLevel}
+            onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
+            onHintUsed={() => setHintUsed(true)}
+          />
+        </div>
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -196,6 +212,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               stage={ratingStage}
               mode="full-recall"
               onRate={onRate}
+              maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
             />
           </TrainingRatingFooter>
         )}

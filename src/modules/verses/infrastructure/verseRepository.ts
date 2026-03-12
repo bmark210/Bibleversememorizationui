@@ -52,6 +52,7 @@ function mapCatalogUserVerseProgressRecord(row: {
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;
@@ -64,6 +65,7 @@ function mapCatalogUserVerseProgressRecord(row: {
     status: row.status,
     masteryLevel: row.masteryLevel,
     repetitions: row.repetitions,
+    reviewLapseStreak: row.reviewLapseStreak,
     referenceScore: row.referenceScore,
     incipitScore: row.incipitScore,
     contextScore: row.contextScore,
@@ -81,6 +83,7 @@ export function mapUserVerseRecord(
     status: VerseStatus;
     masteryLevel: number;
     repetitions: number;
+    reviewLapseStreak: number;
     referenceScore: number;
     incipitScore: number;
     contextScore: number;
@@ -99,6 +102,7 @@ export function mapUserVerseRecord(
     status: row.status,
     masteryLevel: row.masteryLevel,
     repetitions: row.repetitions,
+    reviewLapseStreak: row.reviewLapseStreak,
     referenceScore: row.referenceScore,
     incipitScore: row.incipitScore,
     contextScore: row.contextScore,
@@ -562,6 +566,7 @@ export async function getUserCatalogProgressByVerseIds(params: {
       status: true,
       masteryLevel: true,
       repetitions: true,
+      reviewLapseStreak: true,
       referenceScore: true,
       incipitScore: true,
       contextScore: true,

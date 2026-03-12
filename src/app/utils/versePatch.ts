@@ -67,6 +67,12 @@ export function pickMutableVersePatchFromApiResponse(raw: unknown): VerseMutable
     patch.repetitions = readNullableNumber(responseRecord.repetitions);
     hasPatchFields = true;
   }
+  if (hasOwn(responseRecord, "reviewLapseStreak")) {
+    patch.reviewLapseStreak = readNullableNumber(
+      responseRecord.reviewLapseStreak
+    );
+    hasPatchFields = true;
+  }
   if (hasOwn(responseRecord, "lastReviewedAt")) {
     patch.lastReviewedAt = readNullableString(responseRecord.lastReviewedAt);
     hasPatchFields = true;

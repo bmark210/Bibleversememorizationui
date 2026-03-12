@@ -23,6 +23,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Toaster } from "@/app/components/ui/toaster";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
+import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 import { VerseOwnersDrawer } from "@/app/components/VerseOwnersDrawer";
 import { VerseTagsDrawer } from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -208,6 +209,8 @@ export function VerseGallery({
     useState(false);
   const [activePlayerProfile, setActivePlayerProfile] =
     useState<PlayerProfilePreview | null>(null);
+  const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] =
+    useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -435,6 +438,10 @@ export function VerseGallery({
           closeVerseTagsDrawer();
           return;
         }
+        if (isVerseProgressDrawerOpen) {
+          setIsVerseProgressDrawerOpen(false);
+          return;
+        }
         onClose();
         return;
       }
@@ -442,7 +449,8 @@ export function VerseGallery({
         aux.isDeleteDialogOpen ||
         isPlayerProfileDrawerOpen ||
         isVerseOwnersDrawerOpen ||
-        isVerseTagsDrawerOpen
+        isVerseTagsDrawerOpen ||
+        isVerseProgressDrawerOpen
       ) {
         return;
       }
@@ -464,6 +472,7 @@ export function VerseGallery({
     closeVerseOwnersDrawer,
     closeVerseTagsDrawer,
     isPlayerProfileDrawerOpen,
+    isVerseProgressDrawerOpen,
     isVerseOwnersDrawerOpen,
     isVerseTagsDrawerOpen,
     nav,
@@ -536,6 +545,10 @@ export function VerseGallery({
       closeVerseTagsDrawer();
       return;
     }
+    if (isVerseProgressDrawerOpen) {
+      setIsVerseProgressDrawerOpen(false);
+      return;
+    }
 
     onClose();
   }, [
@@ -544,6 +557,7 @@ export function VerseGallery({
     closeVerseOwnersDrawer,
     closeVerseTagsDrawer,
     isPlayerProfileDrawerOpen,
+    isVerseProgressDrawerOpen,
     isVerseOwnersDrawerOpen,
     isVerseTagsDrawerOpen,
     onClose,
@@ -644,6 +658,7 @@ export function VerseGallery({
                   isAnchorEligible={isAnchorEligible}
                   onStartTraining={handleStartTraining}
                   onStatusAction={() => void handlePreviewStatusAction()}
+                  onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}
                 />
@@ -732,6 +747,12 @@ export function VerseGallery({
           setIsPlayerProfileDrawerOpen(true);
         }}
         onFriendsChanged={onFriendsChanged}
+      />
+
+      <VerseProgressDrawer
+        verse={previewActiveVerse}
+        open={isVerseProgressDrawerOpen}
+        onOpenChange={setIsVerseProgressDrawerOpen}
       />
     </>
   );

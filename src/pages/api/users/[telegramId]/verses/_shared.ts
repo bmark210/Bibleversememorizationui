@@ -121,7 +121,7 @@ const DEFAULT_USER_VERSES_PAGE_LIMIT = 20;
 const MAX_USER_VERSES_PAGE_LIMIT = 50;
 const MAX_USER_VERSES_SEARCH_LENGTH = 100;
 const MAX_USER_VERSES_TAG_FILTER_SIZE = 30;
-const DEFAULT_REFERENCE_TRAINER_LIMIT = 10;
+const DEFAULT_REFERENCE_TRAINER_LIMIT = 24;
 
 export class UserVersesApiError extends Error {
   constructor(
@@ -1024,12 +1024,11 @@ function selectPrioritizedAnchorVerses<
 export async function fetchRandomReferenceTrainerVerses(options: {
   telegramId: string;
   limit?: number;
-  bookId?: number;
 }): Promise<VerseCardDto[]> {
   const limit = Math.max(1, Math.min(DEFAULT_REFERENCE_TRAINER_LIMIT, Math.round(options.limit ?? DEFAULT_REFERENCE_TRAINER_LIMIT)));
   const translation = await getUserTranslationForTelegram(options.telegramId);
 
-  const anchorRows = await getAnchorTrainerRows(options.telegramId, options.bookId);
+  const anchorRows = await getAnchorTrainerRows(options.telegramId);
 
   const candidates = anchorRows
     .map((row) => ({
@@ -1240,6 +1239,7 @@ async function fetchPaginatedFriendVerses(options: {
             status: "CATALOG",
             masteryLevel: 0,
             repetitions: 0,
+            reviewLapseStreak: 0,
             referenceScore: 0,
             incipitScore: 0,
             contextScore: 0,

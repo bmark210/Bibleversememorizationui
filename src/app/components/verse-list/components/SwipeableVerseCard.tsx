@@ -20,6 +20,7 @@ import { haptic } from '../haptics';
 export type SwipeCardProps = {
   verse: Verse;
   onOpen: () => void;
+  onOpenProgress?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onAddToLearning: (verse: Verse) => void;
@@ -32,6 +33,7 @@ export type SwipeCardProps = {
 export const SwipeableVerseCard = ({
   verse,
   onOpen,
+  onOpenProgress,
   onOpenOwners,
   onOpenTags,
   onAddToLearning,
@@ -117,6 +119,13 @@ export const SwipeableVerseCard = ({
     if (!onOpenTags) return;
     haptic('light');
     onOpenTags?.(verse);
+  };
+
+  const handleOpenProgress = (e: React.MouseEvent | React.KeyboardEvent) => {
+    stopCardOpen(e);
+    if (!onOpenProgress) return;
+    haptic('light');
+    onOpenProgress(verse);
   };
 
   const getInitials = (name: string) =>
@@ -328,7 +337,15 @@ export const SwipeableVerseCard = ({
   })();
 
   const statusMetaContent = (displayStatus === VerseStatus.MY || displayStatus === 'CATALOG') ? null : (
-    <div className={cn('relative rounded-xl border overflow-hidden', statusTone.wrapperClass)}>
+    <button
+      type="button"
+      onClick={handleOpenProgress}
+      className={cn(
+        'relative w-full rounded-xl border overflow-hidden text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+        statusTone.wrapperClass
+      )}
+      aria-label={`Показать путь прогресса стиха ${verse.reference}`}
+    >
       <div
         className={cn('absolute inset-y-0 left-0 transition-[width] duration-700 ease-out', statusTone.bgFillClass)}
         style={{ width: `${totalProgressPercent}%` }}
@@ -352,7 +369,7 @@ export const SwipeableVerseCard = ({
           style={{ width: `${totalProgressPercent}%` }}
         />
       </div>
-    </div>
+    </button>
   );
 
   return (

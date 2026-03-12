@@ -7,6 +7,7 @@ import type { UserVerseRecord } from "@/modules/verses/domain/Verse";
 export type VerseProgressPatchInput = {
   masteryLevel?: number;
   repetitions?: number;
+  reviewLapseStreak?: number;
   lastReviewedAt?: Date;
   nextReviewAt?: Date;
   lastTrainingModeId?: number | null;
@@ -47,6 +48,9 @@ export async function persistVerseProgressPatch(params: {
           : {}),
         ...(params.patch.repetitions !== undefined
           ? { repetitions: params.patch.repetitions }
+          : {}),
+        ...(params.patch.reviewLapseStreak !== undefined
+          ? { reviewLapseStreak: params.patch.reviewLapseStreak }
           : {}),
         ...(params.patch.lastReviewedAt
           ? { lastReviewedAt: params.patch.lastReviewedAt }

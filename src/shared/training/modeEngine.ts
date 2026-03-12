@@ -26,9 +26,13 @@ export const TRAINING_MODE_PROGRESS_ORDER: TrainingModeId[] = [
 ];
 
 export const REVIEW_TRAINING_MODE_ROTATION: TrainingModeId[] = [
-  TrainingModeId.FirstLettersTyping,
-  TrainingModeId.FullRecall,
-  TrainingModeId.VoiceRecall,
+  TrainingModeId.FirstLettersTyping, // rep 0: day 1
+  TrainingModeId.FullRecall,         // rep 1: day 3
+  TrainingModeId.VoiceRecall,        // rep 2: day 7
+  TrainingModeId.FullRecall,         // rep 3: day 14
+  TrainingModeId.VoiceRecall,        // rep 4: day 30
+  TrainingModeId.FullRecall,         // rep 5: day 60
+  TrainingModeId.FullRecall,         // rep 6: day 90
 ];
 
 export const TRAINING_MODE_SHIFT_BY_RATING: Record<TrainingModeRating, number> = {

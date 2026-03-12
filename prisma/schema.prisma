@@ -76,6 +76,7 @@ model UserVerse {
 
   masteryLevel       Int       @default(0)
   repetitions        Int       @default(0)
+  reviewLapseStreak  Int       @default(0)
   referenceScore     Int       @default(0)
   incipitScore       Int       @default(0)
   contextScore       Int       @default(0)

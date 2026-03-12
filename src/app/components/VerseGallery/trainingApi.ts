@@ -19,7 +19,10 @@ function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "S
 
 export async function persistTrainingVerseProgress(
   verse: TrainingVerseState,
-  options?: { includeRepetitions?: boolean }
+  options?: {
+    includeRepetitions?: boolean;
+    reviewRating?: 0 | 1 | 2 | 3;
+  }
 ): Promise<UserVerse | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return null;
@@ -29,6 +32,10 @@ export async function persistTrainingVerseProgress(
     {
       masteryLevel: verse.rawMasteryLevel,
       ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
+      reviewLapseStreak: verse.reviewLapseStreak,
+      ...(options?.reviewRating !== undefined
+        ? { reviewRating: options.reviewRating }
+        : {}),
       lastReviewedAt: verse.lastReviewedAt?.toISOString(),
       nextReviewAt: verse.nextReviewAt?.toISOString(),
       lastTrainingModeId: verse.lastModeId ?? null,

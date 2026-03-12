@@ -12,6 +12,7 @@ import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
   BookOpen,
   Brain,
+  ChevronsRight,
   Layers,
   Lock,
   Play,
@@ -22,7 +23,6 @@ import {
 } from "lucide-react";
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
-import { BIBLE_BOOKS } from "@/app/types/bible";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
@@ -33,7 +33,6 @@ import {
 } from "./useTrainingHubState";
 import {
   getAnchorEligibleVerseCount,
-  getAnchorEligibleCountPerBook,
   getCoreTrainingCountsFromVerses,
   getSelectableCountForCoreModes,
   getWaitingReviewCountForCoreModes,
@@ -64,13 +63,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../ui/select";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
 
@@ -83,12 +75,10 @@ interface TrainingHubProps {
   selectedModes: CoreTrainingMode[];
   selectedOrder: TrainingOrder;
   selectedAnchorTrack: AnchorTrainingTrack;
-  selectedBookId?: number;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
   onOrderChange: (order: TrainingOrder) => void;
   onAnchorTrackChange: (track: AnchorTrainingTrack) => void;
-  onBookIdChange: (bookId: number | undefined) => void;
   onStart: () => void;
   onStartSelection: () => void;
 }
@@ -131,13 +121,6 @@ type AccentTheme = {
   checkedDotClassName: string;
   summaryClassName: string;
   ctaClassName: string;
-};
-
-type OrderTheme = {
-  triggerClassName: string;
-  contentClassName: string;
-  itemClassName: string;
-  hintClassName: string;
 };
 
 // const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
@@ -313,6 +296,7 @@ const CORE_MODE_PRESETS: CoreModePreset[] = [
 const ANCHOR_TRACK_OPTIONS: AnchorTrackOption[] = [
   { track: "reference", icon: BookOpen, theme: SKY_ACCENT },
   { track: "incipit", icon: TextCursorInput, theme: ROSE_ACCENT },
+  { track: "ending", icon: ChevronsRight, theme: VIOLET_ACCENT },
   { track: "context", icon: Brain, theme: TEAL_ACCENT },
   { track: "mixed", icon: Shuffle, theme: PRIMARY_ACCENT },
 ];
@@ -344,11 +328,9 @@ export function TrainingHub({
   selectedScenario,
   selectedModes,
   selectedAnchorTrack,
-  selectedBookId,
   onScenarioChange,
   onModesChange,
   onAnchorTrackChange,
-  onBookIdChange,
   onStart,
   onStartSelection,
 }: TrainingHubProps) {
@@ -371,11 +353,11 @@ export function TrainingHub({
   }, [allVerses, counts]);
   const anchorAvailableCount = useMemo(() => {
     if (allVerses.length > 0) {
-      return getAnchorEligibleVerseCount(allVerses, selectedBookId);
+      return getAnchorEligibleVerseCount(allVerses);
     }
 
     return anchorTotalAvailableCount;
-  }, [allVerses, anchorTotalAvailableCount, selectedBookId]);
+  }, [allVerses, anchorTotalAvailableCount]);
   const corePresetStates = useMemo<CorePresetState[]>(
     () =>
       CORE_MODE_PRESETS.map((preset) => {
@@ -412,19 +394,6 @@ export function TrainingHub({
     ANCHOR_TRACK_OPTIONS.find(
       (option) => option.track === selectedAnchorTrack,
     ) ?? ANCHOR_TRACK_OPTIONS[0];
-  const anchorBookOptions = useMemo(() => {
-    const countsPerBook = getAnchorEligibleCountPerBook(allVerses);
-    return Array.from(countsPerBook.entries())
-      .filter(([, count]) => count >= ANCHOR_MIN_REQUIRED)
-      .map(([id]) => id)
-      .sort((a, b) => a - b)
-      .map((id) => ({
-        id,
-        name: BIBLE_BOOKS[id]?.nameRu ?? `Книга ${id}`,
-      }));
-  }, [allVerses]);
-  const selectedBookName =
-    anchorBookOptions.find((book) => book.id === selectedBookId)?.name ?? null;
   const currentAccentTheme =
     selectedScenario === "anchor"
       ? activeAnchorTrack.theme
@@ -487,9 +456,7 @@ export function TrainingHub({
     selectedScenario === "anchor"
       ? getAnchorLockMessage({
           currentCount: anchorAvailableCount,
-          totalCount: anchorTotalAvailableCount,
           minRequired: ANCHOR_MIN_REQUIRED,
-          selectedBookName,
         })
       : reviewWaitingLocked
         ? getReviewWaitingMessage(
@@ -497,12 +464,6 @@ export function TrainingHub({
             counts.earliestWaitingReviewAt,
           )
         : getCoreLockMessage(selectedModes);
-
-  useEffect(() => {
-    if (selectedBookId == null) return;
-    if (anchorBookOptions.some((book) => book.id === selectedBookId)) return;
-    onBookIdChange(undefined);
-  }, [anchorBookOptions, selectedBookId, onBookIdChange]);
 
   useEffect(() => {
     if (selectedScenario !== "core") return;
@@ -594,32 +555,11 @@ export function TrainingHub({
   //   setIsAdvancedOpen(open);
   // };
 
-  const handleOrderOpenChange = (open: boolean) => {
-    if (open) {
-      triggerHaptic("light");
-    }
-  };
-
   // const handleOrderChange = (value: string) => {
   //   const nextOrder = value as TrainingOrder;
   //   triggerSelectionHaptic(nextOrder !== selectedOrder);
   //   onOrderChange(nextOrder);
   // };
-
-  const handleBookIdChange = (value: string) => {
-    const nextBookId = value === "all" ? undefined : Number(value);
-    triggerSelectionHaptic(nextBookId !== selectedBookId);
-    onBookIdChange(nextBookId);
-  };
-
-  const ANCHOR_BOOK_THEME: OrderTheme = {
-    triggerClassName:
-      "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_6px_18px_-12px_rgba(245,158,11,0.55)]",
-    contentClassName: "border-amber-500/20 bg-background/95 backdrop-blur-xl",
-    itemClassName:
-      "focus:bg-amber-500/8 focus:text-amber-800 dark:focus:text-amber-300 data-[state=checked]:bg-amber-500/10 data-[state=checked]:text-amber-800 dark:data-[state=checked]:text-amber-300",
-    hintClassName: "text-amber-700 dark:text-amber-300",
-  };
 
   return (
     <>
@@ -656,7 +596,7 @@ export function TrainingHub({
                 <span className="font-medium text-amber-700 dark:text-amber-300">
                   Закрепление
                 </span>{" "}
-                проверяет ссылку, начало стиха, контекст и смешанный формат.
+                проверяет ссылку, начало стиха, конец стиха, контекст и смешанный формат.
               </p>
             </div>
 
@@ -793,52 +733,6 @@ export function TrainingHub({
                       ))}
                     </RadioGroupPrimitive.Root>
 
-                    {anchorBookOptions.length > 1 && (
-                      <div className="mt-4 space-y-2">
-                        <SectionLabel>Книга Библии</SectionLabel>
-                        <Select
-                          value={
-                            selectedBookId != null
-                              ? String(selectedBookId)
-                              : "all"
-                          }
-                          onOpenChange={handleOrderOpenChange}
-                          onValueChange={handleBookIdChange}
-                        >
-                          <SelectTrigger
-                            aria-label="Книга Библии"
-                            className={cn(
-                              "h-11 rounded-2xl backdrop-blur-lg transition-colors",
-                              ANCHOR_BOOK_THEME.triggerClassName,
-                            )}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent
-                            className={cn(
-                              ANCHOR_BOOK_THEME.contentClassName,
-                              "max-h-64",
-                            )}
-                          >
-                            <SelectItem
-                              value="all"
-                              className={ANCHOR_BOOK_THEME.itemClassName}
-                            >
-                              Все книги
-                            </SelectItem>
-                            {anchorBookOptions.map((book) => (
-                              <SelectItem
-                                key={book.id}
-                                value={String(book.id)}
-                                className={ANCHOR_BOOK_THEME.itemClassName}
-                              >
-                                {book.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1141,19 +1035,9 @@ function pickPreferredCorePreset(presets: CorePresetState[]) {
 
 function getAnchorLockMessage(params: {
   currentCount: number;
-  totalCount: number;
   minRequired: number;
-  selectedBookName: string | null;
 }) {
-  const { currentCount, totalCount, minRequired, selectedBookName } = params;
-
-  if (selectedBookName && totalCount >= minRequired) {
-    return `В книге «${selectedBookName}» доступно ${currentCount} ${pluralVerses(currentCount)}. Для закрепления нужно минимум ${minRequired}. Выберите все книги или другую книгу.`;
-  }
-
-  if (selectedBookName && totalCount > currentCount) {
-    return `В книге «${selectedBookName}» доступно ${currentCount} ${pluralVerses(currentCount)}. Даже без фильтра пока доступно только ${totalCount} из ${minRequired} нужных стихов.`;
-  }
+  const { currentCount, minRequired } = params;
 
   return `Нужно минимум ${minRequired} ${pluralVerses(minRequired)} в статусах повторения или выученных. Сейчас доступно: ${currentCount}.`;
 }

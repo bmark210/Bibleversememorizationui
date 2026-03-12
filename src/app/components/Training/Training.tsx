@@ -58,7 +58,6 @@ export function Training({
   const [selectedOrder, setSelectedOrder] = useState<TrainingOrder>("updatedAt");
   const [selectedAnchorTrack, setSelectedAnchorTrack] =
     useState<AnchorTrainingTrack>("mixed");
-  const [selectedBookId, setSelectedBookId] = useState<number | undefined>(undefined);
   const directLaunchConsumedRef = useRef(false);
 
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
@@ -118,7 +117,7 @@ export function Training({
 
   const handleStart = useCallback(() => {
     if (selectedScenario === "anchor") {
-      setView({ mode: "anchor", track: selectedAnchorTrack, bookId: selectedBookId });
+      setView({ mode: "anchor", track: selectedAnchorTrack });
       return;
     }
     const selectedVerses = pickVersesForCoreModes(selectedModes, allVerses);
@@ -130,7 +129,7 @@ export function Training({
       trainingModes: selectedModes,
       order: selectedOrder,
     });
-  }, [allVerses, selectedAnchorTrack, selectedBookId, selectedModes, selectedOrder, selectedScenario]);
+  }, [allVerses, selectedAnchorTrack, selectedModes, selectedOrder, selectedScenario]);
 
   const handleStartSelection = useCallback(() => {
     if (selectedScenario !== "core") return;
@@ -187,12 +186,10 @@ export function Training({
               selectedModes={selectedModes}
               selectedOrder={selectedOrder}
               selectedAnchorTrack={selectedAnchorTrack}
-              selectedBookId={selectedBookId}
               onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
               onOrderChange={setSelectedOrder}
               onAnchorTrackChange={setSelectedAnchorTrack}
-              onBookIdChange={setSelectedBookId}
               onStart={handleStart}
               onStartSelection={handleStartSelection}
             />
@@ -210,7 +207,6 @@ export function Training({
             <AnchorSession
               telegramId={telegramId}
               initialTrack={view.track}
-              bookId={view.bookId}
               onSessionCommitted={onVerseMutationCommitted}
               onClose={handleExitSession}
             />

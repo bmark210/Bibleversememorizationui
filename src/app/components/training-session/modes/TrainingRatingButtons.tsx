@@ -16,6 +16,7 @@ type TrainingRatingButtonsProps = {
   stage: TrainingRatingStage;
   mode?: TrainingRatingMode;
   onRate: (rating: TrainingModeRating) => void;
+  maxRating?: 0 | 1 | 2;
 };
 
 type RatingButtonMeta = {
@@ -31,12 +32,30 @@ const BUTTON_STYLE_BY_RATING: Record<TrainingModeRating, string> = {
   3: 'rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300',
 };
 
-function getStageButtons(stage: TrainingRatingStage): RatingButtonMeta[] {
-  if (stage === 'review') {
+function getReviewButtons(maxRating: 0 | 1 | 2): RatingButtonMeta[] {
+  if (maxRating === 0) {
     return [
       { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
-      { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
     ];
+  }
+
+  if (maxRating === 1) {
+    return [
+      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
+      { rating: 1, label: 'С подсказкой', className: BUTTON_STYLE_BY_RATING[1] },
+    ];
+  }
+
+  return [
+    { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
+    { rating: 1, label: 'С подсказкой', className: BUTTON_STYLE_BY_RATING[1] },
+    { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
+  ];
+}
+
+function getStageButtons(stage: TrainingRatingStage, maxRating: 0 | 1 | 2): RatingButtonMeta[] {
+  if (stage === 'review') {
+    return getReviewButtons(maxRating);
   }
 
   return [
@@ -51,18 +70,23 @@ export function resolveTrainingRatingStage(status: string | null | undefined): T
   return normalized === 'REVIEW' || normalized === 'MASTERED' ? 'review' : 'learning';
 }
 
+function gridClassName(count: number): string {
+  if (count === 1) return 'grid grid-cols-1 gap-3';
+  if (count === 2) return 'grid grid-cols-2 gap-3';
+  return 'grid grid-cols-3 gap-3';
+}
+
 export function TrainingRatingButtons({
   stage,
   mode: _mode = 'default',
   onRate,
+  maxRating = 2,
 }: TrainingRatingButtonsProps) {
-  const buttons = getStageButtons(stage);
+  const buttons = getStageButtons(stage, maxRating);
   const title =
     stage === 'review'
       ? 'Результат повторения'
       : 'Оценка запоминания';
-  const gridClassName =
-    stage === 'review' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3';
 
   return (
     <motion.div
@@ -72,7 +96,7 @@ export function TrainingRatingButtons({
     >
       <p className="text-sm text-muted-foreground text-center">{title}</p>
 
-      <div className={gridClassName}>
+      <div className={gridClassName(buttons.length)}>
         {buttons.map((button) => (
           <Button
             key={`${stage}-${button.rating}`}

@@ -143,6 +143,7 @@ type UserVerseRow = {
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;
@@ -394,6 +395,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: computeDisplayStatus(uv.status, masteryLevel, repetitions),
           masteryLevel,
           repetitions,
+          reviewLapseStreak: normalizeProgress(uv.reviewLapseStreak),
           referenceScore: normalizeSkillScore(uv.referenceScore),
           incipitScore: normalizeSkillScore(uv.incipitScore),
           contextScore: normalizeSkillScore(uv.contextScore),
@@ -417,6 +419,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: "CATALOG" as DisplayStatus,
         masteryLevel: 0,
         repetitions: 0,
+        reviewLapseStreak: 0,
         referenceScore: 0,
         incipitScore: 0,
         contextScore: 0,

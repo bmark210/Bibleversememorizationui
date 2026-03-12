@@ -45,6 +45,7 @@ export type TrainingVerseState = {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   lastModeId: ModeId | null;
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;

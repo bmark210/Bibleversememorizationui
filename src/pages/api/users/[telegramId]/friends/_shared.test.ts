@@ -13,7 +13,7 @@ test('summarizes friend metric rows with mastered verses and weekly activity', (
       {
         status: VerseStatus.LEARNING,
         masteryLevel: 7,
-        repetitions: 3,
+        repetitions: 7,
         referenceScore: 80,
         incipitScore: 78,
         contextScore: 74,
@@ -40,7 +40,7 @@ test('summarizes friend metric rows with mastered verses and weekly activity', (
       {
         status: VerseStatus.STOPPED,
         masteryLevel: 7,
-        repetitions: 3,
+        repetitions: 7,
         referenceScore: 99,
         incipitScore: 99,
         contextScore: 99,

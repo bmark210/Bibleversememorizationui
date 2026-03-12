@@ -6,7 +6,7 @@ import {
 } from "../_shared";
 import { getAnchorTrainerRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
 
-const MAX_REFERENCE_TRAINER_LIMIT = 10;
+const MAX_REFERENCE_TRAINER_LIMIT = 24;
 
 function parseReferenceTrainerLimit(value: string | string[] | undefined): number {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -16,14 +16,6 @@ function parseReferenceTrainerLimit(value: string | string[] | undefined): numbe
   if (!Number.isFinite(parsed)) return MAX_REFERENCE_TRAINER_LIMIT;
 
   return Math.max(1, Math.min(MAX_REFERENCE_TRAINER_LIMIT, Math.round(parsed)));
-}
-
-function parseBookId(value: string | string[] | undefined): number | undefined {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return undefined;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 1) return undefined;
-  return Math.round(parsed);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -39,10 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const limit = parseReferenceTrainerLimit(req.query.limit);
-    const bookId = parseBookId(req.query.bookId);
 
-    // Pre-check: count total eligible verses for the filter
-    const allRows = await getAnchorTrainerRows(telegramId as string, bookId);
+    const allRows = await getAnchorTrainerRows(telegramId as string);
     if (allRows.length < ANCHOR_MIN_VERSES) {
       return res.status(200).json({
         verses: [],
@@ -54,7 +44,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const verses = await fetchRandomReferenceTrainerVerses({
       telegramId: telegramId as string,
       limit,
-      bookId,
     });
     return res.status(200).json({
       verses,

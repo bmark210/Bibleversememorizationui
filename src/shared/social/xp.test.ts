@@ -26,7 +26,7 @@ test("social verse XP keeps mastered above review and review above learning", ()
   const mastered = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
     masteryLevel: 7,
-    repetitions: 3,
+    repetitions: 7,
     referenceScore: 100,
     incipitScore: 100,
     contextScore: 100,
@@ -57,7 +57,7 @@ test("anchor bonus stays secondary to verse progress and MY or STOPPED do not af
   const mastered = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
     masteryLevel: 7,
-    repetitions: 3,
+    repetitions: 7,
     referenceScore: 0,
     incipitScore: 0,
     contextScore: 0,
@@ -83,13 +83,13 @@ test("anchor bonus stays secondary to verse progress and MY or STOPPED do not af
       {
         status: VerseStatus.STOPPED,
         masteryLevel: 7,
-        repetitions: 3,
+        repetitions: 7,
         lastReviewedAt: null,
       },
       {
         status: VerseStatus.LEARNING,
         masteryLevel: 7,
-        repetitions: 3,
+        repetitions: 7,
         referenceScore: 0,
         incipitScore: 0,
         contextScore: 0,

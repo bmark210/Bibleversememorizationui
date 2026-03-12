@@ -11,21 +11,24 @@ export type TrackAccent = {
 };
 
 export const TRACK_OPTIONS: AnchorTrainingTrack[] = [
-  "incipit",
-  "context",
   "reference",
+  "incipit",
+  "ending",
+  "context",
   "mixed",
 ];
 
 export const TRACK_LABELS: Record<SkillTrack, string> = {
   reference: "Ссылка",
-  incipit: "Начала",
+  incipit: "Начало",
+  ending: "Конец",
   context: "Контекст",
 };
 
 export const SESSION_TRACK_LABELS: Record<SessionTrack, string> = {
   reference: "Ссылка",
-  incipit: "Начала",
+  incipit: "Начало стиха",
+  ending: "Конец стиха",
   context: "Контекст",
   mixed: "Смешанный",
 };
@@ -54,6 +57,18 @@ export const TRACK_ACCENTS: Record<SessionTrack | SkillTrack, TrackAccent> = {
       "border-rose-500/18 bg-rose-500/[0.08] text-rose-800 dark:text-rose-300",
     dotClassName: "bg-rose-500",
     lineClassName: "from-transparent via-rose-500/45 to-transparent",
+  },
+  ending: {
+    badgeClassName:
+      "border-violet-500/20 bg-violet-500/[0.08] text-violet-700 dark:text-violet-300",
+    panelClassName:
+      "border-violet-500/18 bg-gradient-to-br from-violet-500/[0.10] via-background to-background",
+    softPanelClassName:
+      "border-violet-500/14 bg-violet-500/[0.07] text-violet-800 dark:text-violet-300",
+    statClassName:
+      "border-violet-500/18 bg-violet-500/[0.08] text-violet-800 dark:text-violet-300",
+    dotClassName: "bg-violet-500",
+    lineClassName: "from-transparent via-violet-500/45 to-transparent",
   },
   context: {
     badgeClassName:
@@ -95,6 +110,14 @@ export const TRACK_THEME: Record<
     contentClassName: "border-border/60 bg-background/95 backdrop-blur-xl",
     itemClassName:
       "focus:bg-rose-500/[0.08] focus:text-rose-700 dark:focus:text-rose-300 data-[state=checked]:bg-rose-500/[0.10] data-[state=checked]:text-rose-700 dark:data-[state=checked]:text-rose-300",
+  },
+  ending: {
+    dotClassName: "bg-violet-500",
+    triggerClassName:
+      "border-violet-500/18 bg-gradient-to-r from-violet-500/[0.08] via-background/94 to-background text-foreground shadow-[0_12px_28px_-24px_rgba(139,92,246,0.65)]",
+    contentClassName: "border-border/60 bg-background/95 backdrop-blur-xl",
+    itemClassName:
+      "focus:bg-violet-500/[0.08] focus:text-violet-700 dark:focus:text-violet-300 data-[state=checked]:bg-violet-500/[0.10] data-[state=checked]:text-violet-700 dark:data-[state=checked]:text-violet-300",
   },
   context: {
     dotClassName: "bg-teal-500",

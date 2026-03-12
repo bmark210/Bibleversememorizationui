@@ -11,6 +11,8 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { ReviewHint } from './ReviewHint';
+import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { similarityRatio } from '@/shared/utils/levenshtein';
@@ -66,10 +68,13 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const [isChecked, setIsChecked] = useState(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
+  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
+  const [hintUsed, setHintUsed] = useState(false);
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const isSpeechSupported = speechCtor != null;
   const ratingStage = resolveTrainingRatingStage(verse.status);
+  const isReview = ratingStage === 'review';
 
   const targetComparableText = useMemo(
     () => normalizeComparableText(verse.text),
@@ -82,6 +87,8 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     setIsChecked(false);
     setRecognitionError(null);
     setMatchPercent(null);
+    setHintLevel(0);
+    setHintUsed(false);
     finalTranscriptRef.current = '';
 
     return () => {
@@ -197,9 +204,18 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
 
   return (
     <div className="space-y-3">
-      <label className="block text-center text-sm font-medium text-foreground/90">
-        Голосовой ввод стиха
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-foreground/90">
+          Голосовой ввод стиха
+        </label>
+        <ReviewHint
+          verseText={verse.text}
+          isReview={isReview}
+          hintLevel={hintLevel}
+          onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
+          onHintUsed={() => setHintUsed(true)}
+        />
+      </div>
 
       <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
         <div className="flex flex-wrap gap-2">
@@ -271,6 +287,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
             stage={ratingStage}
             mode="voice-recall"
             onRate={onRate}
+            maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
           />
         </TrainingRatingFooter>
       )}

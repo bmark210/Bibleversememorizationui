@@ -32,6 +32,7 @@ type Props = {
   isAnchorEligible?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
 };
@@ -43,6 +44,7 @@ export function VersePreviewCard({
   isAnchorEligible = false,
   onStartTraining,
   onStatusAction,
+  onOpenProgress,
   onOpenTags,
   onOpenOwners,
 }: Props) {
@@ -187,8 +189,7 @@ export function VersePreviewCard({
     rawMasteryLevel,
   });
 
-  const showFooter =
-    status !== "CATALOG" && status !== VerseStatus.MY;
+  const showFooter = statusTone !== null;
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -408,10 +409,17 @@ export function VersePreviewCard({
         }
         footer={
           showFooter && statusTone ? (
-            <StatusFooter
-              statusTone={statusTone}
-              totalProgressPercent={totalProgressPercent}
-            />
+            <button
+              type="button"
+              onClick={() => onOpenProgress?.(verse)}
+              className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-2xl"
+              aria-label={`Показать путь прогресса стиха ${verse.reference}`}
+            >
+              <StatusFooter
+                statusTone={statusTone}
+                totalProgressPercent={totalProgressPercent}
+              />
+            </button>
           ) : null
         }
       />
@@ -594,6 +602,34 @@ function buildStatusTone(params: {
   const { status, isNotYetDue, notYetDueLabel, repetitionsCount, rawMasteryLevel } = params;
   const repeatThreshold = REPEAT_THRESHOLD_FOR_MASTERED;
 
+  if (status === "CATALOG") {
+    return {
+      icon: Plus,
+      title: "Каталог",
+      subtitle: "Добавьте стих в свои, чтобы начать путь",
+      wrapperClass: "border-slate-500/20",
+      iconWrapClass: "border-slate-500/25 bg-slate-500/12 text-slate-700 dark:text-slate-300",
+      titleClass: "text-slate-700/80 dark:text-slate-300/80",
+      valueClass: "text-slate-700 dark:text-slate-300",
+      fillClass: "from-slate-500 to-slate-400/80",
+      trackClass: "bg-slate-500/14",
+      bgFillClass: "bg-slate-500/[0.13]",
+    };
+  }
+  if (status === VerseStatus.MY) {
+    return {
+      icon: Play,
+      title: "Мой список",
+      subtitle: "Стих ждет первого упражнения",
+      wrapperClass: "border-sky-500/20",
+      iconWrapClass: "border-sky-500/25 bg-sky-500/12 text-sky-700 dark:text-sky-300",
+      titleClass: "text-sky-700/80 dark:text-sky-300/80",
+      valueClass: "text-sky-700 dark:text-sky-300",
+      fillClass: "from-sky-500 to-sky-400/80",
+      trackClass: "bg-sky-500/14",
+      bgFillClass: "bg-sky-500/[0.13]",
+    };
+  }
   if (status === VerseStatus.STOPPED) {
     return {
       icon: Pause,

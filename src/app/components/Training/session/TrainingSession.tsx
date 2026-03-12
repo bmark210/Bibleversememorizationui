@@ -565,7 +565,7 @@ export function TrainingSession({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {session.quickForgetConfirmStage === "review"
-                ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 10 минут."
+                ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 6 часов."
                 : "Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения."}
             </AlertDialogDescription>
           </AlertDialogHeader>

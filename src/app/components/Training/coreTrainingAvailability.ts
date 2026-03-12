@@ -1,6 +1,5 @@
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import type { CoreTrainingMode } from "./types";
 
 export type CoreTrainingCounts = {
@@ -35,41 +34,16 @@ export function isAnchorEligibleVerse(verse: Pick<Verse, "status">) {
   return status === "REVIEW" || status === "MASTERED";
 }
 
-export function getAnchorEligibleVerseCount(
-  allVerses: Verse[],
-  bookId?: number,
-) {
+export function getAnchorEligibleVerseCount(allVerses: Verse[]) {
   let total = 0;
 
   for (const verse of allVerses) {
     if (!isAnchorEligibleVerse(verse)) continue;
 
-    if (bookId != null) {
-      const parsed = parseExternalVerseId(verse.externalVerseId);
-      if (!parsed || parsed.book !== bookId) continue;
-    }
-
     total += 1;
   }
 
   return total;
-}
-
-export function getAnchorEligibleCountPerBook(
-  allVerses: Verse[],
-): Map<number, number> {
-  const counts = new Map<number, number>();
-
-  for (const verse of allVerses) {
-    if (!isAnchorEligibleVerse(verse)) continue;
-
-    const parsed = parseExternalVerseId(verse.externalVerseId);
-    if (!parsed) continue;
-
-    counts.set(parsed.book, (counts.get(parsed.book) ?? 0) + 1);
-  }
-
-  return counts;
 }
 
 export function getCoreTrainingCountsFromVerses(

@@ -107,17 +107,26 @@ export class UserVersesService {
     /**
      * Пул стихов для раздела «Якоря»
      * @param telegramId
-     * @returns UserVerse OK
+     * @param limit
+     * @returns any OK
      * @throws ApiError
      */
     public static getApiUsersVersesReferenceTrainer(
         telegramId: string,
-    ): CancelablePromise<Array<UserVerse>> {
+        limit?: number,
+    ): CancelablePromise<{
+        verses: Array<UserVerse>;
+        totalCount: number;
+        minRequired: number;
+    }> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses/reference-trainer',
             path: {
                 'telegramId': telegramId,
+            },
+            query: {
+                'limit': limit,
             },
         });
     }
@@ -131,13 +140,13 @@ export class UserVersesService {
     public static postApiUsersVersesReferenceTrainerSession(
         telegramId: string,
         requestBody: {
-            sessionTrack: 'reference' | 'incipit' | 'context' | 'mixed';
+            sessionTrack: 'reference' | 'incipit' | 'ending' | 'context' | 'mixed';
             updates: Array<{
                 /**
                  * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
                  */
                 externalVerseId: string;
-                track: 'reference' | 'incipit' | 'context';
+                track: 'reference' | 'incipit' | 'ending' | 'context';
                 outcome: 'correct_first' | 'correct_retry' | 'wrong';
             }>;
         },
@@ -176,6 +185,8 @@ export class UserVersesService {
         requestBody: {
             masteryLevel?: number;
             repetitions?: number;
+            reviewLapseStreak?: number;
+            reviewRating?: 0 | 1 | 2 | 3;
             lastTrainingModeId?: number | null;
             lastReviewedAt?: string;
             nextReviewAt?: string;

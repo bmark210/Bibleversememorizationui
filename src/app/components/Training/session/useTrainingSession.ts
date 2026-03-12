@@ -223,6 +223,7 @@ export function useTrainingSession({
           status: authoritative.status,
           masteryLevel: authoritative.rawMasteryLevel,
           repetitions: authoritative.repetitions,
+          reviewLapseStreak: authoritative.reviewLapseStreak,
           lastReviewedAt: authoritative.lastReviewedAt?.toISOString() ?? null,
           nextReviewAt: authoritative.nextReviewAt?.toISOString() ?? null,
         },
@@ -307,6 +308,7 @@ export function useTrainingSession({
           rating,
           rawMasteryLevel: current.rawMasteryLevel,
           repetitions: current.repetitions,
+          reviewLapseStreak: current.reviewLapseStreak,
           now,
           trainingModeId,
           isLearningVerse,
@@ -337,6 +339,7 @@ export function useTrainingSession({
           rawMasteryLevel: rawMasteryAfter,
           stageMasteryLevel: progressDelta.stageMasteryLevel,
           repetitions: nextRepetitions,
+          reviewLapseStreak: progressDelta.reviewLapseStreak,
           status: nextStatus,
           lastModeId: !wasReviewExercise && graduatesToReview ? null : trainingModeId,
           lastReviewedAt: now,
@@ -373,6 +376,7 @@ export function useTrainingSession({
         try {
           const persistedResponse = await persistTrainingVerseProgress(updated, {
             includeRepetitions: canUpdateRepetitions,
+            reviewRating: wasReviewExercise ? rating : undefined,
           });
           const persistedUpdated = await verseSync.reconcile({
             optimistic: updated,

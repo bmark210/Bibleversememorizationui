@@ -36,6 +36,7 @@ export type CatalogUserVerseProgressRecord = {
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;
@@ -59,6 +60,7 @@ export type UserVerseRecord = {
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;
+  reviewLapseStreak: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;

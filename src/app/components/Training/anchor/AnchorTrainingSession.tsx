@@ -67,7 +67,6 @@ import type {
 type AnchorTrainingSessionProps = {
   telegramId: string | null;
   initialTrack?: SessionTrack;
-  bookId?: number;
   onSessionCommitted?: () => void;
   onClose: () => void;
 };
@@ -79,7 +78,7 @@ const INCIPIT_OPTIONS_COUNT = 4;
 const INCIPIT_TAP_DISTRACTORS_COUNT = 2;
 const SESSION_TARGET_VERSES = 10;
 const MAX_TYPING_ATTEMPTS = 2;
-const REFERENCE_TRAINER_POOL_LIMIT = 10;
+const REFERENCE_TRAINER_POOL_LIMIT = 24;
 const MIXED_TRACK_WEIGHT_MIN = 5;
 const MIXED_TRACK_WEIGHT_BASE = 110;
 const TYPE_INPUT_SIMILARITY_THRESHOLD = 0.8;
@@ -531,6 +530,7 @@ function readStoredTrack(): SessionTrack {
     if (
       value === "reference" ||
       value === "incipit" ||
+      value === "ending" ||
       value === "context" ||
       value === "mixed"
     ) {
@@ -561,6 +561,9 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
   const incipitLength =
     words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
   const incipitWords = words.slice(0, incipitLength);
+  const endingLength =
+    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const endingWords = words.slice(-endingLength);
   const rawVerse = verse as Record<string, unknown>;
   const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
   const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
@@ -576,6 +579,8 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     chapterVerse: parsedReference?.chapterVerse ?? "",
     incipit: incipitWords.join(" "),
     incipitWords,
+    ending: endingWords.join(" "),
+    endingWords,
     referenceScore: clampSkillScore(rawVerse.referenceScore as number | undefined),
     incipitScore: clampSkillScore(rawVerse.incipitScore as number | undefined),
     contextScore: clampSkillScore(rawVerse.contextScore as number | undefined),
@@ -807,6 +812,43 @@ function buildIncipitTypeQuestion(
   };
 }
 
+function buildEndingChoiceQuestion(
+  verse: ReferenceVerse,
+  pool: ReferenceVerse[],
+  order: number
+): ChoiceQuestion | null {
+  if (verse.endingWords.length < 2) return null;
+  const normalizedCorrect = normalizeIncipitText(verse.ending);
+
+  const distractors = shuffle(
+    pool
+      .map((item) => item.ending)
+      .filter((candidate) => candidate.trim().length > 0)
+      .filter(
+        (candidate) => normalizeIncipitText(candidate) !== normalizedCorrect
+      )
+  );
+
+  if (distractors.length < INCIPIT_OPTIONS_COUNT - 1) return null;
+
+  return {
+    id: `ending-choice-${order}-${verse.externalVerseId}`,
+    modeId: "ending-choice",
+    track: "ending",
+    modeHint: "Выберите правильный конец стиха.",
+    verse,
+    prompt: verse.reference,
+    answerLabel: verse.ending,
+    interaction: "choice",
+    options: shuffle([
+      verse.ending,
+      ...distractors.slice(0, INCIPIT_OPTIONS_COUNT - 1),
+    ]),
+    isCorrectOption: (value: string) =>
+      normalizeIncipitText(value) === normalizedCorrect,
+  };
+}
+
 function buildContextIncipitTypeQuestion(
   verse: ReferenceVerse,
   order: number
@@ -970,6 +1012,14 @@ const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
     buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
   },
   {
+    id: "ending-choice",
+    track: "ending",
+    hint: "Выберите правильный конец стиха",
+    weight: 2,
+    canBuild: (verse, pool) => buildEndingChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) => buildEndingChoiceQuestion(verse, pool, order),
+  },
+  {
     id: "context-incipit-type",
     track: "context",
     hint: "Введите начало стиха по контексту",
@@ -1009,6 +1059,11 @@ function pickWeightedStrategy(strategies: ReadonlyArray<ModeStrategy>) {
 }
 
 function resolveMixedTrack(verse: ReferenceVerse): SkillTrack {
+  const fragmentWeight = Math.max(
+    MIXED_TRACK_WEIGHT_MIN,
+    MIXED_TRACK_WEIGHT_BASE - verse.incipitScore
+  );
+  const splitFragmentWeight = Math.max(1, Math.round(fragmentWeight / 2));
   const weightedTracks: Array<{ track: SkillTrack; weight: number }> = [
     {
       track: "reference",
@@ -1016,7 +1071,11 @@ function resolveMixedTrack(verse: ReferenceVerse): SkillTrack {
     },
     {
       track: "incipit",
-      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.incipitScore),
+      weight: splitFragmentWeight,
+    },
+    {
+      track: "ending",
+      weight: splitFragmentWeight,
     },
     {
       track: "context",
@@ -1100,7 +1159,7 @@ function buildRandomSessionQuestions(
 
       if (!question) {
         const fallbackTracks = shuffle(
-          (["reference", "incipit", "context"] as const).filter(
+          (["reference", "incipit", "ending", "context"] as const).filter(
             (track) => track !== preferredTrack
           )
         );
@@ -1228,7 +1287,6 @@ function buildInitialQuestionSessionState(
 export function AnchorTrainingSession({
   telegramId,
   initialTrack,
-  bookId,
   onSessionCommitted,
   onClose,
 }: AnchorTrainingSessionProps) {
@@ -1378,6 +1436,13 @@ export function AnchorTrainingSession({
     return { total, correct };
   }, [results]);
 
+  const endingStats = useMemo(() => {
+    const trackResults = results.filter((item) => item.track === "ending");
+    const total = trackResults.length;
+    const correct = trackResults.filter((item) => item.isCorrect).length;
+    return { total, correct };
+  }, [results]);
+
   const contextStats = useMemo(() => {
     const trackResults = results.filter((item) => item.track === "context");
     const total = trackResults.length;
@@ -1422,7 +1487,6 @@ export function AnchorTrainingSession({
       try {
         const response = await fetchReferenceTrainerVerses(telegramIdValue, {
           limit: REFERENCE_TRAINER_POOL_LIMIT,
-          bookId,
         });
         if (response.verses.length === 0 && response.totalCount < response.minRequired) {
           setErrorMessage(
@@ -1447,7 +1511,7 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [bookId, selectedTrack, startSessionFromPool]
+    [selectedTrack, startSessionFromPool]
   );
 
   useEffect(() => {
@@ -2104,6 +2168,7 @@ export function AnchorTrainingSession({
                     totalCount={totalCount}
                     referenceStats={referenceStats}
                     incipitStats={incipitStats}
+                    endingStats={endingStats}
                     contextStats={contextStats}
                     caption={getResultCaption(resultPercent)}
                     isSavingSession={isSavingSession}
