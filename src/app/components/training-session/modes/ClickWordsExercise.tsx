@@ -12,6 +12,12 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
+import {
+  tokenizeWords,
+  normalizeWord,
+  cleanWordForDisplay,
+  getMaxMistakes,
+} from './wordUtils';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
@@ -21,20 +27,21 @@ interface ClickWordsExerciseProps {
 interface WordToken {
   id: string;
   text: string;
+  normalized: string;
   order: number;
 }
 
-function tokenizeWords(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
+interface UniqueChoice {
+  displayText: string;
+  normalized: string;
+  totalCount: number;
 }
 
 function shuffleTokens(words: string[]): WordToken[] {
   const tokens = words.map((word, index) => ({
-    id: `${index}-${word}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `${index}-${Math.random().toString(36).slice(2, 6)}`,
     text: word,
+    normalized: normalizeWord(word),
     order: index,
   }));
 
@@ -52,23 +59,55 @@ function shuffleTokens(words: string[]): WordToken[] {
   return shuffled;
 }
 
+function buildUniqueChoices(tokens: WordToken[]): UniqueChoice[] {
+  const map = new Map<string, UniqueChoice>();
+  for (const token of tokens) {
+    const existing = map.get(token.normalized);
+    if (existing) {
+      existing.totalCount += 1;
+    } else {
+      map.set(token.normalized, {
+        displayText: cleanWordForDisplay(token.text),
+        normalized: token.normalized,
+        totalCount: 1,
+      });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    swapArrayItems(result, i, j);
+  }
+  return result;
+}
+
 export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<WordToken[]>([]);
-  const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
+  const [orderedTokens, setOrderedTokens] = useState<WordToken[]>([]);
+  const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
+  const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashWord, setErrorFlashWord] = useState<string | null>(null);
+  const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const words = tokenizeWords(verse.text);
-    setTokens(shuffleTokens(words));
-    setSelectedTokenIds([]);
+    const shuffled = shuffleTokens(words);
+    const ordered = [...shuffled].sort((a, b) => a.order - b.order);
+
+    setTokens(shuffled);
+    setOrderedTokens(ordered);
+    setUniqueChoices(shuffleArray(buildUniqueChoices(shuffled)));
+    setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashWord(null);
+    setErrorFlashNormalized(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -78,92 +117,68 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     };
   }, [verse]);
 
-  const tokenMap = useMemo(
-    () => new Map(tokens.map((token) => [token.id, token])),
-    [tokens]
-  );
+  const totalWords = tokens.length;
+  const maxMistakes = getMaxMistakes(totalWords);
 
   const selectedTokens = useMemo(
-    () =>
-      selectedTokenIds
-        .map((id) => tokenMap.get(id))
-        .filter((token): token is WordToken => Boolean(token)),
-    [selectedTokenIds, tokenMap]
+    () => orderedTokens.slice(0, selectedCount),
+    [orderedTokens, selectedCount]
   );
 
-  const orderedTokens = useMemo(
-    () => [...tokens].sort((a, b) => a.order - b.order),
-    [tokens]
-  );
-
-  const shuffledUniqueWords = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-
-    for (const token of tokens) {
-      if (seen.has(token.text)) continue;
-      seen.add(token.text);
-      result.push(token.text);
+  const remainingCountByNormalized = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const choice of uniqueChoices) {
+      counts.set(choice.normalized, choice.totalCount);
     }
+    for (const token of selectedTokens) {
+      const current = counts.get(token.normalized) ?? 0;
+      if (current > 0) counts.set(token.normalized, current - 1);
+    }
+    return counts;
+  }, [uniqueChoices, selectedTokens]);
 
-    return result;
-  }, [tokens]);
+  const availableChoices = useMemo(
+    () => uniqueChoices.filter((c) => (remainingCountByNormalized.get(c.normalized) ?? 0) > 0),
+    [uniqueChoices, remainingCountByNormalized]
+  );
 
-  const selectedCount = selectedTokens.length;
-  const totalWords = tokens.length;
-
-  const availableWords = useMemo(() => {
-    const remainingWords = orderedTokens.slice(selectedCount).map((token) => token.text);
-    const remainingSet = new Set<string>(remainingWords);
-    return shuffledUniqueWords.filter((word) => remainingSet.has(word));
-  }, [orderedTokens, selectedCount, shuffledUniqueWords]);
-
-  const handleWordClick = (word: string) => {
+  const handleWordClick = (choice: UniqueChoice) => {
     if (isCompleted) return;
     const expectedToken = orderedTokens[selectedCount];
     if (!expectedToken) return;
 
-    if (word === expectedToken.text) {
-      const nextIds = [...selectedTokenIds, expectedToken.id];
-      setSelectedTokenIds(nextIds);
-
-      if (selectedCount + 1 === totalWords) {
+    if (choice.normalized === expectedToken.normalized) {
+      const next = selectedCount + 1;
+      setSelectedCount(next);
+      if (next === totalWords) {
         setIsCompleted(true);
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
-    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+    const shouldReset = nextMistakesSinceReset >= maxMistakes;
+    setMistakesSinceReset(shouldReset ? 0 : nextMistakesSinceReset);
 
-    if (shouldResetSequence) {
-      setSelectedTokenIds([]);
+    if (shouldReset) {
+      setSelectedCount(0);
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
+        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
       );
     } else {
       toast.warning(
-        `Неверное слово. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
-        }.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+        `Неверное слово. До сброса: ${maxMistakes - nextMistakesSinceReset}.`,
+        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
       );
     }
 
-    setErrorFlashWord(word);
+    setErrorFlashNormalized(choice.normalized);
     if (clearFlashTimeoutRef.current) {
       window.clearTimeout(clearFlashTimeoutRef.current);
     }
     clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashWord(null);
+      setErrorFlashNormalized(null);
       clearFlashTimeoutRef.current = null;
     }, 260);
   };
@@ -201,24 +216,30 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           )}
         </div>
 
-        {!isCompleted && availableWords.length > 0 && (
-          <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+        {!isCompleted && availableChoices.length > 0 && (
+          <div className="sticky bottom-0 z-10 rounded-2xl border border-border/60 bg-background/95 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm">
             <div className="flex flex-wrap gap-2">
-              {availableWords.map((word) => (
-                <Button
-                  key={word}
-                  type="button"
-                  variant="outline"
-                  className={`h-auto rounded-xl px-3 py-2 transition-colors ${
-                    errorFlashWord === word
-                      ? 'border-destructive text-destructive'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
-                  onClick={() => handleWordClick(word)}
-                >
-                  {word}
-                </Button>
-              ))}
+              {availableChoices.map((choice) => {
+                const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
+                return (
+                  <Button
+                    key={choice.normalized}
+                    type="button"
+                    variant="outline"
+                    className={`h-auto rounded-xl px-3 py-2 transition-colors ${
+                      errorFlashNormalized === choice.normalized
+                        ? 'border-destructive text-destructive'
+                        : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    }`}
+                    onClick={() => handleWordClick(choice)}
+                  >
+                    {choice.displayText}
+                    {remaining > 1 && (
+                      <span className="ml-1 text-xs text-muted-foreground">×{remaining}</span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}
