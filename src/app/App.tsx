@@ -160,9 +160,7 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (handle: number) => void;
 };
 type PendingVerseListReturn = {
-  verseExternalId: string;
   statusFilter: VerseListStatusFilter;
-  reopenGallery: boolean;
 };
 
 type AppProps = {
@@ -942,9 +940,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     setPendingVerseListReturn({
-      verseExternalId: returnTarget.verseExternalId,
       statusFilter: returnTarget.statusFilter,
-      reopenGallery: returnTarget.reopenGallery,
     });
 
     setPageStack((prev) => {
@@ -1148,11 +1144,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           {currentPage === "verses" && (
             <VerseList
               onVerseAdded={handleVerseAdded}
-              reopenGalleryVerseId={
-                pendingVerseListReturn?.reopenGallery
-                  ? pendingVerseListReturn.verseExternalId
-                  : null
-              }
+              reopenGalleryVerseId={null}
               reopenGalleryStatusFilter={
                 pendingVerseListReturn?.statusFilter ?? null
               }

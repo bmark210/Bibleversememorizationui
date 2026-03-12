@@ -29,9 +29,7 @@ export type DirectLaunchReturnTarget =
   | { kind: "training-hub" }
   | {
       kind: "verse-list";
-      verseExternalId: string;
       statusFilter: VerseListStatusFilter;
-      reopenGallery: boolean;
     };
 
 export interface DirectLaunchVerse {

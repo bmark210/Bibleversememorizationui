@@ -282,6 +282,26 @@ export function useVerseListController({
 
   useEffect(() => {
     if (!reopenGalleryStatusFilter) return;
+    if (reopenGalleryVerseId) return;
+
+    const resolvedReturnFilter =
+      reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter
+        ? defaultStatusFilter
+        : reopenGalleryStatusFilter;
+
+    if (statusFilter !== resolvedReturnFilter) return;
+    onReopenGalleryHandled?.();
+  }, [
+    canUseFriendsFilter,
+    defaultStatusFilter,
+    onReopenGalleryHandled,
+    reopenGalleryStatusFilter,
+    reopenGalleryVerseId,
+    statusFilter,
+  ]);
+
+  useEffect(() => {
+    if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter) {
       setStatusFilter(defaultStatusFilter);
       return;

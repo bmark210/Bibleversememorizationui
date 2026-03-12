@@ -520,9 +520,7 @@ export function VerseList({
                   ...launch,
                   returnTarget: {
                     kind: "verse-list",
-                    verseExternalId: launch.verse.externalVerseId,
                     statusFilter: vm.filters.statusFilter,
-                    reopenGallery: true,
                   },
                 });
               }}
