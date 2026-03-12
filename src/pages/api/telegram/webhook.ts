@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const telegramId = String(fromIdRaw);
     const firstName = message.from?.first_name?.trim() || null;
     const fallbackName = firstName || `Участник #${telegramId.slice(-4) || telegramId}`;
-    const openAppUrl = String(process.env.NEXT_PUBLIC_WEB_APP_URL ?? "").trim();
+    const openAppUrl = String(process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
     const replyMarkup = buildOpenAppKeyboard(openAppUrl);
 
     const { command } = normalizeCommand(text);

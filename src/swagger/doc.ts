@@ -1,4 +1,4 @@
-const serverUrl = process.env.NEXT_PUBLIC_WEB_APP_URL;
+const serverUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 const externalVerseIdSchema = {
   type: "string",

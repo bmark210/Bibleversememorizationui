@@ -137,6 +137,7 @@ type OrderTheme = {
 
 // const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
 const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
+const ANCHOR_MIN_REQUIRED = 10;
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
   core: {
@@ -421,7 +422,6 @@ export function TrainingHub({
       : activeCorePreset.theme;
   // const activeOrderTheme = ORDER_THEME[selectedOrder];
 
-  const ANCHOR_MIN_REQUIRED = 10;
   const selectionCounts = useMemo(
     () =>
       selectionVerses && selectionVerses.length > 0
