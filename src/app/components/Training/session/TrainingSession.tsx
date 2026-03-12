@@ -28,6 +28,7 @@ import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import type { TrainingOrder } from "../types";
 import { TrainingOrderSelect } from "./TrainingOrderSelect";
+import { TrainingOutcomeCard } from "./TrainingOutcomeCard";
 import { useTrainingSession } from "./useTrainingSession";
 import { TrainingProgressPopup } from "../TrainingProgressPopup";
 
@@ -257,7 +258,8 @@ export function TrainingSession({
     (step: 1 | -1) => {
       if (
         session.isActionPending ||
-        session.quickForgetConfirmStage !== null
+        session.quickForgetConfirmStage !== null ||
+        session.pendingOutcome !== null
       ) {
         return;
       }
@@ -285,6 +287,7 @@ export function TrainingSession({
 
   const areControlsLocked =
     session.isActionPending ||
+    session.pendingOutcome !== null ||
     session.quickForgetConfirmStage !== null ||
     pendingNavigationStep !== null ||
     pendingSubsetChange !== null ||
@@ -349,7 +352,14 @@ export function TrainingSession({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && session.pendingOutcome !== null) {
+        e.preventDefault();
+        session.handleClose();
+        return;
+      }
+
       if (
+        session.pendingOutcome !== null ||
         session.quickForgetConfirmStage !== null ||
         pendingNavigationStep !== null ||
         pendingSubsetChange !== null ||
@@ -387,7 +397,9 @@ export function TrainingSession({
   const bodyKey = trainingActiveVerse
     ? getVerseIdentity(trainingActiveVerse.raw)
     : `empty:${resolvedSubsetFilter}:${activeOrder}`;
-  const showQuickForgetAction = Boolean(trainingActiveVerse && trainingModeId);
+  const showQuickForgetAction = Boolean(
+    trainingActiveVerse && trainingModeId && session.pendingOutcome === null
+  );
 
   return (
     <>
@@ -454,7 +466,12 @@ export function TrainingSession({
               className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
               tabIndex={-1}
             >
-              {trainingActiveVerse && trainingModeId ? (
+              {trainingActiveVerse && session.pendingOutcome ? (
+                <TrainingOutcomeCard
+                  trainingVerse={trainingActiveVerse}
+                  outcome={session.pendingOutcome}
+                />
+              ) : trainingActiveVerse && trainingModeId ? (
                 <TrainingCard
                   trainingVerse={trainingActiveVerse}
                   modeId={trainingModeId}
@@ -485,7 +502,7 @@ export function TrainingSession({
           <div className="mx-auto w-full max-w-2xl">
             <div
               className={cn(
-                "flex gap-3",
+                "flex flex-wrap justify-end gap-3",
                 showQuickForgetAction ? "justify-center" : "justify-end"
               )}
             >
@@ -503,6 +520,18 @@ export function TrainingSession({
                   Забыл
                 </Button>
               )}
+              {session.pendingOutcome && (
+                <Button
+                  type="button"
+                  className={cn(
+                    "h-11 rounded-2xl border border-primary/20 bg-primary text-primary-foreground backdrop-blur-xl"
+                  )}
+                  onClick={session.acknowledgeOutcome}
+                  disabled={session.isActionPending}
+                >
+                  Продолжить
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className={cn(
@@ -518,7 +547,7 @@ export function TrainingSession({
           </div>
         </div>
 
-        <SwipeHint panelMode="training" />
+        {session.pendingOutcome === null ? <SwipeHint panelMode="training" /> : null}
       </div>
 
       <AlertDialog
