@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock3, Repeat2, Trophy } from "lucide-react";
 import { VerseCard } from "@/app/components/VerseCard";
 import { cn } from "@/app/components/ui/utils";
@@ -114,6 +114,9 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
   trainingVerse,
   outcome,
 }: TrainingOutcomeCardProps) {
+  const verseTextViewportRef = useRef<HTMLDivElement>(null);
+  const verseTextRef = useRef<HTMLParagraphElement>(null);
+  const [lineClamp, setLineClamp] = useState(6);
   const isReviewOutcome = outcome.kind === "review-waiting";
   const copy = getOutcomeCopy(outcome);
   const availabilityText = isReviewOutcome
@@ -127,22 +130,84 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
         ? Clock3
         : Repeat2;
 
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const viewportEl = verseTextViewportRef.current;
+    const textEl = verseTextRef.current;
+    if (!viewportEl || !textEl) return;
+
+    let rafId: number | null = null;
+
+    const updateLineClamp = () => {
+      const currentViewportEl = verseTextViewportRef.current;
+      const currentTextEl = verseTextRef.current;
+      if (!currentViewportEl || !currentTextEl) return;
+
+      const viewportStyle = window.getComputedStyle(currentViewportEl);
+      const textStyle = window.getComputedStyle(currentTextEl);
+      const paddingTop =
+        Number.parseFloat(viewportStyle.paddingTop || "0") || 0;
+      const paddingBottom =
+        Number.parseFloat(viewportStyle.paddingBottom || "0") || 0;
+      const availableHeight = Math.max(
+        0,
+        currentViewportEl.clientHeight - paddingTop - paddingBottom
+      );
+
+      let lineHeight = Number.parseFloat(textStyle.lineHeight || "");
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        const fontSize = Number.parseFloat(textStyle.fontSize || "0") || 16;
+        lineHeight = fontSize * 1.55;
+      }
+
+      const nextClamp = Math.max(2, Math.floor(availableHeight / lineHeight));
+      setLineClamp((prev) => (prev === nextClamp ? prev : nextClamp));
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateLineClamp();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleUpdate())
+        : null;
+
+    resizeObserver?.observe(viewportEl);
+    resizeObserver?.observe(textEl);
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    scheduleUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [availabilityText, copy.description, trainingVerse.raw.text]);
+
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
         isActive
         minHeight="training"
-        bodyScrollable
         previewTone={isReviewOutcome ? "review" : "mastered"}
         header={
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
+          <div className="w-full min-w-0 flex-shrink-0 text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif break-words [overflow-wrap:anywhere]">
               {trainingVerse.raw.reference}
             </h2>
+            <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
             <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
               <div
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 backdrop-blur-sm",
+                  "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 backdrop-blur-sm",
                   copy.accentClasses.badge
                 )}
               >
@@ -153,7 +218,7 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
                 )}
                 <span
                   className={cn(
-                    "text-[10px] font-semibold uppercase tracking-[0.14em]",
+                    "min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.14em]",
                     copy.accentClasses.badgeText
                   )}
                 >
@@ -164,63 +229,77 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
           </div>
         }
         body={
-          <div className="mx-auto flex h-full w-full max-w-xl flex-col items-center justify-center gap-5 py-2 text-center">
-            <div
-              className={cn(
-                "flex size-16 items-center justify-center rounded-[1.75rem] border shadow-sm",
-                copy.accentClasses.iconWrap
-              )}
-            >
-              <OutcomeIcon className={cn("size-8", copy.accentClasses.icon)} />
-            </div>
-
-            <div className="space-y-3">
-              <h3
-                className={cn(
-                  "text-xl font-semibold tracking-tight sm:text-2xl",
-                  copy.accentClasses.title
-                )}
-              >
-                {copy.title}
-              </h3>
-              <p className="mx-auto max-w-lg text-sm leading-relaxed text-foreground/70 sm:text-[0.95rem]">
-                {copy.description}
-              </p>
-            </div>
-
-            {availabilityText && copy.availabilityLabel ? (
+          <div className="mx-auto flex h-full w-full max-w-xl min-h-0 flex-col overflow-hidden py-1 text-center">
+            <div className="flex-shrink-0 space-y-4">
               <div
                 className={cn(
-                  "w-full rounded-[1.8rem] border px-4 py-3.5 shadow-sm",
-                  copy.accentClasses.box
+                  "mx-auto flex size-14 items-center justify-center rounded-[1.5rem] border shadow-sm",
+                  copy.accentClasses.iconWrap
                 )}
               >
-                <p
+                <OutcomeIcon className={cn("size-7", copy.accentClasses.icon)} />
+              </div>
+
+              <div className="space-y-2">
+                <h3
                   className={cn(
-                    "text-[11px] font-semibold uppercase tracking-[0.16em]",
-                    copy.accentClasses.boxLabel
+                    "text-lg font-semibold tracking-tight sm:text-xl",
+                    copy.accentClasses.title
                   )}
                 >
-                  {copy.availabilityLabel}
-                </p>
+                  {copy.title}
+                </h3>
                 <p
-                  className={cn(
-                    "mt-2 text-lg font-semibold tracking-tight sm:text-xl",
-                    copy.accentClasses.boxValue
-                  )}
+                  style={{ WebkitLineClamp: 4 }}
+                  className="mx-auto max-w-lg overflow-hidden text-ellipsis text-sm leading-relaxed text-foreground/70 [display:-webkit-box] [-webkit-box-orient:vertical]"
                 >
-                  {availabilityText}
+                  {copy.description}
                 </p>
               </div>
-            ) : null}
 
-            <div className="w-full rounded-[2rem] border border-border/60 bg-background/70 p-4 text-left shadow-sm">
+              {availabilityText && copy.availabilityLabel ? (
+                <div
+                  className={cn(
+                    "w-full rounded-[1.6rem] border px-4 py-3 shadow-sm",
+                    copy.accentClasses.box
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-[11px] font-semibold uppercase tracking-[0.16em]",
+                      copy.accentClasses.boxLabel
+                    )}
+                  >
+                    {copy.availabilityLabel}
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-1.5 text-base font-semibold tracking-tight sm:text-lg",
+                      copy.accentClasses.boxValue
+                    )}
+                  >
+                    {availabilityText}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              ref={verseTextViewportRef}
+              className="mt-4 flex-1 min-h-0 overflow-hidden rounded-[2rem] border border-border/60 bg-background/70 px-4 py-3 shadow-sm"
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/50">
                 Текст стиха
               </p>
-              <p className="mt-3 whitespace-pre-line text-center font-serif italic text-[1.02rem] leading-relaxed text-primary/90 sm:text-[1.1rem]">
-                {trainingVerse.raw.text}
-              </p>
+              <div className="flex h-full min-h-0 items-center justify-center overflow-hidden pt-3">
+                <p
+                  ref={verseTextRef}
+                  style={{ WebkitLineClamp: lineClamp }}
+                  className="w-full max-h-full overflow-hidden text-ellipsis text-center font-serif italic text-[1rem] leading-relaxed text-primary/90 [display:-webkit-box] [-webkit-box-orient:vertical] sm:text-[1.06rem]"
+                >
+                  «{trainingVerse.raw.text}»
+                </p>
+              </div>
             </div>
           </div>
         }
