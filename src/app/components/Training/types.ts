@@ -7,7 +7,12 @@ import type { VerseListStatusFilter } from "@/app/components/verse-list/constant
 export type TrainingMode = "learning" | "review" | "anchor";
 export type CoreTrainingMode = Exclude<TrainingMode, "anchor">;
 export type TrainingScenario = "core" | "anchor";
-export type AnchorTrainingTrack = "reference" | "incipit" | "context" | "mixed";
+export type AnchorTrainingTrack =
+  | "reference"
+  | "incipit"
+  | "ending"
+  | "context"
+  | "mixed";
 
 /** Training order — how to sort verses before session start */
 export type TrainingOrder = "updatedAt" | "bible" | "popularity";
@@ -15,7 +20,7 @@ export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
   | { mode: "hub" }
-  | { mode: "anchor"; track: AnchorTrainingTrack; bookId?: number }
+  | { mode: "anchor"; track: AnchorTrainingTrack }
   | {
       mode: "verse-session";
       verses: Verse[];
@@ -73,7 +78,8 @@ export const TRAINING_ORDER_LABELS: Record<TrainingOrder, string> = {
 
 export const ANCHOR_TRAINING_TRACK_LABELS: Record<AnchorTrainingTrack, string> = {
   reference: "Ссылки",
-  incipit: "Начала",
+  incipit: "Начало стиха",
+  ending: "Конец стиха",
   context: "Контекст",
   mixed: "Смешанный",
 };

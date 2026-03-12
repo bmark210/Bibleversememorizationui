@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const updates = parsedBody.data.updates as Array<{
       externalVerseId: string;
-      track: "reference" | "incipit" | "context";
+      track: "reference" | "incipit" | "ending" | "context";
       outcome: "correct_first" | "correct_retry" | "wrong";
     }>;
     if (updates.length === 0) {

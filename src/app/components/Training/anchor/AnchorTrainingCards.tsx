@@ -53,6 +53,7 @@ type AnchorTrainingSummaryCardProps = {
   totalCount: number;
   referenceStats: TrackStat;
   incipitStats: TrackStat;
+  endingStats: TrackStat;
   contextStats: TrackStat;
   caption: string;
   isSavingSession: boolean;
@@ -333,6 +334,7 @@ export function AnchorTrainingSummaryCard({
   totalCount,
   referenceStats,
   incipitStats,
+  endingStats,
   contextStats,
   caption,
   isSavingSession,
@@ -389,9 +391,16 @@ export function AnchorTrainingSummaryCard({
           )}
           {incipitStats.total > 0 && (
             <SummaryStatRow
-              label="Начала"
+              label="Начало"
               stat={incipitStats}
               accent={TRACK_ACCENTS.incipit}
+            />
+          )}
+          {endingStats.total > 0 && (
+            <SummaryStatRow
+              label="Конец"
+              stat={endingStats}
+              accent={TRACK_ACCENTS.ending}
             />
           )}
           {contextStats.total > 0 && (

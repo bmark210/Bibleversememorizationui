@@ -380,7 +380,7 @@ const swaggerDoc = {
                 properties: {
                   externalVerseId: externalVerseIdSchema,
                   masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
-                  repetitions: { type: "integer", minimum: 0 },
+                  repetitions: { type: "integer", minimum: 0, maximum: 7 },
                   lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
                   lastReviewedAt: { type: "string", format: "date-time" },
                   nextReviewAt: { type: "string", format: "date-time" },
@@ -433,13 +433,30 @@ const swaggerDoc = {
         summary: "Пул стихов для раздела «Якоря»",
         parameters: [
           { name: "telegramId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 24 },
+          },
         ],
         responses: {
           200: {
             description: "OK",
             content: {
               "application/json": {
-                schema: { type: "array", items: { $ref: "#/components/schemas/UserVerse" } },
+                schema: {
+                  type: "object",
+                  required: ["verses", "totalCount", "minRequired"],
+                  properties: {
+                    verses: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/UserVerse" },
+                    },
+                    totalCount: { type: "integer", minimum: 0 },
+                    minRequired: { type: "integer", minimum: 1 },
+                  },
+                },
               },
             },
           },
@@ -463,7 +480,7 @@ const swaggerDoc = {
                 properties: {
                   sessionTrack: {
                     type: "string",
-                    enum: ["reference", "incipit", "context", "mixed"],
+                    enum: ["reference", "incipit", "ending", "context", "mixed"],
                   },
                   updates: {
                     type: "array",
@@ -474,7 +491,7 @@ const swaggerDoc = {
                         externalVerseId: externalVerseIdSchema,
                         track: {
                           type: "string",
-                          enum: ["reference", "incipit", "context"],
+                          enum: ["reference", "incipit", "ending", "context"],
                         },
                         outcome: {
                           type: "string",
@@ -540,7 +557,8 @@ const swaggerDoc = {
                 type: "object",
                 properties: {
                   masteryLevel: { type: "integer", minimum: 0, maximum: 7 },
-                  repetitions: { type: "integer", minimum: 0 },
+                  repetitions: { type: "integer", minimum: 0, maximum: 7 },
+                  reviewRating: { type: "integer", minimum: 0, maximum: 3 },
                   lastTrainingModeId: { type: "integer", minimum: 1, maximum: 8, nullable: true },
                   lastReviewedAt: { type: "string", format: "date-time" },
                   nextReviewAt: { type: "string", format: "date-time" },

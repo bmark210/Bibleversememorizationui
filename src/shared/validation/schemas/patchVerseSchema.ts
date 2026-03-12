@@ -25,6 +25,13 @@ export const patchVerseSchema = z
       .min(0)
       .max(REVIEW_REPETITIONS_MAX)
       .optional(),
+    reviewRating: z
+      .number()
+      .finite()
+      .int()
+      .min(0)
+      .max(3)
+      .optional(),
     lastReviewedAt: z.union([isoDateTimeSchema, z.null()]).optional(),
     nextReviewAt: z.union([isoDateTimeSchema, z.null()]).optional(),
     lastTrainingModeId: z

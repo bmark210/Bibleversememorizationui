@@ -1,8 +1,14 @@
 import { z } from "zod";
 import { canonicalizeExternalVerseId } from "@/shared/bible/externalVerseId";
 
-const sessionTrackSchema = z.enum(["reference", "incipit", "context", "mixed"]);
-const skillTrackSchema = z.enum(["reference", "incipit", "context"]);
+const sessionTrackSchema = z.enum([
+  "reference",
+  "incipit",
+  "ending",
+  "context",
+  "mixed",
+]);
+const skillTrackSchema = z.enum(["reference", "incipit", "ending", "context"]);
 const sessionOutcomeSchema = z.enum(["correct_first", "correct_retry", "wrong"]);
 
 const externalVerseIdSchema = z

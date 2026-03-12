@@ -3,9 +3,14 @@ import type { UserVerse } from "../models/UserVerse";
 export type ReferenceTrainerSessionTrack =
   | "reference"
   | "incipit"
+  | "ending"
   | "context"
   | "mixed";
-export type ReferenceTrainerSkillTrack = "reference" | "incipit" | "context";
+export type ReferenceTrainerSkillTrack =
+  | "reference"
+  | "incipit"
+  | "ending"
+  | "context";
 export type ReferenceTrainerSessionOutcome =
   | "correct_first"
   | "correct_retry"
@@ -36,19 +41,11 @@ export async function fetchReferenceTrainerVerses(
   telegramId: string,
   options?: {
     limit?: number;
-    bookId?: number;
   }
 ): Promise<ReferenceTrainerVersesResponse> {
   const params = new URLSearchParams();
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     params.set("limit", String(Math.max(1, Math.round(options.limit))));
-  }
-  if (
-    typeof options?.bookId === "number" &&
-    Number.isFinite(options.bookId) &&
-    options.bookId > 0
-  ) {
-    params.set("bookId", String(Math.round(options.bookId)));
   }
   const query = params.toString();
   const response = await fetch(

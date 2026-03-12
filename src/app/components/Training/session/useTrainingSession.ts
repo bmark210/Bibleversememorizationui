@@ -373,6 +373,7 @@ export function useTrainingSession({
         try {
           const persistedResponse = await persistTrainingVerseProgress(updated, {
             includeRepetitions: canUpdateRepetitions,
+            reviewRating: wasReviewExercise ? rating : undefined,
           });
           const persistedUpdated = await verseSync.reconcile({
             optimistic: updated,

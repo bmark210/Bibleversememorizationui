@@ -11,6 +11,7 @@ export type TrainerModeId =
   | "incipit-choice"
   | "incipit-tap"
   | "incipit-type"
+  | "ending-choice"
   | "context-incipit-type"
   | "context-incipit-tap"
   | "context-prefix-type";
@@ -26,6 +27,8 @@ export type ReferenceVerse = {
   chapterVerse: string;
   incipit: string;
   incipitWords: string[];
+  ending: string;
+  endingWords: string[];
   referenceScore: number;
   incipitScore: number;
   contextScore: number;

@@ -35,7 +35,7 @@ export function applySessionResults(params: {
     if (update.track === "reference") {
       const delta = computeAdaptiveDelta(row.referenceScore, baseDelta);
       row.referenceScore = clampSkillScore(row.referenceScore + delta);
-    } else if (update.track === "incipit") {
+    } else if (update.track === "incipit" || update.track === "ending") {
       const delta = computeAdaptiveDelta(row.incipitScore, baseDelta);
       row.incipitScore = clampSkillScore(row.incipitScore + delta);
     } else {

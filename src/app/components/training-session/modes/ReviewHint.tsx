@@ -45,7 +45,6 @@ export function ReviewHint({
   if (!isReview) return null;
 
   const hintText = generateHintText(verseText, hintLevel);
-  const nextLevel = Math.min(hintLevel + 1, HINT_LEVEL_MAX) as HintLevel;
   const isMaxLevel = hintLevel >= HINT_LEVEL_MAX;
 
   return (

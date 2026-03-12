@@ -1,12 +1,14 @@
 export type ReferenceTrainerSessionTrack =
   | "reference"
   | "incipit"
+  | "ending"
   | "context"
   | "mixed";
 
 export type ReferenceTrainerSkillTrack =
   | "reference"
   | "incipit"
+  | "ending"
   | "context";
 
 export type ReferenceTrainerOutcome =
