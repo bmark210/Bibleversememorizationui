@@ -1,20 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import {
-  ArrowLeft,
-  BookOpen,
-  Dumbbell,
-  Expand,
-  LayoutDashboard,
-  Minimize2,
-  User,
-  X,
-} from 'lucide-react';
+import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
-import { Button } from './ui/button';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -22,13 +12,7 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
-  isTelegramMiniApp?: boolean;
   isTelegramFullscreen?: boolean;
-  canToggleTelegramFullscreen?: boolean;
-  canGoBackInHeader?: boolean;
-  onTelegramBack?: () => void;
-  onToggleTelegramFullscreen?: () => void;
-  onTelegramExit?: () => void;
   hideChrome?: boolean;
 }
 
@@ -45,13 +29,7 @@ export function Layout({
   currentPage,
   onNavigate,
   isContentReady = false,
-  isTelegramMiniApp = false,
   isTelegramFullscreen = false,
-  canToggleTelegramFullscreen = false,
-  canGoBackInHeader = false,
-  onTelegramBack,
-  onToggleTelegramFullscreen,
-  onTelegramExit,
   hideChrome = false,
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
@@ -59,7 +37,6 @@ export function Layout({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const pageTitle = PAGE_TITLES[currentPage] ?? 'Bible Memory';
-  const showTelegramHeaderNavigation = isTelegramMiniApp && !isTelegramFullscreen;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -108,81 +85,22 @@ export function Layout({
 
   return (
     <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
-      {/* Header — hidden on fullscreen pages and active immersive sessions */}
-      <header
-        className={`bg-card border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
-          isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
-        }${hideAppChrome ? ' hidden' : ''}`}
-        style={{ paddingTop: `${topInset}px` }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="grid min-h-11 grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              {showTelegramHeaderNavigation ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    haptic={canGoBackInHeader ? 'medium' : false}
-                    onClick={onTelegramBack}
-                    disabled={!canGoBackInHeader}
-                    className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground disabled:opacity-45"
-                    aria-label="Назад"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Назад</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    haptic="medium"
-                    onClick={onTelegramExit}
-                    className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground"
-                    aria-label="Закрыть приложение"
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="hidden sm:inline">Закрыть</span>
-                  </Button>
-                </>
-              ) : null}
-            </div>
-
-            <div className="min-w-0 text-center">
+      {isTelegramFullscreen && !hideAppChrome ? (
+        <header
+          className={`bg-card/95 border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
+            isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
+          }`}
+          style={{ paddingTop: `${topInset}px` }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="flex min-h-11 items-center justify-center">
               <div className="truncate text-sm font-semibold text-primary">
-                Bible Memory
-              </div>
-              <div className="truncate text-[11px] text-muted-foreground">
                 {pageTitle}
               </div>
             </div>
-
-            <div className="flex items-center justify-end">
-              {isTelegramMiniApp && canToggleTelegramFullscreen ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  haptic="medium"
-                  onClick={onToggleTelegramFullscreen}
-                  className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground"
-                  aria-label={isTelegramFullscreen ? 'Выйти из полного экрана' : 'Открыть на весь экран'}
-                >
-                  {isTelegramFullscreen ? (
-                    <Minimize2 className="h-4 w-4" />
-                  ) : (
-                    <Expand className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {isTelegramFullscreen ? 'Окно' : 'Полный экран'}
-                  </span>
-                </Button>
-              ) : null}
-            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
 
       <div className="flex-1 min-h-0 flex max-w-7xl w-full mx-auto">
         {/* Sidebar Navigation */}

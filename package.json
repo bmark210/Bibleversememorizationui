@@ -4,8 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "npm run prisma:generate && next build",
+    "clean:next": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "dev": "npm run clean:next && next dev",
+    "build": "npm run clean:next && npm run prisma:generate && next build",
     "start": "next start",
     "lint": "eslint src/ --max-warnings 0",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",

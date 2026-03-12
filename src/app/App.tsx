@@ -176,6 +176,8 @@ type AppProps = {
 };
 
 const THEME_STORAGE_KEY = "theme";
+const TELEGRAM_FULLSCREEN_PREFERENCE_STORAGE_KEY =
+  "telegram.fullscreen-preference";
 const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
 const TRAINING_VERSE_PREFETCH_DELAY_MS = 350;
 const TRAINING_VERSE_PREFETCH_TIMEOUT_MS = 1500;
@@ -224,6 +226,31 @@ function readStoredTheme(): Theme | null {
     return stored === "light" || stored === "dark" ? stored : null;
   } catch {
     return null;
+  }
+}
+
+function readStoredTelegramFullscreenPreference(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.localStorage.getItem(TELEGRAM_FULLSCREEN_PREFERENCE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredTelegramFullscreenPreference(enabled: boolean) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (enabled) {
+      window.localStorage.setItem(TELEGRAM_FULLSCREEN_PREFERENCE_STORAGE_KEY, "1");
+      return;
+    }
+
+    window.localStorage.removeItem(TELEGRAM_FULLSCREEN_PREFERENCE_STORAGE_KEY);
+  } catch {
+    // Ignore storage write errors in restricted webviews.
   }
 }
 
@@ -445,6 +472,9 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(false);
   const [isTelegramFullscreen, setIsTelegramFullscreen] = useState(false);
   const [canToggleTelegramFullscreen, setCanToggleTelegramFullscreen] = useState(false);
+  const [prefersTelegramFullscreen, setPrefersTelegramFullscreen] = useState(
+    () => readStoredTelegramFullscreenPreference()
+  );
   const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
   const [activePlayerProfile, setActivePlayerProfile] =
     useState<PlayerProfilePreview | null>(null);
@@ -495,6 +525,28 @@ export default function App({ onInitialContentReady }: AppProps) {
   const hasVerseListFriends =
     (dashboardFriendsActivity?.summary.friendsTotal ?? 0) > 0;
 
+  const applyTelegramFullscreenPreference = useCallback((enabled: boolean) => {
+    setPrefersTelegramFullscreen(enabled);
+    writeStoredTelegramFullscreenPreference(enabled);
+
+    const webApp = getTelegramWebApp();
+    if (!webApp) return;
+
+    try {
+      if (enabled) {
+        webApp.requestFullscreen?.();
+      } else {
+        webApp.exitFullscreen?.();
+      }
+    } catch (error) {
+      console.error("Не удалось применить fullscreen-настройку Telegram:", error);
+    }
+
+    window.setTimeout(() => {
+      setIsTelegramFullscreen(Boolean(webApp.isFullscreen));
+    }, 0);
+  }, []);
+
   useEffect(() => {
     applyThemeToDocument(theme);
     writeStoredTheme(theme);
@@ -513,7 +565,12 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     setIsTelegramMiniApp(true);
-    setCanToggleTelegramFullscreen(typeof webApp.requestFullscreen === "function");
+    setCanToggleTelegramFullscreen(
+      typeof webApp.requestFullscreen === "function" &&
+      typeof webApp.exitFullscreen === "function"
+    );
+    const storedFullscreenPreference = readStoredTelegramFullscreenPreference();
+    setPrefersTelegramFullscreen(storedFullscreenPreference);
 
     const syncTelegramViewportState = () => {
       setIsTelegramFullscreen(Boolean(webApp.isFullscreen));
@@ -538,6 +595,17 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     lockTelegramPortraitOrientation(webApp);
+
+    try {
+      if (storedFullscreenPreference) {
+        webApp.requestFullscreen?.();
+      } else if (webApp.isFullscreen) {
+        webApp.exitFullscreen?.();
+      }
+    } catch (error) {
+      console.warn("Telegram fullscreen preference apply failed:", error);
+    }
+
     syncTelegramViewportState();
 
     const handleFullscreenChanged = () => {
@@ -1000,70 +1068,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     setTrainingDirectLaunch(null);
   }, []);
 
-  const handleTelegramFullscreenToggle = useCallback(() => {
-    const webApp = getTelegramWebApp();
-    if (!webApp) return;
-
-    try {
-      if (webApp.isFullscreen) {
-        webApp.exitFullscreen?.();
-      } else {
-        webApp.requestFullscreen?.();
-      }
-
-      window.setTimeout(() => {
-        setIsTelegramFullscreen(Boolean(webApp.isFullscreen));
-      }, 0);
-    } catch (error) {
-      console.error("Не удалось переключить полноэкранный режим Telegram:", error);
-    }
-  }, []);
-
-  const handleTelegramExitRequest = useCallback(() => {
-    const webApp = getTelegramWebApp();
-    if (!webApp) return;
-
-    const closeTelegramMiniApp = () => {
-      webApp.disableClosingConfirmation?.();
-      webApp.close?.();
-    };
-
-    if (typeof webApp.showPopup === "function") {
-      webApp.showPopup(
-        {
-          title: "Выйти из B Memory?",
-          message: "Приложение закроется, но вы сможете вернуться в него из чата в любой момент.",
-          buttons: [
-            { id: "stay", type: "cancel", text: "Остаться" },
-            { id: "close", type: "destructive", text: "Выйти" },
-          ],
-        },
-        (buttonId) => {
-          if (buttonId === "close") {
-            closeTelegramMiniApp();
-          }
-        }
-      );
-      return;
-    }
-
-    if (typeof webApp.showConfirm === "function") {
-      webApp.showConfirm(
-        "Выйти из B Memory? Приложение закроется, но вы сможете вернуться из чата в любой момент.",
-        (confirmed) => {
-          if (confirmed) {
-            closeTelegramMiniApp();
-          }
-        }
-      );
-      return;
-    }
-
-    if (window.confirm("Выйти из B Memory?")) {
-      closeTelegramMiniApp();
-    }
-  }, []);
-
   const handleTelegramBack = useCallback(() => {
     if (showAddVerseDialog) {
       setShowAddVerseDialog(false);
@@ -1274,13 +1278,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           onNavigate={handleRootNavigate}
           isContentReady={!isBootstrapping}
           hideChrome={currentPage === "training" && isTrainingSessionFullscreen}
-          isTelegramMiniApp={isTelegramMiniApp}
           isTelegramFullscreen={isTelegramFullscreen}
-          canToggleTelegramFullscreen={canToggleTelegramFullscreen}
-          canGoBackInHeader={showAddVerseDialog || canGoBackInApp}
-          onTelegramBack={handleTelegramBack}
-          onToggleTelegramFullscreen={handleTelegramFullscreenToggle}
-          onTelegramExit={handleTelegramExitRequest}
         >
           {currentPage === "dashboard" && (
             <div aria-busy={isBootstrapping}>
@@ -1356,6 +1354,11 @@ export default function App({ onInitialContentReady }: AppProps) {
               theme={theme}
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
+              isTelegramMiniApp={isTelegramMiniApp}
+              isTelegramFullscreen={isTelegramFullscreen}
+              canToggleTelegramFullscreen={canToggleTelegramFullscreen}
+              prefersTelegramFullscreen={prefersTelegramFullscreen}
+              onTelegramFullscreenPreferenceChange={applyTelegramFullscreenPreference}
               onFriendsChanged={handleFriendsChanged}
               onOpenPlayerProfile={handleOpenPlayerProfile}
               friendsRefreshVersion={friendsRefreshVersion}

@@ -2,7 +2,15 @@
 
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Moon, Search, Sun, UserMinus, UserPlus } from "lucide-react";
+import {
+  Expand,
+  Minimize2,
+  Moon,
+  Search,
+  Sun,
+  UserMinus,
+  UserPlus,
+} from "lucide-react";
 import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
@@ -35,6 +43,11 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
+  isTelegramMiniApp?: boolean;
+  isTelegramFullscreen?: boolean;
+  canToggleTelegramFullscreen?: boolean;
+  prefersTelegramFullscreen?: boolean;
+  onTelegramFullscreenPreferenceChange?: (enabled: boolean) => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -88,6 +101,11 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
+  isTelegramMiniApp = false,
+  isTelegramFullscreen = false,
+  canToggleTelegramFullscreen = false,
+  prefersTelegramFullscreen = false,
+  onTelegramFullscreenPreferenceChange,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
@@ -369,6 +387,18 @@ export function Profile({
   const canGoNext = currentPage < totalPages;
   const canManageFriends = Boolean(telegramId);
   const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
+  const fullscreenButtonLabel = prefersTelegramFullscreen
+    ? "Выключить полный экран"
+    : "Открыть на весь экран";
+  const fullscreenStatusLabel = isTelegramMiniApp
+    ? isTelegramFullscreen
+      ? "Сейчас fullscreen включён."
+      : "Сейчас fullscreen выключен."
+    : "Опция доступна только внутри Telegram.";
+  const fullscreenLaunchLabel = prefersTelegramFullscreen
+    ? "Следующий запуск откроется в fullscreen."
+    : "Следующий запуск откроется в обычном режиме.";
+
   const activeCount =
     activeTab === "players" ? playersPage.totalCount : friendsPage.totalCount;
   const activeSearchInput =
@@ -551,6 +581,47 @@ export function Profile({
                     aria-label="Тёмная тема"
                   />
                 </div>
+              </div>
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground/82">
+                    Полный экран Telegram
+                  </div>
+                  <div className="mt-1 text-sm text-foreground/56">
+                    Переключатель сохранит выбор в localStorage и применит его
+                    при следующем входе.
+                  </div>
+                  <div className="mt-2 text-xs text-foreground/45">
+                    {fullscreenStatusLabel}
+                  </div>
+                  <div className="mt-1 text-xs text-foreground/45">
+                    {fullscreenLaunchLabel}
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!isTelegramMiniApp || !canToggleTelegramFullscreen}
+                  onClick={() =>
+                    onTelegramFullscreenPreferenceChange?.(
+                      !prefersTelegramFullscreen
+                    )
+                  }
+                  className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
+                >
+                  {prefersTelegramFullscreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Expand className="h-4 w-4" />
+                  )}
+                  {fullscreenButtonLabel}
+                </Button>
               </div>
             </ProfileSurface>
           </motion.div>
