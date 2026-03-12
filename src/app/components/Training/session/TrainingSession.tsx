@@ -529,7 +529,7 @@ export function TrainingSession({
       >
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="text-base text-foreground/90">
               {session.quickForgetConfirmStage === "review"
                 ? "Отметить как «не вспомнил»?"
                 : "Отметить как «забыл»?"}
@@ -541,11 +541,11 @@ export function TrainingSession({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={session.cancelQuickForget}>
+            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/70" onClick={session.cancelQuickForget}>
               Отмена
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-white"
+              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-background"
               onClick={session.confirmQuickForget}
             >
               Подтвердить

@@ -129,7 +129,7 @@ export function ModeClickWordsHintedExercise({
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
-  const { ref: choicePanelRef, size: choicePanelSize } =
+  const { ref: choiceTrayRef, size: choiceTraySize } =
     useMeasuredElementSize<HTMLDivElement>(!isCompleted);
 
   useEffect(() => {
@@ -227,9 +227,12 @@ export function ModeClickWordsHintedExercise({
         uniqueChoices,
         remainingCountByNormalized,
         nextHiddenNormalized,
-        choicePanelSize.width
+        {
+          trayWidth: choiceTraySize.width,
+          trayHeight: choiceTraySize.height,
+        }
       ),
-    [uniqueChoices, remainingCountByNormalized, nextHiddenNormalized, choicePanelSize.width]
+    [uniqueChoices, remainingCountByNormalized, nextHiddenNormalized, choiceTraySize.width, choiceTraySize.height]
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
@@ -298,44 +301,36 @@ export function ModeClickWordsHintedExercise({
               focusItemId={focusItemId}
             />
 
-            <div
-              ref={choicePanelRef}
-              className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 pt-3 px-3"
-            >
+            <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 pt-3 px-3">
               <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>Варианты слов</span>
                 <span className="tabular-nums">{visibleChoices.length}</span>
               </div>
 
                 <div
+                  ref={choiceTrayRef}
                   data-card-swipe-ignore="true"
-                  className="flex h-full items-start overflow-hidden py-2"
+                  className="flex min-h-0 flex-1 items-start overflow-hidden py-2"
                 >
                   <div className="flex w-full flex-wrap content-start gap-1">
-                    {visibleChoices.map((choice) => {
-                      const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
-                      return (
-                        <Button
-                          key={choice.normalized}
-                          type="button"
-                          variant="outline"
-                          title={choice.displayText}
-                          className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-2.5 py-1.5 text-[13px] leading-4 text-left whitespace-normal transition-colors ${
-                            errorFlashNormalized === choice.normalized
-                              ? 'border-destructive text-destructive'
-                              : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                          }`}
-                          onClick={() => handleWordClick(choice)}
-                        >
-                          <span className="min-w-0 [overflow-wrap:anywhere]">
-                            {choice.displayText}
-                          </span>
-                          {remaining > 1 && (
-                            <span className="shrink-0 text-[11px] text-muted-foreground">×{remaining}</span>
-                          )}
-                        </Button>
-                      );
-                    })}
+                    {visibleChoices.map((choice) => (
+                      <Button
+                        key={choice.normalized}
+                        type="button"
+                        variant="outline"
+                        title={choice.displayText}
+                        className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-2.5 py-1.5 text-[13px] leading-4 text-left whitespace-nowrap transition-colors ${
+                          errorFlashNormalized === choice.normalized
+                            ? 'border-destructive text-destructive'
+                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                        }`}
+                        onClick={() => handleWordClick(choice)}
+                      >
+                        <span className="block min-w-0 truncate">
+                          {choice.displayText}
+                        </span>
+                      </Button>
+                    ))}
                   </div>
                 </div>
             </div>

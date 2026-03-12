@@ -12,14 +12,18 @@ const LATIN_TO_CYRILLIC: Record<string, string> = {
 };
 
 const DEFAULT_CHOICE_TRAY_WIDTH = 280;
+const DEFAULT_CHOICE_TRAY_HEIGHT = 132;
 const MIN_CHOICE_TRAY_WIDTH = 220;
-const MAX_VISIBLE_CHOICE_ROWS = 4;
-const MAX_VISIBLE_CHOICE_ITEMS = 15;
+const MIN_CHOICE_TRAY_HEIGHT = 72;
+const MAX_VISIBLE_CHOICE_ROWS = 8;
 const MAX_LEADING_CONTEXT_CHOICES = 2;
 const CHOICE_GAP_PX = 5;
 const CHOICE_CHAR_WIDTH_PX = 7.4;
 const CHOICE_BASE_WIDTH_PX = 20;
 const CHOICE_MIN_WIDTH_PX = 44;
+const CHOICE_ROW_HEIGHT_PX = 34;
+const CHOICE_VERTICAL_PADDING_PX = 16;
+const CHOICE_FALLBACK_ROWS = 4;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -83,6 +87,19 @@ interface VisibleChoiceInput {
   totalCount?: number;
 }
 
+export interface VisibleChoiceLayoutOptions {
+  trayWidth: number;
+  trayHeight: number;
+  estimatedCharWidthPx?: number;
+  baseWidthPx?: number;
+  minChoiceWidthPx?: number;
+  gapPx?: number;
+  rowHeightPx?: number;
+  verticalPaddingPx?: number;
+  fallbackRows?: number;
+  leadingContextChoices?: number;
+}
+
 function getEffectiveTrayWidth(trayWidth: number) {
   if (Number.isFinite(trayWidth) && trayWidth >= MIN_CHOICE_TRAY_WIDTH) {
     return Math.floor(trayWidth);
@@ -91,16 +108,57 @@ function getEffectiveTrayWidth(trayWidth: number) {
   return DEFAULT_CHOICE_TRAY_WIDTH;
 }
 
-function estimateChoiceWidth(choice: VisibleChoiceInput, trayWidth: number) {
-  const textWidth = Math.ceil(choice.displayText.length * CHOICE_CHAR_WIDTH_PX);
-  const badgeWidth =
-    choice.totalCount && choice.totalCount > 1
-      ? 18 + String(choice.totalCount).length * 7
-      : 0;
+function getEffectiveTrayHeight(trayHeight: number) {
+  if (Number.isFinite(trayHeight) && trayHeight >= MIN_CHOICE_TRAY_HEIGHT) {
+    return Math.floor(trayHeight);
+  }
+
+  return DEFAULT_CHOICE_TRAY_HEIGHT;
+}
+
+function resolveChoiceLayout(options: VisibleChoiceLayoutOptions) {
+  const trayWidth = getEffectiveTrayWidth(options.trayWidth);
+  const trayHeight = getEffectiveTrayHeight(options.trayHeight);
+  const gapPx = options.gapPx ?? CHOICE_GAP_PX;
+  const minChoiceWidthPx = options.minChoiceWidthPx ?? CHOICE_MIN_WIDTH_PX;
+  const rowHeightPx = options.rowHeightPx ?? CHOICE_ROW_HEIGHT_PX;
+  const verticalPaddingPx = options.verticalPaddingPx ?? CHOICE_VERTICAL_PADDING_PX;
+  const fallbackRows = options.fallbackRows ?? CHOICE_FALLBACK_ROWS;
+  const estimatedCharWidthPx = options.estimatedCharWidthPx ?? CHOICE_CHAR_WIDTH_PX;
+  const baseWidthPx = options.baseWidthPx ?? CHOICE_BASE_WIDTH_PX;
+  const leadingContextChoices = options.leadingContextChoices ?? MAX_LEADING_CONTEXT_CHOICES;
+  const usableHeight = Math.max(rowHeightPx, trayHeight - verticalPaddingPx);
+  const measuredRows = Math.floor((usableHeight + gapPx) / (rowHeightPx + gapPx));
+  const maxRows = clamp(measuredRows || fallbackRows, 1, MAX_VISIBLE_CHOICE_ROWS);
+  const estimatedMaxPerRow = Math.max(
+    1,
+    Math.floor((trayWidth + gapPx) / (minChoiceWidthPx + gapPx))
+  );
+
+  return {
+    trayWidth,
+    gapPx,
+    minChoiceWidthPx,
+    estimatedCharWidthPx,
+    baseWidthPx,
+    maxRows,
+    maxVisibleItems: Math.max(1, estimatedMaxPerRow * maxRows),
+    leadingContextChoices,
+  };
+}
+
+function estimateChoiceWidth(
+  choice: VisibleChoiceInput,
+  trayWidth: number,
+  estimatedCharWidthPx: number,
+  baseWidthPx: number,
+  minChoiceWidthPx: number,
+) {
+  const textWidth = Math.ceil(choice.displayText.length * estimatedCharWidthPx);
 
   return clamp(
-    textWidth + badgeWidth + CHOICE_BASE_WIDTH_PX,
-    CHOICE_MIN_WIDTH_PX,
+    textWidth + baseWidthPx,
+    minChoiceWidthPx,
     trayWidth
   );
 }
@@ -108,31 +166,35 @@ function estimateChoiceWidth(choice: VisibleChoiceInput, trayWidth: number) {
 function packChoiceWindow<T extends VisibleChoiceInput>(
   choices: T[],
   startIndex: number,
-  trayWidth: number,
-  maxRows = MAX_VISIBLE_CHOICE_ROWS,
+  layout: ReturnType<typeof resolveChoiceLayout>,
 ): T[] {
   if (choices.length === 0 || startIndex >= choices.length) return [];
 
-  const effectiveTrayWidth = getEffectiveTrayWidth(trayWidth);
   const result: T[] = [];
   let currentRow = 1;
   let currentRowWidth = 0;
 
   for (let index = startIndex; index < choices.length; index += 1) {
-    if (result.length >= MAX_VISIBLE_CHOICE_ITEMS) break;
+    if (result.length >= layout.maxVisibleItems) break;
 
     const choice = choices[index];
-    const width = estimateChoiceWidth(choice, effectiveTrayWidth);
+    const width = estimateChoiceWidth(
+      choice,
+      layout.trayWidth,
+      layout.estimatedCharWidthPx,
+      layout.baseWidthPx,
+      layout.minChoiceWidthPx
+    );
     const nextRowWidth =
-      currentRowWidth === 0 ? width : currentRowWidth + CHOICE_GAP_PX + width;
+      currentRowWidth === 0 ? width : currentRowWidth + layout.gapPx + width;
 
-    if (result.length === 0 || nextRowWidth <= effectiveTrayWidth) {
+    if (result.length === 0 || nextRowWidth <= layout.trayWidth) {
       result.push(choice);
       currentRowWidth = nextRowWidth;
       continue;
     }
 
-    if (currentRow < maxRows) {
+    if (currentRow < layout.maxRows) {
       currentRow += 1;
       result.push(choice);
       currentRowWidth = width;
@@ -149,7 +211,7 @@ export function pickVisibleChoices<T extends VisibleChoiceInput>(
   orderedChoices: T[],
   remainingCountByNormalized: Map<string, number>,
   correctNormalized: string | null,
-  trayWidth: number,
+  layoutOptions: VisibleChoiceLayoutOptions,
 ): T[] {
   if (orderedChoices.length === 0) return [];
 
@@ -159,7 +221,8 @@ export function pickVisibleChoices<T extends VisibleChoiceInput>(
   const remainingChoices = orderedChoices.filter(hasRemaining);
   if (remainingChoices.length === 0) return [];
 
-  const defaultWindow = packChoiceWindow(remainingChoices, 0, trayWidth);
+  const layout = resolveChoiceLayout(layoutOptions);
+  const defaultWindow = packChoiceWindow(remainingChoices, 0, layout);
   if (defaultWindow.length === remainingChoices.length) {
     return remainingChoices;
   }
@@ -176,16 +239,12 @@ export function pickVisibleChoices<T extends VisibleChoiceInput>(
     return defaultWindow;
   }
 
-  let startIndex = Math.max(0, correctIndex - MAX_LEADING_CONTEXT_CHOICES);
-  let visibleChoices = packChoiceWindow(remainingChoices, startIndex, trayWidth);
+  let startIndex = Math.max(0, correctIndex - layout.leadingContextChoices);
+  let visibleChoices = packChoiceWindow(remainingChoices, startIndex, layout);
 
   while (startIndex > 0 && visibleChoices.length < defaultWindow.length) {
     const candidateStartIndex = startIndex - 1;
-    const candidateWindow = packChoiceWindow(
-      remainingChoices,
-      candidateStartIndex,
-      trayWidth
-    );
+    const candidateWindow = packChoiceWindow(remainingChoices, candidateStartIndex, layout);
 
     if (!candidateWindow.some((choice) => choice.normalized === correctNormalized)) {
       break;

@@ -5,13 +5,16 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
-import { Button } from "@/app/components/ui/button";
+import { Button } from '@/app/components/ui/button';
+import { Verse } from '@/app/App';
+import { getWordMask, getWordMaskWidth, pickVisibleChoices } from './wordUtils';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { Verse } from '@/app/App';
+import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
@@ -24,12 +27,6 @@ interface WordSlot {
   firstLetter: string;
   order: number;
   revealed: boolean;
-}
-
-interface LetterChoice {
-  id: string;
-  letter: string;
-  slotOrder: number;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -61,7 +58,7 @@ function pickRevealedIndices(totalWords: number): Set<number> {
   if (totalWords >= 5 && revealed.size < revealCount) revealed.add(totalWords - 1);
 
   const candidates = Array.from({ length: totalWords }, (_, i) => i).filter(
-    (i) => !revealed.has(i)
+    (index) => !revealed.has(index)
   );
 
   for (let i = candidates.length - 1; i > 0; i -= 1) {
@@ -81,16 +78,12 @@ function pickRevealedIndices(totalWords: number): Set<number> {
   return revealed;
 }
 
-function shuffleChoices(choices: LetterChoice[]) {
-  const shuffled = [...choices];
+function shuffleLetters(letters: string[]) {
+  const shuffled = [...letters];
+
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     swapArrayItems(shuffled, i, j);
-  }
-
-  const sameOrder = shuffled.every((choice, index) => choice.slotOrder === choices[index]?.slotOrder);
-  if (sameOrder && shuffled.length > 1) {
-    swapArrayItems(shuffled, 0, 1);
   }
 
   return shuffled;
@@ -108,17 +101,19 @@ function buildExercise(text: string) {
     revealed: revealed.has(index),
   }));
 
-  const hiddenChoices: LetterChoice[] = slots
-    .filter((slot) => !slot.revealed)
-    .map((slot) => ({
-      id: `${slot.order}-${slot.firstLetter}-${Math.random().toString(36).slice(2, 6)}`,
-      letter: slot.firstLetter,
-      slotOrder: slot.order,
-    }));
+  const choiceOrder: string[] = [];
+  const seenLetters = new Set<string>();
+  for (const letter of shuffleLetters(
+    slots.filter((slot) => !slot.revealed).map((slot) => slot.firstLetter)
+  )) {
+    if (!letter || seenLetters.has(letter)) continue;
+    seenLetters.add(letter);
+    choiceOrder.push(letter);
+  }
 
   return {
     slots,
-    choices: shuffleChoices(hiddenChoices),
+    choiceOrder,
   };
 }
 
@@ -129,21 +124,23 @@ export function ModeFirstLettersHintedExercise({
   const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
-  const [choices, setChoices] = useState<LetterChoice[]>([]);
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
+  const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
+  const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
+  const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const { ref: choiceTrayRef, size: choiceTraySize } =
+    useMeasuredElementSize<HTMLDivElement>(!isCompleted);
 
   useEffect(() => {
     const exercise = buildExercise(verse.text);
     setSlots(exercise.slots);
-    setChoices(exercise.choices);
-    setSelectedChoiceIds([]);
+    setChoiceOrder(exercise.choiceOrder);
+    setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashChoiceId(null);
+    setErrorFlashLetter(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -158,49 +155,104 @@ export function ModeFirstLettersHintedExercise({
     [slots]
   );
 
-  const choiceMap = useMemo(
-    () => new Map(choices.map((choice) => [choice.id, choice])),
-    [choices]
-  );
-
-  const selectedChoiceIdSet = useMemo(
-    () => new Set(selectedChoiceIds),
-    [selectedChoiceIds]
-  );
-
-  const selectedChoices = useMemo(
-    () =>
-      selectedChoiceIds
-        .map((id) => choiceMap.get(id))
-        .filter((choice): choice is LetterChoice => Boolean(choice)),
-    [selectedChoiceIds, choiceMap]
-  );
-
-  const remainingChoices = useMemo(
-    () => choices.filter((choice) => !selectedChoiceIdSet.has(choice.id)),
-    [choices, selectedChoiceIdSet]
-  );
-
   const hiddenIndexByOrder = useMemo(() => {
     const map = new Map<number, number>();
     hiddenSlots.forEach((slot, index) => map.set(slot.order, index));
     return map;
   }, [hiddenSlots]);
 
-  const selectedCount = selectedChoices.length;
   const totalHidden = hiddenSlots.length;
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
 
-  const handleLetterClick = (choice: LetterChoice) => {
+  const remainingCountByLetter = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (let index = selectedCount; index < hiddenSlots.length; index += 1) {
+      const letter = hiddenSlots[index]?.firstLetter;
+      if (!letter) continue;
+      counts.set(letter, (counts.get(letter) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [hiddenSlots, selectedCount]);
+
+  const availableLetters = useMemo(
+    () =>
+      choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
+    [choiceOrder, remainingCountByLetter]
+  );
+
+  const visibleLetters = useMemo(() => {
+    const letterChoices = availableLetters.map((letter) => ({
+      displayText: letter,
+      normalized: letter,
+    }));
+
+    return pickVisibleChoices(
+      letterChoices,
+      remainingCountByLetter,
+      nextHiddenSlot?.firstLetter ?? null,
+      {
+        trayWidth: choiceTraySize.width,
+        trayHeight: choiceTraySize.height,
+        estimatedCharWidthPx: 8,
+        baseWidthPx: 18,
+        minChoiceWidthPx: 36,
+        rowHeightPx: 34,
+        leadingContextChoices: 1,
+      }
+    ).map((choice) => choice.normalized);
+  }, [availableLetters, remainingCountByLetter, nextHiddenSlot, choiceTraySize.width, choiceTraySize.height]);
+
+  const focusItemId = useMemo(() => {
+    if (hiddenSlots.length === 0) return null;
+    if (selectedCount <= 0) return hiddenSlots[0]?.id ?? null;
+    return hiddenSlots[Math.min(selectedCount - 1, hiddenSlots.length - 1)]?.id ?? null;
+  }, [hiddenSlots, selectedCount]);
+
+  const sequenceItems = useMemo<WordSequenceFieldItem[]>(
+    () =>
+      slots.map((slot) => {
+        const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
+        const isHidden = hiddenIndex >= 0;
+        const isFilled = isHidden && hiddenIndex < selectedCount;
+        const isActiveGap = isHidden && !isCompleted && hiddenIndex === selectedCount;
+
+        if (slot.revealed) {
+          return {
+            id: slot.id,
+            content: slot.text,
+            state: 'revealed',
+          };
+        }
+
+        if (isFilled) {
+          return {
+            id: slot.id,
+            content: slot.text,
+            state: 'filled',
+          };
+        }
+
+        return {
+          id: slot.id,
+          content: getWordMask(slot.text),
+          minWidth: getWordMaskWidth(slot.text),
+          state: isActiveGap ? 'active-gap' : 'future-gap',
+        };
+      }),
+    [slots, hiddenIndexByOrder, selectedCount, isCompleted]
+  );
+
+  const handleLetterClick = (letter: string) => {
     if (isCompleted) return;
-    if (selectedChoiceIdSet.has(choice.id)) return;
     if (!nextHiddenSlot) return;
 
-    if (choice.letter === nextHiddenSlot.firstLetter) {
-      const next = [...selectedChoiceIds, choice.id];
-      setSelectedChoiceIds(next);
+    if (letter === nextHiddenSlot.firstLetter) {
+      const next = selectedCount + 1;
+      setSelectedCount(next);
 
-      if (next.length === totalHidden) {
+      if (next === totalHidden) {
         setIsCompleted(true);
       }
       return;
@@ -211,7 +263,7 @@ export function ModeFirstLettersHintedExercise({
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      setSelectedChoiceIds([]);
+      setSelectedCount(0);
       toast.warning(
         `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
         {
@@ -231,92 +283,89 @@ export function ModeFirstLettersHintedExercise({
       );
     }
 
-    setErrorFlashChoiceId(choice.id);
+    setErrorFlashLetter(letter);
     if (clearFlashTimeoutRef.current) {
       window.clearTimeout(clearFlashTimeoutRef.current);
     }
     clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashChoiceId(null);
+      setErrorFlashLetter(null);
       clearFlashTimeoutRef.current = null;
     }, 260);
   };
+
+  const showChoices = !isCompleted && visibleLetters.length > 0;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="space-y-3">
+      <div className="shrink-0">
         <label className="block text-center text-sm font-medium text-foreground/90">
           Восстановите скрытые слова по первым буквам
         </label>
+      </div>
 
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Стих с пропусками</span>
-            <span className="tabular-nums">{selectedCount}/{totalHidden}</span>
-          </div>
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+        {showChoices ? (
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+            <WordSequenceField
+              className="h-full"
+              label="Стих с пропусками"
+              progressCurrent={selectedCount}
+              progressTotal={totalHidden}
+              items={sequenceItems}
+              focusItemId={focusItemId}
+            />
 
-          <div className="flex flex-wrap gap-1.5 leading-relaxed">
-            {slots.map((slot) => {
-              const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
-              const isHidden = hiddenIndex >= 0;
-              const isFilled = isHidden && hiddenIndex < selectedCount;
+            <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>Варианты букв</span>
+                <span className="tabular-nums">{visibleLetters.length}</span>
+              </div>
 
-              if (slot.revealed || isFilled) {
-                return (
-                  <span
-                    key={slot.id}
-                    className={`inline-flex items-center rounded-md px-2 py-1 text-sm ${
-                      slot.revealed
-                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                        : 'border border-primary/20 bg-primary/10'
-                    }`}
-                  >
-                    {slot.text}
-                  </span>
-                );
-              }
-
-              const minWidthPx = clamp(slot.text.length * 8, 30, 140);
-              return (
-                <span
-                  key={slot.id}
-                  className="inline-flex items-center justify-center rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-sm text-muted-foreground"
-                  style={{ minWidth: `${minWidthPx}px` }}
-                  aria-label="Скрытое слово"
-                >
-                  {'•'.repeat(clamp(slot.text.length, 3, 10))}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {!isCompleted && remainingChoices.length > 0 && (
-          <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-            <div className="flex flex-wrap gap-2">
-              {remainingChoices.map((choice) => (
-                <Button
-                  key={choice.id}
-                  type="button"
-                  variant="outline"
-                  className={`h-auto min-w-10 rounded-xl px-3 py-2 font-mono uppercase transition-colors ${
-                    errorFlashChoiceId === choice.id
-                      ? 'border-destructive text-destructive'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
-                  onClick={() => handleLetterClick(choice)}
-                >
-                  {choice.letter}
-                </Button>
-              ))}
+              <div
+                ref={choiceTrayRef}
+                data-card-swipe-ignore="true"
+                className="flex min-h-0 flex-1 items-start overflow-hidden py-2"
+              >
+                <div className="flex w-full flex-wrap content-start gap-1">
+                  {visibleLetters.map((letter) => (
+                    <Button
+                      key={letter}
+                      type="button"
+                      variant="outline"
+                      className={`h-auto min-w-9 justify-center rounded-lg px-2.5 py-1.5 font-mono text-[13px] uppercase leading-4 transition-colors ${
+                        errorFlashLetter === letter
+                          ? 'border-destructive text-destructive'
+                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                      }`}
+                      onClick={() => handleLetterClick(letter)}
+                    >
+                      <span>{letter}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <WordSequenceField
+              className="h-full"
+              label="Стих с пропусками"
+              progressCurrent={selectedCount}
+              progressTotal={totalHidden}
+              items={sequenceItems}
+              focusItemId={focusItemId}
+            />
+          </div>
         )}
+      </div>
 
-        {isCompleted && (
+      {isCompleted && (
+        <div className="shrink-0 pt-3">
           <TrainingRatingFooter>
             <TrainingRatingButtons
               stage={ratingStage}
@@ -324,8 +373,8 @@ export function ModeFirstLettersHintedExercise({
               onRate={onRate}
             />
           </TrainingRatingFooter>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }
