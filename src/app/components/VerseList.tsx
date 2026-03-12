@@ -29,6 +29,7 @@ import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
+import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import type { VerseListStatusFilter } from "./verse-list/constants";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
@@ -99,6 +100,8 @@ export function VerseList({
     scope: "friends" | "players";
     totalCount: number;
   } | null>(null);
+  const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
+  const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
 
   const markVerseListIntroAsSeen = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -175,6 +178,10 @@ export function VerseList({
       });
       setIsVerseOwnersDrawerOpen(true);
     },
+    onOpenVerseProgress: (verse: Verse) => {
+      setVerseProgressTarget(verse);
+      setIsVerseProgressDrawerOpen(true);
+    },
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
@@ -221,6 +228,12 @@ export function VerseList({
       return;
     }
 
+    if (isVerseProgressDrawerOpen) {
+      setIsVerseProgressDrawerOpen(false);
+      setVerseProgressTarget(null);
+      return;
+    }
+
     if (isAboutDialogOpen) {
       handleAboutDialogOpenChange(false);
     }
@@ -231,6 +244,7 @@ export function VerseList({
     isDeleteModalOpen,
     isFiltersDrawerOpen,
     isGalleryOpen,
+    isVerseProgressDrawerOpen,
     isVerseTagsDrawerOpen,
     isVerseOwnersDrawerOpen,
     closeVerseTagsDrawer,
@@ -246,6 +260,7 @@ export function VerseList({
       isVerseTagsDrawerOpen ||
       isFiltersDrawerOpen ||
       isVerseOwnersDrawerOpen ||
+      isVerseProgressDrawerOpen ||
       isAboutDialogOpen,
     onBack: handleTelegramBack,
     priority: 60,
@@ -558,6 +573,17 @@ export function VerseList({
             setIsVerseTagsDrawerOpen(true);
           }}
           onSelectTag={handleVerseTagSelect}
+        />
+
+        <VerseProgressDrawer
+          verse={verseProgressTarget}
+          open={isVerseProgressDrawerOpen}
+          onOpenChange={(open) => {
+            setIsVerseProgressDrawerOpen(open);
+            if (!open) {
+              setVerseProgressTarget(null);
+            }
+          }}
         />
       </motion.div>
     </>

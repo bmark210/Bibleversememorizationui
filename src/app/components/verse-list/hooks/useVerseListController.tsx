@@ -44,6 +44,7 @@ type UseVerseListControllerParams = {
   onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
+  onOpenVerseProgress?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -73,6 +74,7 @@ export function useVerseListController({
   onAddVerse,
   onOpenVerseOwners,
   onOpenVerseTags,
+  onOpenVerseProgress,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -486,6 +488,7 @@ export function useVerseListController({
       <SwipeableVerseCard
         verse={verse}
         onOpen={() => openVerseInGallery(verse)}
+        onOpenProgress={onOpenVerseProgress}
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
         onAddToLearning={(v) => {
@@ -498,7 +501,7 @@ export function useVerseListController({
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
       />
     ),
-    [actions, onOpenVerseOwners, onOpenVerseTags, openVerseInGallery]
+    [actions, onOpenVerseOwners, onOpenVerseProgress, onOpenVerseTags, openVerseInGallery]
   );
 
   const handleLoadMoreRows = useCallback(
