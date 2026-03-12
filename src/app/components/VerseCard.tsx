@@ -49,6 +49,7 @@ type CardTouchGestureContext = {
   startScrollTop: number;
   maxScrollTop: number;
   scrollable: boolean;
+  nestedScrollEl: HTMLElement | null;
 };
 
 type ScrollFadeState = {
@@ -64,6 +65,8 @@ const SWIPE_TINY_OVERFLOW_MAX_SCROLL_PX = 56;
 const MIN_SCROLLABLE_OVERFLOW_PX = 0.5;
 const SWIPE_MIN_DISTANCE_DEFAULT_PX = 70;
 const MAX_VISIBLE_TAGS = 2;
+const CARD_SWIPE_IGNORE_SELECTOR = 'input, textarea, [contenteditable="true"]';
+const CARD_NESTED_SCROLL_SELECTOR = '[data-card-swipe-ignore="true"]';
 
 const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   auto: "",
@@ -283,11 +286,17 @@ export function VerseCard({
   const handleTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (!onVerticalSwipeStep) return;
 
-    const swipeStart = createVerticalTouchSwipeStart(e);
+    const swipeStart = createVerticalTouchSwipeStart(e, {
+      ignoreSelector: CARD_SWIPE_IGNORE_SELECTOR,
+    });
     const target = e.target as HTMLElement | null;
-    const scrollEl = bodyScrollable ? bodyScrollRef.current : null;
+    const nestedScrollEl =
+      target?.closest(CARD_NESTED_SCROLL_SELECTOR) instanceof HTMLElement
+        ? (target.closest(CARD_NESTED_SCROLL_SELECTOR) as HTMLElement)
+        : null;
+    const scrollEl = nestedScrollEl ?? (bodyScrollable ? bodyScrollRef.current : null);
 
-    if (usesSwipeStepScroll && scrollEl) {
+    if (usesSwipeStepScroll && scrollEl && !nestedScrollEl) {
       // Cancel any in-flight smooth scroll so the new swipe starts from the real current position.
       try {
         scrollEl.scrollTo({ top: scrollEl.scrollTop, behavior: "auto" });
@@ -297,7 +306,7 @@ export function VerseCard({
       stepScrollTargetTopRef.current = null;
     }
 
-    const startedInScrollableBody = Boolean(scrollEl && target && scrollEl.contains(target));
+    const startedInScrollableBody = Boolean(!nestedScrollEl && scrollEl && target && scrollEl.contains(target));
     const maxScrollTop = scrollEl ? Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight) : 0;
 
     touchGestureRef.current = {
@@ -307,6 +316,7 @@ export function VerseCard({
       startScrollTop: scrollEl?.scrollTop ?? 0,
       maxScrollTop,
       scrollable: maxScrollTop > 0,
+      nestedScrollEl,
     };
   };
 
@@ -329,6 +339,28 @@ export function VerseCard({
       ) ??
       getFallbackTinyOverflowSwipeStep(context?.swipeStart ?? null, e, liveMaxScrollTop);
     if (!step) return;
+
+    if (context?.nestedScrollEl && context.scrollEl) {
+      const scrollEl = context.scrollEl;
+      const maxScrollTop = Math.max(
+        liveMaxScrollTop,
+        Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
+      );
+
+      if (maxScrollTop <= MIN_SCROLLABLE_OVERFLOW_PX) {
+        onVerticalSwipeStep(step);
+        return;
+      }
+
+      const currentScrollTop = scrollEl.scrollTop;
+      const atTop = currentScrollTop <= SCROLL_EDGE_EPSILON_PX;
+      const atBottom = currentScrollTop >= maxScrollTop - SCROLL_EDGE_EPSILON_PX;
+
+      if ((step === 1 && atBottom) || (step === -1 && atTop)) {
+        onVerticalSwipeStep(step);
+      }
+      return;
+    }
 
     // Step-scroll applies only when the gesture starts inside the scrollable body.
     // Swipes on header / outer card shell should navigate to another card.

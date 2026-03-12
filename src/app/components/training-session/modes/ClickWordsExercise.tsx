@@ -42,9 +42,6 @@ interface UniqueChoice {
   totalCount: number;
 }
 
-const MIN_CHOICE_TRAY_HEIGHT = 132;
-const CHOICE_TRAY_OFFSET_PX = 12;
-
 function shuffleTokens(words: string[]): WordToken[] {
   const tokens = words.map((word, index) => ({
     id: `${index}-${Math.random().toString(36).slice(2, 6)}`,
@@ -100,11 +97,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [isSequenceExpanded, setIsSequenceExpanded] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
-  const { ref: choiceTrayRef, size: choiceTraySize } =
-    useMeasuredElementSize<HTMLDivElement>(!isCompleted && !isSequenceExpanded);
+  const { ref: choicePanelRef, size: choicePanelSize } =
+    useMeasuredElementSize<HTMLDivElement>(!isCompleted);
 
   useEffect(() => {
     const words = tokenizeWords(verse.text);
@@ -116,7 +112,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setIsSequenceExpanded(false);
     setErrorFlashNormalized(null);
 
     return () => {
@@ -135,6 +130,12 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     () => orderedTokens.slice(0, selectedCount),
     [orderedTokens, selectedCount]
   );
+
+  const focusItemId = useMemo(() => {
+    if (orderedTokens.length === 0) return null;
+    if (selectedCount <= 0) return orderedTokens[0]?.id ?? null;
+    return orderedTokens[Math.min(selectedCount - 1, orderedTokens.length - 1)]?.id ?? null;
+  }, [orderedTokens, selectedCount]);
 
   const sequenceItems = useMemo<WordSequenceFieldItem[]>(
     () =>
@@ -170,9 +171,9 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
         uniqueChoices,
         remainingCountByNormalized,
         expectedNormalized,
-        choiceTraySize.width
+        choicePanelSize.width
       ),
-    [uniqueChoices, remainingCountByNormalized, expectedNormalized, choiceTraySize.width]
+    [uniqueChoices, remainingCountByNormalized, expectedNormalized, choicePanelSize.width]
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
@@ -216,41 +217,92 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     }, 260);
   };
 
-  const showChoices = !isCompleted && !isSequenceExpanded && visibleChoices.length > 0;
-  const reservedChoicesSpace = showChoices
-    ? (choiceTraySize.height > 0 ? choiceTraySize.height : MIN_CHOICE_TRAY_HEIGHT) +
-      CHOICE_TRAY_OFFSET_PX
-    : 0;
+  const showChoices = !isCompleted && visibleChoices.length > 0;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div
-        className="space-y-3"
-        style={showChoices ? { paddingBottom: `${reservedChoicesSpace}px` } : undefined}
-      >
+      <div className="shrink-0">
         <label className="block text-center text-sm font-medium text-foreground/90">
           Соберите стих по словам
         </label>
+      </div>
 
-        <WordSequenceField
-          label="Строка стиха"
-          progressCurrent={selectedCount}
-          progressTotal={totalWords}
-          items={sequenceItems}
-          expanded={isSequenceExpanded}
-          onToggleExpanded={() => setIsSequenceExpanded((prev) => !prev)}
-          reviewHint={
-            !isCompleted
-              ? 'Режим обзора скрывает варианты слов. Сверните строку, чтобы продолжить заполнение.'
-              : undefined
-          }
-        />
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+        {showChoices ? (
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+            <WordSequenceField
+              className="h-full"
+              label="Стих для сборки"
+              progressCurrent={selectedCount}
+              progressTotal={totalWords}
+              items={sequenceItems}
+              focusItemId={focusItemId}
+            />
 
-        {isCompleted && (
+            <div
+              ref={choicePanelRef}
+              className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 p-3"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>Варианты слов</span>
+                <span className="tabular-nums">{visibleChoices.length}</span>
+              </div>
+
+              <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/50 bg-muted/10">
+                <div
+                  data-card-swipe-ignore="true"
+                  className="flex h-full items-start overflow-hidden px-2 py-2"
+                >
+                  <div className="flex w-full flex-wrap content-start gap-1.5">
+                    {visibleChoices.map((choice) => {
+                      const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
+                      return (
+                        <Button
+                          key={choice.normalized}
+                          type="button"
+                          variant="outline"
+                          title={choice.displayText}
+                          className={`h-auto max-w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left whitespace-normal transition-colors ${
+                            errorFlashNormalized === choice.normalized
+                              ? 'border-destructive text-destructive'
+                              : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                          }`}
+                          onClick={() => handleWordClick(choice)}
+                        >
+                          <span className="min-w-0 [overflow-wrap:anywhere]">
+                            {choice.displayText}
+                          </span>
+                          {remaining > 1 && (
+                            <span className="shrink-0 text-xs text-muted-foreground">×{remaining}</span>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <WordSequenceField
+              className="h-full"
+              label="Собранный стих"
+              progressCurrent={selectedCount}
+              progressTotal={totalWords}
+              items={sequenceItems}
+              focusItemId={focusItemId}
+            />
+          </div>
+        )}
+      </div>
+
+      {isCompleted && (
+        <div className="shrink-0 pt-3">
           <TrainingRatingFooter>
             <TrainingRatingButtons
               stage={ratingStage}
@@ -258,41 +310,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
               onRate={onRate}
             />
           </TrainingRatingFooter>
-        )}
-      </div>
-
-      {showChoices && (
-        <div
-          ref={choiceTrayRef}
-          className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm"
-        >
-          <div className="mb-2 text-[11px] text-muted-foreground">
-            Выберите следующее слово
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {visibleChoices.map((choice) => {
-              const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
-              return (
-                <Button
-                  key={choice.normalized}
-                  type="button"
-                  variant="outline"
-                  title={choice.displayText}
-                  className={`h-auto max-w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left whitespace-normal transition-colors ${
-                    errorFlashNormalized === choice.normalized
-                      ? 'border-destructive text-destructive'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
-                  onClick={() => handleWordClick(choice)}
-                >
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{choice.displayText}</span>
-                  {remaining > 1 && (
-                    <span className="shrink-0 text-xs text-muted-foreground">×{remaining}</span>
-                  )}
-                </Button>
-              );
-            })}
-          </div>
         </div>
       )}
     </motion.div>

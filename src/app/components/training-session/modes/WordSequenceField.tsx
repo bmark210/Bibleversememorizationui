@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { Button } from '@/app/components/ui/button';
 import { cn } from '@/app/components/ui/utils';
 
 export type WordSequenceFieldItemState =
@@ -23,9 +22,9 @@ interface WordSequenceFieldProps {
   progressCurrent: number;
   progressTotal: number;
   items: WordSequenceFieldItem[];
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  reviewHint?: string;
+  focusItemId: string | null;
+  helperText?: string;
+  className?: string;
 }
 
 function getItemClassName(state: WordSequenceFieldItemState) {
@@ -38,7 +37,7 @@ function getItemClassName(state: WordSequenceFieldItemState) {
   }
 
   if (state === 'active-gap') {
-    return 'border-2 border-primary/40 bg-primary/5 text-primary/65';
+    return 'border-2 border-primary/40 bg-primary/5 text-primary/70';
   }
 
   return 'border border-border/60 bg-muted/20 text-muted-foreground';
@@ -49,38 +48,34 @@ export function WordSequenceField({
   progressCurrent,
   progressTotal,
   items,
-  expanded,
-  onToggleExpanded,
-  reviewHint,
+  focusItemId,
+  helperText,
+  className,
 }: WordSequenceFieldProps) {
-  const collapsedScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef(new Map<string, HTMLSpanElement>());
 
-  const activeItemId = useMemo(
-    () => items.find((item) => item.state === 'active-gap')?.id ?? null,
-    [items]
-  );
-
   useEffect(() => {
-    if (expanded || !activeItemId || typeof window === 'undefined') return;
+    if (!focusItemId || typeof window === 'undefined') return;
 
     const frameId = window.requestAnimationFrame(() => {
-      const container = collapsedScrollRef.current;
-      const target = itemRefs.current.get(activeItemId);
+      const container = scrollRef.current;
+      const target = itemRefs.current.get(focusItemId);
       if (!container || !target) return;
 
       const containerRect = container.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const nextLeft =
-        container.scrollLeft +
-        (targetRect.left - containerRect.left) -
-        (containerRect.width - targetRect.width) / 2;
+      const targetTop =
+        container.scrollTop +
+        (targetRect.top - containerRect.top) -
+        (container.clientHeight - target.clientHeight) * 0.5;
 
       const prefersReducedMotion = window.matchMedia
         ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
         : false;
+
       container.scrollTo({
-        left: Math.max(0, nextLeft),
+        top: Math.max(0, targetTop),
         behavior: prefersReducedMotion ? 'auto' : 'smooth',
       });
     });
@@ -88,7 +83,7 @@ export function WordSequenceField({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [expanded, activeItemId, items]);
+  }, [focusItemId, items]);
 
   const setItemRef = (id: string) => (node: HTMLSpanElement | null) => {
     if (node) {
@@ -100,84 +95,52 @@ export function WordSequenceField({
   };
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+    <div className={cn(
+      'flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 p-3',
+      className
+    )}>
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{label}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 rounded-full px-2.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-            onClick={onToggleExpanded}
-            aria-expanded={expanded}
-          >
-            {expanded ? 'Свернуть' : 'Весь стих'}
-          </Button>
-          <span className="tabular-nums">{progressCurrent}/{progressTotal}</span>
-        </div>
+        <span className="tabular-nums">{progressCurrent}/{progressTotal}</span>
       </div>
 
-      {expanded ? (
-        <>
-          <div className="flex flex-wrap gap-1.5 leading-relaxed">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/50 bg-muted/10">
+        <div
+          ref={scrollRef}
+          data-card-swipe-ignore="true"
+          className="h-full overflow-y-auto overscroll-contain px-2 py-2 pr-1 [scrollbar-gutter:stable]"
+          role="group"
+          aria-label="Поле ввода стиха"
+        >
+          <div className="flex flex-wrap content-start gap-1.5 leading-relaxed">
             {items.map((item) => (
               <span
                 key={item.id}
+                ref={setItemRef(item.id)}
                 className={cn(
                   'inline-flex items-center justify-center rounded-md px-2 py-1 text-sm transition-colors',
                   getItemClassName(item.state)
                 )}
                 style={item.minWidth ? { minWidth: `${item.minWidth}px` } : undefined}
-                aria-label={item.state === 'active-gap' || item.state === 'future-gap' ? 'Скрытое слово' : undefined}
+                aria-current={item.id === focusItemId ? 'step' : undefined}
+                aria-label={
+                  item.state === 'active-gap' || item.state === 'future-gap'
+                    ? 'Скрытое слово'
+                    : undefined
+                }
               >
                 {item.content}
               </span>
             ))}
           </div>
-
-          {reviewHint ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {reviewHint}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-muted/10 px-2 py-2">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background/95 via-background/65 to-transparent"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background/95 via-background/65 to-transparent"
-          />
-          <div
-            ref={collapsedScrollRef}
-            className="overflow-hidden"
-            role="group"
-            aria-label="Текущая строка стиха"
-          >
-            <div className="inline-flex min-w-full items-center gap-1.5 py-0.5">
-              {items.map((item) => (
-                <span
-                  key={item.id}
-                  ref={setItemRef(item.id)}
-                  className={cn(
-                    'inline-flex shrink-0 items-center justify-center rounded-md px-2 py-1 text-sm transition-colors',
-                    getItemClassName(item.state)
-                  )}
-                  style={item.minWidth ? { minWidth: `${item.minWidth}px` } : undefined}
-                  aria-current={item.state === 'active-gap' ? 'step' : undefined}
-                  aria-label={item.state === 'active-gap' || item.state === 'future-gap' ? 'Скрытое слово' : undefined}
-                >
-                  {item.content}
-                </span>
-              ))}
-            </div>
-          </div>
         </div>
-      )}
+      </div>
+
+      {helperText ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 }
