@@ -21,6 +21,7 @@ import type { UserDashboardStats } from "@/api/services/userStats";
 import { BIBLE_BOOKS } from "@/app/types/bible";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import {
   useTrainingHubState,
   getCountForMode,
@@ -351,6 +352,9 @@ export function TrainingHub({
 }: TrainingHubProps) {
   const shouldReduceMotion = useReducedMotion();
   const { contentSafeAreaInset } = useTelegramSafeArea();
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen
+  );
   // const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
 
@@ -680,9 +684,13 @@ export function TrainingHub({
         >
           <header className="space-y-1.5">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-semibold text-primary">Тренировка</h1>
-              </div>
+              {!isTelegramFullscreen ? (
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-2xl font-semibold text-primary">Тренировка</h1>
+                </div>
+              ) : (
+                <div />
+              )}
               <Button
                 type="button"
                 variant="outline"

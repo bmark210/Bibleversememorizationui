@@ -12,6 +12,10 @@ import {
   UserPlus,
 } from "lucide-react";
 import {
+  applyTelegramFullscreenPreference,
+  useTelegramUiStore,
+} from "@/app/stores/telegramUiStore";
+import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
   fetchFriendsPage,
@@ -43,11 +47,6 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
-  isTelegramMiniApp?: boolean;
-  isTelegramFullscreen?: boolean;
-  canToggleTelegramFullscreen?: boolean;
-  prefersTelegramFullscreen?: boolean;
-  onTelegramFullscreenPreferenceChange?: (enabled: boolean) => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -101,16 +100,23 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
-  isTelegramMiniApp = false,
-  isTelegramFullscreen = false,
-  canToggleTelegramFullscreen = false,
-  prefersTelegramFullscreen = false,
-  onTelegramFullscreenPreferenceChange,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
 }: ProfileProps) {
   const { user } = useTelegram();
+  const isTelegramMiniApp = useTelegramUiStore(
+    (state) => state.isTelegramMiniApp
+  );
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen
+  );
+  const canToggleTelegramFullscreen = useTelegramUiStore(
+    (state) => state.canToggleTelegramFullscreen
+  );
+  const prefersTelegramFullscreen = useTelegramUiStore(
+    (state) => state.prefersTelegramFullscreen
+  );
   const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
   const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
   const currentUserDailyStreak = useCurrentUserStatsStore(
@@ -390,14 +396,6 @@ export function Profile({
   const fullscreenButtonLabel = prefersTelegramFullscreen
     ? "Выключить полный экран"
     : "Открыть на весь экран";
-  const fullscreenStatusLabel = isTelegramMiniApp
-    ? isTelegramFullscreen
-      ? "Сейчас fullscreen включён."
-      : "Сейчас fullscreen выключен."
-    : "Опция доступна только внутри Telegram.";
-  const fullscreenLaunchLabel = prefersTelegramFullscreen
-    ? "Следующий запуск откроется в fullscreen."
-    : "Следующий запуск откроется в обычном режиме.";
 
   const activeCount =
     activeTab === "players" ? playersPage.totalCount : friendsPage.totalCount;
@@ -459,12 +457,13 @@ export function Profile({
           }}
           className="space-y-5"
         >
-          <motion.div variants={sectionVariants}>
-            <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
-              Профиль
-            </h1>
-          </motion.div>
-
+          {!isTelegramFullscreen ? (
+            <motion.div variants={sectionVariants}>
+              <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
+                Профиль
+              </h1>
+            </motion.div>
+          ) : null}
           <motion.div variants={sectionVariants}>
             <ProfileSurface>
               {telegramId && onOpenPlayerProfile ? (
@@ -592,16 +591,6 @@ export function Profile({
                   <div className="text-sm font-medium text-foreground/82">
                     Полный экран Telegram
                   </div>
-                  <div className="mt-1 text-sm text-foreground/56">
-                    Переключатель сохранит выбор в localStorage и применит его
-                    при следующем входе.
-                  </div>
-                  <div className="mt-2 text-xs text-foreground/45">
-                    {fullscreenStatusLabel}
-                  </div>
-                  <div className="mt-1 text-xs text-foreground/45">
-                    {fullscreenLaunchLabel}
-                  </div>
                 </div>
 
                 <Button
@@ -609,9 +598,7 @@ export function Profile({
                   variant="outline"
                   disabled={!isTelegramMiniApp || !canToggleTelegramFullscreen}
                   onClick={() =>
-                    onTelegramFullscreenPreferenceChange?.(
-                      !prefersTelegramFullscreen
-                    )
+                    applyTelegramFullscreenPreference(!prefersTelegramFullscreen)
                   }
                   className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
                 >

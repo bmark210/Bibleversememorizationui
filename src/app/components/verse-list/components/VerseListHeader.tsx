@@ -1,6 +1,7 @@
 import React from "react";
 import { GraduationCap, Plus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 
 type VerseListHeaderProps = {
   onAddVerseClick: () => void;
@@ -11,9 +12,13 @@ export function VerseListHeader({
   onAddVerseClick,
   onAboutSectionClick,
 }: VerseListHeaderProps) {
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen
+  );
+
   return (
     <div className="flex justify-between items-start gap-3 px-4 sm:px-6 lg:px-8 pt-3 sm:pt-5 lg:pt-7">
-      <h1 className="text-primary">Cтихи</h1>
+      {!isTelegramFullscreen ? <h1 className="text-primary">Cтихи</h1> : <div />}
       <div className="flex items-center gap-2">
         {onAboutSectionClick && (
           <Button

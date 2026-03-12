@@ -5,6 +5,7 @@ import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
+import { useTelegramUiStore } from '../stores/telegramUiStore';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -12,7 +13,6 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
-  isTelegramFullscreen?: boolean;
   hideChrome?: boolean;
 }
 
@@ -29,10 +29,12 @@ export function Layout({
   currentPage,
   onNavigate,
   isContentReady = false,
-  isTelegramFullscreen = false,
   hideChrome = false,
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen
+  );
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
@@ -87,7 +89,7 @@ export function Layout({
     <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
-          className={`bg-card/95 border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
+          className={`bg-card/90 backdrop-blur-xl border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
             isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
           }`}
           style={{ paddingTop: `${topInset}px` }}
