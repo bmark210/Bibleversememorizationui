@@ -59,20 +59,20 @@ export const SwipeableVerseCard = ({
   const popularityChip = (() => {
     if (popularityValue == null) return null;
     if (verse.popularityScope === 'friends') {
-      return {
+      return popularityValue > 0 ? {
         icon: Users,
-        label: `У друзей ${popularityValue}`,
+        label: `${popularityValue}`,
         className:
           'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-      };
+      } : null;
     }
     if (verse.popularityScope === 'players') {
-      return {
+      return popularityValue > 0 ? {
         icon: Users,
-        label: `У игроков ${popularityValue}`,
+        label: `${popularityValue}`,
         className:
           'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
-      };
+      } : null;
     }
     return null;
   })();

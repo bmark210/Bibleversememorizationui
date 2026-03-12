@@ -11,6 +11,7 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
+import { tokenizeFirstLetters } from './wordUtils';
 
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
@@ -19,18 +20,6 @@ interface FirstLettersKeyboardExerciseProps {
 
 function normalizeComparableLetter(value: string) {
   return value.toLowerCase().replace(/ё/g, 'е');
-}
-
-function tokenizeFirstLetters(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean)
-    .map((word) => {
-      const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-      return normalizeComparableLetter(cleaned.charAt(0) || word.charAt(0) || '');
-    })
-    .filter(Boolean);
 }
 
 function sanitizeInput(value: string) {

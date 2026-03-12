@@ -13,7 +13,7 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
-import { pickVisibleChoices } from './wordUtils';
+import { pickVisibleChoices, tokenizeFirstLetters } from './wordUtils';
 import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface FirstLettersTapExerciseProps {
@@ -34,18 +34,6 @@ const LETTER_CHOICE_LAYOUT = {
   rowHeightPx: 34,
   leadingContextChoices: 1,
 } as const;
-
-function tokenizeFirstLetters(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean)
-    .map((word) => {
-      const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-      return (cleaned.charAt(0) || word.charAt(0) || '').toLowerCase();
-    })
-    .filter(Boolean);
-}
 
 function shuffleTokens(letters: string[]): LetterToken[] {
   const tokens = letters.map((letter, index) => ({

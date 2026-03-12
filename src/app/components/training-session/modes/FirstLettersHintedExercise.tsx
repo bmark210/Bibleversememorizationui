@@ -7,7 +7,13 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
-import { getWordMask, getWordMaskWidth, pickVisibleChoices } from './wordUtils';
+import {
+  getComparableFirstLetter,
+  getWordMask,
+  getWordMaskWidth,
+  pickVisibleChoices,
+  tokenizeWordsPreservingPunctuation,
+} from './wordUtils';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -39,18 +45,6 @@ const LETTER_CHOICE_LAYOUT = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function tokenizeWords(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
-}
-
-function getFirstLetter(word: string) {
-  const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-  return (cleaned.charAt(0) || word.charAt(0) || '').toLowerCase();
 }
 
 function pickRevealedIndices(totalWords: number): Set<number> {
@@ -98,13 +92,13 @@ function shuffleLetters(letters: string[]) {
 }
 
 function buildExercise(text: string) {
-  const words = tokenizeWords(text);
+  const words = tokenizeWordsPreservingPunctuation(text);
   const revealed = pickRevealedIndices(words.length);
 
   const slots: WordSlot[] = words.map((word, index) => ({
     id: `${index}-${Math.random().toString(36).slice(2, 6)}`,
     text: word,
-    firstLetter: getFirstLetter(word),
+    firstLetter: getComparableFirstLetter(word),
     order: index,
     revealed: revealed.has(index),
   }));

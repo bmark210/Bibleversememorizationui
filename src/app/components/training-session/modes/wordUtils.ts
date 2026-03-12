@@ -67,6 +67,26 @@ export function tokenizeWords(text: string): string[] {
     .filter((w) => w.length > 0 && !isPunctuationOnly(w));
 }
 
+export function tokenizeWordsPreservingPunctuation(text: string): string[] {
+  return text
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+}
+
+export function getComparableFirstLetter(word: string): string {
+  const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  return (cleaned.charAt(0) || word.charAt(0) || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е');
+}
+
+export function tokenizeFirstLetters(text: string): string[] {
+  return tokenizeWordsPreservingPunctuation(text)
+    .map((word) => getComparableFirstLetter(word))
+    .filter(Boolean);
+}
+
 export function getMaxMistakes(totalWords: number): number {
   return Math.max(5, Math.floor(totalWords * 0.3));
 }
