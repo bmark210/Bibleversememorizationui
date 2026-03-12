@@ -5,6 +5,16 @@ const SACRED_STEMS = [
   'сын', 'отц', 'отец', 'отч',
 ];
 
+// Latin chars that look identical to Cyrillic — normalize to Cyrillic
+const LATIN_TO_CYRILLIC: Record<string, string> = {
+  a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', x: 'х', y: 'у',
+  k: 'к', n: 'н', t: 'т', m: 'м', b: 'в', h: 'н',
+};
+
+function latinToCyrillic(text: string): string {
+  return text.replace(/[a-z]/g, (ch) => LATIN_TO_CYRILLIC[ch] ?? ch);
+}
+
 export function stripPunctuation(word: string): string {
   const stripped = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
   return stripped || word;
@@ -15,7 +25,7 @@ export function isPunctuationOnly(word: string): boolean {
 }
 
 export function isSacredWord(word: string): boolean {
-  const lower = stripPunctuation(word).toLowerCase();
+  const lower = latinToCyrillic(stripPunctuation(word).toLowerCase().replace(/ё/g, 'е'));
   return SACRED_STEMS.some((stem) => lower.startsWith(stem));
 }
 
@@ -26,8 +36,10 @@ export function cleanWordForDisplay(word: string): string {
 }
 
 export function normalizeWord(word: string): string {
-  const stripped = stripPunctuation(word).toLowerCase().replace(/ё/g, 'е');
-  return stripped || word.toLowerCase().replace(/ё/g, 'е');
+  const stripped = latinToCyrillic(
+    stripPunctuation(word).toLowerCase().replace(/ё/g, 'е')
+  );
+  return stripped || latinToCyrillic(word.toLowerCase().replace(/ё/g, 'е'));
 }
 
 export function tokenizeWords(text: string): string[] {
