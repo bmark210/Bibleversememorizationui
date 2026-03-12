@@ -1,6 +1,4 @@
 import React from "react";
-// import { GraduationCap, Plus } from "lucide-react";
-// import { Button } from "@/app/components/ui/button";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { Plus } from "lucide-react";
 import { Button } from "../../ui/button";
@@ -13,7 +11,6 @@ type VerseListHeaderProps = {
 
 export function VerseListHeader({
   onAddVerseClick,
-  // onAboutSectionClick,
 }: VerseListHeaderProps) {
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen
@@ -27,11 +24,11 @@ export function VerseListHeader({
           variant="default"
           onClick={onAddVerseClick}
           className={cn("flex bg-card/50 text-primary border border-border dark:border-border/35 items-center justify-center gap-2 rounded-2xl overflow-hidden", 
-            !isTelegramFullscreen ? "" : "absolute right-[20px] top-[68px] !border-none !shadow-none !ring-offset-0 bg-transparent text-foreground/70"
+            !isTelegramFullscreen ? "" : "absolute right-[20px] top-[32px] !font-medium !border-none !shadow-none !ring-offset-0 bg-transparent text-foreground/70"
           )}
         >
-          <Plus className="w-4 h-4" />
-          Добавить
+          {!isTelegramFullscreen ? null : <Plus className="w-4 h-4" />}
+          {!isTelegramFullscreen ? "Добавить" : null}
         </Button>
     </div>
   );
