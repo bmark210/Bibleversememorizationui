@@ -577,7 +577,7 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-background"
+              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-foreground/90"
               onClick={confirmNavigationStep}
             >
               Перейти без сохранения

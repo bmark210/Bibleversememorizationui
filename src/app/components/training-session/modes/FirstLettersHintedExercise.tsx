@@ -29,6 +29,14 @@ interface WordSlot {
   revealed: boolean;
 }
 
+const LETTER_CHOICE_LAYOUT = {
+  estimatedCharWidthPx: 10,
+  baseWidthPx: 24,
+  minChoiceWidthPx: 48,
+  rowHeightPx: 34,
+  leadingContextChoices: 1,
+} as const;
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -195,11 +203,7 @@ export function ModeFirstLettersHintedExercise({
       {
         trayWidth: choiceTraySize.width,
         trayHeight: choiceTraySize.height,
-        estimatedCharWidthPx: 8,
-        baseWidthPx: 18,
-        minChoiceWidthPx: 36,
-        rowHeightPx: 34,
-        leadingContextChoices: 1,
+        ...LETTER_CHOICE_LAYOUT,
       }
     ).map((choice) => choice.normalized);
   }, [availableLetters, remainingCountByLetter, nextHiddenSlot, choiceTraySize.width, choiceTraySize.height]);
@@ -336,7 +340,7 @@ export function ModeFirstLettersHintedExercise({
                       key={letter}
                       type="button"
                       variant="outline"
-                      className={`h-auto min-w-9 justify-center rounded-lg px-2.5 py-1.5 font-mono text-[13px] uppercase leading-4 transition-colors ${
+                      className={`h-auto min-w-11 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
                         errorFlashLetter === letter
                           ? 'border-destructive text-destructive'
                           : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
