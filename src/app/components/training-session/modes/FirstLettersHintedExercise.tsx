@@ -12,7 +12,7 @@ import {
   getWordMask,
   getWordMaskWidth,
   pickVisibleChoices,
-  tokenizeWordsPreservingPunctuation,
+  tokenizeWords,
 } from './wordUtils';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
@@ -92,7 +92,7 @@ function shuffleLetters(letters: string[]) {
 }
 
 function buildExercise(text: string) {
-  const words = tokenizeWordsPreservingPunctuation(text);
+  const words = tokenizeWords(text);
   const revealed = pickRevealedIndices(words.length);
 
   const slots: WordSlot[] = words.map((word, index) => ({
