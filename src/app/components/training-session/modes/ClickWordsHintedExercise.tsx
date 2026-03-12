@@ -232,7 +232,7 @@ export function ModeClickWordsHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-      <div className="space-y-3">
+      <div className={`space-y-3 ${showChoices ? 'pb-20' : ''}`}>
         <label className="block text-center text-sm font-medium text-foreground/90">
           Восстановите скрытые слова по порядку
         </label>
@@ -295,7 +295,7 @@ export function ModeClickWordsHintedExercise({
       </div>
 
       {showChoices && (
-        <div className="mt-3 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm">
+        <div className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background p-3">
           <div className="flex flex-wrap gap-2">
             {visibleChoices.map((choice) => {
               const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
