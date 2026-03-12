@@ -524,7 +524,7 @@ export function TrainingSession({
                 <Button
                   type="button"
                   className={cn(
-                    "h-11 rounded-2xl border border-primary/20 bg-primary text-primary-foreground backdrop-blur-xl"
+                    "h-11 rounded-2xl border border-primary/20 bg-primary/60 text-primary-foreground backdrop-blur-xl"
                   )}
                   onClick={session.acknowledgeOutcome}
                   disabled={session.isActionPending}
