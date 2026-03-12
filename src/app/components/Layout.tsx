@@ -20,7 +20,6 @@ const PAGE_TITLES: Record<string, string> = {
   dashboard: 'Главная',
   verses: 'Стихи',
   training: 'Тренировка',
-  'progress-map': 'Карта пути',
   profile: 'Профиль',
 };
 
@@ -68,7 +67,6 @@ export function Layout({
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
     { id: 'training', label: 'Тренировка', icon: Dumbbell },
-    // { id: 'progress-map', label: 'Прогресс', icon: ChartLine },
     { id: 'profile', label: 'Профиль', icon: User },
   ];
 
@@ -82,11 +80,10 @@ export function Layout({
     onNavigate(page);
   };
 
-  const isFullscreenPage = currentPage === 'progress-map'
-  const hideAppChrome = isFullscreenPage || hideChrome;
+  const hideAppChrome = hideChrome;
 
   return (
-    <div className={`min-h-dvh flex flex-col${isFullscreenPage ? ' overflow-hidden' : ''}`}>
+    <div className="min-h-dvh flex flex-col">
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
           className={`bg-card/90 backdrop-blur-xl border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
@@ -138,8 +135,6 @@ export function Layout({
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`
-              : currentPage === 'progress-map'
-              ? 0
               : isKeyboardOpen ? `${bottomInset}px` : `calc(74px + ${bottomInset}px)`
           }}
         >
