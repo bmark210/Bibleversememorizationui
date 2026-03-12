@@ -26,8 +26,8 @@ export function cleanWordForDisplay(word: string): string {
 }
 
 export function normalizeWord(word: string): string {
-  const stripped = stripPunctuation(word).toLowerCase();
-  return stripped || word.toLowerCase();
+  const stripped = stripPunctuation(word).toLowerCase().replace(/ё/g, 'е');
+  return stripped || word.toLowerCase().replace(/ё/g, 'е');
 }
 
 export function tokenizeWords(text: string): string[] {
