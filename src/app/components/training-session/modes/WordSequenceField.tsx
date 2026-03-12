@@ -23,7 +23,6 @@ interface WordSequenceFieldProps {
   progressTotal: number;
   items: WordSequenceFieldItem[];
   focusItemId: string | null;
-  helperText?: string;
   className?: string;
 }
 
@@ -49,7 +48,6 @@ export function WordSequenceField({
   progressTotal,
   items,
   focusItemId,
-  helperText,
   className,
 }: WordSequenceFieldProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -96,7 +94,7 @@ export function WordSequenceField({
 
   return (
     <div className={cn(
-      'flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 p-3',
+      'flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 pt-3 px-3',
       className
     )}>
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -104,11 +102,10 @@ export function WordSequenceField({
         <span className="tabular-nums">{progressCurrent}/{progressTotal}</span>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/50 bg-muted/10">
         <div
           ref={scrollRef}
           data-card-swipe-ignore="true"
-          className="h-full overflow-y-auto overscroll-contain px-2 py-2 pr-1 [scrollbar-gutter:stable]"
+          className="h-full overflow-y-auto overscroll-contain py-2 pr-1 [scrollbar-gutter:stable]"
           role="group"
           aria-label="Поле ввода стиха"
         >
@@ -133,14 +130,13 @@ export function WordSequenceField({
               </span>
             ))}
           </div>
-        </div>
       </div>
 
-      {helperText ? (
+      {/* {helperText ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
           {helperText}
         </p>
-      ) : null}
+      ) : null} */}
     </div>
   );
 }

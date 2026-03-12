@@ -300,17 +300,16 @@ export function ModeClickWordsHintedExercise({
 
             <div
               ref={choicePanelRef}
-              className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 p-3"
+              className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 pt-3 px-3"
             >
               <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>Варианты слов</span>
                 <span className="tabular-nums">{visibleChoices.length}</span>
               </div>
 
-              <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/50 bg-muted/10">
                 <div
                   data-card-swipe-ignore="true"
-                  className="flex h-full items-start overflow-hidden px-2 py-2"
+                  className="flex h-full items-start overflow-hidden py-2"
                 >
                   <div className="flex w-full flex-wrap content-start gap-1.5">
                     {visibleChoices.map((choice) => {
@@ -339,7 +338,6 @@ export function ModeClickWordsHintedExercise({
                     })}
                   </div>
                 </div>
-              </div>
             </div>
           </div>
         ) : (
@@ -351,7 +349,6 @@ export function ModeClickWordsHintedExercise({
               progressTotal={totalHiddenWords}
               items={sequenceItems}
               focusItemId={focusItemId}
-              helperText="Прокручивайте вверх и вниз, чтобы проверить весь стих с подсказками."
             />
           </div>
         )}
