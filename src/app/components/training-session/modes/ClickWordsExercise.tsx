@@ -238,7 +238,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
       </div>
 
       {showChoices && (
-        <div className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background/95 p-3 backdrop-blur-sm">
+        <div className="sticky bottom-0 z-10 mt-3 rounded-2xl border border-border/60 bg-background p-3">
           <div className="flex flex-wrap gap-2">
             {visibleChoices.map((choice) => {
               const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
