@@ -12,6 +12,12 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
+import {
+  tokenizeWords,
+  normalizeWord,
+  cleanWordForDisplay,
+  getMaxMistakes,
+} from './wordUtils';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
@@ -26,29 +32,14 @@ interface WordSlot {
   revealed: boolean;
 }
 
-interface HiddenChoice {
-  id: string;
-  text: string;
+interface UniqueChoice {
+  displayText: string;
   normalized: string;
-  slotOrder: number;
+  totalCount: number;
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeWord(word: string) {
-  const normalized = word
-    .toLowerCase()
-    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-  return normalized || word.toLowerCase();
-}
-
-function tokenizeWords(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
 }
 
 function pickRevealedIndices(totalWords: number): Set<number> {
@@ -84,21 +75,6 @@ function pickRevealedIndices(totalWords: number): Set<number> {
   return revealed;
 }
 
-function shuffleChoices(choices: HiddenChoice[]) {
-  const shuffled = [...choices];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    swapArrayItems(shuffled, i, j);
-  }
-
-  const sameOrder = shuffled.every((choice, index) => choice.slotOrder === choices[index]?.slotOrder);
-  if (sameOrder && shuffled.length > 1) {
-    swapArrayItems(shuffled, 0, 1);
-  }
-
-  return shuffled;
-}
-
 function buildExercise(text: string) {
   const words = tokenizeWords(text);
   const revealed = pickRevealedIndices(words.length);
@@ -111,43 +87,53 @@ function buildExercise(text: string) {
     revealed: revealed.has(index),
   }));
 
-  const hiddenChoices: HiddenChoice[] = slots
-    .filter((slot) => !slot.revealed)
-    .map((slot) => ({
-      id: `${slot.order}-${Math.random().toString(36).slice(2, 6)}`,
-      text: slot.text,
-      normalized: slot.normalized,
-      slotOrder: slot.order,
-    }));
+  const hiddenSlots = slots.filter((s) => !s.revealed);
 
-  return {
-    slots,
-    hiddenChoices: shuffleChoices(hiddenChoices),
-  };
+  const choiceMap = new Map<string, UniqueChoice>();
+  for (const slot of hiddenSlots) {
+    const existing = choiceMap.get(slot.normalized);
+    if (existing) {
+      existing.totalCount += 1;
+    } else {
+      choiceMap.set(slot.normalized, {
+        displayText: cleanWordForDisplay(slot.text),
+        normalized: slot.normalized,
+        totalCount: 1,
+      });
+    }
+  }
+
+  const uniqueChoices = Array.from(choiceMap.values());
+  // shuffle
+  for (let i = uniqueChoices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    swapArrayItems(uniqueChoices, i, j);
+  }
+
+  return { slots, uniqueChoices };
 }
 
 export function ModeClickWordsHintedExercise({
   verse,
   onRate,
 }: ClickWordsHintedExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
-  const [choices, setChoices] = useState<HiddenChoice[]>([]);
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
+  const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
+  const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashChoiceId, setErrorFlashChoiceId] = useState<string | null>(null);
+  const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const exercise = buildExercise(verse.text);
     setSlots(exercise.slots);
-    setChoices(exercise.hiddenChoices);
-    setSelectedChoiceIds([]);
+    setUniqueChoices(exercise.uniqueChoices);
+    setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashChoiceId(null);
+    setErrorFlashNormalized(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -157,33 +143,14 @@ export function ModeClickWordsHintedExercise({
     };
   }, [verse]);
 
-  const choiceMap = useMemo(
-    () => new Map(choices.map((choice) => [choice.id, choice])),
-    [choices]
-  );
-
-  const selectedChoiceIdSet = useMemo(
-    () => new Set(selectedChoiceIds),
-    [selectedChoiceIds]
-  );
-
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
     [slots]
   );
 
-  const selectedChoices = useMemo(
-    () =>
-      selectedChoiceIds
-        .map((id) => choiceMap.get(id))
-        .filter((choice): choice is HiddenChoice => Boolean(choice)),
-    [selectedChoiceIds, choiceMap]
-  );
-
-  const remainingChoices = useMemo(
-    () => choices.filter((choice) => !selectedChoiceIdSet.has(choice.id)),
-    [choices, selectedChoiceIdSet]
-  );
+  const totalHiddenWords = hiddenSlots.length;
+  const maxMistakes = getMaxMistakes(totalHiddenWords);
+  const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
 
   const hiddenIndexByOrder = useMemo(() => {
     const map = new Map<number, number>();
@@ -191,56 +158,62 @@ export function ModeClickWordsHintedExercise({
     return map;
   }, [hiddenSlots]);
 
-  const selectedCount = selectedChoices.length;
-  const totalHiddenWords = hiddenSlots.length;
-  const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
+  const remainingCountByNormalized = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const choice of uniqueChoices) {
+      counts.set(choice.normalized, choice.totalCount);
+    }
+    // Subtract already placed words
+    for (let i = 0; i < selectedCount; i++) {
+      const slot = hiddenSlots[i];
+      if (!slot) break;
+      const current = counts.get(slot.normalized) ?? 0;
+      if (current > 0) counts.set(slot.normalized, current - 1);
+    }
+    return counts;
+  }, [uniqueChoices, selectedCount, hiddenSlots]);
 
-  const handleWordClick = (choice: HiddenChoice) => {
+  const availableChoices = useMemo(
+    () => uniqueChoices.filter((c) => (remainingCountByNormalized.get(c.normalized) ?? 0) > 0),
+    [uniqueChoices, remainingCountByNormalized]
+  );
+
+  const handleWordClick = (choice: UniqueChoice) => {
     if (isCompleted) return;
-    if (selectedChoiceIdSet.has(choice.id)) return;
     if (!nextHiddenSlot) return;
 
     if (choice.normalized === nextHiddenSlot.normalized) {
-      const nextIds = [...selectedChoiceIds, choice.id];
-      setSelectedChoiceIds(nextIds);
-
-      if (nextIds.length === totalHiddenWords) {
+      const next = selectedCount + 1;
+      setSelectedCount(next);
+      if (next === totalHiddenWords) {
         setIsCompleted(true);
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
-    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+    const shouldReset = nextMistakesSinceReset >= maxMistakes;
+    setMistakesSinceReset(shouldReset ? 0 : nextMistakesSinceReset);
 
-    if (shouldResetSequence) {
-      setSelectedChoiceIds([]);
+    if (shouldReset) {
+      setSelectedCount(0);
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
+        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
       );
     } else {
       toast.warning(
-        `Неверное слово. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
-        }.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+        `Неверное слово. До сброса: ${maxMistakes - nextMistakesSinceReset}.`,
+        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
       );
     }
 
-    setErrorFlashChoiceId(choice.id);
+    setErrorFlashNormalized(choice.normalized);
     if (clearFlashTimeoutRef.current) {
       window.clearTimeout(clearFlashTimeoutRef.current);
     }
     clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashChoiceId(null);
+      setErrorFlashNormalized(null);
       clearFlashTimeoutRef.current = null;
     }, 260);
   };
@@ -267,6 +240,7 @@ export function ModeClickWordsHintedExercise({
               const hiddenIndex = hiddenIndexByOrder.get(slot.order) ?? -1;
               const isHidden = hiddenIndex >= 0;
               const isFilled = isHidden && hiddenIndex < selectedCount;
+              const isNextGap = isHidden && hiddenIndex === selectedCount;
 
               if (slot.revealed || isFilled) {
                 return (
@@ -287,7 +261,11 @@ export function ModeClickWordsHintedExercise({
               return (
                 <span
                   key={slot.id}
-                  className="inline-flex items-center justify-center rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-sm text-muted-foreground"
+                  className={`inline-flex items-center justify-center rounded-md px-2 py-1 text-sm ${
+                    isNextGap
+                      ? 'border-2 border-primary/40 bg-primary/5 text-primary/60'
+                      : 'border border-border/60 bg-muted/20 text-muted-foreground'
+                  }`}
                   style={{ minWidth: `${width}px` }}
                 >
                   {'•'.repeat(clamp(slot.text.length, 3, 10))}
@@ -297,24 +275,30 @@ export function ModeClickWordsHintedExercise({
           </div>
         </div>
 
-        {!isCompleted && remainingChoices.length > 0 && (
-          <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+        {!isCompleted && availableChoices.length > 0 && (
+          <div className="sticky bottom-0 z-10 rounded-2xl border border-border/60 bg-background/95 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur-sm">
             <div className="flex flex-wrap gap-2">
-              {remainingChoices.map((choice) => (
-                <Button
-                  key={choice.id}
-                  type="button"
-                  variant="outline"
-                  className={`h-auto rounded-xl px-3 py-2 transition-colors ${
-                    errorFlashChoiceId === choice.id
-                      ? 'border-destructive text-destructive'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
-                  onClick={() => handleWordClick(choice)}
-                >
-                  {choice.text}
-                </Button>
-              ))}
+              {availableChoices.map((choice) => {
+                const remaining = remainingCountByNormalized.get(choice.normalized) ?? 0;
+                return (
+                  <Button
+                    key={choice.normalized}
+                    type="button"
+                    variant="outline"
+                    className={`h-auto rounded-xl px-3 py-2 transition-colors ${
+                      errorFlashNormalized === choice.normalized
+                        ? 'border-destructive text-destructive'
+                        : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    }`}
+                    onClick={() => handleWordClick(choice)}
+                  >
+                    {choice.displayText}
+                    {remaining > 1 && (
+                      <span className="ml-1 text-xs text-muted-foreground">×{remaining}</span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}
