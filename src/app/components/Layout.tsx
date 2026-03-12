@@ -1,10 +1,20 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Dumbbell,
+  Expand,
+  LayoutDashboard,
+  Minimize2,
+  User,
+  X,
+} from 'lucide-react';
 import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
 import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
 import { triggerHaptic } from '../lib/haptics';
+import { Button } from './ui/button';
 import { cn } from './ui/utils';
 
 interface LayoutProps {
@@ -12,26 +22,44 @@ interface LayoutProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
-  showTelegramExitButton?: boolean;
+  isTelegramMiniApp?: boolean;
+  isTelegramFullscreen?: boolean;
+  canToggleTelegramFullscreen?: boolean;
+  canGoBackInHeader?: boolean;
+  onTelegramBack?: () => void;
+  onToggleTelegramFullscreen?: () => void;
   onTelegramExit?: () => void;
   hideChrome?: boolean;
 }
+
+const PAGE_TITLES: Record<string, string> = {
+  dashboard: 'Главная',
+  verses: 'Стихи',
+  training: 'Тренировка',
+  'progress-map': 'Карта пути',
+  profile: 'Профиль',
+};
 
 export function Layout({
   children,
   currentPage,
   onNavigate,
   isContentReady = false,
-  // showTelegramExitButton = false,
-  // onTelegramExit,
+  isTelegramMiniApp = false,
+  isTelegramFullscreen = false,
+  canToggleTelegramFullscreen = false,
+  canGoBackInHeader = false,
+  onTelegramBack,
+  onToggleTelegramFullscreen,
+  onTelegramExit,
   hideChrome = false,
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-  // const shouldShowTelegramExitButton =
-  //   isInTelegram && showTelegramExitButton && typeof onTelegramExit === 'function';
+  const pageTitle = PAGE_TITLES[currentPage] ?? 'Bible Memory';
+  const showTelegramHeaderNavigation = isTelegramMiniApp && !isTelegramFullscreen;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -87,27 +115,71 @@ export function Layout({
         }${hideAppChrome ? ' hidden' : ''}`}
         style={{ paddingTop: `${topInset}px` }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1">
-          <div className="relative flex items-center justify-center h-10">
-            <div className="flex items-center gap-2">
-                {/* <BookOpen className="w-5 h-5 text-primary" /> */}
-              {/* <h1 className="text-xl font-semibold text-primary">B Memory</h1> */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="grid min-h-11 grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              {showTelegramHeaderNavigation ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    haptic={canGoBackInHeader ? 'medium' : false}
+                    onClick={onTelegramBack}
+                    disabled={!canGoBackInHeader}
+                    className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground disabled:opacity-45"
+                    aria-label="Назад"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Назад</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    haptic="medium"
+                    onClick={onTelegramExit}
+                    className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground"
+                    aria-label="Закрыть приложение"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="hidden sm:inline">Закрыть</span>
+                  </Button>
+                </>
+              ) : null}
             </div>
 
-            {/* {shouldShowTelegramExitButton ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                haptic="medium"
-                onClick={onTelegramExit}
-                className="absolute right-0 rounded-full border-border/60 bg-background/65 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/85 hover:text-foreground"
-                aria-label="Выйти из приложения"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Выйти</span>
-              </Button>
-            ) : null} */}
+            <div className="min-w-0 text-center">
+              <div className="truncate text-sm font-semibold text-primary">
+                Bible Memory
+              </div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                {pageTitle}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
+              {isTelegramMiniApp && canToggleTelegramFullscreen ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  haptic="medium"
+                  onClick={onToggleTelegramFullscreen}
+                  className="rounded-full border-border/60 bg-background/70 px-3 text-foreground/80 shadow-sm backdrop-blur-xl hover:bg-background/90 hover:text-foreground"
+                  aria-label={isTelegramFullscreen ? 'Выйти из полного экрана' : 'Открыть на весь экран'}
+                >
+                  {isTelegramFullscreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Expand className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isTelegramFullscreen ? 'Окно' : 'Полный экран'}
+                  </span>
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>

@@ -64,33 +64,11 @@ export function useTelegramWebApp() {
 
     // Проверяем, запущено ли приложение в Telegram
     if (typeof window !== 'undefined' && webAppSdk) {
-      try {
-        // Инициализируем WebApp
-        webAppSdk.ready?.();
+      const syncState = () => {
+        const tgUser = webAppSdk?.initDataUnsafe?.user;
 
-        // Расширяем WebApp на весь экран
-        webAppSdk.expand?.();
-
-        // Запускаем полноэкранный режим
-        webAppSdk.requestFullscreen?.();
-
-        // Отключаем вертикальные свайпы
-        webAppSdk.disableVerticalSwipes?.();
-
-        // Блокируем выход из приложения
-        webAppSdk.enableClosingConfirmation?.();
-
-        // Блокируем переворот устройства
-        webAppSdk.disableRotation?.();
-
-        // Блокируем перемещение фокуса за пределы приложения
-        webAppSdk.disableFocusOutside?.();
-
-        // Получаем данные пользователя
-        const tgUser = webAppSdk.initDataUnsafe?.user;
-        
         let user: TelegramUser | null = null;
-        
+
         if (tgUser) {
           const telegramUserId = Number(tgUser.id);
           user = {
@@ -107,11 +85,35 @@ export function useTelegramWebApp() {
         setState({
           isReady: true,
           user,
-          platform: webAppSdk.platform ?? 'unknown',
-          colorScheme: (webAppSdk.colorScheme ?? 'light') as TelegramColorScheme,
-          themeParams: webAppSdk.themeParams ?? {},
-          initDataUnsafe: webAppSdk.initDataUnsafe ?? {},
+          platform: webAppSdk?.platform ?? 'unknown',
+          colorScheme: (webAppSdk?.colorScheme ?? 'light') as TelegramColorScheme,
+          themeParams: webAppSdk?.themeParams ?? {},
+          initDataUnsafe: webAppSdk?.initDataUnsafe ?? {},
         });
+      };
+
+      try {
+        // Инициализируем WebApp
+        webAppSdk.ready?.();
+        syncState();
+
+        const handleThemeChanged = () => {
+          syncState();
+        };
+
+        const handleViewportChanged = () => {
+          syncState();
+        };
+
+        webAppSdk.onEvent?.('themeChanged', handleThemeChanged);
+        webAppSdk.onEvent?.('fullscreenChanged', handleViewportChanged);
+        webAppSdk.onEvent?.('viewportChanged', handleViewportChanged);
+
+        return () => {
+          webAppSdk?.offEvent?.('themeChanged', handleThemeChanged);
+          webAppSdk?.offEvent?.('fullscreenChanged', handleViewportChanged);
+          webAppSdk?.offEvent?.('viewportChanged', handleViewportChanged);
+        };
 
       } catch (error) {
         console.error('Ошибка инициализации Telegram WebApp:', error);

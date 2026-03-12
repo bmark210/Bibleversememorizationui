@@ -116,7 +116,6 @@ export function useTelegramSafeArea(): TelegramWebAppData {
 
     try {
       tg.ready?.();
-      tg.expand?.();
     } catch {
       // ignore init errors, still try to read values
     }

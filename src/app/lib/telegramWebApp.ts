@@ -55,10 +55,12 @@ export type TelegramWebApp = {
   expand?: () => void;
   ready?: () => void;
   requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
   disableVerticalSwipes?: () => void;
   enableClosingConfirmation?: () => void;
   disableClosingConfirmation?: () => void;
-  disableRotation?: () => void;
+  lockOrientation?: () => void;
+  unlockOrientation?: () => void;
   disableFocusOutside?: () => void;
   showAlert?: (message: string) => void;
   showConfirm?: (
@@ -84,6 +86,8 @@ export type TelegramWebApp = {
   colorScheme?: TelegramColorScheme;
   version?: string;
   isFullscreen?: boolean;
+  isClosingConfirmationEnabled?: boolean;
+  isOrientationLocked?: boolean;
   isVerticalSwipesEnabled?: boolean;
   isExpanded?: boolean;
   viewportHeight?: number;
@@ -93,7 +97,7 @@ export type TelegramWebApp = {
   __isDevMock?: boolean;
 };
 
-type TelegramEventCallback = () => void;
+type TelegramEventCallback = (...args: unknown[]) => void;
 type TelegramWebAppWithDevFlag = TelegramWebApp & { __isDevMock?: boolean };
 
 const DEV_TELEGRAM_THEME_PARAMS: Record<TelegramColorScheme, TelegramThemeParams> = {
@@ -201,6 +205,8 @@ function createTelegramDevMock(): TelegramWebAppWithDevFlag {
     colorScheme: "light",
     version: "8.0",
     isFullscreen: false,
+    isClosingConfirmationEnabled: false,
+    isOrientationLocked: false,
     isVerticalSwipesEnabled: true,
     isExpanded: true,
     viewportHeight: window.innerHeight,
@@ -224,14 +230,29 @@ function createTelegramDevMock(): TelegramWebAppWithDevFlag {
     },
     requestFullscreen: () => {
       webApp.isFullscreen = true;
+      emitEvent("fullscreenChanged");
+      updateViewport(webApp);
+    },
+    exitFullscreen: () => {
+      webApp.isFullscreen = false;
+      emitEvent("fullscreenChanged");
       updateViewport(webApp);
     },
     disableVerticalSwipes: () => {
       webApp.isVerticalSwipesEnabled = false;
     },
-    enableClosingConfirmation: () => undefined,
-    disableClosingConfirmation: () => undefined,
-    disableRotation: () => undefined,
+    enableClosingConfirmation: () => {
+      webApp.isClosingConfirmationEnabled = true;
+    },
+    disableClosingConfirmation: () => {
+      webApp.isClosingConfirmationEnabled = false;
+    },
+    lockOrientation: () => {
+      webApp.isOrientationLocked = true;
+    },
+    unlockOrientation: () => {
+      webApp.isOrientationLocked = false;
+    },
     disableFocusOutside: () => undefined,
     showAlert: (message: string) => {
       window.alert(message);
