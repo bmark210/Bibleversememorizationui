@@ -514,9 +514,17 @@ export function VerseList({
               onDelete={vm.gallery.onDelete}
               onSelectTag={handleVerseTagSelect}
               onFriendsChanged={onFriendsChanged}
-              onNavigateToTraining={(verse) => {
+              onNavigateToTraining={(launch) => {
                 vm.gallery.onClose();
-                onNavigateToTraining?.(verse);
+                onNavigateToTraining?.({
+                  ...launch,
+                  returnTarget: {
+                    kind: "verse-list",
+                    verseExternalId: launch.verse.externalVerseId,
+                    statusFilter: vm.filters.statusFilter,
+                    reopenGallery: true,
+                  },
+                });
               }}
               previewTotalCount={vm.pagination.totalCount}
               previewHasMore={vm.pagination.hasMoreVerses}

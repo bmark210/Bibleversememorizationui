@@ -46,7 +46,7 @@ export function Training({
   telegramId,
   selectionVerses,
   directLaunch,
-  onDirectLaunchConsumed,
+  onDirectLaunchExit,
   onVersePatched,
   onVerseMutationCommitted,
   onSessionFullscreenChange,
@@ -98,9 +98,23 @@ export function Training({
 
   const goToHub = useCallback(() => {
     setView({ mode: "hub" });
-    // If this was a direct launch session, notify parent so it clears directLaunch state
-    onDirectLaunchConsumed?.();
-  }, [onDirectLaunchConsumed]);
+  }, []);
+
+  const handleExitSession = useCallback(() => {
+    if (directLaunch && directLaunchConsumedRef.current) {
+      const returnTarget = directLaunch.returnTarget ?? {
+        kind: "training-hub" as const,
+      };
+
+      onDirectLaunchExit?.(directLaunch);
+      // For verse-list return targets, parent navigation must handle exit flow.
+      if (returnTarget.kind === "verse-list") {
+        return;
+      }
+    }
+
+    goToHub();
+  }, [directLaunch, goToHub, onDirectLaunchExit]);
 
   const handleStart = useCallback(() => {
     if (selectedScenario === "anchor") {
@@ -135,7 +149,7 @@ export function Training({
   // Telegram back for core training only. Anchor mode handles back internally.
   useTelegramBackButton({
     enabled: view.mode === "verse-session",
-    onBack: goToHub,
+    onBack: handleExitSession,
     priority: 50,
   });
 
@@ -198,7 +212,7 @@ export function Training({
               initialTrack={view.track}
               bookId={view.bookId}
               onSessionCommitted={onVerseMutationCommitted}
-              onClose={goToHub}
+              onClose={handleExitSession}
             />
           </motion.div>
         )}
@@ -216,7 +230,7 @@ export function Training({
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
               initialOrder={view.order}
               initialVerseExternalId={view.initialVerseExternalId}
-              onClose={goToHub}
+              onClose={handleExitSession}
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}
             />

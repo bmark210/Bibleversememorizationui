@@ -41,6 +41,7 @@ import {
   mergeVersePatch,
 } from "@/app/utils/versePatch";
 import type { DirectLaunchVerse } from "./components/Training/types";
+import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 import { useTelegramUiStore } from "./stores/telegramUiStore";
 
@@ -157,6 +158,11 @@ type IdleTaskHandle = number | ReturnType<typeof setTimeout>;
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
   cancelIdleCallback?: (handle: number) => void;
+};
+type PendingVerseListReturn = {
+  verseExternalId: string;
+  statusFilter: VerseListStatusFilter;
+  reopenGallery: boolean;
 };
 
 type AppProps = {
@@ -412,6 +418,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isTrainingVersesLoading, setIsTrainingVersesLoading] = useState(false);
   const [trainingDirectLaunch, setTrainingDirectLaunch] =
     useState<DirectLaunchVerse | null>(null);
+  const [pendingVerseListReturn, setPendingVerseListReturn] =
+    useState<PendingVerseListReturn | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
@@ -685,6 +693,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     });
 
     setTrainingDirectLaunch(null);
+    setPendingVerseListReturn(null);
   }, []);
 
   const handleNavigateBackInApp = useCallback(() => {
@@ -917,14 +926,44 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleNavigateToTrainingWithVerse = useCallback(
     (launchOrVerse: DirectLaunchVerse | Verse) => {
       const launch = toDirectLaunchPayload(launchOrVerse);
+      setPendingVerseListReturn(null);
       setTrainingDirectLaunch(launch);
       pushPage("training");
     },
     [pushPage]
   );
 
-  const handleDirectLaunchConsumed = useCallback(() => {
+  const handleDirectLaunchExit = useCallback((launch: DirectLaunchVerse) => {
     setTrainingDirectLaunch(null);
+    const returnTarget = launch.returnTarget ?? { kind: "training-hub" as const };
+
+    if (returnTarget.kind !== "verse-list") {
+      return;
+    }
+
+    setPendingVerseListReturn({
+      verseExternalId: returnTarget.verseExternalId,
+      statusFilter: returnTarget.statusFilter,
+      reopenGallery: returnTarget.reopenGallery,
+    });
+
+    setPageStack((prev) => {
+      const activePage = prev[prev.length - 1] ?? "dashboard";
+      if (activePage !== "training") {
+        return ["verses"];
+      }
+
+      const previousPage = prev[prev.length - 2];
+      if (previousPage === "verses") {
+        return prev.slice(0, -1);
+      }
+
+      return ["verses"];
+    });
+  }, []);
+
+  const handleVerseListReturnHandled = useCallback(() => {
+    setPendingVerseListReturn(null);
   }, []);
 
   const handleTelegramBack = useCallback(() => {
@@ -1109,6 +1148,15 @@ export default function App({ onInitialContentReady }: AppProps) {
           {currentPage === "verses" && (
             <VerseList
               onVerseAdded={handleVerseAdded}
+              reopenGalleryVerseId={
+                pendingVerseListReturn?.reopenGallery
+                  ? pendingVerseListReturn.verseExternalId
+                  : null
+              }
+              reopenGalleryStatusFilter={
+                pendingVerseListReturn?.statusFilter ?? null
+              }
+              onReopenGalleryHandled={handleVerseListReturnHandled}
               verseListExternalSyncVersion={verseListExternalSyncVersion}
               onVerseMutationCommitted={handleVerseListMutationCommitted}
               onNavigateToTraining={handleNavigateToTrainingWithVerse}
@@ -1130,7 +1178,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               dashboardStats={dashboardStats}
               telegramId={telegramId}
               directLaunch={trainingDirectLaunch}
-              onDirectLaunchConsumed={handleDirectLaunchConsumed}
+              onDirectLaunchExit={handleDirectLaunchExit}
               onVersePatched={handleTrainingVersePatched}
               onRequestVerseSelection={() => pushPage("verses")}
               onVerseMutationCommitted={handleVerseListMutationCommitted}

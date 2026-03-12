@@ -1,6 +1,7 @@
 import type { Verse } from "@/app/App";
 import type { UserDashboardStats } from "@/api/services/userStats";
 import type { VersePatchEvent } from "@/app/types/verseSync";
+import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
 
 /** Training mode — what kind of exercises to run */
 export type TrainingMode = "learning" | "review" | "anchor";
@@ -24,9 +25,19 @@ export type TrainingView =
     };
 
 /** When navigating directly to Training from VerseGallery or Dashboard */
+export type DirectLaunchReturnTarget =
+  | { kind: "training-hub" }
+  | {
+      kind: "verse-list";
+      verseExternalId: string;
+      statusFilter: VerseListStatusFilter;
+      reopenGallery: boolean;
+    };
+
 export interface DirectLaunchVerse {
   verse: Verse;
   preferredMode?: TrainingMode;
+  returnTarget?: DirectLaunchReturnTarget;
 }
 
 export interface TrainingProps {
@@ -37,8 +48,8 @@ export interface TrainingProps {
   selectionVerses?: Verse[];
   /** If set, skip the Hub and start a training session immediately for this verse */
   directLaunch?: DirectLaunchVerse | null;
-  /** Called when the direct-launch session ends, so the parent can clear the state */
-  onDirectLaunchConsumed?: () => void;
+  /** Called when the direct-launch session ends, so the parent can clear state or navigate away */
+  onDirectLaunchExit?: (launch: DirectLaunchVerse) => void;
   onVersePatched: (event: VersePatchEvent) => void;
   onRequestVerseSelection: () => void;
   onVerseMutationCommitted?: () => void;
