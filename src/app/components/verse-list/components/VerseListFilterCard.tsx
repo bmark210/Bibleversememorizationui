@@ -306,6 +306,7 @@ function VerseListFilterSections({
               <button
                 key={key}
                 type="button"
+                data-tour={`verse-filter-tab-${key}`}
                 role="tab"
                 aria-selected={isActive}
                 onClick={() =>
@@ -654,14 +655,14 @@ export function VerseListFilterCard({
 
   if (isDrawerPresentation) {
     return (
-      <div className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45">
+      <div data-tour="verse-list-filters" className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45">
         <VerseListFilterSections {...sharedProps} />
       </div>
     );
   }
 
   return (
-    <div className="mb-3">
+    <div data-tour="verse-list-filters" className="mb-3">
       <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
           <button

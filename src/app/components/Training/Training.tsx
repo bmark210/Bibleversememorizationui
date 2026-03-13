@@ -44,6 +44,7 @@ export function Training({
   isLoadingVerses = false,
   dashboardStats,
   telegramId,
+  suppressIntro = false,
   selectionVerses,
   directLaunch,
   onDirectLaunchExit,
@@ -181,6 +182,7 @@ export function Training({
               allVerses={allVerses}
               dashboardStats={dashboardStats}
               telegramId={telegramId}
+              suppressIntro={suppressIntro}
               selectionVerses={selectionVerses}
               selectedScenario={selectedScenario}
               selectedModes={selectedModes}

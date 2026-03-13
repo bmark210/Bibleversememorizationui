@@ -48,6 +48,7 @@ export interface TrainingProps {
   isLoadingVerses?: boolean;
   dashboardStats?: UserDashboardStats | null;
   telegramId: string | null;
+  suppressIntro?: boolean;
   selectionVerses?: Verse[];
   /** If set, skip the Hub and start a training session immediately for this verse */
   directLaunch?: DirectLaunchVerse | null;

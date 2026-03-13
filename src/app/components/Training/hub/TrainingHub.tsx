@@ -65,11 +65,13 @@ import {
 } from "../../ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
+import { readOnboardingCompletion } from "@/app/onboarding/onboardingStorage";
 
 interface TrainingHubProps {
   allVerses: Verse[];
   dashboardStats?: UserDashboardStats | null;
   telegramId?: string | null;
+  suppressIntro?: boolean;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
@@ -324,6 +326,7 @@ export function TrainingHub({
   allVerses,
   dashboardStats,
   telegramId = null,
+  suppressIntro = false,
   selectionVerses,
   selectedScenario,
   selectedModes,
@@ -504,15 +507,23 @@ export function TrainingHub({
     if (typeof window === "undefined") return;
 
     try {
+      if (suppressIntro || readOnboardingCompletion(telegramId)) {
+        window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
+        setIsAboutDialogOpen(false);
+        return;
+      }
+
       const storageKey = getTrainingIntroStorageKey(telegramId);
       const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
       if (!hasSeenIntro) {
         setIsAboutDialogOpen(true);
       }
     } catch {
-      setIsAboutDialogOpen(true);
+      if (!suppressIntro) {
+        setIsAboutDialogOpen(true);
+      }
     }
-  }, [telegramId]);
+  }, [suppressIntro, telegramId]);
 
   const handleAboutDialogOpenChange = useCallback(
     (open: boolean) => {
@@ -642,7 +653,7 @@ export function TrainingHub({
             </header>
           )}
 
-          <section className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
+          <section data-tour="training-scenarios" className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
             <Tabs
               value={selectedScenario}
               onValueChange={handleScenarioChange}
@@ -650,6 +661,7 @@ export function TrainingHub({
             >
               <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
                 <TabsTrigger
+                  data-tour="training-scenario-core"
                   value="core"
                   className={SCENARIO_THEME.core.triggerClassName}
                 >
@@ -660,6 +672,7 @@ export function TrainingHub({
                   />
                 </TabsTrigger>
                 <TabsTrigger
+                  data-tour="training-scenario-anchor"
                   value="anchor"
                   className={SCENARIO_THEME.anchor.triggerClassName}
                 >
@@ -676,6 +689,7 @@ export function TrainingHub({
               <AnimatePresence mode="wait" initial={false}>
                 {selectedScenario === "core" ? (
                   <motion.div
+                    data-tour="training-core-presets"
                     key="core"
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -706,6 +720,7 @@ export function TrainingHub({
                   </motion.div>
                 ) : (
                   <motion.div
+                    data-tour="training-anchor-presets"
                     key="anchor"
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -826,6 +841,7 @@ export function TrainingHub({
 
           <div className="mx-auto w-full flex-1 content-end">
             <div
+              data-tour="training-start-cta"
               className={cn(
                 "rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
                 anchorLocked
@@ -864,6 +880,7 @@ export function TrainingHub({
                   type="button"
                   size="lg"
                   haptic="medium"
+                  data-tour="training-start-button"
                   onClick={onStart}
                   className={cn(
                     "h-14 flex-1 w-full gap-2 rounded-2xl text-base",

@@ -123,6 +123,7 @@ export function VerseListFiltersDrawer({
     <>
       <button
         type="button"
+        data-tour="verse-list-filters"
         aria-label="Открыть фильтры стихов"
         onClick={() => onOpenChange(true)}
         className={cn(

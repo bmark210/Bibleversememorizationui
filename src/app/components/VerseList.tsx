@@ -36,6 +36,7 @@ import { useVerseListController } from "./verse-list/hooks/useVerseListControlle
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import type { Verse } from "@/app/App";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
+import { readOnboardingCompletion } from "@/app/onboarding/onboardingStorage";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -59,9 +60,11 @@ interface VerseListProps {
     name: string;
     avatarUrl: string | null;
   }) => void;
+  suppressSectionIntro?: boolean;
 }
 
 const VERSE_LIST_INTRO_STORAGE_PREFIX = "bible-memory.verse-list.intro.v1";
+const CLOSE_PROGRESS_DRAWER_EVENT = "bible-memory:onboarding-close-progress-drawer";
 
 function getVerseListIntroStorageKey() {
   if (typeof window === "undefined") return null;
@@ -83,6 +86,7 @@ export function VerseList({
   onOpenPlayerProfile,
   isAnchorEligible = false,
   onFriendsChanged,
+  suppressSectionIntro = false,
 }: VerseListProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -120,13 +124,35 @@ export function VerseList({
     if (!storageKey) return;
 
     try {
+      if (suppressSectionIntro || readOnboardingCompletion(telegramId)) {
+        window.localStorage.setItem(storageKey, "1");
+        setIsAboutDialogOpen(false);
+        return;
+      }
+
       const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
       if (!hasSeenIntro) {
         setIsAboutDialogOpen(true);
       }
     } catch {
-      setIsAboutDialogOpen(true);
+      if (!suppressSectionIntro) {
+        setIsAboutDialogOpen(true);
+      }
     }
+  }, [suppressSectionIntro, telegramId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleCloseProgressDrawer = () => {
+      setIsVerseProgressDrawerOpen(false);
+      setVerseProgressTarget(null);
+    };
+
+    window.addEventListener(CLOSE_PROGRESS_DRAWER_EVENT, handleCloseProgressDrawer);
+    return () => {
+      window.removeEventListener(CLOSE_PROGRESS_DRAWER_EVENT, handleCloseProgressDrawer);
+    };
   }, []);
 
   const handleAboutDialogOpenChange = useCallback(
@@ -392,7 +418,7 @@ export function VerseList({
         </motion.div>
 
         {vm.ui.isListLoading ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
+          <motion.div data-tour="verse-list-content" className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={
@@ -412,7 +438,7 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
+          <motion.div data-tour="verse-list-content" className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={{
@@ -435,7 +461,7 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.list.sectionConfig ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.06)}>
+          <motion.div data-tour="verse-list-content" className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.06)}>
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={vm.list.sectionConfig}

@@ -44,6 +44,7 @@ import type { DirectLaunchVerse } from "./components/Training/types";
 import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 import { useTelegramUiStore } from "./stores/telegramUiStore";
+import { useAppOnboardingDriver } from "./onboarding/useAppOnboardingDriver";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -704,6 +705,24 @@ export default function App({ onInitialContentReady }: AppProps) {
     setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
+  const {
+    hasCompletedOnboarding,
+    isOnboardingActive,
+    startOnboarding,
+  } = useAppOnboardingDriver({
+    currentPage,
+    isBootstrapping,
+    telegramId,
+    hasOwnedVerses: (dashboardStats?.totalVerses ?? 0) > 0,
+    hasProgressVerse:
+      (dashboardStats?.learningVerses ?? 0) +
+        (dashboardStats?.reviewVerses ?? 0) +
+        (dashboardStats?.masteredVerses ?? 0) +
+        (dashboardStats?.stoppedVerses ?? 0) >
+      0,
+    navigateToPage: (page) => handleRootNavigate(page),
+  });
+
   useEffect(() => {
     const previousPage = previousPageRef.current;
     previousPageRef.current = currentPage;
@@ -1166,6 +1185,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                 (dashboardStats?.reviewVerses ?? 0) >= 10 ||
                 (dashboardStats?.masteredVerses ?? 0) >= 10
               }
+              suppressSectionIntro={isOnboardingActive || hasCompletedOnboarding}
             />
           )}
 
@@ -1175,6 +1195,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
               dashboardStats={dashboardStats}
               telegramId={telegramId}
+              suppressIntro={isOnboardingActive || hasCompletedOnboarding}
               directLaunch={trainingDirectLaunch}
               onDirectLaunchExit={handleDirectLaunchExit}
               onVersePatched={handleTrainingVersePatched}
@@ -1189,6 +1210,9 @@ export default function App({ onInitialContentReady }: AppProps) {
               theme={theme}
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
+              onRestartOnboarding={() => {
+                void startOnboarding("profile");
+              }}
               onFriendsChanged={handleFriendsChanged}
               onOpenPlayerProfile={handleOpenPlayerProfile}
               friendsRefreshVersion={friendsRefreshVersion}

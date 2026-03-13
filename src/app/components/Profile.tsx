@@ -47,6 +47,7 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
+  onRestartOnboarding?: () => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -100,6 +101,7 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
+  onRestartOnboarding,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
@@ -611,7 +613,31 @@ export function Profile({
           </motion.div>
 
           <motion.div variants={sectionVariants}>
-            <ProfileSurface>
+            <ProfileSurface data-tour="profile-onboarding-replay">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground/82">
+                    Обучение по приложению
+                  </div>
+                  <div className="mt-1 text-sm text-foreground/56">
+                    Повторно покажем, как устроены стихи, тренировки, фильтры и друзья.
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onRestartOnboarding}
+                  className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
+                >
+                  Пройти обучение снова
+                </Button>
+              </div>
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface data-tour="profile-friends">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold tracking-tight text-foreground/80">
                   Друзья
@@ -633,6 +659,7 @@ export function Profile({
                   >
                     <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-border/60 bg-background/45 p-1">
                       <TabsTrigger
+                        data-tour="profile-players-tab"
                         value="players"
                         className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
                       >
@@ -793,6 +820,7 @@ export function Profile({
                               size="sm"
                               variant="outline"
                               disabled={isMutationPending}
+                              data-tour={showRemoveAction ? undefined : "profile-add-friend-button"}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 void handleToggleFriend(item);
