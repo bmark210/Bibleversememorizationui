@@ -318,7 +318,7 @@ export function buildVerseSectionTutorialSteps({
       description:
         "Это главная рабочая точка. Здесь видны текст, ссылка и быстрые действия по стиху.",
       element: PRIMARY_CARD_SELECTOR,
-      side: "left",
+      side: "bottom",
       align: "center",
       prepare: ensurePrimaryMockVerseCard,
     },
