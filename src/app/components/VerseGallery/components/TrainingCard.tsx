@@ -12,6 +12,7 @@ import type { TrainingVerseState, ModeId, Rating } from "../types";
 import { Verse } from "@/app/App";
 
 type Props = {
+  dataTour?: string;
   trainingVerse: TrainingVerseState;
   modeId: ModeId;
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
@@ -19,6 +20,7 @@ type Props = {
   onTrainingInteractionStart?: () => void;
   onRate: (rating: Rating) => void | Promise<void>;
   hideRatingFooter?: boolean;
+  suppressModeTutorials?: boolean;
 };
 
 function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
@@ -50,6 +52,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
 }
 
 export const TrainingCard = memo(function TrainingCard({
+  dataTour,
   trainingVerse,
   modeId,
   rendererRef,
@@ -57,6 +60,7 @@ export const TrainingCard = memo(function TrainingCard({
   onTrainingInteractionStart,
   onRate,
   hideRatingFooter = false,
+  suppressModeTutorials = false,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const isReviewStage =
@@ -104,7 +108,7 @@ export const TrainingCard = memo(function TrainingCard({
   };
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden">
+    <div data-tour={dataTour} className="w-full min-w-0 overflow-x-hidden">
       <VerseCard
         isActive
         minHeight="training"
@@ -182,6 +186,7 @@ export const TrainingCard = memo(function TrainingCard({
                 ref={rendererRef as RefObject<TrainingModeRendererHandle>}
                 renderer={renderer}
                 verse={verse}
+                suppressTutorial={suppressModeTutorials}
                 onRate={onRate}
               />
             </TrainingUiStateProvider>

@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -21,6 +22,7 @@ const AddVerseDialog = dynamic(
 
 import { VerseGallery } from "./VerseGallery";
 import { ConfirmDeleteModal } from "./verse-list/components/ConfirmDeleteModal";
+import { SwipeableVerseCard } from "./verse-list/components/SwipeableVerseCard";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
 import { VerseListFilterCard } from "./verse-list/components/VerseListFilterCard";
 import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
@@ -30,12 +32,30 @@ import { VerseListSectionShell } from "./verse-list/components/VerseListSectionS
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
-import type { VerseListStatusFilter } from "./verse-list/constants";
+import {
+  FILTER_VISUAL_THEME,
+  getVerseCardLayoutSignature,
+  type VerseListStatusFilter,
+} from "./verse-list/constants";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
+import { VerseStaticList } from "./verse-list/virtualization/VerseStaticList";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import type { Verse } from "@/app/App";
+import type { Tag } from "@/api/models/Tag";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
+import { ONBOARDING_PRIMARY_VERSE_ID } from "@/app/onboarding/onboardingMockVerseFlow";
+import {
+  type VerseSectionTutorialSource,
+  readVerseSectionTutorialPromptSeen,
+  writeVerseSectionTutorialPromptSeen,
+} from "@/app/verseSectionTutorial/storage";
+import {
+  useVerseSectionTutorialStore,
+  selectShouldUseVerseSectionTutorialMockData,
+  getVerseSectionTutorialMockSectionConfig,
+  filterAndSortVerseSectionTutorialMockVerses,
+} from "@/app/verseSectionTutorial/store";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -50,6 +70,9 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
+  onStartVerseSectionTutorial?: (
+    source: VerseSectionTutorialSource,
+  ) => void | Promise<void>;
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
@@ -59,16 +82,9 @@ interface VerseListProps {
     name: string;
     avatarUrl: string | null;
   }) => void;
+  suppressSectionIntro?: boolean;
 }
-
-const VERSE_LIST_INTRO_STORAGE_PREFIX = "bible-memory.verse-list.intro.v1";
-
-function getVerseListIntroStorageKey() {
-  if (typeof window === "undefined") return null;
-  const rawTelegramId = window.localStorage.getItem("telegramId") ?? "";
-  const telegramId = rawTelegramId.trim() || "anonymous";
-  return `${VERSE_LIST_INTRO_STORAGE_PREFIX}:${telegramId}`;
-}
+const VERSE_SECTION_TUTORIAL_STATUS_FILTER: VerseListStatusFilter = "catalog";
 
 export function VerseList({
   onVerseAdded,
@@ -78,16 +94,63 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
+  onStartVerseSectionTutorial,
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
   isAnchorEligible = false,
   onFriendsChanged,
+  suppressSectionIntro = false,
 }: VerseListProps) {
+  // --- Verse tutorial store subscriptions (only primitive/stable selectors) ---
+  const isVerseSectionTutorialMock = useVerseSectionTutorialStore(
+    selectShouldUseVerseSectionTutorialMockData,
+  );
+  const tutorialMockVerses = useVerseSectionTutorialStore((s) => s.mockVerses);
+  const tutorialProgressTargetVerseId = useVerseSectionTutorialStore(
+    (s) => s.progressTargetVerseId,
+  );
+  const tutorialGalleryTargetVerseId = useVerseSectionTutorialStore(
+    (s) => s.galleryTargetVerseId,
+  );
+
+  // Derived values via useMemo (avoids new-reference selectors causing infinite loops)
+  const tutorialProgressTarget = useMemo(
+    () =>
+      tutorialProgressTargetVerseId == null
+        ? null
+        : tutorialMockVerses.find(
+            (v) => v.externalVerseId === tutorialProgressTargetVerseId,
+          ) ?? null,
+    [tutorialProgressTargetVerseId, tutorialMockVerses],
+  );
+  const tutorialMockFilterTheme = useMemo(
+    () => FILTER_VISUAL_THEME[VERSE_SECTION_TUTORIAL_STATUS_FILTER],
+    [],
+  );
+  const tutorialMockSectionConfig = useMemo(
+    () =>
+      getVerseSectionTutorialMockSectionConfig(
+        VERSE_SECTION_TUTORIAL_STATUS_FILTER,
+      ),
+    [],
+  );
+  const tutorialMockInitialTags = useMemo(
+    () =>
+      tutorialMockVerses
+        .flatMap((verse) => verse.tags ?? [])
+        .filter(
+          (tag, index, tags) =>
+            tags.findIndex((candidate) => candidate.slug === tag.slug) === index,
+        ) as Tag[],
+    [tutorialMockVerses],
+  );
+  const tutorialMockTotalCount = tutorialMockVerses.length;
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
+  const [isTutorialPromptOpen, setIsTutorialPromptOpen] = useState(false);
+  const [isLocalFiltersDrawerOpen, setIsLocalFiltersDrawerOpen] = useState(false);
   const [isVerseTagsDrawerOpen, setIsVerseTagsDrawerOpen] = useState(false);
   const [verseTagsTarget, setVerseTagsTarget] = useState<Pick<
     Verse,
@@ -102,45 +165,50 @@ export function VerseList({
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
+  const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
-  const markVerseListIntroAsSeen = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const storageKey = getVerseListIntroStorageKey();
-    if (!storageKey) return;
-    try {
-      window.localStorage.setItem(storageKey, "1");
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
+  const activeVerseProgressTarget = isVerseSectionTutorialMock
+    ? tutorialProgressTarget
+    : verseProgressTarget;
+  const isActiveVerseProgressDrawerOpen = isVerseSectionTutorialMock
+    ? tutorialProgressTarget !== null
+    : isVerseProgressDrawerOpen;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storageKey = getVerseListIntroStorageKey();
-    if (!storageKey) return;
-
-    try {
-      const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
-      if (!hasSeenIntro) {
-        setIsAboutDialogOpen(true);
-      }
-    } catch {
-      setIsAboutDialogOpen(true);
+    if (
+      suppressSectionIntro ||
+      isVerseSectionTutorialMock ||
+      typeof window === "undefined"
+    ) {
+      setIsTutorialPromptOpen(false);
+      return;
     }
+
+    if (readVerseSectionTutorialPromptSeen(telegramId)) {
+      return;
+    }
+
+    setIsTutorialPromptOpen(true);
+  }, [isVerseSectionTutorialMock, suppressSectionIntro, telegramId]);
+
+  const handleTutorialPromptOpenChange = useCallback((open: boolean) => {
+    setIsTutorialPromptOpen(open);
   }, []);
 
-  const handleAboutDialogOpenChange = useCallback(
-    (open: boolean) => {
-      setIsAboutDialogOpen(open);
-      if (open) return;
-      markVerseListIntroAsSeen();
-    },
-    [markVerseListIntroAsSeen],
-  );
-
-  const handleAboutDialogOpen = useCallback(() => {
-    setIsAboutDialogOpen(true);
+  const handleTutorialPromptOpen = useCallback(() => {
+    setIsTutorialPromptOpen(true);
   }, []);
+
+  const handleSkipVerseSectionTutorial = useCallback(() => {
+    writeVerseSectionTutorialPromptSeen(telegramId);
+    setIsTutorialPromptOpen(false);
+  }, [telegramId]);
+
+  const handleStartVerseSectionTutorial = useCallback(() => {
+    writeVerseSectionTutorialPromptSeen(telegramId);
+    setIsTutorialPromptOpen(false);
+    void Promise.resolve(onStartVerseSectionTutorial?.("prompt"));
+  }, [onStartVerseSectionTutorial, telegramId]);
 
   const closeVerseTagsDrawer = useCallback(() => {
     setIsVerseTagsDrawerOpen(false);
@@ -148,6 +216,8 @@ export function VerseList({
   }, []);
 
   const vm = useVerseListController({
+    disabled: isVerseSectionTutorialMock,
+    initialTags: tutorialMockInitialTags,
     hasFriends,
     onAddVerse: () => {
       setAddDialogMode("verse");
@@ -189,13 +259,47 @@ export function VerseList({
     onVerseMutationCommitted,
   });
 
-  const reveal = vm.view.getRevealProps;
-  const shouldReduceMotion = vm.ui.shouldReduceMotion;
+  // Visible mock verses — computed from store data + controller filter state
+  const tutorialMockVisibleVerses = useMemo(
+    () =>
+      filterAndSortVerseSectionTutorialMockVerses(
+        tutorialMockVerses,
+        VERSE_SECTION_TUTORIAL_STATUS_FILTER,
+        vm.filters.selectedBookId,
+        vm.filters.sortBy,
+        vm.search.searchQuery,
+        vm.tagFilter.selectedTagSlugs,
+      ),
+    [
+      tutorialMockVerses,
+      vm.filters.selectedBookId,
+      vm.filters.sortBy,
+      vm.search.searchQuery,
+      vm.tagFilter.selectedTagSlugs,
+    ],
+  );
+  const tutorialGalleryIndex = useMemo(() => {
+    if (tutorialGalleryTargetVerseId == null) return null;
+    const index = tutorialMockVisibleVerses.findIndex(
+      (verse) => verse.externalVerseId === tutorialGalleryTargetVerseId,
+    );
+    return index >= 0 ? index : null;
+  }, [tutorialGalleryTargetVerseId, tutorialMockVisibleVerses]);
+
+  const reveal = useCallback(
+    (delay: number) =>
+      isVerseSectionTutorialMock ? {} : vm.view.getRevealProps(delay),
+    [isVerseSectionTutorialMock, vm.view.getRevealProps],
+  );
+  const shouldReduceMotion =
+    isVerseSectionTutorialMock || vm.ui.shouldReduceMotion;
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
   const isDeleteModalOpen =
     vm.modal.deleteTargetVerse !== null && !vm.modal.isDeleteSubmitting;
-  const isGalleryOpen = vm.gallery.galleryIndex !== null;
+  const isGalleryOpen = isVerseSectionTutorialMock
+    ? tutorialGalleryIndex !== null
+    : vm.gallery.galleryIndex !== null;
 
   const handleTelegramBack = useCallback(() => {
     if (addDialogOpen) {
@@ -209,7 +313,11 @@ export function VerseList({
     }
 
     if (isGalleryOpen) {
-      vm.gallery.onClose();
+      if (isVerseSectionTutorialMock) {
+        useVerseSectionTutorialStore.getState().closeGallery();
+      } else {
+        vm.gallery.onClose();
+      }
       return;
     }
 
@@ -219,7 +327,7 @@ export function VerseList({
     }
 
     if (isFiltersDrawerOpen) {
-      setIsFiltersDrawerOpen(false);
+      setIsLocalFiltersDrawerOpen(false);
       return;
     }
 
@@ -228,25 +336,30 @@ export function VerseList({
       return;
     }
 
-    if (isVerseProgressDrawerOpen) {
-      setIsVerseProgressDrawerOpen(false);
-      setVerseProgressTarget(null);
+    if (isActiveVerseProgressDrawerOpen) {
+      if (isVerseSectionTutorialMock) {
+        useVerseSectionTutorialStore.getState().closeProgressDrawer();
+      } else {
+        setIsVerseProgressDrawerOpen(false);
+        setVerseProgressTarget(null);
+      }
       return;
     }
 
-    if (isAboutDialogOpen) {
-      handleAboutDialogOpenChange(false);
+    if (isTutorialPromptOpen) {
+      handleTutorialPromptOpenChange(false);
     }
   }, [
     addDialogOpen,
-    handleAboutDialogOpenChange,
-    isAboutDialogOpen,
+    handleTutorialPromptOpenChange,
     isDeleteModalOpen,
     isFiltersDrawerOpen,
     isGalleryOpen,
-    isVerseProgressDrawerOpen,
+    isActiveVerseProgressDrawerOpen,
+    isTutorialPromptOpen,
     isVerseTagsDrawerOpen,
     isVerseOwnersDrawerOpen,
+    isVerseSectionTutorialMock,
     closeVerseTagsDrawer,
     vm.gallery,
     vm.modal,
@@ -260,8 +373,8 @@ export function VerseList({
       isVerseTagsDrawerOpen ||
       isFiltersDrawerOpen ||
       isVerseOwnersDrawerOpen ||
-      isVerseProgressDrawerOpen ||
-      isAboutDialogOpen,
+      isActiveVerseProgressDrawerOpen ||
+      isTutorialPromptOpen,
     onBack: handleTelegramBack,
     priority: 60,
   });
@@ -274,6 +387,69 @@ export function VerseList({
       closeVerseTagsDrawer();
     },
     [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
+  );
+
+  const renderTutorialMockVerseRow = useCallback(
+    (verse: Verse) => (
+      <div
+        data-tour={
+          verse.externalVerseId === ONBOARDING_PRIMARY_VERSE_ID
+            ? "onboarding-mock-primary-verse-card"
+            : undefined
+        }
+      >
+        <SwipeableVerseCard
+          verse={verse}
+          onOpen={() => useVerseSectionTutorialStore.getState().openGallery(verse)}
+          onOpenProgress={(v) =>
+            useVerseSectionTutorialStore.getState().openProgressDrawer(v)
+          }
+          onOpenTags={(targetVerse) => {
+            if (!targetVerse.tags || targetVerse.tags.length === 0) return;
+            setVerseTagsTarget({
+              reference: targetVerse.reference,
+              tags: targetVerse.tags,
+            });
+            setIsVerseTagsDrawerOpen(true);
+          }}
+          onAddToLearning={(targetVerse) => {
+            const action =
+              targetVerse.status === "CATALOG" ? "add-to-learning" : "start-learning";
+            useVerseSectionTutorialStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, action);
+          }}
+          onPauseLearning={(targetVerse) =>
+            useVerseSectionTutorialStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "pause")
+          }
+          onResumeLearning={(targetVerse) =>
+            useVerseSectionTutorialStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "resume")
+          }
+          onRequestDelete={(targetVerse) =>
+            useVerseSectionTutorialStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "delete")
+          }
+        />
+      </div>
+    ),
+    [],
+  );
+
+  const tutorialMockListContent = useCallback(
+    () => (
+      <VerseStaticList
+        items={tutorialMockVisibleVerses}
+        renderRow={renderTutorialMockVerseRow}
+        getItemKey={(verse) => verse.externalVerseId}
+        getItemLayoutSignature={getVerseCardLayoutSignature}
+      />
+    ),
+    [tutorialMockVisibleVerses, renderTutorialMockVerseRow],
   );
 
   const listContent =
@@ -300,8 +476,8 @@ export function VerseList({
   return (
     <>
       <AlertDialog
-        open={isAboutDialogOpen}
-        onOpenChange={handleAboutDialogOpenChange}
+        open={isTutorialPromptOpen}
+        onOpenChange={handleTutorialPromptOpenChange}
       >
         <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
           <div className="relative px-6 py-6 sm:px-7">
@@ -312,24 +488,33 @@ export function VerseList({
 
             <AlertDialogHeader className="relative gap-3">
               <AlertDialogTitle className="text-xl text-primary">
-                Раздел «Стихи»
+                Короткое обучение по разделу «Стихи»
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
-                Здесь вы можете добавлять, удалять и искать стихи разными
-                способами через фильтры, теги, сортировку и поиск.
+                Могу за пару шагов показать главное: как добавить стих,
+                посмотреть его путь и где открывается подробный просмотр с
+                запуском тренировки.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             <div className="relative mt-4 rounded-2xl border border-border/90 bg-background/40 p-3 text-xs leading-relaxed text-foreground/75">
-              Также в этом разделе можно добавлять теги и управлять ими. Находить стихи своих друзей. И видеть свой прогресс в обучении по конкретному стиху.
+              Обучение касается только раздела «Стихи» и не уводит в
+              тренировку. Отдельный tutorial по тренировке можно добавить
+              позже.
             </div>
 
             <AlertDialogFooter className="relative mt-5">
+              <AlertDialogCancel
+                className="h-10 rounded-xl border border-border/90 bg-background/40 px-5 text-sm font-medium text-foreground/75"
+                onClick={handleSkipVerseSectionTutorial}
+              >
+                Не сейчас
+              </AlertDialogCancel>
               <AlertDialogAction
                 className="h-10 rounded-xl border border-border/90 bg-background/40 text-foreground/75 px-5 text-sm font-medium"
-                onClick={markVerseListIntroAsSeen}
+                onClick={handleStartVerseSectionTutorial}
               >
-                Понятно
+                Пройти обучение
               </AlertDialogAction>
             </AlertDialogFooter>
           </div>
@@ -353,16 +538,30 @@ export function VerseList({
         <motion.div className="shrink-0" {...reveal(0.02)}>
           <VerseListHeader
             onAddVerseClick={vm.header.onAddVerseClick}
-            onAboutSectionClick={handleAboutDialogOpen}
+            onAboutSectionClick={handleTutorialPromptOpen}
           />
         </motion.div>
 
         <motion.div className="hidden shrink-0 md:block px-4 sm:px-6 lg:px-8" {...reveal(0.04)}>
           <VerseListFilterCard
-            totalVisible={vm.ui.totalVisible}
-            totalCount={vm.pagination.totalCount}
-            currentFilterLabel={vm.ui.currentFilterLabel}
-            currentFilterTheme={vm.ui.currentFilterTheme}
+            totalVisible={
+              isVerseSectionTutorialMock
+                ? tutorialMockVisibleVerses.length
+                : vm.ui.totalVisible
+            }
+            totalCount={
+              isVerseSectionTutorialMock
+                ? tutorialMockTotalCount
+                : vm.pagination.totalCount
+            }
+            currentFilterLabel={
+              isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
+            }
+            currentFilterTheme={
+              isVerseSectionTutorialMock
+                ? tutorialMockFilterTheme
+                : vm.ui.currentFilterTheme
+            }
             statusFilter={vm.filters.statusFilter}
             defaultStatusFilter={vm.filters.defaultStatusFilter}
             filterOptions={vm.filters.filterOptions}
@@ -391,8 +590,30 @@ export function VerseList({
           />
         </motion.div>
 
-        {vm.ui.isListLoading ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
+        {isVerseSectionTutorialMock ? (
+          <motion.div
+            data-tour="verse-list-content"
+            data-tour-filter={vm.filters.statusFilter}
+            data-tour-state="ready"
+            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            {...reveal(0.06)}
+          >
+            <VerseListSectionShell
+              totalCount={tutorialMockTotalCount}
+              config={tutorialMockSectionConfig}
+              count={tutorialMockVisibleVerses.length}
+            >
+              {tutorialMockListContent()}
+            </VerseListSectionShell>
+          </motion.div>
+        ) : vm.ui.isListLoading ? (
+          <motion.div
+            data-tour="verse-list-content"
+            data-tour-filter={vm.filters.statusFilter}
+            data-tour-state="loading"
+            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            {...reveal(0.05)}
+          >
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={
@@ -412,7 +633,13 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.05)}>
+          <motion.div
+            data-tour="verse-list-content"
+            data-tour-filter={vm.filters.statusFilter}
+            data-tour-state="empty"
+            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            {...reveal(0.05)}
+          >
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={{
@@ -435,7 +662,13 @@ export function VerseList({
             </VerseListSectionShell>
           </motion.div>
         ) : vm.list.sectionConfig ? (
-          <motion.div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8" {...reveal(0.06)}>
+          <motion.div
+            data-tour="verse-list-content"
+            data-tour-filter={vm.filters.statusFilter}
+            data-tour-state="ready"
+            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            {...reveal(0.06)}
+          >
             <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={vm.list.sectionConfig}
@@ -448,11 +681,25 @@ export function VerseList({
 
         <VerseListFiltersDrawer
           open={isFiltersDrawerOpen}
-          onOpenChange={setIsFiltersDrawerOpen}
-          totalVisible={vm.ui.totalVisible}
-          totalCount={vm.pagination.totalCount}
-          currentFilterLabel={vm.ui.currentFilterLabel}
-          currentFilterTheme={vm.ui.currentFilterTheme}
+          onOpenChange={setIsLocalFiltersDrawerOpen}
+          totalVisible={
+            isVerseSectionTutorialMock
+              ? tutorialMockVisibleVerses.length
+              : vm.ui.totalVisible
+          }
+          totalCount={
+            isVerseSectionTutorialMock
+              ? tutorialMockTotalCount
+              : vm.pagination.totalCount
+          }
+          currentFilterLabel={
+            isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
+          }
+          currentFilterTheme={
+            isVerseSectionTutorialMock
+              ? tutorialMockFilterTheme
+              : vm.ui.currentFilterTheme
+          }
           statusFilter={vm.filters.statusFilter}
           defaultStatusFilter={vm.filters.defaultStatusFilter}
           filterOptions={vm.filters.filterOptions}
@@ -515,7 +762,34 @@ export function VerseList({
           isSubmitting={vm.modal.isDeleteSubmitting}
         />
 
-        {vm.gallery.galleryIndex !== null &&
+        {isVerseSectionTutorialMock &&
+          tutorialGalleryIndex !== null &&
+          tutorialMockVisibleVerses[tutorialGalleryIndex] &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <VerseGallery
+              verses={tutorialMockVisibleVerses}
+              initialIndex={tutorialGalleryIndex}
+              activeTagSlugs={vm.tagFilter.selectedTagSlugs}
+              viewerTelegramId={telegramId}
+              onClose={() => {
+                useVerseSectionTutorialStore.getState().closeGallery();
+              }}
+              onStatusChange={async () => {}}
+              onDelete={async () => ({ xpLoss: 0 })}
+              onSelectTag={handleVerseTagSelect}
+              onFriendsChanged={onFriendsChanged}
+              onNavigateToTraining={() => {}}
+              previewTotalCount={tutorialMockVisibleVerses.length}
+              previewHasMore={false}
+              previewIsLoadingMore={false}
+              isAnchorEligible={isAnchorEligible}
+            />,
+            document.body,
+          )}
+
+        {!isVerseSectionTutorialMock &&
+          vm.gallery.galleryIndex !== null &&
           vm.pagination.verses[vm.gallery.galleryIndex] &&
           typeof document !== "undefined" &&
           createPortal(
@@ -576,9 +850,18 @@ export function VerseList({
         />
 
         <VerseProgressDrawer
-          verse={verseProgressTarget}
-          open={isVerseProgressDrawerOpen}
+          verse={activeVerseProgressTarget}
+          open={isActiveVerseProgressDrawerOpen}
           onOpenChange={(open) => {
+            if (isVerseSectionTutorialMock) {
+              if (open) {
+                // Progress drawer is opened via store.openProgressDrawer
+              } else {
+                useVerseSectionTutorialStore.getState().closeProgressDrawer();
+              }
+              return;
+            }
+
             setIsVerseProgressDrawerOpen(open);
             if (!open) {
               setVerseProgressTarget(null);

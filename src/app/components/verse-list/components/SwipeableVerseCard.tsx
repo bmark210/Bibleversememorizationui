@@ -142,6 +142,7 @@ export const SwipeableVerseCard = ({
       return (
         <Button
           type="button"
+          data-tour="verse-card-add-button"
           size="icon"
           variant="outline"
           title="Добавить в мои стихи"
@@ -163,6 +164,7 @@ export const SwipeableVerseCard = ({
         <>
           <Button
             type="button"
+            data-tour="verse-card-promote-button"
             size="icon"
             variant="outline"
             title="Добавить в изучение"
@@ -339,6 +341,7 @@ export const SwipeableVerseCard = ({
   const statusMetaContent = (displayStatus === VerseStatus.MY || displayStatus === 'CATALOG') ? null : (
     <button
       type="button"
+      data-tour="verse-card-progress-button"
       onClick={handleOpenProgress}
       className={cn(
         'relative w-full rounded-xl border overflow-hidden text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',

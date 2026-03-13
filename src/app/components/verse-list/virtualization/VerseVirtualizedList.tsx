@@ -254,6 +254,7 @@ export function VerseVirtualizedList({
       <Virtuoso<Verse>
         key={`verse-virtuoso-${statusFilter}`}
         data={items}
+        data-tour="verse-list-virtualized"
         className="h-full w-full"
         style={{ height: '100%' }}
         components={virtuosoComponents}
@@ -293,7 +294,12 @@ export function VerseVirtualizedList({
           );
 
           return (
-            <div className="pb-3">
+            <div
+              className="pb-3"
+              data-tour="verse-list-row"
+              data-tour-index={index}
+              data-tour-verse-id={verse.externalVerseId}
+            >
               {shouldAnimateAppend ? (
                 <motion.div
                   key={`${itemKey}:${layoutSignature}`}

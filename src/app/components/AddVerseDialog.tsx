@@ -979,7 +979,10 @@ export function AddVerseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="w-screen max-w-full h-[100dvh] max-h-[100dvh] sm:h-[90dvh] sm:max-h-[90dvh] sm:max-w-[600px] overflow-hidden sm:rounded-3xl rounded-none !p-0 !gap-0 !flex !flex-col border-border/60 bg-gradient-to-b from-background via-background to-muted/20">
+      <DialogContent
+        data-tour="add-verse-dialog"
+        className="w-screen max-w-full h-[100dvh] max-h-[100dvh] sm:h-[90dvh] sm:max-h-[90dvh] sm:max-w-[600px] overflow-hidden sm:rounded-3xl rounded-none !p-0 !gap-0 !flex !flex-col border-border/60 bg-gradient-to-b from-background via-background to-muted/20"
+      >
 
         {/* ── Шапка ──────────────────────────────────────────────────────────── */}
         <DialogHeader
@@ -1405,6 +1408,7 @@ export function AddVerseDialog({
             </Button>
             <Button
               type="submit"
+              data-tour="add-verse-submit-button"
               disabled={!canSubmit}
               className="flex-1 rounded-xl gap-2 px-3 py-2 bg-input-background text-foreground/75  border border-border/70"
             >
