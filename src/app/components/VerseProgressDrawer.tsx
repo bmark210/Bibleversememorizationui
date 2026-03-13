@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Bookmark,
   Brain,
@@ -423,6 +423,8 @@ export function VerseProgressDrawer({
   open,
   onOpenChange,
 }: VerseProgressDrawerProps) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
   const progressModel = useMemo(() => {
     if (!verse) return null;
 
@@ -610,6 +612,27 @@ export function VerseProgressDrawer({
     ];
   }, [progressModel, verse]);
 
+  useEffect(() => {
+    if (!open || !verse || !(contentRef.current instanceof HTMLDivElement)) {
+      return;
+    }
+
+    const content = contentRef.current;
+    const resetScroll = () => {
+      content.scrollTo({
+        top: 0,
+        behavior: "auto",
+      });
+    };
+
+    resetScroll();
+    const frameId = window.requestAnimationFrame(resetScroll);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [open, verse?.externalVerseId]);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
       <DrawerContent
@@ -645,8 +668,9 @@ export function VerseProgressDrawer({
 
         {progressModel ? (
           <div
+            ref={contentRef}
             data-tour="verse-progress-content"
-            className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1"
+            className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain scroll-smooth pr-1 pb-4 sm:pr-2"
           >
             <section
               data-tour="verse-progress-summary"

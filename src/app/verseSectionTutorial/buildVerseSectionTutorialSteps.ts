@@ -70,6 +70,7 @@ const VERSE_CARD_ADD_BUTTON_SELECTOR = "[data-tour='verse-card-add-button']";
 const VERSE_CARD_PROGRESS_BUTTON_SELECTOR =
   "[data-tour='verse-card-progress-button']";
 const VERSE_PROGRESS_DRAWER_SELECTOR = "[data-tour='verse-progress-drawer']";
+const VERSE_PROGRESS_CONTENT_SELECTOR = "[data-tour='verse-progress-content']";
 const VERSE_PROGRESS_SUMMARY_SELECTOR = "[data-tour='verse-progress-summary']";
 const VERSE_PROGRESS_LEARNING_SELECTOR =
   "[data-tour='verse-progress-phase-learning']";
@@ -111,12 +112,90 @@ async function waitForAnimationFrames(count = 2) {
   }
 }
 
-async function scrollElementIntoView(element: HTMLElement) {
-  element.scrollIntoView({
-    block: "center",
-    behavior: "smooth",
-  });
-  await waitForAnimationFrames(3);
+function isScrollableElement(element: HTMLElement) {
+  const styles = window.getComputedStyle(element);
+  const overflowY = styles.overflowY;
+  return (
+    (overflowY === "auto" || overflowY === "scroll") &&
+    element.scrollHeight > element.clientHeight + 4
+  );
+}
+
+function findScrollableParent(element: HTMLElement) {
+  let parent = element.parentElement;
+
+  while (parent) {
+    if (isScrollableElement(parent)) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+
+  return null;
+}
+
+async function waitForScrollIdle(
+  target: HTMLElement | Window,
+  timeoutMs = 700,
+  stableFrames = 4,
+) {
+  const startedAt = performance.now();
+  let previousOffset = Number.NaN;
+  let stableFrameCount = 0;
+
+  while (performance.now() - startedAt < timeoutMs) {
+    await waitForAnimationFrames(1);
+
+    const currentOffset =
+      target instanceof Window
+        ? target.scrollY
+        : target.scrollTop;
+
+    if (Math.abs(currentOffset - previousOffset) <= 1) {
+      stableFrameCount += 1;
+      if (stableFrameCount >= stableFrames) {
+        return;
+      }
+    } else {
+      stableFrameCount = 0;
+      previousOffset = currentOffset;
+    }
+  }
+}
+
+async function scrollElementIntoView(
+  element: HTMLElement,
+  options?: {
+    container?: HTMLElement | null;
+    block?: ScrollLogicalPosition;
+  },
+) {
+  const block = options?.block ?? "center";
+  const scrollContainer =
+    options?.container === undefined
+      ? findScrollableParent(element)
+      : options.container;
+
+  if (scrollContainer && scrollContainer !== document.body) {
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const targetRect = element.getBoundingClientRect();
+    const desiredTop =
+      scrollContainer.scrollTop +
+      (targetRect.top - containerRect.top) -
+      Math.max((scrollContainer.clientHeight - targetRect.height) / 2, 24);
+
+    scrollContainer.scrollTo({
+      top: Math.max(0, desiredTop),
+      behavior: "smooth",
+    });
+    await waitForScrollIdle(scrollContainer);
+  } else {
+    element.scrollIntoView({
+      block,
+      behavior: "smooth",
+    });
+    await waitForScrollIdle(window);
+  }
 }
 
 function getPrimaryMockVerseCard() {
@@ -228,15 +307,27 @@ async function ensureProgressContent(
     }
   }
 
-  await runtime.waitForElement(VERSE_PROGRESS_DRAWER_SELECTOR, {
+  const drawer = await runtime.waitForElement(VERSE_PROGRESS_DRAWER_SELECTOR, {
     timeoutMs: 5000,
   });
+  const content = await runtime.waitForElement(VERSE_PROGRESS_CONTENT_SELECTOR, {
+    timeoutMs: 5000,
+  });
+
+  if (content instanceof HTMLElement && targetSelector === VERSE_PROGRESS_SUMMARY_SELECTOR) {
+    content.scrollTo({ top: 0, behavior: "smooth" });
+    await waitForScrollIdle(content);
+  }
+
+  if (!(drawer instanceof HTMLElement)) return;
 
   const target = await runtime.waitForElement(targetSelector, {
     timeoutMs: 5000,
   });
   if (target instanceof HTMLElement) {
-    await scrollElementIntoView(target);
+    await scrollElementIntoView(target, {
+      container: content instanceof HTMLElement ? content : null,
+    });
   }
 }
 
