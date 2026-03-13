@@ -14,7 +14,8 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { ReviewHint } from './ReviewHint';
+import { FixedBottomPanel } from './FixedBottomPanel';
+import { HintButton, HintContent } from './ReviewHint';
 import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 
 interface TypingModeProps {
@@ -140,21 +141,22 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground/90">
-            Напечатайте стих по памяти
-          </label>
-          <ReviewHint
-            verseText={verse.text}
-            isReview={isReview}
-            hintLevel={hintLevel}
-            onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
-            onHintUsed={() => setHintUsed(true)}
-          />
-        </div>
+      <div className="shrink-0 flex items-center justify-between">
+        <label className="text-sm font-medium text-foreground/90">
+          Напечатайте стих по памяти
+        </label>
+        <HintButton
+          isReview={isReview}
+          hintLevel={hintLevel}
+          onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
+          onHintUsed={() => setHintUsed(true)}
+        />
+      </div>
+
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3">
+        <HintContent verseText={verse.text} hintLevel={hintLevel} />
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -201,12 +203,16 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             </p>
           </div>
         )}
+      </div>
 
-        {!isCompleted ? (
-          <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
-            Проверить
-          </Button>
-        ) : (
+      <FixedBottomPanel visible={!isCompleted}>
+        <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
+          Проверить
+        </Button>
+      </FixedBottomPanel>
+
+      {isCompleted && (
+        <div className="shrink-0 pt-3">
           <TrainingRatingFooter>
             <TrainingRatingButtons
               stage={ratingStage}
@@ -215,8 +221,8 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
             />
           </TrainingRatingFooter>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }

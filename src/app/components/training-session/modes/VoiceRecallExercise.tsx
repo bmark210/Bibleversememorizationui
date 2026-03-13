@@ -11,7 +11,8 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { ReviewHint } from './ReviewHint';
+import { FixedBottomPanel } from './FixedBottomPanel';
+import { HintButton, HintContent } from './ReviewHint';
 import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
@@ -203,13 +204,12 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+      <div className="shrink-0 flex items-center justify-between">
         <label className="text-sm font-medium text-foreground/90">
           Голосовой ввод стиха
         </label>
-        <ReviewHint
-          verseText={verse.text}
+        <HintButton
           isReview={isReview}
           hintLevel={hintLevel}
           onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
@@ -217,79 +217,87 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
         />
       </div>
 
-      <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            onClick={isListening ? handleStopListening : handleStartListening}
-            className="rounded-xl"
-            variant={isListening ? 'secondary' : 'default'}
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3">
+        <HintContent verseText={verse.text} hintLevel={hintLevel} />
+
+        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={isListening ? handleStopListening : handleStartListening}
+              className="rounded-xl"
+              variant={isListening ? 'secondary' : 'default'}
+            >
+              {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+              {isListening ? 'Остановить запись' : 'Начать запись'}
+            </Button>
+            <Button type="button" variant="outline" className="rounded-xl" onClick={handleResetTranscript}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Очистить
+            </Button>
+          </div>
+        </div>
+
+        {!isSpeechSupported ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            Браузер не поддерживает Web Speech API. Введите текст вручную.
+          </div>
+        ) : null}
+
+        {recognitionError ? (
+          <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {recognitionError}
+          </div>
+        ) : null}
+
+        <div className="rounded-2xl border border-border/60 bg-background/70 p-2">
+          <Textarea
+            value={transcript}
+            onChange={(event) => {
+              setTranscript(event.target.value);
+              if (matchPercent !== null) setMatchPercent(null);
+            }}
+            className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
+            placeholder="Здесь будет распознанный текст..."
+            disabled={isChecked}
+          />
+        </div>
+
+        {matchPercent !== null && (
+          <div
+            className={`rounded-xl border px-3 py-2 text-sm ${
+              matchPercent === 100
+                ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : matchPercent >= 80
+                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                  : 'border-destructive/45 bg-destructive/10 text-destructive'
+            }`}
           >
-            {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-            {isListening ? 'Остановить запись' : 'Начать запись'}
-          </Button>
-          <Button type="button" variant="outline" className="rounded-xl" onClick={handleResetTranscript}>
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Очистить
-          </Button>
-        </div>
+            <p className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Процент соответствия</span>
+              <span className="font-semibold tabular-nums">{matchPercent}%</span>
+            </p>
+          </div>
+        )}
       </div>
 
-      {!isSpeechSupported ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-          Браузер не поддерживает Web Speech API. Введите текст вручную.
-        </div>
-      ) : null}
-
-      {recognitionError ? (
-        <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {recognitionError}
-        </div>
-      ) : null}
-
-      <div className="rounded-2xl border border-border/60 bg-background/70 p-2">
-        <Textarea
-          value={transcript}
-          onChange={(event) => {
-            setTranscript(event.target.value);
-            if (matchPercent !== null) setMatchPercent(null);
-          }}
-          className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
-          placeholder="Здесь будет распознанный текст..."
-          disabled={isChecked}
-        />
-      </div>
-
-      {matchPercent !== null && (
-        <div
-          className={`rounded-xl border px-3 py-2 text-sm ${
-            matchPercent === 100
-              ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : matchPercent >= 80
-                ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                : 'border-destructive/45 bg-destructive/10 text-destructive'
-          }`}
-        >
-          <p className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">Процент соответствия</span>
-            <span className="font-semibold tabular-nums">{matchPercent}%</span>
-          </p>
-        </div>
-      )}
-
-      {!isChecked ? (
+      <FixedBottomPanel visible={!isChecked}>
         <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
           Проверить
         </Button>
-      ) : (
-        <TrainingRatingFooter>
-          <TrainingRatingButtons
-            stage={ratingStage}
-            mode="voice-recall"
-            onRate={onRate}
-            maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
-          />
-        </TrainingRatingFooter>
+      </FixedBottomPanel>
+
+      {isChecked && (
+        <div className="shrink-0 pt-3">
+          <TrainingRatingFooter>
+            <TrainingRatingButtons
+              stage={ratingStage}
+              mode="voice-recall"
+              onRate={onRate}
+              maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
+            />
+          </TrainingRatingFooter>
+        </div>
       )}
     </div>
   );

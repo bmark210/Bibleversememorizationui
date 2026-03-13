@@ -11,6 +11,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { FixedBottomPanel } from './FixedBottomPanel';
 import { Verse } from '@/app/App';
 import {
   tokenizeWords,
@@ -19,10 +20,8 @@ import {
   getMaxMistakes,
   getWordMask,
   getWordMaskWidth,
-  pickVisibleChoices,
 } from './wordUtils';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
-import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
@@ -99,8 +98,6 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
-  const { ref: choiceTrayRef, size: choiceTraySize } =
-    useMeasuredElementSize<HTMLDivElement>(!isCompleted);
 
   useEffect(() => {
     const words = tokenizeWords(verse.text);
@@ -124,7 +121,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
 
   const totalWords = orderedTokens.length;
   const maxMistakes = getMaxMistakes(totalWords);
-  const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
+  // const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
 
   const selectedTokens = useMemo(
     () => orderedTokens.slice(0, selectedCount),
@@ -167,16 +164,10 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
 
   const visibleChoices = useMemo(
     () =>
-      pickVisibleChoices(
-        uniqueChoices,
-        remainingCountByNormalized,
-        expectedNormalized,
-        {
-          trayWidth: choiceTraySize.width,
-          trayHeight: choiceTraySize.height,
-        }
+      uniqueChoices.filter(
+        (choice) => (remainingCountByNormalized.get(choice.normalized) ?? 0) > 0
       ),
-    [uniqueChoices, remainingCountByNormalized, expectedNormalized, choiceTraySize.width, choiceTraySize.height]
+    [uniqueChoices, remainingCountByNormalized]
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
@@ -234,65 +225,43 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
         </label>
       </div>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
-        {showChoices ? (
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
-            <WordSequenceField
-              className="h-full"
-              label="Стих для сборки"
-              progressCurrent={selectedCount}
-              progressTotal={totalWords}
-              items={sequenceItems}
-              focusItemId={focusItemId}
-            />
-
-            <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 pt-3 px-3">
-              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>Варианты слов</span>
-                <span className="tabular-nums">{visibleChoices.length}</span>
-              </div>
-
-                <div
-                  ref={choiceTrayRef}
-                  data-card-swipe-ignore="true"
-                  className="flex min-h-0 flex-1 items-start overflow-hidden py-2"
-                >
-                  <div className="flex w-full flex-wrap content-start gap-1">
-                    {visibleChoices.map((choice) => (
-                      <Button
-                        key={choice.normalized}
-                        type="button"
-                        variant="outline"
-                        title={choice.displayText}
-                        className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-2.5 py-1.5 text-[13px] leading-4 text-left whitespace-nowrap transition-colors ${
-                          errorFlashNormalized === choice.normalized
-                            ? 'border-destructive text-destructive'
-                            : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                        }`}
-                        onClick={() => handleWordClick(choice)}
-                      >
-                        <span className="block min-w-0 truncate">
-                          {choice.displayText}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-            </div>
-          </div>
-        ) : (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <WordSequenceField
-              className="h-full"
-              label="Собранный стих"
-              progressCurrent={selectedCount}
-              progressTotal={totalWords}
-              items={sequenceItems}
-              focusItemId={focusItemId}
-            />
-          </div>
-        )}
+      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+        <WordSequenceField
+          className="h-full"
+          label={isCompleted ? 'Собранный стих' : 'Стих для сборки'}
+          progressCurrent={selectedCount}
+          progressTotal={totalWords}
+          items={sequenceItems}
+          focusItemId={focusItemId}
+        />
       </div>
+
+      <FixedBottomPanel visible={showChoices}>
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Варианты слов</span>
+          <span className="tabular-nums">{visibleChoices.length}</span>
+        </div>
+        <div className="flex flex-wrap content-start gap-1" data-card-swipe-ignore="true">
+          {visibleChoices.map((choice) => (
+            <Button
+              key={choice.normalized}
+              type="button"
+              variant="outline"
+              title={choice.displayText}
+              className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-2.5 py-1.5 text-[13px] leading-4 text-left whitespace-nowrap transition-colors ${
+                errorFlashNormalized === choice.normalized
+                  ? 'border-destructive text-destructive'
+                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+              }`}
+              onClick={() => handleWordClick(choice)}
+            >
+              <span className="block min-w-0 truncate">
+                {choice.displayText}
+              </span>
+            </Button>
+          ))}
+        </div>
+      </FixedBottomPanel>
 
       {isCompleted && (
         <div className="shrink-0 pt-3">

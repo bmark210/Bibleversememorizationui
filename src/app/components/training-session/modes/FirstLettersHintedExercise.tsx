@@ -11,7 +11,6 @@ import {
   getComparableFirstLetter,
   getWordMask,
   getWordMaskWidth,
-  pickVisibleChoices,
   tokenizeWords,
 } from './wordUtils';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -19,8 +18,8 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { FixedBottomPanel } from './FixedBottomPanel';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
-import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
@@ -34,14 +33,6 @@ interface WordSlot {
   order: number;
   revealed: boolean;
 }
-
-const LETTER_CHOICE_LAYOUT = {
-  estimatedCharWidthPx: 10,
-  baseWidthPx: 24,
-  minChoiceWidthPx: 48,
-  rowHeightPx: 34,
-  leadingContextChoices: 1,
-} as const;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -132,8 +123,6 @@ export function ModeFirstLettersHintedExercise({
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
-  const { ref: choiceTrayRef, size: choiceTraySize } =
-    useMeasuredElementSize<HTMLDivElement>(!isCompleted);
 
   useEffect(() => {
     const exercise = buildExercise(verse.text);
@@ -183,24 +172,6 @@ export function ModeFirstLettersHintedExercise({
       choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
     [choiceOrder, remainingCountByLetter]
   );
-
-  const visibleLetters = useMemo(() => {
-    const letterChoices = availableLetters.map((letter) => ({
-      displayText: letter,
-      normalized: letter,
-    }));
-
-    return pickVisibleChoices(
-      letterChoices,
-      remainingCountByLetter,
-      nextHiddenSlot?.firstLetter ?? null,
-      {
-        trayWidth: choiceTraySize.width,
-        trayHeight: choiceTraySize.height,
-        ...LETTER_CHOICE_LAYOUT,
-      }
-    ).map((choice) => choice.normalized);
-  }, [availableLetters, remainingCountByLetter, nextHiddenSlot, choiceTraySize.width, choiceTraySize.height]);
 
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
@@ -291,7 +262,7 @@ export function ModeFirstLettersHintedExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && visibleLetters.length > 0;
+  const showChoices = !isCompleted && availableLetters.length > 0;
 
   return (
     <motion.div
@@ -305,62 +276,40 @@ export function ModeFirstLettersHintedExercise({
         </label>
       </div>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
-        {showChoices ? (
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
-            <WordSequenceField
-              className="h-full"
-              label="Стих с пропусками"
-              progressCurrent={selectedCount}
-              progressTotal={totalHidden}
-              items={sequenceItems}
-              focusItemId={focusItemId}
-            />
-
-            <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
-              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>Варианты букв</span>
-                <span className="tabular-nums">{visibleLetters.length}</span>
-              </div>
-
-              <div
-                ref={choiceTrayRef}
-                data-card-swipe-ignore="true"
-                className="flex min-h-0 flex-1 items-start overflow-hidden py-2"
-              >
-                <div className="flex w-full flex-wrap content-start gap-1">
-                  {visibleLetters.map((letter) => (
-                    <Button
-                      key={letter}
-                      type="button"
-                      variant="outline"
-                      className={`h-auto min-w-11 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
-                        errorFlashLetter === letter
-                          ? 'border-destructive text-destructive'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                      }`}
-                      onClick={() => handleLetterClick(letter)}
-                    >
-                      <span>{letter}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <WordSequenceField
-              className="h-full"
-              label="Стих с пропусками"
-              progressCurrent={selectedCount}
-              progressTotal={totalHidden}
-              items={sequenceItems}
-              focusItemId={focusItemId}
-            />
-          </div>
-        )}
+      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+        <WordSequenceField
+          className="h-full"
+          label="Стих с пропусками"
+          progressCurrent={selectedCount}
+          progressTotal={totalHidden}
+          items={sequenceItems}
+          focusItemId={focusItemId}
+        />
       </div>
+
+      <FixedBottomPanel visible={showChoices}>
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Варианты букв</span>
+          <span className="tabular-nums">{availableLetters.length}</span>
+        </div>
+        <div className="flex flex-wrap content-start gap-1" data-card-swipe-ignore="true">
+          {availableLetters.map((letter) => (
+            <Button
+              key={letter}
+              type="button"
+              variant="outline"
+              className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                errorFlashLetter === letter
+                  ? 'border-destructive text-destructive'
+                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+              }`}
+              onClick={() => handleLetterClick(letter)}
+            >
+              <span>{letter}</span>
+            </Button>
+          ))}
+        </div>
+      </FixedBottomPanel>
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
