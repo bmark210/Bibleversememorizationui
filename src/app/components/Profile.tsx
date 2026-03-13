@@ -55,6 +55,9 @@ interface ProfileProps {
     avatarUrl: string | null;
   }) => void;
   friendsRefreshVersion?: number;
+  useOnboardingMockData?: boolean;
+  onboardingMockPlayersPage?: FriendPlayersPageResponse;
+  onboardingMockFriendsPage?: FriendPlayersPageResponse;
 }
 
 function getInitials(name: string) {
@@ -105,6 +108,9 @@ export function Profile({
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
+  useOnboardingMockData = false,
+  onboardingMockPlayersPage = EMPTY_FRIEND_PLAYERS_PAGE,
+  onboardingMockFriendsPage = EMPTY_FRIEND_PLAYERS_PAGE,
 }: ProfileProps) {
   const { user } = useTelegram();
   const isTelegramMiniApp = useTelegramUiStore(
@@ -124,7 +130,8 @@ export function Profile({
   const currentUserDailyStreak = useCurrentUserStatsStore(
     (state) => state.dailyStreak
   );
-  const shouldReduceMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion();
+  const shouldReduceMotion = useOnboardingMockData || prefersReducedMotion;
   const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
   const [playersSearchInput, setPlayersSearchInput] = React.useState("");
   const [friendsSearchInput, setFriendsSearchInput] = React.useState("");
@@ -140,6 +147,12 @@ export function Profile({
   const [listError, setListError] = React.useState<string | null>(null);
   const [pendingMutationByTelegramId, setPendingMutationByTelegramId] =
     React.useState<Record<string, boolean>>({});
+  const [mockPlayersItems, setMockPlayersItems] = React.useState<Array<FriendPlayerListItem>>(
+    () => onboardingMockPlayersPage.items,
+  );
+  const [mockFriendsItems, setMockFriendsItems] = React.useState<Array<FriendPlayerListItem>>(
+    () => onboardingMockFriendsPage.items,
+  );
   const playersRequestIdRef = React.useRef(0);
   const friendsRequestIdRef = React.useRef(0);
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
@@ -207,12 +220,72 @@ export function Profile({
     setFriendsPageIndex(1);
   }, [friendsSearchQuery]);
 
+  React.useEffect(() => {
+    if (!useOnboardingMockData) return;
+
+    setActiveTab("friends");
+    setPlayersSearchInput("");
+    setFriendsSearchInput("");
+    setPlayersSearchQuery("");
+    setFriendsSearchQuery("");
+    setPlayersPageIndex(1);
+    setFriendsPageIndex(1);
+    setMockPlayersItems(onboardingMockPlayersPage.items);
+    setMockFriendsItems(onboardingMockFriendsPage.items);
+    setPlayersPage(onboardingMockPlayersPage);
+    setFriendsPage(onboardingMockFriendsPage);
+    setIsListLoading(false);
+    setListError(null);
+  }, [
+    onboardingMockFriendsPage,
+    onboardingMockPlayersPage,
+    useOnboardingMockData,
+  ]);
+
   const fetchTabPage = React.useCallback(
     async (
       tab: FriendsTab,
       pageIndex: number,
       options?: { withLoader?: boolean },
     ) => {
+      if (useOnboardingMockData) {
+        const sourceItems = tab === "players" ? mockPlayersItems : mockFriendsItems;
+        const activeSearchQuery =
+          (tab === "players" ? playersSearchQuery : friendsSearchQuery).trim().toLowerCase();
+        const filteredItems =
+          activeSearchQuery.length === 0
+            ? sourceItems
+            : sourceItems.filter((item) =>
+                item.name.toLowerCase().includes(activeSearchQuery),
+              );
+        const totalCount = filteredItems.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / FRIENDS_PAGE_SIZE));
+        const normalizedPageIndex = Math.min(Math.max(1, pageIndex), totalPages);
+        const startWith = Math.max(0, (normalizedPageIndex - 1) * FRIENDS_PAGE_SIZE);
+        const nextPage: FriendPlayersPageResponse = {
+          items: filteredItems.slice(startWith, startWith + FRIENDS_PAGE_SIZE),
+          totalCount,
+          limit: FRIENDS_PAGE_SIZE,
+          startWith,
+        };
+
+        if (tab === "players") {
+          setPlayersPage(nextPage);
+          if (normalizedPageIndex !== pageIndex) {
+            setPlayersPageIndex(normalizedPageIndex);
+          }
+        } else {
+          setFriendsPage(nextPage);
+          if (normalizedPageIndex !== pageIndex) {
+            setFriendsPageIndex(normalizedPageIndex);
+          }
+        }
+
+        setListError(null);
+        setIsListLoading(false);
+        return;
+      }
+
       if (!telegramId) {
         if (tab === "players") {
           setPlayersPage(EMPTY_FRIEND_PLAYERS_PAGE);
@@ -291,7 +364,14 @@ export function Profile({
         }
       }
     },
-    [friendsSearchQuery, playersSearchQuery, telegramId],
+    [
+      friendsSearchQuery,
+      mockFriendsItems,
+      mockPlayersItems,
+      playersSearchQuery,
+      telegramId,
+      useOnboardingMockData,
+    ],
   );
 
   React.useEffect(() => {
@@ -308,6 +388,7 @@ export function Profile({
   }, [fetchTabPage, friendsPageIndex, playersPageIndex]);
 
   React.useEffect(() => {
+    if (useOnboardingMockData) return;
     if (!telegramId) return;
     if (friendsRefreshVersion === lastExternalRefreshVersionRef.current) {
       return;
@@ -315,7 +396,7 @@ export function Profile({
 
     lastExternalRefreshVersionRef.current = friendsRefreshVersion;
     void refreshFriendsLists();
-  }, [friendsRefreshVersion, refreshFriendsLists, telegramId]);
+  }, [friendsRefreshVersion, refreshFriendsLists, telegramId, useOnboardingMockData]);
 
   const setMutationPending = (targetTelegramId: string, isPending: boolean) => {
     setPendingMutationByTelegramId((prev) => {
@@ -333,6 +414,45 @@ export function Profile({
   };
 
   const handleToggleFriend = async (item: FriendPlayerListItem) => {
+    if (useOnboardingMockData) {
+      setPendingMutationByTelegramId((prev) => ({
+        ...prev,
+        [item.telegramId]: true,
+      }));
+
+      if (item.isFriend) {
+        setMockPlayersItems((prev) =>
+          prev.map((candidate) =>
+            candidate.telegramId === item.telegramId
+              ? { ...candidate, isFriend: false }
+              : candidate,
+          ),
+        );
+        setMockFriendsItems((prev) =>
+          prev.filter((candidate) => candidate.telegramId !== item.telegramId),
+        );
+      } else {
+        const nextFriend = { ...item, isFriend: true };
+        setMockPlayersItems((prev) =>
+          prev.map((candidate) =>
+            candidate.telegramId === item.telegramId
+              ? { ...candidate, isFriend: true }
+              : candidate,
+          ),
+        );
+        setMockFriendsItems((prev) => {
+          if (prev.some((candidate) => candidate.telegramId === item.telegramId)) {
+            return prev;
+          }
+          return [nextFriend, ...prev];
+        });
+      }
+
+      setMutationPending(item.telegramId, false);
+      onFriendsChanged?.();
+      return;
+    }
+
     if (!telegramId) {
       toast.warning("Не найден telegramId", {
         label: "Друзья",
@@ -393,7 +513,7 @@ export function Profile({
   );
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
-  const canManageFriends = Boolean(telegramId);
+  const canManageFriends = useOnboardingMockData || Boolean(telegramId);
   const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
   const fullscreenButtonLabel = prefersTelegramFullscreen
     ? "Выключить полный экран"

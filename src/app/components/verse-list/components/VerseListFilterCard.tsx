@@ -283,7 +283,7 @@ function VerseListFilterSections({
 
   return (
     <div className="overflow-hidden pb-2">
-      <div className="mt-2 px-3">
+      <div data-tour="verse-list-filters-root-tabs" className="mt-2 px-3">
         <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
           Основной фильтр:{' '}
           {activeRootTab === 'my'
@@ -329,7 +329,7 @@ function VerseListFilterSections({
         </div>
       </div>
 
-      <div className="mt-3 px-3">
+      <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
@@ -447,7 +447,7 @@ function VerseListFilterSections({
         </div>
       ) : null}
 
-      <div className="mt-3 px-3">
+      <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
         <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
           Сортировка:{' '}
           {sortBy === 'bible'
@@ -493,7 +493,7 @@ function VerseListFilterSections({
         </div>
       </div>
 
-      <div className="mt-3 px-3">
+      <div data-tour="verse-list-filters-tags" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
             {hasActiveTags
@@ -655,14 +655,17 @@ export function VerseListFilterCard({
 
   if (isDrawerPresentation) {
     return (
-      <div data-tour="verse-list-filters" className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45">
+      <div
+        data-tour="verse-list-filters-panel"
+        className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45"
+      >
         <VerseListFilterSections {...sharedProps} />
       </div>
     );
   }
 
   return (
-    <div data-tour="verse-list-filters" className="mb-3">
+    <div data-tour="verse-list-filters-panel" className="mb-3">
       <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
           <button

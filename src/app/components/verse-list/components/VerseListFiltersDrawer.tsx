@@ -87,6 +87,24 @@ export function VerseListFiltersDrawer({
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ? getSortSummaryLabel(sortBy) : null,
     trimmedSearchQuery.length > 0 ? 'Поиск' : null,
   ].filter((value): value is string => Boolean(value));
+  const mainFilterValues = [
+    { label: 'Источник', value: currentFilterLabel },
+    { label: 'Книга', value: selectedBook?.label ?? 'Все книги' },
+    { label: 'Сортировка', value: getSortSummaryLabel(sortBy) },
+    hasActiveTags
+      ? { label: 'Темы', value: `${selectedTagSlugs.size} актив.` }
+      : null,
+    trimmedSearchQuery.length > 0
+      ? { label: 'Поиск', value: trimmedSearchQuery }
+      : null,
+  ].filter(
+    (
+      item,
+    ): item is {
+      label: string;
+      value: string;
+    } => Boolean(item),
+  );
   const triggerBottom = contentSafeAreaInset.bottom + MOBILE_NAV_OFFSET_PX + MOBILE_DOCK_GAP_PX;
 
   const filterCardProps: VerseListFilterCardProps = {
@@ -123,7 +141,7 @@ export function VerseListFiltersDrawer({
     <>
       <button
         type="button"
-        data-tour="verse-list-filters"
+        data-tour="verse-list-filters-trigger"
         aria-label="Открыть фильтры стихов"
         onClick={() => onOpenChange(true)}
         className={cn(
@@ -180,6 +198,7 @@ export function VerseListFiltersDrawer({
 
       <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
         <DrawerContent
+          data-tour="verse-list-filters-drawer"
           className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6"
           style={{ maxHeight: '90svh' }}
         >
@@ -205,6 +224,26 @@ export function VerseListFiltersDrawer({
               ) : null}
             </div>
           </DrawerHeader>
+
+          <div
+            data-tour="verse-list-filters-main-values"
+            className="mt-4 rounded-2xl border border-border/45 bg-background/40 px-3.5 py-3"
+          >
+            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
+              Текущее состояние
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {mainFilterValues.map((item) => (
+                <div
+                  key={item.label}
+                  className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3 py-1.5 text-xs text-foreground/78"
+                >
+                  <span className="text-muted-foreground/55">{item.label}</span>
+                  <span className="font-medium text-foreground/88">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-4 min-h-0 overflow-y-auto overscroll-contain pb-1">
             <VerseListFilterCard {...filterCardProps} />

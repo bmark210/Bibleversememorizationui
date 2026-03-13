@@ -644,7 +644,10 @@ export function VerseProgressDrawer({
         </DrawerHeader>
 
         {progressModel ? (
-          <div className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1">
+          <div
+            data-tour="verse-progress-content"
+            className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1"
+          >
             <section
               data-tour="verse-progress-summary"
               className={cn(
