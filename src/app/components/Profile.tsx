@@ -36,6 +36,10 @@ import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { cn } from "./ui/utils";
+import {
+  useVerseSectionTutorialStore,
+  selectShouldUseVerseSectionTutorialMockData,
+} from "@/app/verseSectionTutorial/store";
 
 type Theme = "light" | "dark";
 type FriendsTab = "players" | "friends";
@@ -47,6 +51,7 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
+  onRestartVerseSectionTutorial?: () => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -54,6 +59,8 @@ interface ProfileProps {
     avatarUrl: string | null;
   }) => void;
   friendsRefreshVersion?: number;
+  onboardingMockPlayersPage?: FriendPlayersPageResponse;
+  onboardingMockFriendsPage?: FriendPlayersPageResponse;
 }
 
 function getInitials(name: string) {
@@ -100,10 +107,16 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
+  onRestartVerseSectionTutorial,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
+  onboardingMockPlayersPage = EMPTY_FRIEND_PLAYERS_PAGE,
+  onboardingMockFriendsPage = EMPTY_FRIEND_PLAYERS_PAGE,
 }: ProfileProps) {
+  const useOnboardingMockData = useVerseSectionTutorialStore(
+    selectShouldUseVerseSectionTutorialMockData,
+  );
   const { user } = useTelegram();
   const isTelegramMiniApp = useTelegramUiStore(
     (state) => state.isTelegramMiniApp
@@ -122,7 +135,8 @@ export function Profile({
   const currentUserDailyStreak = useCurrentUserStatsStore(
     (state) => state.dailyStreak
   );
-  const shouldReduceMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion();
+  const shouldReduceMotion = useOnboardingMockData || prefersReducedMotion;
   const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
   const [playersSearchInput, setPlayersSearchInput] = React.useState("");
   const [friendsSearchInput, setFriendsSearchInput] = React.useState("");
@@ -138,6 +152,12 @@ export function Profile({
   const [listError, setListError] = React.useState<string | null>(null);
   const [pendingMutationByTelegramId, setPendingMutationByTelegramId] =
     React.useState<Record<string, boolean>>({});
+  const [mockPlayersItems, setMockPlayersItems] = React.useState<Array<FriendPlayerListItem>>(
+    () => onboardingMockPlayersPage.items,
+  );
+  const [mockFriendsItems, setMockFriendsItems] = React.useState<Array<FriendPlayerListItem>>(
+    () => onboardingMockFriendsPage.items,
+  );
   const playersRequestIdRef = React.useRef(0);
   const friendsRequestIdRef = React.useRef(0);
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
@@ -205,12 +225,72 @@ export function Profile({
     setFriendsPageIndex(1);
   }, [friendsSearchQuery]);
 
+  React.useEffect(() => {
+    if (!useOnboardingMockData) return;
+
+    setActiveTab("friends");
+    setPlayersSearchInput("");
+    setFriendsSearchInput("");
+    setPlayersSearchQuery("");
+    setFriendsSearchQuery("");
+    setPlayersPageIndex(1);
+    setFriendsPageIndex(1);
+    setMockPlayersItems(onboardingMockPlayersPage.items);
+    setMockFriendsItems(onboardingMockFriendsPage.items);
+    setPlayersPage(onboardingMockPlayersPage);
+    setFriendsPage(onboardingMockFriendsPage);
+    setIsListLoading(false);
+    setListError(null);
+  }, [
+    onboardingMockFriendsPage,
+    onboardingMockPlayersPage,
+    useOnboardingMockData,
+  ]);
+
   const fetchTabPage = React.useCallback(
     async (
       tab: FriendsTab,
       pageIndex: number,
       options?: { withLoader?: boolean },
     ) => {
+      if (useOnboardingMockData) {
+        const sourceItems = tab === "players" ? mockPlayersItems : mockFriendsItems;
+        const activeSearchQuery =
+          (tab === "players" ? playersSearchQuery : friendsSearchQuery).trim().toLowerCase();
+        const filteredItems =
+          activeSearchQuery.length === 0
+            ? sourceItems
+            : sourceItems.filter((item) =>
+                item.name.toLowerCase().includes(activeSearchQuery),
+              );
+        const totalCount = filteredItems.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / FRIENDS_PAGE_SIZE));
+        const normalizedPageIndex = Math.min(Math.max(1, pageIndex), totalPages);
+        const startWith = Math.max(0, (normalizedPageIndex - 1) * FRIENDS_PAGE_SIZE);
+        const nextPage: FriendPlayersPageResponse = {
+          items: filteredItems.slice(startWith, startWith + FRIENDS_PAGE_SIZE),
+          totalCount,
+          limit: FRIENDS_PAGE_SIZE,
+          startWith,
+        };
+
+        if (tab === "players") {
+          setPlayersPage(nextPage);
+          if (normalizedPageIndex !== pageIndex) {
+            setPlayersPageIndex(normalizedPageIndex);
+          }
+        } else {
+          setFriendsPage(nextPage);
+          if (normalizedPageIndex !== pageIndex) {
+            setFriendsPageIndex(normalizedPageIndex);
+          }
+        }
+
+        setListError(null);
+        setIsListLoading(false);
+        return;
+      }
+
       if (!telegramId) {
         if (tab === "players") {
           setPlayersPage(EMPTY_FRIEND_PLAYERS_PAGE);
@@ -289,7 +369,14 @@ export function Profile({
         }
       }
     },
-    [friendsSearchQuery, playersSearchQuery, telegramId],
+    [
+      friendsSearchQuery,
+      mockFriendsItems,
+      mockPlayersItems,
+      playersSearchQuery,
+      telegramId,
+      useOnboardingMockData,
+    ],
   );
 
   React.useEffect(() => {
@@ -306,6 +393,7 @@ export function Profile({
   }, [fetchTabPage, friendsPageIndex, playersPageIndex]);
 
   React.useEffect(() => {
+    if (useOnboardingMockData) return;
     if (!telegramId) return;
     if (friendsRefreshVersion === lastExternalRefreshVersionRef.current) {
       return;
@@ -313,7 +401,7 @@ export function Profile({
 
     lastExternalRefreshVersionRef.current = friendsRefreshVersion;
     void refreshFriendsLists();
-  }, [friendsRefreshVersion, refreshFriendsLists, telegramId]);
+  }, [friendsRefreshVersion, refreshFriendsLists, telegramId, useOnboardingMockData]);
 
   const setMutationPending = (targetTelegramId: string, isPending: boolean) => {
     setPendingMutationByTelegramId((prev) => {
@@ -331,6 +419,45 @@ export function Profile({
   };
 
   const handleToggleFriend = async (item: FriendPlayerListItem) => {
+    if (useOnboardingMockData) {
+      setPendingMutationByTelegramId((prev) => ({
+        ...prev,
+        [item.telegramId]: true,
+      }));
+
+      if (item.isFriend) {
+        setMockPlayersItems((prev) =>
+          prev.map((candidate) =>
+            candidate.telegramId === item.telegramId
+              ? { ...candidate, isFriend: false }
+              : candidate,
+          ),
+        );
+        setMockFriendsItems((prev) =>
+          prev.filter((candidate) => candidate.telegramId !== item.telegramId),
+        );
+      } else {
+        const nextFriend = { ...item, isFriend: true };
+        setMockPlayersItems((prev) =>
+          prev.map((candidate) =>
+            candidate.telegramId === item.telegramId
+              ? { ...candidate, isFriend: true }
+              : candidate,
+          ),
+        );
+        setMockFriendsItems((prev) => {
+          if (prev.some((candidate) => candidate.telegramId === item.telegramId)) {
+            return prev;
+          }
+          return [nextFriend, ...prev];
+        });
+      }
+
+      setMutationPending(item.telegramId, false);
+      onFriendsChanged?.();
+      return;
+    }
+
     if (!telegramId) {
       toast.warning("Не найден telegramId", {
         label: "Друзья",
@@ -391,7 +518,7 @@ export function Profile({
   );
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
-  const canManageFriends = Boolean(telegramId);
+  const canManageFriends = useOnboardingMockData || Boolean(telegramId);
   const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
   const fullscreenButtonLabel = prefersTelegramFullscreen
     ? "Выключить полный экран"
@@ -611,7 +738,31 @@ export function Profile({
           </motion.div>
 
           <motion.div variants={sectionVariants}>
-            <ProfileSurface>
+            <ProfileSurface data-tour="profile-onboarding-replay">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground/82">
+                    Обучение раздела «Стихи»
+                  </div>
+                  <div className="mt-1 text-sm text-foreground/56">
+                    Повторно покажем только работу раздела «Стихи»: карточку, путь прогресса и подробный просмотр.
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onRestartVerseSectionTutorial}
+                  className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
+                >
+                  Повторить обучение
+                </Button>
+              </div>
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface data-tour="profile-friends">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold tracking-tight text-foreground/80">
                   Друзья
@@ -633,6 +784,7 @@ export function Profile({
                   >
                     <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-border/60 bg-background/45 p-1">
                       <TabsTrigger
+                        data-tour="profile-players-tab"
                         value="players"
                         className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
                       >
@@ -793,6 +945,7 @@ export function Profile({
                               size="sm"
                               variant="outline"
                               disabled={isMutationPending}
+                              data-tour={showRemoveAction ? undefined : "profile-add-friend-button"}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 void handleToggleFriend(item);

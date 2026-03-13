@@ -303,7 +303,7 @@ export function DashboardTrainingStatsCard({
   statsCards,
 }: DashboardTrainingStatsCardProps) {
   return (
-    <div>
+    <div data-tour="dashboard-stats">
       <DashboardSurface>
         <div className="grid grid-cols-2 gap-3">
           {statsCards.map((item) => {

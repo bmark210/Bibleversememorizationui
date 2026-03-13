@@ -16,9 +16,17 @@ const sortTagsByTitle = (tags: Tag[]) =>
     TAG_TITLE_COLLATOR.compare((a.title ?? '').trim(), (b.title ?? '').trim())
   );
 
-export function useTagFilter() {
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+type UseTagFilterParams = {
+  disabled?: boolean;
+  initialTags?: Tag[];
+};
+
+export function useTagFilter(params?: UseTagFilterParams) {
+  const disabled = params?.disabled ?? false;
+  const initialTags = params?.initialTags ?? [];
+  const [allTags, setAllTags] = useState<Tag[]>(() => sortTagsByTitle(initialTags));
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(() => {
+    if (disabled) return new Set();
     if (typeof window === 'undefined') return new Set();
     return parseStoredTagSlugs(
       window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedTagSlugs)
@@ -27,6 +35,17 @@ export function useTagFilter() {
   const [isLoadingTags, setIsLoadingTags] = useState(false);
 
   useEffect(() => {
+    if (!disabled) return;
+    setAllTags(sortTagsByTitle(initialTags));
+    setSelectedTagSlugs(new Set());
+    setIsLoadingTags(false);
+  }, [disabled, initialTags]);
+
+  useEffect(() => {
+    if (disabled) {
+      setIsLoadingTags(false);
+      return;
+    }
     setIsLoadingTags(true);
     const req = TagsService.getApiTags();
     req
@@ -34,15 +53,16 @@ export function useTagFilter() {
       .catch(() => {})
       .finally(() => setIsLoadingTags(false));
     return () => req.cancel();
-  }, []);
+  }, [disabled]);
 
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(
       VERSE_LIST_STORAGE_KEYS.selectedTagSlugs,
       JSON.stringify(Array.from(selectedTagSlugs))
     );
-  }, [selectedTagSlugs]);
+  }, [disabled, selectedTagSlugs]);
 
   const toggleTag = useCallback((slug: string) => {
     setSelectedTagSlugs((prev) => {
@@ -70,11 +90,30 @@ export function useTagFilter() {
   );
 
   const createTag = useCallback(async (title: string, slug: string) => {
+    if (disabled) {
+      setAllTags((prev) =>
+        sortTagsByTitle([
+          ...prev,
+          { id: `mock-${slug}`, slug, title } as Tag,
+        ])
+      );
+      return;
+    }
     const newTag = await TagsService.postApiTags({ slug, title });
     setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
-  }, []);
+  }, [disabled]);
 
   const deleteTag = useCallback(async (id: string, slug: string) => {
+    if (disabled) {
+      setAllTags((prev) => prev.filter((t) => t.id !== id));
+      setSelectedTagSlugs((prev) => {
+        if (!prev.has(slug)) return prev;
+        const next = new Set(prev);
+        next.delete(slug);
+        return next;
+      });
+      return;
+    }
     const telegramId =
       getTelegramUserId()?.toString().trim() ||
       window.localStorage.getItem('telegramId')?.trim() ||
@@ -113,7 +152,7 @@ export function useTagFilter() {
       next.delete(slug);
       return next;
     });
-  }, []);
+  }, [disabled]);
 
   return {
     allTags,

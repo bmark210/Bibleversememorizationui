@@ -23,6 +23,7 @@ import {
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
+import { VERSE_JOURNEY_PHASE_TITLES } from "@/app/onboarding/verseJourneyModel";
 import {
   Drawer,
   DrawerContent,
@@ -365,6 +366,7 @@ function TimelinePhaseCard({
   tone,
   state,
   children,
+  dataTour,
 }: {
   icon: LucideIcon;
   title: string;
@@ -373,9 +375,11 @@ function TimelinePhaseCard({
   tone: PhaseTone;
   state: PhaseState;
   children?: React.ReactNode;
+  dataTour?: string;
 }) {
   return (
     <div
+      data-tour={dataTour}
       className={cn(
         "rounded-3xl border p-4 shadow-sm backdrop-blur-sm",
         tone.cardClassName,
@@ -506,7 +510,7 @@ export function VerseProgressDrawer({
     return [
       {
         key: "collection" as const,
-        title: "В коллекции",
+        title: VERSE_JOURNEY_PHASE_TITLES.collection,
         icon: Bookmark,
         tone: PHASE_TONES.collection,
         state: getPhaseState(currentPhase, "collection"),
@@ -524,7 +528,7 @@ export function VerseProgressDrawer({
       },
       {
         key: "learning" as const,
-        title: "Изучение",
+        title: VERSE_JOURNEY_PHASE_TITLES.learning,
         icon: Brain,
         tone: PHASE_TONES.learning,
         state: getPhaseState(currentPhase, "learning"),
@@ -550,7 +554,7 @@ export function VerseProgressDrawer({
       },
       {
         key: "review" as const,
-        title: "Повторение",
+        title: VERSE_JOURNEY_PHASE_TITLES.review,
         icon:
           progressModel.currentPhase === "review" && progressModel.nextReviewAt
             ? Clock3
@@ -587,7 +591,7 @@ export function VerseProgressDrawer({
       },
       {
         key: "mastered" as const,
-        title: "Выучен",
+        title: VERSE_JOURNEY_PHASE_TITLES.mastered,
         icon: Trophy,
         tone: PHASE_TONES.mastered,
         state: getPhaseState(currentPhase, "mastered"),
@@ -608,7 +612,10 @@ export function VerseProgressDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent
+        data-tour="verse-progress-drawer"
+        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6"
+      >
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start gap-3">
             <div
@@ -637,8 +644,12 @@ export function VerseProgressDrawer({
         </DrawerHeader>
 
         {progressModel ? (
-          <div className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1">
+          <div
+            data-tour="verse-progress-content"
+            className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1"
+          >
             <section
+              data-tour="verse-progress-summary"
               className={cn(
                 "overflow-hidden rounded-[28px] border p-4 shadow-sm",
                 progressModel.currentTone.cardClassName
@@ -730,6 +741,7 @@ export function VerseProgressDrawer({
                         badge={getPhaseBadgeLabel(phase.state)}
                         tone={phase.tone}
                         state={phase.state}
+                        dataTour={`verse-progress-phase-${phase.key}`}
                       >
                         {phase.content}
                       </TimelinePhaseCard>

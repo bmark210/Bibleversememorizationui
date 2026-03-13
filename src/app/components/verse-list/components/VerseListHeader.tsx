@@ -20,6 +20,7 @@ export function VerseListHeader({
     <div className={cn("flex justify-between items-start gap-3 px-4 sm:px-6 lg:px-8 relative", isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7")}>
       {isTelegramFullscreen ? null : <h1 className="text-primary">Cтихи</h1>}
         <Button
+          data-tour="verse-list-add-button"
           type="button"
           variant="default"
           onClick={onAddVerseClick}

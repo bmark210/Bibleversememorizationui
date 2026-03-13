@@ -103,7 +103,7 @@ export function Layout({
 
       <div className="flex-1 min-h-0 flex max-w-7xl w-full mx-auto">
         {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
+        <aside data-tour="app-nav" className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -144,6 +144,7 @@ export function Layout({
 
       {/* Mobile Bottom Navigation */}
       <div
+        data-tour="app-nav"
         className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady
             ? 'opacity-0 translate-y-3 pointer-events-none'

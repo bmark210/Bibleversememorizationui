@@ -171,6 +171,7 @@ interface TrainingSessionProps {
   initialSubsetFilter: TrainingSubsetSelectValue;
   initialOrder: TrainingOrder;
   initialVerseExternalId?: string | null;
+  suppressModeTutorials?: boolean;
   onClose: () => void;
   onVersePatched?: (event: VersePatchEvent) => void;
   onMutationCommitted?: () => void;
@@ -181,6 +182,7 @@ export function TrainingSession({
   initialSubsetFilter,
   initialOrder,
   initialVerseExternalId = null,
+  suppressModeTutorials = false,
   onClose,
   onVersePatched,
   onMutationCommitted,
@@ -407,6 +409,7 @@ export function TrainingSession({
         role="dialog"
         aria-modal="true"
         aria-label="Тренировка"
+        data-tour="training-session-shell"
         className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -473,9 +476,11 @@ export function TrainingSession({
                 />
               ) : trainingActiveVerse && trainingModeId ? (
                 <TrainingCard
+                  dataTour="training-session-card"
                   trainingVerse={trainingActiveVerse}
                   modeId={trainingModeId}
                   rendererRef={session.rendererRef}
+                  suppressModeTutorials={suppressModeTutorials}
                   onSwipeStep={requestNavigationStep}
                   onTrainingInteractionStart={markInteractionStarted}
                   onRate={(rating) => {

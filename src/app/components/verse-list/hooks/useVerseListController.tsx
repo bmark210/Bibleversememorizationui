@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
+import type { Tag } from '@/api/models/Tag';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
@@ -40,6 +41,8 @@ import { parseExternalVerseId } from '@/shared/bible/externalVerseId';
 import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
 
 type UseVerseListControllerParams = {
+  disabled?: boolean;
+  initialTags?: Tag[];
   hasFriends?: boolean;
   onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
@@ -70,6 +73,8 @@ function readInitialStoredStatusFilter(
 }
 
 export function useVerseListController({
+  disabled = false,
+  initialTags = [],
   hasFriends = false,
   onAddVerse,
   onOpenVerseOwners,
@@ -86,21 +91,31 @@ export function useVerseListController({
   const hasOwnVersesRequestIdRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState(() => {
+    if (disabled) return '';
     if (typeof window === 'undefined') return '';
     return window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? '';
   });
-  const tagFilter = useTagFilter();
+  const tagFilter = useTagFilter({
+    disabled,
+    initialTags,
+  });
   const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(() => {
     if (reopenGalleryStatusFilter) return null;
     return readInitialStoredStatusFilter(canUseFriendsFilter);
   });
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
+    if (disabled) return 'catalog';
     if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
     return initialStoredStatusFilter ?? 'catalog';
   });
-  const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(null);
-  const [previousHasOwnVerses, setPreviousHasOwnVerses] = useState<boolean | null>(null);
+  const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(() =>
+    disabled ? false : null
+  );
+  const [previousHasOwnVerses, setPreviousHasOwnVerses] = useState<boolean | null>(() =>
+    disabled ? false : null
+  );
   const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
+    if (disabled) return DEFAULT_VERSE_LIST_SORT_BY;
     if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
     return (
       parseStoredSortBy(window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.sortBy)) ??
@@ -108,6 +123,7 @@ export function useVerseListController({
     );
   });
   const [selectedBookId, setSelectedBookId] = useState<number | null>(() => {
+    if (disabled) return null;
     if (typeof window === 'undefined') return null;
     return parseStoredBookId(
       window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedBookId)
@@ -125,9 +141,12 @@ export function useVerseListController({
   );
 
   const { telegramId } = useTelegramId();
-  const defaultStatusFilter = getDefaultStatusFilter(Boolean(hasOwnVerses));
+  const defaultStatusFilter = disabled
+    ? 'catalog'
+    : getDefaultStatusFilter(Boolean(hasOwnVerses));
   const hasStoredInitialStatusFilter = initialStoredStatusFilter !== null;
   const shouldAutoSwitchToMy =
+    !disabled &&
     hasOwnVerses === true &&
     !reopenGalleryStatusFilter &&
     statusFilter === 'catalog' &&
@@ -136,16 +155,22 @@ export function useVerseListController({
       (previousHasOwnVerses === null && !hasStoredInitialStatusFilter)
     );
   const shouldAutoSwitchToCatalog =
+    !disabled &&
     hasOwnVerses === false &&
     !reopenGalleryStatusFilter &&
     statusFilter !== 'catalog' &&
     statusFilter !== 'friends';
-  const shouldDelayListFetch =
+  const shouldDelayListFetch = !disabled &&
     Boolean(telegramId) &&
     (hasOwnVerses === null || shouldAutoSwitchToMy || shouldAutoSwitchToCatalog);
 
   const refreshHasOwnVerses = useCallback(
     async (telegramIdOverride?: string | null) => {
+      if (disabled) {
+        setHasOwnVerses(false);
+        setPreviousHasOwnVerses(false);
+        return false;
+      }
       const resolvedTelegramId = telegramIdOverride?.trim() || telegramId?.trim() || '';
       if (!resolvedTelegramId) {
         setHasOwnVerses(null);
@@ -177,11 +202,12 @@ export function useVerseListController({
         return fallbackHasOwnVerses;
       }
     },
-    [statusFilter, telegramId]
+    [disabled, statusFilter, telegramId]
   );
 
   const pagination = useVersePagination({
     telegramId,
+    disabled,
     statusFilter,
     searchQuery: searchQueryForServer,
     bookId: selectedBookId,
@@ -235,6 +261,17 @@ export function useVerseListController({
   });
 
   useEffect(() => {
+    if (disabled) {
+      setHasOwnVerses(false);
+      setPreviousHasOwnVerses(false);
+      setStatusFilter('catalog');
+      setSearchQuery('');
+      setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
+      setSelectedBookId(null);
+      tagFilter.clearTags();
+      pagination.clearPaginationState();
+      return;
+    }
     if (!telegramId) {
       pagination.clearPaginationState();
       setHasOwnVerses(null);
@@ -242,9 +279,16 @@ export function useVerseListController({
       return;
     }
     void refreshHasOwnVerses(telegramId);
-  }, [telegramId, pagination.clearPaginationState, refreshHasOwnVerses]);
+  }, [
+    disabled,
+    pagination.clearPaginationState,
+    refreshHasOwnVerses,
+    tagFilter.clearTags,
+    telegramId,
+  ]);
 
   useEffect(() => {
+    if (disabled) return;
     if (hasOwnVerses == null) return;
 
     if (shouldAutoSwitchToCatalog) {
@@ -254,12 +298,14 @@ export function useVerseListController({
     }
 
     setPreviousHasOwnVerses(hasOwnVerses);
-  }, [hasOwnVerses, shouldAutoSwitchToCatalog, shouldAutoSwitchToMy]);
+  }, [disabled, hasOwnVerses, shouldAutoSwitchToCatalog, shouldAutoSwitchToMy]);
 
   useEffect(() => {
+    if (disabled) return;
     if (!telegramId || shouldDelayListFetch) return;
     void pagination.resetAndFetchFirstPage(telegramId, statusFilter);
   }, [
+    disabled,
     telegramId,
     statusFilter,
     shouldDelayListFetch,
@@ -267,6 +313,7 @@ export function useVerseListController({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     if (verseListExternalSyncVersion == null) return;
     if (lastHandledExternalSyncVersionRef.current === verseListExternalSyncVersion) return;
     lastHandledExternalSyncVersionRef.current = verseListExternalSyncVersion;
@@ -275,6 +322,7 @@ export function useVerseListController({
     void refreshHasOwnVerses(telegramId);
     void pagination.refetchCurrentListFromExternalSync();
   }, [
+    disabled,
     refreshHasOwnVerses,
     telegramId,
     pagination.hasFetchedVersesOnce,
@@ -283,6 +331,7 @@ export function useVerseListController({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryVerseId) return;
 
@@ -294,6 +343,7 @@ export function useVerseListController({
     if (statusFilter !== resolvedReturnFilter) return;
     onReopenGalleryHandled?.();
   }, [
+    disabled,
     canUseFriendsFilter,
     defaultStatusFilter,
     onReopenGalleryHandled,
@@ -303,6 +353,7 @@ export function useVerseListController({
   ]);
 
   useEffect(() => {
+    if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter) {
       setStatusFilter(defaultStatusFilter);
@@ -310,25 +361,29 @@ export function useVerseListController({
     }
     if (statusFilter === reopenGalleryStatusFilter) return;
     setStatusFilter(reopenGalleryStatusFilter);
-  }, [canUseFriendsFilter, defaultStatusFilter, reopenGalleryStatusFilter, statusFilter]);
+  }, [canUseFriendsFilter, defaultStatusFilter, disabled, reopenGalleryStatusFilter, statusFilter]);
 
   useEffect(() => {
+    if (disabled) return;
     if (canUseFriendsFilter) return;
     if (statusFilter !== 'friends') return;
     setStatusFilter(defaultStatusFilter);
-  }, [canUseFriendsFilter, defaultStatusFilter, statusFilter]);
+  }, [canUseFriendsFilter, defaultStatusFilter, disabled, statusFilter]);
 
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.statusFilter, statusFilter);
-  }, [statusFilter]);
+  }, [disabled, statusFilter]);
 
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.sortBy, sortBy);
-  }, [sortBy]);
+  }, [disabled, sortBy]);
 
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     if (selectedBookId == null) {
       window.localStorage.removeItem(VERSE_LIST_STORAGE_KEYS.selectedBookId);
@@ -338,14 +393,16 @@ export function useVerseListController({
       VERSE_LIST_STORAGE_KEYS.selectedBookId,
       String(selectedBookId)
     );
-  }, [selectedBookId]);
+  }, [disabled, selectedBookId]);
 
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.searchQuery, searchQuery);
-  }, [searchQuery]);
+  }, [disabled, searchQuery]);
 
   useEffect(() => {
+    if (disabled) return;
     if (!reopenGalleryVerseId) return;
     if (reopenGalleryStatusFilter && statusFilter !== reopenGalleryStatusFilter) return;
     if (!pagination.hasFetchedVersesOnce) return;
@@ -384,6 +441,7 @@ export function useVerseListController({
       window.cancelAnimationFrame(raf2);
     };
   }, [
+    disabled,
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     statusFilter,
@@ -445,10 +503,13 @@ export function useVerseListController({
 
   const shouldReduceMotion = Boolean(useReducedMotion());
   const isListLoading =
-    (shouldDelayListFetch && !pagination.hasFetchedVersesOnce) ||
+    (!disabled && shouldDelayListFetch && !pagination.hasFetchedVersesOnce) ||
     pagination.isFetchingVerses && !pagination.hasFetchedVersesOnce && pagination.verses.length === 0;
   const isEmptyFiltered =
-    pagination.hasFetchedVersesOnce && !pagination.isFetchingVerses && filteredVerses.length === 0;
+    !disabled &&
+    pagination.hasFetchedVersesOnce &&
+    !pagination.isFetchingVerses &&
+    filteredVerses.length === 0;
   const currentFilterLabel =
     statusFilter === 'catalog'
       ? 'Каталог'
