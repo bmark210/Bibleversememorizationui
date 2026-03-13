@@ -628,7 +628,7 @@ export function VerseGallery({
 
         {/* Card area */}
         <div
-          className="flex-1 relative grid place-items-center px-4 sm:px-6"
+          className="relative flex-1 min-h-0 grid place-items-center px-4 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки со стихами"

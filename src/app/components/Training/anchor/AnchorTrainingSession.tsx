@@ -2033,7 +2033,7 @@ export function AnchorTrainingSession({
 
           <div
             className={cn(
-              "relative flex-1 grid px-4 py-4 sm:px-6",
+              "relative flex-1 min-h-0 grid px-4 py-4 sm:px-6",
               shouldLiftTypeCard
                 ? "items-start justify-items-center pt-3 sm:pt-4"
                 : "place-items-center",

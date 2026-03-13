@@ -71,7 +71,7 @@ const CARD_NESTED_SCROLL_SELECTOR = '[data-card-swipe-ignore="true"]';
 const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   auto: "",
   preview: "h-[520px]",
-  training: "h-[clamp(24rem,calc(100dvh-18rem),39rem)]",
+  training: "h-[clamp(25rem,calc(100dvh-16rem),42rem)]",
 };
 
 const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {

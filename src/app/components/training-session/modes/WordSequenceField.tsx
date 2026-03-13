@@ -26,6 +26,10 @@ interface WordSequenceFieldProps {
   className?: string;
 }
 
+function isMaskedState(state: WordSequenceFieldItemState) {
+  return state === 'active-gap' || state === 'future-gap';
+}
+
 function getItemClassName(state: WordSequenceFieldItemState) {
   if (state === 'revealed') {
     return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
@@ -40,6 +44,25 @@ function getItemClassName(state: WordSequenceFieldItemState) {
   }
 
   return 'border border-border/60 bg-muted/20 text-muted-foreground';
+}
+
+function renderItemContent(item: WordSequenceFieldItem) {
+  if (!isMaskedState(item.state)) {
+    return item.content;
+  }
+
+  return (
+    <span aria-hidden="true" className="grid grid-flow-col auto-cols-[10px] gap-1">
+      {Array.from(item.content).map((char, index) => (
+        <span
+          key={`${item.id}-${index}`}
+          className="flex h-4 items-center justify-center font-mono text-[11px] leading-none"
+        >
+          {char}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export function WordSequenceField({
@@ -115,7 +138,7 @@ export function WordSequenceField({
                 key={item.id}
                 ref={setItemRef(item.id)}
                 className={cn(
-                  'inline-flex items-center justify-center rounded-md px-2 py-1 text-sm transition-colors',
+                  'inline-flex items-center justify-center rounded-md px-2 py-1 text-sm whitespace-nowrap transition-colors',
                   getItemClassName(item.state)
                 )}
                 style={item.minWidth ? { minWidth: `${item.minWidth}px` } : undefined}
@@ -126,7 +149,7 @@ export function WordSequenceField({
                     : undefined
                 }
               >
-                {item.content}
+                {renderItemContent(item)}
               </span>
             ))}
           </div>

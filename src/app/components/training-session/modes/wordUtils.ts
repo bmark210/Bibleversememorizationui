@@ -24,6 +24,11 @@ const CHOICE_MIN_WIDTH_PX = 44;
 const CHOICE_ROW_HEIGHT_PX = 34;
 const CHOICE_VERTICAL_PADDING_PX = 16;
 const CHOICE_FALLBACK_ROWS = 4;
+const WORD_MASK_CELL_WIDTH_PX = 10;
+const WORD_MASK_CELL_GAP_PX = 4;
+const WORD_MASK_HORIZONTAL_PADDING_PX = 16;
+const WORD_MASK_BORDER_ALLOWANCE_PX = 4;
+const WORD_MASK_MIN_WIDTH_PX = 30;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -86,14 +91,25 @@ export function getMaxMistakes(totalWords: number): number {
   return Math.max(5, Math.floor(totalWords * 0.3));
 }
 
-export function getWordMask(word: string): string {
+function getWordMaskLetterCount(word: string): number {
   const cleanedLength = stripPunctuation(word).length || word.length;
-  return '•'.repeat(clamp(cleanedLength, 3, 10));
+  return Math.max(1, cleanedLength);
+}
+
+export function getWordMask(word: string): string {
+  return '•'.repeat(getWordMaskLetterCount(word));
 }
 
 export function getWordMaskWidth(word: string): number {
-  const cleanedLength = stripPunctuation(word).length || word.length;
-  return clamp(cleanedLength * 8, 30, 140);
+  const letterCount = getWordMaskLetterCount(word);
+  const cellWidth =
+    letterCount * WORD_MASK_CELL_WIDTH_PX +
+    Math.max(0, letterCount - 1) * WORD_MASK_CELL_GAP_PX;
+
+  return Math.max(
+    WORD_MASK_MIN_WIDTH_PX,
+    cellWidth + WORD_MASK_HORIZONTAL_PADDING_PX + WORD_MASK_BORDER_ALLOWANCE_PX
+  );
 }
 
 interface VisibleChoiceInput {
