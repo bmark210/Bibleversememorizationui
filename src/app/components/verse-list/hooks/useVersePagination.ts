@@ -11,6 +11,7 @@ export type AppendRevealRange = { start: number; end: number } | null;
 
 type UseVersePaginationParams = {
   telegramId?: string;
+  disabled?: boolean;
   statusFilter: VerseListStatusFilter;
   sortBy: VerseListSortBy;
   bookId?: number | null;
@@ -28,6 +29,7 @@ function sleep(ms: number) {
 
 export function useVersePagination({
   telegramId,
+  disabled = false,
   statusFilter,
   sortBy,
   bookId,
@@ -114,6 +116,12 @@ export function useVersePagination({
 
   const requestVersesPage = useCallback(
     async (id: string, filter: VerseListStatusFilter, startWith?: number | null) => {
+      if (disabled) {
+        return {
+          items: [] as Array<Verse>,
+          totalCount: 0,
+        };
+      }
       if (filter === 'catalog') {
         const page = await fetchCatalogVersesPage({
           telegramId: id,
@@ -157,7 +165,7 @@ export function useVersePagination({
         items: page.items as Array<Verse>,
       };
     },
-    [bookId, normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]
+    [bookId, disabled, normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]
   );
 
   const clearPaginationState = useCallback(() => {
@@ -245,6 +253,11 @@ export function useVersePagination({
 
   const resetAndFetchFirstPage = useCallback(
     async (id: string, filter: VerseListStatusFilter) => {
+      if (disabled) {
+        clearPaginationState();
+        setHasFetchedVersesOnce(true);
+        return;
+      }
       const requestVersion = ++requestVersionRef.current;
       const minDelayPromise = sleep(loadMoreSkeletonDelayMs);
       versesRef.current = [];
@@ -297,11 +310,12 @@ export function useVersePagination({
         setShowDelayedInitialFetchSkeleton(false);
       }
     },
-    [loadMoreSkeletonDelayMs, requestVersesPage]
+    [clearPaginationState, disabled, loadMoreSkeletonDelayMs, requestVersesPage]
   );
 
   const fetchNextPage = useCallback(
     async (options?: { source?: FetchNextPageSource }) => {
+      if (disabled) return false;
       const source = options?.source ?? 'auto';
       if (!telegramId) return false;
       if (source === 'auto' && suspendAutoLoadRef.current) return false;
@@ -410,11 +424,13 @@ export function useVersePagination({
       loadMoreSkeletonDelayMs,
       requestVersesPage,
       mergeUniqueVerses,
+      disabled,
     ]
   );
 
   const ensureVerseLoadedForReopen = useCallback(
     async (targetVerseId: string) => {
+      if (disabled) return false;
       if (!targetVerseId) return false;
       if (!telegramId) return false;
 
@@ -443,13 +459,14 @@ export function useVersePagination({
         suspendAutoLoadRef.current = false;
       }
     },
-    [fetchNextPage, telegramId]
+    [disabled, fetchNextPage, telegramId]
   );
 
   const refetchCurrentListFromExternalSync = useCallback(async () => {
+    if (disabled) return;
     if (!telegramId) return;
     await resetAndFetchFirstPage(telegramId, statusFilter);
-  }, [resetAndFetchFirstPage, statusFilter, telegramId]);
+  }, [disabled, resetAndFetchFirstPage, statusFilter, telegramId]);
 
   return {
     verses,

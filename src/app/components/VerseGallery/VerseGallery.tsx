@@ -606,6 +606,7 @@ export function VerseGallery({
         )}
 
       <div
+        data-tour="verse-gallery-root"
         ref={dialogRef}
         role="dialog"
         aria-modal="true"

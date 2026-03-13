@@ -5,6 +5,7 @@ import Script from 'next/script'
 
 import { DisableViewportZoom } from './components/DisableViewportZoom'
 import './globals.css'
+import "driver.js/dist/driver.css"
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
