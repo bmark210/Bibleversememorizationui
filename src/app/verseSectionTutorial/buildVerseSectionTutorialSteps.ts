@@ -162,8 +162,17 @@ async function closeVerseOverlays() {
   await waitForAnimationFrames(3);
 }
 
-async function ensureVerseListOverview(runtime: VerseSectionTutorialRuntime) {
-  await closeVerseOverlays();
+async function ensureTutorialVerseData(
+  runtime: VerseSectionTutorialRuntime,
+  options?: {
+    closeOverlays?: boolean;
+    scrollListToTop?: boolean;
+  },
+) {
+  if (options?.closeOverlays) {
+    await closeVerseOverlays();
+  }
+
   await runtime.waitForElement(VERSE_LIST_CONTENT_SELECTOR, {
     timeoutMs: 12000,
   });
@@ -174,11 +183,28 @@ async function ensureVerseListOverview(runtime: VerseSectionTutorialRuntime) {
       ),
     { timeoutMs: 12000 },
   );
-  await scrollVerseListToTop(runtime);
+
+  await runtime.waitForCondition(() => getPrimaryMockVerse() !== null, {
+    timeoutMs: 8000,
+  });
+
+  if (options?.scrollListToTop) {
+    await scrollVerseListToTop(runtime);
+  }
+}
+
+async function ensureVerseListOverview(runtime: VerseSectionTutorialRuntime) {
+  await ensureTutorialVerseData(runtime, {
+    closeOverlays: true,
+    scrollListToTop: true,
+  });
 }
 
 async function ensurePrimaryMockVerseCard(runtime: VerseSectionTutorialRuntime) {
-  await ensureVerseListOverview(runtime);
+  await ensureTutorialVerseData(runtime, {
+    closeOverlays: true,
+    scrollListToTop: true,
+  });
 
   const card = await runtime.waitForElement(PRIMARY_CARD_SELECTOR, {
     timeoutMs: 8000,
@@ -192,7 +218,7 @@ async function ensureProgressContent(
   runtime: VerseSectionTutorialRuntime,
   targetSelector: string,
 ) {
-  await ensurePrimaryMockVerseCard(runtime);
+  await ensureTutorialVerseData(runtime);
 
   if (!resolveVerseSectionTutorialElement(VERSE_PROGRESS_DRAWER_SELECTOR)) {
     const targetVerse = getPrimaryMockVerse();
@@ -201,6 +227,10 @@ async function ensureProgressContent(
       await waitForAnimationFrames(3);
     }
   }
+
+  await runtime.waitForElement(VERSE_PROGRESS_DRAWER_SELECTOR, {
+    timeoutMs: 5000,
+  });
 
   const target = await runtime.waitForElement(targetSelector, {
     timeoutMs: 5000,
@@ -211,7 +241,7 @@ async function ensureProgressContent(
 }
 
 async function ensureVerseGallery(runtime: VerseSectionTutorialRuntime) {
-  await ensurePrimaryMockVerseCard(runtime);
+  await ensureTutorialVerseData(runtime);
 
   if (!resolveVerseSectionTutorialElement(VERSE_GALLERY_ROOT_SELECTOR)) {
     const targetVerse = getPrimaryMockVerse();
