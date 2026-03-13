@@ -9,6 +9,7 @@ import type { OnboardingSource } from "./onboardingStorage";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { ONBOARDING_PRIMARY_VERSE_ID } from "./onboardingMockVerseFlow";
 import { selectVerseListAction } from "./verseListOnboardingTargeting";
+import { useOnboardingStore } from "./onboardingStore";
 
 export type OnboardingPage = "dashboard" | "verses" | "training" | "profile";
 
@@ -28,7 +29,6 @@ export type AppOnboardingRuntime = {
     predicate: () => boolean,
     options?: { timeoutMs?: number; signal?: AbortSignal },
   ) => Promise<boolean>;
-  dispatchAppEvent: (eventName: string) => void;
 };
 
 export type AppOnboardingStep = {
@@ -60,9 +60,6 @@ type BuildOnboardingStepsOptions = {
   useMockVerseFlow: boolean;
 };
 
-const CLOSE_PROGRESS_DRAWER_EVENT = "bible-memory:onboarding-close-progress-drawer";
-const OPEN_FILTERS_DRAWER_EVENT = "bible-memory:onboarding-open-filters-drawer";
-const CLOSE_FILTERS_DRAWER_EVENT = "bible-memory:onboarding-close-filters-drawer";
 const VERSE_LIST_CONTENT_SELECTOR = "[data-tour='verse-list-content']";
 const VERSE_LIST_SCROLLER_SELECTOR = "[data-tour='verse-list-virtualized']";
 const VERSE_LIST_ROW_SELECTOR = "[data-tour='verse-list-row']";
@@ -198,7 +195,7 @@ async function scrollElementIntoView(
 
 async function scrollVerseListToTop(runtime: AppOnboardingRuntime) {
   const scroller = await runtime.waitForElement(VERSE_LIST_SCROLLER_SELECTOR, {
-    timeoutMs: 12000,
+    timeoutMs: 4000,
   });
 
   if (!(scroller instanceof HTMLElement)) return;
@@ -221,7 +218,7 @@ async function waitForVerseListState(
   },
 ) {
   const states = options?.states ?? ["ready"];
-  const timeoutMs = options?.timeoutMs ?? 20000;
+  const timeoutMs = options?.timeoutMs ?? 12000;
 
   await runtime.waitForElement(getVerseListContentSelector(), { timeoutMs });
 
@@ -241,41 +238,24 @@ async function waitForVerseListState(
   );
 }
 
-async function closeVerseListOverlays(
-  runtime: AppOnboardingRuntime,
-  options?: {
-    closeProgress?: boolean;
-    closeFilters?: boolean;
-    timeoutMs?: number;
-  },
-) {
-  const closeProgress = options?.closeProgress ?? true;
-  const closeFilters = options?.closeFilters ?? true;
-  const timeoutMs = options?.timeoutMs ?? 4000;
+// --- Store-based UI control helpers ---
 
-  if (closeProgress) {
-    runtime.dispatchAppEvent(CLOSE_PROGRESS_DRAWER_EVENT);
-  }
+async function closeVerseListOverlays() {
+  useOnboardingStore.getState().closeAllOverlays();
+  await waitForAnimationFrames(2);
+}
 
-  if (closeFilters) {
-    runtime.dispatchAppEvent(CLOSE_FILTERS_DRAWER_EVENT);
-  }
-
-  await runtime.waitForCondition(
-    () =>
-      (!closeProgress || !resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR)) &&
-      (!closeFilters ||
-        !resolveOnboardingElement(VERSE_LIST_FILTERS_DRAWER_SELECTOR)),
-    { timeoutMs },
-  );
+async function ensureCatalogFilter() {
+  useOnboardingStore.getState().ensureCatalogFilter();
+  await waitForAnimationFrames(2);
 }
 
 async function ensureMockVerseCard(runtime: AppOnboardingRuntime) {
-  await closeVerseListOverlays(runtime);
-  await ensureCatalogTab(runtime);
+  await closeVerseListOverlays();
+  await ensureCatalogFilter();
   await scrollVerseListToTop(runtime);
   const card = await runtime.waitForElement(ONBOARDING_MOCK_PRIMARY_CARD_SELECTOR, {
-    timeoutMs: 8000,
+    timeoutMs: 4000,
   });
   if (card instanceof HTMLElement) {
     await scrollElementIntoView(runtime, card);
@@ -292,15 +272,6 @@ async function ensureTrainingScenario(
   trigger.click();
 }
 
-async function ensureCatalogTab(runtime: AppOnboardingRuntime) {
-  const catalogTab = await runtime.waitForElement("[data-tour='verse-filter-tab-catalog']", {
-    timeoutMs: 12000,
-  });
-  if (!(catalogTab instanceof HTMLButtonElement)) return;
-  if (catalogTab.getAttribute("aria-selected") === "true") return;
-  catalogTab.click();
-}
-
 async function ensureProfilePlayersTab(runtime: AppOnboardingRuntime) {
   const trigger = await runtime.waitForElement("[data-tour='profile-players-tab']", {
     timeoutMs: 8000,
@@ -312,31 +283,43 @@ async function ensureProfilePlayersTab(runtime: AppOnboardingRuntime) {
 
 async function ensureVerseProgressDrawer(
   runtime: AppOnboardingRuntime,
-  options?: { getProgressButton?: () => Element | null },
 ) {
   if (resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR)) return;
 
-  const progressButton =
-    (await runtime.waitForElement(options?.getProgressButton, {
-      timeoutMs: 8000,
-    })) ??
-    (await runtime.waitForElement(VERSE_CARD_PROGRESS_BUTTON_SELECTOR, {
-      timeoutMs: 8000,
-    }));
-  if (progressButton instanceof HTMLElement) {
-    await scrollElementIntoView(runtime, progressButton);
-    progressButton.click();
+  // Open progress drawer via store
+  const store = useOnboardingStore.getState();
+  const trackedId = store.trackedVerseId;
+  if (trackedId) {
+    const targetVerse = store.mockVerses.find(
+      (v) => v.externalVerseId === trackedId,
+    );
+    if (targetVerse) {
+      store.openProgressDrawer(targetVerse);
+      await waitForAnimationFrames(2);
+    }
   }
-  await runtime.waitForElement(VERSE_PROGRESS_DRAWER_SELECTOR);
+
+  // Fallback: try clicking the progress button
+  if (!resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR)) {
+    const progressButton = await runtime.waitForElement(
+      VERSE_CARD_PROGRESS_BUTTON_SELECTOR,
+      { timeoutMs: 4000 },
+    );
+    if (progressButton instanceof HTMLElement) {
+      await scrollElementIntoView(runtime, progressButton);
+      progressButton.click();
+    }
+  }
+
+  await runtime.waitForElement(VERSE_PROGRESS_DRAWER_SELECTOR, { timeoutMs: 4000 });
 }
 
 async function ensureVerseProgressSection(
   runtime: AppOnboardingRuntime,
   sectionSelector: string,
-  options?: { getProgressButton?: () => Element | null },
 ) {
-  await ensureVerseProgressDrawer(runtime, options);
-  const section = await runtime.waitForElement(sectionSelector, { timeoutMs: 8000 });
+  await ensureVerseProgressDrawer(runtime);
+  const section = await runtime.waitForElement(sectionSelector, { timeoutMs: 4000 });
   if (section instanceof HTMLElement) {
     await scrollElementIntoView(runtime, section);
   }
@@ -345,15 +328,19 @@ async function ensureVerseProgressSection(
 async function ensureVerseFiltersDrawer(runtime: AppOnboardingRuntime) {
   if (resolveOnboardingElement(VERSE_LIST_FILTERS_DRAWER_SELECTOR)) return;
 
-  runtime.dispatchAppEvent(OPEN_FILTERS_DRAWER_EVENT);
-  const openedByEvent = await runtime.waitForElement(
+  // Open filters drawer via store
+  useOnboardingStore.getState().openFiltersDrawer();
+  await waitForAnimationFrames(2);
+
+  const openedByStore = await runtime.waitForElement(
     VERSE_LIST_FILTERS_DRAWER_SELECTOR,
     { timeoutMs: 2000 },
   );
-  if (openedByEvent) return;
+  if (openedByStore) return;
 
+  // Fallback: click the trigger button
   const trigger = await runtime.waitForElement(VERSE_LIST_FILTERS_TRIGGER_SELECTOR, {
-    timeoutMs: 8000,
+    timeoutMs: 4000,
   });
 
   if (trigger instanceof HTMLElement) {
@@ -361,7 +348,7 @@ async function ensureVerseFiltersDrawer(runtime: AppOnboardingRuntime) {
   }
 
   await runtime.waitForElement(VERSE_LIST_FILTERS_DRAWER_SELECTOR, {
-    timeoutMs: 8000,
+    timeoutMs: 4000,
   });
 }
 
@@ -398,8 +385,7 @@ async function animateTapAndClick(
   await new Promise<void>((r) => setTimeout(r, pressDuration));
   element.style.transform = "scale(1)";
 
-  element.click();
-
+  // Visual click only — state update happens via store
   await new Promise<void>((r) => setTimeout(r, delayAfter));
   ripple?.remove();
   element.style.transition = "";
@@ -412,13 +398,9 @@ export function resolveOnboardingElement(target?: StepElementTarget) {
   return target();
 }
 
-function buildVerseProgressWalkthroughSteps(
-  getProgressButton: () => Element | null,
-): AppOnboardingStep[] {
+function buildVerseProgressWalkthroughSteps(): AppOnboardingStep[] {
   const ensureStepSection = (selector: string) => (runtime: AppOnboardingRuntime) =>
-    ensureVerseProgressSection(runtime, selector, {
-      getProgressButton,
-    });
+    ensureVerseProgressSection(runtime, selector);
 
   return [
     {
@@ -428,8 +410,8 @@ function buildVerseProgressWalkthroughSteps(
       description:
         "Верхний блок показывает, где стих находится сейчас, сколько общего пути уже пройдено и когда откроется следующее окно повторения.",
       element: VERSE_PROGRESS_SUMMARY_SELECTOR,
-      side: "left",
-      align: "start",
+      side: "top",
+      align: "center",
       prepare: ensureStepSection(VERSE_PROGRESS_SUMMARY_SELECTOR),
     },
     {
@@ -486,11 +468,15 @@ export function buildOnboardingSteps({
   useMockVerseFlow,
 }: BuildOnboardingStepsOptions): AppOnboardingStep[] {
   const isReplay = source === "profile";
-  let trackedVerseId: string | null = useMockVerseFlow
-    ? ONBOARDING_PRIMARY_VERSE_ID
-    : null;
+
+  // trackedVerseId is now managed by the store instead of a closure variable
+  const getTrackedVerseId = () => useOnboardingStore.getState().trackedVerseId;
+  const setTrackedVerseId = (id: string | null) =>
+    useOnboardingStore.getState().setTrackedVerseId(id);
+
   const getTrackedVerseAction = (selector: string) =>
-    queryVerseListAction(selector, { targetVerseId: trackedVerseId });
+    queryVerseListAction(selector, { targetVerseId: getTrackedVerseId() });
+
   const steps: AppOnboardingStep[] = [
     {
       id: "dashboard-intro",
@@ -560,7 +546,7 @@ export function buildOnboardingSteps({
           await ensureMockVerseCard(runtime);
           const addButton = await runtime.waitForElement(
             () => getTrackedVerseAction(VERSE_CARD_ADD_BUTTON_SELECTOR),
-            { timeoutMs: 8000 },
+            { timeoutMs: 4000 },
           );
           if (addButton instanceof HTMLElement) {
             addButton.scrollIntoView({ block: "center", behavior: "auto" });
@@ -568,13 +554,24 @@ export function buildOnboardingSteps({
         },
         autoAction: async (runtime) => {
           const addButton = getTrackedVerseAction(VERSE_CARD_ADD_BUTTON_SELECTOR);
+          const trackedId = getTrackedVerseId();
+
           if (addButton instanceof HTMLElement) {
-            trackedVerseId = getVerseIdFromActionElement(addButton) ?? trackedVerseId;
+            const verseId = getVerseIdFromActionElement(addButton) ?? trackedId;
+            if (verseId) setTrackedVerseId(verseId);
+
+            // Visual tap animation
             await animateTapAndClick(addButton, { fast: true });
+
+            // Apply state change via store (synchronous, no race condition)
+            useOnboardingStore
+              .getState()
+              .applyVerseAction(verseId ?? ONBOARDING_PRIMARY_VERSE_ID, "add-to-learning");
           }
+
           await runtime.waitForCondition(
             () => Boolean(getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR)),
-            { timeoutMs: 8000 },
+            { timeoutMs: 4000 },
           );
           await runtime.goNext();
         },
@@ -589,10 +586,10 @@ export function buildOnboardingSteps({
         side: "left",
         align: "center",
         prepare: async (runtime) => {
-          await closeVerseListOverlays(runtime);
+          await closeVerseListOverlays();
           const progressButton = await runtime.waitForElement(
             () => getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR),
-            { timeoutMs: 8000 },
+            { timeoutMs: 4000 },
           );
           if (progressButton instanceof HTMLElement) {
             progressButton.scrollIntoView({ block: "center", behavior: "auto" });
@@ -601,19 +598,31 @@ export function buildOnboardingSteps({
         autoAction: async (runtime) => {
           const progressButton = getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR);
           if (progressButton instanceof HTMLElement) {
-            trackedVerseId = getVerseIdFromActionElement(progressButton) ?? trackedVerseId;
+            const verseId = getVerseIdFromActionElement(progressButton) ?? getTrackedVerseId();
+            if (verseId) setTrackedVerseId(verseId);
             await animateTapAndClick(progressButton, { fast: true });
           }
+
+          // Open progress drawer via store
+          const store = useOnboardingStore.getState();
+          const trackedId = store.trackedVerseId;
+          if (trackedId) {
+            const targetVerse = store.mockVerses.find(
+              (v) => v.externalVerseId === trackedId,
+            );
+            if (targetVerse) {
+              store.openProgressDrawer(targetVerse);
+            }
+          }
+
           await runtime.waitForCondition(
             () => Boolean(resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR)),
-            { timeoutMs: 8000 },
+            { timeoutMs: 4000 },
           );
           await runtime.goNext();
         },
       },
-      ...buildVerseProgressWalkthroughSteps(() =>
-        getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR),
-      ),
+      ...buildVerseProgressWalkthroughSteps(),
       {
         id: "verses-filters",
         page: "verses",
@@ -624,9 +633,9 @@ export function buildOnboardingSteps({
         side: "bottom",
         align: "center",
         prepare: async (runtime) => {
-          await closeVerseListOverlays(runtime);
+          await closeVerseListOverlays();
           await runtime.waitForElement(VERSE_LIST_FILTERS_TRIGGER_SELECTOR, {
-            timeoutMs: 8000,
+            timeoutMs: 4000,
           });
         },
       },
@@ -640,26 +649,29 @@ export function buildOnboardingSteps({
         side: "bottom",
         align: "center",
         prepare: async (runtime) => {
-          await closeVerseListOverlays(runtime, { closeProgress: false });
+          // Keep progress drawer if open, close filters
+          useOnboardingStore.getState().closeFiltersDrawer();
+          await waitForAnimationFrames(2);
           await runtime.waitForElement(VERSE_LIST_FILTERS_TRIGGER_SELECTOR, {
-            timeoutMs: 8000,
+            timeoutMs: 4000,
           });
         },
         autoAction: async (runtime) => {
           const trigger = await runtime.waitForElement(
             VERSE_LIST_FILTERS_TRIGGER_SELECTOR,
-            { timeoutMs: 8000 },
+            { timeoutMs: 4000 },
           );
 
           if (trigger instanceof HTMLElement) {
             trigger.scrollIntoView({ block: "center", behavior: "auto" });
             await animateTapAndClick(trigger, { fast: true });
-          } else {
-            runtime.dispatchAppEvent(OPEN_FILTERS_DRAWER_EVENT);
           }
 
+          // Open filters via store
+          useOnboardingStore.getState().openFiltersDrawer();
+
           await runtime.waitForElement(VERSE_LIST_FILTERS_DRAWER_SELECTOR, {
-            timeoutMs: 8000,
+            timeoutMs: 4000,
           });
           await runtime.goNext();
         },
@@ -671,8 +683,8 @@ export function buildOnboardingSteps({
         description:
           "Сверху видно текущее состояние фильтров: источник карточек, книга, сортировка и активные ограничения.",
         element: VERSE_LIST_FILTERS_MAIN_VALUES_SELECTOR,
-        side: "top",
-        align: "start",
+        side: "bottom",
+        align: "center",
         prepare: ensureVerseFiltersDrawer,
       },
       {
@@ -720,7 +732,7 @@ export function buildOnboardingSteps({
       side: "left",
       align: "center",
       prepare: async (runtime) => {
-        await ensureCatalogTab(runtime);
+        await ensureCatalogFilter();
         await waitForVerseListState(runtime, {
           filter: "catalog",
           states: ["ready", "empty"],
@@ -741,8 +753,10 @@ export function buildOnboardingSteps({
       autoAction: async (runtime) => {
         const addButton = getTrackedVerseAction(VERSE_CARD_ADD_BUTTON_SELECTOR);
         if (addButton instanceof HTMLElement) {
-          trackedVerseId = getVerseIdFromActionElement(addButton);
+          const verseId = getVerseIdFromActionElement(addButton);
+          setTrackedVerseId(verseId);
           await animateTapAndClick(addButton);
+          addButton.click();
         }
         await runtime.waitForCondition(
           () =>
@@ -770,8 +784,10 @@ export function buildOnboardingSteps({
         autoAction: async (runtime) => {
           const promoteButton = getTrackedVerseAction(VERSE_CARD_PROMOTE_BUTTON_SELECTOR);
           if (promoteButton instanceof HTMLElement) {
-            trackedVerseId = getVerseIdFromActionElement(promoteButton) ?? trackedVerseId;
+            const verseId = getVerseIdFromActionElement(promoteButton) ?? getTrackedVerseId();
+            if (verseId) setTrackedVerseId(verseId);
             await animateTapAndClick(promoteButton);
+            promoteButton.click();
           }
           await runtime.waitForCondition(
             () => Boolean(getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR)),
@@ -792,15 +808,17 @@ export function buildOnboardingSteps({
         element: () => getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR),
         side: "left",
         align: "center",
-        prepare: (runtime) => {
-          runtime.dispatchAppEvent(CLOSE_PROGRESS_DRAWER_EVENT);
+        prepare: async () => {
+          await closeVerseListOverlays();
         },
         autoAction: async (runtime) => {
           const progressButton = getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR);
           if (progressButton instanceof HTMLElement) {
-            trackedVerseId = getVerseIdFromActionElement(progressButton) ?? trackedVerseId;
+            const verseId = getVerseIdFromActionElement(progressButton) ?? getTrackedVerseId();
+            if (verseId) setTrackedVerseId(verseId);
             progressButton.scrollIntoView({ block: "center", behavior: "smooth" });
             await animateTapAndClick(progressButton);
+            progressButton.click();
           }
           await runtime.waitForCondition(
             () => Boolean(resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR)),
@@ -809,9 +827,7 @@ export function buildOnboardingSteps({
           await runtime.goNext();
         },
       },
-      ...buildVerseProgressWalkthroughSteps(() =>
-        getTrackedVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR),
-      ),
+      ...buildVerseProgressWalkthroughSteps(),
       {
         id: "verses-filters",
         page: "verses",
@@ -821,12 +837,8 @@ export function buildOnboardingSteps({
         element: "[data-tour='verse-list-filters-panel']",
         side: "bottom",
         align: "center",
-        prepare: async (runtime) => {
-          runtime.dispatchAppEvent(CLOSE_PROGRESS_DRAWER_EVENT);
-          await runtime.waitForCondition(
-            () => !resolveOnboardingElement(VERSE_PROGRESS_DRAWER_SELECTOR),
-            { timeoutMs: 4000 },
-          );
+        prepare: async () => {
+          await closeVerseListOverlays();
         },
       },
     );

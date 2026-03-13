@@ -36,6 +36,7 @@ import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { cn } from "./ui/utils";
+import { useOnboardingStore, selectShouldUseMockData } from "@/app/onboarding/onboardingStore";
 
 type Theme = "light" | "dark";
 type FriendsTab = "players" | "friends";
@@ -55,7 +56,6 @@ interface ProfileProps {
     avatarUrl: string | null;
   }) => void;
   friendsRefreshVersion?: number;
-  useOnboardingMockData?: boolean;
   onboardingMockPlayersPage?: FriendPlayersPageResponse;
   onboardingMockFriendsPage?: FriendPlayersPageResponse;
 }
@@ -108,10 +108,10 @@ export function Profile({
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
-  useOnboardingMockData = false,
   onboardingMockPlayersPage = EMPTY_FRIEND_PLAYERS_PAGE,
   onboardingMockFriendsPage = EMPTY_FRIEND_PLAYERS_PAGE,
 }: ProfileProps) {
+  const useOnboardingMockData = useOnboardingStore(selectShouldUseMockData);
   const { user } = useTelegram();
   const isTelegramMiniApp = useTelegramUiStore(
     (state) => state.isTelegramMiniApp

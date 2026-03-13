@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
@@ -32,6 +32,7 @@ import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeleto
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import {
+  FILTER_VISUAL_THEME,
   getVerseCardLayoutSignature,
   type VerseListStatusFilter,
 } from "./verse-list/constants";
@@ -40,13 +41,17 @@ import { useVerseListController } from "./verse-list/hooks/useVerseListControlle
 import { VerseStaticList } from "./verse-list/virtualization/VerseStaticList";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import type { Verse } from "@/app/App";
+import type { Tag } from "@/api/models/Tag";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import {
-  createOnboardingMockVerses,
-  ONBOARDING_PRIMARY_VERSE_ID,
-} from "@/app/onboarding/onboardingMockVerseFlow";
+import { ONBOARDING_PRIMARY_VERSE_ID } from "@/app/onboarding/onboardingMockVerseFlow";
 import { readOnboardingCompletion } from "@/app/onboarding/onboardingStorage";
-import { useOnboardingMockVerseList } from "@/app/onboarding/useOnboardingMockVerseList";
+import {
+  useOnboardingStore,
+  selectShouldUseMockData,
+  selectMockFilterLabel,
+  getMockVerseSectionConfig,
+  filterAndSortMockVerses,
+} from "@/app/onboarding/onboardingStore";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -71,13 +76,9 @@ interface VerseListProps {
     avatarUrl: string | null;
   }) => void;
   suppressSectionIntro?: boolean;
-  useOnboardingMockData?: boolean;
 }
 
 const VERSE_LIST_INTRO_STORAGE_PREFIX = "bible-memory.verse-list.intro.v1";
-const CLOSE_PROGRESS_DRAWER_EVENT = "bible-memory:onboarding-close-progress-drawer";
-const OPEN_FILTERS_DRAWER_EVENT = "bible-memory:onboarding-open-filters-drawer";
-const CLOSE_FILTERS_DRAWER_EVENT = "bible-memory:onboarding-close-filters-drawer";
 
 function getVerseListIntroStorageKey() {
   if (typeof window === "undefined") return null;
@@ -100,12 +101,56 @@ export function VerseList({
   isAnchorEligible = false,
   onFriendsChanged,
   suppressSectionIntro = false,
-  useOnboardingMockData = false,
 }: VerseListProps) {
+  // --- Onboarding store subscriptions (only primitive/stable selectors) ---
+  const isOnboardingMock = useOnboardingStore(selectShouldUseMockData);
+  const isOnboardingProgressDrawerOpen = useOnboardingStore(
+    (s) => s.isProgressDrawerOpen,
+  );
+  const isOnboardingFiltersDrawerOpen = useOnboardingStore(
+    (s) => s.isFiltersDrawerOpen,
+  );
+  const onboardingMockFilterLabel = useOnboardingStore(selectMockFilterLabel);
+  const onboardingStatusFilter = useOnboardingStore((s) => s.statusFilter);
+  const onboardingMockVerses = useOnboardingStore((s) => s.mockVerses);
+  const onboardingProgressTargetVerseId = useOnboardingStore(
+    (s) => s.progressTargetVerseId,
+  );
+
+  // Derived values via useMemo (avoids new-reference selectors causing infinite loops)
+  const onboardingProgressTarget = useMemo(
+    () =>
+      onboardingProgressTargetVerseId == null
+        ? null
+        : onboardingMockVerses.find(
+            (v) => v.externalVerseId === onboardingProgressTargetVerseId,
+          ) ?? null,
+    [onboardingProgressTargetVerseId, onboardingMockVerses],
+  );
+  const onboardingMockFilterTheme = useMemo(
+    () => FILTER_VISUAL_THEME[onboardingStatusFilter],
+    [onboardingStatusFilter],
+  );
+  const onboardingMockSectionConfig = useMemo(
+    () => getMockVerseSectionConfig(onboardingStatusFilter),
+    [onboardingStatusFilter],
+  );
+  const onboardingMockInitialTags = useMemo(
+    () =>
+      onboardingMockVerses
+        .flatMap((verse) => verse.tags ?? [])
+        .filter(
+          (tag, index, tags) =>
+            tags.findIndex((candidate) => candidate.slug === tag.slug) === index,
+        ) as Tag[],
+    [onboardingMockVerses],
+  );
+  const onboardingMockTotalCount = onboardingMockVerses.length;
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
+  const [isLocalFiltersDrawerOpen, setIsLocalFiltersDrawerOpen] = useState(false);
   const [isVerseTagsDrawerOpen, setIsVerseTagsDrawerOpen] = useState(false);
   const [verseTagsTarget, setVerseTagsTarget] = useState<Pick<
     Verse,
@@ -120,13 +165,24 @@ export function VerseList({
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
-  const onboardingMockInitialTags = React.useMemo(
-    () =>
-      createOnboardingMockVerses().flatMap((verse) => verse.tags ?? []).filter((tag, index, tags) => {
-        return tags.findIndex((candidate) => candidate.slug === tag.slug) === index;
-      }),
-    [],
-  );
+
+  // Effective drawer states: onboarding store overrides local state
+  const isFiltersDrawerOpen = isOnboardingMock
+    ? isOnboardingFiltersDrawerOpen
+    : isLocalFiltersDrawerOpen;
+  const setIsFiltersDrawerOpen = isOnboardingMock
+    ? (open: boolean) => {
+        if (open) useOnboardingStore.getState().openFiltersDrawer();
+        else useOnboardingStore.getState().closeFiltersDrawer();
+      }
+    : setIsLocalFiltersDrawerOpen;
+
+  const activeVerseProgressTarget = isOnboardingMock
+    ? onboardingProgressTarget
+    : verseProgressTarget;
+  const isActiveVerseProgressDrawerOpen = isOnboardingMock
+    ? isOnboardingProgressDrawerOpen
+    : isVerseProgressDrawerOpen;
 
   const markVerseListIntroAsSeen = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -181,7 +237,7 @@ export function VerseList({
   }, []);
 
   const vm = useVerseListController({
-    disabled: useOnboardingMockData,
+    disabled: isOnboardingMock,
     initialTags: onboardingMockInitialTags,
     hasFriends,
     onAddVerse: () => {
@@ -223,75 +279,34 @@ export function VerseList({
     verseListExternalSyncVersion,
     onVerseMutationCommitted,
   });
-  const onboardingMockVerseList = useOnboardingMockVerseList({
-    enabled: useOnboardingMockData,
-    statusFilter: vm.filters.statusFilter,
-    selectedBookId: vm.filters.selectedBookId,
-    sortBy: vm.filters.sortBy,
-    searchQuery: vm.search.searchQuery,
-    selectedTagSlugs: vm.tagFilter.selectedTagSlugs,
-  });
-  const {
-    visibleVerses: onboardingMockVisibleVerses,
-    totalCount: onboardingMockTotalCount,
-    progressTarget: onboardingMockProgressTarget,
-    isProgressDrawerOpen: isOnboardingMockProgressDrawerOpen,
-    openProgressDrawer,
-    closeProgressDrawer,
-    handleProgressDrawerOpenChange,
-    applyVerseAction: applyOnboardingMockVerseAction,
-    currentFilterLabel: onboardingMockCurrentFilterLabel,
-    currentFilterTheme: onboardingMockCurrentFilterTheme,
-    sectionConfig: onboardingMockSectionConfig,
-  } = onboardingMockVerseList;
-  const activeVerseProgressTarget = useOnboardingMockData
-    ? onboardingMockProgressTarget
-    : verseProgressTarget;
-  const isActiveVerseProgressDrawerOpen = useOnboardingMockData
-    ? isOnboardingMockProgressDrawerOpen
-    : isVerseProgressDrawerOpen;
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleCloseProgressDrawer = () => {
-      if (useOnboardingMockData) {
-        closeProgressDrawer();
-        return;
-      }
-      setIsVerseProgressDrawerOpen(false);
-      setVerseProgressTarget(null);
-    };
-    const handleOpenFiltersDrawer = () => {
-      setIsFiltersDrawerOpen(true);
-    };
-    const handleCloseFiltersDrawer = () => {
-      setIsFiltersDrawerOpen(false);
-    };
-
-    window.addEventListener(CLOSE_PROGRESS_DRAWER_EVENT, handleCloseProgressDrawer);
-    window.addEventListener(OPEN_FILTERS_DRAWER_EVENT, handleOpenFiltersDrawer);
-    window.addEventListener(CLOSE_FILTERS_DRAWER_EVENT, handleCloseFiltersDrawer);
-    return () => {
-      window.removeEventListener(CLOSE_PROGRESS_DRAWER_EVENT, handleCloseProgressDrawer);
-      window.removeEventListener(OPEN_FILTERS_DRAWER_EVENT, handleOpenFiltersDrawer);
-      window.removeEventListener(CLOSE_FILTERS_DRAWER_EVENT, handleCloseFiltersDrawer);
-    };
-  }, [closeProgressDrawer, useOnboardingMockData]);
-
-  useEffect(() => {
-    if (!useOnboardingMockData) return;
-    setIsVerseProgressDrawerOpen(false);
-    setVerseProgressTarget(null);
-    setIsFiltersDrawerOpen(false);
-  }, [useOnboardingMockData]);
+  // Visible mock verses — computed from store data + controller filter state
+  const onboardingMockVisibleVerses = useMemo(
+    () =>
+      filterAndSortMockVerses(
+        onboardingMockVerses,
+        onboardingStatusFilter,
+        vm.filters.selectedBookId,
+        vm.filters.sortBy,
+        vm.search.searchQuery,
+        vm.tagFilter.selectedTagSlugs,
+      ),
+    [
+      onboardingMockVerses,
+      onboardingStatusFilter,
+      vm.filters.selectedBookId,
+      vm.filters.sortBy,
+      vm.search.searchQuery,
+      vm.tagFilter.selectedTagSlugs,
+    ],
+  );
 
   const reveal = useCallback(
     (delay: number) =>
-      useOnboardingMockData ? {} : vm.view.getRevealProps(delay),
-    [useOnboardingMockData, vm.view.getRevealProps],
+      isOnboardingMock ? {} : vm.view.getRevealProps(delay),
+    [isOnboardingMock, vm.view.getRevealProps],
   );
-  const shouldReduceMotion = useOnboardingMockData || vm.ui.shouldReduceMotion;
+  const shouldReduceMotion = isOnboardingMock || vm.ui.shouldReduceMotion;
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
   const isDeleteModalOpen =
@@ -330,8 +345,8 @@ export function VerseList({
     }
 
     if (isActiveVerseProgressDrawerOpen) {
-      if (useOnboardingMockData) {
-        closeProgressDrawer();
+      if (isOnboardingMock) {
+        useOnboardingStore.getState().closeProgressDrawer();
       } else {
         setIsVerseProgressDrawerOpen(false);
         setVerseProgressTarget(null);
@@ -352,9 +367,9 @@ export function VerseList({
     isActiveVerseProgressDrawerOpen,
     isVerseTagsDrawerOpen,
     isVerseOwnersDrawerOpen,
+    isOnboardingMock,
     closeVerseTagsDrawer,
-    closeProgressDrawer,
-    useOnboardingMockData,
+    setIsFiltersDrawerOpen,
     vm.gallery,
     vm.modal,
   ]);
@@ -395,7 +410,7 @@ export function VerseList({
         <SwipeableVerseCard
           verse={verse}
           onOpen={() => {}}
-          onOpenProgress={openProgressDrawer}
+          onOpenProgress={(v) => useOnboardingStore.getState().openProgressDrawer(v)}
           onOpenTags={(targetVerse) => {
             if (!targetVerse.tags || targetVerse.tags.length === 0) return;
             setVerseTagsTarget({
@@ -407,21 +422,29 @@ export function VerseList({
           onAddToLearning={(targetVerse) => {
             const action =
               targetVerse.status === "CATALOG" ? "add-to-learning" : "start-learning";
-            applyOnboardingMockVerseAction(targetVerse, action);
+            useOnboardingStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, action);
           }}
           onPauseLearning={(targetVerse) =>
-            applyOnboardingMockVerseAction(targetVerse, "pause")
+            useOnboardingStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "pause")
           }
           onResumeLearning={(targetVerse) =>
-            applyOnboardingMockVerseAction(targetVerse, "resume")
+            useOnboardingStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "resume")
           }
           onRequestDelete={(targetVerse) =>
-            applyOnboardingMockVerseAction(targetVerse, "delete")
+            useOnboardingStore
+              .getState()
+              .applyVerseAction(targetVerse.externalVerseId, "delete")
           }
         />
       </div>
     ),
-    [applyOnboardingMockVerseAction, openProgressDrawer],
+    [],
   );
 
   const onboardingMockListContent = useCallback(
@@ -520,18 +543,18 @@ export function VerseList({
         <motion.div className="hidden shrink-0 md:block px-4 sm:px-6 lg:px-8" {...reveal(0.04)}>
           <VerseListFilterCard
             totalVisible={
-              useOnboardingMockData
+              isOnboardingMock
                 ? onboardingMockVisibleVerses.length
                 : vm.ui.totalVisible
             }
             totalCount={
-              useOnboardingMockData ? onboardingMockTotalCount : vm.pagination.totalCount
+              isOnboardingMock ? onboardingMockTotalCount : vm.pagination.totalCount
             }
             currentFilterLabel={
-              useOnboardingMockData ? onboardingMockCurrentFilterLabel : vm.ui.currentFilterLabel
+              isOnboardingMock ? onboardingMockFilterLabel : vm.ui.currentFilterLabel
             }
             currentFilterTheme={
-              useOnboardingMockData ? onboardingMockCurrentFilterTheme : vm.ui.currentFilterTheme
+              isOnboardingMock ? onboardingMockFilterTheme : vm.ui.currentFilterTheme
             }
             statusFilter={vm.filters.statusFilter}
             defaultStatusFilter={vm.filters.defaultStatusFilter}
@@ -561,7 +584,7 @@ export function VerseList({
           />
         </motion.div>
 
-        {useOnboardingMockData ? (
+        {isOnboardingMock ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
@@ -654,18 +677,18 @@ export function VerseList({
           open={isFiltersDrawerOpen}
           onOpenChange={setIsFiltersDrawerOpen}
           totalVisible={
-            useOnboardingMockData
+            isOnboardingMock
               ? onboardingMockVisibleVerses.length
               : vm.ui.totalVisible
           }
           totalCount={
-            useOnboardingMockData ? onboardingMockTotalCount : vm.pagination.totalCount
+            isOnboardingMock ? onboardingMockTotalCount : vm.pagination.totalCount
           }
           currentFilterLabel={
-            useOnboardingMockData ? onboardingMockCurrentFilterLabel : vm.ui.currentFilterLabel
+            isOnboardingMock ? onboardingMockFilterLabel : vm.ui.currentFilterLabel
           }
           currentFilterTheme={
-            useOnboardingMockData ? onboardingMockCurrentFilterTheme : vm.ui.currentFilterTheme
+            isOnboardingMock ? onboardingMockFilterTheme : vm.ui.currentFilterTheme
           }
           statusFilter={vm.filters.statusFilter}
           defaultStatusFilter={vm.filters.defaultStatusFilter}
@@ -793,8 +816,12 @@ export function VerseList({
           verse={activeVerseProgressTarget}
           open={isActiveVerseProgressDrawerOpen}
           onOpenChange={(open) => {
-            if (useOnboardingMockData) {
-              handleProgressDrawerOpenChange(open);
+            if (isOnboardingMock) {
+              if (open) {
+                // Progress drawer is opened via store.openProgressDrawer
+              } else {
+                useOnboardingStore.getState().closeProgressDrawer();
+              }
               return;
             }
 

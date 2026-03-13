@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { flushSync } from "react-dom";
 import { driver, type Driver, type PopoverDOM } from "driver.js";
 import {
@@ -12,12 +12,10 @@ import {
   type StepElementTarget,
 } from "./buildOnboardingSteps";
 import {
-  clearOnboardingReplayState,
-  readOnboardingCompletion,
-  writeOnboardingCompletion,
   writeOnboardingReplayState,
   type OnboardingSource,
 } from "./onboardingStorage";
+import { useOnboardingStore } from "./onboardingStore";
 
 type DestroyReason = "complete" | "cancel" | "restart" | null;
 
@@ -109,22 +107,20 @@ export function useAppOnboardingDriver({
   const stepsRef = useRef<AppOnboardingStep[]>([]);
   const stepCleanupRef = useRef<(() => void) | null>(null);
   const transitionInFlightRef = useRef(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [hasHydratedCompletion, setHasHydratedCompletion] = useState(false);
-  const [isOnboardingActive, setIsOnboardingActive] = useState(false);
+
+  // Read lifecycle state from store
+  const hasCompletedOnboarding = useOnboardingStore((s) => s.hasCompletedOnboarding);
+  const hasHydratedCompletion = useOnboardingStore((s) => s.hasHydratedCompletion);
+  const isOnboardingActive = useOnboardingStore((s) => s.isActive);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
+  // Hydrate completion state from localStorage
   useEffect(() => {
-    if (isBootstrapping) {
-      setHasHydratedCompletion(false);
-      return;
-    }
-
-    setHasCompletedOnboarding(readOnboardingCompletion(telegramId));
-    setHasHydratedCompletion(true);
+    if (isBootstrapping) return;
+    useOnboardingStore.getState().hydrateCompletion(telegramId);
   }, [isBootstrapping, telegramId]);
 
   useEffect(() => {
@@ -268,11 +264,6 @@ export function useAppOnboardingDriver({
     [waitForCondition],
   );
 
-  const dispatchAppEvent = useCallback((eventName: string) => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new CustomEvent(eventName));
-  }, []);
-
   const navigateToOnboardingPage = useCallback(
     (page: OnboardingPage) => {
       flushSync(() => {
@@ -306,9 +297,8 @@ export function useAppOnboardingDriver({
       },
       waitForElement,
       waitForCondition,
-      dispatchAppEvent,
     };
-  }, [dispatchAppEvent, useMockVerseFlow, waitForCondition, waitForElement]);
+  }, [useMockVerseFlow, waitForCondition, waitForElement]);
 
   const finishOnboarding = useCallback(() => {
     destroyReasonRef.current = "complete";
@@ -379,10 +369,8 @@ export function useAppOnboardingDriver({
           }
 
           if (step.element) {
-            const resolvedElement = await runtime.waitForElement(step.element, { timeoutMs: 12000 });
+            const resolvedElement = await runtime.waitForElement(step.element, { timeoutMs: 8000 });
             if (!resolvedElement) {
-              // Element didn't appear in time — skip this step instead of
-              // silently stopping the onboarding.
               candidateIndex += direction;
               continue;
             }
@@ -405,6 +393,7 @@ export function useAppOnboardingDriver({
       finishOnboarding,
       navigateToOnboardingPage,
       renderTransitioningPopover,
+      useMockVerseFlow,
     ],
   );
 
@@ -453,7 +442,7 @@ export function useAppOnboardingDriver({
             stepCleanupRef.current = typeof cleanup === "function" ? cleanup : null;
           },
           onPopoverRender: step.onPopoverRender
-            ? (popover, opts) => {
+            ? (popover: PopoverDOM, opts: { driver: Driver }) => {
                 step.onPopoverRender?.(popover, opts.driver);
               }
             : undefined,
@@ -497,19 +486,21 @@ export function useAppOnboardingDriver({
           sourceRef.current = null;
           driverRef.current = null;
           transitionInFlightRef.current = false;
-          clearOnboardingReplayState();
-          setIsOnboardingActive(false);
 
           if (destroyReason === "complete") {
-            writeOnboardingCompletion(telegramId);
-            setHasCompletedOnboarding(true);
+            useOnboardingStore.getState().completeOnboarding(telegramId);
             navigateToPage(sourceValue === "auto" ? "verses" : "profile");
             return;
           }
 
           if (destroyReason === "cancel" && sourceValue === "profile") {
+            useOnboardingStore.getState().cancelOnboarding();
             navigateToPage("profile");
+            return;
           }
+
+          // restart or unknown reason
+          useOnboardingStore.getState().cancelOnboarding();
         },
       });
     },
@@ -534,6 +525,10 @@ export function useAppOnboardingDriver({
       }
 
       sourceRef.current = source;
+
+      // Initialize store with mock data
+      useOnboardingStore.getState().startOnboarding(source);
+
       stepsRef.current = buildOnboardingSteps({
         source,
         hasOwnedVerses,
@@ -541,7 +536,6 @@ export function useAppOnboardingDriver({
         useMockVerseFlow,
       });
       writeOnboardingReplayState(source);
-      setIsOnboardingActive(true);
 
       if (currentPageRef.current !== "dashboard") {
         navigateToOnboardingPage("dashboard");
@@ -592,7 +586,6 @@ export function useAppOnboardingDriver({
       destroyReasonRef.current = "restart";
       cleanupStepEffect();
       driverRef.current?.destroy();
-      clearOnboardingReplayState();
     };
   }, [cleanupStepEffect]);
 

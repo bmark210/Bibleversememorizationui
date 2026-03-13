@@ -46,6 +46,7 @@ import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 import { useTelegramUiStore } from "./stores/telegramUiStore";
 import { readOnboardingCompletion } from "./onboarding/onboardingStorage";
 import { useAppOnboardingDriver } from "./onboarding/useAppOnboardingDriver";
+import { useOnboardingStore, selectShouldUseMockData } from "./onboarding/onboardingStore";
 import {
   createOnboardingMockProfileFriendsPage,
   createOnboardingMockProfilePlayersPage,
@@ -725,9 +726,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const {
-    hasHydratedCompletion,
     hasCompletedOnboarding,
-    isOnboardingActive,
     startOnboarding,
   } = useAppOnboardingDriver({
     currentPage,
@@ -743,9 +742,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     useMockVerseFlow: true,
     navigateToPage: (page) => handleRootNavigate(page),
   });
-  const shouldUseOnboardingMockData =
-    isOnboardingActive ||
-    (!isBootstrapping && hasHydratedCompletion && hasCompletedOnboarding === false);
+  const shouldUseOnboardingMockData = useOnboardingStore(selectShouldUseMockData);
   const activeDashboardStats = shouldUseOnboardingMockData
     ? ONBOARDING_MOCK_DASHBOARD_STATS
     : dashboardStats;
@@ -1298,7 +1295,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                 (activeDashboardStats?.masteredVerses ?? 0) >= 10
               }
               suppressSectionIntro={shouldUseOnboardingMockData || hasCompletedOnboarding}
-              useOnboardingMockData={shouldUseOnboardingMockData}
             />
           )}
 
@@ -1333,7 +1329,6 @@ export default function App({ onInitialContentReady }: AppProps) {
               onFriendsChanged={handleFriendsChanged}
               onOpenPlayerProfile={handleOpenPlayerProfile}
               friendsRefreshVersion={friendsRefreshVersion}
-              useOnboardingMockData={shouldUseOnboardingMockData}
               onboardingMockPlayersPage={onboardingMockProfilePlayersPage}
               onboardingMockFriendsPage={onboardingMockProfileFriendsPage}
             />
