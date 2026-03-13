@@ -459,7 +459,7 @@ export function buildVerseSectionTutorialSteps({
         "Теперь у карточки есть прогресс. По этой кнопке открывается весь путь стиха от изучения до закрепления.",
       element: () =>
         getPrimaryMockVerseAction(VERSE_CARD_PROGRESS_BUTTON_SELECTOR),
-      side: "left",
+      side: "bottom",
       align: "center",
       prepare: async (runtime) => {
         await ensurePrimaryMockVerseCard(runtime);
@@ -543,20 +543,20 @@ export function buildVerseSectionTutorialSteps({
         await ensureProgressContent(runtime, VERSE_PROGRESS_MASTERED_SELECTOR);
       },
     },
-    {
-      id: "verses-return-to-card",
-      page: "verses",
-      title: "Снова к карточке",
-      description:
-        "Вернемся к списку. Обычно именно отсюда вы быстро открываете путь стиха или полный просмотр.",
-      element: PRIMARY_CARD_SELECTOR,
-      side: "left",
-      align: "center",
-      prepare: async (runtime) => {
-        await closeVerseOverlays();
-        await ensurePrimaryMockVerseCard(runtime);
-      },
-    },
+    // {
+    //   id: "verses-return-to-card",
+    //   page: "verses",
+    //   title: "Снова к карточке",
+    //   description:
+    //     "Вернемся к списку. Обычно именно отсюда вы быстро открываете путь стиха или полный просмотр.",
+    //   element: PRIMARY_CARD_SELECTOR,
+    //   side: "left",
+    //   align: "center",
+    //   prepare: async (runtime) => {
+    //     await closeVerseOverlays();
+    //     await ensurePrimaryMockVerseCard(runtime);
+    //   },
+    // },
     {
       id: "verses-open-gallery",
       page: "verses",

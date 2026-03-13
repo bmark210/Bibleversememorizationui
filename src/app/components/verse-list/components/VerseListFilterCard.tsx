@@ -260,7 +260,7 @@ function VerseListFilterSections({
           }}
           disabled={!canToggle}
           className={cn(
-            'inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+            'inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors',
             isActive
               ? 'border-primary/40 bg-primary/12 text-primary'
               : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
@@ -546,7 +546,7 @@ function VerseListFilterSections({
               expanded={areTagsExpanded}
               controls={tagsPanelId}
               collapsedContent={
-                <div className="py-2">
+                <div className="py-1">
                   <ScrollRow>
                     {allTags.map((tag, index) => renderTagButton(tag, index, 'row'))}
                   </ScrollRow>
