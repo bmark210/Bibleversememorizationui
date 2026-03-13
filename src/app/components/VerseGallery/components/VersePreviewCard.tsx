@@ -394,6 +394,7 @@ export function VersePreviewCard({
         }
         centerAction={
           <Button
+            data-tour="verse-gallery-primary-cta"
             variant="secondary"
             className={cn(
               "gap-2 min-w-[200px] max-w-full shadow-lg rounded-2xl backdrop-blur-sm",

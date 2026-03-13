@@ -36,7 +36,10 @@ import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { cn } from "./ui/utils";
-import { useOnboardingStore, selectShouldUseMockData } from "@/app/onboarding/onboardingStore";
+import {
+  useVerseSectionTutorialStore,
+  selectShouldUseVerseSectionTutorialMockData,
+} from "@/app/verseSectionTutorial/store";
 
 type Theme = "light" | "dark";
 type FriendsTab = "players" | "friends";
@@ -48,7 +51,7 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
-  onRestartOnboarding?: () => void;
+  onRestartVerseSectionTutorial?: () => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -104,14 +107,16 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
-  onRestartOnboarding,
+  onRestartVerseSectionTutorial,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
   onboardingMockPlayersPage = EMPTY_FRIEND_PLAYERS_PAGE,
   onboardingMockFriendsPage = EMPTY_FRIEND_PLAYERS_PAGE,
 }: ProfileProps) {
-  const useOnboardingMockData = useOnboardingStore(selectShouldUseMockData);
+  const useOnboardingMockData = useVerseSectionTutorialStore(
+    selectShouldUseVerseSectionTutorialMockData,
+  );
   const { user } = useTelegram();
   const isTelegramMiniApp = useTelegramUiStore(
     (state) => state.isTelegramMiniApp
@@ -737,20 +742,20 @@ export function Profile({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-medium text-foreground/82">
-                    Обучение по приложению
+                    Обучение раздела «Стихи»
                   </div>
                   <div className="mt-1 text-sm text-foreground/56">
-                    Повторно покажем, как устроены стихи, тренировки, фильтры и друзья.
+                    Повторно покажем только работу раздела «Стихи»: карточку, путь прогресса и подробный просмотр.
                   </div>
                 </div>
 
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={onRestartOnboarding}
+                  onClick={onRestartVerseSectionTutorial}
                   className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
                 >
-                  Пройти обучение снова
+                  Повторить обучение
                 </Button>
               </div>
             </ProfileSurface>

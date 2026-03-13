@@ -147,6 +147,7 @@ function writeSeenModeTutorials(value: Partial<Record<TrainingModeRendererKey, t
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: Verse;
+  suppressTutorial?: boolean;
   onRate: (rating: TrainingModeRating) => void;
 }
 
@@ -158,22 +159,29 @@ export interface TrainingModeRendererHandle {
 const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
+  suppressTutorial = false,
   onRate,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(() => {
+    if (suppressTutorial) return false;
     const seen = readSeenModeTutorials();
     return !seen[renderer];
   });
   const previousRendererRef = useRef(renderer);
 
   useEffect(() => {
+    if (suppressTutorial) {
+      previousRendererRef.current = renderer;
+      setTutorialOpen(false);
+      return;
+    }
     if (previousRendererRef.current === renderer) return;
     previousRendererRef.current = renderer;
     const seen = readSeenModeTutorials();
     const nextOpen = !seen[renderer];
     setTutorialOpen((prev) => (prev === nextOpen ? prev : nextOpen));
-  }, [renderer]);
+  }, [renderer, suppressTutorial]);
 
   useImperativeHandle(ref, () => ({
     handleBackAction: () => {
@@ -182,11 +190,11 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
       return true;
     },
     openTutorial: () => {
-      if (!tutorial) return false;
+      if (!tutorial || suppressTutorial) return false;
       setTutorialOpen(true);
       return true;
     },
-  }), [tutorial, tutorialOpen]);
+  }), [suppressTutorial, tutorial, tutorialOpen]);
 
   const handleTutorialComplete = () => {
     const seen = readSeenModeTutorials();
@@ -233,7 +241,7 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
     <>
       {modeContent}
 
-      {tutorial && (
+      {tutorial && !suppressTutorial && (
         <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
           <AlertDialogContent className="rounded-3xl">
             <AlertDialogHeader>

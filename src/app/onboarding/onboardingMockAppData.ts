@@ -161,6 +161,47 @@ export const ONBOARDING_MOCK_DASHBOARD_FRIENDS_ACTIVITY: DashboardFriendsActivit
   ],
 };
 
+function buildOnboardingMasteredVerse(): Verse {
+  const createdAt = nowIso();
+
+  return {
+    id: "onboarding-mastered-verse",
+    externalVerseId: "onboarding-mastered-verse",
+    status: "MASTERED",
+    masteryLevel: 7,
+    repetitions: 7,
+    reviewLapseStreak: 0,
+    referenceScore: 0,
+    incipitScore: 0,
+    contextScore: 0,
+    lastTrainingModeId: null,
+    lastReviewedAt: hoursAgoIso(12),
+    createdAt,
+    updatedAt: createdAt,
+    translation: "RST",
+    nextReview: null,
+    nextReviewAt: null,
+    tags: [{ id: "onboarding-tag-faith", slug: "faith", title: "Вера" }],
+    popularityScope: "self",
+    popularityValue: 0,
+    popularityPreviewUsers: [],
+    reference: "Евреям 11:1",
+    text: "Вера же есть осуществление ожидаемого и уверенность в невидимом.",
+  };
+}
+
+export function buildOnboardingMockTrainingVerses(
+  mockVerses: ReadonlyArray<Verse>,
+): Verse[] {
+  const sourceVerses =
+    mockVerses.length > 0 ? [...mockVerses] : createOnboardingMockVerses();
+
+  const trainingVerses = sourceVerses.filter((verse) => verse.status !== "CATALOG");
+  const masteredVerse = buildOnboardingMasteredVerse();
+
+  return [...trainingVerses, masteredVerse];
+}
+
 export function createOnboardingMockTrainingVerses(): Verse[] {
   const [primaryCatalogVerse, reviewVerse] = createOnboardingMockVerses();
   const [learningVerse] = reduceOnboardingMockVerses(
@@ -168,38 +209,8 @@ export function createOnboardingMockTrainingVerses(): Verse[] {
     ONBOARDING_PRIMARY_VERSE_ID,
     "add-to-learning",
   );
-  const createdAt = nowIso();
 
-  return [
-    learningVerse,
-    reviewVerse,
-    {
-      id: "onboarding-mastered-verse",
-      externalVerseId: "onboarding-mastered-verse",
-      status: "MASTERED",
-      masteryLevel: 7,
-      repetitions: 7,
-      reviewLapseStreak: 0,
-      referenceScore: 0,
-      incipitScore: 0,
-      contextScore: 0,
-      lastTrainingModeId: null,
-      lastReviewedAt: hoursAgoIso(12),
-      createdAt,
-      updatedAt: createdAt,
-      translation: "RST",
-      nextReview: null,
-      nextReviewAt: null,
-      tags: [
-        { id: "onboarding-tag-faith", slug: "faith", title: "Вера" },
-      ],
-      popularityScope: "self",
-      popularityValue: 0,
-      popularityPreviewUsers: [],
-      reference: "Евреям 11:1",
-      text: "Вера же есть осуществление ожидаемого и уверенность в невидимом.",
-    },
-  ];
+  return buildOnboardingMockTrainingVerses([learningVerse, reviewVerse]);
 }
 
 export function createOnboardingMockProfilePlayersPage(): FriendPlayersPageResponse {

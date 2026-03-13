@@ -45,6 +45,7 @@ export function Training({
   dashboardStats,
   telegramId,
   suppressIntro = false,
+  suppressModeTutorials = false,
   selectionVerses,
   directLaunch,
   onDirectLaunchExit,
@@ -228,6 +229,7 @@ export function Training({
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
               initialOrder={view.order}
               initialVerseExternalId={view.initialVerseExternalId}
+              suppressModeTutorials={suppressModeTutorials}
               onClose={handleExitSession}
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}

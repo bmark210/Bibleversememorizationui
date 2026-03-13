@@ -4,33 +4,33 @@ import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "
 import { flushSync } from "react-dom";
 import { driver, type Driver, type PopoverDOM } from "driver.js";
 import {
-  buildOnboardingSteps,
-  resolveOnboardingElement,
-  type AppOnboardingRuntime,
-  type AppOnboardingStep,
-  type OnboardingPage,
-  type StepElementTarget,
-} from "./buildOnboardingSteps";
+  buildVerseSectionTutorialSteps,
+  resolveVerseSectionTutorialElement,
+  type VerseSectionTutorialRuntime,
+  type VerseSectionTutorialStep,
+  type VerseSectionTutorialPage,
+  type VerseSectionTutorialElementTarget,
+} from "./buildVerseSectionTutorialSteps";
 import {
-  writeOnboardingReplayState,
-  type OnboardingSource,
-} from "./onboardingStorage";
-import { useOnboardingStore } from "./onboardingStore";
+  type VerseSectionTutorialSource,
+  writeVerseSectionTutorialPromptSeen,
+} from "./storage";
+import { useVerseSectionTutorialStore } from "./store";
 
 type DestroyReason = "complete" | "cancel" | "restart" | null;
 
-type UseAppOnboardingDriverOptions = {
-  currentPage: OnboardingPage;
+type UseVerseSectionTutorialDriverOptions = {
+  currentPage: VerseSectionTutorialPage;
   isBootstrapping: boolean;
   telegramId: string | null;
-  navigateToPage: (page: OnboardingPage) => void;
+  navigateToPage: (page: VerseSectionTutorialPage) => void;
 };
 
-type UseAppOnboardingDriverResult = {
-  hasHydratedCompletion: boolean;
-  hasCompletedOnboarding: boolean;
-  isOnboardingActive: boolean;
-  startOnboarding: (source: OnboardingSource) => Promise<void>;
+type UseVerseSectionTutorialDriverResult = {
+  isVerseSectionTutorialActive: boolean;
+  startVerseSectionTutorial: (
+    source: VerseSectionTutorialSource,
+  ) => Promise<void>;
 };
 
 function waitForAnimationFrame() {
@@ -45,7 +45,11 @@ async function waitForPagePaint(frameCount = 2) {
   }
 }
 
-function waitForPage(pageRef: MutableRefObject<OnboardingPage>, page: OnboardingPage, timeoutMs = 4000) {
+function waitForPage(
+  pageRef: MutableRefObject<VerseSectionTutorialPage>,
+  page: VerseSectionTutorialPage,
+  timeoutMs = 4000,
+) {
   return new Promise<boolean>((resolve) => {
     const startedAt = Date.now();
 
@@ -87,39 +91,27 @@ function setPopoverButtonDisabled(button: HTMLButtonElement, disabled: boolean) 
   button.classList.toggle("driver-popover-btn-disabled", disabled);
 }
 
-export function useAppOnboardingDriver({
+export function useVerseSectionTutorialDriver({
   currentPage,
   isBootstrapping,
   telegramId,
   navigateToPage,
-}: UseAppOnboardingDriverOptions): UseAppOnboardingDriverResult {
+}: UseVerseSectionTutorialDriverOptions): UseVerseSectionTutorialDriverResult {
   const currentPageRef = useRef(currentPage);
   const driverRef = useRef<Driver | null>(null);
   const destroyReasonRef = useRef<DestroyReason>(null);
-  const sourceRef = useRef<OnboardingSource | null>(null);
-  const autoStartAttemptedRef = useRef(false);
-  const stepsRef = useRef<AppOnboardingStep[]>([]);
+  const sourceRef = useRef<VerseSectionTutorialSource | null>(null);
+  const stepsRef = useRef<VerseSectionTutorialStep[]>([]);
   const stepCleanupRef = useRef<(() => void) | null>(null);
   const transitionInFlightRef = useRef(false);
 
-  // Read lifecycle state from store
-  const hasCompletedOnboarding = useOnboardingStore((s) => s.hasCompletedOnboarding);
-  const hasHydratedCompletion = useOnboardingStore((s) => s.hasHydratedCompletion);
-  const isOnboardingActive = useOnboardingStore((s) => s.isActive);
+  const isVerseSectionTutorialActive = useVerseSectionTutorialStore(
+    (state) => state.isActive,
+  );
 
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
-
-  // Hydrate completion state from localStorage
-  useEffect(() => {
-    if (isBootstrapping) return;
-    useOnboardingStore.getState().hydrateCompletion(telegramId);
-  }, [isBootstrapping, telegramId]);
-
-  useEffect(() => {
-    autoStartAttemptedRef.current = false;
-  }, [telegramId]);
 
   const cleanupStepEffect = useCallback(() => {
     const cleanup = stepCleanupRef.current;
@@ -221,32 +213,32 @@ export function useAppOnboardingDriver({
 
   const waitForElement = useCallback(
     async (
-      target?: StepElementTarget,
+      target?: VerseSectionTutorialElementTarget,
       options?: { timeoutMs?: number },
     ): Promise<Element | null> => {
       if (!target) return null;
 
-      const existing = resolveOnboardingElement(target);
+      const existing = resolveVerseSectionTutorialElement(target);
       if (isElementVisible(existing)) {
         return existing;
       }
 
       const matched = await waitForCondition(
         () => {
-          const nextElement = resolveOnboardingElement(target);
+          const nextElement = resolveVerseSectionTutorialElement(target);
           return isElementVisible(nextElement);
         },
         options,
       );
 
       if (!matched) return null;
-      return resolveOnboardingElement(target);
+      return resolveVerseSectionTutorialElement(target);
     },
     [waitForCondition],
   );
 
-  const navigateToOnboardingPage = useCallback(
-    (page: OnboardingPage) => {
+  const navigateToTutorialPage = useCallback(
+    (page: VerseSectionTutorialPage) => {
       flushSync(() => {
         navigateToPage(page);
       });
@@ -259,9 +251,9 @@ export function useAppOnboardingDriver({
     ((targetIndex: number, direction?: 1 | -1) => Promise<void>) | null
   >(null);
 
-  const createRuntime = useCallback((): AppOnboardingRuntime => {
+  const createRuntime = useCallback((): VerseSectionTutorialRuntime => {
     return {
-      source: sourceRef.current ?? "auto",
+      source: sourceRef.current ?? "prompt",
       goNext: async () => {
         const activeIndex = driverRef.current?.getActiveIndex();
         if (activeIndex == null) return;
@@ -272,7 +264,7 @@ export function useAppOnboardingDriver({
         if (activeIndex == null) return;
         await transitionToStep.current?.(activeIndex - 1, -1);
       },
-      goToStep: async (index: number, direction = 1) => {
+      goToStep: async (index, direction = 1) => {
         await transitionToStep.current?.(index, direction);
       },
       waitForElement,
@@ -280,7 +272,7 @@ export function useAppOnboardingDriver({
     };
   }, [waitForCondition, waitForElement]);
 
-  const finishOnboarding = useCallback(() => {
+  const finishTutorial = useCallback(() => {
     destroyReasonRef.current = "complete";
     driverRef.current?.destroy();
   }, []);
@@ -291,7 +283,7 @@ export function useAppOnboardingDriver({
   }, []);
 
   const renderTransitioningPopover = useCallback(
-    (step: AppOnboardingStep, stepIndex: number) => {
+    (step: VerseSectionTutorialStep, stepIndex: number) => {
       const popover = driverRef.current?.getState("popover") as PopoverDOM | undefined;
       if (!popover) return;
 
@@ -334,7 +326,7 @@ export function useAppOnboardingDriver({
           renderTransitioningPopover(step, candidateIndex);
 
           if (currentPageRef.current !== step.page) {
-            navigateToOnboardingPage(step.page);
+            navigateToTutorialPage(step.page);
             await waitForPage(currentPageRef, step.page);
             await waitForPagePaint(2);
           }
@@ -349,7 +341,9 @@ export function useAppOnboardingDriver({
           }
 
           if (step.element) {
-            const resolvedElement = await runtime.waitForElement(step.element, { timeoutMs: 8000 });
+            const resolvedElement = await runtime.waitForElement(step.element, {
+              timeoutMs: 8000,
+            });
             if (!resolvedElement) {
               candidateIndex += direction;
               continue;
@@ -361,7 +355,7 @@ export function useAppOnboardingDriver({
         }
 
         if (direction > 0) {
-          finishOnboarding();
+          finishTutorial();
         }
       } finally {
         transitionInFlightRef.current = false;
@@ -370,8 +364,8 @@ export function useAppOnboardingDriver({
     [
       cleanupStepEffect,
       createRuntime,
-      finishOnboarding,
-      navigateToOnboardingPage,
+      finishTutorial,
+      navigateToTutorialPage,
       renderTransitioningPopover,
     ],
   );
@@ -381,7 +375,7 @@ export function useAppOnboardingDriver({
   }, [transitionToStepImpl]);
 
   const buildDriverInstance = useCallback(
-    (source: OnboardingSource) => {
+    (source: VerseSectionTutorialSource) => {
       const steps = stepsRef.current;
       const allowClose = source === "profile";
 
@@ -409,7 +403,7 @@ export function useAppOnboardingDriver({
         steps: steps.map((step, index) => ({
           disableActiveInteraction: step.disableActiveInteraction,
           element: step.element
-            ? () => resolveOnboardingElement(step.element) ?? undefined
+            ? () => resolveVerseSectionTutorialElement(step.element) ?? undefined
             : undefined,
           onDeselected: () => {
             cleanupStepEffect();
@@ -418,7 +412,8 @@ export function useAppOnboardingDriver({
             cleanupStepEffect();
             const runtime = createRuntime();
             const cleanup = await step.onHighlighted?.(runtime);
-            stepCleanupRef.current = typeof cleanup === "function" ? cleanup : null;
+            stepCleanupRef.current =
+              typeof cleanup === "function" ? cleanup : null;
           },
           onPopoverRender: step.onPopoverRender
             ? (popover: PopoverDOM, opts: { driver: Driver }) => {
@@ -443,7 +438,7 @@ export function useAppOnboardingDriver({
 
               const nextIndex = index + 1;
               if (nextIndex >= steps.length) {
-                finishOnboarding();
+                finishTutorial();
                 return;
               }
 
@@ -467,19 +462,22 @@ export function useAppOnboardingDriver({
           transitionInFlightRef.current = false;
 
           if (destroyReason === "complete") {
-            useOnboardingStore.getState().completeOnboarding(telegramId);
-            navigateToPage(sourceValue === "auto" ? "verses" : "profile");
+            useVerseSectionTutorialStore
+              .getState()
+              .completeVerseSectionTutorial(telegramId);
+            navigateToPage("verses");
             return;
           }
 
           if (destroyReason === "cancel" && sourceValue === "profile") {
-            useOnboardingStore.getState().cancelOnboarding();
+            useVerseSectionTutorialStore
+              .getState()
+              .cancelVerseSectionTutorial();
             navigateToPage("profile");
             return;
           }
 
-          // restart or unknown reason
-          useOnboardingStore.getState().cancelOnboarding();
+          useVerseSectionTutorialStore.getState().cancelVerseSectionTutorial();
         },
       });
     },
@@ -487,14 +485,14 @@ export function useAppOnboardingDriver({
       cancelReplay,
       cleanupStepEffect,
       createRuntime,
-      finishOnboarding,
+      finishTutorial,
       navigateToPage,
       telegramId,
     ],
   );
 
-  const startOnboarding = useCallback(
-    async (source: OnboardingSource) => {
+  const startVerseSectionTutorial = useCallback(
+    async (source: VerseSectionTutorialSource) => {
       if (typeof window === "undefined" || isBootstrapping) return;
 
       if (driverRef.current?.isActive()) {
@@ -503,18 +501,16 @@ export function useAppOnboardingDriver({
       }
 
       sourceRef.current = source;
+      writeVerseSectionTutorialPromptSeen(telegramId);
+      useVerseSectionTutorialStore
+        .getState()
+        .startVerseSectionTutorial(source);
 
-      // Initialize store with mock data
-      useOnboardingStore.getState().startOnboarding(source);
+      stepsRef.current = buildVerseSectionTutorialSteps({ source });
 
-      stepsRef.current = buildOnboardingSteps({
-        source,
-      });
-      writeOnboardingReplayState(source);
-
-      if (currentPageRef.current !== "dashboard") {
-        navigateToOnboardingPage("dashboard");
-        await waitForPage(currentPageRef, "dashboard");
+      if (currentPageRef.current !== "verses") {
+        navigateToTutorialPage("verses");
+        await waitForPage(currentPageRef, "verses");
         await waitForPagePaint(2);
       }
 
@@ -524,34 +520,16 @@ export function useAppOnboardingDriver({
 
       const nextDriver = buildDriverInstance(source);
       driverRef.current = nextDriver;
-
-      let initialIndex = 0;
-      while (initialIndex < stepsRef.current.length) {
-        const step = stepsRef.current[initialIndex];
-        const shouldSkip = (await step.skipWhen?.(createRuntime())) ?? false;
-        if (!shouldSkip) break;
-        initialIndex += 1;
-      }
-
-      nextDriver.drive(initialIndex);
+      nextDriver.drive(0);
     },
     [
       buildDriverInstance,
       createRuntime,
       isBootstrapping,
-      navigateToOnboardingPage,
+      navigateToTutorialPage,
+      telegramId,
     ],
   );
-
-  useEffect(() => {
-    if (isBootstrapping) return;
-    if (!hasHydratedCompletion) return;
-    if (hasCompletedOnboarding) return;
-    if (autoStartAttemptedRef.current) return;
-
-    autoStartAttemptedRef.current = true;
-    void startOnboarding("auto");
-  }, [hasCompletedOnboarding, hasHydratedCompletion, isBootstrapping, startOnboarding]);
 
   useEffect(() => {
     return () => {
@@ -563,11 +541,9 @@ export function useAppOnboardingDriver({
 
   return useMemo(
     () => ({
-      hasHydratedCompletion,
-      hasCompletedOnboarding,
-      isOnboardingActive,
-      startOnboarding,
+      isVerseSectionTutorialActive,
+      startVerseSectionTutorial,
     }),
-    [hasCompletedOnboarding, hasHydratedCompletion, isOnboardingActive, startOnboarding],
+    [isVerseSectionTutorialActive, startVerseSectionTutorial],
   );
 }

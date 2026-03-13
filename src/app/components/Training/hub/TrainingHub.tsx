@@ -65,7 +65,6 @@ import {
 } from "../../ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
-import { readOnboardingCompletion } from "@/app/onboarding/onboardingStorage";
 
 interface TrainingHubProps {
   allVerses: Verse[];
@@ -507,7 +506,7 @@ export function TrainingHub({
     if (typeof window === "undefined") return;
 
     try {
-      if (suppressIntro || readOnboardingCompletion(telegramId)) {
+      if (suppressIntro) {
         window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
         setIsAboutDialogOpen(false);
         return;

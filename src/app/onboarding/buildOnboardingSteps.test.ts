@@ -2,26 +2,34 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildOnboardingSteps } from "./buildOnboardingSteps";
 
-test("mock onboarding includes verse progress walkthrough after opening progress", () => {
+test("onboarding keeps only the core route through dashboard, verses, and training", () => {
   const steps = buildOnboardingSteps({
     source: "auto",
-    hasOwnedVerses: false,
-    hasProgressVerse: false,
-    useMockVerseFlow: true,
   });
 
-  const stepIds = steps.map((step) => step.id);
-  const openProgressIndex = stepIds.indexOf("verses-open-progress");
-
-  assert.notEqual(openProgressIndex, -1);
   assert.deepEqual(
-    stepIds.slice(openProgressIndex + 1, openProgressIndex + 6),
+    steps.map((step) => step.id),
     [
-      "verse-progress-summary",
-      "verse-progress-collection",
-      "verse-progress-learning",
-      "verse-progress-review",
-      "verse-progress-mastered",
+      "dashboard-home",
+      "verses-overview",
+      "verses-card",
+      "verses-add-card",
+      "verses-open-progress",
+      "verses-progress-summary",
+      "training-overview",
+      "training-start",
+      "training-open-session",
+      "training-session",
+      "onboarding-finish",
     ],
   );
+});
+
+test("replay onboarding still finishes in training without profile steps", () => {
+  const steps = buildOnboardingSteps({
+    source: "profile",
+  });
+
+  assert.equal(steps.some((step) => step.page === "profile"), false);
+  assert.equal(steps.at(-1)?.page, "training");
 });

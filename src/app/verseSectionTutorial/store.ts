@@ -11,17 +11,12 @@ import {
   createOnboardingMockVerses,
   reduceOnboardingMockVerses,
   type OnboardingMockVerseAction,
-} from "./onboardingMockVerseFlow";
+} from "@/app/onboarding/onboardingMockVerseFlow";
 import {
-  readOnboardingCompletion,
-  writeOnboardingCompletion,
-  clearOnboardingReplayState,
-  type OnboardingSource,
-} from "./onboardingStorage";
-
-// ---------------------------------------------------------------------------
-// Pure utility functions (moved from useOnboardingMockVerseList.ts)
-// ---------------------------------------------------------------------------
+  type VerseSectionTutorialSource,
+  writeVerseSectionTutorialCompleted,
+  writeVerseSectionTutorialPromptSeen,
+} from "./storage";
 
 function getMockVerseBookId(reference: string) {
   if (reference.startsWith("От Иоанна")) return 43;
@@ -31,7 +26,7 @@ function getMockVerseBookId(reference: string) {
   return null;
 }
 
-type OnboardingMockVerseSectionConfig = {
+type VerseSectionTutorialMockSectionConfig = {
   headingId: string;
   title: string;
   subtitle: string;
@@ -40,12 +35,12 @@ type OnboardingMockVerseSectionConfig = {
   tintClassName: string;
 };
 
-export function getMockVerseSectionConfig(
+export function getVerseSectionTutorialMockSectionConfig(
   statusFilter: VerseListStatusFilter,
-): OnboardingMockVerseSectionConfig {
+): VerseSectionTutorialMockSectionConfig {
   if (statusFilter === "catalog") {
     return {
-      headingId: "onboarding-mock-catalog-heading",
+      headingId: "verse-section-tutorial-catalog-heading",
       title: "Каталог",
       subtitle: "Демо-стихи для обучения",
       dotClassName: "bg-gray-400",
@@ -56,7 +51,7 @@ export function getMockVerseSectionConfig(
 
   if (statusFilter === "learning") {
     return {
-      headingId: "onboarding-mock-learning-heading",
+      headingId: "verse-section-tutorial-learning-heading",
       title: "Изучение",
       subtitle: "Демо-стихи в активной практике",
       dotClassName: "bg-emerald-500",
@@ -67,7 +62,7 @@ export function getMockVerseSectionConfig(
 
   if (statusFilter === "review") {
     return {
-      headingId: "onboarding-mock-review-heading",
+      headingId: "verse-section-tutorial-review-heading",
       title: "Повторение",
       subtitle: "Стихи, которые ждут повторения",
       dotClassName: "bg-violet-500",
@@ -78,7 +73,7 @@ export function getMockVerseSectionConfig(
 
   if (statusFilter === "mastered") {
     return {
-      headingId: "onboarding-mock-mastered-heading",
+      headingId: "verse-section-tutorial-mastered-heading",
       title: "Выучены",
       subtitle: "Демо-стихи, дошедшие до закрепления",
       dotClassName: "bg-amber-500",
@@ -89,7 +84,7 @@ export function getMockVerseSectionConfig(
 
   if (statusFilter === "stopped") {
     return {
-      headingId: "onboarding-mock-stopped-heading",
+      headingId: "verse-section-tutorial-stopped-heading",
       title: "На паузе",
       subtitle: "Стихи, которые можно возобновить позже",
       dotClassName: "bg-rose-500",
@@ -99,7 +94,7 @@ export function getMockVerseSectionConfig(
   }
 
   return {
-    headingId: "onboarding-mock-my-heading",
+    headingId: "verse-section-tutorial-my-heading",
     title: "Мои стихи",
     subtitle: "Личный демо-список для обучения",
     dotClassName: "bg-sky-500",
@@ -134,15 +129,16 @@ function matchesMockTags(verse: Verse, selectedTagSlugs: Set<string>) {
   return Boolean(verse.tags?.some((tag) => selectedTagSlugs.has(tag.slug)));
 }
 
-function compareOnboardingPriority(left: Verse, right: Verse) {
+function compareVerseSectionTutorialPriority(left: Verse, right: Verse) {
   const leftPriority = left.externalVerseId === ONBOARDING_PRIMARY_VERSE_ID ? 0 : 1;
-  const rightPriority = right.externalVerseId === ONBOARDING_PRIMARY_VERSE_ID ? 0 : 1;
+  const rightPriority =
+    right.externalVerseId === ONBOARDING_PRIMARY_VERSE_ID ? 0 : 1;
   return leftPriority - rightPriority;
 }
 
 function sortMockVerses(verses: Verse[], sortBy: VerseListSortBy) {
   return [...verses].sort((left, right) => {
-    const priorityComparison = compareOnboardingPriority(left, right);
+    const priorityComparison = compareVerseSectionTutorialPriority(left, right);
     if (priorityComparison !== 0) return priorityComparison;
 
     if (sortBy === "popularity") {
@@ -151,7 +147,8 @@ function sortMockVerses(verses: Verse[], sortBy: VerseListSortBy) {
 
     if (sortBy === "bible") {
       const leftBook = getMockVerseBookId(left.reference) ?? Number.MAX_SAFE_INTEGER;
-      const rightBook = getMockVerseBookId(right.reference) ?? Number.MAX_SAFE_INTEGER;
+      const rightBook =
+        getMockVerseBookId(right.reference) ?? Number.MAX_SAFE_INTEGER;
       if (leftBook !== rightBook) return leftBook - rightBook;
       return left.reference.localeCompare(right.reference, "ru");
     }
@@ -163,7 +160,7 @@ function sortMockVerses(verses: Verse[], sortBy: VerseListSortBy) {
   });
 }
 
-export function filterAndSortMockVerses(
+export function filterAndSortVerseSectionTutorialMockVerses(
   verses: Verse[],
   statusFilter: VerseListStatusFilter,
   selectedBookId: number | null,
@@ -188,155 +185,131 @@ export function filterAndSortMockVerses(
   return sortMockVerses(filtered, sortBy);
 }
 
-// ---------------------------------------------------------------------------
-// Store types
-// ---------------------------------------------------------------------------
-
-type OnboardingStoreState = {
-  // Lifecycle
+type VerseSectionTutorialStoreState = {
   isActive: boolean;
-  source: OnboardingSource | null;
-  hasCompletedOnboarding: boolean;
-  hasHydratedCompletion: boolean;
-
-  // Mock verse data
+  source: VerseSectionTutorialSource | null;
   mockVerses: Verse[];
-
-  // UI state controlled by onboarding steps
-  isProgressDrawerOpen: boolean;
   progressTargetVerseId: string | null;
+  galleryTargetVerseId: string | null;
 };
 
-type OnboardingStoreActions = {
-  // Lifecycle
-  startOnboarding: (source: OnboardingSource) => void;
-  completeOnboarding: (telegramId: string | null) => void;
-  cancelOnboarding: () => void;
-  hydrateCompletion: (telegramId: string | null) => void;
-
-  // Mock verse mutations
+type VerseSectionTutorialStoreActions = {
+  startVerseSectionTutorial: (source: VerseSectionTutorialSource) => void;
+  completeVerseSectionTutorial: (telegramId: string | null) => void;
+  cancelVerseSectionTutorial: () => void;
   applyVerseAction: (verseId: string, action: OnboardingMockVerseAction) => void;
-
-  // UI controls
   openProgressDrawer: (verse: Verse) => void;
   closeProgressDrawer: () => void;
+  openGallery: (verse: Verse) => void;
+  closeGallery: () => void;
   closeAllOverlays: () => void;
 };
 
-type OnboardingStore = OnboardingStoreState & OnboardingStoreActions;
+type VerseSectionTutorialStore =
+  & VerseSectionTutorialStoreState
+  & VerseSectionTutorialStoreActions;
 
-// ---------------------------------------------------------------------------
-// Default state
-// ---------------------------------------------------------------------------
-
-const DEFAULT_STATE: OnboardingStoreState = {
+const DEFAULT_STATE: VerseSectionTutorialStoreState = {
   isActive: false,
   source: null,
-  hasCompletedOnboarding: false,
-  hasHydratedCompletion: false,
   mockVerses: [],
-  isProgressDrawerOpen: false,
   progressTargetVerseId: null,
+  galleryTargetVerseId: null,
 };
 
-// ---------------------------------------------------------------------------
-// Store
-// ---------------------------------------------------------------------------
+export const useVerseSectionTutorialStore = create<VerseSectionTutorialStore>(
+  (set, get) => ({
+    ...DEFAULT_STATE,
 
-export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-  ...DEFAULT_STATE,
+    startVerseSectionTutorial: (source) => {
+      writeVerseSectionTutorialPromptSeen();
+      set({
+        isActive: true,
+        source,
+        mockVerses: createOnboardingMockVerses(),
+        progressTargetVerseId: null,
+        galleryTargetVerseId: null,
+      });
+    },
 
-  // -- Lifecycle --
+    completeVerseSectionTutorial: (telegramId) => {
+      writeVerseSectionTutorialCompleted(telegramId);
+      set({
+        isActive: false,
+        source: null,
+        mockVerses: [],
+        progressTargetVerseId: null,
+        galleryTargetVerseId: null,
+      });
+    },
 
-  startOnboarding: (source) => {
-    const mockVerses = createOnboardingMockVerses();
-    set({
-      isActive: true,
-      source,
-      mockVerses,
-      isProgressDrawerOpen: false,
-      progressTargetVerseId: null,
-    });
-  },
+    cancelVerseSectionTutorial: () => {
+      set({
+        isActive: false,
+        source: null,
+        mockVerses: [],
+        progressTargetVerseId: null,
+        galleryTargetVerseId: null,
+      });
+    },
 
-  completeOnboarding: (telegramId) => {
-    writeOnboardingCompletion(telegramId);
-    clearOnboardingReplayState();
-    set({
-      isActive: false,
-      source: null,
-      hasCompletedOnboarding: true,
-      isProgressDrawerOpen: false,
-      progressTargetVerseId: null,
-    });
-  },
+    applyVerseAction: (verseId, action) => {
+      const { mockVerses, progressTargetVerseId, galleryTargetVerseId } = get();
+      const nextVerses = reduceOnboardingMockVerses(mockVerses, verseId, action);
+      const updates: Partial<VerseSectionTutorialStoreState> = {
+        mockVerses: nextVerses,
+      };
 
-  cancelOnboarding: () => {
-    clearOnboardingReplayState();
-    set({
-      isActive: false,
-      source: null,
-      isProgressDrawerOpen: false,
-      progressTargetVerseId: null,
-    });
-  },
+      if (action === "delete" && progressTargetVerseId === verseId) {
+        updates.progressTargetVerseId = null;
+      }
 
-  hydrateCompletion: (telegramId) => {
-    const completed = readOnboardingCompletion(telegramId);
-    set({
-      hasCompletedOnboarding: completed,
-      hasHydratedCompletion: true,
-    });
-  },
+      if (action === "delete" && galleryTargetVerseId === verseId) {
+        updates.galleryTargetVerseId = null;
+      }
 
-  // -- Mock verse mutations --
+      set(updates);
+    },
 
-  applyVerseAction: (verseId, action) => {
-    const { mockVerses, progressTargetVerseId } = get();
-    const nextVerses = reduceOnboardingMockVerses(mockVerses, verseId, action);
-    const updates: Partial<OnboardingStoreState> = { mockVerses: nextVerses };
+    openProgressDrawer: (verse) => {
+      set({
+        progressTargetVerseId: verse.externalVerseId,
+        galleryTargetVerseId: null,
+      });
+    },
 
-    if (action === "delete" && progressTargetVerseId === verseId) {
-      updates.isProgressDrawerOpen = false;
-      updates.progressTargetVerseId = null;
-    }
+    closeProgressDrawer: () => {
+      set({
+        progressTargetVerseId: null,
+      });
+    },
 
-    set(updates);
-  },
+    openGallery: (verse) => {
+      set({
+        galleryTargetVerseId: verse.externalVerseId,
+        progressTargetVerseId: null,
+      });
+    },
 
-  // -- UI controls --
+    closeGallery: () => {
+      set({
+        galleryTargetVerseId: null,
+      });
+    },
 
-  openProgressDrawer: (verse) => {
-    set({
-      isProgressDrawerOpen: true,
-      progressTargetVerseId: verse.externalVerseId,
-    });
-  },
+    closeAllOverlays: () => {
+      set({
+        progressTargetVerseId: null,
+        galleryTargetVerseId: null,
+      });
+    },
+  }),
+);
 
-  closeProgressDrawer: () => {
-    set({
-      isProgressDrawerOpen: false,
-      progressTargetVerseId: null,
-    });
-  },
-
-  closeAllOverlays: () => {
-    set({
-      isProgressDrawerOpen: false,
-      progressTargetVerseId: null,
-    });
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Selectors
-// ---------------------------------------------------------------------------
-
-export function selectShouldUseMockData(state: OnboardingStore) {
-  return (
-    state.isActive ||
-    (state.hasHydratedCompletion && !state.hasCompletedOnboarding)
-  );
+export function selectShouldUseVerseSectionTutorialMockData(
+  state: VerseSectionTutorialStore,
+) {
+  return state.isActive;
 }
 
-export { type OnboardingMockVerseSectionConfig };
+export { type VerseSectionTutorialMockSectionConfig };

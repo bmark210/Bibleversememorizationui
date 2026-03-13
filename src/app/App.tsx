@@ -44,17 +44,19 @@ import type { DirectLaunchVerse } from "./components/Training/types";
 import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 import { useTelegramUiStore } from "./stores/telegramUiStore";
-import { readOnboardingCompletion } from "./onboarding/onboardingStorage";
-import { useAppOnboardingDriver } from "./onboarding/useAppOnboardingDriver";
-import { useOnboardingStore, selectShouldUseMockData } from "./onboarding/onboardingStore";
 import {
+  buildOnboardingMockTrainingVerses,
   createOnboardingMockProfileFriendsPage,
   createOnboardingMockProfilePlayersPage,
-  createOnboardingMockTrainingVerses,
   ONBOARDING_MOCK_DASHBOARD_FRIENDS_ACTIVITY,
   ONBOARDING_MOCK_DASHBOARD_LEADERBOARD,
   ONBOARDING_MOCK_DASHBOARD_STATS,
 } from "./onboarding/onboardingMockAppData";
+import { useVerseSectionTutorialDriver } from "./verseSectionTutorial/useVerseSectionTutorialDriver";
+import {
+  useVerseSectionTutorialStore,
+  selectShouldUseVerseSectionTutorialMockData,
+} from "./verseSectionTutorial/store";
 
 const VerseList = dynamic(
   () => import("./components/VerseList").then((m) => m.VerseList),
@@ -450,9 +452,12 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isPlayerProfileDrawerOpen, setIsPlayerProfileDrawerOpen] =
     useState(false);
   const currentPage = pageStack[pageStack.length - 1] ?? "dashboard";
+  const verseSectionTutorialMockVerses = useVerseSectionTutorialStore(
+    (state) => state.mockVerses,
+  );
   const onboardingMockTrainingVerses = React.useMemo(
-    () => createOnboardingMockTrainingVerses(),
-    [],
+    () => buildOnboardingMockTrainingVerses(verseSectionTutorialMockVerses),
+    [verseSectionTutorialMockVerses],
   );
   const onboardingMockProfilePlayersPage = React.useMemo(
     () => createOnboardingMockProfilePlayersPage(),
@@ -725,34 +730,25 @@ export default function App({ onInitialContentReady }: AppProps) {
     setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
-  const {
-    hasCompletedOnboarding,
-    startOnboarding,
-  } = useAppOnboardingDriver({
+  const { startVerseSectionTutorial } = useVerseSectionTutorialDriver({
     currentPage,
     isBootstrapping,
     telegramId,
-    hasOwnedVerses: (dashboardStats?.totalVerses ?? 0) > 0,
-    hasProgressVerse:
-      (dashboardStats?.learningVerses ?? 0) +
-        (dashboardStats?.reviewVerses ?? 0) +
-        (dashboardStats?.masteredVerses ?? 0) +
-        (dashboardStats?.stoppedVerses ?? 0) >
-      0,
-    useMockVerseFlow: true,
     navigateToPage: (page) => handleRootNavigate(page),
   });
-  const shouldUseOnboardingMockData = useOnboardingStore(selectShouldUseMockData);
-  const activeDashboardStats = shouldUseOnboardingMockData
+  const shouldUseVerseSectionTutorialMockData = useVerseSectionTutorialStore(
+    selectShouldUseVerseSectionTutorialMockData,
+  );
+  const activeDashboardStats = shouldUseVerseSectionTutorialMockData
     ? ONBOARDING_MOCK_DASHBOARD_STATS
     : dashboardStats;
-  const activeDashboardLeaderboard = shouldUseOnboardingMockData
+  const activeDashboardLeaderboard = shouldUseVerseSectionTutorialMockData
     ? ONBOARDING_MOCK_DASHBOARD_LEADERBOARD
     : dashboardLeaderboard;
-  const activeDashboardFriendsActivity = shouldUseOnboardingMockData
+  const activeDashboardFriendsActivity = shouldUseVerseSectionTutorialMockData
     ? ONBOARDING_MOCK_DASHBOARD_FRIENDS_ACTIVITY
     : dashboardFriendsActivity;
-  const activeTrainingVerses = shouldUseOnboardingMockData
+  const activeTrainingVerses = shouldUseVerseSectionTutorialMockData
     ? onboardingMockTrainingVerses
     : verses;
   const hasVerseListFriends =
@@ -764,10 +760,21 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     const hasEnteredDashboard =
       currentPage === "dashboard" && previousPage !== "dashboard";
-    if (!hasEnteredDashboard || !telegramId || shouldUseOnboardingMockData) return;
+    if (
+      !hasEnteredDashboard ||
+      !telegramId ||
+      shouldUseVerseSectionTutorialMockData
+    ) {
+      return;
+    }
 
     void loadDashboardFriendsActivity(telegramId);
-  }, [currentPage, loadDashboardFriendsActivity, shouldUseOnboardingMockData, telegramId]);
+  }, [
+    currentPage,
+    loadDashboardFriendsActivity,
+    shouldUseVerseSectionTutorialMockData,
+    telegramId,
+  ]);
 
   const handleToggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
@@ -933,21 +940,6 @@ export default function App({ onInitialContentReady }: AppProps) {
         }
       }
 
-      const shouldUseBootstrapMock = !readOnboardingCompletion(telegramId);
-      if (shouldUseBootstrapMock) {
-        setDashboardStats(null);
-        setDashboardLeaderboard(null);
-        setDashboardFriendsActivity(null);
-        setVerses([]);
-        setHasLoadedTrainingVerses(false);
-        setIsTrainingVersesLoading(false);
-        useCurrentUserStatsStore
-          .getState()
-          .setFromDashboardStats(telegramId, ONBOARDING_MOCK_DASHBOARD_STATS);
-        finishBootstrapping();
-        return;
-      }
-
       try {
         await Promise.all([
           loadDashboardStats(telegramId),
@@ -978,7 +970,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (!telegramId) return;
-    if (!hasCompletedOnboarding || shouldUseOnboardingMockData) return;
+    if (shouldUseVerseSectionTutorialMockData) return;
 
     if (dashboardStats == null && !isDashboardStatsLoading) {
       void loadDashboardStats(telegramId);
@@ -999,12 +991,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     dashboardFriendsActivity,
     dashboardLeaderboard,
     dashboardStats,
-    hasCompletedOnboarding,
     hasLoadedTrainingVerses,
     isDashboardFriendsActivityLoading,
     isDashboardLeaderboardLoading,
     isDashboardStatsLoading,
-    shouldUseOnboardingMockData,
+    shouldUseVerseSectionTutorialMockData,
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
@@ -1014,7 +1005,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (!telegramId) return;
-    if (shouldUseOnboardingMockData) return;
+    if (shouldUseVerseSectionTutorialMockData) return;
     if (currentPage !== "training") return;
     if (hasLoadedTrainingVerses || trainingVersesPromiseRef.current) return;
 
@@ -1022,7 +1013,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, [
     currentPage,
     hasLoadedTrainingVerses,
-    shouldUseOnboardingMockData,
+    shouldUseVerseSectionTutorialMockData,
     loadTrainingVersesForDashboard,
     telegramId,
   ]);
@@ -1099,7 +1090,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   });
 
   const handleVerseListMutationCommitted = () => {
-    if (shouldUseOnboardingMockData) return;
+    if (shouldUseVerseSectionTutorialMockData) return;
     if (!telegramId) return;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
@@ -1108,14 +1099,14 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const handleFriendsChanged = () => {
     setFriendsRefreshVersion((prev) => prev + 1);
-    if (shouldUseOnboardingMockData) return;
+    if (shouldUseVerseSectionTutorialMockData) return;
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
     void loadDashboardFriendsActivity(telegramIdValue);
   };
 
   const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
-    if (shouldUseOnboardingMockData) return;
+    if (shouldUseVerseSectionTutorialMockData) return;
     if (!player.telegramId) return;
     setActivePlayerProfile({
       telegramId: player.telegramId,
@@ -1123,7 +1114,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       avatarUrl: player.avatarUrl ?? null,
     });
     setIsPlayerProfileDrawerOpen(true);
-  }, [shouldUseOnboardingMockData]);
+  }, [shouldUseVerseSectionTutorialMockData]);
 
   const handlePlayerProfileDrawerOpenChange = useCallback((open: boolean) => {
     setIsPlayerProfileDrawerOpen(open);
@@ -1133,11 +1124,16 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const handleOpenTraining = useCallback(() => {
-    if (!shouldUseOnboardingMockData && telegramId) {
+    if (!shouldUseVerseSectionTutorialMockData && telegramId) {
       void ensureTrainingVersesLoaded(telegramId);
     }
     pushPage("training");
-  }, [ensureTrainingVersesLoaded, pushPage, shouldUseOnboardingMockData, telegramId]);
+  }, [
+    ensureTrainingVersesLoaded,
+    pushPage,
+    shouldUseVerseSectionTutorialMockData,
+    telegramId,
+  ]);
 
   const handleVerseAdded = async (verse: {
     externalVerseId: string;
@@ -1145,7 +1141,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     tags: string[]; // tag slugs
     replaceTags?: boolean;
   }): Promise<void> => {
-    if (shouldUseOnboardingMockData) {
+    if (shouldUseVerseSectionTutorialMockData) {
       toast.info("Во время обучения используется демо-список стихов.", {
         label: "Обучение",
       });
@@ -1256,21 +1252,29 @@ export default function App({ onInitialContentReady }: AppProps) {
                 todayVerses={activeTrainingVerses}
                 dashboardStats={activeDashboardStats}
                 isDashboardStatsLoading={
-                  shouldUseOnboardingMockData ? false : isDashboardStatsLoading
+                  shouldUseVerseSectionTutorialMockData
+                    ? false
+                    : isDashboardStatsLoading
                 }
                 dashboardLeaderboard={activeDashboardLeaderboard}
                 isDashboardLeaderboardLoading={
-                  shouldUseOnboardingMockData ? false : isDashboardLeaderboardLoading
+                  shouldUseVerseSectionTutorialMockData
+                    ? false
+                    : isDashboardLeaderboardLoading
                 }
                 dashboardFriendsActivity={activeDashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={
-                  shouldUseOnboardingMockData ? false : isDashboardFriendsActivityLoading
+                  shouldUseVerseSectionTutorialMockData
+                    ? false
+                    : isDashboardFriendsActivityLoading
                 }
                 currentTelegramId={telegramId}
                 onOpenTraining={handleOpenTraining}
                 onOpenProfile={() => handleRootNavigate("profile")}
                 onOpenPlayerProfile={handleOpenPlayerProfile}
-                isInitializingData={isBootstrapping && !shouldUseOnboardingMockData}
+                isInitializingData={
+                  isBootstrapping && !shouldUseVerseSectionTutorialMockData
+                }
               />
             </div>
           )}
@@ -1294,7 +1298,10 @@ export default function App({ onInitialContentReady }: AppProps) {
                 (activeDashboardStats?.reviewVerses ?? 0) >= 10 ||
                 (activeDashboardStats?.masteredVerses ?? 0) >= 10
               }
-              suppressSectionIntro={shouldUseOnboardingMockData || hasCompletedOnboarding}
+              suppressSectionIntro={shouldUseVerseSectionTutorialMockData}
+              onStartVerseSectionTutorial={(source) => {
+                void startVerseSectionTutorial(source);
+              }}
             />
           )}
 
@@ -1302,13 +1309,14 @@ export default function App({ onInitialContentReady }: AppProps) {
             <Training
               allVerses={activeTrainingVerses}
               isLoadingVerses={
-                shouldUseOnboardingMockData
+                shouldUseVerseSectionTutorialMockData
                   ? false
                   : isTrainingVersesLoading && !hasLoadedTrainingVerses
               }
               dashboardStats={activeDashboardStats}
               telegramId={telegramId}
-              suppressIntro={shouldUseOnboardingMockData || hasCompletedOnboarding}
+              suppressIntro={shouldUseVerseSectionTutorialMockData}
+              suppressModeTutorials={shouldUseVerseSectionTutorialMockData}
               directLaunch={trainingDirectLaunch}
               onDirectLaunchExit={handleDirectLaunchExit}
               onVersePatched={handleTrainingVersePatched}
@@ -1323,8 +1331,8 @@ export default function App({ onInitialContentReady }: AppProps) {
               theme={theme}
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
-              onRestartOnboarding={() => {
-                void startOnboarding("profile");
+              onRestartVerseSectionTutorial={() => {
+                void startVerseSectionTutorial("profile");
               }}
               onFriendsChanged={handleFriendsChanged}
               onOpenPlayerProfile={handleOpenPlayerProfile}
