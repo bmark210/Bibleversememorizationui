@@ -19,7 +19,7 @@ import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingC
 import { SwipeHint } from "@/app/components/VerseGallery/components/SwipeHint";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import {
-  TrainingSubsetSelect,
+  // TrainingSubsetSelect,
   type TrainingSubsetSelectValue,
 } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type { Verse } from "@/app/App";
@@ -27,7 +27,7 @@ import type { VersePatchEvent } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import type { TrainingOrder } from "../types";
-import { TrainingOrderSelect } from "./TrainingOrderSelect";
+// import { TrainingOrderSelect } from "./TrainingOrderSelect";
 import { TrainingOutcomeCard } from "./TrainingOutcomeCard";
 import { useTrainingSession } from "./useTrainingSession";
 import { TrainingProgressPopup } from "../TrainingProgressPopup";
@@ -287,46 +287,46 @@ export function TrainingSession({
     setPendingNavigationStep(null);
   }, []);
 
-  const areControlsLocked =
-    session.isActionPending ||
-    session.pendingOutcome !== null ||
-    session.quickForgetConfirmStage !== null ||
-    pendingNavigationStep !== null ||
-    pendingSubsetChange !== null ||
-    pendingOrderChange !== null;
+  // const areControlsLocked =
+  //   session.isActionPending ||
+  //   session.pendingOutcome !== null ||
+  //   session.quickForgetConfirmStage !== null ||
+  //   pendingNavigationStep !== null ||
+  //   pendingSubsetChange !== null ||
+  //   pendingOrderChange !== null;
 
-  const handleSubsetChange = useCallback(
-    (nextFilter: TrainingSubsetSelectValue) => {
-      if (areControlsLocked) return;
+  // const handleSubsetChange = useCallback(
+  //   (nextFilter: TrainingSubsetSelectValue) => {
+  //     if (areControlsLocked) return;
 
-      const resolvedFilter = resolveSubsetFilter(nextFilter, subsetOptions);
-      if (resolvedFilter === resolvedSubsetFilter) return;
+  //     const resolvedFilter = resolveSubsetFilter(nextFilter, subsetOptions);
+  //     if (resolvedFilter === resolvedSubsetFilter) return;
 
-      if (!hasInteractionStarted) {
-        setDirection(0);
-        setSubsetFilter(resolvedFilter);
-        return;
-      }
+  //     if (!hasInteractionStarted) {
+  //       setDirection(0);
+  //       setSubsetFilter(resolvedFilter);
+  //       return;
+  //     }
 
-      setPendingSubsetChange(resolvedFilter);
-    },
-    [areControlsLocked, hasInteractionStarted, resolvedSubsetFilter, subsetOptions]
-  );
+  //     setPendingSubsetChange(resolvedFilter);
+  //   },
+  //   [areControlsLocked, hasInteractionStarted, resolvedSubsetFilter, subsetOptions]
+  // );
 
-  const handleOrderChange = useCallback(
-    (nextOrder: TrainingOrder) => {
-      if (areControlsLocked || nextOrder === activeOrder) return;
+  // const handleOrderChange = useCallback(
+  //   (nextOrder: TrainingOrder) => {
+  //     if (areControlsLocked || nextOrder === activeOrder) return;
 
-      if (!hasInteractionStarted) {
-        setDirection(0);
-        setActiveOrder(nextOrder);
-        return;
-      }
+  //     if (!hasInteractionStarted) {
+  //       setDirection(0);
+  //       setActiveOrder(nextOrder);
+  //       return;
+  //     }
 
-      setPendingOrderChange(nextOrder);
-    },
-    [activeOrder, areControlsLocked, hasInteractionStarted]
-  );
+  //     setPendingOrderChange(nextOrder);
+  //   },
+  //   [activeOrder, areControlsLocked, hasInteractionStarted]
+  // );
 
   const confirmSubsetChange = useCallback(() => {
     if (pendingSubsetChange === null) return;
@@ -436,7 +436,7 @@ export function TrainingSession({
           </div>
         </div>
 
-        <div className=" shrink-0 pt-3 z-30 flex gap-3 justify-center max-w-2xl mx-auto">
+        {/* <div className=" shrink-0 pt-3 z-30 flex gap-3 justify-center max-w-2xl mx-auto">
             <TrainingSubsetSelect
               value={resolvedSubsetFilter}
               options={subsetOptions}
@@ -448,7 +448,7 @@ export function TrainingSession({
               disabled={areControlsLocked}
               onValueChange={handleOrderChange}
             />
-        </div>
+        </div> */}
 
         <div
           className="relative flex-1 min-h-0 grid place-items-center px-4 py-4 sm:px-6"
