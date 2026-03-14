@@ -77,6 +77,17 @@ export function ScrollShadowContainer({
     measure();
   }, [measure]);
 
+  // For swipeOnly containers: smooth scrollTo may not fire onScroll reliably
+  // in all browsers, so also re-measure after scroll animations settle.
+  useEffect(() => {
+    if (!swipeOnly) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScrollEnd = () => measure();
+    el.addEventListener("scrollend", onScrollEnd);
+    return () => el.removeEventListener("scrollend", onScrollEnd);
+  }, [swipeOnly, measure]);
+
   const showTopShadow = !atTop;
   const showBottomShadow = !atBottom;
 
