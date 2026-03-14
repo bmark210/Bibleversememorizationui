@@ -816,6 +816,7 @@ const swaggerDoc = {
         type: "object",
         required: [
           "externalVerseId",
+          "difficultyLevel",
           "status",
           "masteryLevel",
           "repetitions",
@@ -828,6 +829,11 @@ const swaggerDoc = {
         ],
         properties: {
           externalVerseId: externalVerseIdSchema,
+          difficultyLevel: {
+            type: "string",
+            enum: ["EASY", "MEDIUM", "HARD", "EXPERT"],
+            description: "Уровень сложности по нормализованному числу букв.",
+          },
           status: {
             type: "string",
             enum: ["MY", "LEARNING", "STOPPED", "REVIEW", "MASTERED", "CATALOG"],

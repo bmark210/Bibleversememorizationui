@@ -36,6 +36,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
   return {
     id: String(verse.key),
     externalVerseId: verse.externalVerseId,
+    difficultyLevel: verse.raw.difficultyLevel,
     status: verse.status,
     reference: verse.raw.reference,
     text: verse.raw.text,
@@ -168,7 +169,7 @@ export const TrainingCard = memo(function TrainingCard({
 
       {/* Body: exercise renderer takes remaining space */}
       <div
-        className="relative flex-1 min-h-0 overflow-y-auto"
+        className="flex-1 min-h-0"
         onClickCapture={handleTrainingInteractionCapture}
         onInputCapture={handleTrainingInteractionCapture}
         onKeyDownCapture={handleTrainingInteractionCapture}

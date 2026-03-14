@@ -23,6 +23,7 @@ import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
 } from "@/shared/bible/externalVerseId";
+import { getDifficultyLevelByLetters } from "@/shared/verses/difficulty";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import {
   computeDisplayStatus,
@@ -727,13 +728,19 @@ async function enrichUserVerses(
   });
 }
 
-// Flatten externalVerseId from the verse relation so enrichUserVerses doesn't need to change
-function flattenVerseRows<T extends { verse: { externalVerseId: string } }>(
+// Flatten frequently used verse relation fields so enrichUserVerses can use one source shape.
+function flattenVerseRows<
+  T extends {
+    verse: { externalVerseId: string };
+    difficultyLetters?: number;
+  }
+>(
   rows: T[]
 ): UserVerseWithLegacyNullableProgress[] {
   return rows.map((row) => ({
     ...row,
     externalVerseId: row.verse.externalVerseId,
+    difficultyLetters: row.difficultyLetters,
   })) as unknown as UserVerseWithLegacyNullableProgress[];
 }
 
@@ -1067,6 +1074,7 @@ export async function fetchRandomReferenceTrainerVerses(options: {
     const contextPrompt = contextPromptByExternalVerseId.get(externalVerseId);
     const source = {
       externalVerseId,
+      difficultyLetters: row.difficultyLetters,
       status: row.status,
       masteryLevel: row.masteryLevel,
       repetitions: row.repetitions,
@@ -1190,13 +1198,11 @@ async function fetchPaginatedFriendVerses(options: {
     }),
   ]);
 
-  const verseById = new Map(
-    verses.map((verse) => [verse.id, verse.externalVerseId] as const)
-  );
+  const verseById = new Map(verses.map((verse) => [verse.id, verse] as const));
   const externalVerseIds = Array.from(
     new Set(
       verseIds
-        .map((verseId) => verseById.get(verseId))
+        .map((verseId) => verseById.get(verseId)?.externalVerseId)
         .filter((value): value is string => Boolean(value))
     )
   );
@@ -1218,8 +1224,9 @@ async function fetchPaginatedFriendVerses(options: {
 
   const items = aggregatedFriendVerses
     .map((aggregate) => {
-      const externalVerseId = verseById.get(aggregate.verseId);
-      if (!externalVerseId) return null;
+      const verseRecord = verseById.get(aggregate.verseId);
+      if (!verseRecord) return null;
+      const externalVerseId = verseRecord.externalVerseId;
 
       const friendsCount = aggregate.friendsCount;
       const lastFriendActivityAt = aggregate.lastFriendActivityAt;
@@ -1236,6 +1243,9 @@ async function fetchPaginatedFriendVerses(options: {
           })
         : ({
             externalVerseId,
+            difficultyLevel: getDifficultyLevelByLetters(
+              verseRecord.difficultyLetters
+            ),
             status: "CATALOG",
             masteryLevel: 0,
             repetitions: 0,

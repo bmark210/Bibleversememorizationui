@@ -2,6 +2,10 @@ import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import {
+  getDifficultyLevelByLetters,
+  type VerseDifficultyLevel,
+} from "@/shared/verses/difficulty";
+import {
   REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
@@ -30,6 +34,7 @@ export type VersePopularityPreviewUserDto = {
 
 export interface VerseCardDto {
   externalVerseId: string;
+  difficultyLevel: VerseDifficultyLevel;
   status: DisplayStatus;
   masteryLevel: number;
   repetitions: number;
@@ -77,6 +82,7 @@ export type UserVerseWithLegacyNullableProgress = Omit<
   "masteryLevel" | "repetitions"
 > & {
   externalVerseId: string;
+  difficultyLetters?: number | null;
   status?: VerseStatus | null;
   masteryLevel?: PrismaUserVerseWithVerse["masteryLevel"] | null;
   repetitions?: PrismaUserVerseWithVerse["repetitions"] | null;
@@ -172,6 +178,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
 
   return {
     externalVerseId: verse.externalVerseId,
+    difficultyLevel: getDifficultyLevelByLetters(verse.difficultyLetters),
     status: computeDisplayStatus(baseStatus, masteryLevel, repetitions),
     masteryLevel,
     repetitions,

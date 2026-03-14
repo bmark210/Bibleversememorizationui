@@ -167,6 +167,7 @@ function buildOnboardingMasteredVerse(): Verse {
   return {
     id: "onboarding-mastered-verse",
     externalVerseId: "onboarding-mastered-verse",
+    difficultyLevel: "MEDIUM",
     status: "MASTERED",
     masteryLevel: 7,
     repetitions: 7,

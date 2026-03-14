@@ -7,6 +7,7 @@ import {
   computeSocialUserXpSummary,
   computeSocialVerseXp,
 } from "@/shared/social/xp";
+import { getDifficultyLevelByLetters } from "@/shared/verses/difficulty";
 import {
   formatParsedExternalVerseReference,
   parseExternalVerseId,
@@ -61,6 +62,7 @@ export default async function handler(
     const summary = computeSocialUserXpSummary({
       verses: userVerses.map((userVerse) => ({
         status: userVerse.status,
+        difficultyLevel: getDifficultyLevelByLetters(userVerse.difficultyLetters),
         masteryLevel: userVerse.masteryLevel,
         repetitions: userVerse.repetitions,
         referenceScore: userVerse.referenceScore,
@@ -79,6 +81,7 @@ export default async function handler(
     for (const userVerse of userVerses) {
       const breakdown = computeSocialVerseXp({
         status: userVerse.status,
+        difficultyLevel: getDifficultyLevelByLetters(userVerse.difficultyLetters),
         masteryLevel: userVerse.masteryLevel,
         repetitions: userVerse.repetitions,
         referenceScore: userVerse.referenceScore,

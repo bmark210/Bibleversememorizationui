@@ -30,6 +30,7 @@ import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
+import { VerseDifficultyDrawer } from "./VerseDifficultyDrawer";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import {
@@ -163,6 +164,10 @@ export function VerseList({
     scope: "friends" | "players";
     totalCount: number;
   } | null>(null);
+  const [isVerseDifficultyDrawerOpen, setIsVerseDifficultyDrawerOpen] =
+    useState(false);
+  const [verseDifficultyTarget, setVerseDifficultyTarget] =
+    useState<Verse | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
@@ -215,6 +220,11 @@ export function VerseList({
     setVerseTagsTarget(null);
   }, []);
 
+  const closeVerseDifficultyDrawer = useCallback(() => {
+    setIsVerseDifficultyDrawerOpen(false);
+    setVerseDifficultyTarget(null);
+  }, []);
+
   const vm = useVerseListController({
     disabled: isVerseSectionTutorialMock,
     initialTags: tutorialMockInitialTags,
@@ -251,6 +261,10 @@ export function VerseList({
     onOpenVerseProgress: (verse: Verse) => {
       setVerseProgressTarget(verse);
       setIsVerseProgressDrawerOpen(true);
+    },
+    onOpenVerseDifficulty: (verse: Verse) => {
+      setVerseDifficultyTarget(verse);
+      setIsVerseDifficultyDrawerOpen(true);
     },
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
@@ -326,6 +340,11 @@ export function VerseList({
       return;
     }
 
+    if (isVerseDifficultyDrawerOpen) {
+      closeVerseDifficultyDrawer();
+      return;
+    }
+
     if (isFiltersDrawerOpen) {
       setIsLocalFiltersDrawerOpen(false);
       return;
@@ -357,8 +376,10 @@ export function VerseList({
     isGalleryOpen,
     isActiveVerseProgressDrawerOpen,
     isTutorialPromptOpen,
+    isVerseDifficultyDrawerOpen,
     isVerseTagsDrawerOpen,
     isVerseOwnersDrawerOpen,
+    closeVerseDifficultyDrawer,
     isVerseSectionTutorialMock,
     closeVerseTagsDrawer,
     vm.gallery,
@@ -371,6 +392,7 @@ export function VerseList({
       isDeleteModalOpen ||
       isGalleryOpen ||
       isVerseTagsDrawerOpen ||
+      isVerseDifficultyDrawerOpen ||
       isFiltersDrawerOpen ||
       isVerseOwnersDrawerOpen ||
       isActiveVerseProgressDrawerOpen ||
@@ -404,6 +426,10 @@ export function VerseList({
           onOpenProgress={(v) =>
             useVerseSectionTutorialStore.getState().openProgressDrawer(v)
           }
+          onOpenDifficulty={(targetVerse) => {
+            setVerseDifficultyTarget(targetVerse);
+            setIsVerseDifficultyDrawerOpen(true);
+          }}
           onOpenTags={(targetVerse) => {
             if (!targetVerse.tags || targetVerse.tags.length === 0) return;
             setVerseTagsTarget({
@@ -847,6 +873,17 @@ export function VerseList({
             setIsVerseTagsDrawerOpen(true);
           }}
           onSelectTag={handleVerseTagSelect}
+        />
+
+        <VerseDifficultyDrawer
+          verse={verseDifficultyTarget}
+          open={isVerseDifficultyDrawerOpen}
+          onOpenChange={(open) => {
+            setIsVerseDifficultyDrawerOpen(open);
+            if (!open) {
+              setVerseDifficultyTarget(null);
+            }
+          }}
         />
 
         <VerseProgressDrawer

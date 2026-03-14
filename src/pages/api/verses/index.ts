@@ -20,6 +20,7 @@ import {
   parseExternalVerseId,
 } from "@/shared/bible/externalVerseId";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { getDifficultyLevelByLetters } from "@/shared/verses/difficulty";
 
 const DEFAULT_TRANSLATION = "rus_syn";
 const DEFAULT_PAGE_LIMIT = 20;
@@ -392,6 +393,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const repetitions = isLearning ? normalizeProgress(uv.repetitions) : 0;
         return {
           externalVerseId: verse.externalVerseId,
+          difficultyLevel: getDifficultyLevelByLetters(verse.difficultyLetters),
           status: computeDisplayStatus(uv.status, masteryLevel, repetitions),
           masteryLevel,
           repetitions,
@@ -416,6 +418,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Verse not in the user's collection — catalog item (no user progress)
       return {
         externalVerseId: verse.externalVerseId,
+        difficultyLevel: getDifficultyLevelByLetters(verse.difficultyLetters),
         status: "CATALOG" as DisplayStatus,
         masteryLevel: 0,
         repetitions: 0,

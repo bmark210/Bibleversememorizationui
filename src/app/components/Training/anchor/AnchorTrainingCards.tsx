@@ -2,9 +2,9 @@
 
 import type { ReactNode, RefObject } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { VerseCard, type VerseCardPreviewTone } from "@/app/components/VerseCard";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
 import { QuestionBadge, SurfacePanel } from "./AnchorTrainingCardUi";
 import {
@@ -39,7 +39,6 @@ type AnchorTrainingQuestionCardProps = {
   lastAnswerForgotten: boolean;
   revealedVerseText: string;
   showContinueButton: boolean;
-  onSwipeStep: (step: 1 | -1) => void;
   onChoiceSelect: (value: string) => void;
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
@@ -65,56 +64,8 @@ type AnchorTrainingSummaryCardProps = {
 type AnchorTrainingStateCardProps = {
   title: string;
   description: string;
-  tone?: VerseCardPreviewTone;
   action?: ReactNode;
   visual?: "loading";
-};
-
-const STATE_THEME: Record<
-  VerseCardPreviewTone,
-  {
-    badgeClassName: string;
-    panelClassName: string;
-    titleClassName: string;
-  }
-> = {
-  my: {
-    badgeClassName: "border-border/60 bg-background/80 text-foreground/70",
-    panelClassName:
-      "border-border/60 bg-gradient-to-br from-background via-background to-muted/45",
-    titleClassName: "text-foreground/92",
-  },
-  catalog: {
-    badgeClassName: "border-border/60 bg-background/80 text-foreground/70",
-    panelClassName:
-      "border-border/60 bg-gradient-to-br from-background via-background to-muted/45",
-    titleClassName: "text-foreground/92",
-  },
-  learning: {
-    badgeClassName: "border-border/60 bg-background/80 text-foreground/70",
-    panelClassName:
-      "border-border/60 bg-gradient-to-br from-background via-background to-muted/45",
-    titleClassName: "text-foreground/92",
-  },
-  review: {
-    badgeClassName: "border-border/60 bg-background/80 text-foreground/70",
-    panelClassName:
-      "border-border/60 bg-gradient-to-br from-background via-background to-muted/45",
-    titleClassName: "text-foreground/92",
-  },
-  mastered: {
-    badgeClassName: "border-border/60 bg-background/80 text-foreground/70",
-    panelClassName:
-      "border-border/60 bg-gradient-to-br from-background via-background to-muted/45",
-    titleClassName: "text-foreground/92",
-  },
-  stopped: {
-    badgeClassName:
-      "border-rose-500/20 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300",
-    panelClassName:
-      "border-rose-500/18 bg-gradient-to-br from-rose-500/[0.10] via-background to-background",
-    titleClassName: "text-rose-800 dark:text-rose-300",
-  },
 };
 
 function getResultTheme(isCorrect: boolean | null) {
@@ -203,7 +154,6 @@ export function AnchorTrainingQuestionCard({
   lastAnswerForgotten,
   revealedVerseText,
   showContinueButton,
-  onSwipeStep,
   onChoiceSelect,
   onTapSelect,
   onTypedAnswerChange,
@@ -237,32 +187,27 @@ export function AnchorTrainingQuestionCard({
     ) : null;
 
   return (
-    <VerseCard
-      isActive
-      minHeight="training"
-      bodyScrollable
-      onVerticalSwipeStep={onSwipeStep}
-      shellClassName="!max-w-[46rem]"
-      contentClassName="pb-2"
-      header={
-        <div className="space-y-3 text-center">
-          {sessionTrack === "mixed" && (
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <QuestionBadge className={questionAccent.badgeClassName}>
-                <span
-                  aria-hidden="true"
-                  className={cn("h-1.5 w-1.5 rounded-full", questionAccent.dotClassName)}
-                />
-                {TRACK_LABELS[question.track]}
-              </QuestionBadge>
-            </div>
-          )}
-          <p className="text-sm leading-relaxed text-foreground/66">
-            {question.modeHint}
-          </p>
-        </div>
-      }
-      body={
+    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+      {/* Header: track badge + mode hint */}
+      <div className="shrink-0 pb-3 space-y-3 text-center">
+        {sessionTrack === "mixed" && (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <QuestionBadge className={questionAccent.badgeClassName}>
+              <span
+                aria-hidden="true"
+                className={cn("h-1.5 w-1.5 rounded-full", questionAccent.dotClassName)}
+              />
+              {TRACK_LABELS[question.track]}
+            </QuestionBadge>
+          </div>
+        )}
+        <p className="text-sm leading-relaxed text-foreground/66">
+          {question.modeHint}
+        </p>
+      </div>
+
+      {/* Body: scrollable question content */}
+      <ScrollShadowContainer className="flex-1">
         <div className="space-y-5">
           {shouldPinTypeInputToTop ? modeRenderer : null}
 
@@ -274,10 +219,10 @@ export function AnchorTrainingQuestionCard({
 
           {!shouldPinTypeInputToTop ? modeRenderer : null}
         </div>
-      }
-      footer={
-        <div className="space-y-3">
-          {isAnswered ? (
+
+        {/* Result footer inline */}
+        {isAnswered && (
+          <div className="mt-4">
             <SurfacePanel className={cn("px-4 py-4", resultTheme.panelClassName)}>
               <div className="flex items-start gap-3">
                 <div
@@ -320,11 +265,10 @@ export function AnchorTrainingQuestionCard({
                 </div>
               </div>
             </SurfacePanel>
-          )
-           : null}
-        </div>
-      }
-    />
+          </div>
+        )}
+      </ScrollShadowContainer>
+    </div>
   );
 }
 
@@ -345,42 +289,40 @@ export function AnchorTrainingSummaryCard({
   const accent = TRACK_ACCENTS[selectedTrack];
 
   return (
-    <VerseCard
-      isActive
-      minHeight="training"
-      shellClassName="!max-w-[46rem]"
-      header={
-        <div className="space-y-4 text-center">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <QuestionBadge className="border-border/60 bg-background/82 text-foreground/62">
-              Сессия завершена
-            </QuestionBadge>
-            <QuestionBadge className={accent.badgeClassName}>
-              <span
-                aria-hidden="true"
-                className={cn("h-1.5 w-1.5 rounded-full", accent.dotClassName)}
-              />
-              {getSummaryLabel(selectedTrack)}
-            </QuestionBadge>
-          </div>
-
-          <SurfacePanel className="px-6 py-6 sm:px-8">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/42">
-              Точность
-            </p>
-            <p className="mt-3 text-5xl font-semibold tabular-nums text-foreground/94">
-              {resultPercent}%
-            </p>
-            <p className="mt-2 text-sm text-foreground/76">
-              {correctCount} из {totalCount} ответов верны.
-            </p>
-            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-              {caption}
-            </p>
-          </SurfacePanel>
+    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+      {/* Header: badges + accuracy */}
+      <div className="shrink-0 pb-3 space-y-4 text-center">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <QuestionBadge className="border-border/60 bg-background/82 text-foreground/62">
+            Сессия завершена
+          </QuestionBadge>
+          <QuestionBadge className={accent.badgeClassName}>
+            <span
+              aria-hidden="true"
+              className={cn("h-1.5 w-1.5 rounded-full", accent.dotClassName)}
+            />
+            {getSummaryLabel(selectedTrack)}
+          </QuestionBadge>
         </div>
-      }
-      body={
+
+        <SurfacePanel className="px-6 py-6 sm:px-8">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/42">
+            Точность
+          </p>
+          <p className="mt-3 text-5xl font-semibold tabular-nums text-foreground/94">
+            {resultPercent}%
+          </p>
+          <p className="mt-2 text-sm text-foreground/76">
+            {correctCount} из {totalCount} ответов верны.
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+            {caption}
+          </p>
+        </SurfacePanel>
+      </div>
+
+      {/* Body: stat rows */}
+      <ScrollShadowContainer className="flex-1">
         <div className="mx-auto w-full max-w-xl space-y-3">
           {referenceStats.total > 0 && (
             <SummaryStatRow
@@ -411,9 +353,9 @@ export function AnchorTrainingSummaryCard({
             />
           )}
         </div>
-      }
-      footer={
-        <div className="flex justify-center">
+
+        {/* Save status */}
+        <div className="mt-4 flex justify-center">
           {isSavingSession && (
             <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
               Сохраняем прогресс закрепления...
@@ -430,47 +372,39 @@ export function AnchorTrainingSummaryCard({
             </QuestionBadge>
           )}
         </div>
-      }
-    />
+      </ScrollShadowContainer>
+    </div>
   );
 }
 
 export function AnchorTrainingStateCard({
   title,
   description,
-  tone = "catalog",
   action,
   visual,
 }: AnchorTrainingStateCardProps) {
-  const theme = STATE_THEME[tone] ?? STATE_THEME.catalog;
-
   return (
-    <VerseCard
-      isActive
-      minHeight="training"
-      shellClassName="!max-w-[42rem]"
-      header={
-        <div className="space-y-4 text-center">
-          <div className="flex justify-center">
-            <QuestionBadge className={theme.badgeClassName}>Закрепление</QuestionBadge>
-          </div>
-          <SurfacePanel className={cn("px-6 py-6 sm:px-8", theme.panelClassName)}>
-            <p className={cn("text-xl font-medium font-serif italic !text-primary/90", theme.titleClassName)}>{title}</p>
-          </SurfacePanel>
-        </div>
-      }
-      body={
-        <div className="flex h-full items-center justify-center">
-          <div className="w-full max-w-lg space-y-5">
-            {visual === "loading" ? <AnchorTrainingLoadingVisual /> : null}
-            <p className="max-w-lg text-center text-sm leading-relaxed text-foreground/68">
-              {description}
-            </p>
-          </div>
-        </div>
-      }
-      centerAction={action ?? null}
-    />
+    <div className="flex h-full w-full min-w-0 flex-col items-center justify-center">
+      <div className="w-full max-w-lg space-y-5 text-center">
+        <QuestionBadge className="border-border/60 bg-background/80 text-foreground/70">
+          Закрепление
+        </QuestionBadge>
+
+        <SurfacePanel className="border-border/60 bg-gradient-to-br from-background via-background to-muted/45 px-6 py-6 sm:px-8">
+          <p className="text-xl font-medium font-serif italic !text-primary/90">
+            {title}
+          </p>
+        </SurfacePanel>
+
+        {visual === "loading" ? <AnchorTrainingLoadingVisual /> : null}
+
+        <p className="max-w-lg text-center text-sm leading-relaxed text-foreground/68">
+          {description}
+        </p>
+
+        {action && <div className="pt-2">{action}</div>}
+      </div>
+    </div>
   );
 }
 

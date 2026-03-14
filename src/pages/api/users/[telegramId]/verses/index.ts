@@ -5,6 +5,7 @@ import {
 } from "@/shared/bible/externalVerseId";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 import { upsertCatalogVerse } from "@/modules/verses/infrastructure/verseRepository";
+import { resolveVerseDifficultyByExternalVerseId } from "@/modules/verses/application/resolveVerseDifficulty";
 import {
   buildWhereForUserVersesListQuery,
   fetchPaginatedEnrichedUserVerses,
@@ -78,7 +79,13 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: EXTERNAL_VERSE_ID_VALIDATION_ERROR });
     }
 
-    const globalVerse = await upsertCatalogVerse(canonicalExternalVerseId);
+    const difficulty = await resolveVerseDifficultyByExternalVerseId({
+      externalVerseId: canonicalExternalVerseId,
+    });
+    const globalVerse = await upsertCatalogVerse({
+      externalVerseId: canonicalExternalVerseId,
+      difficultyLetters: difficulty.difficultyLetters,
+    });
 
     return res.status(201).json({ externalVerseId: globalVerse.externalVerseId, id: globalVerse.id });
   } catch (error) {

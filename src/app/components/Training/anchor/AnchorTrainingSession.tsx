@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import type { UserVerse } from "@/api/models/UserVerse";
 import {
   fetchReferenceTrainerVerses,
@@ -24,6 +25,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
@@ -39,6 +41,7 @@ import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { coerceVerseDifficultyLevel } from "@/shared/verses/difficulty";
 import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
 import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
 import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
@@ -47,7 +50,7 @@ import {
   AnchorTrainingStateCard,
   AnchorTrainingSummaryCard,
 } from "./AnchorTrainingCards";
-import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
+// import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
 import type {
   ChoiceQuestion,
   ModeStrategy,
@@ -89,7 +92,7 @@ const slideVariants = {
   enter: (dir: number) =>
     dir === 0
       ? { opacity: 0, scale: 1, y: 0 }
-      : { y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 },
+      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.95 },
   center: (dir: number) => ({
     y: 0,
     opacity: 1,
@@ -573,6 +576,7 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     text,
     reference,
     status: normalizeDisplayVerseStatus(verse.status),
+    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
@@ -1679,6 +1683,7 @@ export function AnchorTrainingSession({
         track: currentQuestion.track,
         before: {
           status: activeVerse.status,
+          difficultyLevel: activeVerse.difficultyLevel,
           masteryLevel: activeVerse.masteryLevel,
           repetitions: activeVerse.repetitions,
           referenceScore: activeVerse.referenceScore,
@@ -1687,6 +1692,7 @@ export function AnchorTrainingSession({
         },
         after: {
           status: nextVerse.status,
+          difficultyLevel: nextVerse.difficultyLevel,
           masteryLevel: nextVerse.masteryLevel,
           repetitions: nextVerse.repetitions,
           referenceScore: nextVerse.referenceScore,
@@ -1849,22 +1855,22 @@ export function AnchorTrainingSession({
     ]
   );
 
-  const handleTrackSelect = useCallback(
-    (nextTrack: SessionTrack) => {
-      if (nextTrack === selectedTrack) return;
-      if (versePool.length === 0 || questions.length === 0) {
-        setDirection(0);
-        setSelectedTrack(nextTrack);
-        if (versePool.length > 0) {
-          startSessionFromPool(versePool, nextTrack);
-        }
-        return;
-      }
+  // const handleTrackSelect = useCallback(
+  //   (nextTrack: SessionTrack) => {
+  //     if (nextTrack === selectedTrack) return;
+  //     if (versePool.length === 0 || questions.length === 0) {
+  //       setDirection(0);
+  //       setSelectedTrack(nextTrack);
+  //       if (versePool.length > 0) {
+  //         startSessionFromPool(versePool, nextTrack);
+  //       }
+  //       return;
+  //     }
 
-      setPendingTrackChange(nextTrack);
-    },
-    [questions.length, selectedTrack, startSessionFromPool, versePool]
-  );
+  //     setPendingTrackChange(nextTrack);
+  //   },
+  //   [questions.length, selectedTrack, startSessionFromPool, versePool]
+  // );
 
   const isTypeMode = currentQuestion?.interaction === "type";
   const isCompactTypeMode =
@@ -1885,7 +1891,7 @@ export function AnchorTrainingSession({
     isAnswered &&
     !sessionComplete &&
     currentPendingQuestionId !== null;
-  const showTrackSelector = !sessionComplete && telegramId && !isLoading;
+  // const showTrackSelector = !sessionComplete && telegramId && !isLoading;
   const showForgotAnswerAction = Boolean(
     telegramId &&
       !isLoading &&
@@ -1968,12 +1974,53 @@ export function AnchorTrainingSession({
           .filter((value): value is string => Boolean(value))
       : [];
 
-  const handleQuestionSwipeStep = useCallback(
-    (step: 1 | -1) => {
-      navigatePendingQuestion(step);
-    },
-    [navigatePendingQuestion]
-  );
+  // ── Swipe gesture handling ──
+  const swipeTouchRef = useRef<{
+    startY: number;
+    startX: number;
+    startTime: number;
+    target: HTMLElement | null;
+  } | null>(null);
+  const SWIPE_THRESHOLD = 50;
+  const SWIPE_MAX_HORIZONTAL = 80;
+  const SWIPE_MAX_TIME = 600;
+
+  const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input,textarea,select')) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    swipeTouchRef.current = {
+      startY: touch.clientY,
+      startX: touch.clientX,
+      startTime: Date.now(),
+      target,
+    };
+  }, []);
+
+  const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeTouchRef.current;
+    swipeTouchRef.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dy = touch.clientY - start.startY;
+    const dx = Math.abs(touch.clientX - start.startX);
+    const dt = Date.now() - start.startTime;
+    if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
+    const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
+    if (handleSwipeScroll(start.target, step)) return;
+    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
+    if (isSwipeBlockedByScroll(start.target, step)) return;
+    navigatePendingQuestion(step);
+  }, [navigatePendingQuestion]);
+
+  const canNavigatePrev = pendingQuestionIds.length > 0 && pendingQuestionIds.indexOf(
+    currentPendingQuestionId ?? currentQuestionId ?? ""
+  ) > 0;
+  const canNavigateNext = pendingQuestionIds.length > 1;
+  const isNavBlocked = controlsLocked || isAnswered || sessionComplete;
 
   useEffect(() => {
     if (direction === 0 || typeof window === "undefined") return;
@@ -1987,215 +2034,230 @@ export function AnchorTrainingSession({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      handleBackAction();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleBackAction();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "PageDown") {
+        event.preventDefault();
+        navigatePendingQuestion(1);
+        return;
+      }
+      if (event.key === "ArrowUp" || event.key === "PageUp") {
+        event.preventDefault();
+        navigatePendingQuestion(-1);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleBackAction]);
+  }, [handleBackAction, navigatePendingQuestion]);
 
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
       >
-        <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
-          <div
-            className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
-            style={{ paddingTop: `${topInset}px` }}
-          >
-            <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
-              <div className="flex items-center justify-center">
-                <div
-                  role="status"
-                  aria-label={`Готово ${completedCount} из ${totalCount}.`}
-                  className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
-                >
-                  <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
-                    {completedCount} / {totalCount}
-                  </span>
-                </div>
+        {/* Top bar: counter */}
+        <div
+          className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
+          style={{ paddingTop: `${topInset}px` }}
+        >
+          <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
+            <div className="flex items-center justify-center">
+              <div
+                role="status"
+                aria-label={`Готово ${completedCount} из ${totalCount}.`}
+                className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
+              >
+                <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
+                  {completedCount} / {totalCount}
+                </span>
               </div>
             </div>
           </div>
+        </div>
 
-          {showTrackSelector && (
-            <div className="shrink-0 px-4 pt-3 sm:px-6 z-30">
-                <AnchorTrainingTrackSelect
-                  value={selectedTrack}
-                  onValueChange={handleTrackSelect}
-                  disabled={controlsLocked}
-                />
+        {/* {showTrackSelector && (
+          <div className="shrink-0 px-4 pt-3 sm:px-6 z-30 mx-auto w-full max-w-4xl">
+            <AnchorTrainingTrackSelect
+              value={selectedTrack}
+              onValueChange={handleTrackSelect}
+              disabled={controlsLocked}
+            />
+          </div>
+        )} */}
+
+        {/* Main content: fullscreen exercise */}
+        <div
+          className={cn(
+            "relative flex-1 min-h-0 flex flex-col px-4 py-3 sm:px-6",
+            shouldLiftTypeCard && "pt-1 sm:pt-2",
+          )}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Карточки закрепления"
+          onTouchStart={handleContentTouchStart}
+          onTouchEnd={handleContentTouchEnd}
+        >
+          <TrainingProgressPopup popup={progressPopup} />
+
+          {!telegramId && (
+            <div className="flex flex-1 items-center justify-center min-h-0">
+              <AnchorTrainingStateCard
+                title="Нет Telegram ID"
+                description="Не удалось определить пользователя. Откройте закрепление из Telegram Mini App и попробуйте снова."
+              />
             </div>
           )}
 
-          <div
-            className={cn(
-              "relative flex-1 min-h-0 grid px-4 py-4 sm:px-6",
-              shouldLiftTypeCard
-                ? "items-start justify-items-center pt-3 sm:pt-4"
-                : "place-items-center",
-            )}
-            role="region"
-            aria-roledescription="carousel"
-            aria-label="Карточки закрепления"
-          >
-            <TrainingProgressPopup popup={progressPopup} />
+          {telegramId && isLoading && (
+            <div className="flex flex-1 items-center justify-center min-h-0">
+              <AnchorTrainingStateCard
+                title="Загружаем сессию"
+                description="Подбираем стихи для закрепления и собираем последовательность вопросов."
+                visual="loading"
+              />
+            </div>
+          )}
 
-            {!telegramId && (
-              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                <AnchorTrainingStateCard
-                  title="Нет Telegram ID"
-                  description="Не удалось определить пользователя. Откройте закрепление из Telegram Mini App и попробуйте снова."
-                  tone="catalog"
-                />
-              </div>
-            )}
-
-            {telegramId && isLoading && (
-              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                <AnchorTrainingStateCard
-                  title="Загружаем сессию"
-                  description="Подбираем стихи для закрепления и собираем последовательность вопросов."
-                  tone="catalog"
-                  visual="loading"
-                />
-              </div>
-            )}
-
-            {telegramId && !isLoading && errorMessage && (
-              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                <AnchorTrainingStateCard
-                  title="Не удалось загрузить стихи"
-                  description={errorMessage}
-                  tone="stopped"
-                  action={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void loadVersePool(telegramId)}
-                    >
-                      Повторить
-                    </Button>
-                  }
-                />
-              </div>
-            )}
-
-            {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
-              <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                <AnchorTrainingStateCard
-                  title="Нет стихов для закрепления"
-                  description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
-                  tone="catalog"
-                />
-              </div>
-            )}
-
-            {telegramId &&
-              !isLoading &&
-              !errorMessage &&
-              versePool.length > 0 &&
-              questions.length === 0 && (
-                <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                  <AnchorTrainingStateCard
-                    title="Недостаточно данных для режима"
-                    description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
-                    tone="catalog"
-                  />
-                </div>
-              )}
-
-            {telegramId &&
-              !isLoading &&
-              !errorMessage &&
-              versePool.length > 0 &&
-              questions.length > 0 &&
-              !sessionComplete &&
-              currentQuestion && (
-                <AnimatePresence initial={false} mode="wait">
-                  <motion.div
-                    key={currentQuestion.id}
-                    custom={direction}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
-                    tabIndex={-1}
+          {telegramId && !isLoading && errorMessage && (
+            <div className="flex flex-1 items-center justify-center min-h-0">
+              <AnchorTrainingStateCard
+                title="Не удалось загрузить стихи"
+                description={errorMessage}
+                action={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void loadVersePool(telegramId)}
                   >
-                    <AnchorTrainingQuestionCard
-                      question={currentQuestion}
-                      sessionTrack={sessionTrack}
-                      selectedOption={selectedOption}
-                      isAnswered={isAnswered}
-                      controlsLocked={controlsLocked}
-                      tapSequence={tapSequence}
-                      selectedTapLabels={selectedTapLabels}
-                      typedAnswer={typedAnswer}
-                      typingAttempts={typingAttempts}
-                      canSubmitTypeAnswer={canSubmitTypeAnswer}
-                      isCompactTypeMode={Boolean(isCompactTypeMode)}
-                      typeInputReadiness={typeInputReadiness}
-                      inputRef={inputRef}
-                      lastAnswerCorrect={lastAnswerCorrect}
-                      lastAnswerUsedTolerance={lastAnswerUsedTolerance}
-                      lastAnswerForgotten={lastAnswerForgotten}
-                      revealedVerseText={revealedVerseText}
-                      showContinueButton={canContinueAfterReveal}
-                      onSwipeStep={handleQuestionSwipeStep}
-                      onChoiceSelect={handleChoiceSelect}
-                      onTapSelect={handleTapSelect}
-                      onTypedAnswerChange={setTypedAnswer}
-                      onTypeSubmit={handleTypeSubmit}
-                      onContinue={handleContinueAfterReveal}
-                    />
-                  </motion.div>
-                </AnimatePresence>
-              )}
+                    Повторить
+                  </Button>
+                }
+              />
+            </div>
+          )}
 
-            {telegramId &&
-              !isLoading &&
-              !errorMessage &&
-              versePool.length > 0 &&
-              sessionComplete && (
-                <div className="col-start-1 row-start-1 w-full max-w-4xl min-w-0">
-                  <AnchorTrainingSummaryCard
-                    resultPercent={resultPercent}
-                    correctCount={correctCount}
-                    totalCount={totalCount}
-                    referenceStats={referenceStats}
-                    incipitStats={incipitStats}
-                    endingStats={endingStats}
-                    contextStats={contextStats}
-                    caption={getResultCaption(resultPercent)}
-                    isSavingSession={isSavingSession}
-                    saveSucceeded={saveSucceeded}
-                    saveErrorMessage={saveErrorMessage}
-                    selectedTrack={selectedTrack}
+          {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
+            <div className="flex flex-1 items-center justify-center min-h-0">
+              <AnchorTrainingStateCard
+                title="Нет стихов для закрепления"
+                description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
+              />
+            </div>
+          )}
+
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length > 0 &&
+            questions.length === 0 && (
+              <div className="flex flex-1 items-center justify-center min-h-0">
+                <AnchorTrainingStateCard
+                  title="Недостаточно данных для режима"
+                  description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
+                />
+              </div>
+            )}
+
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length > 0 &&
+            questions.length > 0 &&
+            !sessionComplete &&
+            currentQuestion && (
+              <AnimatePresence initial={false} mode="sync" custom={direction}>
+                <motion.div
+                  key={currentQuestion.id}
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="absolute inset-0 flex flex-col px-4 py-3 sm:px-6 focus-visible:outline-none"
+                  tabIndex={-1}
+                >
+                  <AnchorTrainingQuestionCard
+                    question={currentQuestion}
+                    sessionTrack={sessionTrack}
+                    selectedOption={selectedOption}
+                    isAnswered={isAnswered}
+                    controlsLocked={controlsLocked}
+                    tapSequence={tapSequence}
+                    selectedTapLabels={selectedTapLabels}
+                    typedAnswer={typedAnswer}
+                    typingAttempts={typingAttempts}
+                    canSubmitTypeAnswer={canSubmitTypeAnswer}
+                    isCompactTypeMode={Boolean(isCompactTypeMode)}
+                    typeInputReadiness={typeInputReadiness}
+                    inputRef={inputRef}
+                    lastAnswerCorrect={lastAnswerCorrect}
+                    lastAnswerUsedTolerance={lastAnswerUsedTolerance}
+                    lastAnswerForgotten={lastAnswerForgotten}
+                    revealedVerseText={revealedVerseText}
+                    showContinueButton={canContinueAfterReveal}
+                    onChoiceSelect={handleChoiceSelect}
+                    onTapSelect={handleTapSelect}
+                    onTypedAnswerChange={setTypedAnswer}
+                    onTypeSubmit={handleTypeSubmit}
+                    onContinue={handleContinueAfterReveal}
                   />
-                </div>
-              )}
-          </div>
+                </motion.div>
+              </AnimatePresence>
+            )}
 
-          <div
-            style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
-            className="shrink-0 px-4 sm:px-6 z-40"
-          >
-            <div className="mx-auto w-full max-w-2xl">
-              <div
-                className={cn(
-                  "flex gap-3",
-                  showForgotAnswerAction ? "justify-center" : "justify-end"
-                )}
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length > 0 &&
+            sessionComplete && (
+              <AnchorTrainingSummaryCard
+                resultPercent={resultPercent}
+                correctCount={correctCount}
+                totalCount={totalCount}
+                referenceStats={referenceStats}
+                incipitStats={incipitStats}
+                endingStats={endingStats}
+                contextStats={contextStats}
+                caption={getResultCaption(resultPercent)}
+                isSavingSession={isSavingSession}
+                saveSucceeded={saveSucceeded}
+                saveErrorMessage={saveErrorMessage}
+                selectedTrack={selectedTrack}
+              />
+            )}
+        </div>
+
+        {/* Footer: navigation arrows + action buttons */}
+        <div
+          style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
+          className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
+        >
+          <div className="mx-auto w-full max-w-2xl">
+            <div className="flex items-center justify-between gap-2">
+              {/* Left: prev arrow */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                disabled={!canNavigatePrev || isNavBlocked}
+                onClick={() => navigatePendingQuestion(-1)}
+                aria-label="Предыдущий вопрос"
               >
+                <ChevronUp className="h-5 w-5" />
+              </Button>
+
+              {/* Center: action buttons */}
+              <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
                 {showForgotAnswerAction && (
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300"
+                    className="h-10 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300 text-sm px-3"
                     onClick={handleForgotAnswer}
                     disabled={controlsLocked}
                   >
@@ -2205,7 +2267,7 @@ export function AnchorTrainingSession({
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-11 rounded-2xl bg-background border border-border/60 backdrop-blur-xl w-fit",
+                    "h-10 rounded-2xl bg-background border border-border/60 backdrop-blur-xl w-fit text-sm px-3",
                     "text-foreground/75"
                   )}
                   onClick={requestClose}
@@ -2213,6 +2275,19 @@ export function AnchorTrainingSession({
                   Завершить
                 </Button>
               </div>
+
+              {/* Right: next arrow */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                disabled={!canNavigateNext || isNavBlocked}
+                onClick={() => navigatePendingQuestion(1)}
+                aria-label="Следующий вопрос"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </Button>
             </div>
           </div>
         </div>

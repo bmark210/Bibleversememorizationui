@@ -1,0 +1,2 @@
+ALTER TABLE "Verse"
+ADD COLUMN IF NOT EXISTS "difficultyLetters" INTEGER;
