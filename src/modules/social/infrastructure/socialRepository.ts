@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { VerseStatus } from "@/generated/prisma";
+import { getDifficultyLevelByLetters } from "@/shared/verses/difficulty";
+import {
+  buildVerseRelationSelect,
+  hasVerseDifficultyLettersColumn,
+} from "@/modules/verses/infrastructure/verseDifficultyColumnCompat";
 
 export type FriendVerseAggregate = {
   verseId: string;
@@ -10,12 +15,14 @@ export type FriendVerseAggregate = {
 export type SocialMetricVerseRow = {
   telegramId: string;
   status: VerseStatus;
+  difficultyLevel: "EASY" | "MEDIUM" | "HARD" | "EXPERT";
   masteryLevel: number;
   repetitions: number;
   referenceScore: number;
   incipitScore: number;
   contextScore: number;
   lastReviewedAt: Date | null;
+  nextReviewAt?: Date | null;
 };
 
 export async function getFollowingTelegramIds(
@@ -120,6 +127,7 @@ export async function getSocialMetricVerseRows(
     return [];
   }
 
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const rows = await prisma.userVerse.findMany({
     where: {
       telegramId: {
@@ -135,10 +143,25 @@ export async function getSocialMetricVerseRows(
       incipitScore: true,
       contextScore: true,
       lastReviewedAt: true,
+      nextReviewAt: true,
+      verse: {
+        select: buildVerseRelationSelect(includeDifficultyLetters),
+      },
     },
   });
 
-  return rows;
+  return rows.map((row) => ({
+    telegramId: row.telegramId,
+    status: row.status,
+    difficultyLevel: getDifficultyLevelByLetters(row.verse.difficultyLetters),
+    masteryLevel: row.masteryLevel,
+    repetitions: row.repetitions,
+    referenceScore: row.referenceScore,
+    incipitScore: row.incipitScore,
+    contextScore: row.contextScore,
+    lastReviewedAt: row.lastReviewedAt,
+    nextReviewAt: row.nextReviewAt,
+  }));
 }
 
 export async function getFriendVerseAggregates(params: {

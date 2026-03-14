@@ -8,11 +8,13 @@ test("core learning success produces positive XP popup with learning stage", () 
     context: "core",
     before: {
       status: "LEARNING",
+      difficultyLevel: "EASY",
       masteryLevel: 2,
       repetitions: 0,
     },
     after: {
       status: "LEARNING",
+      difficultyLevel: "EASY",
       masteryLevel: 3,
       repetitions: 0,
     },
@@ -30,11 +32,13 @@ test("review success keeps review stage and adds XP", () => {
     context: "core",
     before: {
       status: "REVIEW",
+      difficultyLevel: "EASY",
       masteryLevel: 7,
       repetitions: 1,
     },
     after: {
       status: "REVIEW",
+      difficultyLevel: "EASY",
       masteryLevel: 7,
       repetitions: 2,
     },
@@ -51,11 +55,13 @@ test("downgrade builds negative popup with lower stage", () => {
     context: "core",
     before: {
       status: "LEARNING",
+      difficultyLevel: "EASY",
       masteryLevel: 1,
       repetitions: 0,
     },
     after: {
       status: "MY",
+      difficultyLevel: "EASY",
       masteryLevel: 0,
       repetitions: 0,
     },
@@ -74,11 +80,13 @@ test("same stage without XP delta does not create popup", () => {
     context: "core",
     before: {
       status: "MY",
+      difficultyLevel: "EASY",
       masteryLevel: 0,
       repetitions: 0,
     },
     after: {
       status: "MY",
+      difficultyLevel: "EASY",
       masteryLevel: 0,
       repetitions: 0,
     },
@@ -94,6 +102,7 @@ test("anchor popup includes track detail and uses score delta for XP", () => {
     track: "reference",
     before: {
       status: "REVIEW",
+      difficultyLevel: "EASY",
       masteryLevel: 7,
       repetitions: 1,
       referenceScore: 0,
@@ -102,6 +111,7 @@ test("anchor popup includes track detail and uses score delta for XP", () => {
     },
     after: {
       status: "REVIEW",
+      difficultyLevel: "EASY",
       masteryLevel: 7,
       repetitions: 1,
       referenceScore: 30,
@@ -113,4 +123,43 @@ test("anchor popup includes track detail and uses score delta for XP", () => {
   assert.ok(popup);
   assert.equal(popup.detail, "Закрепление · Ссылка");
   assert.equal(popup.xpDelta > 0, true);
+});
+
+test("difficulty changes XP delta even with same progress delta", () => {
+  const easyPopup = buildTrainingProgressPopupPayload({
+    reference: "Иак. 1:5",
+    context: "core",
+    before: {
+      status: "LEARNING",
+      difficultyLevel: "EASY",
+      masteryLevel: 1,
+      repetitions: 0,
+    },
+    after: {
+      status: "LEARNING",
+      difficultyLevel: "EASY",
+      masteryLevel: 2,
+      repetitions: 0,
+    },
+  });
+  const hardPopup = buildTrainingProgressPopupPayload({
+    reference: "Иак. 1:5",
+    context: "core",
+    before: {
+      status: "LEARNING",
+      difficultyLevel: "HARD",
+      masteryLevel: 1,
+      repetitions: 0,
+    },
+    after: {
+      status: "LEARNING",
+      difficultyLevel: "HARD",
+      masteryLevel: 2,
+      repetitions: 0,
+    },
+  });
+
+  assert.ok(easyPopup);
+  assert.ok(hardPopup);
+  assert.equal((hardPopup?.xpDelta ?? 0) > (easyPopup?.xpDelta ?? 0), true);
 });

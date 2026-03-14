@@ -261,6 +261,7 @@ export function useVerseActions({
       if (!telegramId) return;
       const xpLoss = computeVerseXpContribution({
         status: normalizeDisplayVerseStatus(verse.status),
+        difficultyLevel: verse.difficultyLevel,
         masteryLevel: verse.masteryLevel,
         repetitions: verse.repetitions,
         referenceScore: verse.referenceScore,

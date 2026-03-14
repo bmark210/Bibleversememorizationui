@@ -64,13 +64,14 @@ type UserForFriendList = {
 type UserMetricAggregate = {
   rows: Array<{
     status: VerseStatus;
+    difficultyLevel: "EASY" | "MEDIUM" | "HARD" | "EXPERT";
     masteryLevel: number;
     repetitions: number;
     referenceScore: number;
     incipitScore: number;
     contextScore: number;
     lastReviewedAt: Date | null;
-    nextReviewAt?: Date | null;
+    nextReviewAt: Date | null;
   }>;
 };
 
@@ -218,12 +219,14 @@ export async function buildFriendMetricsMap(
       if (!aggregate) continue;
       aggregate.rows.push({
         status: row.status,
+        difficultyLevel: row.difficultyLevel,
         masteryLevel: row.masteryLevel,
         repetitions: row.repetitions,
         referenceScore: row.referenceScore,
         incipitScore: row.incipitScore,
         contextScore: row.contextScore,
         lastReviewedAt: row.lastReviewedAt,
+        nextReviewAt: row.nextReviewAt ?? null,
       });
     }
   }

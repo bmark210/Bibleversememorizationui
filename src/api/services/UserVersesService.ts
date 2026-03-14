@@ -186,7 +186,7 @@ export class UserVersesService {
             masteryLevel?: number;
             repetitions?: number;
             reviewLapseStreak?: number;
-            reviewRating?: 0 | 1 | 2 | 3;
+            reviewRating?: number;
             lastTrainingModeId?: number | null;
             lastReviewedAt?: string;
             nextReviewAt?: string;

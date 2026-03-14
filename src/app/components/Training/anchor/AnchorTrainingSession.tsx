@@ -41,6 +41,7 @@ import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { coerceVerseDifficultyLevel } from "@/shared/verses/difficulty";
 import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
 import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
 import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
@@ -575,6 +576,7 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     text,
     reference,
     status: normalizeDisplayVerseStatus(verse.status),
+    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
@@ -1681,6 +1683,7 @@ export function AnchorTrainingSession({
         track: currentQuestion.track,
         before: {
           status: activeVerse.status,
+          difficultyLevel: activeVerse.difficultyLevel,
           masteryLevel: activeVerse.masteryLevel,
           repetitions: activeVerse.repetitions,
           referenceScore: activeVerse.referenceScore,
@@ -1689,6 +1692,7 @@ export function AnchorTrainingSession({
         },
         after: {
           status: nextVerse.status,
+          difficultyLevel: nextVerse.difficultyLevel,
           masteryLevel: nextVerse.masteryLevel,
           repetitions: nextVerse.repetitions,
           referenceScore: nextVerse.referenceScore,

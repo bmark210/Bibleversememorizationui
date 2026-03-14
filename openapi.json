@@ -753,7 +753,8 @@
                   },
                   "repetitions": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "maximum": 7
                   },
                   "lastTrainingModeId": {
                     "type": "integer",
@@ -862,6 +863,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 24
+            }
           }
         ],
         "responses": {
@@ -870,9 +881,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserVerse"
+                  "type": "object",
+                  "required": [
+                    "verses",
+                    "totalCount",
+                    "minRequired"
+                  ],
+                  "properties": {
+                    "verses": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserVerse"
+                      }
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "minRequired": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
                   }
                 }
               }
@@ -913,6 +942,7 @@
                     "enum": [
                       "reference",
                       "incipit",
+                      "ending",
                       "context",
                       "mixed"
                     ]
@@ -941,6 +971,7 @@
                           "enum": [
                             "reference",
                             "incipit",
+                            "ending",
                             "context"
                           ]
                         },
@@ -1061,7 +1092,17 @@
                   },
                   "repetitions": {
                     "type": "integer",
+                    "minimum": 0,
+                    "maximum": 7
+                  },
+                  "reviewLapseStreak": {
+                    "type": "integer",
                     "minimum": 0
+                  },
+                  "reviewRating": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3
                   },
                   "lastTrainingModeId": {
                     "type": "integer",
@@ -1610,9 +1651,11 @@
         "type": "object",
         "required": [
           "externalVerseId",
+          "difficultyLevel",
           "status",
           "masteryLevel",
           "repetitions",
+          "reviewLapseStreak",
           "referenceScore",
           "incipitScore",
           "contextScore",
@@ -1628,6 +1671,16 @@
               "43-3-16",
               "43-3-16-18"
             ]
+          },
+          "difficultyLevel": {
+            "type": "string",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD",
+              "EXPERT"
+            ],
+            "description": "Уровень сложности по нормализованному числу букв."
           },
           "status": {
             "type": "string",
@@ -1645,6 +1698,10 @@
           },
           "repetitions": {
             "type": "integer"
+          },
+          "reviewLapseStreak": {
+            "type": "integer",
+            "minimum": 0
           },
           "referenceScore": {
             "type": "integer",

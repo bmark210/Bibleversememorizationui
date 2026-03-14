@@ -11,11 +11,23 @@ import type {
   VerseTagLinkRecord,
   VerseTagRecord,
 } from "@/modules/verses/domain/Verse";
+import {
+  buildCatalogVerseSelect,
+  buildVerseBaseSelect,
+  buildVerseRelationSelect,
+  hasVerseDifficultyLettersColumn,
+  normalizeDifficultyLetters,
+} from "./verseDifficultyColumnCompat";
 
-function mapVerseRecord(row: { id: string; externalVerseId: string }): VerseRecord {
+function mapVerseRecord(row: {
+  id: string;
+  externalVerseId: string;
+  difficultyLetters?: number | null;
+}): VerseRecord {
   return {
     id: row.id,
     externalVerseId: row.externalVerseId,
+    difficultyLetters: normalizeDifficultyLetters(row.difficultyLetters),
   };
 }
 
@@ -30,6 +42,7 @@ function mapTagRecord(row: { id: string; slug: string; title: string }): TagReco
 function mapCatalogVerseRecord(row: {
   id: string;
   externalVerseId: string;
+  difficultyLetters?: number | null;
   createdAt: Date;
   tags: Array<{
     tag: {
@@ -42,6 +55,7 @@ function mapCatalogVerseRecord(row: {
   return {
     id: row.id,
     externalVerseId: row.externalVerseId,
+    difficultyLetters: normalizeDifficultyLetters(row.difficultyLetters),
     createdAt: row.createdAt,
     tags: row.tags.map((item) => mapTagRecord(item.tag)),
   };
@@ -92,13 +106,14 @@ export function mapUserVerseRecord(
     nextReviewAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-    verse: { externalVerseId: string };
+    verse: { externalVerseId: string; difficultyLetters?: number | null };
   }
 ): UserVerseRecord {
   return {
     id: row.id,
     telegramId: row.telegramId,
     verseId: row.verseId,
+    difficultyLetters: normalizeDifficultyLetters(row.verse.difficultyLetters),
     status: row.status,
     masteryLevel: row.masteryLevel,
     repetitions: row.repetitions,
@@ -120,12 +135,10 @@ export function mapUserVerseRecord(
 export async function getVerseByExternalVerseId(
   externalVerseId: string
 ): Promise<VerseRecord | null> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const verse = await prisma.verse.findUnique({
     where: { externalVerseId },
-    select: {
-      id: true,
-      externalVerseId: true,
-    },
+    select: buildVerseBaseSelect(includeDifficultyLetters),
   });
 
   return verse ? mapVerseRecord(verse) : null;
@@ -136,16 +149,34 @@ export async function getVersesByIds(verseIds: string[]): Promise<VerseRecord[]>
     return [];
   }
 
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const verses = await prisma.verse.findMany({
     where: {
       id: {
         in: verseIds,
       },
     },
-    select: {
-      id: true,
-      externalVerseId: true,
+    select: buildVerseBaseSelect(includeDifficultyLetters),
+  });
+
+  return verses.map(mapVerseRecord);
+}
+
+export async function getVersesByExternalVerseIds(
+  externalVerseIds: string[]
+): Promise<VerseRecord[]> {
+  if (externalVerseIds.length === 0) {
+    return [];
+  }
+
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
+  const verses = await prisma.verse.findMany({
+    where: {
+      externalVerseId: {
+        in: externalVerseIds,
+      },
     },
+    select: buildVerseBaseSelect(includeDifficultyLetters),
   });
 
   return verses.map(mapVerseRecord);
@@ -233,6 +264,7 @@ export async function getCatalogVersesPage(params: {
   limit: number;
 }): Promise<CatalogVerseRecord[]> {
   const where = buildCatalogVerseWhere(params);
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
 
   if (params.orderBy === "createdAt") {
     const verses = await prisma.verse.findMany({
@@ -240,13 +272,7 @@ export async function getCatalogVersesPage(params: {
       orderBy: { createdAt: params.order },
       skip: params.startWith,
       take: params.limit,
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+      select: buildCatalogVerseSelect(includeDifficultyLetters),
     });
 
     return verses.map(mapCatalogVerseRecord);
@@ -278,13 +304,7 @@ export async function getCatalogVersesPage(params: {
           in: verseIds,
         },
       },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+      select: buildCatalogVerseSelect(includeDifficultyLetters),
     });
 
     const verseById = new Map(verses.map((verse) => [verse.id, verse] as const));
@@ -325,13 +345,7 @@ export async function getCatalogVersesPage(params: {
         in: verseIds,
       },
     },
-    include: {
-      tags: {
-        include: {
-          tag: true,
-        },
-      },
-    },
+    select: buildCatalogVerseSelect(includeDifficultyLetters),
   });
 
   const verseById = new Map(verses.map((verse) => [verse.id, verse] as const));
@@ -580,17 +594,32 @@ export async function getUserCatalogProgressByVerseIds(params: {
 }
 
 export async function upsertCatalogVerse(
-  externalVerseId: string
+  params: {
+    externalVerseId: string;
+    difficultyLetters: number;
+  }
 ): Promise<VerseRecord> {
-  const verse = await prisma.verse.upsert({
-    where: { externalVerseId },
-    update: {},
-    create: { externalVerseId },
-    select: {
-      id: true,
-      externalVerseId: true,
-    },
-  });
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
+  const verse = includeDifficultyLetters
+    ? await prisma.verse.upsert({
+        where: { externalVerseId: params.externalVerseId },
+        update: {
+          difficultyLetters: params.difficultyLetters,
+        },
+        create: {
+          externalVerseId: params.externalVerseId,
+          difficultyLetters: params.difficultyLetters,
+        },
+        select: buildVerseBaseSelect(true),
+      })
+    : await prisma.verse.upsert({
+        where: { externalVerseId: params.externalVerseId },
+        update: {},
+        create: {
+          externalVerseId: params.externalVerseId,
+        },
+        select: buildVerseBaseSelect(false),
+      });
 
   return mapVerseRecord(verse);
 }
@@ -599,6 +628,7 @@ export async function upsertUserVerseBinding(params: {
   telegramId: string;
   verseId: string;
 }): Promise<UserVerseRecord> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const userVerse = await prisma.userVerse.upsert({
     where: {
       telegramId_verseId: {
@@ -614,9 +644,7 @@ export async function upsertUserVerseBinding(params: {
     },
     include: {
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });
@@ -969,6 +997,7 @@ export async function findUserVerses(params: {
   skip?: number;
   take?: number;
 }): Promise<UserVerseRecord[]> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const rows = await prisma.userVerse.findMany({
     where: {
       telegramId: params.telegramId,
@@ -979,9 +1008,7 @@ export async function findUserVerses(params: {
     ...(typeof params.take === "number" ? { take: params.take } : {}),
     include: {
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });
@@ -1009,6 +1036,7 @@ export async function findUserVersesByVerseIds(params: {
     return [];
   }
 
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const rows = await prisma.userVerse.findMany({
     where: {
       telegramId: params.telegramId,
@@ -1018,9 +1046,7 @@ export async function findUserVersesByVerseIds(params: {
     },
     include: {
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });
@@ -1032,12 +1058,10 @@ export async function getUserVerseByExternalVerseId(params: {
   telegramId: string;
   externalVerseId: string;
 }): Promise<{ verse: VerseRecord | null; userVerse: UserVerseRecord | null }> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const verse = await prisma.verse.findUnique({
     where: { externalVerseId: params.externalVerseId },
-    select: {
-      id: true,
-      externalVerseId: true,
-    },
+    select: buildVerseBaseSelect(includeDifficultyLetters),
   });
   if (!verse) {
     return { verse: null, userVerse: null };
@@ -1052,9 +1076,7 @@ export async function getUserVerseByExternalVerseId(params: {
     },
     include: {
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });

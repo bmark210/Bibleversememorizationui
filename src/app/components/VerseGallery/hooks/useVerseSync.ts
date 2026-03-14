@@ -88,6 +88,9 @@ export function normalizePersistedTrainingVerseState(
       ...(persistedResponse?.text ? { text: persistedResponse.text } : {}),
       ...(persistedResponse?.reference ? { reference: persistedResponse.reference } : {}),
       ...(persistedResponse?.tags ? { tags: persistedResponse.tags } : {}),
+      ...(persistedResponse?.difficultyLevel
+        ? { difficultyLevel: persistedResponse.difficultyLevel }
+        : {}),
       externalVerseId:
         persistedResponse?.externalVerseId ?? currentVerse.raw.externalVerseId,
       status: persistedDisplayStatus,

@@ -37,6 +37,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
   return {
     id: String(verse.key),
     externalVerseId: verse.externalVerseId,
+    difficultyLevel: verse.raw.difficultyLevel,
     status: verse.status,
     reference: verse.raw.reference,
     text: verse.raw.text,

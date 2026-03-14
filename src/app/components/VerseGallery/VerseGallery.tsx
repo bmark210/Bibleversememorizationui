@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Toaster } from "@/app/components/ui/toaster";
+import { VerseDifficultyDrawer } from "@/app/components/VerseDifficultyDrawer";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 import { VerseOwnersDrawer } from "@/app/components/VerseOwnersDrawer";
@@ -209,6 +210,8 @@ export function VerseGallery({
     useState(false);
   const [activePlayerProfile, setActivePlayerProfile] =
     useState<PlayerProfilePreview | null>(null);
+  const [isVerseDifficultyDrawerOpen, setIsVerseDifficultyDrawerOpen] =
+    useState(false);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] =
     useState(false);
 
@@ -438,6 +441,10 @@ export function VerseGallery({
           closeVerseTagsDrawer();
           return;
         }
+        if (isVerseDifficultyDrawerOpen) {
+          setIsVerseDifficultyDrawerOpen(false);
+          return;
+        }
         if (isVerseProgressDrawerOpen) {
           setIsVerseProgressDrawerOpen(false);
           return;
@@ -450,6 +457,7 @@ export function VerseGallery({
         isPlayerProfileDrawerOpen ||
         isVerseOwnersDrawerOpen ||
         isVerseTagsDrawerOpen ||
+        isVerseDifficultyDrawerOpen ||
         isVerseProgressDrawerOpen
       ) {
         return;
@@ -472,6 +480,7 @@ export function VerseGallery({
     closeVerseOwnersDrawer,
     closeVerseTagsDrawer,
     isPlayerProfileDrawerOpen,
+    isVerseDifficultyDrawerOpen,
     isVerseProgressDrawerOpen,
     isVerseOwnersDrawerOpen,
     isVerseTagsDrawerOpen,
@@ -545,6 +554,10 @@ export function VerseGallery({
       closeVerseTagsDrawer();
       return;
     }
+    if (isVerseDifficultyDrawerOpen) {
+      setIsVerseDifficultyDrawerOpen(false);
+      return;
+    }
     if (isVerseProgressDrawerOpen) {
       setIsVerseProgressDrawerOpen(false);
       return;
@@ -557,6 +570,7 @@ export function VerseGallery({
     closeVerseOwnersDrawer,
     closeVerseTagsDrawer,
     isPlayerProfileDrawerOpen,
+    isVerseDifficultyDrawerOpen,
     isVerseProgressDrawerOpen,
     isVerseOwnersDrawerOpen,
     isVerseTagsDrawerOpen,
@@ -659,6 +673,7 @@ export function VerseGallery({
                   isAnchorEligible={isAnchorEligible}
                   onStartTraining={handleStartTraining}
                   onStatusAction={() => void handlePreviewStatusAction()}
+                  onOpenDifficulty={() => setIsVerseDifficultyDrawerOpen(true)}
                   onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}
@@ -754,6 +769,12 @@ export function VerseGallery({
         verse={previewActiveVerse}
         open={isVerseProgressDrawerOpen}
         onOpenChange={setIsVerseProgressDrawerOpen}
+      />
+
+      <VerseDifficultyDrawer
+        verse={previewActiveVerse}
+        open={isVerseDifficultyDrawerOpen}
+        onOpenChange={setIsVerseDifficultyDrawerOpen}
       />
     </>
   );

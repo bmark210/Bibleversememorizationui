@@ -7,6 +7,10 @@ export type UserVerse = {
      * ID стиха: "book-chapter-verse" или диапазон в пределах главы "book-chapter-verseStart-verseEnd" (максимум 5 стихов в диапазоне).
      */
     externalVerseId: string;
+    /**
+     * Уровень сложности по нормализованному числу букв.
+     */
+    difficultyLevel: UserVerse.difficultyLevel;
     status: UserVerse.status;
     masteryLevel: number;
     repetitions: number;
@@ -30,6 +34,15 @@ export type UserVerse = {
     contextPromptReference?: string;
 };
 export namespace UserVerse {
+    /**
+     * Уровень сложности по нормализованному числу букв.
+     */
+    export enum difficultyLevel {
+        EASY = 'EASY',
+        MEDIUM = 'MEDIUM',
+        HARD = 'HARD',
+        EXPERT = 'EXPERT',
+    }
     export enum status {
         MY = 'MY',
         LEARNING = 'LEARNING',

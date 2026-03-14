@@ -5,6 +5,7 @@ import {
   computeSocialVerseXp,
   type SocialVerseProgressRow,
 } from "@/shared/social/xp";
+import type { VerseDifficultyLevel } from "@/shared/verses/difficulty";
 import { TRACK_LABELS } from "./anchor/anchorTrainingTrackMeta";
 import type { SkillTrack } from "./anchor/anchorTrainingTypes";
 
@@ -12,6 +13,7 @@ type TrainingProgressPopupContext = "core" | "anchor";
 
 export type TrainingProgressPopupVerseSnapshot = {
   status: DisplayVerseStatus;
+  difficultyLevel: VerseDifficultyLevel;
   masteryLevel: number;
   repetitions: number;
   referenceScore?: number | null;
@@ -50,6 +52,7 @@ function toSocialVerseRow(
 ): SocialVerseProgressRow {
   return {
     status: toSocialVerseStatus(snapshot.status),
+    difficultyLevel: snapshot.difficultyLevel,
     masteryLevel: snapshot.masteryLevel,
     repetitions: snapshot.repetitions,
     referenceScore: snapshot.referenceScore,

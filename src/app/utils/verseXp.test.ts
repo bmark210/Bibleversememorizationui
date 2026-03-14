@@ -8,6 +8,7 @@ import {
 test("computeVerseXpContribution includes anchor-skill bonus for progressed verse", () => {
   const xp = computeVerseXpContribution({
     status: "REVIEW",
+    difficultyLevel: "HARD",
     masteryLevel: 7,
     repetitions: 2,
     referenceScore: 80,
@@ -16,6 +17,29 @@ test("computeVerseXpContribution includes anchor-skill bonus for progressed vers
   });
 
   assert.equal(xp > 0, true);
+});
+
+test("computeVerseXpContribution grows with verse difficulty", () => {
+  const easyXp = computeVerseXpContribution({
+    status: "REVIEW",
+    difficultyLevel: "EASY",
+    masteryLevel: 7,
+    repetitions: 2,
+    referenceScore: 80,
+    incipitScore: 70,
+    contextScore: 60,
+  });
+  const expertXp = computeVerseXpContribution({
+    status: "REVIEW",
+    difficultyLevel: "EXPERT",
+    masteryLevel: 7,
+    repetitions: 2,
+    referenceScore: 80,
+    incipitScore: 70,
+    contextScore: 60,
+  });
+
+  assert.equal(expertXp > easyXp, true);
 });
 
 test("buildVerseDeletionXpFeedback shows XP decrease when verse had progress", () => {
