@@ -6,6 +6,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 
 import { Button } from "@/app/components/ui/button";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -217,7 +218,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
         </label>
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <ScrollShadowContainer className="mt-3 flex-1" shadowSize={20}>
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Последовательность</span>
@@ -239,7 +240,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
             <p className="text-sm text-muted-foreground">Нажимайте фрагменты в правильном порядке.</p>
           )}
         </div>
-      </div>
+      </ScrollShadowContainer>
 
       <FixedBottomPanel visible={showChoices}>
         <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2">
