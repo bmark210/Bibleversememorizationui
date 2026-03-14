@@ -4,6 +4,7 @@ import type { ReactNode, RefObject } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
 import { QuestionBadge, SurfacePanel } from "./AnchorTrainingCardUi";
 import {
@@ -206,7 +207,7 @@ export function AnchorTrainingQuestionCard({
       </div>
 
       {/* Body: scrollable question content */}
-      <div className="relative flex-1 min-h-0 overflow-y-auto">
+      <ScrollShadowContainer className="flex-1">
         <div className="space-y-5">
           {shouldPinTypeInputToTop ? modeRenderer : null}
 
@@ -266,7 +267,7 @@ export function AnchorTrainingQuestionCard({
             </SurfacePanel>
           </div>
         )}
-      </div>
+      </ScrollShadowContainer>
     </div>
   );
 }
@@ -321,7 +322,7 @@ export function AnchorTrainingSummaryCard({
       </div>
 
       {/* Body: stat rows */}
-      <div className="relative flex-1 min-h-0 overflow-y-auto">
+      <ScrollShadowContainer className="flex-1">
         <div className="mx-auto w-full max-w-xl space-y-3">
           {referenceStats.total > 0 && (
             <SummaryStatRow
@@ -371,7 +372,7 @@ export function AnchorTrainingSummaryCard({
             </QuestionBadge>
           )}
         </div>
-      </div>
+      </ScrollShadowContainer>
     </div>
   );
 }

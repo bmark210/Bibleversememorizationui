@@ -25,6 +25,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { isSwipeBlockedByScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
@@ -1970,18 +1971,27 @@ export function AnchorTrainingSession({
       : [];
 
   // ── Swipe gesture handling ──
-  const swipeTouchRef = useRef<{ startY: number; startX: number; startTime: number } | null>(null);
+  const swipeTouchRef = useRef<{
+    startY: number;
+    startX: number;
+    startTime: number;
+    target: HTMLElement | null;
+  } | null>(null);
   const SWIPE_THRESHOLD = 50;
   const SWIPE_MAX_HORIZONTAL = 80;
   const SWIPE_MAX_TIME = 600;
 
   const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest('[data-card-swipe-ignore="true"]')) return;
     if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
     if (!touch) return;
-    swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
+    swipeTouchRef.current = {
+      startY: touch.clientY,
+      startX: touch.clientX,
+      startTime: Date.now(),
+      target,
+    };
   }, []);
 
   const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -1995,6 +2005,8 @@ export function AnchorTrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
+    if (isSwipeBlockedByScroll(start.target, step)) return;
     navigatePendingQuestion(step);
   }, [navigatePendingQuestion]);
 

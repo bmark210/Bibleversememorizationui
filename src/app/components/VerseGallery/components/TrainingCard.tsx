@@ -1,5 +1,6 @@
 import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
 import { cn } from "@/app/components/ui/utils";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -167,8 +168,8 @@ export const TrainingCard = memo(function TrainingCard({
       </div>
 
       {/* Body: exercise renderer takes remaining space */}
-      <div
-        className="relative flex-1 min-h-0 overflow-y-auto"
+      <ScrollShadowContainer
+        className="flex-1"
         onClickCapture={handleTrainingInteractionCapture}
         onInputCapture={handleTrainingInteractionCapture}
         onKeyDownCapture={handleTrainingInteractionCapture}
@@ -182,7 +183,7 @@ export const TrainingCard = memo(function TrainingCard({
             onRate={onRate}
           />
         </TrainingUiStateProvider>
-      </div>
+      </ScrollShadowContainer>
     </div>
   );
 });
