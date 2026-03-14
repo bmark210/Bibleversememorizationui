@@ -146,6 +146,9 @@ export function ScrollShadowContainer({
  * with `data-scroll-shadow="true"` and check if swiping in the
  * given direction is blocked by remaining scroll.
  *
+ * Elements marked with `data-swipe-through="true"` are excluded
+ * from blocking — swipe always passes through to card navigation.
+ *
  * Returns `true` if swipe should be blocked (inner scroll not at boundary).
  */
 export function isSwipeBlockedByScroll(
@@ -153,6 +156,9 @@ export function isSwipeBlockedByScroll(
   swipeDirection: 1 | -1
 ): boolean {
   if (!target) return false;
+
+  // Swipe always passes through from elements marked as passthrough
+  if (target.closest('[data-swipe-through="true"]')) return false;
 
   const scrollable = target.closest<HTMLElement>(
     '[data-scroll-shadow="true"]'
@@ -176,9 +182,12 @@ export function isSwipeBlockedByScroll(
 }
 
 /**
- * Helper for swipe-only scroll containers: given a touch target element,
+ * Helper for swipe-scroll containers: given a touch target element,
  * find the closest ancestor with `data-swipe-scroll="true"` and
- * programmatically scroll it to the boundary in the swipe direction.
+ * programmatically scroll it by a chunk in the swipe direction.
+ *
+ * Elements marked with `data-swipe-through="true"` are excluded —
+ * swipe always passes through to card navigation.
  *
  * Returns `true` if the swipe was consumed (content scrolled).
  * Returns `false` if the content is already at the boundary or
@@ -191,6 +200,9 @@ export function handleSwipeScroll(
 ): boolean {
   if (!target) return false;
 
+  // Swipe always passes through from elements marked as passthrough
+  if (target.closest('[data-swipe-through="true"]')) return false;
+
   const scrollable = target.closest<HTMLElement>(
     '[data-swipe-scroll="true"]'
   );
@@ -201,15 +213,24 @@ export function handleSwipeScroll(
   const hasScroll = scrollHeight > clientHeight + threshold;
   if (!hasScroll) return false;
 
+  // Scroll by ~40% of visible height for a gentle, slow-paced feel
+  const scrollStep = Math.max(clientHeight * 0.4, 60);
+
   if (swipeDirection === 1) {
     // Swipe up → next → scroll content down
     if (scrollTop + clientHeight >= scrollHeight - threshold) return false;
-    scrollable.scrollTo({ top: scrollHeight, behavior: "smooth" });
+    scrollable.scrollTo({
+      top: Math.min(scrollTop + scrollStep, scrollHeight - clientHeight),
+      behavior: "smooth",
+    });
     return true;
   }
 
   // Swipe down → prev → scroll content up
   if (scrollTop <= threshold) return false;
-  scrollable.scrollTo({ top: 0, behavior: "smooth" });
+  scrollable.scrollTo({
+    top: Math.max(scrollTop - scrollStep, 0),
+    behavior: "smooth",
+  });
   return true;
 }

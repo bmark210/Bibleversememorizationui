@@ -212,6 +212,7 @@ export function ModeFirstLettersKeyboardExercise({
             onFocus={handleInputFocus}
             placeholder="Введите первые буквы..."
             disabled={isCompleted}
+            data-swipe-through="true"
             className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono text-base uppercase tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             autoCorrect="off"
             autoCapitalize="none"
