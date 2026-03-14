@@ -48,7 +48,7 @@ import {
   AnchorTrainingStateCard,
   AnchorTrainingSummaryCard,
 } from "./AnchorTrainingCards";
-import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
+// import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
 import type {
   ChoiceQuestion,
   ModeStrategy,
@@ -1850,22 +1850,22 @@ export function AnchorTrainingSession({
     ]
   );
 
-  const handleTrackSelect = useCallback(
-    (nextTrack: SessionTrack) => {
-      if (nextTrack === selectedTrack) return;
-      if (versePool.length === 0 || questions.length === 0) {
-        setDirection(0);
-        setSelectedTrack(nextTrack);
-        if (versePool.length > 0) {
-          startSessionFromPool(versePool, nextTrack);
-        }
-        return;
-      }
+  // const handleTrackSelect = useCallback(
+  //   (nextTrack: SessionTrack) => {
+  //     if (nextTrack === selectedTrack) return;
+  //     if (versePool.length === 0 || questions.length === 0) {
+  //       setDirection(0);
+  //       setSelectedTrack(nextTrack);
+  //       if (versePool.length > 0) {
+  //         startSessionFromPool(versePool, nextTrack);
+  //       }
+  //       return;
+  //     }
 
-      setPendingTrackChange(nextTrack);
-    },
-    [questions.length, selectedTrack, startSessionFromPool, versePool]
-  );
+  //     setPendingTrackChange(nextTrack);
+  //   },
+  //   [questions.length, selectedTrack, startSessionFromPool, versePool]
+  // );
 
   const isTypeMode = currentQuestion?.interaction === "type";
   const isCompactTypeMode =
@@ -1886,7 +1886,7 @@ export function AnchorTrainingSession({
     isAnswered &&
     !sessionComplete &&
     currentPendingQuestionId !== null;
-  const showTrackSelector = !sessionComplete && telegramId && !isLoading;
+  // const showTrackSelector = !sessionComplete && telegramId && !isLoading;
   const showForgotAnswerAction = Boolean(
     telegramId &&
       !isLoading &&
@@ -2061,7 +2061,7 @@ export function AnchorTrainingSession({
           </div>
         </div>
 
-        {showTrackSelector && (
+        {/* {showTrackSelector && (
           <div className="shrink-0 px-4 pt-3 sm:px-6 z-30 mx-auto w-full max-w-4xl">
             <AnchorTrainingTrackSelect
               value={selectedTrack}
@@ -2069,7 +2069,7 @@ export function AnchorTrainingSession({
               disabled={controlsLocked}
             />
           </div>
-        )}
+        )} */}
 
         {/* Main content: fullscreen exercise */}
         <div
