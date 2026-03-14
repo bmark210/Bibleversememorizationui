@@ -329,6 +329,52 @@ function VerseListFilterSections({
         </div>
       </div>
 
+            {isMyMode ? (
+              <div className="mt-3 px-3">
+                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+                  Доп фильтр
+                </div>
+                <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
+                  <div role="tablist" aria-label="Подфильтр моих стихов">
+                    <ScrollRow>
+                      {filterOptions.map((option) => {
+                        const isActive = statusFilter === option.key;
+                        const optionTheme = FILTER_VISUAL_THEME[option.key];
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            onClick={() =>
+                              isActive
+                                ? onTabClick('my', 'Мои стихи')
+                                : onTabClick(option.key, option.label)
+                            }
+                            className={cn(
+                              'first:ml-1 last:mr-1 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium text-foreground/75 transition-colors',
+                              isActive
+                                ? optionTheme.activeTabClassName
+                                : 'text-muted-foreground hover:bg-background/60',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                isActive
+                                  ? optionTheme.dotClassName
+                                  : 'bg-muted-foreground/35',
+                              )}
+                            />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </ScrollRow>
+                  </div>
+                </div>
+              </div>
+            ) : null}
       <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">
@@ -400,52 +446,6 @@ function VerseListFilterSections({
         </div>
       </div>
 
-      {isMyMode ? (
-        <div className="mt-3 px-3">
-          <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-            Доп фильтр
-          </div>
-          <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
-            <div role="tablist" aria-label="Подфильтр моих стихов">
-              <ScrollRow>
-                {filterOptions.map((option) => {
-                  const isActive = statusFilter === option.key;
-                  const optionTheme = FILTER_VISUAL_THEME[option.key];
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() =>
-                        isActive
-                          ? onTabClick('my', 'Мои стихи')
-                          : onTabClick(option.key, option.label)
-                      }
-                      className={cn(
-                        'first:ml-1 last:mr-1 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium text-foreground/75 transition-colors',
-                        isActive
-                          ? optionTheme.activeTabClassName
-                          : 'text-muted-foreground hover:bg-background/60',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full',
-                          isActive
-                            ? optionTheme.dotClassName
-                            : 'bg-muted-foreground/35',
-                        )}
-                      />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </ScrollRow>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
         <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">

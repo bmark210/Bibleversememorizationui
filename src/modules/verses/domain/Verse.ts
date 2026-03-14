@@ -3,6 +3,7 @@ import type { VerseStatus } from "@/generated/prisma";
 export type VerseRecord = {
   id: string;
   externalVerseId: string;
+  difficultyLetters: number;
 };
 
 export type TagRecord = {
@@ -27,6 +28,7 @@ export type VerseTagLinkRecord = {
 export type CatalogVerseRecord = {
   id: string;
   externalVerseId: string;
+  difficultyLetters: number;
   createdAt: Date;
   tags: TagRecord[];
 };
@@ -57,6 +59,7 @@ export type UserVerseRecord = {
   id: number;
   telegramId: string;
   verseId: string;
+  difficultyLetters: number;
   status: VerseStatus;
   masteryLevel: number;
   repetitions: number;

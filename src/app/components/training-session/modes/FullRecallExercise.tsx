@@ -9,6 +9,7 @@ import { similarityRatio } from '@/shared/utils/levenshtein';
 
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -155,7 +156,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
         />
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3">
+      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
         <HintContent verseText={verse.text} hintLevel={hintLevel} />
 
         <motion.div
@@ -203,7 +204,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             </p>
           </div>
         )}
-      </div>
+      </ScrollShadowContainer>
 
       <FixedBottomPanel visible={!isCompleted}>
         <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>

@@ -241,7 +241,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
           <span>Варианты слов</span>
           <span className="tabular-nums">{visibleChoices.length}</span>
         </div>
-        <div className="flex flex-wrap content-start gap-1.5" data-card-swipe-ignore="true">
+        <div className="flex flex-wrap content-start gap-1.5">
           {visibleChoices.map((choice) => (
             <Button
               key={choice.normalized}

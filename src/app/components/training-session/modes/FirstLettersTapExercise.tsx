@@ -217,7 +217,7 @@ export function ModeFirstLettersTapExercise({
           <span>Варианты букв</span>
           <span className="tabular-nums">{availableLetters.length}</span>
         </div>
-        <div className="flex flex-wrap content-start gap-1" data-card-swipe-ignore="true">
+        <div className="flex flex-wrap content-start gap-1">
           {availableLetters.map((letter) => (
             <Button
               key={letter}

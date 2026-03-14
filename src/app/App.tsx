@@ -37,6 +37,10 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import {
+  coerceVerseDifficultyLevel,
+  type VerseDifficultyLevel,
+} from "@/shared/verses/difficulty";
+import {
   getVerseSyncKey,
   mergeVersePatch,
 } from "@/app/utils/versePatch";
@@ -100,6 +104,7 @@ const PlayerProfileDrawer = dynamic(
 export type Verse = {
   id?: string | number;
   externalVerseId: string;
+  difficultyLevel: VerseDifficultyLevel;
   status: DisplayVerseStatus;
   masteryLevel: number;
   repetitions: number;
@@ -129,6 +134,7 @@ export type Verse = {
 type AppVerseApiRecord = {
   id?: string | number | null;
   externalVerseId?: string | number | null;
+  difficultyLevel?: VerseDifficultyLevel | null;
   status?: string | null;
   masteryLevel?: number | null;
   repetitions?: number | null;
@@ -359,6 +365,7 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
   return {
     id: verse.id ?? undefined,
     externalVerseId: String(verse.externalVerseId ?? ""),
+    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
     status: normalizeDisplayVerseStatus(verse.status),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),

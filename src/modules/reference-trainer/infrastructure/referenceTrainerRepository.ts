@@ -6,25 +6,30 @@ import type {
   ReferenceTrainerScoreRow,
 } from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
 import type { VerseRecord } from "@/modules/verses/domain/Verse";
+import {
+  buildVerseBaseSelect,
+  buildVerseRelationSelect,
+  hasVerseDifficultyLettersColumn,
+  normalizeDifficultyLetters,
+} from "@/modules/verses/infrastructure/verseDifficultyColumnCompat";
 
 export async function getVersesByExternalVerseIds(
   externalVerseIds: string[]
 ): Promise<VerseRecord[]> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const verses = await prisma.verse.findMany({
     where: {
       externalVerseId: {
         in: externalVerseIds,
       },
     },
-    select: {
-      id: true,
-      externalVerseId: true,
-    },
+    select: buildVerseBaseSelect(includeDifficultyLetters),
   });
 
   return verses.map((verse) => ({
     id: verse.id,
     externalVerseId: verse.externalVerseId,
+    difficultyLetters: normalizeDifficultyLetters(verse.difficultyLetters),
   }));
 }
 
@@ -87,6 +92,7 @@ export async function updateUserVerseScores(
 export async function getReferenceTrainerLearningRows(
   telegramId: string
 ): Promise<ReferenceTrainerLearningRow[]> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const rows = await prisma.userVerse.findMany({
     where: {
       telegramId,
@@ -103,15 +109,14 @@ export async function getReferenceTrainerLearningRows(
       lastReviewedAt: true,
       nextReviewAt: true,
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });
 
   return rows.map((row) => ({
     externalVerseId: row.verse.externalVerseId,
+    difficultyLetters: normalizeDifficultyLetters(row.verse.difficultyLetters),
     status: VerseStatus.LEARNING,
     masteryLevel: row.masteryLevel,
     repetitions: row.repetitions,
@@ -131,6 +136,7 @@ export async function getReferenceTrainerLearningRows(
 export async function getAnchorTrainerRows(
   telegramId: string,
 ): Promise<ReferenceTrainerAnchorRow[]> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const rows = await prisma.userVerse.findMany({
     where: {
       telegramId,
@@ -147,15 +153,14 @@ export async function getAnchorTrainerRows(
       lastReviewedAt: true,
       nextReviewAt: true,
       verse: {
-        select: {
-          externalVerseId: true,
-        },
+        select: buildVerseRelationSelect(includeDifficultyLetters),
       },
     },
   });
 
   return rows.map((row) => ({
     externalVerseId: row.verse.externalVerseId,
+    difficultyLetters: normalizeDifficultyLetters(row.verse.difficultyLetters),
     status: row.status,
     masteryLevel: row.masteryLevel,
     repetitions: row.repetitions,

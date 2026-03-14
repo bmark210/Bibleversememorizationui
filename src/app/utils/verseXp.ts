@@ -2,9 +2,11 @@ import { VerseStatus as PrismaVerseStatus } from "@/generated/prisma";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { computeSocialVerseXp } from "@/shared/social/xp";
 import { formatXp } from "@/shared/social/formatXp";
+import type { VerseDifficultyLevel } from "@/shared/verses/difficulty";
 
 export type VerseXpSnapshot = {
   status: DisplayVerseStatus;
+  difficultyLevel: VerseDifficultyLevel;
   masteryLevel: number;
   repetitions: number;
   referenceScore?: number | null;
@@ -23,6 +25,7 @@ function toSocialStatus(status: DisplayVerseStatus): PrismaVerseStatus {
 export function computeVerseXpContribution(snapshot: VerseXpSnapshot): number {
   return computeSocialVerseXp({
     status: toSocialStatus(snapshot.status),
+    difficultyLevel: snapshot.difficultyLevel,
     masteryLevel: snapshot.masteryLevel,
     repetitions: snapshot.repetitions,
     referenceScore: snapshot.referenceScore,

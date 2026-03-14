@@ -10,6 +10,10 @@ import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
+  getVerseDifficultyBadgeClassName,
+  getVerseDifficultyLabel,
+} from '@/app/utils/verseDifficulty';
+import {
   FILTER_VISUAL_THEME,
   getStoppedVerseStageKind,
   getVerseCardLayoutSignature,
@@ -21,6 +25,7 @@ export type SwipeCardProps = {
   verse: Verse;
   onOpen: () => void;
   onOpenProgress?: (verse: Verse) => void;
+  onOpenDifficulty?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onAddToLearning: (verse: Verse) => void;
@@ -34,6 +39,7 @@ export const SwipeableVerseCard = ({
   verse,
   onOpen,
   onOpenProgress,
+  onOpenDifficulty,
   onOpenOwners,
   onOpenTags,
   onAddToLearning,
@@ -99,6 +105,10 @@ export const SwipeableVerseCard = ({
   const isNotYetDueCard = displayStatus === 'REVIEW' && verse.nextReviewAt
     ? Date.now() < new Date(verse.nextReviewAt).getTime()
     : false;
+  const difficultyLabel = getVerseDifficultyLabel(verse.difficultyLevel);
+  const difficultyBadgeClassName = getVerseDifficultyBadgeClassName(
+    verse.difficultyLevel
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -126,6 +136,13 @@ export const SwipeableVerseCard = ({
     if (!onOpenProgress) return;
     haptic('light');
     onOpenProgress(verse);
+  };
+
+  const handleOpenDifficulty = (e: React.MouseEvent | React.KeyboardEvent) => {
+    stopCardOpen(e);
+    if (!onOpenDifficulty) return;
+    haptic('light');
+    onOpenDifficulty(verse);
   };
 
   const getInitials = (name: string) =>
@@ -398,6 +415,29 @@ export const SwipeableVerseCard = ({
           <div className="space-y-2 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-serif text-primary">{verse.reference}</h3>
+              <Badge
+                asChild={Boolean(onOpenDifficulty)}
+                className={cn(
+                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold shadow-sm',
+                  difficultyBadgeClassName,
+                  onOpenDifficulty
+                    ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30'
+                    : ''
+                )}
+              >
+                {onOpenDifficulty ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenDifficulty}
+                    aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
+                    title="Что означает эта плашка"
+                  >
+                    {difficultyLabel}
+                  </button>
+                ) : (
+                  <span>{difficultyLabel}</span>
+                )}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
             

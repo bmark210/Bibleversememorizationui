@@ -2,11 +2,16 @@ import { VerseStatus } from "@/generated/prisma";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";
+import {
+  getDifficultyMultiplier,
+  type VerseDifficultyLevel,
+} from "@/shared/verses/difficulty";
 
 export type SocialDisplayStatus = "LEARNING" | "REVIEW" | "MASTERED";
 
 export type SocialVerseProgressRow = {
   status: VerseStatus | null | undefined;
+  difficultyLevel?: VerseDifficultyLevel | null | undefined;
   masteryLevel: number | null | undefined;
   repetitions: number | null | undefined;
   referenceScore?: number | null | undefined;
@@ -139,13 +144,16 @@ export function computeSocialVerseXp(
       3
   );
   const anchorBonusXp = Math.round(anchorAverage * ANCHOR_BONUS_RATIO);
+  const totalXp = Math.round(
+    (verseXp + anchorBonusXp) * getDifficultyMultiplier(row.difficultyLevel)
+  );
 
   return {
     displayStatus,
     progressPoints,
     verseXp,
     anchorBonusXp,
-    totalXp: verseXp + anchorBonusXp,
+    totalXp,
     countsForXp: true,
   };
 }

@@ -57,6 +57,7 @@ model UserFollow {
 model Verse {
   id              String   @id @default(cuid())
   externalVerseId String   @unique // "43-3-16" в формате "book-chapter-verse"
+  difficultyLetters Int?
 
   createdAt       DateTime @default(now())
 

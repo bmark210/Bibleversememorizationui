@@ -6,6 +6,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -217,7 +218,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
         />
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3">
+      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
         <HintContent verseText={verse.text} hintLevel={hintLevel} />
 
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
@@ -279,7 +280,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
             </p>
           </div>
         )}
-      </div>
+      </ScrollShadowContainer>
 
       <FixedBottomPanel visible={!isChecked}>
         <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>

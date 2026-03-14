@@ -4,10 +4,12 @@ import { computeReviewResult } from "@/modules/training/application/computeProgr
 import type { RatingValue } from "@/modules/training/domain/VerseProgress";
 import { persistVerseProgressPatch } from "@/modules/training/infrastructure/verseProgressRepository";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { resolveVerseDifficultyByExternalVerseId } from "@/modules/verses/application/resolveVerseDifficulty";
 import {
   deleteUserVerseBinding,
   getUserVerseByExternalVerseId,
   getVerseByExternalVerseId,
+  upsertCatalogVerse,
   upsertUserVerseBinding,
 } from "@/modules/verses/infrastructure/verseRepository";
 import {
@@ -72,13 +74,23 @@ async function resolveUserVerse(telegramId: string, externalVerseId: string) {
 async function handlePut(res: NextApiResponse, telegramId: string, externalVerseId: string) {
   // Добавляет стих в коллекцию пользователя (создаёт UserVerse со статусом MY, если нет).
   try {
-    const [user, globalVerse] = await Promise.all([
+    const [user, existingGlobalVerse] = await Promise.all([
       getUserByTelegramId(telegramId),
       getVerseByExternalVerseId(externalVerseId),
     ]);
 
     if (!user) return res.status(404).json({ error: "User not found" });
-    if (!globalVerse) return res.status(404).json({ error: "Verse not found in catalog" });
+    const globalVerse =
+      existingGlobalVerse ??
+      (await (async () => {
+        const difficulty = await resolveVerseDifficultyByExternalVerseId({
+          externalVerseId,
+        });
+        return upsertCatalogVerse({
+          externalVerseId,
+          difficultyLetters: difficulty.difficultyLetters,
+        });
+      })());
 
     const userVerse = await upsertUserVerseBinding({
       telegramId,

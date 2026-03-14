@@ -25,6 +25,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
@@ -40,6 +41,7 @@ import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { coerceVerseDifficultyLevel } from "@/shared/verses/difficulty";
 import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
 import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
 import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
@@ -574,6 +576,7 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
     text,
     reference,
     status: normalizeDisplayVerseStatus(verse.status),
+    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
@@ -1680,6 +1683,7 @@ export function AnchorTrainingSession({
         track: currentQuestion.track,
         before: {
           status: activeVerse.status,
+          difficultyLevel: activeVerse.difficultyLevel,
           masteryLevel: activeVerse.masteryLevel,
           repetitions: activeVerse.repetitions,
           referenceScore: activeVerse.referenceScore,
@@ -1688,6 +1692,7 @@ export function AnchorTrainingSession({
         },
         after: {
           status: nextVerse.status,
+          difficultyLevel: nextVerse.difficultyLevel,
           masteryLevel: nextVerse.masteryLevel,
           repetitions: nextVerse.repetitions,
           referenceScore: nextVerse.referenceScore,
@@ -1970,18 +1975,27 @@ export function AnchorTrainingSession({
       : [];
 
   // ── Swipe gesture handling ──
-  const swipeTouchRef = useRef<{ startY: number; startX: number; startTime: number } | null>(null);
+  const swipeTouchRef = useRef<{
+    startY: number;
+    startX: number;
+    startTime: number;
+    target: HTMLElement | null;
+  } | null>(null);
   const SWIPE_THRESHOLD = 50;
   const SWIPE_MAX_HORIZONTAL = 80;
   const SWIPE_MAX_TIME = 600;
 
   const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest('[data-card-swipe-ignore="true"]')) return;
     if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
     if (!touch) return;
-    swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
+    swipeTouchRef.current = {
+      startY: touch.clientY,
+      startX: touch.clientX,
+      startTime: Date.now(),
+      target,
+    };
   }, []);
 
   const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -1995,6 +2009,10 @@ export function AnchorTrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
+    if (handleSwipeScroll(start.target, step)) return;
+    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
+    if (isSwipeBlockedByScroll(start.target, step)) return;
     navigatePendingQuestion(step);
   }, [navigatePendingQuestion]);
 

@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { computeNextDailyStreakOnReview } from "@/shared/training/dailyStreak";
 import { mapUserVerseRecord } from "@/modules/verses/infrastructure/verseRepository";
 import type { UserVerseRecord } from "@/modules/verses/domain/Verse";
+import {
+  buildVerseRelationSelect,
+  hasVerseDifficultyLettersColumn,
+} from "@/modules/verses/infrastructure/verseDifficultyColumnCompat";
 
 export type VerseProgressPatchInput = {
   masteryLevel?: number;
@@ -23,6 +27,7 @@ export async function persistVerseProgressPatch(params: {
     reviewedAt: Date;
   };
 }): Promise<UserVerseRecord> {
+  const includeDifficultyLetters = await hasVerseDifficultyLettersColumn();
   const userVerse = await prisma.$transaction(async (tx) => {
     const latestReviewedBeforeUpdate = params.dailyStreakContext
       ? await tx.userVerse.findFirst({
@@ -65,9 +70,7 @@ export async function persistVerseProgressPatch(params: {
       },
       include: {
         verse: {
-          select: {
-            externalVerseId: true,
-          },
+          select: buildVerseRelationSelect(includeDifficultyLetters),
         },
       },
     });

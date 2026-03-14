@@ -32,6 +32,7 @@ export type ReferenceTrainerScoreRow = {
 
 export type ReferenceTrainerLearningRow = {
   externalVerseId: string;
+  difficultyLetters: number;
   status: "LEARNING";
   masteryLevel: number;
   repetitions: number;
@@ -45,6 +46,7 @@ export type ReferenceTrainerLearningRow = {
 
 export type ReferenceTrainerAnchorRow = {
   externalVerseId: string;
+  difficultyLetters: number;
   status: string;
   masteryLevel: number;
   repetitions: number;

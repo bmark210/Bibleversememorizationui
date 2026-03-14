@@ -26,6 +26,7 @@ export function createOnboardingMockVerses(): Verse[] {
     {
       id: ONBOARDING_PRIMARY_VERSE_ID,
       externalVerseId: ONBOARDING_PRIMARY_VERSE_ID,
+      difficultyLevel: "HARD",
       status: "CATALOG",
       masteryLevel: 0,
       repetitions: 0,
@@ -53,6 +54,7 @@ export function createOnboardingMockVerses(): Verse[] {
     {
       id: "onboarding-review-verse",
       externalVerseId: "onboarding-review-verse",
+      difficultyLevel: "MEDIUM",
       status: "REVIEW",
       masteryLevel: 7,
       repetitions: 3,

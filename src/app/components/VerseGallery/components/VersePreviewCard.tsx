@@ -17,6 +17,10 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
 import {
+  getVerseDifficultyBadgeClassName,
+  getVerseDifficultyLabel,
+} from "@/app/utils/verseDifficulty";
+import {
   TRAINING_STAGE_MASTERY_MAX,
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
   REPEAT_THRESHOLD_FOR_MASTERED,
@@ -32,6 +36,7 @@ type Props = {
   isAnchorEligible?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onOpenDifficulty?: (verse: Verse) => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
@@ -44,6 +49,7 @@ export function VersePreviewCard({
   isAnchorEligible = false,
   onStartTraining,
   onStatusAction,
+  onOpenDifficulty,
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
@@ -190,6 +196,10 @@ export function VersePreviewCard({
   });
 
   const showFooter = statusTone !== null;
+  const difficultyLabel = getVerseDifficultyLabel(verse.difficultyLevel);
+  const difficultyBadgeClassName = getVerseDifficultyBadgeClassName(
+    verse.difficultyLevel
+  );
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -321,9 +331,34 @@ export function VersePreviewCard({
               {verse.reference}
             </h2>
             <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+            <div className="flex items-center justify-center">
+              {onOpenDifficulty ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenDifficulty(verse)}
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                    difficultyBadgeClassName
+                  )}
+                  aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
+                  title="Что означает эта плашка"
+                >
+                  {difficultyLabel}
+                </button>
+              ) : (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm",
+                    difficultyBadgeClassName
+                  )}
+                >
+                  {difficultyLabel}
+                </span>
+              )}
+            </div>
 
             {normalizedTags.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-1">
                 {normalizedTags.slice(0, 3).map((tag, index) => {
                   const slug = String(tag.slug ?? "").trim();
                   const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
@@ -334,7 +369,7 @@ export function VersePreviewCard({
                       type="button"
                       onClick={() => onOpenTags(verse)}
                       className={cn(
-                        "inline-flex min-h-9 items-center rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-wide transition-colors",
+                        "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
                         isActive
                           ? "border-primary/30 bg-primary/12 text-primary"
                           : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
@@ -347,7 +382,7 @@ export function VersePreviewCard({
                     <span
                       key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                       className={cn(
-                        "inline-flex min-h-9 items-center rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-wide",
+                        "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
                         isActive
                           ? "border-primary/30 bg-primary/12 text-primary"
                           : "border-border/60 bg-muted/35 text-muted-foreground",
@@ -363,13 +398,13 @@ export function VersePreviewCard({
                     <button
                       type="button"
                       onClick={() => onOpenTags(verse)}
-                      className="inline-flex min-h-9 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
+                      className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
                       aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                     >
                       +{normalizedTags.length - 3}
                     </button>
                   ) : (
-                    <span className="inline-flex min-h-9 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
+                    <span className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground">
                       +{normalizedTags.length - 3}
                     </span>
                   )

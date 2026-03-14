@@ -9,6 +9,7 @@ import {
 test("social verse XP keeps mastered above review and review above learning", () => {
   const learning = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 2,
     repetitions: 1,
     referenceScore: 100,
@@ -17,6 +18,7 @@ test("social verse XP keeps mastered above review and review above learning", ()
   });
   const review = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 7,
     repetitions: 1,
     referenceScore: 100,
@@ -25,6 +27,7 @@ test("social verse XP keeps mastered above review and review above learning", ()
   });
   const mastered = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 7,
     repetitions: 7,
     referenceScore: 100,
@@ -42,6 +45,7 @@ test("social verse XP keeps mastered above review and review above learning", ()
 test("learning verse with zero progress does not count for XP", () => {
   const breakdown = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 0,
     repetitions: 0,
     referenceScore: 100,
@@ -56,6 +60,7 @@ test("learning verse with zero progress does not count for XP", () => {
 test("anchor bonus stays secondary to verse progress and MY or STOPPED do not affect XP", () => {
   const mastered = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 7,
     repetitions: 7,
     referenceScore: 0,
@@ -64,6 +69,7 @@ test("anchor bonus stays secondary to verse progress and MY or STOPPED do not af
   });
   const weakLearning = computeSocialVerseXp({
     status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
     masteryLevel: 1,
     repetitions: 0,
     referenceScore: 100,
@@ -76,18 +82,21 @@ test("anchor bonus stays secondary to verse progress and MY or STOPPED do not af
     verses: [
       {
         status: VerseStatus.MY,
+        difficultyLevel: "EASY",
         masteryLevel: 10,
         repetitions: 10,
         lastReviewedAt: null,
       },
       {
         status: VerseStatus.STOPPED,
+        difficultyLevel: "EASY",
         masteryLevel: 7,
         repetitions: 7,
         lastReviewedAt: null,
       },
       {
         status: VerseStatus.LEARNING,
+        difficultyLevel: "EASY",
         masteryLevel: 7,
         repetitions: 7,
         referenceScore: 0,
@@ -102,4 +111,60 @@ test("anchor bonus stays secondary to verse progress and MY or STOPPED do not af
   assert.equal(summary.xp > 0, true);
   assert.equal(summary.masteredVerses, 1);
   assert.equal(summary.weeklyRepetitions, 1);
+});
+
+test("harder verses scale only verse contribution and not streak bonuses", () => {
+  const easy = computeSocialVerseXp({
+    status: VerseStatus.LEARNING,
+    difficultyLevel: "EASY",
+    masteryLevel: 7,
+    repetitions: 2,
+    referenceScore: 50,
+    incipitScore: 50,
+    contextScore: 50,
+  });
+  const expert = computeSocialVerseXp({
+    status: VerseStatus.LEARNING,
+    difficultyLevel: "EXPERT",
+    masteryLevel: 7,
+    repetitions: 2,
+    referenceScore: 50,
+    incipitScore: 50,
+    contextScore: 50,
+  });
+  const easySummary = computeSocialUserXpSummary({
+    storedStreak: 2,
+    now: Date.parse("2026-03-11T12:00:00.000Z"),
+    verses: [
+      {
+        status: VerseStatus.LEARNING,
+        difficultyLevel: "EASY",
+        masteryLevel: 7,
+        repetitions: 2,
+        referenceScore: 50,
+        incipitScore: 50,
+        contextScore: 50,
+        lastReviewedAt: new Date("2026-03-10T12:00:00.000Z"),
+      },
+    ],
+  });
+  const expertSummary = computeSocialUserXpSummary({
+    storedStreak: 2,
+    now: Date.parse("2026-03-11T12:00:00.000Z"),
+    verses: [
+      {
+        status: VerseStatus.LEARNING,
+        difficultyLevel: "EXPERT",
+        masteryLevel: 7,
+        repetitions: 2,
+        referenceScore: 50,
+        incipitScore: 50,
+        contextScore: 50,
+        lastReviewedAt: new Date("2026-03-10T12:00:00.000Z"),
+      },
+    ],
+  });
+
+  assert.equal(expert.totalXp > easy.totalXp, true);
+  assert.equal(expertSummary.xp - easySummary.xp, expert.totalXp - easy.totalXp);
 });

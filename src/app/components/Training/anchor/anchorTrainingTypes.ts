@@ -1,4 +1,5 @@
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
+import type { VerseDifficultyLevel } from "@/shared/verses/difficulty";
 import type { AnchorTrainingTrack } from "../types";
 
 export type SessionTrack = AnchorTrainingTrack;
@@ -21,6 +22,7 @@ export type ReferenceVerse = {
   text: string;
   reference: string;
   status: DisplayVerseStatus;
+  difficultyLevel: VerseDifficultyLevel;
   masteryLevel: number;
   repetitions: number;
   bookName: string;

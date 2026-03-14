@@ -15,6 +15,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
@@ -284,18 +285,27 @@ export function TrainingSession({
   }, []);
 
   // ── Swipe gesture handling ──
-  const swipeTouchRef = useRef<{ startY: number; startX: number; startTime: number } | null>(null);
+  const swipeTouchRef = useRef<{
+    startY: number;
+    startX: number;
+    startTime: number;
+    target: HTMLElement | null;
+  } | null>(null);
   const SWIPE_THRESHOLD = 50;
   const SWIPE_MAX_HORIZONTAL = 80;
   const SWIPE_MAX_TIME = 600;
 
   const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest('[data-card-swipe-ignore="true"]')) return;
     if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
     if (!touch) return;
-    swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
+    swipeTouchRef.current = {
+      startY: touch.clientY,
+      startX: touch.clientX,
+      startTime: Date.now(),
+      target,
+    };
   }, []);
 
   const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -309,6 +319,10 @@ export function TrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
+    if (handleSwipeScroll(start.target, step)) return;
+    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
+    if (isSwipeBlockedByScroll(start.target, step)) return;
     requestNavigationStep(step);
   }, [requestNavigationStep]);
 
@@ -618,7 +632,7 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-foreground/90"
+              className="rounded-full border border-border/60 bg-destructive dark:text-destructive-foreground/80 text-background"
               onClick={confirmNavigationStep}
             >
               Перейти без сохранения
