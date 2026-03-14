@@ -883,8 +883,7 @@ export function TrainingHub({
                   onClick={onStart}
                   className={cn(
                     "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
-                    "rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium !shadow-none",
-                    currentAccentTheme.checkedDotClassName,
+                    "rounded-2xl px-5 border text-sm font-medium !shadow-none",
                     currentAccentTheme.ctaClassName,
                   )}
                 >

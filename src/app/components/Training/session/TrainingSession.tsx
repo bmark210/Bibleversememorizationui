@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import {
@@ -283,6 +283,34 @@ export function TrainingSession({
     setPendingNavigationStep(null);
   }, []);
 
+  // ── Swipe gesture handling ──
+  const swipeTouchRef = useRef<{ startY: number; startX: number; startTime: number } | null>(null);
+  const SWIPE_THRESHOLD = 50;
+  const SWIPE_MAX_HORIZONTAL = 80;
+  const SWIPE_MAX_TIME = 600;
+
+  const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('[data-card-swipe-ignore="true"]')) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
+  }, []);
+
+  const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeTouchRef.current;
+    swipeTouchRef.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dy = touch.clientY - start.startY;
+    const dx = Math.abs(touch.clientX - start.startX);
+    const dt = Date.now() - start.startTime;
+    if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
+    const step: 1 | -1 = dy < 0 ? 1 : -1;
+    requestNavigationStep(step);
+  }, [requestNavigationStep]);
+
   const confirmSubsetChange = useCallback(() => {
     if (pendingSubsetChange === null) return;
     setPendingSubsetChange(null);
@@ -405,6 +433,8 @@ export function TrainingSession({
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
+          onTouchStart={handleContentTouchStart}
+          onTouchEnd={handleContentTouchEnd}
         >
           <TrainingProgressPopup popup={session.progressPopup} />
 
@@ -434,9 +464,10 @@ export function TrainingSession({
                   rendererRef={session.rendererRef}
                   suppressModeTutorials={suppressModeTutorials}
                   onTrainingInteractionStart={markInteractionStarted}
-                  onRate={(rating) => {
+                  onRate={async (rating) => {
                     setHasInteractionStarted(true);
-                    return session.handleRate(rating);
+                    await session.handleRate(rating);
+                    setHasInteractionStarted(false);
                   }}
                   hideRatingFooter={false}
                 />
