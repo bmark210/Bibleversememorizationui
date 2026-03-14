@@ -15,11 +15,9 @@ import {
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from './dashboard/DashboardSections'
-import { TelegramPopupDemoCard } from './dashboard/TelegramPopupDemoCard'
 
 interface DashboardProps {
   todayVerses: Array<Verse>
-  appTheme: 'light' | 'dark'
   dashboardStats?: UserDashboardStats | null
   isDashboardStatsLoading?: boolean
   dashboardLeaderboard?: DashboardLeaderboardData | null
@@ -112,7 +110,6 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
 
 export function Dashboard({
   todayVerses,
-  appTheme,
   dashboardStats = null,
   isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
@@ -200,8 +197,6 @@ export function Dashboard({
             : undefined
         }
       />
-
-      <TelegramPopupDemoCard appTheme={appTheme} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]">
         <DashboardTrainingStatsCard statsCards={statsCards} />
