@@ -15,7 +15,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { isSwipeBlockedByScroll } from "@/app/components/ui/ScrollShadowContainer";
+import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
@@ -319,6 +319,8 @@ export function TrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
+    if (handleSwipeScroll(start.target, step)) return;
     // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
     if (isSwipeBlockedByScroll(start.target, step)) return;
     requestNavigationStep(step);
@@ -630,7 +632,7 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-foreground/90"
+              className="rounded-full border border-border/60 bg-destructive text-background"
               onClick={confirmNavigationStep}
             >
               Перейти без сохранения

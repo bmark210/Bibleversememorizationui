@@ -19,6 +19,12 @@ interface ScrollShadowContainerProps
   scrollClassName?: string;
   /** Shadow height in px (default 28). */
   shadowSize?: number;
+  /**
+   * When true, native scroll is disabled (overflow:hidden).
+   * Content is scrolled programmatically via swipe gestures
+   * handled by the parent swipe handler (handleSwipeScroll).
+   */
+  swipeOnly?: boolean;
 }
 
 /**
@@ -28,12 +34,17 @@ interface ScrollShadowContainerProps
  *
  * Also sets `data-scroll-shadow="true"` plus `data-at-top` / `data-at-bottom`
  * so parent swipe handlers can decide whether to allow card navigation.
+ *
+ * When `swipeOnly` is true, the container uses overflow:hidden and adds
+ * `data-swipe-scroll="true"` so swipe handlers can programmatically
+ * scroll it instead of switching cards.
  */
 export function ScrollShadowContainer({
   children,
   className,
   scrollClassName,
   shadowSize = 28,
+  swipeOnly = false,
   ...rest
 }: ScrollShadowContainerProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -90,9 +101,15 @@ export function ScrollShadowContainer({
       <div
         ref={scrollRef}
         data-scroll-shadow="true"
+        data-swipe-scroll={swipeOnly || undefined}
         data-at-top={atTop}
         data-at-bottom={atBottom}
-        className={cn("overflow-y-auto overscroll-contain h-full", scrollClassName)}
+        className={cn(
+          swipeOnly
+            ? "overflow-hidden overscroll-contain h-full"
+            : "overflow-y-auto overscroll-contain h-full",
+          scrollClassName
+        )}
         onScroll={handleScroll}
       >
         {children}
@@ -145,4 +162,43 @@ export function isSwipeBlockedByScroll(
   // Swiping down (prev card, step=-1) → finger moves down → content needs to scroll up
   // Block if NOT at top
   return scrollTop > threshold;
+}
+
+/**
+ * Helper for swipe-only scroll containers: given a touch target element,
+ * find the closest ancestor with `data-swipe-scroll="true"` and
+ * programmatically scroll it to the boundary in the swipe direction.
+ *
+ * Returns `true` if the swipe was consumed (content scrolled).
+ * Returns `false` if the content is already at the boundary or
+ * no swipe-scroll container was found — caller should proceed
+ * with card navigation.
+ */
+export function handleSwipeScroll(
+  target: HTMLElement | null,
+  swipeDirection: 1 | -1
+): boolean {
+  if (!target) return false;
+
+  const scrollable = target.closest<HTMLElement>(
+    '[data-swipe-scroll="true"]'
+  );
+  if (!scrollable) return false;
+
+  const { scrollTop, scrollHeight, clientHeight } = scrollable;
+  const threshold = 2;
+  const hasScroll = scrollHeight > clientHeight + threshold;
+  if (!hasScroll) return false;
+
+  if (swipeDirection === 1) {
+    // Swipe up → next → scroll content down
+    if (scrollTop + clientHeight >= scrollHeight - threshold) return false;
+    scrollable.scrollTo({ top: scrollHeight, behavior: "smooth" });
+    return true;
+  }
+
+  // Swipe down → prev → scroll content up
+  if (scrollTop <= threshold) return false;
+  scrollable.scrollTo({ top: 0, behavior: "smooth" });
+  return true;
 }

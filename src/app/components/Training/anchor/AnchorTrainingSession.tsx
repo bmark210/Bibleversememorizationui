@@ -25,7 +25,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { isSwipeBlockedByScroll } from "@/app/components/ui/ScrollShadowContainer";
+import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
@@ -2009,6 +2009,8 @@ export function AnchorTrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
+    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
+    if (handleSwipeScroll(start.target, step)) return;
     // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
     if (isSwipeBlockedByScroll(start.target, step)) return;
     navigatePendingQuestion(step);

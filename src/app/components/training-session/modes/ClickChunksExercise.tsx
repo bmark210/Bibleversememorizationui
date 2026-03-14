@@ -12,7 +12,6 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { FixedBottomPanel } from './FixedBottomPanel';
 import { Verse } from '@/app/App';
 
 interface ClickChunksExerciseProps {
@@ -242,25 +241,27 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
         </div>
       </ScrollShadowContainer>
 
-      <FixedBottomPanel visible={showChoices}>
-        <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2">
-          {remainingTokens.map((token) => (
-            <Button
-              key={token.id}
-              type="button"
-              variant="outline"
-              className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
-                errorFlashTokenId === token.id
-                  ? 'border-destructive text-destructive'
-                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-              }`}
-              onClick={() => handleChunkClick(token)}
-            >
-              {token.text}
-            </Button>
-          ))}
-        </div>
-      </FixedBottomPanel>
+      {showChoices && (
+        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20} swipeOnly>
+          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
+            {remainingTokens.map((token) => (
+              <Button
+                key={token.id}
+                type="button"
+                variant="outline"
+                className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
+                  errorFlashTokenId === token.id
+                    ? 'border-destructive text-destructive'
+                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                }`}
+                onClick={() => handleChunkClick(token)}
+              >
+                {token.text}
+              </Button>
+            ))}
+          </div>
+        </ScrollShadowContainer>
+      )}
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
