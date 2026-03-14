@@ -1250,7 +1250,6 @@ export default function App({ onInitialContentReady }: AppProps) {
             <div aria-busy={isBootstrapping}>
               <Dashboard
                 todayVerses={activeTrainingVerses}
-                appTheme={theme}
                 dashboardStats={activeDashboardStats}
                 isDashboardStatsLoading={
                   shouldUseVerseSectionTutorialMockData
