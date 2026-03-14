@@ -105,6 +105,15 @@ export function WordSequenceField({
     measure();
   }, [measure]);
 
+  // Re-measure after programmatic smooth scroll finishes
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScrollEnd = () => measure();
+    el.addEventListener("scrollend", onScrollEnd);
+    return () => el.removeEventListener("scrollend", onScrollEnd);
+  }, [measure]);
+
   useEffect(() => {
     if (!focusItemId || typeof window === 'undefined') return;
 
@@ -173,9 +182,10 @@ export function WordSequenceField({
       <div
         ref={scrollRef}
         data-scroll-shadow="true"
+        data-swipe-scroll="true"
         data-at-top={atTop}
         data-at-bottom={atBottom}
-        className="h-full overflow-y-auto overscroll-contain py-2 pr-1 [scrollbar-gutter:stable]"
+        className="h-full overflow-hidden overscroll-contain py-2 pr-1"
         onScroll={handleScroll}
         role="group"
         aria-label="Поле ввода стиха"
