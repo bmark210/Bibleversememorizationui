@@ -292,6 +292,7 @@ export function TrainingSession({
   const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement | null;
     if (target?.closest('[data-card-swipe-ignore="true"]')) return;
+    if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
     if (!touch) return;
     swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
