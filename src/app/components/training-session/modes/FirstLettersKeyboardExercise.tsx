@@ -10,7 +10,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { ReviewHint } from './ReviewHint';
+import { HintButton, HintContent } from './ReviewHint';
 import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
@@ -174,21 +174,22 @@ export function ModeFirstLettersKeyboardExercise({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground/90">
-            Введите первые буквы слов
-          </label>
-          <ReviewHint
-            verseText={verse.text}
-            isReview={isReview}
-            hintLevel={hintLevel}
-            onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
-            onHintUsed={() => setHintUsed(true)}
-          />
-        </div>
+      <div className="shrink-0 flex items-center justify-between">
+        <label className="text-sm font-medium text-foreground/90">
+          Введите первые буквы слов
+        </label>
+        <HintButton
+          isReview={isReview}
+          hintLevel={hintLevel}
+          onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
+          onHintUsed={() => setHintUsed(true)}
+        />
+      </div>
+
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-3">
+        <HintContent verseText={verse.text} hintLevel={hintLevel} />
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -217,8 +218,10 @@ export function ModeFirstLettersKeyboardExercise({
             enterKeyHint="done"
           />
         </motion.div>
+      </div>
 
-        {isCompleted && (
+      {isCompleted && (
+        <div className="shrink-0 pt-3">
           <TrainingRatingFooter>
             <TrainingRatingButtons
               stage={ratingStage}
@@ -227,8 +230,8 @@ export function ModeFirstLettersKeyboardExercise({
               maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
             />
           </TrainingRatingFooter>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }

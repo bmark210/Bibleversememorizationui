@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,18 +17,13 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
-import { SwipeHint } from "@/app/components/VerseGallery/components/SwipeHint";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
-import {
-  TrainingSubsetSelect,
-  type TrainingSubsetSelectValue,
-} from "@/app/components/verse-gallery/TrainingSubsetSelect";
+import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type { Verse } from "@/app/App";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import type { TrainingOrder } from "../types";
-import { TrainingOrderSelect } from "./TrainingOrderSelect";
 import { TrainingOutcomeCard } from "./TrainingOutcomeCard";
 import { useTrainingSession } from "./useTrainingSession";
 import { TrainingProgressPopup } from "../TrainingProgressPopup";
@@ -36,7 +32,7 @@ const slideVariants = {
   enter: (dir: number) =>
     dir === 0
       ? { opacity: 0, scale: 1, y: 0 }
-      : { y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 },
+      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.95 },
   center: (dir: number) => ({
     y: 0,
     opacity: 1,
@@ -59,7 +55,7 @@ const slideVariants = {
       : {
           y: dir > 0 ? "-18%" : "18%",
           opacity: 0,
-          scale: 0.86,
+          scale: 0.92,
           transition: { duration: 0.2, ease: "easeIn" as const },
         },
 };
@@ -287,46 +283,33 @@ export function TrainingSession({
     setPendingNavigationStep(null);
   }, []);
 
-  const areControlsLocked =
-    session.isActionPending ||
-    session.pendingOutcome !== null ||
-    session.quickForgetConfirmStage !== null ||
-    pendingNavigationStep !== null ||
-    pendingSubsetChange !== null ||
-    pendingOrderChange !== null;
+  // ── Swipe gesture handling ──
+  const swipeTouchRef = useRef<{ startY: number; startX: number; startTime: number } | null>(null);
+  const SWIPE_THRESHOLD = 50;
+  const SWIPE_MAX_HORIZONTAL = 80;
+  const SWIPE_MAX_TIME = 600;
 
-  const handleSubsetChange = useCallback(
-    (nextFilter: TrainingSubsetSelectValue) => {
-      if (areControlsLocked) return;
+  const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('[data-card-swipe-ignore="true"]')) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    swipeTouchRef.current = { startY: touch.clientY, startX: touch.clientX, startTime: Date.now() };
+  }, []);
 
-      const resolvedFilter = resolveSubsetFilter(nextFilter, subsetOptions);
-      if (resolvedFilter === resolvedSubsetFilter) return;
-
-      if (!hasInteractionStarted) {
-        setDirection(0);
-        setSubsetFilter(resolvedFilter);
-        return;
-      }
-
-      setPendingSubsetChange(resolvedFilter);
-    },
-    [areControlsLocked, hasInteractionStarted, resolvedSubsetFilter, subsetOptions]
-  );
-
-  const handleOrderChange = useCallback(
-    (nextOrder: TrainingOrder) => {
-      if (areControlsLocked || nextOrder === activeOrder) return;
-
-      if (!hasInteractionStarted) {
-        setDirection(0);
-        setActiveOrder(nextOrder);
-        return;
-      }
-
-      setPendingOrderChange(nextOrder);
-    },
-    [activeOrder, areControlsLocked, hasInteractionStarted]
-  );
+  const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeTouchRef.current;
+    swipeTouchRef.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dy = touch.clientY - start.startY;
+    const dx = Math.abs(touch.clientX - start.startX);
+    const dt = Date.now() - start.startTime;
+    if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
+    const step: 1 | -1 = dy < 0 ? 1 : -1;
+    requestNavigationStep(step);
+  }, [requestNavigationStep]);
 
   const confirmSubsetChange = useCallback(() => {
     if (pendingSubsetChange === null) return;
@@ -403,6 +386,13 @@ export function TrainingSession({
     trainingActiveVerse && trainingModeId && session.pendingOutcome === null
   );
 
+  const canNavigatePrev = session.trainingIndex > 0;
+  const canNavigateNext = session.trainingIndex < session.trainingVerseCount - 1;
+  const isNavigationBlocked =
+    session.isActionPending ||
+    session.quickForgetConfirmStage !== null ||
+    session.pendingOutcome !== null;
+
   return (
     <>
       <div
@@ -410,12 +400,13 @@ export function TrainingSession({
         aria-modal="true"
         aria-label="Тренировка"
         data-tour="training-session-shell"
-        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {session.feedbackMessage}
         </div>
 
+        {/* Top bar: counter */}
         <div
           className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
           style={{ paddingTop: `${topInset}px` }}
@@ -436,25 +427,14 @@ export function TrainingSession({
           </div>
         </div>
 
-        <div className=" shrink-0 pt-3 z-30 flex gap-3 justify-center max-w-2xl mx-auto">
-            <TrainingSubsetSelect
-              value={resolvedSubsetFilter}
-              options={subsetOptions}
-              disabled={areControlsLocked || subsetOptions.length <= 1}
-              onValueChange={handleSubsetChange}
-            />
-            <TrainingOrderSelect
-              value={activeOrder}
-              disabled={areControlsLocked}
-              onValueChange={handleOrderChange}
-            />
-        </div>
-
+        {/* Main content: fullscreen exercise */}
         <div
-          className="relative flex-1 min-h-0 grid place-items-center px-4 py-4 sm:px-6"
+          className="relative flex-1 min-h-0 flex flex-col px-4 py-3 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
+          onTouchStart={handleContentTouchStart}
+          onTouchEnd={handleContentTouchEnd}
         >
           <TrainingProgressPopup popup={session.progressPopup} />
 
@@ -466,14 +446,16 @@ export function TrainingSession({
               initial="enter"
               animate="center"
               exit="exit"
-              className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
+              className="absolute inset-0 flex flex-col px-4 py-3 sm:px-6 focus-visible:outline-none"
               tabIndex={-1}
             >
               {trainingActiveVerse && session.pendingOutcome ? (
-                <TrainingOutcomeCard
-                  trainingVerse={trainingActiveVerse}
-                  outcome={session.pendingOutcome}
-                />
+                <div className="flex flex-1 items-center justify-center min-h-0">
+                  <TrainingOutcomeCard
+                    trainingVerse={trainingActiveVerse}
+                    outcome={session.pendingOutcome}
+                  />
+                </div>
               ) : trainingActiveVerse && trainingModeId ? (
                 <TrainingCard
                   dataTour="training-session-card"
@@ -481,17 +463,17 @@ export function TrainingSession({
                   modeId={trainingModeId}
                   rendererRef={session.rendererRef}
                   suppressModeTutorials={suppressModeTutorials}
-                  onSwipeStep={requestNavigationStep}
                   onTrainingInteractionStart={markInteractionStarted}
-                  onRate={(rating) => {
+                  onRate={async (rating) => {
                     setHasInteractionStarted(true);
-                    return session.handleRate(rating);
+                    await session.handleRate(rating);
+                    setHasInteractionStarted(false);
                   }}
                   hideRatingFooter={false}
                 />
               ) : (
-                <div className="mx-auto flex min-h-[24rem] w-full max-w-2xl items-center justify-center rounded-[3rem] border border-border/60 bg-card/90 px-6 text-center shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]">
-                  <p className="text-sm text-foreground/55">
+                <div className="flex flex-1 items-center justify-center min-h-0">
+                  <p className="text-sm text-foreground/55 text-center px-6">
                     Нет стихов для тренировки в выбранной комбинации фильтра и сортировки
                   </p>
                 </div>
@@ -500,61 +482,85 @@ export function TrainingSession({
           </AnimatePresence>
         </div>
 
+        {/* Footer: navigation arrows + action buttons */}
         <div
-          style={{ paddingBottom: `${Math.max(25, bottomInset)}px` }}
-          className="shrink-0 px-4 sm:px-6 z-40"
+          style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
+          className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
         >
           <div className="mx-auto w-full max-w-2xl">
-            <div
-              className={cn(
-                "flex flex-wrap justify-end gap-3",
-                showQuickForgetAction ? "justify-center" : "justify-end"
-              )}
-            >
-              {showQuickForgetAction && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300"
-                  onClick={() => {
-                    setHasInteractionStarted(true);
-                    session.requestQuickForget();
-                  }}
-                  disabled={session.isActionPending}
-                >
-                  Забыл
-                </Button>
-              )}
-              {session.pendingOutcome && (
-                <Button
-                  type="button"
-                  className={cn(
-                    "h-11 rounded-2xl border border-primary/20 bg-primary/60 text-primary-foreground backdrop-blur-xl"
-                  )}
-                  onClick={session.acknowledgeOutcome}
-                  disabled={session.isActionPending}
-                >
-                  Продолжить
-                </Button>
-              )}
+            <div className="flex items-center justify-between gap-2">
+              {/* Left: prev arrow */}
               <Button
+                type="button"
                 variant="outline"
-                className={cn(
-                  "h-11 rounded-2xl bg-background border backdrop-blur-xl w-fit",
-                  "text-foreground/75"
-                )}
-                onClick={session.handleClose}
-                disabled={session.isActionPending}
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                disabled={!canNavigatePrev || isNavigationBlocked}
+                onClick={() => requestNavigationStep(-1)}
+                aria-label="Предыдущий стих"
               >
-                Завершить
+                <ChevronUp className="h-5 w-5" />
+              </Button>
+
+              {/* Center: action buttons */}
+              <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
+                {showQuickForgetAction && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300 text-sm px-3"
+                    onClick={() => {
+                      setHasInteractionStarted(true);
+                      session.requestQuickForget();
+                    }}
+                    disabled={session.isActionPending}
+                  >
+                    Забыл
+                  </Button>
+                )}
+                {session.pendingOutcome && (
+                  <Button
+                    type="button"
+                    className={cn(
+                      "h-10 rounded-2xl border border-primary/20 bg-primary/60 text-primary-foreground backdrop-blur-xl text-sm px-3"
+                    )}
+                    onClick={session.acknowledgeOutcome}
+                    disabled={session.isActionPending}
+                  >
+                    Продолжить
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-10 rounded-2xl bg-background border backdrop-blur-xl w-fit text-sm px-3",
+                    "text-foreground/75"
+                  )}
+                  onClick={session.handleClose}
+                  disabled={session.isActionPending}
+                >
+                  Завершить
+                </Button>
+              </div>
+
+              {/* Right: next arrow */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                disabled={!canNavigateNext || isNavigationBlocked}
+                onClick={() => requestNavigationStep(1)}
+                aria-label="Следующий стих"
+              >
+                <ChevronDown className="h-5 w-5" />
               </Button>
             </div>
           </div>
         </div>
-
-        {session.pendingOutcome === null ? <SwipeHint panelMode="training" /> : null}
       </div>
 
+      {/* Confirm dialogs */}
       <AlertDialog
         open={session.quickForgetConfirmStage !== null}
         onOpenChange={(open) => {
