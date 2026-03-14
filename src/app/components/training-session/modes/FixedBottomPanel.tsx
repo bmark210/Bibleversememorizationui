@@ -22,7 +22,7 @@ export function FixedBottomPanel({ children, visible }: FixedBottomPanelProps) {
       onTouchMove={stopEventPropagation}
       onTouchEnd={stopEventPropagation}
     >
-      <div className="max-h-full overflow-y-auto overscroll-contain">
+      <div className="max-h-[40dvh] overflow-y-auto overscroll-contain">
         {children}
       </div>
     </div>

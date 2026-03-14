@@ -1,6 +1,5 @@
 import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
 import { cn } from "@/app/components/ui/utils";
-import { VerseCard } from "@/app/components/VerseCard";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -16,7 +15,6 @@ type Props = {
   trainingVerse: TrainingVerseState;
   modeId: ModeId;
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
-  onSwipeStep: (step: 1 | -1) => void;
   onTrainingInteractionStart?: () => void;
   onRate: (rating: Rating) => void | Promise<void>;
   hideRatingFooter?: boolean;
@@ -56,7 +54,6 @@ export const TrainingCard = memo(function TrainingCard({
   trainingVerse,
   modeId,
   rendererRef,
-  onSwipeStep,
   onTrainingInteractionStart,
   onRate,
   hideRatingFooter = false,
@@ -97,8 +94,6 @@ export const TrainingCard = memo(function TrainingCard({
     const target = event.target as HTMLElement | null;
     if (!target) return;
 
-    // Consider the training as started only after explicit interaction
-    // with real controls, not by touching/dragging the card shell.
     const interactiveTarget = target.closest(
       "button,input,textarea,select,[role='button'],[contenteditable='true']"
     );
@@ -108,93 +103,86 @@ export const TrainingCard = memo(function TrainingCard({
   };
 
   return (
-    <div data-tour={dataTour} className="w-full min-w-0 overflow-x-hidden">
-      <VerseCard
-        isActive
-        minHeight="training"
-        onVerticalSwipeStep={onSwipeStep}
-        header={
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
-              {trainingVerse.raw.reference}
-            </h2>
-            <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
-              {/* Training badge — plain div, no motion wrapper */}
+    <div
+      data-tour={dataTour}
+      className="flex h-full w-full min-w-0 flex-col overflow-hidden"
+    >
+      {/* Header: reference + progress badge */}
+      <div className="shrink-0 pb-3 text-center space-y-2">
+        <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
+          {trainingVerse.raw.reference}
+        </h2>
+        <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur-sm",
+              isReviewStage
+                ? "border-violet-500/25 bg-violet-500/10"
+                : "border-emerald-500/25 bg-emerald-500/10"
+            )}
+          >
+            <span
+              className={cn(
+                "text-[9px] font-semibold uppercase tracking-[0.14em]",
+                isReviewStage
+                  ? "text-violet-700/85 dark:text-violet-300/90"
+                  : "text-emerald-700/80 dark:text-emerald-300/90"
+              )}
+            >
+              {isReviewStage ? "Повторение" : "Освоение"}
+            </span>
+
+            <div
+              role="progressbar"
+              aria-label="Прогресс изучения"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={totalProgressPercent}
+              className={cn(
+                "relative h-1 w-16 overflow-hidden rounded-full",
+                isReviewStage ? "bg-violet-500/15" : "bg-emerald-500/15"
+              )}
+            >
               <div
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur-sm",
-                  isReviewStage
-                    ? "border-violet-500/25 bg-violet-500/10"
-                    : "border-emerald-500/25 bg-emerald-500/10"
+                  "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out",
+                  isReviewStage ? "bg-violet-500" : "bg-emerald-500"
                 )}
-              >
-                <span
-                  className={cn(
-                    "text-[9px] font-semibold uppercase tracking-[0.14em]",
-                    isReviewStage
-                      ? "text-violet-700/85 dark:text-violet-300/90"
-                      : "text-emerald-700/80 dark:text-emerald-300/90"
-                  )}
-                >
-                  {isReviewStage ? "Повторение" : "Освоение"}
-                </span>
-
-                {/* Progress bar — CSS transition */}
-                <div
-                  role="progressbar"
-                  aria-label="Прогресс изучения"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={totalProgressPercent}
-                  className={cn(
-                    "relative h-1 w-16 overflow-hidden rounded-full",
-                    isReviewStage ? "bg-violet-500/15" : "bg-emerald-500/15"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out",
-                      isReviewStage ? "bg-violet-500" : "bg-emerald-500"
-                    )}
-                    style={{ width: `${totalProgressPercent}%` }}
-                  />
-                </div>
-
-                <span
-                  className={cn(
-                    "text-[11px] font-semibold tabular-nums",
-                    isReviewStage
-                      ? "text-violet-700 dark:text-violet-300"
-                      : "text-emerald-700 dark:text-emerald-300"
-                  )}
-                >
-                  {totalProgressPercent}%
-                </span>
-              </div>
-            </div>
-          </div>
-        }
-        body={
-          <div
-            className="relative h-full"
-            onClickCapture={handleTrainingInteractionCapture}
-            onInputCapture={handleTrainingInteractionCapture}
-            onKeyDownCapture={handleTrainingInteractionCapture}
-          >
-            <TrainingUiStateProvider hideRatingFooter={hideRatingFooter}>
-              <TrainingModeRenderer
-                ref={rendererRef as RefObject<TrainingModeRendererHandle>}
-                renderer={renderer}
-                verse={verse}
-                suppressTutorial={suppressModeTutorials}
-                onRate={onRate}
+                style={{ width: `${totalProgressPercent}%` }}
               />
-            </TrainingUiStateProvider>
+            </div>
+
+            <span
+              className={cn(
+                "text-[11px] font-semibold tabular-nums",
+                isReviewStage
+                  ? "text-violet-700 dark:text-violet-300"
+                  : "text-emerald-700 dark:text-emerald-300"
+              )}
+            >
+              {totalProgressPercent}%
+            </span>
           </div>
-        }
-        bodyScrollable
-        contentClassName="pb-2"
-      />
+        </div>
+      </div>
+
+      {/* Body: exercise renderer takes remaining space */}
+      <div
+        className="relative flex-1 min-h-0 overflow-y-auto"
+        onClickCapture={handleTrainingInteractionCapture}
+        onInputCapture={handleTrainingInteractionCapture}
+        onKeyDownCapture={handleTrainingInteractionCapture}
+      >
+        <TrainingUiStateProvider hideRatingFooter={hideRatingFooter}>
+          <TrainingModeRenderer
+            ref={rendererRef as RefObject<TrainingModeRendererHandle>}
+            renderer={renderer}
+            verse={verse}
+            suppressTutorial={suppressModeTutorials}
+            onRate={onRate}
+          />
+        </TrainingUiStateProvider>
+      </div>
     </div>
   );
 });
