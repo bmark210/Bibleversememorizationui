@@ -172,6 +172,8 @@ export function VerseGallery({
   initialIndex,
   activeTagSlugs = null,
   viewerTelegramId = null,
+  isFocusMode = false,
+  onToggleFocusMode,
   onClose,
   onStatusChange,
   onDelete,
@@ -597,12 +599,26 @@ export function VerseGallery({
     });
   }, [onNavigateToTraining, previewActiveVerse]);
 
+  const handleGoPrev = useCallback(() => {
+    void nav.navigatePreviewTo("prev");
+  }, [nav]);
+
+  const handleGoNext = useCallback(() => {
+    void nav.navigatePreviewTo("next");
+  }, [nav]);
+
   // ── Display values ───────────────────────────────────────────────────────────
   if (!previewActiveVerse) return null;
 
   const displayTotal = previewDisplayTotal;
   const displayActive = Math.max(0, nav.activeIndex);
   const galleryBodyKey = getVerseIdentity(previewActiveVerse);
+  const canGoPrev = nav.activeIndex > 0;
+  const canGoNext =
+    nav.activeIndex < verses.length - 1 ||
+    (previewHasMore &&
+      !previewIsLoadingMore &&
+      typeof onRequestMorePreviewVerses === "function");
 
   const previewStatusAction = getGalleryStatusAction(
     normalizeVerseStatus(previewActiveVerse.status),
@@ -671,6 +687,7 @@ export function VerseGallery({
                   isActionPending={aux.isActionPending}
                   activeTagSlugs={activeTagSlugs}
                   isAnchorEligible={isAnchorEligible}
+                  isFocusMode={isFocusMode}
                   onStartTraining={handleStartTraining}
                   onStatusAction={() => void handlePreviewStatusAction()}
                   onOpenDifficulty={() => setIsVerseDifficultyDrawerOpen(true)}
@@ -686,14 +703,20 @@ export function VerseGallery({
         {/* Footer buttons */}
         <GalleryFooter
           isActionPending={aux.isActionPending}
+          isFocusMode={isFocusMode}
+          canGoPrev={canGoPrev}
+          canGoNext={canGoNext}
           previewStatusAction={previewStatusAction}
           onClose={onClose}
+          onToggleFocusMode={onToggleFocusMode}
+          onGoPrev={handleGoPrev}
+          onGoNext={handleGoNext}
           onPreviewStatusAction={() => void handlePreviewStatusAction()}
           onDeleteRequest={() => aux.setIsDeleteDialogOpen(true)}
           closeButtonRef={closeButtonRef}
         />
 
-        <SwipeHint panelMode="preview" />
+        {!isFocusMode ? <SwipeHint panelMode="preview" /> : null}
 
         <AlertDialog
           open={aux.isDeleteDialogOpen}

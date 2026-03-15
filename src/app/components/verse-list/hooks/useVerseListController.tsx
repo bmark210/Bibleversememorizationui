@@ -44,6 +44,7 @@ type UseVerseListControllerParams = {
   disabled?: boolean;
   initialTags?: Tag[];
   hasFriends?: boolean;
+  isFocusMode?: boolean;
   onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
@@ -77,6 +78,7 @@ export function useVerseListController({
   disabled = false,
   initialTags = [],
   hasFriends = false,
+  isFocusMode = false,
   onAddVerse,
   onOpenVerseOwners,
   onOpenVerseTags,
@@ -550,6 +552,7 @@ export function useVerseListController({
     (verse: Verse) => (
       <SwipeableVerseCard
         verse={verse}
+        isFocusMode={isFocusMode}
         onOpen={() => openVerseInGallery(verse)}
         onOpenProgress={onOpenVerseProgress}
         onOpenDifficulty={onOpenVerseDifficulty}
@@ -567,6 +570,7 @@ export function useVerseListController({
     ),
     [
       actions,
+      isFocusMode,
       onOpenVerseDifficulty,
       onOpenVerseOwners,
       onOpenVerseProgress,

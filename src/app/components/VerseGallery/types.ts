@@ -62,6 +62,8 @@ export type VerseGalleryProps = {
   initialIndex: number;
   activeTagSlugs?: Iterable<string> | null;
   viewerTelegramId?: string | null;
+  isFocusMode?: boolean;
+  onToggleFocusMode?: () => void;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
   onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
