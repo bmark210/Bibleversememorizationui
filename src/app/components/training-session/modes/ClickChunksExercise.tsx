@@ -7,7 +7,6 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from "@/app/components/ui/button";
-import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -250,7 +249,8 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
         </label>
       </div>
 
-      <ScrollShadowContainer className="mt-3 flex-1" shadowSize={20}>
+      {/* ── Top half: assembled sequence ── */}
+      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Последовательность</span>
@@ -272,10 +272,11 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
             <p className="text-sm text-muted-foreground">Нажимайте фрагменты в правильном порядке.</p>
           )}
         </div>
-      </ScrollShadowContainer>
+      </div>
 
+      {/* ── Bottom half: chunk choices ── */}
       {showChoices && (
-        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20}>
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
@@ -293,7 +294,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               </Button>
             ))}
           </div>
-        </ScrollShadowContainer>
+        </div>
       )}
 
       {isCompleted && (
