@@ -739,12 +739,12 @@ export function VerseGallery({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/90">
+              <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/80">
                 Отмена
               </AlertDialogCancel>
               <AlertDialogAction
                 disabled={aux.isActionPending || !previewActiveVerse}
-                className="rounded-full border border-border/60 bg-muted/35 text-foreground/90"
+                className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-white"
                 onClick={() => void handleDelete()}
               >
                 Удалить

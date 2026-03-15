@@ -60,8 +60,8 @@ export function VerseListHeader({
           type="button"
           variant="default"
           onClick={onAddVerseClick}
-          className={cn("flex bg-card/50 text-primary border border-border dark:border-border/35 items-center justify-center gap-2 rounded-2xl overflow-hidden", 
-            isTelegramFullscreen ? "!font-medium !border-none !shadow-none !ring-offset-0 bg-transparent text-foreground/70" : ""
+          className={cn("flex bg-card/50 text-foreground/75 border border-border dark:border-border/35 items-center justify-center gap-2 rounded-2xl overflow-hidden", 
+            isTelegramFullscreen ? "font-medium !border-none !shadow-none !ring-offset-0 bg-transparent text-foreground/70" : ""
           )}
         >
           {isTelegramFullscreen ? <Plus className="w-4 h-4" /> : null}

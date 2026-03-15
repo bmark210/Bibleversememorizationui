@@ -1,9 +1,9 @@
 import type { Ref } from "react";
-import { ChevronLeft, ChevronRight, Eye, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { haptic } from "../utils";
-import type { GalleryStatusAction } from "../types";
+import { haptic } from "@/app/components/VerseGallery/utils";
+import type { GalleryStatusAction } from "@/app/components/VerseGallery/types";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 
 type Props = {
@@ -50,20 +50,9 @@ export function GalleryFooter({
           disabled={isActionPending || !canGoPrev}
           aria-label="Предыдущий стих"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronUp className="h-4 w-4" />
         </Button>
 
-        <Button
-          variant="outline"
-          className="flex gap-2 backdrop-blur-xl rounded-2xl !border border-border/60 bg-muted/35 text-foreground/75"
-          ref={closeButtonRef}
-          onClick={onClose}
-          disabled={isActionPending}
-          aria-label="Закрыть"
-        >
-          <X className="h-4 w-4" />
-          Закрыть
-        </Button>
 
         {onToggleFocusMode ? (
           <Button
@@ -114,12 +103,22 @@ export function GalleryFooter({
 
         <Button
           variant="outline"
+          className={cn(iconButtonClassName, "flex gap-2")}
+          ref={closeButtonRef}
+          onClick={onClose}
+          disabled={isActionPending}
+          aria-label="Закрыть"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
           className={iconButtonClassName}
           onClick={onGoNext}
           disabled={isActionPending || !canGoNext}
           aria-label="Следующий стих"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4" />
         </Button>
       </div>
     </div>

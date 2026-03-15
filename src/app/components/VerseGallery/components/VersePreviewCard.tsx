@@ -444,7 +444,7 @@ export function VersePreviewCard({
               className={cn(
                 "w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
                 isFocusMode
-                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground"
+                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground/70"
                   : "max-h-full text-xl sm:text-2xl leading-relaxed text-foreground/90 font-light [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
               )}
             >
