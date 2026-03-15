@@ -17,6 +17,10 @@ type TrainingRatingButtonsProps = {
   mode?: TrainingRatingMode;
   onRate: (rating: TrainingModeRating) => void;
   maxRating?: 0 | 1 | 2;
+  /** When false, hides "Легко" (skip) and adds "Забыл" (go back) for final training modes */
+  allowEasySkip?: boolean;
+  /** When true, removes "Забыл" (rating 0) from buttons — used when hint is active and "Сдаюсь" replaces it */
+  excludeForget?: boolean;
 };
 
 type RatingButtonMeta = {
@@ -53,16 +57,47 @@ function getReviewButtons(maxRating: 0 | 1 | 2): RatingButtonMeta[] {
   ];
 }
 
-function getStageButtons(stage: TrainingRatingStage, maxRating: 0 | 1 | 2): RatingButtonMeta[] {
-  if (stage === 'review') {
-    return getReviewButtons(maxRating);
+function getLearningButtonsNoSkip(maxRating: 0 | 1 | 2): RatingButtonMeta[] {
+  if (maxRating === 0) {
+    return [
+      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
+    ];
+  }
+
+  if (maxRating <= 1) {
+    return [
+      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
+      { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
+    ];
   }
 
   return [
+    { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
     { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
-    { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[2] },
-    { rating: 3, label: 'Легко', className: BUTTON_STYLE_BY_RATING[3] },
+    { rating: 2, label: 'Далее', className: BUTTON_STYLE_BY_RATING[2] },
   ];
+}
+
+function getStageButtons(stage: TrainingRatingStage, maxRating: 0 | 1 | 2, allowEasySkip: boolean, excludeForget: boolean): RatingButtonMeta[] {
+  let buttons: RatingButtonMeta[];
+
+  if (stage === 'review') {
+    buttons = getReviewButtons(maxRating);
+  } else if (!allowEasySkip) {
+    buttons = getLearningButtonsNoSkip(maxRating);
+  } else {
+    buttons = [
+      { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
+      { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[2] },
+      { rating: 3, label: 'Легко', className: BUTTON_STYLE_BY_RATING[3] },
+    ];
+  }
+
+  if (excludeForget) {
+    buttons = buttons.filter((b) => b.rating !== 0);
+  }
+
+  return buttons;
 }
 
 export function resolveTrainingRatingStage(status: string | null | undefined): TrainingRatingStage {
@@ -81,8 +116,10 @@ export function TrainingRatingButtons({
   mode: _mode = 'default',
   onRate,
   maxRating = 2,
+  allowEasySkip = true,
+  excludeForget = false,
 }: TrainingRatingButtonsProps) {
-  const buttons = getStageButtons(stage, maxRating);
+  const buttons = getStageButtons(stage, maxRating, allowEasySkip, excludeForget);
   const title =
     stage === 'review'
       ? 'Результат повторения'

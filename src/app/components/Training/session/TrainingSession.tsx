@@ -398,7 +398,7 @@ export function TrainingSession({
     ? getVerseIdentity(trainingActiveVerse.raw)
     : `empty:${resolvedSubsetFilter}:${activeOrder}`;
   const showQuickForgetAction = Boolean(
-    trainingActiveVerse && trainingModeId && session.pendingOutcome === null
+    trainingActiveVerse && trainingModeId && trainingModeId < 5 && session.pendingOutcome === null
   );
 
   const canNavigatePrev = session.trainingIndex > 0;

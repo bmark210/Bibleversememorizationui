@@ -13,6 +13,7 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
+import { HintButton, HintContent } from './ReviewHint';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import { tokenizeFirstLetters } from './wordUtils';
 
@@ -59,6 +60,8 @@ export function ModeFirstLettersTapExercise({
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
+  const [hinted, setHinted] = useState(false);
+  const [surrendered, setSurrendered] = useState(false);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -68,6 +71,8 @@ export function ModeFirstLettersTapExercise({
     setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
+    setHinted(false);
+    setSurrendered(false);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -126,7 +131,7 @@ export function ModeFirstLettersTapExercise({
     () =>
       expectedTokens.map((token, index) => {
         const isFilled = index < selectedCount;
-        const isActiveGap = !isCompleted && index === selectedCount;
+        const isActiveGap = !isCompleted && !surrendered && index === selectedCount;
 
         return {
           id: token.id,
@@ -135,11 +140,11 @@ export function ModeFirstLettersTapExercise({
           state: isFilled ? 'filled' : isActiveGap ? 'active-gap' : 'future-gap',
         };
       }),
-    [expectedTokens, selectedCount, isCompleted]
+    [expectedTokens, selectedCount, isCompleted, surrendered]
   );
 
   const handlePick = (letter: string) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     if (!expectedLetter) return;
 
     if (letter === expectedLetter) {
@@ -187,7 +192,12 @@ export function ModeFirstLettersTapExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && availableLetters.length > 0;
+  const handleSurrender = () => {
+    setSurrendered(true);
+    setIsCompleted(true);
+  };
+
+  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
 
   return (
     <motion.div
@@ -195,13 +205,24 @@ export function ModeFirstLettersTapExercise({
       animate={{ opacity: 1, y: 0 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="shrink-0">
-        <label className="block text-center text-sm font-medium text-foreground/90">
+      <div className="shrink-0 flex items-center justify-between">
+        <label className="text-sm font-medium text-foreground/90">
           Соберите первые буквы слов
         </label>
+        <HintButton
+          hinted={hinted}
+          surrendered={surrendered}
+          onRequestHint={() => setHinted(true)}
+          onSurrender={handleSurrender}
+        />
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+      <div className="mt-3 min-h-0 flex-1 overflow-hidden flex flex-col gap-3">
+        <HintContent
+          verseText={verse.text}
+          hinted={hinted}
+          surrendered={surrendered}
+        />
         <WordSequenceField
           className="h-full"
           label="Последовательность букв"
@@ -243,6 +264,9 @@ export function ModeFirstLettersTapExercise({
               stage={ratingStage}
               mode="first-letters"
               onRate={onRate}
+              maxRating={surrendered ? 0 : 2}
+              allowEasySkip={false}
+              excludeForget={!surrendered}
             />
           </TrainingRatingFooter>
         </div>
