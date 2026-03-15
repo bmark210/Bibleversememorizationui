@@ -33,6 +33,7 @@ export type SwipeCardProps = {
   onResumeLearning: (verse: Verse) => void;
   onRequestDelete: (verse: Verse) => void;
   isPending?: boolean;
+  isFocusMode?: boolean;
 };
 
 export const SwipeableVerseCard = ({
@@ -47,6 +48,7 @@ export const SwipeableVerseCard = ({
   onResumeLearning,
   onRequestDelete,
   isPending = false,
+  isFocusMode = false,
 }: SwipeCardProps) => {
   const masteryLevel = Number(verse.masteryLevel ?? 0);
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
@@ -393,7 +395,7 @@ export const SwipeableVerseCard = ({
   );
 
   return (
-    <div className="relative isolate">
+    <div className="relative isolate verse-card-appear">
       <AnimatePresence initial={false}>
       <div
         role="button"
@@ -415,33 +417,44 @@ export const SwipeableVerseCard = ({
           <div className="space-y-2 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-serif text-primary">{verse.reference}</h3>
-              <Badge
-                asChild={Boolean(onOpenDifficulty)}
-                className={cn(
-                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold shadow-sm',
-                  difficultyBadgeClassName,
-                  onOpenDifficulty
-                    ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30'
-                    : ''
-                )}
-              >
-                {onOpenDifficulty ? (
-                  <button
-                    type="button"
-                    onClick={handleOpenDifficulty}
-                    aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
-                    title="Что означает эта плашка"
-                  >
-                    {difficultyLabel}
-                  </button>
-                ) : (
-                  <span>{difficultyLabel}</span>
-                )}
-              </Badge>
+              {!isFocusMode ? (
+                <Badge
+                  asChild={Boolean(onOpenDifficulty)}
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 text-[10px] font-semibold shadow-sm',
+                    difficultyBadgeClassName,
+                    onOpenDifficulty
+                      ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30'
+                      : ''
+                  )}
+                >
+                  {onOpenDifficulty ? (
+                    <button
+                      type="button"
+                      onClick={handleOpenDifficulty}
+                      aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
+                      title="Что означает эта плашка"
+                    >
+                      {difficultyLabel}
+                    </button>
+                  ) : (
+                    <span>{difficultyLabel}</span>
+                  )}
+                </Badge>
+              ) : null}
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-2">{verse.text}</p>
+            <p
+              className={cn(
+                'text-muted-foreground',
+                isFocusMode
+                  ? 'text-base leading-relaxed whitespace-pre-wrap break-words'
+                  : 'text-sm line-clamp-2'
+              )}
+            >
+              {verse.text}
+            </p>
             
-              {verse.tags && verse.tags.length > 0 && (
+              {!isFocusMode && verse.tags && verse.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {verse.tags.slice(0, 3).map((tag, index) =>
                     onOpenTags ? (
@@ -489,64 +502,66 @@ export const SwipeableVerseCard = ({
             {renderActions()}
           </div>
         </div>
-        <div className="flex items-center gap-2 justify-between">
-        {statusMetaContent ? (
-                <motion.div
+        {!isFocusMode ? (
+          <div className="flex items-center gap-2 justify-between">
+            {statusMetaContent ? (
+              <motion.div
                 key={layoutSignature}
                 initial={{ height: 0, opacity: 0, y: -4 }}
                 animate={{ height: 'auto', opacity: 1, y: 0 }}
                 exit={{ height: 0, opacity: 0, y: -4 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 className="overflow-hidden"
-                >
-                  <div className="pt-0.5">{statusMetaContent}</div>
-                </motion.div>
-              ) : <div className="w-full h-4"></div>}
+              >
+                <div className="pt-0.5">{statusMetaContent}</div>
+              </motion.div>
+            ) : <div className="w-full h-4"></div>}
 
-        {hasOwnersTrigger ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              stopCardOpen(event);
-              onOpenOwners?.(verse);
-            }}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border border-border/40 bg-muted/25 px-2 py-1 text-[10px] text-muted-foreground/70 shadow-sm transition-colors hover:bg-muted/45',
-              popularityChip?.className
-            )}
-            aria-label={popularityChip?.label ?? 'Открыть список пользователей'}
-          >
-            <span className="font-semibold tabular-nums">{popularityValue}</span>
-            <span className="flex -space-x-1.5">
-              {popularityPreviewUsers.map((user) => (
-                <Avatar
-                  key={user.telegramId}
-                  className="h-4 w-4 border border-background shadow-sm"
+            {hasOwnersTrigger ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  stopCardOpen(event);
+                  onOpenOwners?.(verse);
+                }}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full border border-border/40 bg-muted/25 px-2 py-1 text-[10px] text-muted-foreground/70 shadow-sm transition-colors hover:bg-muted/45',
+                  popularityChip?.className
+                )}
+                aria-label={popularityChip?.label ?? 'Открыть список пользователей'}
+              >
+                <span className="font-semibold tabular-nums">{popularityValue}</span>
+                <span className="flex -space-x-1.5">
+                  {popularityPreviewUsers.map((user) => (
+                    <Avatar
+                      key={user.telegramId}
+                      className="h-4 w-4 border border-background shadow-sm"
+                    >
+                      {user.avatarUrl ? (
+                        <AvatarImage src={user.avatarUrl} alt={user.name} />
+                      ) : null}
+                      <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                </span>
+              </button>
+            ) : popularityChip ? (
+              <div className="pointer-events-none">
+                <Badge
+                  className={cn(
+                    'rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70 shadow-sm',
+                    popularityChip.className
+                  )}
                 >
-                  {user.avatarUrl ? (
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  ) : null}
-                  <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
-                    {getInitials(user.name)}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-            </span>
-          </button>
-        ) : popularityChip ? (
-          <div className="pointer-events-none">
-            <Badge
-              className={cn(
-                'rounded-full border border-border/40 bg-muted/25 px-2 py-0.5 text-[10px] text-muted-foreground/70 shadow-sm',
-                popularityChip.className
-              )}
-            >
-              <popularityChip.icon className="w-3.5 h-3.5" />
-              {popularityChip.label}
-            </Badge>
+                  <popularityChip.icon className="w-3.5 h-3.5" />
+                  {popularityChip.label}
+                </Badge>
+              </div>
+            ) : null}
           </div>
         ) : null}
-        </div>
       </div>
         </AnimatePresence>
     </div>

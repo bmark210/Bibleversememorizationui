@@ -16,7 +16,7 @@ import { cn } from '@/app/components/ui/utils';
 import type { Tag } from '@/api/models/Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
-  FILTER_VISUAL_THEME,
+  // FILTER_VISUAL_THEME,
   type FilterVisualTheme,
   type VerseListSortBy,
   type VerseListStatusFilter,
@@ -145,7 +145,7 @@ const ALL_BOOKS_LABEL = 'Все';
 
 function VerseListFilterSections({
   statusFilter,
-  filterOptions,
+  // filterOptions,
   hasFriends = false,
   onTabClick,
   selectedBookId,
@@ -176,7 +176,7 @@ function VerseListFilterSections({
   const visibleRootTabs = hasFriends
     ? ROOT_TABS
     : ROOT_TABS.filter((tab) => tab.key !== 'friends');
-  const isMyMode = activeRootTab === 'my';
+  // const isMyMode = activeRootTab === 'my';
   const selectedBook =
     selectedBookId == null
       ? null
@@ -329,7 +329,7 @@ function VerseListFilterSections({
         </div>
       </div>
 
-            {isMyMode ? (
+            {/* {isMyMode ? (
               <div className="mt-3 px-3">
                 <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
                   Доп фильтр
@@ -374,7 +374,7 @@ function VerseListFilterSections({
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : null} */}
       <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">

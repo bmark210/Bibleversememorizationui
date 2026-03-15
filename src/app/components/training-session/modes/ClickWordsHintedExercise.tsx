@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -17,15 +18,23 @@ import {
   tokenizeWords,
   normalizeWord,
   cleanWordForDisplay,
-  getMaxMistakes,
   getWordMask,
   getWordMaskWidth,
 } from './wordUtils';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import type { HintState } from './useHintState';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import {
+  getExerciseMaxMistakes,
+  getHintedRevealCount,
+} from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 interface WordSlot {
@@ -42,17 +51,8 @@ interface UniqueChoice {
   totalCount: number;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function pickRevealedIndices(totalWords: number): Set<number> {
+function pickRevealedIndices(totalWords: number, revealCount: number): Set<number> {
   if (totalWords <= 1) return new Set<number>();
-
-  let revealCount = clamp(Math.round(totalWords * 0.35), 1, totalWords - 1);
-  if (totalWords >= 6) {
-    revealCount = clamp(Math.round(totalWords * 0.4), 2, totalWords - 2);
-  }
 
   const revealed = new Set<number>();
   if (totalWords >= 3 && revealed.size < revealCount) revealed.add(0);
@@ -79,9 +79,20 @@ function pickRevealedIndices(totalWords: number): Set<number> {
   return revealed;
 }
 
-function buildExercise(text: string) {
+function buildExercise(params: {
+  text: string;
+  difficultyLevel: Verse["difficultyLevel"];
+}) {
+  const { text, difficultyLevel } = params;
   const words = tokenizeWords(text);
-  const revealed = pickRevealedIndices(words.length);
+  const revealed = pickRevealedIndices(
+    words.length,
+    getHintedRevealCount({
+      modeId: TrainingModeId.ClickWordsHinted,
+      difficultyLevel,
+      totalWords: words.length,
+    })
+  );
 
   const slots: WordSlot[] = words.map((word, index) => ({
     id: `${index}-${Math.random().toString(36).slice(2, 6)}`,
@@ -119,6 +130,8 @@ function buildExercise(text: string) {
 export function ModeClickWordsHintedExercise({
   verse,
   onRate,
+  hintState,
+  onProgressChange,
 }: ClickWordsHintedExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
@@ -129,8 +142,13 @@ export function ModeClickWordsHintedExercise({
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
+  const surrendered = hintState?.surrendered ?? false;
+
   useEffect(() => {
-    const exercise = buildExercise(verse.text);
+    const exercise = buildExercise({
+      text: verse.text,
+      difficultyLevel: verse.difficultyLevel,
+    });
     setSlots(exercise.slots);
     setUniqueChoices(exercise.uniqueChoices);
     setSelectedCount(0);
@@ -146,15 +164,45 @@ export function ModeClickWordsHintedExercise({
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) {
+      setIsCompleted(true);
+    }
+  }, [surrendered, isCompleted]);
+
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
     [slots]
   );
 
   const totalHiddenWords = hiddenSlots.length;
-  const maxMistakes = getMaxMistakes(totalHiddenWords);
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.ClickWordsHinted,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: totalHiddenWords,
+  });
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
   // const nextHiddenNormalized = nextHiddenSlot?.normalized ?? null;
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'word-order-hinted',
+        unitType: 'word',
+        expectedIndex: nextHiddenSlot?.order ?? null,
+        completedCount: selectedCount,
+        totalCount: totalHiddenWords,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [
+    isCompleted,
+    nextHiddenSlot,
+    onProgressChange,
+    selectedCount,
+    surrendered,
+    totalHiddenWords,
+  ]);
 
   const hiddenIndexByOrder = useMemo(() => {
     const map = new Map<number, number>();
@@ -227,7 +275,7 @@ export function ModeClickWordsHintedExercise({
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     if (!nextHiddenSlot) return;
 
     if (choice.normalized === nextHiddenSlot.normalized) {
@@ -266,7 +314,7 @@ export function ModeClickWordsHintedExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && visibleChoices.length > 0;
+  const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
   return (
     <motion.div
@@ -325,6 +373,9 @@ export function ModeClickWordsHintedExercise({
               stage={ratingStage}
               mode="default"
               onRate={onRate}
+              ratingPolicy={hintState?.ratingPolicy}
+              excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

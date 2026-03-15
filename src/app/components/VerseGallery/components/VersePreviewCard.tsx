@@ -34,12 +34,14 @@ type Props = {
   isActionPending: boolean;
   activeTagSlugs?: Iterable<string> | null;
   isAnchorEligible?: boolean;
+  isFocusMode?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
   onOpenDifficulty?: (verse: Verse) => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
+  onVerticalSwipeStep?: (step: 1 | -1) => void;
 };
 
 export function VersePreviewCard({
@@ -47,12 +49,14 @@ export function VersePreviewCard({
   isActionPending,
   activeTagSlugs = null,
   isAnchorEligible = false,
+  isFocusMode = false,
   onStartTraining,
   onStatusAction,
   onOpenDifficulty,
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
+  onVerticalSwipeStep,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const previewTextRef = useRef<HTMLParagraphElement>(null);
@@ -195,14 +199,14 @@ export function VersePreviewCard({
     rawMasteryLevel,
   });
 
-  const showFooter = statusTone !== null;
+  const showFooter = !isFocusMode && statusTone !== null;
   const difficultyLabel = getVerseDifficultyLabel(verse.difficultyLevel);
   const difficultyBadgeClassName = getVerseDifficultyBadgeClassName(
     verse.difficultyLevel
   );
 
   useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
+    if (isFocusMode || typeof window === "undefined") return;
 
     const bodyEl = previewBodyRef.current;
     const textEl = previewTextRef.current;
@@ -260,7 +264,7 @@ export function VersePreviewCard({
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [verse.text, showFooter]);
+  }, [isFocusMode, verse.text, showFooter]);
 
   const getInitials = (name: string) =>
     name
@@ -275,9 +279,11 @@ export function VersePreviewCard({
       <VerseCard
         isActive
         minHeight="training"
+        bodyScrollable={isFocusMode}
+        onVerticalSwipeStep={isFocusMode ? onVerticalSwipeStep : undefined}
         previewTone={tone}
         metaBadge={
-          hasOwnersTrigger ? (
+          isFocusMode ? null : hasOwnersTrigger ? (
             <button
               type="button"
               onClick={() => onOpenOwners?.(verse)}
@@ -326,102 +332,121 @@ export function VersePreviewCard({
           ) : null
         }
         header={
-          <div className="w-full min-w-0 flex-shrink-0 text-center space-y-4">
+          <div
+            className={cn(
+              "w-full min-w-0 flex-shrink-0 text-center",
+              isFocusMode ? "space-y-3" : "space-y-4",
+            )}
+          >
             <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic break-words [overflow-wrap:anywhere]">
               {verse.reference}
             </h2>
             <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
-            <div className="flex items-center justify-center">
-              {onOpenDifficulty ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenDifficulty(verse)}
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-                    difficultyBadgeClassName
-                  )}
-                  aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
-                  title="Что означает эта плашка"
-                >
-                  {difficultyLabel}
-                </button>
-              ) : (
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm",
-                    difficultyBadgeClassName
-                  )}
-                >
-                  {difficultyLabel}
-                </span>
-              )}
-            </div>
-
-            {normalizedTags.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-center gap-1">
-                {normalizedTags.slice(0, 3).map((tag, index) => {
-                  const slug = String(tag.slug ?? "").trim();
-                  const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
-
-                  return onOpenTags ? (
+            {!isFocusMode ? (
+              <>
+                <div className="flex items-center justify-center">
+                  {onOpenDifficulty ? (
                     <button
-                      key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                       type="button"
-                      onClick={() => onOpenTags(verse)}
+                      onClick={() => onOpenDifficulty(verse)}
                       className={cn(
-                        "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                        isActive
-                          ? "border-primary/30 bg-primary/12 text-primary"
-                          : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
+                        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                        difficultyBadgeClassName
                       )}
-                      aria-label={`Открыть теги стиха ${verse.reference}`}
+                      aria-label={`Пояснение по уровню сложности стиха ${verse.reference}`}
+                      title="Что означает эта плашка"
                     >
-                      #{tag.title}
+                      {difficultyLabel}
                     </button>
                   ) : (
                     <span
-                      key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                       className={cn(
-                        "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                        isActive
-                          ? "border-primary/30 bg-primary/12 text-primary"
-                          : "border-border/60 bg-muted/35 text-muted-foreground",
+                        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm",
+                        difficultyBadgeClassName
                       )}
                     >
-                      #{tag.title}
+                      {difficultyLabel}
                     </span>
-                  );
-                })}
+                  )}
+                </div>
 
-                {normalizedTags.length > 3 ? (
-                  onOpenTags ? (
-                    <button
-                      type="button"
-                      onClick={() => onOpenTags(verse)}
-                      className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
-                      aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
-                    >
-                      +{normalizedTags.length - 3}
-                    </button>
-                  ) : (
-                    <span className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground">
-                      +{normalizedTags.length - 3}
-                    </span>
-                  )
+                {normalizedTags.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    {normalizedTags.slice(0, 3).map((tag, index) => {
+                      const slug = String(tag.slug ?? "").trim();
+                      const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
+
+                      return onOpenTags ? (
+                        <button
+                          key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                          type="button"
+                          onClick={() => onOpenTags(verse)}
+                          className={cn(
+                            "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
+                            isActive
+                              ? "border-primary/30 bg-primary/12 text-primary"
+                              : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
+                          )}
+                          aria-label={`Открыть теги стиха ${verse.reference}`}
+                        >
+                          #{tag.title}
+                        </button>
+                      ) : (
+                        <span
+                          key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
+                          className={cn(
+                            "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
+                            isActive
+                              ? "border-primary/30 bg-primary/12 text-primary"
+                              : "border-border/60 bg-muted/35 text-muted-foreground",
+                          )}
+                        >
+                          #{tag.title}
+                        </span>
+                      );
+                    })}
+
+                    {normalizedTags.length > 3 ? (
+                      onOpenTags ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenTags(verse)}
+                          className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
+                          aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
+                        >
+                          +{normalizedTags.length - 3}
+                        </button>
+                      ) : (
+                        <span className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground">
+                          +{normalizedTags.length - 3}
+                        </span>
+                      )
+                    ) : null}
+                  </div>
                 ) : null}
-              </div>
+              </>
             ) : null}
           </div>
         }
         body={
           <div
             ref={previewBodyRef}
-            className="h-full min-w-0 flex items-start justify-center overflow-hidden px-2 pt-2 sm:pt-4"
+            className={cn(
+              "h-full min-w-0 flex justify-center px-2",
+              isFocusMode
+                ? "items-start overflow-visible pt-1 sm:pt-2"
+                : "items-start overflow-hidden pt-2 sm:pt-4",
+            )}
           >
             <p
               ref={previewTextRef}
-              style={{ WebkitLineClamp: lineClamp }}
-              className="w-full max-h-full max-w-full text-xl sm:text-2xl leading-relaxed text-foreground/90 italic text-center font-light break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis"
+              style={isFocusMode ? undefined : { WebkitLineClamp: lineClamp }}
+              className={cn(
+                "w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
+                isFocusMode
+                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground/70"
+                  : "max-h-full text-xl sm:text-2xl leading-relaxed text-foreground/90 font-light [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
+              )}
             >
               «{verse.text}»
             </p>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
@@ -13,13 +14,18 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
-import { HintButton, HintContent } from './ReviewHint';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import { tokenizeFirstLetters } from './wordUtils';
+import type { HintState } from './useHintState';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface FirstLettersTapExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 interface LetterToken {
@@ -52,17 +58,18 @@ function shuffleTokens(letters: string[]): LetterToken[] {
 export function ModeFirstLettersTapExercise({
   verse,
   onRate,
+  hintState,
+  onProgressChange,
 }: FirstLettersTapExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
-  const [hinted, setHinted] = useState(false);
-  const [surrendered, setSurrendered] = useState(false);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
@@ -71,8 +78,6 @@ export function ModeFirstLettersTapExercise({
     setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
-    setHinted(false);
-    setSurrendered(false);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
@@ -82,6 +87,12 @@ export function ModeFirstLettersTapExercise({
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) {
+      setIsCompleted(true);
+    }
+  }, [surrendered, isCompleted]);
+
   const expectedTokens = useMemo(
     () => [...tokens].sort((a, b) => a.order - b.order),
     [tokens]
@@ -89,6 +100,25 @@ export function ModeFirstLettersTapExercise({
 
   const total = expectedTokens.length;
   const expectedLetter = expectedTokens[selectedCount]?.letter ?? null;
+  const expectedWordIndex = expectedTokens[selectedCount]?.order ?? null;
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.FirstLettersTapNoHints,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: total,
+  });
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'first-letters',
+        unitType: 'letter',
+        expectedIndex: expectedWordIndex,
+        completedCount: selectedCount,
+        totalCount: total,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [expectedWordIndex, isCompleted, onProgressChange, selectedCount, surrendered, total]);
 
   const shuffledUniqueLetters = useMemo(() => {
     const seen = new Set<string>();
@@ -158,13 +188,13 @@ export function ModeFirstLettersTapExercise({
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+    const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
 
     if (shouldResetSequence) {
       setSelectedCount(0);
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
+        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
           size: 'compact',
@@ -173,7 +203,7 @@ export function ModeFirstLettersTapExercise({
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+          maxMistakes - nextMistakesSinceReset
         }.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -192,11 +222,6 @@ export function ModeFirstLettersTapExercise({
     }, 260);
   };
 
-  const handleSurrender = () => {
-    setSurrendered(true);
-    setIsCompleted(true);
-  };
-
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
 
   return (
@@ -209,20 +234,9 @@ export function ModeFirstLettersTapExercise({
         <label className="text-sm font-medium text-foreground/90">
           Соберите первые буквы слов
         </label>
-        <HintButton
-          hinted={hinted}
-          surrendered={surrendered}
-          onRequestHint={() => setHinted(true)}
-          onSurrender={handleSurrender}
-        />
       </div>
 
       <div className="mt-3 min-h-0 flex-1 overflow-hidden flex flex-col gap-3">
-        <HintContent
-          verseText={verse.text}
-          hinted={hinted}
-          surrendered={surrendered}
-        />
         <WordSequenceField
           className="h-full"
           label="Последовательность букв"
@@ -264,9 +278,10 @@ export function ModeFirstLettersTapExercise({
               stage={ratingStage}
               mode="first-letters"
               onRate={onRate}
-              maxRating={surrendered ? 0 : 2}
+              ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>
