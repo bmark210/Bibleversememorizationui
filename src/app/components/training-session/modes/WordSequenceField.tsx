@@ -182,10 +182,9 @@ export function WordSequenceField({
       <div
         ref={scrollRef}
         data-scroll-shadow="true"
-        data-swipe-scroll="true"
         data-at-top={atTop}
         data-at-bottom={atBottom}
-        className="h-full overflow-hidden overscroll-contain py-2 pr-1"
+        className="h-full overflow-y-auto overscroll-contain py-2 pr-1 touch-pan-y [-webkit-overflow-scrolling:touch]"
         onScroll={handleScroll}
         role="group"
         aria-label="Поле ввода стиха"

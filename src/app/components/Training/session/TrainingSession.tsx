@@ -15,7 +15,6 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
@@ -303,6 +302,9 @@ export function TrainingSession({
     startX: number;
     startTime: number;
     target: HTMLElement | null;
+    wasAtTop: boolean;
+    wasAtBottom: boolean;
+    hadScroll: boolean;
   } | null>(null);
   const SWIPE_THRESHOLD = 50;
   const SWIPE_MAX_HORIZONTAL = 80;
@@ -313,11 +315,31 @@ export function TrainingSession({
     if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
     if (!touch) return;
+
+    // Record scroll boundary state at START so we only navigate
+    // when user was already at the boundary before the gesture.
+    let wasAtTop = true;
+    let wasAtBottom = true;
+    let hadScroll = false;
+    const scrollEl = target?.closest<HTMLElement>('[data-scroll-shadow="true"]');
+    if (scrollEl) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      const threshold = 2;
+      hadScroll = scrollHeight > clientHeight + threshold;
+      if (hadScroll) {
+        wasAtTop = scrollTop <= threshold;
+        wasAtBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+      }
+    }
+
     swipeTouchRef.current = {
       startY: touch.clientY,
       startX: touch.clientX,
       startTime: Date.now(),
       target,
+      wasAtTop,
+      wasAtBottom,
+      hadScroll,
     };
   }, []);
 
@@ -332,10 +354,12 @@ export function TrainingSession({
     const dt = Date.now() - start.startTime;
     if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
     const step: 1 | -1 = dy < 0 ? 1 : -1;
-    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
-    if (handleSwipeScroll(start.target, step)) return;
-    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
-    if (isSwipeBlockedByScroll(start.target, step)) return;
+    // Block navigation if the scroll container had content and
+    // was NOT at the boundary matching swipe direction at gesture start.
+    if (start.hadScroll) {
+      if (step === 1 && !start.wasAtBottom) return;
+      if (step === -1 && !start.wasAtTop) return;
+    }
     requestNavigationStep(step);
   }, [requestNavigationStep]);
 

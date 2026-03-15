@@ -275,7 +275,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       </ScrollShadowContainer>
 
       {showChoices && (
-        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20} swipeOnly>
+        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20}>
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
