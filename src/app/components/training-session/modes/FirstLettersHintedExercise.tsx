@@ -34,6 +34,7 @@ interface FirstLettersHintedExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface WordSlot {
@@ -127,6 +128,7 @@ export function ModeFirstLettersHintedExercise({
   onRate,
   hintState,
   onProgressChange,
+  isLateStageReview = false,
 }: FirstLettersHintedExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
@@ -361,7 +363,8 @@ export function ModeFirstLettersHintedExercise({
               mode="first-letters"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

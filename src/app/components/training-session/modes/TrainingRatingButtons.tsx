@@ -24,6 +24,8 @@ type TrainingRatingButtonsProps = {
   allowEasySkip?: boolean;
   /** When true, removes "Забыл" (rating 0) from buttons — used when hint is active and "Сдаюсь" replaces it */
   excludeForget?: boolean;
+  /** Late-stage review (reps 4–6): only show "Вспомнил" */
+  lateStageReview?: boolean;
   disabled?: boolean;
 };
 
@@ -191,6 +193,7 @@ export function resolveTrainingRatingButtonsConfig(params: {
   ratingPolicy?: HintRatingPolicy;
   allowEasySkip?: boolean;
   excludeForget?: boolean;
+  lateStageReview?: boolean;
 }): {
   title: string;
   buttons: ResolvedTrainingRatingButton[];
@@ -202,7 +205,18 @@ export function resolveTrainingRatingButtonsConfig(params: {
     ratingPolicy,
     allowEasySkip = true,
     excludeForget = false,
+    lateStageReview = false,
   } = params;
+
+  // Late-stage review: only "Вспомнил" button
+  if (lateStageReview && stage === 'review') {
+    return {
+      title: 'Результат повторения',
+      buttons: [
+        { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
+      ],
+    };
+  }
 
   const effectiveMaxRating = ratingPolicy?.maxRating ?? maxRating;
   const policyAllowedRatings =
@@ -259,6 +273,7 @@ export function TrainingRatingButtons({
   ratingPolicy,
   allowEasySkip = true,
   excludeForget = false,
+  lateStageReview = false,
   disabled = false,
 }: TrainingRatingButtonsProps) {
   const { buttons, title } = resolveTrainingRatingButtonsConfig({
@@ -268,6 +283,7 @@ export function TrainingRatingButtons({
     ratingPolicy,
     allowEasySkip,
     excludeForget,
+    lateStageReview,
   });
 
   return (

@@ -24,6 +24,7 @@ interface ClickChunksExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface ChunkToken {
@@ -108,7 +109,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: ClickChunksExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -274,7 +275,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       </ScrollShadowContainer>
 
       {showChoices && (
-        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20} swipeOnly>
+        <ScrollShadowContainer className="shrink-0 mt-2 border-t border-border/60 pt-2 max-h-[45%] min-h-0" shadowSize={20}>
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
@@ -303,7 +304,8 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

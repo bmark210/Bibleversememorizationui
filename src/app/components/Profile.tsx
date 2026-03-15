@@ -107,7 +107,7 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
-  onRestartVerseSectionTutorial,
+  // onRestartVerseSectionTutorial,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
@@ -737,7 +737,7 @@ export function Profile({
             </ProfileSurface>
           </motion.div>
 
-          <motion.div variants={sectionVariants}>
+          {/* <motion.div variants={sectionVariants}>
             <ProfileSurface data-tour="profile-onboarding-replay">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -759,7 +759,7 @@ export function Profile({
                 </Button>
               </div>
             </ProfileSurface>
-          </motion.div>
+          </motion.div> */}
 
           <motion.div variants={sectionVariants}>
             <ProfileSurface data-tour="profile-friends">

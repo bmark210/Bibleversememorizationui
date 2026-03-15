@@ -24,6 +24,7 @@ interface FirstLettersKeyboardExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 function normalizeComparableLetter(value: string) {
@@ -63,6 +64,7 @@ export function ModeFirstLettersKeyboardExercise({
   onRate,
   hintState,
   onProgressChange,
+  isLateStageReview = false,
 }: FirstLettersKeyboardExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
@@ -251,7 +253,8 @@ export function ModeFirstLettersKeyboardExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

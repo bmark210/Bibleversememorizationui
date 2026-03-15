@@ -1,5 +1,4 @@
 import React from "react";
-import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { Eye, Plus } from "lucide-react";
 import { Button } from "../../ui/button";
 import { cn } from "../../ui/utils";
@@ -16,9 +15,7 @@ export function VerseListHeader({
   isFocusMode = false,
   onToggleFocusMode,
 }: VerseListHeaderProps) {
-  const isTelegramFullscreen = useTelegramUiStore(
-    (state) => state.isTelegramFullscreen
-  );
+  const isTelegramFullscreen = true
 
   return (
     <div className={cn("flex justify-between items-start gap-3 px-4 sm:px-6 lg:px-8 relative", isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7")}>
@@ -26,14 +23,14 @@ export function VerseListHeader({
       <div
         className={cn(
           "flex items-center gap-2",
-          isTelegramFullscreen && "absolute right-[20px] top-[23px]",
+          isTelegramFullscreen && "absolute right-[20px] top-[23px] !gap-1",
         )}
       >
         {onToggleFocusMode ? (
           <Button
             data-tour="verse-list-focus-mode-button"
             type="button"
-            variant="outline"
+            variant="default"
             aria-pressed={isFocusMode}
             title={
               isFocusMode
@@ -42,10 +39,10 @@ export function VerseListHeader({
             }
             onClick={onToggleFocusMode}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl border overflow-hidden",
+              "flex bg-card/50 text-foreground/75 border border-border dark:border-border/35 items-center justify-center gap-2 rounded-2xl overflow-hidden", 
               isTelegramFullscreen
-                ? "h-9 w-9 border-border/45 bg-background/70 px-0 text-foreground/75 shadow-sm backdrop-blur-md"
-                : "bg-card/50 px-3 text-foreground/75",
+                ? "font-medium !border-none !shadow-none !ring-offset-0 bg-transparent text-foreground/70"
+                : "",
               isFocusMode &&
                 "border-primary/35 bg-primary/10 text-primary",
             )}
