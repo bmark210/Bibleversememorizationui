@@ -395,7 +395,7 @@ export const SwipeableVerseCard = ({
   );
 
   return (
-    <div className="relative isolate">
+    <div className="relative isolate verse-card-appear">
       <AnimatePresence initial={false}>
       <div
         role="button"
