@@ -13,7 +13,6 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { FixedBottomPanel } from './FixedBottomPanel';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import { tokenizeFirstLetters } from './wordUtils';
 import type { HintState } from './useHintState';
@@ -238,7 +237,8 @@ export function ModeFirstLettersTapExercise({
         </label>
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-hidden flex flex-col gap-3">
+      {/* ── Top half: letter sequence ── */}
+      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Последовательность букв"
@@ -249,29 +249,32 @@ export function ModeFirstLettersTapExercise({
         />
       </div>
 
-      <FixedBottomPanel visible={showChoices}>
-        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Варианты букв</span>
-          <span className="tabular-nums">{availableLetters.length}</span>
+      {/* ── Bottom half: letter choices ── */}
+      {showChoices && (
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Варианты букв</span>
+            <span className="tabular-nums">{availableLetters.length}</span>
+          </div>
+          <div className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden">
+            {availableLetters.map((letter) => (
+              <Button
+                key={letter}
+                type="button"
+                variant="outline"
+                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                  errorFlashLetter === letter
+                    ? 'border-destructive text-destructive'
+                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                }`}
+                onClick={() => handlePick(letter)}
+              >
+                <span>{letter}</span>
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap content-start gap-1">
-          {availableLetters.map((letter) => (
-            <Button
-              key={letter}
-              type="button"
-              variant="outline"
-              className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
-                errorFlashLetter === letter
-                  ? 'border-destructive text-destructive'
-                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-              }`}
-              onClick={() => handlePick(letter)}
-            >
-              <span>{letter}</span>
-            </Button>
-          ))}
-        </div>
-      </FixedBottomPanel>
+      )}
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
