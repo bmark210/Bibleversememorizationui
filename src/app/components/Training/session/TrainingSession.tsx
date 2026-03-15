@@ -34,6 +34,7 @@ import { useHintState } from "@/app/components/training-session/modes/useHintSta
 import { AssistDrawer } from "@/app/components/training-session/modes/AssistDrawer";
 import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { canDiscardTrainingAttempt } from "@/modules/training/hints/hintEngine";
+import { isLateStageReview } from "@/shared/constants/training";
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -415,11 +416,17 @@ export function TrainingSession({
     ? getVerseIdentity(trainingActiveVerse.raw)
     : `empty:${resolvedSubsetFilter}:${activeOrder}`;
   const hintAttemptKey = `${bodyKey}:${trainingModeId ?? "none"}`;
-  const hintAttemptPhase =
+  const hintAttemptPhase: "learning" | "review" =
     trainingActiveVerse?.status === "REVIEW" ||
     trainingActiveVerse?.status === "MASTERED"
       ? "review"
       : "learning";
+
+  // ── Late-stage review (reps 4–6): no hints, no "Забыл", softer penalties ──
+  const isLateStage = isLateStageReview(
+    hintAttemptPhase,
+    trainingActiveVerse?.repetitions ?? 0,
+  );
 
   // ── Assist system (all modes) ──
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
@@ -437,11 +444,13 @@ export function TrainingSession({
       trainingModeId &&
       trainingModeId < 5 &&
       session.pendingOutcome === null &&
-      hintHelpers.hintState.flowState === 'active'
+      hintHelpers.hintState.flowState === 'active' &&
+      !isLateStage
   );
   const showAssistButton =
     isHintableMode &&
-    !session.pendingOutcome;
+    !session.pendingOutcome &&
+    !isLateStage;
   const activeVersePeek =
     hintHelpers.hintState.activeHintContent?.variant === 'full_text_preview'
       ? hintHelpers.hintState.activeHintContent
@@ -713,6 +722,7 @@ export function TrainingSession({
                     setHasInteractionStarted(false);
                   }}
                   hideRatingFooter={false}
+                  isLateStageReview={isLateStage}
                   hintState={isHintableMode ? hintHelpers.hintState : undefined}
                   onProgressChange={isHintableMode ? handleProgressChange : undefined}
                 />

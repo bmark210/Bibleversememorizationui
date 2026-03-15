@@ -26,6 +26,7 @@ interface FirstLettersTapExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface LetterToken {
@@ -60,6 +61,7 @@ export function ModeFirstLettersTapExercise({
   onRate,
   hintState,
   onProgressChange,
+  isLateStageReview = false,
 }: FirstLettersTapExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
@@ -280,7 +282,8 @@ export function ModeFirstLettersTapExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

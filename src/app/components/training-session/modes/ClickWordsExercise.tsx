@@ -32,6 +32,7 @@ interface ClickWordsExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface WordToken {
@@ -95,10 +96,19 @@ function shuffleArray<T>(arr: T[]): T[] {
   return result;
 }
 
-export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange }: ClickWordsExerciseProps) {
+function initClickWordsExercise(text: string) {
+  const words = tokenizeWords(text);
+  const shuffled = shuffleTokens(words);
+  const orderedTokens = [...shuffled].sort((a, b) => a.order - b.order);
+  const uniqueChoices = shuffleArray(buildUniqueChoices(shuffled));
+  return { orderedTokens, uniqueChoices };
+}
+
+export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: ClickWordsExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const [orderedTokens, setOrderedTokens] = useState<WordToken[]>([]);
-  const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
+  const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
+    () => initClickWordsExercise(verse.text)
+  );
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -107,25 +117,24 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const surrendered = hintState?.surrendered ?? false;
 
+  const prevVerseRef = useRef(verse);
   useEffect(() => {
-    const words = tokenizeWords(verse.text);
-    const shuffled = shuffleTokens(words);
-    const ordered = [...shuffled].sort((a, b) => a.order - b.order);
-
-    setOrderedTokens(ordered);
-    setUniqueChoices(shuffleArray(buildUniqueChoices(shuffled)));
+    if (prevVerseRef.current === verse) return;
+    prevVerseRef.current = verse;
+    setTokenData(initClickWordsExercise(verse.text));
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashNormalized(null);
+  }, [verse]);
 
+  useEffect(() => {
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
       }
     };
-  }, [verse]);
+  }, []);
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
@@ -303,7 +312,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

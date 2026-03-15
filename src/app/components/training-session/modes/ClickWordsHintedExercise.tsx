@@ -35,6 +35,7 @@ interface ClickWordsHintedExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface WordSlot {
@@ -132,10 +133,12 @@ export function ModeClickWordsHintedExercise({
   onRate,
   hintState,
   onProgressChange,
+  isLateStageReview = false,
 }: ClickWordsHintedExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const [slots, setSlots] = useState<WordSlot[]>([]);
-  const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
+  const [{ slots, uniqueChoices }, setExerciseData] = useState(
+    () => buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel })
+  );
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -144,25 +147,24 @@ export function ModeClickWordsHintedExercise({
 
   const surrendered = hintState?.surrendered ?? false;
 
+  const prevVerseRef = useRef(verse);
   useEffect(() => {
-    const exercise = buildExercise({
-      text: verse.text,
-      difficultyLevel: verse.difficultyLevel,
-    });
-    setSlots(exercise.slots);
-    setUniqueChoices(exercise.uniqueChoices);
+    if (prevVerseRef.current === verse) return;
+    prevVerseRef.current = verse;
+    setExerciseData(buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel }));
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
     setErrorFlashNormalized(null);
+  }, [verse]);
 
+  useEffect(() => {
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
       }
     };
-  }, [verse]);
+  }, []);
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
@@ -374,7 +376,8 @@ export function ModeClickWordsHintedExercise({
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

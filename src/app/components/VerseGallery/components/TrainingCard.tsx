@@ -21,6 +21,7 @@ type Props = {
   onRate: (rating: Rating) => void | Promise<void>;
   hideRatingFooter?: boolean;
   suppressModeTutorials?: boolean;
+  isLateStageReview?: boolean;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 };
@@ -65,6 +66,7 @@ export const TrainingCard = memo(function TrainingCard({
   onRate,
   hideRatingFooter = false,
   suppressModeTutorials = false,
+  isLateStageReview: isLateStage = false,
   hintState,
   onProgressChange,
 }: Props) {
@@ -189,6 +191,7 @@ export const TrainingCard = memo(function TrainingCard({
             verse={verse}
             suppressTutorial={suppressModeTutorials}
             onRate={onRate}
+            isLateStageReview={isLateStage}
             hintState={hintState}
             onProgressChange={onProgressChange}
           />
