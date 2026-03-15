@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, Lightbulb } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,9 @@ import type { TrainingOrder } from "../types";
 import { TrainingOutcomeCard } from "./TrainingOutcomeCard";
 import { useTrainingSession } from "./useTrainingSession";
 import { TrainingProgressPopup } from "../TrainingProgressPopup";
+import { useHintState } from "@/app/components/training-session/modes/useHintState";
+import { HintDrawer } from "@/app/components/training-session/modes/HintDrawer";
+import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -397,9 +400,43 @@ export function TrainingSession({
   const bodyKey = trainingActiveVerse
     ? getVerseIdentity(trainingActiveVerse.raw)
     : `empty:${resolvedSubsetFilter}:${activeOrder}`;
+  const hintAttemptKey = `${bodyKey}:${trainingModeId ?? "none"}`;
+  const hintAttemptPhase =
+    trainingActiveVerse?.status === "REVIEW" ||
+    trainingActiveVerse?.status === "MASTERED"
+      ? "review"
+      : "learning";
   const showQuickForgetAction = Boolean(
     trainingActiveVerse && trainingModeId && trainingModeId < 5 && session.pendingOutcome === null
   );
+
+  // ── Hint drawer (all modes) ──
+  const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
+  const showHintButton = isHintableMode && !session.pendingOutcome;
+  const [hintDrawerOpen, setHintDrawerOpen] = useState(false);
+  const activeVerseRaw = trainingActiveVerse?.raw;
+  const hintHelpers = useHintState({
+    attemptKey: hintAttemptKey,
+    phase: hintAttemptPhase,
+    verseText: activeVerseRaw?.text ?? '',
+    contextPromptText: activeVerseRaw?.contextPromptText,
+    contextPromptReference: activeVerseRaw?.contextPromptReference,
+    modeId: trainingModeId ?? undefined,
+    difficultyLevel: activeVerseRaw?.difficultyLevel,
+  });
+
+  const handleProgressChange = useCallback((progress: ExerciseProgressSnapshot) => {
+    hintHelpers.updateProgress(progress);
+  }, [hintHelpers.updateProgress]);
+
+  useEffect(() => {
+    setHintDrawerOpen(false);
+    hintHelpers.dismissHintContent();
+  }, [hintAttemptKey, hintHelpers.dismissHintContent]);
+
+  const handleRequestHint = useCallback((type: Parameters<typeof hintHelpers.requestHint>[0]) => {
+    hintHelpers.requestHint(type);
+  }, [hintHelpers.requestHint]);
 
   const canNavigatePrev = session.trainingIndex > 0;
   const canNavigateNext = session.trainingIndex < session.trainingVerseCount - 1;
@@ -485,6 +522,8 @@ export function TrainingSession({
                     setHasInteractionStarted(false);
                   }}
                   hideRatingFooter={false}
+                  hintState={isHintableMode ? hintHelpers.hintState : undefined}
+                  onProgressChange={isHintableMode ? handleProgressChange : undefined}
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center min-h-0">
@@ -531,6 +570,24 @@ export function TrainingSession({
                     disabled={session.isActionPending}
                   >
                     Забыл
+                  </Button>
+                )}
+                {showHintButton && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300 text-sm px-3"
+                    onClick={() => {
+                      hintHelpers.dismissHintContent();
+                      setHintDrawerOpen(true);
+                    }}
+                    disabled={
+                      session.isActionPending ||
+                      hintHelpers.hintState.attemptStatus !== "active"
+                    }
+                  >
+                    <Lightbulb className="h-4 w-4 mr-1" />
+                    Подсказка
                   </Button>
                 )}
                 {session.pendingOutcome && (
@@ -704,6 +761,18 @@ export function TrainingSession({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isHintableMode && (
+        <HintDrawer
+          open={hintDrawerOpen}
+          onOpenChange={setHintDrawerOpen}
+          hintState={hintHelpers.hintState}
+          onRequestHint={handleRequestHint}
+          hasContext={hintHelpers.hasContext}
+          canShowNextWord={hintHelpers.canShowNextWord()}
+          availableHints={hintHelpers.availableHints}
+        />
+      )}
     </>
   );
 }

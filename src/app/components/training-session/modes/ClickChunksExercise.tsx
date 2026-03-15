@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from "@/app/components/ui/button";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
@@ -13,10 +14,16 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { Verse } from '@/app/App';
+import type { HintState } from './useHintState';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface ClickChunksExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 interface ChunkToken {
@@ -101,8 +108,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
+export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange }: ClickChunksExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -110,6 +116,8 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const chunks = splitIntoChunks(verse.text);
@@ -126,6 +134,24 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
       }
     };
   }, [verse]);
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'chunks-order',
+        expectedWordIndex: null,
+        completedUnits: selectedIds.length,
+        totalUnits: tokens.length,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [isCompleted, onProgressChange, selectedIds.length, surrendered, tokens.length]);
+
+  useEffect(() => {
+    if (surrendered && !isCompleted) {
+      setIsCompleted(true);
+    }
+  }, [surrendered, isCompleted]);
 
   const tokenMap = useMemo(
     () => new Map(tokens.map((token) => [token.id, token])),
@@ -147,6 +173,11 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
 
   const selectedCount = selectedTokens.length;
   const totalChunks = tokens.length;
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.ClickChunks,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: totalChunks,
+  });
 
   const remainingTokens = useMemo(
     () => tokens.filter((token) => !selectedIdSet.has(token.id)),
@@ -154,7 +185,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
   );
 
   const handleChunkClick = (token: ChunkToken) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     if (selectedIdSet.has(token.id)) return;
 
     const expectedOrder = selectedCount;
@@ -169,13 +200,13 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+    const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
 
     if (shouldResetSequence) {
       setSelectedIds([]);
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
+        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
           size: 'compact',
@@ -184,7 +215,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     } else {
       toast.warning(
         `Неверный фрагмент. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+          maxMistakes - nextMistakesSinceReset
         }.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -203,7 +234,7 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
     }, 260);
   };
 
-  const showChoices = !isCompleted && remainingTokens.length > 0;
+  const showChoices = !isCompleted && !surrendered && remainingTokens.length > 0;
 
   return (
     <motion.div
@@ -270,6 +301,8 @@ export function ModeClickChunksExercise({ verse, onRate }: ClickChunksExercisePr
               stage={ratingStage}
               mode="default"
               onRate={onRate}
+              ratingPolicy={hintState?.ratingPolicy}
+              excludeForget={!surrendered}
             />
           </TrainingRatingFooter>
         </div>

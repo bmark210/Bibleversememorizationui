@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
@@ -11,13 +12,18 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { HintButton, HintContent } from './ReviewHint';
+import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 function normalizeComparableLetter(value: string) {
@@ -55,19 +61,20 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 export function ModeFirstLettersKeyboardExercise({
   verse,
   onRate,
+  hintState,
+  onProgressChange,
 }: FirstLettersKeyboardExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
-  const [hinted, setHinted] = useState(false);
-  const [surrendered, setSurrendered] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
@@ -76,8 +83,6 @@ export function ModeFirstLettersKeyboardExercise({
     setMistakesSinceReset(0);
     setIsCompleted(false);
     setShakeInput(false);
-    setHinted(false);
-    setSurrendered(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
@@ -91,10 +96,33 @@ export function ModeFirstLettersKeyboardExercise({
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) setIsCompleted(true);
+  }, [surrendered, isCompleted]);
+
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
     [expectedLetters]
   );
+  const completedUnits = compactLetters(inputValue).length;
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.FirstLettersTyping,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: expectedLetters.length,
+  });
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'first-letters-typing',
+        expectedWordIndex:
+          completedUnits < expectedLetters.length ? completedUnits : null,
+        completedUnits,
+        totalUnits: expectedLetters.length,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [completedUnits, expectedLetters.length, isCompleted, onProgressChange, surrendered]);
 
   const triggerInputShake = () => {
     setShakeInput(true);
@@ -105,11 +133,6 @@ export function ModeFirstLettersKeyboardExercise({
       setShakeInput(false);
       clearShakeTimeoutRef.current = null;
     }, 240);
-  };
-
-  const handleSurrender = () => {
-    setSurrendered(true);
-    setIsCompleted(true);
   };
 
   const applyNextInputValue = (nextRaw: string) => {
@@ -129,13 +152,13 @@ export function ModeFirstLettersKeyboardExercise({
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetInput = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+    const shouldResetInput = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
 
     if (shouldResetInput) {
       setInputValue('');
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Ввод сброшен.`,
+        `Допущено ${maxMistakes} ошибок. Ввод сброшен.`,
         {
           toasterId: GALLERY_TOASTER_ID,
           size: 'compact',
@@ -144,7 +167,7 @@ export function ModeFirstLettersKeyboardExercise({
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+          maxMistakes - nextMistakesSinceReset
         }.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -184,20 +207,9 @@ export function ModeFirstLettersKeyboardExercise({
         <label className="text-sm font-medium text-foreground/90">
           Введите первые буквы слов
         </label>
-        <HintButton
-          hinted={hinted}
-          surrendered={surrendered}
-          onRequestHint={() => setHinted(true)}
-          onSurrender={handleSurrender}
-        />
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <HintContent
-          verseText={verse.text}
-          hinted={hinted}
-          surrendered={surrendered}
-        />
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -236,7 +248,7 @@ export function ModeFirstLettersKeyboardExercise({
               stage={ratingStage}
               mode="first-letters"
               onRate={onRate}
-              maxRating={surrendered ? 0 : 2}
+              ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
             />

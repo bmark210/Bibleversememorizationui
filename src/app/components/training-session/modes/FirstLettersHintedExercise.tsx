@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
@@ -20,10 +21,19 @@ import {
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import type { HintState } from './useHintState';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import {
+  getExerciseMaxMistakes,
+  getHintedRevealCount,
+} from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 interface WordSlot {
@@ -34,17 +44,8 @@ interface WordSlot {
   revealed: boolean;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function pickRevealedIndices(totalWords: number): Set<number> {
+function pickRevealedIndices(totalWords: number, revealCount: number): Set<number> {
   if (totalWords <= 1) return new Set<number>();
-
-  let revealCount = clamp(Math.round(totalWords * 0.4), 1, totalWords - 1);
-  if (totalWords >= 6) {
-    revealCount = clamp(Math.round(totalWords * 0.45), 2, totalWords - 2);
-  }
 
   const revealed = new Set<number>();
   if (totalWords >= 3 && revealed.size < revealCount) revealed.add(0);
@@ -82,9 +83,20 @@ function shuffleLetters(letters: string[]) {
   return shuffled;
 }
 
-function buildExercise(text: string) {
+function buildExercise(params: {
+  text: string;
+  difficultyLevel: Verse["difficultyLevel"];
+}) {
+  const { text, difficultyLevel } = params;
   const words = tokenizeWords(text);
-  const revealed = pickRevealedIndices(words.length);
+  const revealed = pickRevealedIndices(
+    words.length,
+    getHintedRevealCount({
+      modeId: TrainingModeId.FirstLettersWithWordHints,
+      difficultyLevel,
+      totalWords: words.length,
+    })
+  );
 
   const slots: WordSlot[] = words.map((word, index) => ({
     id: `${index}-${Math.random().toString(36).slice(2, 6)}`,
@@ -113,8 +125,9 @@ function buildExercise(text: string) {
 export function ModeFirstLettersHintedExercise({
   verse,
   onRate,
+  hintState,
+  onProgressChange,
 }: FirstLettersHintedExerciseProps) {
-  const MAX_MISTAKES_BEFORE_RESET = 5;
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
@@ -124,8 +137,13 @@ export function ModeFirstLettersHintedExercise({
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
 
+  const surrendered = hintState?.surrendered ?? false;
+
   useEffect(() => {
-    const exercise = buildExercise(verse.text);
+    const exercise = buildExercise({
+      text: verse.text,
+      difficultyLevel: verse.difficultyLevel,
+    });
     setSlots(exercise.slots);
     setChoiceOrder(exercise.choiceOrder);
     setSelectedCount(0);
@@ -141,6 +159,12 @@ export function ModeFirstLettersHintedExercise({
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) {
+      setIsCompleted(true);
+    }
+  }, [surrendered, isCompleted]);
+
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
     [slots]
@@ -154,6 +178,23 @@ export function ModeFirstLettersHintedExercise({
 
   const totalHidden = hiddenSlots.length;
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.FirstLettersWithWordHints,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: totalHidden,
+  });
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'first-letters-hinted',
+        expectedWordIndex: nextHiddenSlot?.order ?? null,
+        completedUnits: selectedCount,
+        totalUnits: totalHidden,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [isCompleted, nextHiddenSlot, onProgressChange, selectedCount, surrendered, totalHidden]);
 
   const remainingCountByLetter = useMemo(() => {
     const counts = new Map<string, number>();
@@ -214,7 +255,7 @@ export function ModeFirstLettersHintedExercise({
   );
 
   const handleLetterClick = (letter: string) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     if (!nextHiddenSlot) return;
 
     if (letter === nextHiddenSlot.firstLetter) {
@@ -228,13 +269,13 @@ export function ModeFirstLettersHintedExercise({
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
-    const shouldResetSequence = nextMistakesSinceReset >= MAX_MISTAKES_BEFORE_RESET;
+    const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
 
     if (shouldResetSequence) {
       setSelectedCount(0);
       toast.warning(
-        `Допущено ${MAX_MISTAKES_BEFORE_RESET} ошибок. Последовательность сброшена.`,
+        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
         {
           toasterId: GALLERY_TOASTER_ID,
           size: 'compact',
@@ -243,7 +284,7 @@ export function ModeFirstLettersHintedExercise({
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
-          MAX_MISTAKES_BEFORE_RESET - nextMistakesSinceReset
+          maxMistakes - nextMistakesSinceReset
         }.`,
         {
           toasterId: GALLERY_TOASTER_ID,
@@ -262,7 +303,7 @@ export function ModeFirstLettersHintedExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && availableLetters.length > 0;
+  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
 
   return (
     <motion.div
@@ -318,6 +359,8 @@ export function ModeFirstLettersHintedExercise({
               stage={ratingStage}
               mode="first-letters"
               onRate={onRate}
+              ratingPolicy={hintState?.ratingPolicy}
+              excludeForget={!surrendered}
             />
           </TrainingRatingFooter>
         </div>

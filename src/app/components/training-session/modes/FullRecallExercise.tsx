@@ -16,28 +16,38 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
-import { HintButton, HintContent } from './ReviewHint';
+import type { HintState } from './useHintState';
+import { tokenizeWords } from './wordUtils';
+import {
+  createExerciseProgressSnapshot,
+  getCompletedWordCountFromFreeText,
+} from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface TypingModeProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange }: TypingModeProps) {
+  const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
-  const [hinted, setHinted] = useState(false);
-  const [surrendered, setSurrendered] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   const targetComparableText = useMemo(
     () => normalizeComparableText(verse.text),
@@ -49,8 +59,6 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     setMatchPercent(null);
     setIsCompleted(false);
     setShakeInput(false);
-    setHinted(false);
-    setSurrendered(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
@@ -64,6 +72,28 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) setIsCompleted(true);
+  }, [surrendered, isCompleted]);
+
+  const totalWords = useMemo(() => tokenizeWords(verse.text).length, [verse.text]);
+  const completedWords = useMemo(
+    () => getCompletedWordCountFromFreeText(userInput),
+    [userInput]
+  );
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'full-recall',
+        expectedWordIndex: completedWords < totalWords ? completedWords : null,
+        completedUnits: completedWords,
+        totalUnits: totalWords,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [completedWords, isCompleted, onProgressChange, surrendered, totalWords]);
+
   const triggerInputShake = () => {
     setShakeInput(true);
     if (clearShakeTimeoutRef.current) {
@@ -73,11 +103,6 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
       setShakeInput(false);
       clearShakeTimeoutRef.current = null;
     }, 240);
-  };
-
-  const handleSurrender = () => {
-    setSurrendered(true);
-    setIsCompleted(true);
   };
 
   const handleInputChange = (nextRaw: string) => {
@@ -125,7 +150,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     );
     setMatchPercent(nextMatchPercent);
 
-    if (nextMatchPercent >= 80) {
+    if (nextMatchPercent >= RECALL_THRESHOLD) {
       setIsCompleted(true);
       toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
         toasterId: GALLERY_TOASTER_ID,
@@ -151,20 +176,9 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
         <label className="text-sm font-medium text-foreground/90">
           Напечатайте стих по памяти
         </label>
-        <HintButton
-          hinted={hinted}
-          surrendered={surrendered}
-          onRequestHint={() => setHinted(true)}
-          onSurrender={handleSurrender}
-        />
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <HintContent
-          verseText={verse.text}
-          hinted={hinted}
-          surrendered={surrendered}
-        />
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -200,7 +214,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             className={`rounded-xl border px-3 py-2 text-sm ${
               matchPercent === 100
                 ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : matchPercent >= 80
+                : matchPercent >= RECALL_THRESHOLD
                   ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                   : 'border-destructive/45 bg-destructive/10 text-destructive'
             }`}
@@ -226,7 +240,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               stage={ratingStage}
               mode="full-recall"
               onRate={onRate}
-              maxRating={surrendered ? 0 : 2}
+              ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
             />
