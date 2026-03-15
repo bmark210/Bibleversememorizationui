@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
@@ -12,7 +12,6 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { FixedBottomPanel } from './FixedBottomPanel';
 import { Verse } from '@/app/App';
 import {
   tokenizeWords,
@@ -318,6 +317,45 @@ export function ModeClickWordsHintedExercise({
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
+  /* ── Batch logic: show only as many words as fit in the bottom panel ── */
+  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
+  const [batchSize, setBatchSize] = useState(visibleChoices.length);
+
+  const measureBatch = useCallback(() => {
+    const panel = choicesPanelRef.current;
+    if (!panel) return;
+    const children = panel.children;
+    if (children.length === 0) return;
+    const panelRect = panel.getBoundingClientRect();
+    const panelBottom = panelRect.bottom;
+    let count = 0;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i] as HTMLElement;
+      const childBottom = child.getBoundingClientRect().bottom;
+      if (childBottom > panelBottom + 2) break;
+      count = i + 1;
+    }
+    setBatchSize((prev) => (count !== prev ? count : prev));
+  }, []);
+
+  useLayoutEffect(() => {
+    setBatchSize(visibleChoices.length);
+    requestAnimationFrame(() => measureBatch());
+  }, [visibleChoices, measureBatch]);
+
+  useEffect(() => {
+    const panel = choicesPanelRef.current;
+    if (!panel) return;
+    const ro = new ResizeObserver(() => measureBatch());
+    ro.observe(panel);
+    return () => ro.disconnect();
+  }, [measureBatch]);
+
+  const displayedChoices = useMemo(
+    () => visibleChoices.slice(0, batchSize),
+    [visibleChoices, batchSize]
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -330,7 +368,8 @@ export function ModeClickWordsHintedExercise({
         </label>
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+      {/* ── Top half: verse field ── */}
+      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Стих с пропусками"
@@ -341,32 +380,38 @@ export function ModeClickWordsHintedExercise({
         />
       </div>
 
-      <FixedBottomPanel visible={showChoices}>
-        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Варианты слов</span>
-          <span className="tabular-nums">{visibleChoices.length}</span>
+      {/* ── Bottom half: word choices ── */}
+      {showChoices && (
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Варианты слов</span>
+            <span className="tabular-nums">{visibleChoices.length}</span>
+          </div>
+          <div
+            ref={choicesPanelRef}
+            className="flex flex-1 min-h-0 flex-wrap content-start gap-1.5 overflow-hidden"
+          >
+            {displayedChoices.map((choice) => (
+              <Button
+                key={choice.normalized}
+                type="button"
+                variant="outline"
+                title={choice.displayText}
+                className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 text-sm leading-5 text-left whitespace-nowrap transition-colors ${
+                  errorFlashNormalized === choice.normalized
+                    ? 'border-destructive text-destructive'
+                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                }`}
+                onClick={() => handleWordClick(choice)}
+              >
+                <span className="block min-w-0 truncate">
+                  {choice.displayText}
+                </span>
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap content-start gap-1.5">
-          {visibleChoices.map((choice) => (
-            <Button
-              key={choice.normalized}
-              type="button"
-              variant="outline"
-              title={choice.displayText}
-              className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 text-sm leading-5 text-left whitespace-nowrap transition-colors ${
-                errorFlashNormalized === choice.normalized
-                  ? 'border-destructive text-destructive'
-                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-              }`}
-              onClick={() => handleWordClick(choice)}
-            >
-              <span className="block min-w-0 truncate">
-                {choice.displayText}
-              </span>
-            </Button>
-          ))}
-        </div>
-      </FixedBottomPanel>
+      )}
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
