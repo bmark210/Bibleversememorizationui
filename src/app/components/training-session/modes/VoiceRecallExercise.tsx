@@ -13,14 +13,23 @@ import {
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
-import { HintButton, HintContent } from './ReviewHint';
+import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { similarityRatio } from '@/shared/utils/levenshtein';
+import { tokenizeWords } from './wordUtils';
+import {
+  createExerciseProgressSnapshot,
+  getCompletedWordCountFromFreeText,
+} from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface VoiceRecallExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 type SpeechRecognitionResultLike = {
@@ -60,7 +69,8 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressChange }: VoiceRecallExerciseProps) {
+  const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
 
@@ -69,8 +79,8 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const [isChecked, setIsChecked] = useState(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
-  const [hinted, setHinted] = useState(false);
-  const [surrendered, setSurrendered] = useState(false);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const isSpeechSupported = speechCtor != null;
@@ -87,8 +97,6 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     setIsChecked(false);
     setRecognitionError(null);
     setMatchPercent(null);
-    setHinted(false);
-    setSurrendered(false);
     finalTranscriptRef.current = '';
 
     return () => {
@@ -96,6 +104,29 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
       recognitionRef.current = null;
     };
   }, [verse]);
+
+  useEffect(() => {
+    if (surrendered && !isChecked) setIsChecked(true);
+  }, [surrendered, isChecked]);
+
+  const totalWords = useMemo(() => tokenizeWords(verse.text).length, [verse.text]);
+  const completedWords = useMemo(
+    () => getCompletedWordCountFromFreeText(transcript),
+    [transcript]
+  );
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'voice-recall',
+        unitType: 'spoken-word',
+        expectedIndex: completedWords < totalWords ? completedWords : null,
+        completedCount: completedWords,
+        totalCount: totalWords,
+        isCompleted: isChecked || surrendered,
+      })
+    );
+  }, [completedWords, isChecked, onProgressChange, surrendered, totalWords]);
 
   const ensureRecognition = (): SpeechRecognitionLike | null => {
     if (!speechCtor) return null;
@@ -174,11 +205,6 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     setMatchPercent(null);
   };
 
-  const handleSurrender = () => {
-    setSurrendered(true);
-    setIsChecked(true);
-  };
-
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
@@ -192,7 +218,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     const nextMatchPercent = calculateTextMatchPercent(comparable, targetComparableText);
     setMatchPercent(nextMatchPercent);
 
-    if (nextMatchPercent >= 80) {
+    if (nextMatchPercent >= RECALL_THRESHOLD) {
       setIsChecked(true);
       toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
         toasterId: GALLERY_TOASTER_ID,
@@ -213,20 +239,9 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
         <label className="text-sm font-medium text-foreground/90">
           Голосовой ввод стиха
         </label>
-        <HintButton
-          hinted={hinted}
-          surrendered={surrendered}
-          onRequestHint={() => setHinted(true)}
-          onSurrender={handleSurrender}
-        />
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <HintContent
-          verseText={verse.text}
-          hinted={hinted}
-          surrendered={surrendered}
-        />
 
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="flex flex-wrap gap-2">
@@ -276,7 +291,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
             className={`rounded-xl border px-3 py-2 text-sm ${
               matchPercent === 100
                 ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : matchPercent >= 80
+                : matchPercent >= RECALL_THRESHOLD
                   ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                   : 'border-destructive/45 bg-destructive/10 text-destructive'
             }`}
@@ -302,9 +317,10 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
               stage={ratingStage}
               mode="voice-recall"
               onRate={onRate}
-              maxRating={surrendered ? 0 : 2}
+              ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

@@ -4,14 +4,18 @@ type Props = {
   topInset: number;
 };
 
-export function GalleryHeader({ displayActive, displayTotal, topInset }: Props) {
+export function GalleryHeader({
+  displayActive,
+  displayTotal,
+  topInset,
+}: Props) {
   return (
     <div
       className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40"
       style={{ paddingTop: `${topInset}px` }}
     >
       <div className="max-w-4xl mx-auto px-4 py-2">
-        <div className="flex justify-center">
+        <div className="flex min-h-9 items-center justify-center">
           <div
             role="status"
             aria-label={`Стих ${Math.min(displayActive + 1, displayTotal)} из ${displayTotal}`}

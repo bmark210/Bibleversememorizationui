@@ -553,42 +553,17 @@ export function VerseCard({
               bodyScrollable && !usesSwipeStepScroll && "touch-pan-y",
               contentClassName
             )}
+            style={
+              bodyScrollable && scrollFadeState.canScroll
+                ? {
+                    maskImage: `linear-gradient(to bottom, ${scrollFadeState.showTop ? "transparent" : "black"} 0%, black ${scrollFadeState.showTop ? "36px" : "0px"}, black calc(100% - ${scrollFadeState.showBottom ? "36px" : "0px"}), ${scrollFadeState.showBottom ? "transparent" : "black"} 100%)`,
+                    WebkitMaskImage: `linear-gradient(to bottom, ${scrollFadeState.showTop ? "transparent" : "black"} 0%, black ${scrollFadeState.showTop ? "36px" : "0px"}, black calc(100% - ${scrollFadeState.showBottom ? "36px" : "0px"}), ${scrollFadeState.showBottom ? "transparent" : "black"} 100%)`,
+                  }
+                : undefined
+            }
           >
             {body}
           </div>
-
-          {bodyScrollable && (
-            <>
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 top-0 h-7 transition-[opacity,transform] duration-250 ease-out",
-                  "bg-gradient-to-b from-card via-card/78 via-35% to-transparent",
-                  scrollFadeState.canScroll && scrollFadeState.showTop
-                    ? "translate-y-0 opacity-100"
-                    : "-translate-y-1 opacity-0"
-                )}
-              />
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-14 transition-[opacity,transform] duration-250 ease-out",
-                  "bg-gradient-to-t from-card via-card/88 via-card/58 via-45% to-transparent",
-                  scrollFadeState.canScroll && scrollFadeState.showBottom
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-1 opacity-0"
-                )}
-              />
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-4 bottom-1 h-8 rounded-[1.25rem] blur-xl transition-opacity duration-250",
-                  "bg-black/20 dark:bg-black/30",
-                  scrollFadeState.canScroll && scrollFadeState.showBottom ? "opacity-100" : "opacity-0"
-                )}
-              />
-            </>
-          )}
         </div>
 
         {centerAction ? (

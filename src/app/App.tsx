@@ -129,6 +129,8 @@ export type Verse = {
   }>;
   text: string;
   reference: string;
+  contextPromptText?: string;
+  contextPromptReference?: string;
 };
 
 type AppVerseApiRecord = {
@@ -159,6 +161,8 @@ type AppVerseApiRecord = {
     | null;
   text?: string | null;
   reference?: string | null;
+  contextPromptText?: string | null;
+  contextPromptReference?: string | null;
 };
 
 type Page =
@@ -410,6 +414,8 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
         ) ?? [],
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
+    contextPromptText: typeof verse.contextPromptText === "string" ? verse.contextPromptText : undefined,
+    contextPromptReference: typeof verse.contextPromptReference === "string" ? verse.contextPromptReference : undefined,
   };
 }
 

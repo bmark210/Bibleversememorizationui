@@ -172,6 +172,8 @@ export function VerseGallery({
   initialIndex,
   activeTagSlugs = null,
   viewerTelegramId = null,
+  isFocusMode = false,
+  onToggleFocusMode,
   onClose,
   onStatusChange,
   onDelete,
@@ -597,12 +599,33 @@ export function VerseGallery({
     });
   }, [onNavigateToTraining, previewActiveVerse]);
 
+  const handleGoPrev = useCallback(() => {
+    void nav.navigatePreviewTo("prev");
+  }, [nav]);
+
+  const handleGoNext = useCallback(() => {
+    void nav.navigatePreviewTo("next");
+  }, [nav]);
+
+  const handleVerticalSwipeStep = useCallback(
+    (step: 1 | -1) => {
+      void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
+    },
+    [nav],
+  );
+
   // ── Display values ───────────────────────────────────────────────────────────
   if (!previewActiveVerse) return null;
 
   const displayTotal = previewDisplayTotal;
   const displayActive = Math.max(0, nav.activeIndex);
   const galleryBodyKey = getVerseIdentity(previewActiveVerse);
+  const canGoPrev = nav.activeIndex > 0;
+  const canGoNext =
+    nav.activeIndex < verses.length - 1 ||
+    (previewHasMore &&
+      !previewIsLoadingMore &&
+      typeof onRequestMorePreviewVerses === "function");
 
   const previewStatusAction = getGalleryStatusAction(
     normalizeVerseStatus(previewActiveVerse.status),
@@ -660,23 +683,25 @@ export function VerseGallery({
               tabIndex={-1}
             >
               <div
-                {...previewSwipeHandlers}
+                {...(isFocusMode ? {} : previewSwipeHandlers)}
                 className="w-full min-w-0 overflow-x-hidden"
-                style={{ touchAction: "none" }}
-                onTouchStart={handlePreviewTouchStart}
-                onTouchEnd={handlePreviewTouchEnd}
+                style={isFocusMode ? undefined : { touchAction: "none" }}
+                onTouchStart={isFocusMode ? undefined : handlePreviewTouchStart}
+                onTouchEnd={isFocusMode ? undefined : handlePreviewTouchEnd}
               >
                 <VersePreviewCard
                   verse={previewActiveVerse}
                   isActionPending={aux.isActionPending}
                   activeTagSlugs={activeTagSlugs}
                   isAnchorEligible={isAnchorEligible}
+                  isFocusMode={isFocusMode}
                   onStartTraining={handleStartTraining}
                   onStatusAction={() => void handlePreviewStatusAction()}
                   onOpenDifficulty={() => setIsVerseDifficultyDrawerOpen(true)}
                   onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}
+                  onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
                 />
               </div>
             </motion.div>
@@ -686,14 +711,20 @@ export function VerseGallery({
         {/* Footer buttons */}
         <GalleryFooter
           isActionPending={aux.isActionPending}
+          isFocusMode={isFocusMode}
+          canGoPrev={canGoPrev}
+          canGoNext={canGoNext}
           previewStatusAction={previewStatusAction}
           onClose={onClose}
+          onToggleFocusMode={onToggleFocusMode}
+          onGoPrev={handleGoPrev}
+          onGoNext={handleGoNext}
           onPreviewStatusAction={() => void handlePreviewStatusAction()}
           onDeleteRequest={() => aux.setIsDeleteDialogOpen(true)}
           closeButtonRef={closeButtonRef}
         />
 
-        <SwipeHint panelMode="preview" />
+        {!isFocusMode ? <SwipeHint panelMode="preview" /> : null}
 
         <AlertDialog
           open={aux.isDeleteDialogOpen}

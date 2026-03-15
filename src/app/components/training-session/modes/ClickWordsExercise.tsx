@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -17,15 +18,20 @@ import {
   tokenizeWords,
   normalizeWord,
   cleanWordForDisplay,
-  getMaxMistakes,
   getWordMask,
   getWordMaskWidth,
 } from './wordUtils';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import type { HintState } from './useHintState';
+import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
+import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
+import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 }
 
 interface WordToken {
@@ -89,7 +95,7 @@ function shuffleArray<T>(arr: T[]): T[] {
   return result;
 }
 
-export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProps) {
+export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange }: ClickWordsExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [orderedTokens, setOrderedTokens] = useState<WordToken[]>([]);
   const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
@@ -98,6 +104,8 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+
+  const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const words = tokenizeWords(verse.text);
@@ -119,9 +127,33 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     };
   }, [verse]);
 
+  useEffect(() => {
+    if (surrendered && !isCompleted) {
+      setIsCompleted(true);
+    }
+  }, [surrendered, isCompleted]);
+
   const totalWords = orderedTokens.length;
-  const maxMistakes = getMaxMistakes(totalWords);
+  const maxMistakes = getExerciseMaxMistakes({
+    modeId: TrainingModeId.ClickWordsNoHints,
+    difficultyLevel: verse.difficultyLevel,
+    totalUnits: totalWords,
+  });
+  const expectedWordIndex = orderedTokens[selectedCount]?.order ?? null;
   // const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
+
+  useEffect(() => {
+    onProgressChange?.(
+      createExerciseProgressSnapshot({
+        kind: 'word-order',
+        unitType: 'word',
+        expectedIndex: expectedWordIndex,
+        completedCount: selectedCount,
+        totalCount: totalWords,
+        isCompleted: isCompleted || surrendered,
+      })
+    );
+  }, [expectedWordIndex, isCompleted, onProgressChange, selectedCount, surrendered, totalWords]);
 
   const selectedTokens = useMemo(
     () => orderedTokens.slice(0, selectedCount),
@@ -171,7 +203,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
   );
 
   const handleWordClick = (choice: UniqueChoice) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     const expectedToken = orderedTokens[selectedCount];
     if (!expectedToken) return;
 
@@ -211,7 +243,7 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
     }, 260);
   };
 
-  const showChoices = !isCompleted && visibleChoices.length > 0;
+  const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
   return (
     <motion.div
@@ -270,6 +302,9 @@ export function ModeClickWordsExercise({ verse, onRate }: ClickWordsExerciseProp
               stage={ratingStage}
               mode="default"
               onRate={onRate}
+              ratingPolicy={hintState?.ratingPolicy}
+              excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

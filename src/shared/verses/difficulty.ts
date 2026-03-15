@@ -85,3 +85,35 @@ export function getDifficultyLevelFromText(
 ): VerseDifficultyLevel {
   return getDifficultyLevelByLetters(normalizeVerseDifficultyLetters(text));
 }
+
+// ─── Training error allowance by difficulty ───
+
+const DIFFICULTY_MAX_MISTAKES: Record<VerseDifficultyLevel, number> = {
+  EASY: 4,
+  MEDIUM: 5,
+  HARD: 7,
+  EXPERT: 9,
+};
+
+const DIFFICULTY_RECALL_THRESHOLD: Record<VerseDifficultyLevel, number> = {
+  EASY: 85,
+  MEDIUM: 80,
+  HARD: 75,
+  EXPERT: 70,
+};
+
+/** Max wrong inputs before sequence reset (FirstLetters modes). */
+export function getMaxMistakesForDifficulty(
+  level: VerseDifficultyLevel | null | undefined
+): number {
+  if (!level) return DIFFICULTY_MAX_MISTAKES.EASY;
+  return DIFFICULTY_MAX_MISTAKES[level] ?? DIFFICULTY_MAX_MISTAKES.EASY;
+}
+
+/** Similarity % threshold for FullRecall / VoiceRecall completion. */
+export function getRecallThresholdForDifficulty(
+  level: VerseDifficultyLevel | null | undefined
+): number {
+  if (!level) return DIFFICULTY_RECALL_THRESHOLD.EASY;
+  return DIFFICULTY_RECALL_THRESHOLD[level] ?? DIFFICULTY_RECALL_THRESHOLD.EASY;
+}

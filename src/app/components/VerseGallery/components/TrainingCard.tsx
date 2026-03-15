@@ -4,6 +4,8 @@ import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
+import type { HintState } from "@/app/components/training-session/modes/useHintState";
+import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
@@ -19,6 +21,8 @@ type Props = {
   onRate: (rating: Rating) => void | Promise<void>;
   hideRatingFooter?: boolean;
   suppressModeTutorials?: boolean;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 };
 
 function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
@@ -47,6 +51,8 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
     nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
     nextReview: verse.nextReviewAt?.toISOString() ?? null,
     tags: [],
+    contextPromptText: (verse.raw as Record<string, unknown>).contextPromptText as string | undefined,
+    contextPromptReference: (verse.raw as Record<string, unknown>).contextPromptReference as string | undefined,
   };
 }
 
@@ -59,6 +65,8 @@ export const TrainingCard = memo(function TrainingCard({
   onRate,
   hideRatingFooter = false,
   suppressModeTutorials = false,
+  hintState,
+  onProgressChange,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const isReviewStage =
@@ -181,6 +189,8 @@ export const TrainingCard = memo(function TrainingCard({
             verse={verse}
             suppressTutorial={suppressModeTutorials}
             onRate={onRate}
+            hintState={hintState}
+            onProgressChange={onProgressChange}
           />
         </TrainingUiStateProvider>
       </div>

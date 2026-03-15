@@ -7,6 +7,7 @@ export const VERSE_LIST_STORAGE_KEYS = {
   searchQuery: 'verse-list:search-query:v1',
   selectedTagSlugs: 'verse-list:selected-tag-slugs:v1',
   filtersCollapsed: 'verse-list:filters-collapsed:v1',
+  focusMode: 'verse-list:focus-mode:v1',
 } as const;
 
 const STATUS_FILTER_VALUES: VerseListStatusFilter[] = [
