@@ -9,6 +9,8 @@ export const REVIEW_LAPSE_HINT_STRIKE = 1;
 export const REVIEW_LAPSE_FAIL_STRIKE = 2;
 export const REVIEW_LAPSE_HINT_REPETITION_PENALTY = 1;
 export const REVIEW_LAPSE_FAIL_REPETITION_PENALTY = 2;
+/** Repetitions 4+ are "late stage" — softer penalties, no hints, no "Забыл". */
+export const REVIEW_LATE_STAGE_THRESHOLD = 4;
 export const TRAINING_SCORE_BY_RATING = { 0: 35, 1: 60, 2: 84, 3: 96 } as const;
 export const SPACED_REPETITION_MS_BY_STAGE = {
   0: 10 * 60 * 1000,
@@ -64,3 +66,14 @@ export const TOTAL_REPEATS_AND_STAGE_MASTERY_MAX =
 export const REVIEW_FAILED_RETRY_MINUTES = REVIEW_FAIL_RETRY_MINUTES;
 export const REFERENCE_TRAINER_POOL_SIZE = REFERENCE_POOL_SIZE;
 export const MAINTENANCE_REVIEW_DAYS = 180;
+
+/**
+ * Late-stage review (reps 4–6): user has proven long-term retention.
+ * No "Забыл", no hints, softer penalties on surrender.
+ */
+export function isLateStageReview(
+  phase: "learning" | "review",
+  repetitions: number,
+): boolean {
+  return phase === "review" && repetitions >= REVIEW_LATE_STAGE_THRESHOLD;
+}

@@ -35,6 +35,7 @@ interface ClickWordsHintedExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface WordSlot {
@@ -132,6 +133,7 @@ export function ModeClickWordsHintedExercise({
   onRate,
   hintState,
   onProgressChange,
+  isLateStageReview = false,
 }: ClickWordsHintedExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
@@ -374,7 +376,8 @@ export function ModeClickWordsHintedExercise({
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

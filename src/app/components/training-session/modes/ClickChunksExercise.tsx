@@ -24,6 +24,7 @@ interface ClickChunksExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface ChunkToken {
@@ -108,7 +109,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: ClickChunksExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -303,7 +304,8 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

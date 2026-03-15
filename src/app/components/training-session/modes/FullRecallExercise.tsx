@@ -30,13 +30,14 @@ interface TypingModeProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: TypingModeProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [userInput, setUserInput] = useState('');
@@ -243,7 +244,8 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

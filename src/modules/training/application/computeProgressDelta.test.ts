@@ -49,18 +49,59 @@ test("second consecutive hinted review applies repetition penalty and resets lap
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-14T10:00:00.000Z");
 });
 
-test("failed review immediately applies the stronger repetition penalty", () => {
+test("failed review (early stage) immediately applies the stronger repetition penalty", () => {
   const result = computeReviewResult({
     rating: 0,
-    currentRepetitions: 4,
+    currentRepetitions: 3,
     currentReviewLapseStreak: 0,
     now: NOW,
   });
 
-  assert.equal(result.repetitions, 2);
+  assert.equal(result.repetitions, 1);
   assert.equal(result.reviewLapseStreak, 0);
   assert.equal(result.reviewWasSuccessful, false);
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-13T16:00:00.000Z");
+});
+
+test("late-stage review (reps 4+) forgot: no repetition penalty, 6h retry", () => {
+  const result = computeReviewResult({
+    rating: 0,
+    currentRepetitions: 5,
+    currentReviewLapseStreak: 0,
+    now: NOW,
+  });
+
+  assert.equal(result.repetitions, 5, "repetitions should stay unchanged");
+  assert.equal(result.reviewLapseStreak, 0);
+  assert.equal(result.reviewWasSuccessful, false);
+  assert.equal(result.nextReviewAt.toISOString(), "2026-03-13T16:00:00.000Z");
+});
+
+test("late-stage review (reps 4+) with hint: no repetition penalty, 6h retry", () => {
+  const result = computeReviewResult({
+    rating: 1,
+    currentRepetitions: 4,
+    currentReviewLapseStreak: 1,
+    now: NOW,
+  });
+
+  assert.equal(result.repetitions, 4, "repetitions should stay unchanged");
+  assert.equal(result.reviewLapseStreak, 0);
+  assert.equal(result.reviewWasSuccessful, false);
+  assert.equal(result.nextReviewAt.toISOString(), "2026-03-13T16:00:00.000Z");
+});
+
+test("late-stage review (reps 4+) success still advances", () => {
+  const result = computeReviewResult({
+    rating: 2,
+    currentRepetitions: 5,
+    currentReviewLapseStreak: 0,
+    now: NOW,
+  });
+
+  assert.equal(result.repetitions, 6, "should advance to next repetition");
+  assert.equal(result.reviewLapseStreak, 0);
+  assert.equal(result.reviewWasSuccessful, true);
 });
 
 test("learning progress clears any stale review lapse streak", () => {

@@ -32,6 +32,7 @@ interface ClickWordsExerciseProps {
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  isLateStageReview?: boolean;
 }
 
 interface WordToken {
@@ -95,7 +96,7 @@ function shuffleArray<T>(arr: T[]): T[] {
   return result;
 }
 
-export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange }: ClickWordsExerciseProps) {
+export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: ClickWordsExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [orderedTokens, setOrderedTokens] = useState<WordToken[]>([]);
   const [uniqueChoices, setUniqueChoices] = useState<UniqueChoice[]>([]);
@@ -303,7 +304,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={!surrendered}
+              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              lateStageReview={isLateStageReview}
               disabled={false}
             />
           </TrainingRatingFooter>

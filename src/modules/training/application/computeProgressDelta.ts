@@ -14,6 +14,7 @@ import {
   REVIEW_LAPSE_STREAK_THRESHOLD,
   SPACED_REPETITION_MS_BY_STAGE,
   TRAINING_SCORE_BY_RATING,
+  REVIEW_LATE_STAGE_THRESHOLD,
 } from "@/shared/constants/training";
 import { clamp } from "@/shared/utils/clamp";
 import { TrainingModeId } from "@/modules/training/domain/TrainingMode";
@@ -137,6 +138,17 @@ export function computeReviewResult(
       reviewLapseStreak: 0,
       nextReviewAt: computeReviewNextReviewAt(nextRepetitions, now),
       reviewWasSuccessful: true,
+    };
+  }
+
+  // Late-stage review (reps 4+): no repetition penalty, just 6h retry.
+  // User has proven long-term retention — harsh rollback is demoralizing.
+  if (repetitions >= REVIEW_LATE_STAGE_THRESHOLD) {
+    return {
+      repetitions,
+      reviewLapseStreak: 0,
+      nextReviewAt: new Date(now.getTime() + REVIEW_FAIL_RETRY_MINUTES * 60 * 1000),
+      reviewWasSuccessful: false,
     };
   }
 
