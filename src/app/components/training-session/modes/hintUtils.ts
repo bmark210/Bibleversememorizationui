@@ -1,33 +1,17 @@
-import { tokenizeWords, getComparableFirstLetter } from './wordUtils';
+import { tokenizeWords } from './wordUtils';
 
-export type HintLevel = 0 | 1 | 2 | 3;
+/**
+ * Единая система подсказок (modes 5+, learning & review):
+ *
+ * 1. «Подсказка» → первые 3-5 слов стиха (бесплатная).
+ *    Кнопка трансформируется в «Сдаюсь».
+ *    Из рейтинговых кнопок убирается «Забыл» — его роль играет «Сдаюсь».
+ *
+ * 2. «Сдаюсь» → полный текст стиха, ввод отключён, только «Забыл» (rating 0).
+ */
 
-export const HINT_LEVEL_MAX: HintLevel = 3;
-
-export function generateHintText(
-  verseText: string,
-  level: HintLevel,
-): string {
-  if (level === 0) return '';
-
+export function generateHintFirstWords(verseText: string): string {
   const words = tokenizeWords(verseText);
-
-  if (level === 1) {
-    return words
-      .map((w) => getComparableFirstLetter(w).toUpperCase())
-      .join(' ');
-  }
-
-  if (level === 2) {
-    const count = Math.min(4, Math.max(2, Math.ceil(words.length * 0.2)));
-    return words.slice(0, count).join(' ') + '\u2026';
-  }
-
-  return verseText;
-}
-
-export function getMaxRatingForHintLevel(level: HintLevel): 0 | 1 | 2 {
-  if (level >= 3) return 0;
-  if (level >= 1) return 1;
-  return 2;
+  const count = Math.min(5, Math.max(3, Math.ceil(words.length * 0.15)));
+  return words.slice(0, count).join(' ') + '\u2026';
 }

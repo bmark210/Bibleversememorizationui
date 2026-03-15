@@ -17,7 +17,6 @@ import {
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
 import { HintButton, HintContent } from './ReviewHint';
-import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 
 interface TypingModeProps {
   verse: Verse;
@@ -30,13 +29,12 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
 
 export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const isReview = ratingStage === 'review';
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
-  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
-  const [hintUsed, setHintUsed] = useState(false);
+  const [hinted, setHinted] = useState(false);
+  const [surrendered, setSurrendered] = useState(false);
   const clearShakeTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -51,8 +49,8 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     setMatchPercent(null);
     setIsCompleted(false);
     setShakeInput(false);
-    setHintLevel(0);
-    setHintUsed(false);
+    setHinted(false);
+    setSurrendered(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
@@ -77,8 +75,13 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
     }, 240);
   };
 
+  const handleSurrender = () => {
+    setSurrendered(true);
+    setIsCompleted(true);
+  };
+
   const handleInputChange = (nextRaw: string) => {
-    if (isCompleted) return;
+    if (isCompleted || surrendered) return;
     setUserInput(nextRaw);
     if (matchPercent !== null) {
       setMatchPercent(null);
@@ -149,15 +152,19 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
           Напечатайте стих по памяти
         </label>
         <HintButton
-          isReview={isReview}
-          hintLevel={hintLevel}
-          onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
-          onHintUsed={() => setHintUsed(true)}
+          hinted={hinted}
+          surrendered={surrendered}
+          onRequestHint={() => setHinted(true)}
+          onSurrender={handleSurrender}
         />
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <HintContent verseText={verse.text} hintLevel={hintLevel} />
+        <HintContent
+          verseText={verse.text}
+          hinted={hinted}
+          surrendered={surrendered}
+        />
 
         <motion.div
           animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
@@ -180,7 +187,7 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
             placeholder="Введите стих целиком..."
             rows={5}
             className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 text-base leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            disabled={isCompleted}
+            disabled={isCompleted || surrendered}
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -219,7 +226,9 @@ export function ModeFullRecallExercise({ verse, onRate }: TypingModeProps) {
               stage={ratingStage}
               mode="full-recall"
               onRate={onRate}
-              maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
+              maxRating={surrendered ? 0 : 2}
+              allowEasySkip={false}
+              excludeForget={!surrendered}
             />
           </TrainingRatingFooter>
         </div>

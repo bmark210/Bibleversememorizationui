@@ -14,7 +14,6 @@ import {
 } from './TrainingRatingButtons';
 import { FixedBottomPanel } from './FixedBottomPanel';
 import { HintButton, HintContent } from './ReviewHint';
-import { type HintLevel, getMaxRatingForHintLevel } from './hintUtils';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { similarityRatio } from '@/shared/utils/levenshtein';
@@ -70,13 +69,12 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
   const [isChecked, setIsChecked] = useState(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
-  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
-  const [hintUsed, setHintUsed] = useState(false);
+  const [hinted, setHinted] = useState(false);
+  const [surrendered, setSurrendered] = useState(false);
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const isSpeechSupported = speechCtor != null;
   const ratingStage = resolveTrainingRatingStage(verse.status);
-  const isReview = ratingStage === 'review';
 
   const targetComparableText = useMemo(
     () => normalizeComparableText(verse.text),
@@ -89,8 +87,8 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     setIsChecked(false);
     setRecognitionError(null);
     setMatchPercent(null);
-    setHintLevel(0);
-    setHintUsed(false);
+    setHinted(false);
+    setSurrendered(false);
     finalTranscriptRef.current = '';
 
     return () => {
@@ -176,6 +174,11 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
     setMatchPercent(null);
   };
 
+  const handleSurrender = () => {
+    setSurrendered(true);
+    setIsChecked(true);
+  };
+
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
@@ -211,15 +214,19 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
           Голосовой ввод стиха
         </label>
         <HintButton
-          isReview={isReview}
-          hintLevel={hintLevel}
-          onRequestHint={() => setHintLevel((prev) => Math.min(prev + 1, 3) as HintLevel)}
-          onHintUsed={() => setHintUsed(true)}
+          hinted={hinted}
+          surrendered={surrendered}
+          onRequestHint={() => setHinted(true)}
+          onSurrender={handleSurrender}
         />
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <HintContent verseText={verse.text} hintLevel={hintLevel} />
+        <HintContent
+          verseText={verse.text}
+          hinted={hinted}
+          surrendered={surrendered}
+        />
 
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="flex flex-wrap gap-2">
@@ -260,7 +267,7 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
             }}
             className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
             placeholder="Здесь будет распознанный текст..."
-            disabled={isChecked}
+            disabled={isChecked || surrendered}
           />
         </div>
 
@@ -295,7 +302,9 @@ export function ModeVoiceRecallExercise({ verse, onRate }: VoiceRecallExercisePr
               stage={ratingStage}
               mode="voice-recall"
               onRate={onRate}
-              maxRating={hintUsed ? getMaxRatingForHintLevel(hintLevel) : 2}
+              maxRating={surrendered ? 0 : 2}
+              allowEasySkip={false}
+              excludeForget={!surrendered}
             />
           </TrainingRatingFooter>
         </div>
