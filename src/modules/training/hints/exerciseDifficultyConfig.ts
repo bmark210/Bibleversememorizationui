@@ -10,14 +10,22 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-const HINT_FIRST_WORDS_COUNT_BY_DIFFICULTY: Record<
-  VerseDifficultyLevel,
-  number
-> = {
+/**
+ * How many times the user can request "next word" hint per attempt,
+ * based on verse difficulty. Harder verses allow more uses.
+ */
+const NEXT_WORD_MAX_USES_BY_DIFFICULTY: Record<VerseDifficultyLevel, number> = {
+  EASY: 1,
+  MEDIUM: 2,
+  HARD: 3,
+  EXPERT: 4,
+};
+
+const SHOW_VERSE_DURATION_SECONDS_BY_DIFFICULTY: Record<VerseDifficultyLevel, number> = {
   EASY: 3,
-  MEDIUM: 4,
-  HARD: 5,
-  EXPERT: 5,
+  MEDIUM: 5,
+  HARD: 8,
+  EXPERT: 12,
 };
 
 const WORD_MODE_ERROR_OFFSET_BY_DIFFICULTY: Record<
@@ -54,11 +62,18 @@ function resolveDifficultyLevel(
   return coerceVerseDifficultyLevel(difficultyLevel);
 }
 
-export function getHintFirstWordsCount(
+export function getNextWordMaxUses(
   difficultyLevel: VerseDifficultyLevel | null | undefined
 ): number {
   const level = resolveDifficultyLevel(difficultyLevel);
-  return HINT_FIRST_WORDS_COUNT_BY_DIFFICULTY[level];
+  return NEXT_WORD_MAX_USES_BY_DIFFICULTY[level];
+}
+
+export function getShowVerseDurationSeconds(
+  difficultyLevel: VerseDifficultyLevel | null | undefined
+): number {
+  const level = resolveDifficultyLevel(difficultyLevel);
+  return SHOW_VERSE_DURATION_SECONDS_BY_DIFFICULTY[level];
 }
 
 export function getExerciseMaxMistakes(params: {
@@ -100,4 +115,29 @@ export function getExerciseRecallThreshold(
   difficultyLevel: VerseDifficultyLevel | null | undefined
 ): number {
   return getRecallThresholdForDifficulty(difficultyLevel);
+}
+
+export function getAssistSuggestionThresholdMs(params: {
+  phase: "learning" | "review";
+  modeId: TrainingModeId | null | undefined;
+}): number {
+  if (params.phase === "review") {
+    return 25_000;
+  }
+
+  if (
+    params.modeId === TrainingModeId.FirstLettersTyping ||
+    params.modeId === TrainingModeId.FullRecall ||
+    params.modeId === TrainingModeId.VoiceRecall
+  ) {
+    return 20_000;
+  }
+
+  return 12_000;
+}
+
+export function getAssistSuggestionMistakeThreshold(params: {
+  phase: "learning" | "review";
+}): number {
+  return params.phase === "review" ? 1 : 2;
 }

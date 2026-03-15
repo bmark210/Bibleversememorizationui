@@ -146,9 +146,10 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'word-order',
-        expectedWordIndex,
-        completedUnits: selectedCount,
-        totalUnits: totalWords,
+        unitType: 'word',
+        expectedIndex: expectedWordIndex,
+        completedCount: selectedCount,
+        totalCount: totalWords,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -303,6 +304,7 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

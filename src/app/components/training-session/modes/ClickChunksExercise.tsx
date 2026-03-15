@@ -139,9 +139,10 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'chunks-order',
-        expectedWordIndex: null,
-        completedUnits: selectedIds.length,
-        totalUnits: tokens.length,
+        unitType: 'chunk',
+        expectedIndex: null,
+        completedCount: selectedIds.length,
+        totalCount: tokens.length,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -303,6 +304,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

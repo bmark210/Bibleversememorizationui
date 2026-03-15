@@ -25,8 +25,8 @@ import {
   getModeByShiftInProgressOrder,
 } from "@/app/components/VerseGallery/utils";
 import {
+  completeTraining,
   fetchTrainingVerseSnapshot,
-  persistTrainingVerseProgress,
 } from "@/app/components/VerseGallery/trainingApi";
 import {
   normalizePersistedTrainingVerseState,
@@ -44,6 +44,7 @@ import {
   buildTrainingPendingOutcome,
   type TrainingPendingOutcome,
 } from "./trainingPendingOutcome";
+import type { TrainingAttempt } from "@/modules/training/hints/types";
 
 type QuickForgetConfirmStage = "learning" | "review";
 
@@ -95,14 +96,14 @@ export type UseTrainingSessionReturn = {
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
   pendingOutcome: TrainingPendingOutcome | null;
 
-  handleRate: (rating: Rating) => Promise<void>;
+  handleRate: (rating: Rating, attempt?: TrainingAttempt | null) => Promise<void>;
   handleNavigationStep: (delta: -1 | 1) => void;
   handleClose: () => void;
   acknowledgeOutcome: () => void;
 
   quickForgetConfirmStage: QuickForgetConfirmStage | null;
   requestQuickForget: () => void;
-  confirmQuickForget: () => void;
+  confirmQuickForget: (attempt?: TrainingAttempt | null) => void;
   cancelQuickForget: () => void;
 
   feedbackMessage: string;
@@ -288,7 +289,7 @@ export function useTrainingSession({
 
   // ── Rate handler ───────────────────────────────────────────────────────────
   const handleRate = useCallback(
-    async (rating: Rating) => {
+    async (rating: Rating, attempt?: TrainingAttempt | null) => {
       if (trainingModeId === null || isActionPending) return;
       const current = trainingVerses[trainingIndex];
       if (!current || !isTrainingEligibleVerse(current)) {
@@ -302,10 +303,14 @@ export function useTrainingSession({
         const wasReviewExercise = isTrainingReviewVerse(current);
         const isLearningVerse = current.status === VerseStatus.LEARNING;
         const now = new Date();
+        const cappedRating = Math.min(
+          rating,
+          attempt?.ratingPolicy.maxRating ?? (wasReviewExercise ? 2 : 3)
+        ) as Rating;
 
         const progressDelta = computeProgressDelta({
           phase: wasReviewExercise ? "review" : "learning",
-          rating,
+          rating: cappedRating,
           rawMasteryLevel: current.rawMasteryLevel,
           repetitions: current.repetitions,
           reviewLapseStreak: current.reviewLapseStreak,
@@ -316,7 +321,6 @@ export function useTrainingSession({
 
         const rawMasteryAfter = progressDelta.rawMasteryLevel;
         const graduatesToReview = progressDelta.graduatesToReview;
-        const canUpdateRepetitions = progressDelta.canUpdateRepetitions;
         const nextRepetitions = progressDelta.repetitions;
         const nextReviewAt = progressDelta.nextReviewAt;
         const becameLearned = graduatesToReview;
@@ -360,7 +364,7 @@ export function useTrainingSession({
 
         const nextMode = getModeByShiftInProgressOrder(
           trainingModeId,
-          MODE_SHIFT_BY_RATING[rating] ?? 1
+          MODE_SHIFT_BY_RATING[cappedRating] ?? 1
         );
         const nextModeForCurrentVerse = becameLearned
           ? chooseModeId(updated)
@@ -374,10 +378,14 @@ export function useTrainingSession({
 
         // Persist
         try {
-          const persistedResponse = await persistTrainingVerseProgress(updated, {
-            includeRepetitions: canUpdateRepetitions,
-            reviewRating: wasReviewExercise ? rating : undefined,
+          const completionResponse = await completeTraining({
+            externalVerseId: current.externalVerseId,
+            modeId: trainingModeId,
+            phase: wasReviewExercise ? "review" : "learning",
+            requestedRating: rating,
+            ratingCap: attempt?.ratingPolicy.maxRating ?? (wasReviewExercise ? 2 : 3),
           });
+          const persistedResponse = completionResponse.verse;
           const persistedUpdated = await verseSync.reconcile({
             optimistic: updated,
             persistedResponse,
@@ -496,9 +504,9 @@ export function useTrainingSession({
     setQuickForgetConfirmStage(stage);
   }, [isActionPending, trainingIndex, trainingModeId, trainingVerses]);
 
-  const confirmQuickForget = useCallback(() => {
+  const confirmQuickForget = useCallback((attempt?: TrainingAttempt | null) => {
     setQuickForgetConfirmStage(null);
-    void handleRate(0);
+    void handleRate(0, attempt);
   }, [handleRate]);
 
   const cancelQuickForget = useCallback(() => {

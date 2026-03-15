@@ -4,59 +4,104 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TrainingModeId } from '@/shared/training/modeEngine';
 import type { VerseDifficultyLevel } from '@/shared/verses/difficulty';
 import {
-  canUseNextWordHint,
+  abandonTrainingAttempt,
+  clearActiveAssist,
   createTrainingAttempt,
-  getAvailableHints,
-  hasContextHint,
-  requestTrainingAttemptHint,
+  getAssistSuggestionState,
+  getNextAssistPreview,
+  requestTrainingShowVerse,
+  requestTrainingAssist,
   updateTrainingAttemptProgress,
 } from '@/modules/training/hints/hintEngine';
+import {
+  getAssistSuggestionMistakeThreshold,
+  getAssistSuggestionThresholdMs,
+  getShowVerseDurationSeconds,
+} from '@/modules/training/hints/exerciseDifficultyConfig';
+import { consumeHintToken, readHintBudget } from './hintBudgetStorage';
 import type {
+  AssistContent,
+  AssistSuggestionState,
   ExerciseProgressSnapshot,
-  HintContent,
   HintRatingPolicy,
-  HintType,
+  HintRequestResult,
   TrainingAttempt,
+  TrainingAttemptFlowState,
   TrainingAttemptPhase,
   TrainingAttemptStatus,
 } from '@/modules/training/hints/types';
-import {
-  readHintBudget,
-  consumeHintToken,
-  getHintBudgetTotal,
-} from './hintBudgetStorage';
 
 export interface HintState {
   attempt: TrainingAttempt;
-  usedHints: ReadonlySet<HintType>;
-  nextWordCount: number;
+  assistStage: number;
+  assisted: boolean;
   surrendered: boolean;
   attemptStatus: TrainingAttemptStatus;
+  flowState: TrainingAttemptFlowState;
   ratingPolicy: HintRatingPolicy;
-  activeHintContent: HintContent | null;
-  remainingBudget: number;
-  totalBudget: number;
+  activeHintContent: AssistContent | null;
+  nextAssistPreview:
+    | { label: string; description: string; nextWordUsed: number; nextWordMax: number }
+    | null;
+  assistSuggestion: AssistSuggestionState;
+  showVerseUsed: boolean;
+  canShowVerse: boolean;
+  showVerseDurationSeconds: number;
+  hintBudgetRemaining: number;
+  hintBudgetTotal: number;
 }
 
 export interface UseHintStateOptions {
   attemptKey: string;
   phase: TrainingAttemptPhase;
   verseText: string;
-  contextPromptText?: string;
-  contextPromptReference?: string;
   modeId?: TrainingModeId | number;
   difficultyLevel?: VerseDifficultyLevel | null;
 }
 
 export interface UseHintStateReturn {
   hintState: HintState;
-  requestHint: (type: HintType) => void;
+  requestAssist: () => void;
+  requestShowVerse: () => void;
   dismissHintContent: () => void;
   resetHints: () => void;
+  abandonAttempt: () => void;
   updateProgress: (progress: ExerciseProgressSnapshot) => void;
-  hasContext: boolean;
-  canShowNextWord: () => boolean;
-  availableHints: HintType[];
+}
+
+export interface BudgetedHintRequestExecution {
+  requestResult: HintRequestResult | null;
+  consumedBudget: boolean;
+}
+
+export function executeHintRequestWithBudget(params: {
+  request: () => HintRequestResult;
+  readBudget?: typeof readHintBudget;
+  consumeToken?: typeof consumeHintToken;
+}): BudgetedHintRequestExecution {
+  const readBudgetState = params.readBudget ?? readHintBudget;
+  const consumeToken = params.consumeToken ?? consumeHintToken;
+
+  if (readBudgetState().remaining <= 0) {
+    return {
+      requestResult: null,
+      consumedBudget: false,
+    };
+  }
+
+  const requestResult = params.request();
+  if (requestResult.kind !== 'applied') {
+    return {
+      requestResult,
+      consumedBudget: false,
+    };
+  }
+
+  const consumedBudget = consumeToken();
+  return {
+    requestResult: consumedBudget ? requestResult : null,
+    consumedBudget,
+  };
 }
 
 function toAttempt(params: {
@@ -82,8 +127,6 @@ export function useHintState({
   attemptKey,
   phase,
   verseText,
-  contextPromptText,
-  contextPromptReference,
   modeId,
   difficultyLevel,
 }: UseHintStateOptions): UseHintStateReturn {
@@ -96,122 +139,152 @@ export function useHintState({
       difficultyLevel,
     })
   );
-  const [activeHintContent, setActiveHintContent] = useState<HintContent | null>(
-    null
-  );
-  const [budgetRemaining, setBudgetRemaining] = useState(
-    () => readHintBudget().remaining
-  );
+  const [tick, setTick] = useState(() => Date.now());
 
   const attemptRef = useRef(attempt);
+  const lastProgressAtRef = useRef(Date.now());
+
   useEffect(() => {
     attemptRef.current = attempt;
   }, [attempt]);
 
+  // Reset attempt when key changes
   useEffect(() => {
-    setAttempt(
-      toAttempt({
-        attemptKey,
-        phase,
-        verseText,
-        modeId,
-        difficultyLevel,
-      })
-    );
-    setActiveHintContent(null);
-    setBudgetRemaining(readHintBudget().remaining);
-  }, [attemptKey, phase, verseText, modeId, difficultyLevel]);
+    const fresh = toAttempt({
+      attemptKey,
+      phase,
+      verseText,
+      modeId,
+      difficultyLevel,
+    });
+    setAttempt(fresh);
+    lastProgressAtRef.current = Date.now();
+  }, [attemptKey, difficultyLevel, modeId, phase, verseText]);
 
-  const hasContext = hasContextHint(contextPromptText);
+  // Tick for stall detection
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setTick(Date.now());
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
-  const availableHints = useMemo(
-    () => getAvailableHints(modeId),
-    [modeId]
-  );
+  const requestAssist = useCallback(() => {
+    const { requestResult } = executeHintRequestWithBudget({
+      request: () =>
+        requestTrainingAssist({
+          attempt: attemptRef.current,
+        }),
+    });
+    if (requestResult?.kind === 'applied') {
+      setAttempt(requestResult.attempt);
+    }
+  }, []);
 
-  const totalBudget = getHintBudgetTotal();
-
-  const requestHint = useCallback(
-    (type: HintType) => {
-      const currentAttempt = attemptRef.current;
-      const budget = readHintBudget();
-      const result = requestTrainingAttemptHint({
-        attempt: currentAttempt,
-        type,
-        contextPromptText,
-        contextPromptReference,
-        remainingBudget: budget.remaining,
-      });
-
-      if (result.kind !== 'applied') {
-        setBudgetRemaining(budget.remaining);
-        return;
-      }
-
-      if (result.tokensToConsume > 0) {
-        const consumed = consumeHintToken();
-        const refreshedBudget = readHintBudget();
-        setBudgetRemaining(refreshedBudget.remaining);
-        if (!consumed) return;
-      } else if (budgetRemaining !== budget.remaining) {
-        setBudgetRemaining(budget.remaining);
-      }
-
-      setAttempt(result.attempt);
-      setActiveHintContent(result.content);
-    },
-    [budgetRemaining, contextPromptReference, contextPromptText]
-  );
+  const requestShowVerse = useCallback(() => {
+    const { requestResult } = executeHintRequestWithBudget({
+      request: () =>
+        requestTrainingShowVerse({
+          attempt: attemptRef.current,
+        }),
+    });
+    if (requestResult?.kind === 'applied') {
+      setAttempt(requestResult.attempt);
+    }
+  }, []);
 
   const dismissHintContent = useCallback(() => {
-    setActiveHintContent(null);
+    setAttempt((prev) => clearActiveAssist(prev));
   }, []);
 
   const resetHints = useCallback(() => {
-    setAttempt(
-      toAttempt({
-        attemptKey,
-        phase,
-        verseText,
-        modeId,
-        difficultyLevel,
-      })
-    );
-    setActiveHintContent(null);
-    setBudgetRemaining(readHintBudget().remaining);
+    const fresh = toAttempt({
+      attemptKey,
+      phase,
+      verseText,
+      modeId,
+      difficultyLevel,
+    });
+    setAttempt(fresh);
+    lastProgressAtRef.current = Date.now();
   }, [attemptKey, difficultyLevel, modeId, phase, verseText]);
 
+  const abandonAttempt = useCallback(() => {
+    setAttempt((prev) => {
+      if (prev.flowState === 'finalized') return prev;
+      return abandonTrainingAttempt(prev);
+    });
+  }, []);
+
   const updateProgress = useCallback((progress: ExerciseProgressSnapshot) => {
+    lastProgressAtRef.current = Date.now();
     setAttempt((prev) => updateTrainingAttemptProgress(prev, progress));
   }, []);
+
+  const stallThresholdMs = getAssistSuggestionThresholdMs({
+    phase,
+    modeId: typeof modeId === 'number' ? (modeId as TrainingModeId) : null,
+  });
+  const mistakeThreshold = getAssistSuggestionMistakeThreshold({ phase });
+  const liveStallMs = Math.max(0, tick - lastProgressAtRef.current);
+  const assistSuggestion = useMemo(
+    () =>
+      getAssistSuggestionState({
+        attempt,
+        stallMs: liveStallMs,
+        mistakeCount: attempt.progress?.mistakeCount ?? 0,
+        stallThresholdMs,
+        mistakeThreshold,
+      }),
+    [attempt, liveStallMs, mistakeThreshold, stallThresholdMs]
+  );
+
+  const nextAssistPreview = useMemo(
+    () =>
+      getNextAssistPreview({
+        attempt,
+      }),
+    [attempt]
+  );
+  const showVerseUsed = useMemo(
+    () => attempt.assistHistory.some((assist) => assist.variant === 'full_text_preview'),
+    [attempt.assistHistory]
+  );
+  const showVerseDurationSeconds = useMemo(
+    () => getShowVerseDurationSeconds(attempt.difficultyLevel),
+    [attempt.difficultyLevel]
+  );
+
+  const hintBudget = readHintBudget();
 
   const hintState: HintState = useMemo(
     () => ({
       attempt,
-      usedHints: new Set(attempt.usedHints),
-      nextWordCount: attempt.nextWordCount,
+      assistStage: attempt.assistStage,
+      assisted: attempt.assisted,
       surrendered: attempt.status === 'surrendered',
       attemptStatus: attempt.status,
+      flowState: attempt.flowState,
       ratingPolicy: attempt.ratingPolicy,
-      activeHintContent,
-      remainingBudget: budgetRemaining,
-      totalBudget,
+      activeHintContent: attempt.activeAssist,
+      nextAssistPreview,
+      assistSuggestion,
+      showVerseUsed,
+      canShowVerse: attempt.flowState === 'active' && !showVerseUsed,
+      showVerseDurationSeconds,
+      hintBudgetRemaining: hintBudget.remaining,
+      hintBudgetTotal: hintBudget.total,
     }),
-    [attempt, activeHintContent, budgetRemaining, totalBudget]
+    [assistSuggestion, attempt, nextAssistPreview, showVerseDurationSeconds, showVerseUsed, tick]
   );
-
-  const canShowNextWord = useCallback(() => {
-    return canUseNextWordHint(attemptRef.current);
-  }, []);
 
   return {
     hintState,
-    requestHint,
+    requestAssist,
+    requestShowVerse,
     dismissHintContent,
     resetHints,
+    abandonAttempt,
     updateProgress,
-    hasContext,
-    canShowNextWord,
-    availableHints,
   };
 }

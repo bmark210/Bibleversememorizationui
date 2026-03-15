@@ -2,6 +2,8 @@ import type { UserVerse } from "@/api/models/UserVerse";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
+import type { TrainingModeRating } from "@/shared/training/modeEngine";
+import type { TrainingAttemptPhase } from "@/modules/training/hints/types";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { TrainingVerseState } from "./types";
 
@@ -62,4 +64,52 @@ export async function fetchTrainingVerseSnapshot(
   return (
     response.items.find((verse) => verse.externalVerseId === externalVerseId) ?? null
   );
+}
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export interface CompleteTrainingInput {
+  telegramId?: string | null;
+  externalVerseId: string;
+  modeId: number;
+  phase: TrainingAttemptPhase;
+  requestedRating: TrainingModeRating;
+  ratingCap: TrainingModeRating;
+}
+
+export interface CompleteTrainingResponse {
+  appliedRating: TrainingModeRating;
+  verse: Record<string, unknown>;
+}
+
+export async function completeTraining(
+  input: CompleteTrainingInput
+): Promise<CompleteTrainingResponse> {
+  const telegramId = input.telegramId ?? getTelegramId();
+  if (!telegramId) {
+    throw new Error("No telegramId available");
+  }
+
+  return postJson<CompleteTrainingResponse>("/api/training/complete", {
+    telegramId,
+    externalVerseId: input.externalVerseId,
+    modeId: input.modeId,
+    phase: input.phase,
+    requestedRating: input.requestedRating,
+    ratingCap: input.ratingCap,
+  });
 }

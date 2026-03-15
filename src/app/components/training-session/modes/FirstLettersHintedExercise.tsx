@@ -188,9 +188,10 @@ export function ModeFirstLettersHintedExercise({
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'first-letters-hinted',
-        expectedWordIndex: nextHiddenSlot?.order ?? null,
-        completedUnits: selectedCount,
-        totalUnits: totalHidden,
+        unitType: 'letter',
+        expectedIndex: nextHiddenSlot?.order ?? null,
+        completedCount: selectedCount,
+        totalCount: totalHidden,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -361,6 +362,7 @@ export function ModeFirstLettersHintedExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

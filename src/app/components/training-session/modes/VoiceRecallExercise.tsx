@@ -119,9 +119,10 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'voice-recall',
-        expectedWordIndex: completedWords < totalWords ? completedWords : null,
-        completedUnits: completedWords,
-        totalUnits: totalWords,
+        unitType: 'spoken-word',
+        expectedIndex: completedWords < totalWords ? completedWords : null,
+        completedCount: completedWords,
+        totalCount: totalWords,
         isCompleted: isChecked || surrendered,
       })
     );
@@ -319,6 +320,7 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

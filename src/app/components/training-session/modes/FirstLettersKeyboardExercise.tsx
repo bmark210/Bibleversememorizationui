@@ -115,10 +115,11 @@ export function ModeFirstLettersKeyboardExercise({
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'first-letters-typing',
-        expectedWordIndex:
+        unitType: 'letter',
+        expectedIndex:
           completedUnits < expectedLetters.length ? completedUnits : null,
-        completedUnits,
-        totalUnits: expectedLetters.length,
+        completedCount: completedUnits,
+        totalCount: expectedLetters.length,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -251,6 +252,7 @@ export function ModeFirstLettersKeyboardExercise({
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

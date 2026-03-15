@@ -111,9 +111,10 @@ export function ModeFirstLettersTapExercise({
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'first-letters',
-        expectedWordIndex,
-        completedUnits: selectedCount,
-        totalUnits: total,
+        unitType: 'letter',
+        expectedIndex: expectedWordIndex,
+        completedCount: selectedCount,
+        totalCount: total,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -280,6 +281,7 @@ export function ModeFirstLettersTapExercise({
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

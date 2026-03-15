@@ -86,9 +86,10 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'full-recall',
-        expectedWordIndex: completedWords < totalWords ? completedWords : null,
-        completedUnits: completedWords,
-        totalUnits: totalWords,
+        unitType: 'typed-word',
+        expectedIndex: completedWords < totalWords ? completedWords : null,
+        completedCount: completedWords,
+        totalCount: totalWords,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -243,6 +244,7 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>

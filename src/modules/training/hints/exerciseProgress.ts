@@ -1,4 +1,5 @@
 import type {
+  ExerciseUnitType,
   ExerciseProgressKind,
   ExerciseProgressSnapshot,
 } from "./types";
@@ -10,27 +11,46 @@ function clampNonNegativeInt(value: number): number {
 
 export function createExerciseProgressSnapshot(params: {
   kind: ExerciseProgressKind;
-  expectedWordIndex: number | null;
-  completedUnits: number;
-  totalUnits: number;
+  unitType?: ExerciseUnitType;
+  expectedIndex?: number | null;
+  expectedWordIndex?: number | null;
+  completedCount?: number;
+  completedUnits?: number;
+  totalCount?: number;
+  totalUnits?: number;
+  mistakeCount?: number;
+  accuracy?: number | null;
+  stallMs?: number;
   isCompleted: boolean;
 }): ExerciseProgressSnapshot {
-  const totalUnits = clampNonNegativeInt(params.totalUnits);
+  const totalUnits = clampNonNegativeInt(
+    params.totalCount ?? params.totalUnits ?? 0
+  );
   const completedUnits = Math.min(
-    clampNonNegativeInt(params.completedUnits),
+    clampNonNegativeInt(params.completedCount ?? params.completedUnits ?? 0),
     totalUnits
   );
   const expectedWordIndex =
-    params.expectedWordIndex == null
+    (params.expectedIndex ?? params.expectedWordIndex) == null
       ? null
-      : clampNonNegativeInt(params.expectedWordIndex);
+      : clampNonNegativeInt(params.expectedIndex ?? params.expectedWordIndex ?? 0);
 
   return {
     kind: params.kind,
+    unitType: params.unitType ?? "word",
+    expectedIndex: expectedWordIndex,
+    completedCount: completedUnits,
+    totalCount: totalUnits,
+    mistakeCount: clampNonNegativeInt(params.mistakeCount ?? 0),
+    accuracy:
+      typeof params.accuracy === "number" && Number.isFinite(params.accuracy)
+        ? Math.max(0, Math.min(1, params.accuracy))
+        : null,
+    stallMs: clampNonNegativeInt(params.stallMs ?? 0),
+    isCompleted: Boolean(params.isCompleted),
     expectedWordIndex,
     completedUnits,
     totalUnits,
-    isCompleted: Boolean(params.isCompleted),
   };
 }
 

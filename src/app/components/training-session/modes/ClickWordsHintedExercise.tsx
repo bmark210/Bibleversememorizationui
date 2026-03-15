@@ -188,9 +188,10 @@ export function ModeClickWordsHintedExercise({
     onProgressChange?.(
       createExerciseProgressSnapshot({
         kind: 'word-order-hinted',
-        expectedWordIndex: nextHiddenSlot?.order ?? null,
-        completedUnits: selectedCount,
-        totalUnits: totalHiddenWords,
+        unitType: 'word',
+        expectedIndex: nextHiddenSlot?.order ?? null,
+        completedCount: selectedCount,
+        totalCount: totalHiddenWords,
         isCompleted: isCompleted || surrendered,
       })
     );
@@ -374,6 +375,7 @@ export function ModeClickWordsHintedExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               excludeForget={!surrendered}
+              disabled={false}
             />
           </TrainingRatingFooter>
         </div>
