@@ -110,15 +110,6 @@ const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
   stopped: "from-rose-500/0 via-rose-500/35 to-rose-500/0",
 };
 
-const PREVIEW_TONE_SCROLL_LEFT_ACCENT_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "from-sky-500/22 via-sky-500/12 to-transparent",
-  catalog: "from-slate-500/18 via-slate-500/10 to-transparent",
-  learning: "from-emerald-500/22 via-emerald-500/12 to-transparent",
-  review: "from-violet-500/24 via-violet-500/12 to-transparent",
-  mastered: "from-amber-500/24 via-amber-400/12 to-transparent",
-  stopped: "from-rose-500/24 via-rose-500/14 to-transparent",
-};
-
 export function VerseCard({
   isActive = true,
   header,
@@ -562,55 +553,17 @@ export function VerseCard({
               bodyScrollable && !usesSwipeStepScroll && "touch-pan-y",
               contentClassName
             )}
+            style={
+              bodyScrollable && scrollFadeState.canScroll
+                ? {
+                    maskImage: `linear-gradient(to bottom, ${scrollFadeState.showTop ? "transparent" : "black"} 0%, black ${scrollFadeState.showTop ? "36px" : "0px"}, black calc(100% - ${scrollFadeState.showBottom ? "36px" : "0px"}), ${scrollFadeState.showBottom ? "transparent" : "black"} 100%)`,
+                    WebkitMaskImage: `linear-gradient(to bottom, ${scrollFadeState.showTop ? "transparent" : "black"} 0%, black ${scrollFadeState.showTop ? "36px" : "0px"}, black calc(100% - ${scrollFadeState.showBottom ? "36px" : "0px"}), ${scrollFadeState.showBottom ? "transparent" : "black"} 100%)`,
+                  }
+                : undefined
+            }
           >
             {body}
           </div>
-
-          {bodyScrollable && (
-            <>
-              {isPreviewToneActive ? (
-                <div
-                  aria-hidden="true"
-                  className={cn(
-                    "pointer-events-none absolute left-0 top-0 h-[25%] w-[16.666%] transition-[opacity,transform] duration-250 ease-out",
-                    "bg-gradient-to-br",
-                    PREVIEW_TONE_SCROLL_LEFT_ACCENT_CLASS[tone],
-                    scrollFadeState.canScroll && scrollFadeState.showTop
-                      ? "translate-y-0 opacity-100"
-                      : "-translate-y-1 opacity-0"
-                  )}
-                />
-              ) : null}
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute left-[16.666%] top-0 h-[25%] w-[25%] transition-[opacity,transform] duration-250 ease-out",
-                  "bg-gradient-to-br from-card via-card/88 via-card/58 to-transparent",
-                  scrollFadeState.canScroll && scrollFadeState.showTop
-                    ? "translate-y-0 opacity-100"
-                    : "-translate-y-1 opacity-0"
-                )}
-              />
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-14 transition-[opacity,transform] duration-250 ease-out",
-                  "bg-gradient-to-t from-card via-card/88 via-card/58 via-45% to-transparent",
-                  scrollFadeState.canScroll && scrollFadeState.showBottom
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-1 opacity-0"
-                )}
-              />
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-4 bottom-1 h-8 rounded-[1.25rem] blur-xl transition-opacity duration-250",
-                  "bg-black/20 dark:bg-black/30",
-                  scrollFadeState.canScroll && scrollFadeState.showBottom ? "opacity-100" : "opacity-0"
-                )}
-              />
-            </>
-          )}
         </div>
 
         {centerAction ? (

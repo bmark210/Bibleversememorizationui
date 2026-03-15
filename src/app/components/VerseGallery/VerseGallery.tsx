@@ -607,6 +607,13 @@ export function VerseGallery({
     void nav.navigatePreviewTo("next");
   }, [nav]);
 
+  const handleVerticalSwipeStep = useCallback(
+    (step: 1 | -1) => {
+      void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
+    },
+    [nav],
+  );
+
   // ── Display values ───────────────────────────────────────────────────────────
   if (!previewActiveVerse) return null;
 
@@ -676,11 +683,11 @@ export function VerseGallery({
               tabIndex={-1}
             >
               <div
-                {...previewSwipeHandlers}
+                {...(isFocusMode ? {} : previewSwipeHandlers)}
                 className="w-full min-w-0 overflow-x-hidden"
-                style={{ touchAction: "none" }}
-                onTouchStart={handlePreviewTouchStart}
-                onTouchEnd={handlePreviewTouchEnd}
+                style={isFocusMode ? undefined : { touchAction: "none" }}
+                onTouchStart={isFocusMode ? undefined : handlePreviewTouchStart}
+                onTouchEnd={isFocusMode ? undefined : handlePreviewTouchEnd}
               >
                 <VersePreviewCard
                   verse={previewActiveVerse}
@@ -694,6 +701,7 @@ export function VerseGallery({
                   onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}
+                  onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
                 />
               </div>
             </motion.div>

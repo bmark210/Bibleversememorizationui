@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor,
   Brain,
@@ -41,6 +41,7 @@ type Props = {
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
+  onVerticalSwipeStep?: (step: 1 | -1) => void;
 };
 
 export function VersePreviewCard({
@@ -55,9 +56,11 @@ export function VersePreviewCard({
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
+  onVerticalSwipeStep,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const previewTextRef = useRef<HTMLParagraphElement>(null);
+  const [lineClamp, setLineClamp] = useState(8);
   const status = normalizeVerseStatus(verse.status);
   const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
@@ -202,6 +205,67 @@ export function VersePreviewCard({
     verse.difficultyLevel
   );
 
+  useLayoutEffect(() => {
+    if (isFocusMode || typeof window === "undefined") return;
+
+    const bodyEl = previewBodyRef.current;
+    const textEl = previewTextRef.current;
+    if (!bodyEl || !textEl) return;
+
+    let rafId: number | null = null;
+
+    const updateLineClamp = () => {
+      const currentBodyEl = previewBodyRef.current;
+      const currentTextEl = previewTextRef.current;
+      if (!currentBodyEl || !currentTextEl) return;
+
+      const bodyStyle = window.getComputedStyle(currentBodyEl);
+      const textStyle = window.getComputedStyle(currentTextEl);
+      const paddingTop = Number.parseFloat(bodyStyle.paddingTop || "0") || 0;
+      const paddingBottom =
+        Number.parseFloat(bodyStyle.paddingBottom || "0") || 0;
+      const availableHeight = Math.max(
+        0,
+        currentBodyEl.clientHeight - paddingTop - paddingBottom,
+      );
+
+      let lineHeight = Number.parseFloat(textStyle.lineHeight || "");
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        const fontSize = Number.parseFloat(textStyle.fontSize || "0") || 16;
+        lineHeight = fontSize * 1.625;
+      }
+
+      const nextClamp = Math.max(2, Math.floor(availableHeight / lineHeight));
+      setLineClamp((prev) => (prev === nextClamp ? prev : nextClamp));
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateLineClamp();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleUpdate())
+        : null;
+
+    resizeObserver?.observe(bodyEl);
+    resizeObserver?.observe(textEl);
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    scheduleUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [isFocusMode, verse.text, showFooter]);
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -215,7 +279,8 @@ export function VersePreviewCard({
       <VerseCard
         isActive
         minHeight="training"
-        bodyScrollable
+        bodyScrollable={isFocusMode}
+        onVerticalSwipeStep={isFocusMode ? onVerticalSwipeStep : undefined}
         previewTone={tone}
         metaBadge={
           isFocusMode ? null : hasOwnersTrigger ? (
@@ -370,16 +435,17 @@ export function VersePreviewCard({
               "h-full min-w-0 flex justify-center px-2",
               isFocusMode
                 ? "items-start overflow-visible pt-1 sm:pt-2"
-                : "items-start overflow-visible pt-2 sm:pt-4",
+                : "items-start overflow-hidden pt-2 sm:pt-4",
             )}
           >
             <p
               ref={previewTextRef}
+              style={isFocusMode ? undefined : { WebkitLineClamp: lineClamp }}
               className={cn(
                 "w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
                 isFocusMode
                   ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground"
-                  : "text-xl sm:text-2xl leading-relaxed text-foreground/90 font-light",
+                  : "max-h-full text-xl sm:text-2xl leading-relaxed text-foreground/90 font-light [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
               )}
             >
               «{verse.text}»
