@@ -8,10 +8,26 @@ import type {
 
 type UserMutationFields = {
   translation?: Translation;
-  name?: string;
-  nickname?: string;
-  avatarUrl?: string;
+  name?: string | null;
+  nickname?: string | null;
+  avatarUrl?: string | null;
 };
+
+function hasOwnField<T extends object>(
+  value: T,
+  key: keyof UserMutationFields
+): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function buildUserMutationData(fields: UserMutationFields) {
+  return {
+    ...(fields.translation ? { translation: fields.translation } : {}),
+    ...(hasOwnField(fields, "name") ? { name: fields.name ?? null } : {}),
+    ...(hasOwnField(fields, "nickname") ? { nickname: fields.nickname ?? null } : {}),
+    ...(hasOwnField(fields, "avatarUrl") ? { avatarUrl: fields.avatarUrl ?? null } : {}),
+  };
+}
 
 function mapUserRecord(row: {
   id: string;
@@ -359,17 +375,19 @@ export async function getFollowedUsers(
 export async function createUser(params: {
   telegramId: string;
   translation?: Translation;
-  name?: string;
-  nickname?: string;
-  avatarUrl?: string;
+  name?: string | null;
+  nickname?: string | null;
+  avatarUrl?: string | null;
 }): Promise<UserRecord> {
   const user = await prisma.user.create({
     data: {
       telegramId: params.telegramId,
-      ...(params.translation ? { translation: params.translation } : {}),
-      ...(params.name ? { name: params.name } : {}),
-      ...(params.nickname ? { nickname: params.nickname } : {}),
-      ...(params.avatarUrl ? { avatarUrl: params.avatarUrl } : {}),
+      ...buildUserMutationData({
+        translation: params.translation,
+        ...(hasOwnField(params, "name") ? { name: params.name ?? null } : {}),
+        ...(hasOwnField(params, "nickname") ? { nickname: params.nickname ?? null } : {}),
+        ...(hasOwnField(params, "avatarUrl") ? { avatarUrl: params.avatarUrl ?? null } : {}),
+      }),
     },
     select: {
       id: true,
@@ -395,18 +413,10 @@ export async function upsertUserByTelegramId(params: {
     where: {
       telegramId: params.telegramId,
     },
-    update: {
-      ...(params.update.translation ? { translation: params.update.translation } : {}),
-      ...(params.update.name ? { name: params.update.name } : {}),
-      ...(params.update.nickname ? { nickname: params.update.nickname } : {}),
-      ...(params.update.avatarUrl ? { avatarUrl: params.update.avatarUrl } : {}),
-    },
+    update: buildUserMutationData(params.update),
     create: {
       telegramId: params.telegramId,
-      ...(params.create.translation ? { translation: params.create.translation } : {}),
-      ...(params.create.name ? { name: params.create.name } : {}),
-      ...(params.create.nickname ? { nickname: params.create.nickname } : {}),
-      ...(params.create.avatarUrl ? { avatarUrl: params.create.avatarUrl } : {}),
+      ...buildUserMutationData(params.create),
     },
     select: {
       id: true,
@@ -432,18 +442,10 @@ export async function upsertUserWithVerseLinksByTelegramId(params: {
     where: {
       telegramId: params.telegramId,
     },
-    update: {
-      ...(params.update.translation ? { translation: params.update.translation } : {}),
-      ...(params.update.name ? { name: params.update.name } : {}),
-      ...(params.update.nickname ? { nickname: params.update.nickname } : {}),
-      ...(params.update.avatarUrl ? { avatarUrl: params.update.avatarUrl } : {}),
-    },
+    update: buildUserMutationData(params.update),
     create: {
       telegramId: params.telegramId,
-      ...(params.create.translation ? { translation: params.create.translation } : {}),
-      ...(params.create.name ? { name: params.create.name } : {}),
-      ...(params.create.nickname ? { nickname: params.create.nickname } : {}),
-      ...(params.create.avatarUrl ? { avatarUrl: params.create.avatarUrl } : {}),
+      ...buildUserMutationData(params.create),
     },
     select: {
       id: true,
