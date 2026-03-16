@@ -20,7 +20,8 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { usePanelBatchSize } from './usePanelBatchSize';
+import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface FirstLettersTapExerciseProps {
   verse: Verse;
@@ -58,6 +59,8 @@ function shuffleTokens(letters: string[]): LetterToken[] {
   return shuffled;
 }
 
+const MAX_DISPLAYED_CHOICES = 20;
+
 export function ModeFirstLettersTapExercise({
   verse,
   onRate,
@@ -66,6 +69,7 @@ export function ModeFirstLettersTapExercise({
   isLateStageReview = false,
   onOpenTutorial,
 }: FirstLettersTapExerciseProps) {
+  const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
@@ -156,12 +160,8 @@ export function ModeFirstLettersTapExercise({
     [shuffledUniqueLetters, remainingCountByLetter]
   );
 
-  /* ── Batch logic: show only as many letters as fit in the panel ── */
-  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
-  const batchSize = usePanelBatchSize(choicesPanelRef, availableLetters.length);
-
   const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, batchSize);
+    const batch = availableLetters.slice(0, MAX_DISPLAYED_CHOICES);
     if (expectedLetter && !batch.includes(expectedLetter)) {
       const idx = availableLetters.indexOf(expectedLetter);
       if (idx >= 0 && batch.length > 0) {
@@ -170,7 +170,7 @@ export function ModeFirstLettersTapExercise({
       }
     }
     return batch;
-  }, [availableLetters, batchSize, expectedLetter, selectedCount]);
+  }, [availableLetters, expectedLetter, selectedCount]);
 
   const focusItemId = useMemo(() => {
     if (expectedTokens.length === 0) return null;
@@ -271,6 +271,7 @@ export function ModeFirstLettersTapExercise({
           progressTotal={total}
           items={sequenceItems}
           focusItemId={focusItemId}
+          fontSizes={fontSizes}
         />
       </div>
 
@@ -281,26 +282,28 @@ export function ModeFirstLettersTapExercise({
             <span>Варианты букв</span>
             <span className="tabular-nums">{availableLetters.length}</span>
           </div>
-          <div
-            ref={choicesPanelRef}
-            className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden"
+          <ScrollShadowContainer
+            className="flex-1 min-h-0"
+            scrollClassName="flex flex-wrap content-start gap-1 py-1"
+            shadowSize={16}
           >
             {displayedLetters.map((letter) => (
               <Button
                 key={letter}
                 type="button"
                 variant="outline"
-                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
                   errorFlashLetter === letter
                     ? 'border-destructive text-destructive'
                     : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
+                style={{ fontSize: `${fontSizes.letter}px` }}
                 onClick={() => handlePick(letter)}
               >
                 <span>{letter}</span>
               </Button>
             ))}
-          </div>
+          </ScrollShadowContainer>
         </div>
       )}
 

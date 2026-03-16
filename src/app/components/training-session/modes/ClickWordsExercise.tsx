@@ -26,7 +26,8 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { usePanelBatchSize } from './usePanelBatchSize';
+import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
@@ -106,7 +107,10 @@ function initClickWordsExercise(text: string) {
   return { orderedTokens, uniqueChoices };
 }
 
+const MAX_DISPLAYED_CHOICES = 20;
+
 export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
+  const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
     () => initClickWordsExercise(verse.text)
@@ -256,23 +260,18 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
-  /* ── Batch logic: show only as many words as fit in the bottom panel ── */
-  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
-  const batchSize = usePanelBatchSize(choicesPanelRef, visibleChoices.length);
-
   const displayedChoices = useMemo(() => {
-    const batch = visibleChoices.slice(0, batchSize);
+    const batch = visibleChoices.slice(0, MAX_DISPLAYED_CHOICES);
     const expectedNormalized = orderedTokens[selectedCount]?.normalized;
     if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
       const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
       if (expectedChoice && batch.length > 0) {
-        // Deterministic position based on step to avoid always placing at the end
         const swapIdx = selectedCount % batch.length;
         batch[swapIdx] = expectedChoice;
       }
     }
     return batch;
-  }, [visibleChoices, batchSize, orderedTokens, selectedCount]);
+  }, [visibleChoices, orderedTokens, selectedCount]);
 
   return (
     <motion.div
@@ -300,6 +299,7 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
           progressTotal={totalWords}
           items={sequenceItems}
           focusItemId={focusItemId}
+          fontSizes={fontSizes}
         />
       </div>
 
@@ -310,9 +310,10 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
             <span>Варианты слов</span>
             <span className="tabular-nums">{visibleChoices.length}</span>
           </div>
-          <div
-            ref={choicesPanelRef}
-            className="flex flex-1 min-h-0 flex-wrap content-start gap-1.5 overflow-hidden"
+          <ScrollShadowContainer
+            className="flex-1 min-h-0"
+            scrollClassName="flex flex-wrap content-start gap-1.5 py-1"
+            shadowSize={16}
           >
             {displayedChoices.map((choice) => (
               <Button
@@ -320,11 +321,12 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
                 type="button"
                 variant="outline"
                 title={choice.displayText}
-                className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 text-sm leading-5 text-left whitespace-nowrap transition-colors ${
+                className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap transition-colors ${
                   errorFlashNormalized === choice.normalized
                     ? 'border-destructive text-destructive'
                     : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
+                style={{ fontSize: `${fontSizes.sm}px` }}
                 onClick={() => handleWordClick(choice)}
               >
                 <span className="block min-w-0 truncate">
@@ -332,7 +334,7 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
                 </span>
               </Button>
             ))}
-          </div>
+          </ScrollShadowContainer>
         </div>
       )}
 

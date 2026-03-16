@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/app/components/ui/utils';
+import type { TrainingFontSizes } from './useTrainingFontSize';
 
 export type WordSequenceFieldItemState =
   | 'revealed'
@@ -24,6 +25,7 @@ interface WordSequenceFieldProps {
   items: WordSequenceFieldItem[];
   focusItemId: string | null;
   className?: string;
+  fontSizes?: TrainingFontSizes;
 }
 
 const SHADOW_SIZE = 16;
@@ -48,17 +50,25 @@ function getItemClassName(state: WordSequenceFieldItemState) {
   return 'border border-border/60 bg-muted/20 text-muted-foreground';
 }
 
-function renderItemContent(item: WordSequenceFieldItem) {
+function renderItemContent(item: WordSequenceFieldItem, fontSizes?: TrainingFontSizes) {
   if (!isMaskedState(item.state)) {
     return item.content;
   }
 
   return (
-    <span aria-hidden="true" className="grid grid-flow-col auto-cols-[10px] gap-1">
+    <span
+      aria-hidden="true"
+      className="grid grid-flow-col gap-1"
+      style={{ gridAutoColumns: `${fontSizes?.maskGridCol ?? 10}px` }}
+    >
       {Array.from(item.content).map((char, index) => (
         <span
           key={`${item.id}-${index}`}
-          className="flex h-4 items-center justify-center font-mono text-[11px] leading-none"
+          className="flex items-center justify-center font-mono leading-none"
+          style={{
+            fontSize: `${fontSizes?.mask ?? 11}px`,
+            height: `${fontSizes?.maskCharHeight ?? 16}px`,
+          }}
         >
           {char}
         </span>
@@ -74,6 +84,7 @@ export function WordSequenceField({
   items,
   focusItemId,
   className,
+  fontSizes,
 }: WordSequenceFieldProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef(new Map<string, HTMLSpanElement>());
@@ -195,10 +206,13 @@ export function WordSequenceField({
               key={item.id}
               ref={setItemRef(item.id)}
               className={cn(
-                'inline-flex items-center justify-center rounded-md px-2 py-1 text-sm whitespace-nowrap transition-colors',
+                'inline-flex items-center justify-center rounded-md px-2 py-1 whitespace-nowrap transition-colors',
                 getItemClassName(item.state)
               )}
-              style={item.minWidth ? { minWidth: `${item.minWidth}px` } : undefined}
+              style={{
+                fontSize: `${fontSizes?.sm ?? 14}px`,
+                ...(item.minWidth ? { minWidth: `${item.minWidth}px` } : {}),
+              }}
               aria-current={item.id === focusItemId ? 'step' : undefined}
               aria-label={
                 item.state === 'active-gap' || item.state === 'future-gap'
@@ -206,7 +220,7 @@ export function WordSequenceField({
                   : undefined
               }
             >
-              {renderItemContent(item)}
+              {renderItemContent(item, fontSizes)}
             </span>
           ))}
         </div>

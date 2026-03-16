@@ -10,6 +10,7 @@ import { similarityRatio } from '@/shared/utils/levenshtein';
 import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
+import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
@@ -40,6 +41,7 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
 }
 
 export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: TypingModeProps) {
+  const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [userInput, setUserInput] = useState('');
@@ -209,7 +211,8 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
             onFocus={handleInputFocus}
             placeholder="Введите стих целиком..."
             rows={5}
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 text-base leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{ fontSize: `${fontSizes.base}px` }}
             disabled={isCompleted || surrendered}
             autoCorrect="off"
             autoCapitalize="none"
