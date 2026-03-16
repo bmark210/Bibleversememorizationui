@@ -10,6 +10,12 @@ import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
+  getBaseTrainingModeForMastery,
+  getReviewModeByRepetition,
+  toTrainingStageMasteryLevel,
+} from '@/shared/training/modeEngine';
+import { MODE_PIPELINE } from '@/app/components/VerseGallery/constants';
+import {
   getVerseDifficultyBadgeClassName,
   getVerseDifficultyLabel,
 } from '@/app/utils/verseDifficulty';
@@ -62,6 +68,18 @@ export const SwipeableVerseCard = ({
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
   const totalProgress = Math.min(masteryLevel + repetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
   const totalProgressPercent = Math.round((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+  const currentModeMeta = (() => {
+    if (displayStatus === 'LEARNING') {
+      const stageMastery = toTrainingStageMasteryLevel(masteryLevel);
+      const modeId = getBaseTrainingModeForMastery(stageMastery);
+      return MODE_PIPELINE[modeId] ?? null;
+    }
+    if (displayStatus === 'REVIEW') {
+      const modeId = getReviewModeByRepetition(repetitionsCount);
+      return MODE_PIPELINE[modeId] ?? null;
+    }
+    return null;
+  })();
   const popularityValue =
     typeof verse.popularityValue === 'number'
       ? Math.max(0, Math.round(verse.popularityValue))
@@ -391,6 +409,17 @@ export const SwipeableVerseCard = ({
           style={{ width: `${totalProgressPercent}%` }}
         />
       </div>
+      {currentModeMeta && (() => {
+        const ModeIcon = currentModeMeta.icon;
+        return (
+          <div className="flex items-center gap-1.5 px-2.5 py-1">
+            <ModeIcon className="h-3 w-3 text-muted-foreground/70" />
+            <span className="text-[10px] text-muted-foreground/70 leading-tight">
+              {currentModeMeta.label}
+            </span>
+          </div>
+        );
+      })()}
     </button>
   );
 

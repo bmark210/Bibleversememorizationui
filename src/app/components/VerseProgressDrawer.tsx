@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Bookmark,
   Brain,
@@ -46,6 +52,7 @@ type VerseProgressDrawerProps = {
 
 type PhaseKey = "collection" | "learning" | "review" | "mastered";
 type PhaseState = "complete" | "current" | "upcoming";
+type ScrollShadowAxis = "x" | "y";
 type PhaseTone = {
   cardClassName: string;
   iconWrapClassName: string;
@@ -55,7 +62,86 @@ type PhaseTone = {
   railDoneClassName: string;
   railCurrentClassName: string;
   railUpcomingClassName: string;
+  railShadowClassName: string;
 };
+type ScrollShadowState = {
+  showStart: boolean;
+  showEnd: boolean;
+};
+
+function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
+  const scrollRef = useRef<T | null>(null);
+  const [shadowState, setShadowState] = useState<ScrollShadowState>({
+    showStart: false,
+    showEnd: false,
+  });
+
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const position = axis === "y" ? el.scrollTop : el.scrollLeft;
+    const viewportSize = axis === "y" ? el.clientHeight : el.clientWidth;
+    const contentSize = axis === "y" ? el.scrollHeight : el.scrollWidth;
+    const maxPosition = Math.max(0, contentSize - viewportSize);
+    const threshold = 2;
+    const showStart = maxPosition > threshold && position > threshold;
+    const showEnd = maxPosition > threshold && position < maxPosition - threshold;
+
+    setShadowState((prev) =>
+      prev.showStart === showStart && prev.showEnd === showEnd
+        ? prev
+        : { showStart, showEnd }
+    );
+  }, [axis]);
+
+  useEffect(() => {
+    measure();
+  }, [measure]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof window === "undefined") return;
+
+    let rafId: number | null = null;
+    const scheduleMeasure = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        measure();
+      });
+    };
+
+    const handleScroll = () => scheduleMeasure();
+    const handleResize = () => scheduleMeasure();
+
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleMeasure())
+        : null;
+
+    resizeObserver?.observe(el);
+    if (el.firstElementChild instanceof HTMLElement) {
+      resizeObserver?.observe(el.firstElementChild);
+    }
+
+    scheduleMeasure();
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+      resizeObserver?.disconnect();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [measure]);
+
+  return { scrollRef, shadowState };
+}
 
 const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   collection: {
@@ -67,6 +153,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
     railDoneClassName: "border-sky-500/35 bg-sky-500/18 text-sky-800 dark:text-sky-200",
     railCurrentClassName: "border-sky-500/45 bg-sky-500/24 text-sky-900 ring-2 ring-sky-500/20 dark:text-sky-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+    railShadowClassName: "bg-sky-500/[0.12]",
   },
   learning: {
     cardClassName: "border-emerald-500/18 bg-emerald-500/[0.08]",
@@ -80,6 +167,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
     railCurrentClassName:
       "border-emerald-500/45 bg-emerald-500/24 text-emerald-900 ring-2 ring-emerald-500/20 dark:text-emerald-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+    railShadowClassName: "bg-emerald-500/[0.12]",
   },
   review: {
     cardClassName: "border-violet-500/18 bg-violet-500/[0.08]",
@@ -93,6 +181,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
     railCurrentClassName:
       "border-violet-500/45 bg-violet-500/24 text-violet-900 ring-2 ring-violet-500/20 dark:text-violet-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+    railShadowClassName: "bg-violet-500/[0.12]",
   },
   mastered: {
     cardClassName: "border-amber-500/20 bg-amber-500/[0.09]",
@@ -106,6 +195,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
     railCurrentClassName:
       "border-amber-500/46 bg-amber-500/24 text-amber-950 ring-2 ring-amber-500/20 dark:text-amber-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+    railShadowClassName: "bg-amber-500/[0.12]",
   },
 };
 
@@ -119,6 +209,7 @@ const PAUSE_SUMMARY_TONE: PhaseTone = {
   railCurrentClassName:
     "border-rose-500/45 bg-rose-500/24 text-rose-900 ring-2 ring-rose-500/20 dark:text-rose-100",
   railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
+  railShadowClassName: "bg-rose-500/[0.12]",
 };
 
 function normalizeCount(value: unknown): number {
@@ -335,54 +426,161 @@ function ModeStepRail({
   tone: PhaseTone;
   stepLabelPrefix: string;
 }) {
-  return (
-    <div className="flex flex-col gap-1">
-      {modeIds.map((modeId, index) => {
-        const stepNumber = index + 1;
-        const isCompleted = stepNumber <= completed;
-        const isCurrent = current === stepNumber;
-        const meta = MODE_PIPELINE[modeId];
-        const ModeIcon = meta?.icon;
+  const currentModeId = current != null ? modeIds[current - 1] ?? null : null;
+  const currentMeta = currentModeId ? MODE_PIPELINE[currentModeId] : null;
+  const CurrentModeIcon = currentMeta?.icon;
+  const {
+    scrollRef: horizontalScrollRef,
+    shadowState: horizontalShadowState,
+  } = useScrollShadowState<HTMLDivElement>("x");
+  const horizontalMaskStyle = useMemo<React.CSSProperties | undefined>(() => {
+    const fadeWidth = 44;
 
-        return (
-          <div
-            key={`${stepLabelPrefix}-${stepNumber}`}
-            className={cn(
-              "flex items-center gap-2.5 rounded-xl border px-3 transition-colors",
-              isCurrent ? "py-2.5" : "py-1.5",
-              isCompleted
-                ? tone.railDoneClassName
-                : isCurrent
-                  ? tone.railCurrentClassName
-                  : tone.railUpcomingClassName
-            )}
-            aria-label={`${stepLabelPrefix} ${stepNumber}: ${meta?.label ?? ""}`}
-          >
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-              {isCompleted ? (
-                <Check className="h-4 w-4" />
-              ) : ModeIcon ? (
-                <ModeIcon className="h-4 w-4" />
-              ) : (
-                <span className="text-xs font-semibold tabular-nums">{stepNumber}</span>
+    if (horizontalShadowState.showStart && horizontalShadowState.showEnd) {
+      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+      };
+    }
+
+    if (horizontalShadowState.showStart) {
+      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+      };
+    }
+
+    if (horizontalShadowState.showEnd) {
+      const maskImage = `linear-gradient(to right, black 0px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+      };
+    }
+
+    return undefined;
+  }, [horizontalShadowState.showEnd, horizontalShadowState.showStart]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/56">
+          Лента шагов
+        </span>
+        <span className="text-[11px] tabular-nums text-foreground/56">
+          {completed} / {modeIds.length}
+        </span>
+      </div>
+
+      <div className={cn("relative overflow-hidden rounded-2xl", )}>
+        <div
+          ref={horizontalScrollRef}
+          style={horizontalMaskStyle}
+          className="relative overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+        <div
+          role="list"
+          aria-label={`${stepLabelPrefix} режимов`}
+          className="relative flex min-w-max items-stretch gap-3 px-1 py-1"
+        >
+          <div className="pointer-events-none z-[-10] absolute left-7 right-7 top-7 h-px bg-gradient-to-r from-border/20 via-border/70 to-border/20" />
+
+          {modeIds.map((modeId, index) => {
+            const stepNumber = index + 1;
+            const isCompleted = stepNumber <= completed;
+            const isCurrent = current === stepNumber;
+            const meta = MODE_PIPELINE[modeId];
+            const ModeIcon = meta?.icon;
+
+            return (
+              <div
+                key={`${stepLabelPrefix}-${stepNumber}`}
+                role="listitem"
+                title={meta?.label ?? `${stepLabelPrefix} ${stepNumber}`}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={`${stepLabelPrefix} ${stepNumber}: ${meta?.label ?? ""}`}
+                className={cn(
+                  "relative z-10 flex w-[132px] shrink-0 flex-col gap-3 rounded-2xl border px-3 py-3 shadow-sm backdrop-blur-xl transition-colors",
+                  isCompleted
+                    ? tone.railDoneClassName
+                    : isCurrent
+                      ? tone.railCurrentClassName
+                      : tone.railUpcomingClassName
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-current/15 bg-background/35">
+                    {isCompleted ? (
+                      <Check className="h-4 w-4" />
+                    ) : ModeIcon ? (
+                      <ModeIcon className="h-4 w-4" />
+                    ) : (
+                      <span className="text-xs font-semibold tabular-nums">{stepNumber}</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-semibold tabular-nums uppercase tracking-[0.12em] opacity-60">
+                    {stepNumber}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold leading-tight">
+                    {meta?.shortLabel ?? meta?.label ?? `${stepLabelPrefix} ${stepNumber}`}
+                  </div>
+                  <div className="mt-1 text-[10px] leading-tight opacity-65">
+                    {stepLabelPrefix} {stepNumber}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        </div>
+      </div>
+
+      {currentMeta && CurrentModeIcon ? (
+        <div
+          className={cn(
+            "rounded-2xl border px-3 py-3 shadow-sm backdrop-blur-sm",
+            tone.railCurrentClassName
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border",
+                tone.iconWrapClassName
               )}
+            >
+              <CurrentModeIcon className={cn("h-[18px] w-[18px]", tone.iconClassName)} />
             </div>
             <div className="min-w-0 flex-1">
-              <span className={cn("text-xs font-medium leading-tight", isCurrent && "font-semibold")}>
-                {meta?.label ?? `${stepLabelPrefix} ${stepNumber}`}
-              </span>
-              {isCurrent && meta?.description && (
-                <p className="mt-0.5 text-[11px] leading-snug opacity-75">
-                  {meta.description}
-                </p>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-foreground/92">
+                  {currentMeta.label}
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60">
+                  {stepLabelPrefix} {current ?? "—"}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-current/15 bg-background/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                  Сейчас
+                </span>
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-foreground/72">
+                {currentMeta.description}
+              </p>
             </div>
-            {isCurrent && (
-              <span className="shrink-0 text-[10px] font-medium opacity-60">Сейчас</span>
-            )}
           </div>
-        );
-      })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -452,6 +650,10 @@ export function VerseProgressDrawer({
   open,
   onOpenChange,
 }: VerseProgressDrawerProps) {
+  const {
+    scrollRef: verticalScrollRef,
+    shadowState: verticalShadowState,
+  } = useScrollShadowState<HTMLDivElement>("y");
   const progressModel = useMemo(() => {
     if (!verse) return null;
 
@@ -625,148 +827,167 @@ export function VerseProgressDrawer({
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
       <DrawerContent
         data-tour="verse-progress-drawer"
-        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6"
+        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
       >
-        <DrawerHeader className="px-0 pb-0 pt-4">
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border",
-                progressModel?.currentTone.iconWrapClassName ?? "border-border/60 bg-background/60"
-              )}
-            >
-              {progressModel ? (
-                <progressModel.SummaryIcon
-                  className={cn("h-5 w-5", progressModel.currentTone.iconClassName)}
-                />
-              ) : (
-                <Bookmark className="h-5 w-5 text-foreground/60" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <DrawerTitle className="truncate text-xl tracking-tight text-foreground">
-                Путь стиха
-              </DrawerTitle>
-              <DrawerDescription className="mt-1 text-sm text-foreground/56">
-                {verse?.reference ?? "Стих"} · от добавления до выученного
-              </DrawerDescription>
-            </div>
-          </div>
-        </DrawerHeader>
-
-        {progressModel ? (
+        <div className="relative mt-2 max-h-[calc(80vh-28px)] overflow-hidden">
           <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-card via-card/88 to-transparent backdrop-blur-[2px] transition-opacity duration-200",
+              verticalShadowState.showStart ? "opacity-100" : "opacity-0"
+            )}
+          />
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-card via-card/88 to-transparent backdrop-blur-[2px] transition-opacity duration-200",
+              verticalShadowState.showEnd ? "opacity-100" : "opacity-0"
+            )}
+          />
+          <div
+            ref={verticalScrollRef}
             data-tour="verse-progress-content"
-            className="mt-5 max-h-[72vh] overflow-y-auto overscroll-contain pr-1"
+            className="max-h-[calc(80vh-28px)] overflow-y-auto overscroll-contain pr-1"
           >
-            <section
-              data-tour="verse-progress-summary"
-              className={cn(
-                "overflow-hidden rounded-[28px] border p-4 shadow-sm",
-                progressModel.currentTone.cardClassName
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-                    progressModel.currentTone.badgeClassName
-                  )}
-                >
-                  {progressModel.summaryLabel}
-                </span>
-                {progressModel.status === VerseStatus.STOPPED ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
-                    <Pause className="h-3.5 w-3.5" />
-                    На паузе
-                  </span>
-                ) : null}
-              </div>
-
-              <p className="mt-3 text-sm leading-relaxed text-foreground/74">
-                {progressModel.currentStepText}
-              </p>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                <div>
-                  <div className="flex items-center justify-between gap-3 text-xs text-foreground/58">
-                    <span>Общий прогресс маршрута</span>
-                    <span>
-                      {progressModel.totalProgress} из {TOTAL_REPEATS_AND_STAGE_MASTERY_MAX}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-3 overflow-hidden rounded-full bg-background/70">
-                    <div
-                      className={cn(
-                        "h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ease-out",
-                        progressModel.currentTone.progressClassName
-                      )}
-                      style={{ width: `${progressModel.progressPercent}%` }}
-                    />
-                  </div>
-                </div>
+            <DrawerHeader className="px-0 pb-0 pt-4">
+              <div className="flex items-start gap-3">
                 <div
                   className={cn(
-                    "text-3xl font-bold tabular-nums tracking-tight",
-                    progressModel.currentTone.iconClassName
+                    "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border",
+                    progressModel?.currentTone.iconWrapClassName ?? "border-border/60 bg-background/60"
                   )}
                 >
-                  {progressModel.progressPercent}%
+                  {progressModel ? (
+                    <progressModel.SummaryIcon
+                      className={cn("h-5 w-5", progressModel.currentTone.iconClassName)}
+                    />
+                  ) : (
+                    <Bookmark className="h-5 w-5 text-foreground/60" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <DrawerTitle className="truncate text-xl tracking-tight text-foreground">
+                    Путь стиха
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-foreground/56">
+                    {verse?.reference ?? "Стих"} · от добавления до выученного
+                  </DrawerDescription>
                 </div>
               </div>
+            </DrawerHeader>
 
-              {progressModel.nextReviewAt ? (
-                <div className="mt-4 rounded-2xl border border-border/60 bg-background/65 px-3 py-2 text-xs text-foreground/68">
-                  {progressModel.currentPhase === "mastered"
-                    ? "Поддерживающий повтор"
-                    : "Следующее окно"}{" "}
-                  · {formatDateTime(progressModel.nextReviewAt)}
-                </div>
-              ) : null}
-            </section>
+            {progressModel ? (
+              <div className="mt-5 space-y-5 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+                <section
+                  data-tour="verse-progress-summary"
+                  className={cn(
+                    "overflow-hidden rounded-[28px] border p-4 shadow-sm",
+                    progressModel.currentTone.cardClassName
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                        progressModel.currentTone.badgeClassName
+                      )}
+                    >
+                      {progressModel.summaryLabel}
+                    </span>
+                    {progressModel.status === VerseStatus.STOPPED ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
+                        <Pause className="h-3.5 w-3.5" />
+                        На паузе
+                      </span>
+                    ) : null}
+                  </div>
 
-            <div className="relative mt-5 pb-2">
-              <div className="absolute bottom-4 left-[23px] top-4 w-px bg-border/70" />
-              <div className="space-y-4">
-                {phases.map((phase, index) => {
-                  const isCurrent = phase.state === "current";
+                  <p className="mt-3 text-sm leading-relaxed text-foreground/74">
+                    {progressModel.currentStepText}
+                  </p>
 
-                  return (
-                    <div key={phase.key} className="relative pl-12">
-                      <div
-                        className={cn(
-                          "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl",
-                          phase.state === "complete"
-                            ? phase.tone.iconWrapClassName
-                            : isCurrent
-                              ? phase.tone.iconWrapClassName
-                              : "border-border/60 bg-background/75"
-                        )}
-                      >
-                        <span className="text-sm font-semibold tabular-nums">{index + 1}</span>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <div>
+                      <div className="flex items-center justify-between gap-3 text-xs text-foreground/58">
+                        <span>Общий прогресс маршрута</span>
+                        <span>
+                          {progressModel.totalProgress} из {TOTAL_REPEATS_AND_STAGE_MASTERY_MAX}
+                        </span>
                       </div>
-                      <TimelinePhaseCard
-                        icon={phase.icon}
-                        title={phase.title}
-                        description={phase.description}
-                        badge={getPhaseBadgeLabel(phase.state)}
-                        tone={phase.tone}
-                        state={phase.state}
-                        dataTour={`verse-progress-phase-${phase.key}`}
-                      >
-                        {phase.content}
-                      </TimelinePhaseCard>
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-background/70">
+                        <div
+                          className={cn(
+                            "h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ease-out",
+                            progressModel.currentTone.progressClassName
+                          )}
+                          style={{ width: `${progressModel.progressPercent}%` }}
+                        />
+                      </div>
                     </div>
-                  );
-                })}
+                    <div
+                      className={cn(
+                        "text-3xl font-bold tabular-nums tracking-tight",
+                        progressModel.currentTone.iconClassName
+                      )}
+                    >
+                      {progressModel.progressPercent}%
+                    </div>
+                  </div>
+
+                  {progressModel.nextReviewAt ? (
+                    <div className="mt-4 rounded-2xl border border-border/60 bg-background/65 px-3 py-2 text-xs text-foreground/68">
+                      {progressModel.currentPhase === "mastered"
+                        ? "Поддерживающий повтор"
+                        : "Следующее окно"}{" "}
+                      · {formatDateTime(progressModel.nextReviewAt)}
+                    </div>
+                  ) : null}
+                </section>
+
+                <div className="relative">
+                  <div className="absolute bottom-4 left-[23px] top-4 w-px bg-border/70" />
+                  <div className="space-y-4">
+                    {phases.map((phase, index) => {
+                      const isCurrent = phase.state === "current";
+
+                      return (
+                        <div key={phase.key} className="relative pl-12">
+                          <div
+                            className={cn(
+                              "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl",
+                              phase.state === "complete"
+                                ? phase.tone.iconWrapClassName
+                                : isCurrent
+                                  ? phase.tone.iconWrapClassName
+                                  : "border-border/60 bg-background/75"
+                            )}
+                          >
+                            <span className="text-sm font-semibold tabular-nums">{index + 1}</span>
+                          </div>
+                          <TimelinePhaseCard
+                            icon={phase.icon}
+                            title={phase.title}
+                            description={phase.description}
+                            badge={getPhaseBadgeLabel(phase.state)}
+                            tone={phase.tone}
+                            state={phase.state}
+                            dataTour={`verse-progress-phase-${phase.key}`}
+                          >
+                            {phase.content}
+                          </TimelinePhaseCard>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-5 rounded-3xl border border-border/60 bg-background/70 p-4 text-sm text-foreground/68">
+                Выберите стих, чтобы увидеть его путь запоминания.
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="mt-5 rounded-3xl border border-border/60 bg-background/70 p-4 text-sm text-foreground/68">
-            Выберите стих, чтобы увидеть его путь запоминания.
-          </div>
-        )}
+        </div>
       </DrawerContent>
     </Drawer>
   );
