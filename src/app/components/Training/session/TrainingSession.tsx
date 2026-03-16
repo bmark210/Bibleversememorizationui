@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronUp, ChevronDown, Lightbulb, X } from "lucide-react";
+import { ChevronUp, ChevronDown, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -794,7 +794,7 @@ export function TrainingSession({
                     onClick={() => setAssistDrawerOpen(true)}
                     disabled={session.isActionPending}
                   >
-                    <Lightbulb className="h-4 w-4 mr-1" />
+                    {/* <Lightbulb className="h-4 w-4 mr-1" /> */}
                     Помощь
                   </Button>
                 )}

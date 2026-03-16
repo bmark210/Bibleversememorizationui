@@ -20,7 +20,6 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { FixedBottomPanel } from './FixedBottomPanel';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -29,6 +28,7 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { usePanelBatchSize } from './usePanelBatchSize';
 
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
@@ -214,24 +214,28 @@ export function ModeFirstLettersHintedExercise({
     return counts;
   }, [hiddenSlots, selectedCount]);
 
-  const availableLetters = useMemo(() => {
-    const filtered = choiceOrder.filter(
-      (letter) => (remainingCountByLetter.get(letter) ?? 0) > 0
-    );
-    // Ensure the expected letter is within the first visible rows (~14 buttons)
-    const SAFE_VISIBLE_LIMIT = 14;
-    const expected = nextHiddenSlot?.firstLetter;
-    if (expected && filtered.length > SAFE_VISIBLE_LIMIT) {
-      const idx = filtered.indexOf(expected);
-      if (idx >= SAFE_VISIBLE_LIMIT) {
-        const swapTarget = Math.floor(Math.random() * SAFE_VISIBLE_LIMIT);
-        const temp = filtered[swapTarget]!;
-        filtered[swapTarget] = filtered[idx]!;
-        filtered[idx] = temp;
+  const availableLetters = useMemo(
+    () =>
+      choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
+    [choiceOrder, remainingCountByLetter]
+  );
+
+  /* ── Batch logic: show only as many letters as fit in the panel ── */
+  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
+  const batchSize = usePanelBatchSize(choicesPanelRef, availableLetters.length);
+  const expectedFirstLetter = nextHiddenSlot?.firstLetter ?? null;
+
+  const displayedLetters = useMemo(() => {
+    const batch = availableLetters.slice(0, batchSize);
+    if (expectedFirstLetter && !batch.includes(expectedFirstLetter)) {
+      const idx = availableLetters.indexOf(expectedFirstLetter);
+      if (idx >= 0 && batch.length > 0) {
+        const swapIdx = selectedCount % batch.length;
+        batch[swapIdx] = expectedFirstLetter;
       }
     }
-    return filtered;
-  }, [choiceOrder, remainingCountByLetter, nextHiddenSlot]);
+    return batch;
+  }, [availableLetters, batchSize, expectedFirstLetter, selectedCount]);
 
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
@@ -341,7 +345,7 @@ export function ModeFirstLettersHintedExercise({
         )}
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Стих с пропусками"
@@ -352,29 +356,34 @@ export function ModeFirstLettersHintedExercise({
         />
       </div>
 
-      <FixedBottomPanel visible={showChoices}>
-        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Варианты букв</span>
-          <span className="tabular-nums">{availableLetters.length}</span>
+      {showChoices && (
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Варианты букв</span>
+            <span className="tabular-nums">{availableLetters.length}</span>
+          </div>
+          <div
+            ref={choicesPanelRef}
+            className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden"
+          >
+            {displayedLetters.map((letter) => (
+              <Button
+                key={letter}
+                type="button"
+                variant="outline"
+                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                  errorFlashLetter === letter
+                    ? 'border-destructive text-destructive'
+                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                }`}
+                onClick={() => handleLetterClick(letter)}
+              >
+                <span>{letter}</span>
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap content-start gap-1">
-          {availableLetters.map((letter) => (
-            <Button
-              key={letter}
-              type="button"
-              variant="outline"
-              className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
-                errorFlashLetter === letter
-                  ? 'border-destructive text-destructive'
-                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-              }`}
-              onClick={() => handleLetterClick(letter)}
-            >
-              <span>{letter}</span>
-            </Button>
-          ))}
-        </div>
-      </FixedBottomPanel>
+      )}
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
