@@ -3,7 +3,7 @@ import { Translation } from "@/generated/prisma";
 import {
   upsertUserByTelegramId,
 } from "@/modules/users/infrastructure/userRepository";
-import { resolveTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
+import { fetchTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type TelegramInitPayload = {
@@ -11,7 +11,6 @@ type TelegramInitPayload = {
   translation?: string;
   name?: string | null;
   nickname?: string | null;
-  avatarUrl?: string | null;
 };
 
 const VALID_TRANSLATIONS: Translation[] = [
@@ -50,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as TelegramInitPayload;
-    const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
+    const { telegramId, translation, name, nickname } = body ?? {};
 
     if (!telegramId) {
       return res.status(400).json({ error: "telegramId is required" });
@@ -70,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const nameValue = normalizeOptionalString(name);
     const nicknameValue = normalizeOptionalString(nickname);
-    const avatarUrlValue = await resolveTelegramAvatarUrl(telegramId, avatarUrl);
+    const avatarUrlValue = await fetchTelegramAvatarUrl(telegramId);
 
     const user = await upsertUserByTelegramId({
       telegramId,

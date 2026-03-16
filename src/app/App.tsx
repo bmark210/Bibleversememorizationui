@@ -966,7 +966,6 @@ export default function App({ onInitialContentReady }: AppProps) {
             telegramId,
             name: telegramName || null,
             nickname: telegramNickname || null,
-            avatarUrl: telegramWebUser?.photo_url || null,
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
@@ -979,7 +978,6 @@ export default function App({ onInitialContentReady }: AppProps) {
             telegramId,
             name: telegramName || null,
             nickname: telegramNickname || null,
-            avatarUrl: null,
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {

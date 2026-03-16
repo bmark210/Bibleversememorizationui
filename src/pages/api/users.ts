@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Translation } from "@/generated/prisma";
 import { upsertUserByTelegramId, getAllUsers } from "@/modules/users/infrastructure/userRepository";
-import { resolveTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
+import { fetchTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { computeSocialUserXpSummary } from "@/shared/social/xp";
@@ -11,7 +11,6 @@ type CreateUserPayload = {
   translation?: string;
   name?: string | null;
   nickname?: string | null;
-  avatarUrl?: string | null;
 };
 
 const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
@@ -92,7 +91,7 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       const body = req.body as CreateUserPayload;
-      const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
+      const { telegramId, translation, name, nickname } = body ?? {};
       const translationValue = normalizeTranslation(translation);
       const nameValue = normalizeOptionalString(name);
       const nicknameValue = normalizeOptionalString(nickname);
@@ -101,7 +100,7 @@ export default async function handler(
         return res.status(400).json({ error: "telegramId is required" });
       }
 
-      const avatarUrlValue = await resolveTelegramAvatarUrl(telegramId, avatarUrl);
+      const avatarUrlValue = await fetchTelegramAvatarUrl(telegramId);
 
       const user = await upsertUserByTelegramId({
         telegramId,
