@@ -1,5 +1,6 @@
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import {
   getDifficultyLevelByLetters,
@@ -210,7 +211,7 @@ export function mapUserVerseToVerseCardDto(verse: EnrichedUserVerseSource): Vers
             .map((user) => ({
               telegramId: user.telegramId,
               name: user.name,
-              avatarUrl: user.avatarUrl ?? null,
+              avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
             })),
         }
       : {}),

@@ -1,5 +1,6 @@
 import type { ParsedUrlQuery } from "querystring";
 import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import { VerseStatus } from "@/generated/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { getAnchorTrainerRows } from "@/modules/reference-trainer/infrastructure/referenceTrainerRepository";
@@ -600,7 +601,7 @@ function mapPopularityPreviewUsers(
       name: user.name,
       nickname: user.nickname,
     }),
-    avatarUrl: user.avatarUrl ?? null,
+    avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
   }));
 }
 

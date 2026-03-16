@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import { VerseStatus } from "@/generated/prisma";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
@@ -123,7 +124,7 @@ function mapPopularityPreviewUsers(
       name: user.name,
       nickname: user.nickname,
     }),
-    avatarUrl: user.avatarUrl ?? null,
+    avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
   }));
 }
 
