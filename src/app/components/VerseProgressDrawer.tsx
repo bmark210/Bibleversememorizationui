@@ -172,71 +172,71 @@ function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
 
 const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   collection: {
-    cardClassName: "border-sky-500/18 bg-sky-500/[0.08]",
-    iconWrapClassName: "border-sky-500/25 bg-sky-500/[0.08]",
+    cardClassName: "border-sky-500/18 bg-sky-500/10",
+    iconWrapClassName: "border-sky-500/25 bg-sky-500/10",
     iconClassName: "text-sky-700 dark:text-sky-300",
     badgeClassName: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     progressClassName: "from-sky-500 to-sky-400/80",
-    railDoneClassName: "border-sky-500/35 bg-sky-500/18 text-sky-800 dark:text-sky-200",
+    railDoneClassName: "border-sky-500/35 bg-sky-500/14 text-sky-800 dark:text-sky-200",
     railCurrentClassName: "border-sky-500/45 bg-sky-500/24 text-sky-900 ring-2 ring-sky-500/20 dark:text-sky-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
-    railShadowClassName: "bg-sky-500/[0.12]",
+    railShadowClassName: "bg-sky-500/10",
   },
   learning: {
-    cardClassName: "border-emerald-500/18 bg-emerald-500/[0.08]",
-    iconWrapClassName: "border-emerald-500/25 bg-emerald-500/[0.08]",
+    cardClassName: "border-emerald-500/18 bg-emerald-500/10",
+    iconWrapClassName: "border-emerald-500/25 bg-emerald-500/10",
     iconClassName: "text-emerald-700 dark:text-emerald-300",
     badgeClassName:
       "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     progressClassName: "from-emerald-500 to-emerald-400/85",
     railDoneClassName:
-      "border-emerald-500/35 bg-emerald-500/18 text-emerald-800 dark:text-emerald-200",
+      "border-emerald-500/35 bg-emerald-500/14 text-emerald-800 dark:text-emerald-200",
     railCurrentClassName:
       "border-emerald-500/45 bg-emerald-500/24 text-emerald-900 ring-2 ring-emerald-500/20 dark:text-emerald-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
-    railShadowClassName: "bg-emerald-500/[0.12]",
+    railShadowClassName: "bg-emerald-500/10",
   },
   review: {
-    cardClassName: "border-violet-500/18 bg-violet-500/[0.08]",
-    iconWrapClassName: "border-violet-500/25 bg-violet-500/[0.08]",
+    cardClassName: "border-violet-500/18 bg-violet-500/10",
+    iconWrapClassName: "border-violet-500/25 bg-violet-500/10",
     iconClassName: "text-violet-700 dark:text-violet-300",
     badgeClassName:
       "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
     progressClassName: "from-violet-500 to-violet-400/85",
     railDoneClassName:
-      "border-violet-500/35 bg-violet-500/18 text-violet-800 dark:text-violet-200",
+      "border-violet-500/35 bg-violet-500/14 text-violet-800 dark:text-violet-200",
     railCurrentClassName:
       "border-violet-500/45 bg-violet-500/24 text-violet-900 ring-2 ring-violet-500/20 dark:text-violet-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
-    railShadowClassName: "bg-violet-500/[0.12]",
+    railShadowClassName: "bg-violet-500/10",
   },
   mastered: {
-    cardClassName: "border-amber-500/20 bg-amber-500/[0.09]",
-    iconWrapClassName: "border-amber-500/28 bg-amber-500/[0.08]",
+    cardClassName: "border-amber-500/20 bg-amber-500/10",
+    iconWrapClassName: "border-amber-500/28 bg-amber-500/10",
     iconClassName: "text-amber-800 dark:text-amber-300",
     badgeClassName:
       "border-amber-500/28 bg-amber-500/12 text-amber-800 dark:text-amber-300",
     progressClassName: "from-amber-500 to-yellow-400/85",
     railDoneClassName:
-      "border-amber-500/38 bg-amber-500/18 text-amber-900 dark:text-amber-100",
+      "border-amber-500/38 bg-amber-500/14 text-amber-900 dark:text-amber-100",
     railCurrentClassName:
       "border-amber-500/46 bg-amber-500/24 text-amber-950 ring-2 ring-amber-500/20 dark:text-amber-100",
     railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
-    railShadowClassName: "bg-amber-500/[0.12]",
+    railShadowClassName: "bg-amber-500/10",
   },
 };
 
 const PAUSE_SUMMARY_TONE: PhaseTone = {
-  cardClassName: "border-rose-500/18 bg-rose-500/[0.08]",
-  iconWrapClassName: "border-rose-500/25 bg-rose-500/[0.08]",
+  cardClassName: "border-rose-500/18 bg-rose-500/10",
+  iconWrapClassName: "border-rose-500/25 bg-rose-500/10",
   iconClassName: "text-rose-700 dark:text-rose-300",
   badgeClassName: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   progressClassName: "from-rose-500 to-rose-400/85",
-  railDoneClassName: "border-rose-500/35 bg-rose-500/18 text-rose-800 dark:text-rose-200",
+  railDoneClassName: "border-rose-500/35 bg-rose-500/14 text-rose-800 dark:text-rose-200",
   railCurrentClassName:
     "border-rose-500/45 bg-rose-500/24 text-rose-900 ring-2 ring-rose-500/20 dark:text-rose-100",
   railUpcomingClassName: "border-border/60 bg-background/70 text-muted-foreground/55",
-  railShadowClassName: "bg-rose-500/[0.12]",
+  railShadowClassName: "bg-rose-500/10",
 };
 
 function normalizeCount(value: unknown): number {
@@ -596,15 +596,15 @@ function ModeStepRail({
       {currentMeta && CurrentModeIcon ? (
         <div
           className={cn(
-            "rounded-2xl border px-3 py-3 shadow-sm backdrop-blur-sm",
-            tone.cardClassName
+            "rounded-2xl border px-3 py-3",
+            tone.railShadowClassName
           )}
         >
           <div className="flex items-start gap-3">
             <div
               className={cn(
                 "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border",
-                tone.cardClassName
+                tone.railShadowClassName
               )}
             >
               <CurrentModeIcon className={cn("h-[18px] w-[18px]", tone.iconClassName)} />
@@ -1083,7 +1083,7 @@ export function VerseProgressDrawer({
                         <div key={phase.key} className="relative pl-12">
                           <div
                             className={cn(
-                              "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl ",
+                              "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background ",
                               phase.tone.railUpcomingClassName
                             )}
                           >
