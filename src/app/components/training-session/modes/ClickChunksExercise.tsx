@@ -276,7 +276,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
 
       {/* ── Bottom half: chunk choices ── */}
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-auto border-t border-border/60 pt-2">
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
