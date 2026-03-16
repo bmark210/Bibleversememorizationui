@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, RefreshCcw } from 'lucide-react';
+import { Info, Mic, MicOff, RefreshCcw } from 'lucide-react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
 import { Button } from "@/app/components/ui/button";
@@ -31,6 +31,7 @@ interface VoiceRecallExerciseProps {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
+  onOpenTutorial?: () => void;
 }
 
 type SpeechRecognitionResultLike = {
@@ -70,7 +71,7 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -236,10 +237,15 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <div className="shrink-0 flex items-center justify-between">
+      <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Голосовой ввод стиха
         </label>
+        {onOpenTutorial && (
+          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
+            <Info className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>

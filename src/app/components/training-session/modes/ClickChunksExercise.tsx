@@ -6,6 +6,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
+import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
@@ -24,6 +25,7 @@ interface ClickChunksExerciseProps {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
+  onOpenTutorial?: () => void;
 }
 
 interface ChunkToken {
@@ -108,7 +110,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickChunksExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -243,10 +245,15 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       animate={{ opacity: 1, y: 0 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="shrink-0">
-        <label className="block text-center text-sm font-medium text-foreground/90">
+      <div className="shrink-0 flex items-center justify-center gap-1.5">
+        <label className="text-sm font-medium text-foreground/90">
           Соберите стих по фрагментам
         </label>
+        {onOpenTutorial && (
+          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
+            <Info className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* ── Top half: assembled sequence ── */}
@@ -276,7 +283,10 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
 
       {/* ── Bottom half: chunk choices ── */}
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-auto border-t border-border/60 pt-2">
+        <div
+          data-scroll-shadow="true"
+          className="mt-2 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] border-t border-border/60 pt-2"
+        >
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button

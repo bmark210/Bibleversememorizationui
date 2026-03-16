@@ -31,8 +31,10 @@ export type VersePreviewOverride = Partial<
 
 export type TrainingModeMeta = {
   label: string;
+  shortLabel: string;
   description: string;
   renderer: TrainingModeRendererKey;
+  icon: LucideIcon;
   badgeClass: string;
 };
 

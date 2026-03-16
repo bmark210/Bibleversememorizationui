@@ -466,10 +466,10 @@ export function TrainingSession({
   const showQuickForgetAction = Boolean(
     trainingActiveVerse &&
       trainingModeId &&
-      trainingModeId < 5 &&
+      trainingModeId > 1 &&
+      hintAttemptPhase === 'learning' &&
       session.pendingOutcome === null &&
-      hintHelpers.hintState.flowState === 'active' &&
-      !isLateStage
+      hintHelpers.hintState.flowState === 'active'
   );
   const showAssistButton =
     isHintableMode &&
@@ -887,14 +887,10 @@ export function TrainingSession({
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
-              {session.quickForgetConfirmStage === "review"
-                ? "Отметить как «не вспомнил»?"
-                : "Отметить как «забыл»?"}
+              Отметить как «забыл»?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {session.quickForgetConfirmStage === "review"
-                ? "Прогресс повторения не изменится. Следующая попытка будет доступна примерно через 6 часов."
-                : "Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения."}
+              Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
