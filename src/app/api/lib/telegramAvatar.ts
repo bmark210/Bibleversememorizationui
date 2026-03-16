@@ -103,8 +103,14 @@ export async function fetchTelegramAvatar(
 
 export async function resolveTelegramAvatarUrl(
   telegramId: string,
-  _clientAvatarUrl?: string | null
+  clientAvatarUrl?: string | null
 ): Promise<string | null> {
+  // Если клиент прислал avatarUrl - используем её
+  if (clientAvatarUrl && clientAvatarUrl.trim()) {
+    return clientAvatarUrl.trim();
+  }
+
+  // Иначе пытаемся получить через Telegram Bot API
   try {
     return await fetchTelegramAvatar(telegramId);
   } catch (error) {

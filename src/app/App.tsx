@@ -29,6 +29,10 @@ import {
   type DashboardFriendsActivity,
 } from "@/api/services/friends";
 import {
+  fetchAllUsers,
+  type AllUsersResponse,
+} from "@/api/services/allUsers";
+import {
   fetchUserDashboardStats,
   type UserDashboardStats,
 } from "@/api/services/userStats";
@@ -462,6 +466,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<AllUsersResponse | null>(null);
+  const [isAllUsersLoading, setIsAllUsersLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
@@ -521,6 +527,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
+  const allUsersRequestIdRef = useRef(0);
   const trainingVersesRequestIdRef = useRef(0);
   const trainingVersesPromiseRef = useRef<Promise<Array<Verse>> | null>(null);
   const trainingVersesPrefetchHandleRef = useRef<IdleTaskHandle | null>(null);
@@ -718,6 +725,29 @@ export default function App({ onInitialContentReady }: AppProps) {
     } finally {
       if (dashboardFriendsActivityRequestIdRef.current === requestId) {
         setIsDashboardFriendsActivityLoading(false);
+      }
+    }
+  }, []);
+
+  const loadAllUsersData = useCallback(async () => {
+    const requestId = ++allUsersRequestIdRef.current;
+    setIsAllUsersLoading(true);
+
+    try {
+      const nextAllUsers = await fetchAllUsers({ limit: 20 });
+      if (allUsersRequestIdRef.current === requestId) {
+        setAllUsers(nextAllUsers);
+      }
+      return nextAllUsers;
+    } catch (error) {
+      console.error("Не удалось получить список всех пользователей:", error);
+      if (allUsersRequestIdRef.current === requestId) {
+        setAllUsers(null);
+      }
+      return null;
+    } finally {
+      if (allUsersRequestIdRef.current === requestId) {
+        setIsAllUsersLoading(false);
       }
     }
   }, []);
@@ -936,6 +966,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             telegramId,
             name: telegramName || null,
             nickname: telegramNickname || null,
+            avatarUrl: telegramWebUser?.photo_url || null,
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
@@ -948,6 +979,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             telegramId,
             name: telegramName || null,
             nickname: telegramNickname || null,
+            avatarUrl: null,
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
@@ -960,6 +992,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           loadDashboardStats(telegramId),
           loadDashboardLeaderboard(telegramId),
           loadDashboardFriendsActivity(telegramId),
+          loadAllUsersData(),
         ]);
       } catch (err) {
         console.error("Не удалось получить данные дашборда:", err);
@@ -977,6 +1010,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       isMounted = false;
     };
   }, [
+    loadAllUsersData,
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
@@ -1283,6 +1317,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                     ? false
                     : isDashboardFriendsActivityLoading
                 }
+                allUsers={allUsers}
+                isAllUsersLoading={isAllUsersLoading}
                 currentTelegramId={telegramId}
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}

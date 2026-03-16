@@ -14,7 +14,10 @@ import {
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
+  AllUsersAvatarsCard,
 } from './dashboard/DashboardSections'
+
+import type { AllUsersResponse } from '@/api/services/allUsers'
 
 interface DashboardProps {
   todayVerses: Array<Verse>
@@ -24,6 +27,8 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
+  allUsers?: AllUsersResponse | null
+  isAllUsersLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
@@ -117,6 +122,8 @@ export function Dashboard({
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
+  allUsers = null,
+  isAllUsersLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
@@ -214,6 +221,11 @@ export function Dashboard({
             friendsActivity={dashboardFriendsActivity}
             isFriendsActivityLoading={isDashboardFriendsActivityLoading}
             onOpenProfile={onOpenProfile}
+            onOpenPlayerProfile={onOpenPlayerProfile}
+          />
+          <AllUsersAvatarsCard
+            allUsers={allUsers}
+            isLoading={isAllUsersLoading}
             onOpenPlayerProfile={onOpenPlayerProfile}
           />
         </div>
