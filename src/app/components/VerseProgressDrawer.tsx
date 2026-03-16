@@ -480,7 +480,7 @@ function ModeStepRail({
         </span>
       </div>
 
-      <div className={cn("relative overflow-hidden rounded-2xl", )}>
+      <div className={cn("relative overflow-hidden rounded-2xl")}>
         <div
           ref={horizontalScrollRef}
           style={horizontalMaskStyle}
@@ -645,6 +645,50 @@ function TimelinePhaseCard({
   );
 }
 
+function useVerticalFadeMaskStyle(shadowState: ScrollShadowState) {
+  return useMemo<React.CSSProperties | undefined>(() => {
+    const fadeHeight = 56;
+
+    if (shadowState.showStart && shadowState.showEnd) {
+      const maskImage = `linear-gradient(to bottom, transparent 0px, black ${fadeHeight}px, black calc(100% - ${fadeHeight}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    if (shadowState.showStart) {
+      const maskImage = `linear-gradient(to bottom, transparent 0px, black ${fadeHeight}px, black 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    if (shadowState.showEnd) {
+      const maskImage = `linear-gradient(to bottom, black 0px, black calc(100% - ${fadeHeight}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    return undefined;
+  }, [shadowState.showEnd, shadowState.showStart]);
+}
+
 export function VerseProgressDrawer({
   verse,
   open,
@@ -654,6 +698,8 @@ export function VerseProgressDrawer({
     scrollRef: verticalScrollRef,
     shadowState: verticalShadowState,
   } = useScrollShadowState<HTMLDivElement>("y");
+  const verticalFadeMaskStyle = useVerticalFadeMaskStyle(verticalShadowState);
+
   const progressModel = useMemo(() => {
     if (!verse) return null;
 
@@ -829,25 +875,12 @@ export function VerseProgressDrawer({
         data-tour="verse-progress-drawer"
         className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
       >
-        <div className="relative mt-2 max-h-[calc(80vh-28px)] overflow-hidden">
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-card via-card/88 to-transparent backdrop-blur-[2px] transition-opacity duration-200",
-              verticalShadowState.showStart ? "opacity-100" : "opacity-0"
-            )}
-          />
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-card via-card/88 to-transparent backdrop-blur-[2px] transition-opacity duration-200",
-              verticalShadowState.showEnd ? "opacity-100" : "opacity-0"
-            )}
-          />
+        <div className="relative mt-2 max-h-[calc(80vh-28px)] overflow-hidden bg-card">
           <div
             ref={verticalScrollRef}
             data-tour="verse-progress-content"
-            className="max-h-[calc(80vh-28px)] overflow-y-auto overscroll-contain pr-1"
+            className="max-h-[calc(80vh-28px)] overflow-y-auto bg-card overscroll-contain pr-1"
+            style={verticalFadeMaskStyle}
           >
             <DrawerHeader className="px-0 pb-0 pt-4">
               <div className="flex items-start gap-3">
