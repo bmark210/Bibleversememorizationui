@@ -354,10 +354,17 @@ export function ModeClickWordsHintedExercise({
     return () => ro.disconnect();
   }, [measureBatch]);
 
-  const displayedChoices = useMemo(
-    () => visibleChoices.slice(0, batchSize),
-    [visibleChoices, batchSize]
-  );
+  const displayedChoices = useMemo(() => {
+    const batch = visibleChoices.slice(0, batchSize);
+    const expectedNormalized = nextHiddenSlot?.normalized;
+    if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
+      const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
+      if (expectedChoice && batch.length > 0) {
+        batch[batch.length - 1] = expectedChoice;
+      }
+    }
+    return batch;
+  }, [visibleChoices, batchSize, nextHiddenSlot]);
 
   return (
     <motion.div

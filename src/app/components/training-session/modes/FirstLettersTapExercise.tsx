@@ -149,11 +149,23 @@ export function ModeFirstLettersTapExercise({
     return counts;
   }, [expectedTokens, selectedCount]);
 
-  const availableLetters = useMemo(
-    () =>
-      shuffledUniqueLetters.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
-    [shuffledUniqueLetters, remainingCountByLetter]
-  );
+  const availableLetters = useMemo(() => {
+    const filtered = shuffledUniqueLetters.filter(
+      (letter) => (remainingCountByLetter.get(letter) ?? 0) > 0
+    );
+    // Ensure the expected letter is within the first visible rows (~14 buttons)
+    const SAFE_VISIBLE_LIMIT = 14;
+    if (expectedLetter && filtered.length > SAFE_VISIBLE_LIMIT) {
+      const idx = filtered.indexOf(expectedLetter);
+      if (idx >= SAFE_VISIBLE_LIMIT) {
+        const swapTarget = Math.floor(Math.random() * SAFE_VISIBLE_LIMIT);
+        const temp = filtered[swapTarget]!;
+        filtered[swapTarget] = filtered[idx]!;
+        filtered[idx] = temp;
+      }
+    }
+    return filtered;
+  }, [shuffledUniqueLetters, remainingCountByLetter, expectedLetter]);
 
   const focusItemId = useMemo(() => {
     if (expectedTokens.length === 0) return null;

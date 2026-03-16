@@ -214,11 +214,24 @@ export function ModeFirstLettersHintedExercise({
     return counts;
   }, [hiddenSlots, selectedCount]);
 
-  const availableLetters = useMemo(
-    () =>
-      choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
-    [choiceOrder, remainingCountByLetter]
-  );
+  const availableLetters = useMemo(() => {
+    const filtered = choiceOrder.filter(
+      (letter) => (remainingCountByLetter.get(letter) ?? 0) > 0
+    );
+    // Ensure the expected letter is within the first visible rows (~14 buttons)
+    const SAFE_VISIBLE_LIMIT = 14;
+    const expected = nextHiddenSlot?.firstLetter;
+    if (expected && filtered.length > SAFE_VISIBLE_LIMIT) {
+      const idx = filtered.indexOf(expected);
+      if (idx >= SAFE_VISIBLE_LIMIT) {
+        const swapTarget = Math.floor(Math.random() * SAFE_VISIBLE_LIMIT);
+        const temp = filtered[swapTarget]!;
+        filtered[swapTarget] = filtered[idx]!;
+        filtered[idx] = temp;
+      }
+    }
+    return filtered;
+  }, [choiceOrder, remainingCountByLetter, nextHiddenSlot]);
 
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
