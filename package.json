@@ -16,7 +16,8 @@
     "backfill:verse-difficulty": "tsx scripts/backfill-verse-difficulty.ts",
     "prisma": "npm run prisma:generate && npm run prisma:push && npm run prisma:studio",
     "generate-api": "npx tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
-    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"
+    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts",
+    "telegram:webhook:dev": "tsx scripts/register-telegram-webhook_forDev.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
