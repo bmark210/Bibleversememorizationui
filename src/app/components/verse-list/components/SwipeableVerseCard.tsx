@@ -9,12 +9,7 @@ import { Verse } from '@/app/App';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
-import {
-  getBaseTrainingModeForMastery,
-  getReviewModeByRepetition,
-  toTrainingStageMasteryLevel,
-} from '@/shared/training/modeEngine';
-import { MODE_PIPELINE } from '@/app/components/VerseGallery/constants';
+import { getCurrentTrainingModeMeta } from '@/app/components/VerseGallery/modeMeta';
 import {
   getVerseDifficultyBadgeClassName,
   getVerseDifficultyLabel,
@@ -68,18 +63,13 @@ export const SwipeableVerseCard = ({
   const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
   const totalProgress = Math.min(masteryLevel + repetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
   const totalProgressPercent = Math.round((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
-  const currentModeMeta = (() => {
-    if (displayStatus === 'LEARNING') {
-      const stageMastery = toTrainingStageMasteryLevel(masteryLevel);
-      const modeId = getBaseTrainingModeForMastery(stageMastery);
-      return MODE_PIPELINE[modeId] ?? null;
-    }
-    if (displayStatus === 'REVIEW') {
-      const modeId = getReviewModeByRepetition(repetitionsCount);
-      return MODE_PIPELINE[modeId] ?? null;
-    }
-    return null;
-  })();
+  const currentModeMeta = getCurrentTrainingModeMeta({
+    status: displayStatus,
+    masteryLevel,
+    repetitionsCount,
+    lastTrainingModeId:
+      typeof verse.lastTrainingModeId === 'number' ? verse.lastTrainingModeId : null,
+  });
   const popularityValue =
     typeof verse.popularityValue === 'number'
       ? Math.max(0, Math.round(verse.popularityValue))

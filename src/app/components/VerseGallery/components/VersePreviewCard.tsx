@@ -25,16 +25,11 @@ import {
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
   REPEAT_THRESHOLD_FOR_MASTERED,
 } from "@/shared/training/constants";
-import {
-  TrainingModeId,
-  getBaseTrainingModeForMastery,
-  getReviewModeByRepetition,
-  toTrainingStageMasteryLevel,
-} from "@/shared/training/modeEngine";
-import { MODE_PIPELINE } from "../constants";
 import type { Verse } from "@/app/App";
 import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
+import { getCurrentTrainingModeMeta } from "../modeMeta";
 import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
+import type { TrainingModeMeta } from "../types";
 
 type Props = {
   verse: Verse;
@@ -78,6 +73,13 @@ export function VersePreviewCard({
   );
   const isNotYetDue =
     status === "REVIEW" && nextReviewAt !== null && Date.now() < nextReviewAt.getTime();
+  const currentModeMeta = getCurrentTrainingModeMeta({
+    status,
+    masteryLevel: rawMasteryLevel,
+    repetitionsCount,
+    lastTrainingModeId:
+      typeof verse.lastTrainingModeId === "number" ? verse.lastTrainingModeId : null,
+  });
   const notYetDueLabel =
     isNotYetDue && nextReviewAt
       ? `Доступно ${nextReviewAt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`
@@ -204,6 +206,7 @@ export function VersePreviewCard({
     notYetDueLabel,
     repetitionsCount,
     rawMasteryLevel,
+    currentModeMeta,
   });
 
   const showFooter = !isFocusMode && statusTone !== null;
@@ -508,7 +511,7 @@ type StatusTone = {
   fillClass: string;
   trackClass: string;
   bgFillClass: string;
-  currentModeId: TrainingModeId | null;
+  currentModeMeta: TrainingModeMeta | null;
 };
 
 function StatusFooter({
@@ -553,16 +556,15 @@ function StatusFooter({
           />
         </div>
 
-        {statusTone.currentModeId != null && MODE_PIPELINE[statusTone.currentModeId] ? (
+        {statusTone.currentModeMeta ? (
           <div className="flex items-center gap-1.5 pt-0.5">
             {(() => {
-              const meta = MODE_PIPELINE[statusTone.currentModeId!];
-              const ModeIcon = meta.icon;
+              const ModeIcon = statusTone.currentModeMeta.icon;
               return (
                 <>
                   <ModeIcon className="h-3 w-3 text-muted-foreground/70" />
                   <span className="text-[10px] text-muted-foreground/70 leading-tight">
-                    {meta.label}
+                    {statusTone.currentModeMeta.label}
                   </span>
                 </>
               );
@@ -684,8 +686,16 @@ function buildStatusTone(params: {
   notYetDueLabel: string | null;
   repetitionsCount: number;
   rawMasteryLevel: number;
+  currentModeMeta: TrainingModeMeta | null;
 }): StatusTone | null {
-  const { status, isNotYetDue, notYetDueLabel, repetitionsCount, rawMasteryLevel } = params;
+  const {
+    status,
+    isNotYetDue,
+    notYetDueLabel,
+    repetitionsCount,
+    rawMasteryLevel,
+    currentModeMeta,
+  } = params;
   const repeatThreshold = REPEAT_THRESHOLD_FOR_MASTERED;
 
   if (status === "CATALOG" || status === VerseStatus.MY) {
@@ -703,7 +713,7 @@ function buildStatusTone(params: {
       fillClass: "from-rose-500 to-rose-400/80",
       trackClass: "bg-rose-500/14",
       bgFillClass: "bg-rose-500/[0.13]",
-      currentModeId: null,
+      currentModeMeta: null,
     };
   }
   if (status === "MASTERED") {
@@ -718,7 +728,7 @@ function buildStatusTone(params: {
       fillClass: "from-amber-500 to-yellow-400/85",
       trackClass: "bg-amber-500/14",
       bgFillClass: "bg-amber-500/[0.13]",
-      currentModeId: null,
+      currentModeMeta: null,
     };
   }
   if (status === "REVIEW") {
@@ -735,11 +745,10 @@ function buildStatusTone(params: {
       fillClass: "from-violet-500 to-violet-400/80",
       trackClass: "bg-violet-500/14",
       bgFillClass: "bg-violet-500/[0.13]",
-      currentModeId: getReviewModeByRepetition(repetitionsCount),
+      currentModeMeta,
     };
   }
   if (status === VerseStatus.LEARNING) {
-    const stageMastery = toTrainingStageMasteryLevel(rawMasteryLevel);
     return {
       icon: Brain,
       title: "Изучение",
@@ -752,7 +761,7 @@ function buildStatusTone(params: {
       fillClass: "from-emerald-500 to-emerald-400/80",
       trackClass: "bg-emerald-500/14",
       bgFillClass: "bg-emerald-500/[0.13]",
-      currentModeId: getBaseTrainingModeForMastery(stageMastery),
+      currentModeMeta,
     };
   }
   return null;

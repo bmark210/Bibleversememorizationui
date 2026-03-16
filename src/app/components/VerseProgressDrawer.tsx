@@ -10,7 +10,6 @@ import React, {
 import {
   Bookmark,
   Brain,
-  Check,
   Clock3,
   Pause,
   Repeat,
@@ -33,7 +32,10 @@ import {
   TRAINING_MODE_PROGRESS_ORDER,
   REVIEW_TRAINING_MODE_ROTATION,
 } from "@/shared/training/modeEngine";
-import { MODE_PIPELINE } from "@/app/components/VerseGallery/constants";
+import {
+  getCurrentTrainingModeId,
+  getTrainingModeMeta,
+} from "@/app/components/VerseGallery/modeMeta";
 import { VERSE_JOURNEY_PHASE_TITLES } from "@/app/onboarding/verseJourneyModel";
 import {
   Drawer,
@@ -441,18 +443,31 @@ function getSummaryLabel(params: {
 function ModeStepRail({
   modeIds,
   completed,
-  current,
+  currentStepNumber,
+  currentModeId,
   tone,
   stepLabelPrefix,
 }: {
   modeIds: readonly import("@/shared/training/modeEngine").TrainingModeId[];
   completed: number;
-  current: number | null;
+  currentStepNumber: number | null;
+  currentModeId?: import("@/shared/training/modeEngine").TrainingModeId | null;
   tone: PhaseTone;
   stepLabelPrefix: string;
 }) {
-  const currentModeId = current != null ? modeIds[current - 1] ?? null : null;
-  const currentMeta = currentModeId ? MODE_PIPELINE[currentModeId] : null;
+  const resolvedCurrentModeId =
+    currentModeId ??
+    (currentStepNumber != null ? modeIds[currentStepNumber - 1] ?? null : null);
+  const resolvedCurrentIndex =
+    resolvedCurrentModeId != null
+      ? currentStepNumber != null &&
+        modeIds[currentStepNumber - 1] === resolvedCurrentModeId
+        ? currentStepNumber - 1
+        : modeIds.indexOf(resolvedCurrentModeId)
+      : currentStepNumber != null
+        ? currentStepNumber - 1
+        : -1;
+  const currentMeta = getTrainingModeMeta(resolvedCurrentModeId);
   const CurrentModeIcon = currentMeta?.icon;
   const {
     scrollRef: horizontalScrollRef,
@@ -520,8 +535,8 @@ function ModeStepRail({
           {modeIds.map((modeId, index) => {
             const stepNumber = index + 1;
             const isCompleted = stepNumber <= completed;
-            const isCurrent = current === stepNumber;
-            const meta = MODE_PIPELINE[modeId];
+            const isCurrent = index === resolvedCurrentIndex;
+            const meta = getTrainingModeMeta(modeId);
             const ModeIcon = meta?.icon;
 
             return (
@@ -542,9 +557,7 @@ function ModeStepRail({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-current/15 bg-background/35">
-                    {isCompleted ? (
-                      <Check className="h-4 w-4" />
-                    ) : ModeIcon ? (
+                    {ModeIcon ? (
                       <ModeIcon className="h-4 w-4" />
                     ) : (
                       <span className="text-xs font-semibold tabular-nums">{stepNumber}</span>
@@ -592,7 +605,7 @@ function ModeStepRail({
                   {currentMeta.label}
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60">
-                  {stepLabelPrefix} {current ?? "—"}
+                  {stepLabelPrefix} {currentStepNumber ?? "—"}
                 </span>
                 <span className="inline-flex items-center rounded-full border border-current/15 bg-background/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
                   Сейчас
@@ -746,6 +759,18 @@ export function VerseProgressDrawer({
           : 0;
     const learningCurrent =
       currentPhase === "learning" ? Math.min(Math.max(learningStage, 1), TRAINING_STAGE_MASTERY_MAX) : null;
+    const currentLearningModeId =
+      currentPhase === "learning" || status === VerseStatus.LEARNING
+        ? getCurrentTrainingModeId({
+            status: VerseStatus.LEARNING,
+            masteryLevel,
+            repetitionsCount: repetitions,
+            lastTrainingModeId:
+              typeof verse.lastTrainingModeId === "number"
+                ? verse.lastTrainingModeId
+                : null,
+          })
+        : null;
 
     const reviewCompleted =
       currentPhase === "mastered"
@@ -756,6 +781,18 @@ export function VerseProgressDrawer({
     const reviewCurrent =
       currentPhase === "review"
         ? Math.min(reviewCompleted + 1, REPEAT_THRESHOLD_FOR_MASTERED)
+        : null;
+    const currentReviewModeId =
+      currentPhase === "review"
+        ? getCurrentTrainingModeId({
+            status: "REVIEW",
+            masteryLevel,
+            repetitionsCount: repetitions,
+            lastTrainingModeId:
+              typeof verse.lastTrainingModeId === "number"
+                ? verse.lastTrainingModeId
+                : null,
+          })
         : null;
 
     const totalProgress = Math.min(
@@ -781,9 +818,11 @@ export function VerseProgressDrawer({
       nextReviewAt,
       learningCompleted,
       learningCurrent,
+      currentLearningModeId,
       learningStage,
       reviewCompleted,
       reviewCurrent,
+      currentReviewModeId,
       reviewTarget: reviewCurrent ?? REPEAT_THRESHOLD_FOR_MASTERED,
       totalProgress,
       progressPercent,
@@ -829,7 +868,8 @@ export function VerseProgressDrawer({
           <ModeStepRail
             modeIds={TRAINING_MODE_PROGRESS_ORDER}
             completed={progressModel.learningCompleted}
-            current={progressModel.learningCurrent}
+            currentStepNumber={progressModel.learningCurrent}
+            currentModeId={progressModel.currentLearningModeId}
             tone={PHASE_TONES.learning}
             stepLabelPrefix="Ступень"
           />
@@ -859,7 +899,8 @@ export function VerseProgressDrawer({
             <ModeStepRail
               modeIds={REVIEW_TRAINING_MODE_ROTATION}
               completed={progressModel.reviewCompleted}
-              current={progressModel.reviewCurrent}
+              currentStepNumber={progressModel.reviewCurrent}
+              currentModeId={progressModel.currentReviewModeId}
               tone={PHASE_TONES.review}
               stepLabelPrefix="Повтор"
             />
