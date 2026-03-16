@@ -471,9 +471,49 @@ function ModeStepRail({
   const CurrentModeIcon = currentMeta?.icon;
   const {
     scrollRef: horizontalScrollRef,
+    shadowState: horizontalShadowState,
   } = useScrollShadowState<HTMLDivElement>("x");
-  // Более простой и совместимый фикс без mask-image
-  const horizontalMaskStyle = undefined;
+  const horizontalMaskStyle = useMemo<React.CSSProperties | undefined>(() => {
+    const fadeWidth = 44;
+
+    if (horizontalShadowState.showStart && horizontalShadowState.showEnd) {
+      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    if (horizontalShadowState.showStart) {
+      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    if (horizontalShadowState.showEnd) {
+      const maskImage = `linear-gradient(to right, black 0px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
+      return {
+        WebkitMaskImage: maskImage,
+        maskImage,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+      };
+    }
+
+    return undefined;
+  }, [horizontalShadowState.showEnd, horizontalShadowState.showStart]);
 
   return (
     <div className="space-y-3">
@@ -486,7 +526,11 @@ function ModeStepRail({
         </span>
       </div>
 
-      <div className={cn("relative overflow-hidden rounded-2xl")}>
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl"
+        )}
+      >
         <div
           ref={horizontalScrollRef}
           style={horizontalMaskStyle}
