@@ -70,14 +70,19 @@ type ScrollShadowState = {
 };
 
 function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
-  const scrollRef = useRef<T | null>(null);
+  const scrollElementRef = useRef<T | null>(null);
+  const [scrollElement, setScrollElement] = useState<T | null>(null);
   const [shadowState, setShadowState] = useState<ScrollShadowState>({
     showStart: false,
     showEnd: false,
   });
+  const scrollRef = useCallback((node: T | null) => {
+    scrollElementRef.current = node;
+    setScrollElement(node);
+  }, []);
 
   const measure = useCallback(() => {
-    const el = scrollRef.current;
+    const el = scrollElementRef.current;
     if (!el) return;
 
     const position = axis === "y" ? el.scrollTop : el.scrollLeft;
@@ -96,11 +101,16 @@ function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
   }, [axis]);
 
   useEffect(() => {
+    if (!scrollElement) {
+      setShadowState({ showStart: false, showEnd: false });
+      return;
+    }
+
     measure();
-  }, [measure]);
+  }, [measure, scrollElement]);
 
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = scrollElement;
     if (!el || typeof window === "undefined") return;
 
     let rafId: number | null = null;
@@ -122,23 +132,38 @@ function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(() => scheduleMeasure())
         : null;
+    const observedChildren = new Set<HTMLElement>();
+    const observeChildren = () => {
+      for (const child of Array.from(el.children)) {
+        if (!(child instanceof HTMLElement) || observedChildren.has(child)) continue;
+        observedChildren.add(child);
+        resizeObserver?.observe(child);
+      }
+    };
+    const mutationObserver =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => {
+            observeChildren();
+            scheduleMeasure();
+          })
+        : null;
 
     resizeObserver?.observe(el);
-    if (el.firstElementChild instanceof HTMLElement) {
-      resizeObserver?.observe(el.firstElementChild);
-    }
+    observeChildren();
+    mutationObserver?.observe(el, { childList: true });
 
     scheduleMeasure();
 
     return () => {
       el.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
+      mutationObserver?.disconnect();
       resizeObserver?.disconnect();
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [measure]);
+  }, [measure, scrollElement]);
 
   return { scrollRef, shadowState };
 }
