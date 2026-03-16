@@ -61,11 +61,6 @@ async function callTelegramBotApi<T>(
   return payload.result;
 }
 
-function normalizeClientAvatarUrl(value?: string | null): string | null {
-  const normalized = String(value ?? "").trim();
-  return normalized ? normalized : null;
-}
-
 export async function fetchTelegramAvatar(
   telegramId: string
 ): Promise<string | null> {
@@ -108,14 +103,12 @@ export async function fetchTelegramAvatar(
 
 export async function resolveTelegramAvatarUrl(
   telegramId: string,
-  clientAvatarUrl?: string | null
+  _clientAvatarUrl?: string | null
 ): Promise<string | null> {
-  const fallbackAvatarUrl = normalizeClientAvatarUrl(clientAvatarUrl);
-
   try {
     return await fetchTelegramAvatar(telegramId);
   } catch (error) {
     console.error(`[TelegramAvatar] Failed to refresh avatar for user ${telegramId}:`, error);
-    return fallbackAvatarUrl;
+    return null;
   }
 }

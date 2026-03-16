@@ -167,6 +167,7 @@ function MetricChip({
 
 type DashboardWelcomeSectionProps = {
   user: DashboardUser;
+  currentUserAvatarUrl?: string | null;
   learningVersesCount: number;
   dueReviewVerses: number;
   dailyStreak?: number | null;
@@ -176,6 +177,7 @@ type DashboardWelcomeSectionProps = {
 
 export function DashboardWelcomeSection({
   user,
+  currentUserAvatarUrl,
   learningVersesCount,
   dueReviewVerses,
   dailyStreak,
@@ -224,8 +226,8 @@ export function DashboardWelcomeSection({
                   aria-label={`Открыть профиль ${user.firstName}`}
                 >
                   <Avatar className="h-12 w-12 border border-border/60">
-                    {user.photoUrl ? (
-                      <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                    {currentUserAvatarUrl ? (
+                      <AvatarImage src={currentUserAvatarUrl} alt={user.firstName} />
                     ) : (
                       <AvatarFallback className="bg-primary/12 text-primary">
                         {user.firstName.charAt(0).toUpperCase()}
@@ -242,8 +244,8 @@ export function DashboardWelcomeSection({
               ) : (
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12 border border-border/60">
-                    {user.photoUrl ? (
-                      <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                    {currentUserAvatarUrl ? (
+                      <AvatarImage src={currentUserAvatarUrl} alt={user.firstName} />
                     ) : (
                       <AvatarFallback className="bg-primary/12 text-primary">
                         {user.firstName.charAt(0).toUpperCase()}
