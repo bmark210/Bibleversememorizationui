@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
@@ -29,6 +29,7 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { usePanelBatchSize } from './usePanelBatchSize';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
@@ -322,42 +323,20 @@ export function ModeClickWordsHintedExercise({
 
   /* ── Batch logic: show only as many words as fit in the bottom panel ── */
   const choicesPanelRef = useRef<HTMLDivElement | null>(null);
-  const [batchSize, setBatchSize] = useState(visibleChoices.length);
+  const batchSize = usePanelBatchSize(choicesPanelRef, visibleChoices.length);
 
-  const measureBatch = useCallback(() => {
-    const panel = choicesPanelRef.current;
-    if (!panel) return;
-    const children = panel.children;
-    if (children.length === 0) return;
-    const panelRect = panel.getBoundingClientRect();
-    const panelBottom = panelRect.bottom;
-    let count = 0;
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i] as HTMLElement;
-      const childBottom = child.getBoundingClientRect().bottom;
-      if (childBottom > panelBottom + 2) break;
-      count = i + 1;
+  const displayedChoices = useMemo(() => {
+    const batch = visibleChoices.slice(0, batchSize);
+    const expectedNormalized = nextHiddenSlot?.normalized;
+    if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
+      const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
+      if (expectedChoice && batch.length > 0) {
+        const swapIdx = selectedCount % batch.length;
+        batch[swapIdx] = expectedChoice;
+      }
     }
-    setBatchSize((prev) => (count !== prev ? count : prev));
-  }, []);
-
-  useLayoutEffect(() => {
-    setBatchSize(visibleChoices.length);
-    requestAnimationFrame(() => measureBatch());
-  }, [visibleChoices, measureBatch]);
-
-  useEffect(() => {
-    const panel = choicesPanelRef.current;
-    if (!panel) return;
-    const ro = new ResizeObserver(() => measureBatch());
-    ro.observe(panel);
-    return () => ro.disconnect();
-  }, [measureBatch]);
-
-  const displayedChoices = useMemo(
-    () => visibleChoices.slice(0, batchSize),
-    [visibleChoices, batchSize]
-  );
+    return batch;
+  }, [visibleChoices, batchSize, nextHiddenSlot, selectedCount]);
 
   return (
     <motion.div

@@ -87,24 +87,24 @@ export function VerseListFiltersDrawer({
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ? getSortSummaryLabel(sortBy) : null,
     trimmedSearchQuery.length > 0 ? 'Поиск' : null,
   ].filter((value): value is string => Boolean(value));
-  const mainFilterValues = [
-    { label: 'Источник', value: currentFilterLabel },
-    { label: 'Книга', value: selectedBook?.label ?? 'Все книги' },
-    { label: 'Сортировка', value: getSortSummaryLabel(sortBy) },
-    hasActiveTags
-      ? { label: 'Темы', value: `${selectedTagSlugs.size} актив.` }
-      : null,
-    trimmedSearchQuery.length > 0
-      ? { label: 'Поиск', value: trimmedSearchQuery }
-      : null,
-  ].filter(
-    (
-      item,
-    ): item is {
-      label: string;
-      value: string;
-    } => Boolean(item),
-  );
+  // const mainFilterValues = [
+  //   { label: 'Источник', value: currentFilterLabel },
+  //   { label: 'Книга', value: selectedBook?.label ?? 'Все книги' },
+  //   { label: 'Сортировка', value: getSortSummaryLabel(sortBy) },
+  //   hasActiveTags
+  //     ? { label: 'Темы', value: `${selectedTagSlugs.size} актив.` }
+  //     : null,
+  //   trimmedSearchQuery.length > 0
+  //     ? { label: 'Поиск', value: trimmedSearchQuery }
+  //     : null,
+  // ].filter(
+  //   (
+  //     item,
+  //   ): item is {
+  //     label: string;
+  //     value: string;
+  //   } => Boolean(item),
+  // );
   const triggerBottom = contentSafeAreaInset.bottom + MOBILE_NAV_OFFSET_PX + MOBILE_DOCK_GAP_PX;
 
   const filterCardProps: VerseListFilterCardProps = {
@@ -225,7 +225,7 @@ export function VerseListFiltersDrawer({
             </div>
           </DrawerHeader>
 
-          <div
+          {/* <div
             data-tour="verse-list-filters-main-values"
             className="mt-4 rounded-2xl border border-border/45 bg-background/40 px-3.5 py-3"
           >
@@ -243,7 +243,7 @@ export function VerseListFiltersDrawer({
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           <div className="mt-4 min-h-0 overflow-y-auto overscroll-contain pb-1">
             <VerseListFilterCard {...filterCardProps} />

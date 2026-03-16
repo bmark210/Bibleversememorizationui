@@ -930,9 +930,9 @@ export default function App({ onInitialContentReady }: AppProps) {
             url: "/api/users/telegram",
             body: {
               telegramId,
-              ...(telegramName ? { name: telegramName } : {}),
-              ...(telegramNickname ? { nickname: telegramNickname } : {}),
-              ...(telegramAvatarUrl ? { avatarUrl: telegramAvatarUrl } : {}),
+              name: telegramName || null,
+              nickname: telegramNickname || null,
+              avatarUrl: telegramAvatarUrl || null,
             },
             mediaType: "application/json",
           });
@@ -944,9 +944,9 @@ export default function App({ onInitialContentReady }: AppProps) {
         try {
           await UsersService.postApiUsers({
             telegramId,
-            ...(telegramName ? { name: telegramName } : {}),
-            ...(telegramNickname ? { nickname: telegramNickname } : {}),
-            ...(telegramAvatarUrl ? { avatarUrl: telegramAvatarUrl } : {}),
+            name: telegramName || null,
+            nickname: telegramNickname || null,
+            avatarUrl: telegramAvatarUrl || null,
           });
         } catch (error) {
           console.warn("Не удалось инициализировать пользователя:", error);
