@@ -45,6 +45,11 @@ async function waitForPagePaint(frameCount = 2) {
   }
 }
 
+async function waitForStepSettle() {
+  await waitForPagePaint(2);
+  await waitForPagePaint(1);
+}
+
 function waitForPage(
   pageRef: MutableRefObject<VerseSectionTutorialPage>,
   page: VerseSectionTutorialPage,
@@ -332,7 +337,7 @@ export function useVerseSectionTutorialDriver({
           }
 
           await step.prepare?.(runtime);
-          await waitForPagePaint(2);
+          await waitForStepSettle();
 
           const shouldSkip = (await step.skipWhen?.(runtime)) ?? false;
           if (shouldSkip) {
@@ -350,6 +355,7 @@ export function useVerseSectionTutorialDriver({
             }
           }
 
+          await waitForStepSettle();
           driverRef.current?.moveTo(candidateIndex);
           return;
         }
@@ -516,7 +522,7 @@ export function useVerseSectionTutorialDriver({
 
       const initialRuntime = createRuntime();
       await stepsRef.current[0]?.prepare?.(initialRuntime);
-      await waitForPagePaint(2);
+      await waitForStepSettle();
 
       const nextDriver = buildDriverInstance(source);
       driverRef.current = nextDriver;

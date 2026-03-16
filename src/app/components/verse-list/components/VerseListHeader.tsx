@@ -2,6 +2,7 @@ import React from "react";
 import { Eye, Plus } from "lucide-react";
 import { Button } from "../../ui/button";
 import { cn } from "../../ui/utils";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 
 type VerseListHeaderProps = {
   onAddVerseClick: () => void;
@@ -15,11 +16,11 @@ export function VerseListHeader({
   isFocusMode = false,
   onToggleFocusMode,
 }: VerseListHeaderProps) {
-  const isTelegramFullscreen = true
+  const isTelegramFullscreen = useTelegramUiStore((state) => state.isTelegramFullscreen);
 
   return (
     <div className={cn("flex justify-between items-start gap-3 px-4 sm:px-6 lg:px-8 relative", isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7")}>
-      {isTelegramFullscreen ? null : <h1 className="text-primary">Cтихи</h1>}
+      {isTelegramFullscreen ? null : <h1 className="text-primary">Cтиxи</h1>}
       <div
         className={cn(
           "flex items-center gap-2",

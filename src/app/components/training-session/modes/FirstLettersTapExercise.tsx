@@ -20,6 +20,7 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { usePanelBatchSize } from './usePanelBatchSize';
 
 interface FirstLettersTapExerciseProps {
   verse: Verse;
@@ -155,6 +156,22 @@ export function ModeFirstLettersTapExercise({
     [shuffledUniqueLetters, remainingCountByLetter]
   );
 
+  /* ── Batch logic: show only as many letters as fit in the panel ── */
+  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
+  const batchSize = usePanelBatchSize(choicesPanelRef, availableLetters.length);
+
+  const displayedLetters = useMemo(() => {
+    const batch = availableLetters.slice(0, batchSize);
+    if (expectedLetter && !batch.includes(expectedLetter)) {
+      const idx = availableLetters.indexOf(expectedLetter);
+      if (idx >= 0 && batch.length > 0) {
+        const swapIdx = selectedCount % batch.length;
+        batch[swapIdx] = expectedLetter;
+      }
+    }
+    return batch;
+  }, [availableLetters, batchSize, expectedLetter, selectedCount]);
+
   const focusItemId = useMemo(() => {
     if (expectedTokens.length === 0) return null;
     if (selectedCount <= 0) return expectedTokens[0]?.id ?? null;
@@ -264,8 +281,11 @@ export function ModeFirstLettersTapExercise({
             <span>Варианты букв</span>
             <span className="tabular-nums">{availableLetters.length}</span>
           </div>
-          <div className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden">
-            {availableLetters.map((letter) => (
+          <div
+            ref={choicesPanelRef}
+            className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden"
+          >
+            {displayedLetters.map((letter) => (
               <Button
                 key={letter}
                 type="button"

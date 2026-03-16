@@ -281,7 +281,7 @@ export function buildOnboardingSteps({
       description:
         "У каждой карточки есть текст, ссылка и быстрые действия. Отсюда начинается работа со стихом.",
       element: ONBOARDING_PRIMARY_CARD_SELECTOR,
-      side: "left",
+      side: "bottom",
       align: "center",
       prepare: ensurePrimaryMockVerseCard,
     },
