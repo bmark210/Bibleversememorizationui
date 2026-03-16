@@ -1,14 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Translation } from "@/generated/prisma";
 import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { resolveTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type CreateUserPayload = {
   telegramId?: string;
   translation?: string;
-  name?: string;
-  nickname?: string;
-  avatarUrl?: string;
+  name?: string | null;
+  nickname?: string | null;
+  avatarUrl?: string | null;
 };
 
 const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
@@ -47,11 +48,12 @@ export default async function handler(
     const translationValue = normalizeTranslation(translation);
     const nameValue = normalizeOptionalString(name);
     const nicknameValue = normalizeOptionalString(nickname);
-    const avatarUrlValue = normalizeOptionalString(avatarUrl);
 
     if (!telegramId) {
       return res.status(400).json({ error: "telegramId is required" });
     }
+
+    const avatarUrlValue = await resolveTelegramAvatarUrl(telegramId, avatarUrl);
 
     const user = await upsertUserByTelegramId({
       telegramId,
@@ -59,13 +61,13 @@ export default async function handler(
         ...(translationValue ? { translation: translationValue } : {}),
         ...(nameValue ? { name: nameValue } : {}),
         ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
+        avatarUrl: avatarUrlValue,
       },
       create: {
         ...(translationValue ? { translation: translationValue } : {}),
         ...(nameValue ? { name: nameValue } : {}),
         ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
+        avatarUrl: avatarUrlValue,
       },
     });
 

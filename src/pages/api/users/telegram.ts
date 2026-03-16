@@ -1,17 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Translation } from "@/generated/prisma";
 import {
-  createUser,
-  getUserByTelegramId,
+  upsertUserByTelegramId,
 } from "@/modules/users/infrastructure/userRepository";
+import { resolveTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type TelegramInitPayload = {
   telegramId?: string;
   translation?: string;
-  name?: string;
-  nickname?: string;
-  avatarUrl?: string;
+  name?: string | null;
+  nickname?: string | null;
+  avatarUrl?: string | null;
 };
 
 const VALID_TRANSLATIONS: Translation[] = [
@@ -56,12 +56,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "telegramId is required" });
     }
 
-    const existing = await getUserByTelegramId(telegramId);
-
-    if (existing) {
-      return res.status(200).json(existing);
-    }
-
     let validTranslation: Translation | undefined;
     if (translation) {
       const normalizedTranslation = normalizeTranslationInput(translation);
@@ -76,16 +70,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const nameValue = normalizeOptionalString(name);
     const nicknameValue = normalizeOptionalString(nickname);
-    const avatarUrlValue = normalizeOptionalString(avatarUrl);
+    const avatarUrlValue = await resolveTelegramAvatarUrl(telegramId, avatarUrl);
 
-    const created = await createUser({
+    const user = await upsertUserByTelegramId({
       telegramId,
-      ...(validTranslation ? { translation: validTranslation } : {}),
-      ...(nameValue ? { name: nameValue } : {}),
-      ...(nicknameValue ? { nickname: nicknameValue } : {}),
-      ...(avatarUrlValue ? { avatarUrl: avatarUrlValue } : {}),
+      update: {
+        ...(validTranslation ? { translation: validTranslation } : {}),
+        ...(nameValue ? { name: nameValue } : {}),
+        ...(nicknameValue ? { nickname: nicknameValue } : {}),
+        avatarUrl: avatarUrlValue,
+      },
+      create: {
+        ...(validTranslation ? { translation: validTranslation } : {}),
+        ...(nameValue ? { name: nameValue } : {}),
+        ...(nicknameValue ? { nickname: nicknameValue } : {}),
+        avatarUrl: avatarUrlValue,
+      },
     });
-    return res.status(201).json(created);
+    return res.status(200).json(user);
   } catch (error) {
     return handleApiError(
       res,
