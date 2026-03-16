@@ -528,7 +528,7 @@ function ModeStepRail({
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl"
+          "relative overflow-hidden rounded-2xl",
         )}
       >
         <div
@@ -597,14 +597,14 @@ function ModeStepRail({
         <div
           className={cn(
             "rounded-2xl border px-3 py-3 shadow-sm backdrop-blur-sm",
-            tone.railDoneClassName
+            tone.cardClassName
           )}
         >
           <div className="flex items-start gap-3">
             <div
               className={cn(
                 "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border",
-                tone.iconWrapClassName
+                tone.cardClassName
               )}
             >
               <CurrentModeIcon className={cn("h-[18px] w-[18px]", tone.iconClassName)} />
@@ -1079,21 +1079,15 @@ export function VerseProgressDrawer({
                   <div className="absolute bottom-4 left-[23px] top-4 w-px bg-border/70" />
                   <div className="space-y-4">
                     {phases.map((phase, index) => {
-                      const isCurrent = phase.state === "current";
-
                       return (
                         <div key={phase.key} className="relative pl-12">
                           <div
                             className={cn(
                               "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl ",
-                              phase.state === "complete"
-                                ? phase.tone.cardClassName
-                                : isCurrent
-                                  ? phase.tone.cardClassName
-                                  : phase.tone.cardClassName
+                              phase.tone.railUpcomingClassName
                             )}
                           >
-                            <span className="text-sm font-semibold tabular-nums">{index + 1}</span>
+                            <span className="text-sm font-semibold tabular-nums text-foreground/70">{index + 1}</span>
                           </div>
                           <TimelinePhaseCard
                             icon={phase.icon}
