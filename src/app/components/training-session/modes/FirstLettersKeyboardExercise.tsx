@@ -8,6 +8,7 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 import { Info } from 'lucide-react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
+import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import {
   TrainingRatingButtons,
@@ -69,6 +70,7 @@ export function ModeFirstLettersKeyboardExercise({
   isLateStageReview = false,
   onOpenTutorial,
 }: FirstLettersKeyboardExerciseProps) {
+  const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -243,7 +245,8 @@ export function ModeFirstLettersKeyboardExercise({
             placeholder="Введите первые буквы..."
             disabled={isCompleted || surrendered}
             data-swipe-through="true"
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono text-base uppercase tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono uppercase tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{ fontSize: `${fontSizes.base}px` }}
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}

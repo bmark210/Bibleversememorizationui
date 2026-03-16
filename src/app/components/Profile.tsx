@@ -15,6 +15,7 @@ import {
   applyTelegramFullscreenPreference,
   useTelegramUiStore,
 } from "@/app/stores/telegramUiStore";
+import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
 import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
@@ -138,6 +139,8 @@ export function Profile({
   const currentUserDailyStreak = useCurrentUserStatsStore(
     (state) => state.dailyStreak
   );
+  const trainingFontStore = useTrainingFontStore();
+  const trainingFontSize = trainingFontStore.trainingFontSize;
   const prefersReducedMotion = useReducedMotion();
   const shouldReduceMotion = useOnboardingMockData || prefersReducedMotion;
   const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
@@ -706,6 +709,48 @@ export function Profile({
                     onCheckedChange={onToggleTheme}
                     aria-label="Тёмная тема"
                   />
+                </div>
+              </div>
+            </ProfileSurface>
+          </motion.div>
+
+          <motion.div variants={sectionVariants}>
+            <ProfileSurface>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground/82">
+                    Размер шрифта
+                  </div>
+                  <div className="mt-1 text-sm text-foreground/56">
+                    Размер текста в тренировочных упражнениях.
+                  </div>
+                </div>
+
+                <div className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-background/55 p-1">
+                  {(
+                    [
+                      { value: "small", label: "Малый", preview: 14 },
+                      { value: "medium", label: "Средний", preview: 17 },
+                      { value: "large", label: "Крупный", preview: 20 },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => trainingFontStore.setTrainingFontSize(option.value)}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                        trainingFontSize === option.value
+                          ? "bg-primary/15 text-foreground border border-primary/30 shadow-sm"
+                          : "text-foreground/60 border border-transparent hover:text-foreground/80"
+                      )}
+                    >
+                      <span style={{ fontSize: option.preview }} className="font-serif leading-none">
+                        Аа
+                      </span>
+                      <span className="hidden min-[400px]:inline">{option.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </ProfileSurface>

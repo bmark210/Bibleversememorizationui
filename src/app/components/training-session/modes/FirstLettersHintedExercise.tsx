@@ -28,7 +28,8 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { usePanelBatchSize } from './usePanelBatchSize';
+import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
@@ -125,6 +126,8 @@ function buildExercise(params: {
   };
 }
 
+const MAX_DISPLAYED_CHOICES = 20;
+
 export function ModeFirstLettersHintedExercise({
   verse,
   onRate,
@@ -133,6 +136,7 @@ export function ModeFirstLettersHintedExercise({
   isLateStageReview = false,
   onOpenTutorial,
 }: FirstLettersHintedExerciseProps) {
+  const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
@@ -220,13 +224,10 @@ export function ModeFirstLettersHintedExercise({
     [choiceOrder, remainingCountByLetter]
   );
 
-  /* ── Batch logic: show only as many letters as fit in the panel ── */
-  const choicesPanelRef = useRef<HTMLDivElement | null>(null);
-  const batchSize = usePanelBatchSize(choicesPanelRef, availableLetters.length);
   const expectedFirstLetter = nextHiddenSlot?.firstLetter ?? null;
 
   const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, batchSize);
+    const batch = availableLetters.slice(0, MAX_DISPLAYED_CHOICES);
     if (expectedFirstLetter && !batch.includes(expectedFirstLetter)) {
       const idx = availableLetters.indexOf(expectedFirstLetter);
       if (idx >= 0 && batch.length > 0) {
@@ -235,7 +236,7 @@ export function ModeFirstLettersHintedExercise({
       }
     }
     return batch;
-  }, [availableLetters, batchSize, expectedFirstLetter, selectedCount]);
+  }, [availableLetters, expectedFirstLetter, selectedCount]);
 
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
@@ -353,6 +354,7 @@ export function ModeFirstLettersHintedExercise({
           progressTotal={totalHidden}
           items={sequenceItems}
           focusItemId={focusItemId}
+          fontSizes={fontSizes}
         />
       </div>
 
@@ -362,26 +364,28 @@ export function ModeFirstLettersHintedExercise({
             <span>Варианты букв</span>
             <span className="tabular-nums">{availableLetters.length}</span>
           </div>
-          <div
-            ref={choicesPanelRef}
-            className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden"
+          <ScrollShadowContainer
+            className="flex-1 min-h-0"
+            scrollClassName="flex flex-wrap content-start gap-1 py-1"
+            shadowSize={16}
           >
             {displayedLetters.map((letter) => (
               <Button
                 key={letter}
                 type="button"
                 variant="outline"
-                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
                   errorFlashLetter === letter
                     ? 'border-destructive text-destructive'
                     : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
+                style={{ fontSize: `${fontSizes.letter}px` }}
                 onClick={() => handleLetterClick(letter)}
               >
                 <span>{letter}</span>
               </Button>
             ))}
-          </div>
+          </ScrollShadowContainer>
         </div>
       )}
 

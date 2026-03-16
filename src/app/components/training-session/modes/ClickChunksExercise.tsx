@@ -18,6 +18,7 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickChunksExerciseProps {
   verse: Verse;
@@ -111,6 +112,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
 }
 
 export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickChunksExerciseProps) {
+  const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -269,14 +271,15 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               {selectedTokens.map((token) => (
                 <div
                   key={token.id}
-                  className="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-sm leading-relaxed"
+                  className="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 leading-relaxed"
+                  style={{ fontSize: `${fontSizes.sm}px` }}
                 >
                   {token.text}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Нажимайте фрагменты в правильном порядке.</p>
+            <p className="text-muted-foreground" style={{ fontSize: `${fontSizes.sm}px` }}>Нажимайте фрагменты в правильном порядке.</p>
           )}
         </div>
       </div>
@@ -298,6 +301,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
                     ? 'border-destructive text-destructive'
                     : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
+                style={{ fontSize: `${fontSizes.sm}px` }}
                 onClick={() => handleChunkClick(token)}
               >
                 {token.text}

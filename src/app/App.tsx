@@ -52,6 +52,7 @@ import type { DirectLaunchVerse } from "./components/Training/types";
 import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
 import { useTelegramUiStore } from "./stores/telegramUiStore";
+import { useTrainingFontStore } from "./stores/trainingFontStore";
 import {
   buildOnboardingMockTrainingVerses,
   createOnboardingMockProfileFriendsPage,
@@ -541,6 +542,8 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    useTrainingFontStore.getState().hydrateTrainingFontSize();
 
     const telegramUiStore = useTelegramUiStore.getState();
     const storedFullscreenPreference =
