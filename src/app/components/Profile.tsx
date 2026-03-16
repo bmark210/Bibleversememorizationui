@@ -51,6 +51,7 @@ interface ProfileProps {
   theme: Theme;
   onToggleTheme: () => void;
   telegramId?: string | null;
+  currentUserAvatarUrl?: string | null;
   onRestartVerseSectionTutorial?: () => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
@@ -107,6 +108,7 @@ export function Profile({
   theme,
   onToggleTheme,
   telegramId = null,
+  currentUserAvatarUrl,
   // onRestartVerseSectionTutorial,
   onFriendsChanged,
   onOpenPlayerProfile,
@@ -118,6 +120,7 @@ export function Profile({
     selectShouldUseVerseSectionTutorialMockData,
   );
   const { user } = useTelegram();
+  const effectiveAvatarUrl = currentUserAvatarUrl ?? user?.photoUrl ?? null;
   const isTelegramMiniApp = useTelegramUiStore(
     (state) => state.isTelegramMiniApp
   );
@@ -600,7 +603,7 @@ export function Profile({
                     onOpenPlayerProfile({
                       telegramId,
                       name: profileName,
-                      avatarUrl: user?.photoUrl ?? null,
+                      avatarUrl: effectiveAvatarUrl,
                     })
                   }
                   className="w-full text-left transition-opacity hover:opacity-90"
@@ -609,8 +612,8 @@ export function Profile({
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
-                        {user?.photoUrl ? (
-                          <AvatarImage src={user.photoUrl} alt={profileName} />
+                        {effectiveAvatarUrl ? (
+                          <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
                         ) : null}
                         <AvatarFallback className="bg-secondary text-secondary-foreground">
                           {getInitials(profileName || "TG")}
@@ -646,8 +649,8 @@ export function Profile({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
-                      {user?.photoUrl ? (
-                        <AvatarImage src={user.photoUrl} alt={profileName} />
+                      {effectiveAvatarUrl ? (
+                        <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
                       ) : null}
                       <AvatarFallback className="bg-secondary text-secondary-foreground">
                         {getInitials(profileName || "TG")}

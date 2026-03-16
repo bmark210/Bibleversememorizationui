@@ -25,6 +25,7 @@ interface DashboardProps {
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
   currentTelegramId?: string | null
+  currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
   onOpenProfile?: () => void
   onOpenPlayerProfile?: (player: {
@@ -117,6 +118,7 @@ export function Dashboard({
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
   currentTelegramId = null,
+  currentUserAvatarUrl = null,
   onOpenTraining,
   onOpenProfile,
   onOpenPlayerProfile,
@@ -182,6 +184,7 @@ export function Dashboard({
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <DashboardWelcomeSection
         user={user}
+        currentUserAvatarUrl={currentUserAvatarUrl}
         learningVersesCount={learningVerses}
         dueReviewVerses={dueReviewVerses}
         dailyStreak={dailyStreak}
@@ -192,7 +195,7 @@ export function Dashboard({
                 onOpenPlayerProfile({
                   telegramId: currentTelegramId,
                   name: user?.firstName?.trim() || 'Вы',
-                  avatarUrl: user?.photoUrl ?? null,
+                  avatarUrl: currentUserAvatarUrl,
                 })
             : undefined
         }

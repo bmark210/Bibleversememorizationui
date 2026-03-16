@@ -188,6 +188,11 @@ type PendingVerseListReturn = {
   statusFilter: VerseListStatusFilter;
 };
 
+function normalizeAvatarUrl(value: unknown): string | null {
+  const normalized = String(value ?? "").trim();
+  return normalized ? normalized : null;
+}
+
 type AppProps = {
   onInitialContentReady?: () => void;
 };
@@ -459,6 +464,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
   const [activePlayerProfile, setActivePlayerProfile] =
     useState<PlayerProfilePreview | null>(null);
@@ -910,44 +916,40 @@ export default function App({ onInitialContentReady }: AppProps) {
         .join(" ")
         .trim();
       const telegramNickname = String(telegramWebUser?.username ?? "").trim();
-      const telegramAvatarUrl = String(telegramWebUser?.photo_url ?? "").trim();
 
       if (!telegramId) {
         setDashboardStats(null);
         setDashboardLeaderboard(null);
         setDashboardFriendsActivity(null);
+        setCurrentUserAvatarUrl(null);
         useCurrentUserStatsStore.getState().clear();
         finishBootstrapping();
         return;
       }
       setTelegramId(telegramId);
+      setCurrentUserAvatarUrl(null);
       localStorage.setItem("telegramId", telegramId);
 
       if (telegramWebUser?.id) {
         try {
-          await apiRequest(OpenAPI, {
-            method: "POST",
-            url: "/api/users/telegram",
-            body: {
-              telegramId,
-              name: telegramName || null,
-              nickname: telegramNickname || null,
-              avatarUrl: telegramAvatarUrl || null,
-            },
-            mediaType: "application/json",
+          const initializedUser = await UsersService.postApiUsersTelegram({
+            telegramId,
+            name: telegramName || null,
+            nickname: telegramNickname || null,
           });
+          setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
           console.warn("Не удалось синхронизировать профиль Telegram:", error);
         }
       } else {
         // Browser/dev fallback: make sure the user row exists before loading paginated verses/stats.
         try {
-          await UsersService.postApiUsers({
+          const initializedUser = await UsersService.postApiUsers({
             telegramId,
             name: telegramName || null,
             nickname: telegramNickname || null,
-            avatarUrl: telegramAvatarUrl || null,
           });
+          setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
           console.warn("Не удалось инициализировать пользователя:", error);
         }
@@ -1282,6 +1284,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                     : isDashboardFriendsActivityLoading
                 }
                 currentTelegramId={telegramId}
+                currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}
                 onOpenProfile={() => handleRootNavigate("profile")}
                 onOpenPlayerProfile={handleOpenPlayerProfile}
@@ -1344,6 +1347,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               theme={theme}
               onToggleTheme={handleToggleTheme}
               telegramId={telegramId}
+              currentUserAvatarUrl={currentUserAvatarUrl}
               onRestartVerseSectionTutorial={() => {
                 void startVerseSectionTutorial("profile");
               }}
@@ -1371,61 +1375,6 @@ export default function App({ onInitialContentReady }: AppProps) {
         onOpenChange={handlePlayerProfileDrawerOpenChange}
         onFriendsChanged={handleFriendsChanged}
       />
-
-
-      {/* {isTrainingBatchPromptOpen && (
-        <div className="fixed inset-0 z-[450] bg-background/70 backdrop-blur-sm p-4 flex items-center justify-center">
-          <Card className="w-full max-w-lg p-6 sm:p-7 border-border/70 shadow-xl">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold">Настройка тренировки</h2>
-                <p className="text-sm text-muted-foreground">
-                  Выберите, сколько стихов в изучении и сколько повторений загружать за одну тренировку.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-sm font-medium">Стихов в изучении за раз</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {MY_VERSE_COUNT_OPTIONS.map((value) => (
-                    <Button
-                      key={`new-${value}`}
-                      type="button"
-                      variant={selectedNewVersesCount === value ? "default" : "outline"}
-                      onClick={() => setSelectedNewVersesCount(value)}
-                    >
-                      {value}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-sm font-medium">Стихов в повторении за раз</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {REVIEW_VERSE_COUNT_OPTIONS.map((value) => (
-                    <Button
-                      key={`review-${value}`}
-                      type="button"
-                      variant={selectedReviewVersesCount === value ? "default" : "outline"}
-                      onClick={() => setSelectedReviewVersesCount(value)}
-                    >
-                      {value}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={() => void handleSaveTrainingBatchPreferences()}>
-                  Сохранить и продолжить
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )} */}
-
       <Toaster />
     </>
   );
