@@ -25,6 +25,13 @@ import {
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
   REPEAT_THRESHOLD_FOR_MASTERED,
 } from "@/shared/training/constants";
+import {
+  TrainingModeId,
+  getBaseTrainingModeForMastery,
+  getReviewModeByRepetition,
+  toTrainingStageMasteryLevel,
+} from "@/shared/training/modeEngine";
+import { MODE_PIPELINE } from "../constants";
 import type { Verse } from "@/app/App";
 import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
 import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
@@ -501,6 +508,7 @@ type StatusTone = {
   fillClass: string;
   trackClass: string;
   bgFillClass: string;
+  currentModeId: TrainingModeId | null;
 };
 
 function StatusFooter({
@@ -544,6 +552,23 @@ function StatusFooter({
             style={{ width: `${totalProgressPercent}%` }}
           />
         </div>
+
+        {statusTone.currentModeId != null && MODE_PIPELINE[statusTone.currentModeId] ? (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            {(() => {
+              const meta = MODE_PIPELINE[statusTone.currentModeId!];
+              const ModeIcon = meta.icon;
+              return (
+                <>
+                  <ModeIcon className="h-3 w-3 text-muted-foreground/70" />
+                  <span className="text-[10px] text-muted-foreground/70 leading-tight">
+                    {meta.label}
+                  </span>
+                </>
+              );
+            })()}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -663,33 +688,8 @@ function buildStatusTone(params: {
   const { status, isNotYetDue, notYetDueLabel, repetitionsCount, rawMasteryLevel } = params;
   const repeatThreshold = REPEAT_THRESHOLD_FOR_MASTERED;
 
-  if (status === "CATALOG") {
-    return {
-      icon: Plus,
-      title: "Каталог",
-      subtitle: "Добавьте стих в свои, чтобы начать путь",
-      wrapperClass: "border-slate-500/20",
-      iconWrapClass: "border-slate-500/25 bg-slate-500/12 text-slate-700 dark:text-slate-300",
-      titleClass: "text-slate-700/80 dark:text-slate-300/80",
-      valueClass: "text-slate-700 dark:text-slate-300",
-      fillClass: "from-slate-500 to-slate-400/80",
-      trackClass: "bg-slate-500/14",
-      bgFillClass: "bg-slate-500/[0.13]",
-    };
-  }
-  if (status === VerseStatus.MY) {
-    return {
-      icon: Play,
-      title: "Мой список",
-      subtitle: "Стих ждет первого упражнения",
-      wrapperClass: "border-sky-500/20",
-      iconWrapClass: "border-sky-500/25 bg-sky-500/12 text-sky-700 dark:text-sky-300",
-      titleClass: "text-sky-700/80 dark:text-sky-300/80",
-      valueClass: "text-sky-700 dark:text-sky-300",
-      fillClass: "from-sky-500 to-sky-400/80",
-      trackClass: "bg-sky-500/14",
-      bgFillClass: "bg-sky-500/[0.13]",
-    };
+  if (status === "CATALOG" || status === VerseStatus.MY) {
+    return null;
   }
   if (status === VerseStatus.STOPPED) {
     return {
@@ -703,6 +703,7 @@ function buildStatusTone(params: {
       fillClass: "from-rose-500 to-rose-400/80",
       trackClass: "bg-rose-500/14",
       bgFillClass: "bg-rose-500/[0.13]",
+      currentModeId: null,
     };
   }
   if (status === "MASTERED") {
@@ -717,6 +718,7 @@ function buildStatusTone(params: {
       fillClass: "from-amber-500 to-yellow-400/85",
       trackClass: "bg-amber-500/14",
       bgFillClass: "bg-amber-500/[0.13]",
+      currentModeId: null,
     };
   }
   if (status === "REVIEW") {
@@ -733,9 +735,11 @@ function buildStatusTone(params: {
       fillClass: "from-violet-500 to-violet-400/80",
       trackClass: "bg-violet-500/14",
       bgFillClass: "bg-violet-500/[0.13]",
+      currentModeId: getReviewModeByRepetition(repetitionsCount),
     };
   }
   if (status === VerseStatus.LEARNING) {
+    const stageMastery = toTrainingStageMasteryLevel(rawMasteryLevel);
     return {
       icon: Brain,
       title: "Изучение",
@@ -748,6 +752,7 @@ function buildStatusTone(params: {
       fillClass: "from-emerald-500 to-emerald-400/80",
       trackClass: "bg-emerald-500/14",
       bgFillClass: "bg-emerald-500/[0.13]",
+      currentModeId: getBaseTrainingModeForMastery(stageMastery),
     };
   }
   return null;

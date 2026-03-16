@@ -6,6 +6,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
+import { Info } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
 import {
@@ -35,6 +36,7 @@ interface FirstLettersHintedExerciseProps {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
+  onOpenTutorial?: () => void;
 }
 
 interface WordSlot {
@@ -129,6 +131,7 @@ export function ModeFirstLettersHintedExercise({
   hintState,
   onProgressChange,
   isLateStageReview = false,
+  onOpenTutorial,
 }: FirstLettersHintedExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
@@ -314,10 +317,15 @@ export function ModeFirstLettersHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="shrink-0">
-        <label className="block text-center text-sm font-medium text-foreground/90">
+      <div className="shrink-0 flex items-center justify-center gap-1.5">
+        <label className="text-sm font-medium text-foreground/90">
           Восстановите скрытые слова по первым буквам
         </label>
+        {onOpenTutorial && (
+          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
+            <Info className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="mt-3 min-h-0 flex-1 overflow-hidden">

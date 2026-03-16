@@ -23,6 +23,11 @@ import {
   TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
   TRAINING_STAGE_MASTERY_MAX,
 } from "@/shared/training/constants";
+import {
+  TRAINING_MODE_PROGRESS_ORDER,
+  REVIEW_TRAINING_MODE_ROTATION,
+} from "@/shared/training/modeEngine";
+import { MODE_PIPELINE } from "@/app/components/VerseGallery/constants";
 import { VERSE_JOURNEY_PHASE_TITLES } from "@/app/onboarding/verseJourneyModel";
 import {
   Drawer,
@@ -317,40 +322,64 @@ function getSummaryLabel(params: {
   return "В коллекции";
 }
 
-function StepRail({
-  total,
+function ModeStepRail({
+  modeIds,
   completed,
   current,
   tone,
   stepLabelPrefix,
 }: {
-  total: number;
+  modeIds: readonly import("@/shared/training/modeEngine").TrainingModeId[];
   completed: number;
   current: number | null;
   tone: PhaseTone;
   stepLabelPrefix: string;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {Array.from({ length: total }, (_, index) => {
+    <div className="flex flex-col gap-1">
+      {modeIds.map((modeId, index) => {
         const stepNumber = index + 1;
         const isCompleted = stepNumber <= completed;
         const isCurrent = current === stepNumber;
+        const meta = MODE_PIPELINE[modeId];
+        const ModeIcon = meta?.icon;
 
         return (
           <div
             key={`${stepLabelPrefix}-${stepNumber}`}
             className={cn(
-              "flex h-10 items-center justify-center rounded-xl border text-[11px] font-semibold tabular-nums transition-colors",
+              "flex items-center gap-2.5 rounded-xl border px-3 transition-colors",
+              isCurrent ? "py-2.5" : "py-1.5",
               isCompleted
                 ? tone.railDoneClassName
                 : isCurrent
                   ? tone.railCurrentClassName
                   : tone.railUpcomingClassName
             )}
-            aria-label={`${stepLabelPrefix} ${stepNumber}`}
+            aria-label={`${stepLabelPrefix} ${stepNumber}: ${meta?.label ?? ""}`}
           >
-            {isCompleted ? <Check className="h-3.5 w-3.5" /> : stepNumber}
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+              {isCompleted ? (
+                <Check className="h-4 w-4" />
+              ) : ModeIcon ? (
+                <ModeIcon className="h-4 w-4" />
+              ) : (
+                <span className="text-xs font-semibold tabular-nums">{stepNumber}</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className={cn("text-xs font-medium leading-tight", isCurrent && "font-semibold")}>
+                {meta?.label ?? `${stepLabelPrefix} ${stepNumber}`}
+              </span>
+              {isCurrent && meta?.description && (
+                <p className="mt-0.5 text-[11px] leading-snug opacity-75">
+                  {meta.description}
+                </p>
+              )}
+            </div>
+            {isCurrent && (
+              <span className="shrink-0 text-[10px] font-medium opacity-60">Сейчас</span>
+            )}
           </div>
         );
       })}
@@ -509,24 +538,6 @@ export function VerseProgressDrawer({
 
     return [
       {
-        key: "collection" as const,
-        title: VERSE_JOURNEY_PHASE_TITLES.collection,
-        icon: Bookmark,
-        tone: PHASE_TONES.collection,
-        state: getPhaseState(currentPhase, "collection"),
-        description: buildPhaseDescription({
-          phase: "collection",
-          state: getPhaseState(currentPhase, "collection"),
-          verse,
-          learningStage: progressModel.learningStage,
-          reviewCompleted: progressModel.reviewCompleted,
-          reviewTarget: progressModel.reviewTarget,
-          nextReviewAt: progressModel.nextReviewAt,
-          reviewLapseStreak: progressModel.reviewLapseStreak,
-        }),
-        content: null as React.ReactNode,
-      },
-      {
         key: "learning" as const,
         title: VERSE_JOURNEY_PHASE_TITLES.learning,
         icon: Brain,
@@ -543,8 +554,8 @@ export function VerseProgressDrawer({
           reviewLapseStreak: progressModel.reviewLapseStreak,
         }),
         content: (
-          <StepRail
-            total={TRAINING_STAGE_MASTERY_MAX}
+          <ModeStepRail
+            modeIds={TRAINING_MODE_PROGRESS_ORDER}
             completed={progressModel.learningCompleted}
             current={progressModel.learningCurrent}
             tone={PHASE_TONES.learning}
@@ -573,8 +584,8 @@ export function VerseProgressDrawer({
         }),
         content: (
           <div className="space-y-3">
-            <StepRail
-              total={REPEAT_THRESHOLD_FOR_MASTERED}
+            <ModeStepRail
+              modeIds={REVIEW_TRAINING_MODE_ROTATION}
               completed={progressModel.reviewCompleted}
               current={progressModel.reviewCurrent}
               tone={PHASE_TONES.review}
