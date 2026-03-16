@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
+import { Info } from 'lucide-react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
@@ -25,6 +26,7 @@ interface FirstLettersKeyboardExerciseProps {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
+  onOpenTutorial?: () => void;
 }
 
 function normalizeComparableLetter(value: string) {
@@ -65,6 +67,7 @@ export function ModeFirstLettersKeyboardExercise({
   hintState,
   onProgressChange,
   isLateStageReview = false,
+  onOpenTutorial,
 }: FirstLettersKeyboardExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
@@ -206,10 +209,15 @@ export function ModeFirstLettersKeyboardExercise({
       animate={{ opacity: 1, y: 0 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="shrink-0 flex items-center justify-between">
+      <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Введите первые буквы слов
         </label>
+        {onOpenTutorial && (
+          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
+            <Info className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>

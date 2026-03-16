@@ -5,7 +5,7 @@ import { cn } from '@/app/components/ui/utils';
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
+  // DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@/app/components/ui/drawer';
@@ -208,9 +208,9 @@ export function VerseListFiltersDrawer({
                 <DrawerTitle className="text-xl tracking-tight text-primary">
                   Фильтры стихов
                 </DrawerTitle>
-                <DrawerDescription className="mt-1 text-sm text-foreground/56">
+                {/* <DrawerDescription className="mt-1 text-sm text-foreground/56">
                   Настройте список и вернитесь к карточкам без потери места на экране.
-                </DrawerDescription>
+                </DrawerDescription> */}
               </div>
 
               {hasFiltersApplied && onResetFilters ? (

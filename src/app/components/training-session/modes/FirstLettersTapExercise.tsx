@@ -6,6 +6,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
+import { Info } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
@@ -13,7 +14,6 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { FixedBottomPanel } from './FixedBottomPanel';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import { tokenizeFirstLetters } from './wordUtils';
 import type { HintState } from './useHintState';
@@ -27,6 +27,7 @@ interface FirstLettersTapExerciseProps {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
+  onOpenTutorial?: () => void;
 }
 
 interface LetterToken {
@@ -62,6 +63,7 @@ export function ModeFirstLettersTapExercise({
   hintState,
   onProgressChange,
   isLateStageReview = false,
+  onOpenTutorial,
 }: FirstLettersTapExerciseProps) {
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<LetterToken[]>([]);
@@ -232,13 +234,19 @@ export function ModeFirstLettersTapExercise({
       animate={{ opacity: 1, y: 0 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <div className="shrink-0 flex items-center justify-between">
+      <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите первые буквы слов
         </label>
+        {onOpenTutorial && (
+          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
+            <Info className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-hidden flex flex-col gap-3">
+      {/* ── Top half: letter sequence ── */}
+      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Последовательность букв"
@@ -249,29 +257,32 @@ export function ModeFirstLettersTapExercise({
         />
       </div>
 
-      <FixedBottomPanel visible={showChoices}>
-        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Варианты букв</span>
-          <span className="tabular-nums">{availableLetters.length}</span>
+      {/* ── Bottom half: letter choices ── */}
+      {showChoices && (
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Варианты букв</span>
+            <span className="tabular-nums">{availableLetters.length}</span>
+          </div>
+          <div className="flex flex-1 min-h-0 flex-wrap content-start gap-1 overflow-hidden">
+            {availableLetters.map((letter) => (
+              <Button
+                key={letter}
+                type="button"
+                variant="outline"
+                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
+                  errorFlashLetter === letter
+                    ? 'border-destructive text-destructive'
+                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                }`}
+                onClick={() => handlePick(letter)}
+              >
+                <span>{letter}</span>
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap content-start gap-1">
-          {availableLetters.map((letter) => (
-            <Button
-              key={letter}
-              type="button"
-              variant="outline"
-              className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono text-[15px] uppercase leading-4 transition-colors ${
-                errorFlashLetter === letter
-                  ? 'border-destructive text-destructive'
-                  : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-              }`}
-              onClick={() => handlePick(letter)}
-            >
-              <span>{letter}</span>
-            </Button>
-          ))}
-        </div>
-      </FixedBottomPanel>
+      )}
 
       {isCompleted && (
         <div className="shrink-0 pt-3">
