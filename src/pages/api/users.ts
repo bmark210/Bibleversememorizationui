@@ -1,15 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Translation } from "@/generated/prisma";
-import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
-import { resolveTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
+import { upsertUserByTelegramId, getAllUsers } from "@/modules/users/infrastructure/userRepository";
+import { fetchTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
+import { computeSocialUserXpSummary } from "@/shared/social/xp";
 
 type CreateUserPayload = {
   telegramId?: string;
   translation?: string;
   name?: string | null;
   nickname?: string | null;
-  avatarUrl?: string | null;
 };
 
 const ALLOWED_TRANSLATIONS: Translation[] = Object.values(Translation);
@@ -32,50 +33,100 @@ const normalizeOptionalString = (value?: string): string | undefined => {
   return normalized ? normalized : undefined;
 };
 
+function normalizeNumber(value: unknown, fallback = 0): number {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.max(0, Math.round(num)) : fallback;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Создаём или обновляем пользователя по telegramId.
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
+  // GET - получить список всех пользователей
+  if (req.method === "GET") {
+    try {
+      const { limit } = req.query;
+      const limitNumber = normalizeNumber(limit, 20);
+      
+      const users = await getAllUsers();
+      const metricVerses = await getSocialMetricVerseRows(
+        users.map((user) => user.telegramId)
+      );
 
-  try {
-    const body = req.body as CreateUserPayload;
-    const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
-    const translationValue = normalizeTranslation(translation);
-    const nameValue = normalizeOptionalString(name);
-    const nicknameValue = normalizeOptionalString(nickname);
+      const versesByTelegramId = new Map<string, typeof metricVerses>();
+      for (const verse of metricVerses) {
+        const group = versesByTelegramId.get(verse.telegramId) ?? [];
+        group.push(verse);
+        versesByTelegramId.set(verse.telegramId, group);
+      }
+      
+      const entries = users.slice(0, limitNumber).map((user) => {
+        const summary = computeSocialUserXpSummary({
+          verses: versesByTelegramId.get(user.telegramId) ?? [],
+          storedStreak: user.dailyStreak,
+        });
+        return {
+          telegramId: user.telegramId,
+          name: user.name ?? `Участник #${user.telegramId.slice(-4)}`,
+          avatarUrl: user.avatarUrl,
+          xp: summary.xp,
+          dailyStreak: summary.dailyStreak,
+        };
+      });
 
-    if (!telegramId) {
-      return res.status(400).json({ error: "telegramId is required" });
+      return res.status(200).json({
+        generatedAt: new Date().toISOString(),
+        totalCount: users.length,
+        entries,
+      });
+    } catch (error) {
+      return handleApiError(
+        res,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
-
-    const avatarUrlValue = await resolveTelegramAvatarUrl(telegramId, avatarUrl);
-
-    const user = await upsertUserByTelegramId({
-      telegramId,
-      update: {
-        ...(translationValue ? { translation: translationValue } : {}),
-        ...(nameValue ? { name: nameValue } : {}),
-        ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        avatarUrl: avatarUrlValue,
-      },
-      create: {
-        ...(translationValue ? { translation: translationValue } : {}),
-        ...(nameValue ? { name: nameValue } : {}),
-        ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        avatarUrl: avatarUrlValue,
-      },
-    });
-
-    return res.status(201).json(user);
-  } catch (error) {
-    return handleApiError(
-      res,
-      error instanceof Error ? error : new Error(String(error))
-    );
   }
+
+  // POST - создать или обновить пользователя
+  if (req.method === "POST") {
+    try {
+      const body = req.body as CreateUserPayload;
+      const { telegramId, translation, name, nickname } = body ?? {};
+      const translationValue = normalizeTranslation(translation);
+      const nameValue = normalizeOptionalString(name);
+      const nicknameValue = normalizeOptionalString(nickname);
+
+      if (!telegramId) {
+        return res.status(400).json({ error: "telegramId is required" });
+      }
+
+      const avatarUrlValue = await fetchTelegramAvatarUrl(telegramId);
+
+      const user = await upsertUserByTelegramId({
+        telegramId,
+        update: {
+          ...(translationValue ? { translation: translationValue } : {}),
+          ...(nameValue ? { name: nameValue } : {}),
+          ...(nicknameValue ? { nickname: nicknameValue } : {}),
+          avatarUrl: avatarUrlValue,
+        },
+        create: {
+          ...(translationValue ? { translation: translationValue } : {}),
+          ...(nameValue ? { name: nameValue } : {}),
+          ...(nicknameValue ? { nickname: nicknameValue } : {}),
+          avatarUrl: avatarUrlValue,
+        },
+      });
+
+      return res.status(201).json(user);
+    } catch (error) {
+      return handleApiError(
+        res,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "POST"]);
+  return res.status(405).json({ error: "Method Not Allowed" });
 }

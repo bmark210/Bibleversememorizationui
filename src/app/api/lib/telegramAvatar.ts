@@ -1,3 +1,16 @@
+/**
+ * Получение аватарки пользователя через Telegram Bot API.
+ *
+ * Bot API (`getUserProfilePhotos`) — единственный надёжный источник.
+ * `photo_url` из Mini App SDK часто приходит `undefined` даже когда
+ * у пользователя есть аватарка, поэтому клиентское значение не используется.
+ *
+ * Ссылки на файлы Telegram действительны ~1 час, но обновляются
+ * при каждом входе пользователя в приложение.
+ */
+
+// ── Типы Telegram Bot API ───────────────────────────────────────────
+
 type TelegramApiResponse<T> = {
   ok: boolean;
   result?: T;
@@ -5,110 +18,91 @@ type TelegramApiResponse<T> = {
   description?: string;
 };
 
-type TelegramUserProfilePhotosResult = {
-  total_count: number;
-  photos: Array<
-    Array<{
-      file_id: string;
-      file_unique_id: string;
-      width: number;
-      height: number;
-      file_size?: number;
-    }>
-  >;
+type TelegramPhotoSize = {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
 };
 
-type TelegramFileResult = {
+type TelegramUserProfilePhotos = {
+  total_count: number;
+  photos: TelegramPhotoSize[][];
+};
+
+type TelegramFile = {
   file_id: string;
   file_unique_id: string;
   file_size?: number;
   file_path?: string;
 };
 
-function getTelegramBotToken(): string {
-  const token = String(process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
-  if (!token) {
-    throw new Error("TELEGRAM_BOT_TOKEN is not configured");
-  }
+// ── Хелперы ─────────────────────────────────────────────────────────
 
+function getBotToken(): string {
+  const token = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not configured");
   return token;
 }
 
-async function callTelegramBotApi<T>(
+async function botApi<T>(
   method: string,
-  searchParams: Record<string, string>
+  params: Record<string, string>,
 ): Promise<T> {
-  const token = getTelegramBotToken();
+  const token = getBotToken();
   const url = new URL(`https://api.telegram.org/bot${token}/${method}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
-  for (const [key, value] of Object.entries(searchParams)) {
-    url.searchParams.set(key, value);
+  const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const json = (await res.json().catch(() => null)) as TelegramApiResponse<T> | null;
+
+  if (!res.ok || !json?.ok || json.result == null) {
+    throw new Error(
+      json?.description ?? `Bot API ${method} failed (${res.status})`,
+    );
   }
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    cache: "no-store",
-  });
-
-  const payload = (await response.json().catch(() => null)) as TelegramApiResponse<T> | null;
-  if (!response.ok || !payload?.ok || payload.result == null) {
-    const message =
-      payload?.description ??
-      `Telegram Bot API request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return payload.result;
+  return json.result;
 }
 
-export async function fetchTelegramAvatar(
-  telegramId: string
-): Promise<string | null> {
-  const normalizedTelegramId = String(telegramId ?? "").trim();
-  if (!normalizedTelegramId) {
-    return null;
-  }
+// ── Основная функция ────────────────────────────────────────────────
 
-  const profilePhotos = await callTelegramBotApi<TelegramUserProfilePhotosResult>(
-    "getUserProfilePhotos",
-    {
-      user_id: normalizedTelegramId,
-      limit: "1",
-    }
-  );
-
-  const firstPhotoGroup = profilePhotos.photos[0];
-  if (!firstPhotoGroup?.length) {
-    return null;
-  }
-
-  const bestAvailablePhoto = firstPhotoGroup[firstPhotoGroup.length - 1];
-  const fileId = String(bestAvailablePhoto?.file_id ?? "").trim();
-  if (!fileId) {
-    return null;
-  }
-
-  const file = await callTelegramBotApi<TelegramFileResult>("getFile", {
-    file_id: fileId,
-  });
-
-  const filePath = String(file.file_path ?? "").trim();
-  if (!filePath) {
-    return null;
-  }
-
-  const token = getTelegramBotToken();
-  return `https://api.telegram.org/file/bot${token}/${filePath}`;
-}
-
-export async function resolveTelegramAvatarUrl(
+/**
+ * Получает URL текущей аватарки пользователя через Bot API.
+ * Возвращает `null` если у пользователя нет аватарки или Bot API недоступен.
+ */
+export async function fetchTelegramAvatarUrl(
   telegramId: string,
-  _clientAvatarUrl?: string | null
 ): Promise<string | null> {
+  const id = (telegramId ?? "").trim();
+  if (!id) return null;
+
   try {
-    return await fetchTelegramAvatar(telegramId);
+    // 1. Получаем список фото профиля (берём только последнее)
+    const photos = await botApi<TelegramUserProfilePhotos>(
+      "getUserProfilePhotos",
+      { user_id: id, limit: "1" },
+    );
+
+    const group = photos.photos[0];
+    if (!group?.length) return null;
+
+    // Берём самый большой размер (последний в массиве)
+    const fileId = group[group.length - 1]?.file_id;
+    if (!fileId) return null;
+
+    // 2. Получаем file_path для скачивания
+    const file = await botApi<TelegramFile>("getFile", { file_id: fileId });
+    const filePath = (file.file_path ?? "").trim();
+    if (!filePath) return null;
+
+    // 3. Формируем публичный URL
+    return `https://api.telegram.org/file/bot${getBotToken()}/${filePath}`;
   } catch (error) {
-    console.error(`[TelegramAvatar] Failed to refresh avatar for user ${telegramId}:`, error);
+    console.error(
+      `[TelegramAvatar] Не удалось получить аватарку для ${id}:`,
+      error,
+    );
     return null;
   }
 }
