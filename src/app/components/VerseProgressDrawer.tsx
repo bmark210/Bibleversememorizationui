@@ -173,7 +173,7 @@ function useScrollShadowState<T extends HTMLElement>(axis: ScrollShadowAxis) {
 const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   collection: {
     cardClassName: "border-sky-500/18 bg-sky-500/[0.08]",
-    iconWrapClassName: "border-sky-500/25 bg-sky-500/12",
+    iconWrapClassName: "border-sky-500/25 bg-sky-500/[0.08]",
     iconClassName: "text-sky-700 dark:text-sky-300",
     badgeClassName: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     progressClassName: "from-sky-500 to-sky-400/80",
@@ -184,7 +184,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   },
   learning: {
     cardClassName: "border-emerald-500/18 bg-emerald-500/[0.08]",
-    iconWrapClassName: "border-emerald-500/25 bg-emerald-500/12",
+    iconWrapClassName: "border-emerald-500/25 bg-emerald-500/[0.08]",
     iconClassName: "text-emerald-700 dark:text-emerald-300",
     badgeClassName:
       "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
@@ -198,7 +198,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   },
   review: {
     cardClassName: "border-violet-500/18 bg-violet-500/[0.08]",
-    iconWrapClassName: "border-violet-500/25 bg-violet-500/12",
+    iconWrapClassName: "border-violet-500/25 bg-violet-500/[0.08]",
     iconClassName: "text-violet-700 dark:text-violet-300",
     badgeClassName:
       "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
@@ -212,7 +212,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
   },
   mastered: {
     cardClassName: "border-amber-500/20 bg-amber-500/[0.09]",
-    iconWrapClassName: "border-amber-500/28 bg-amber-500/14",
+    iconWrapClassName: "border-amber-500/28 bg-amber-500/[0.08]",
     iconClassName: "text-amber-800 dark:text-amber-300",
     badgeClassName:
       "border-amber-500/28 bg-amber-500/12 text-amber-800 dark:text-amber-300",
@@ -228,7 +228,7 @@ const PHASE_TONES: Record<PhaseKey, PhaseTone> = {
 
 const PAUSE_SUMMARY_TONE: PhaseTone = {
   cardClassName: "border-rose-500/18 bg-rose-500/[0.08]",
-  iconWrapClassName: "border-rose-500/25 bg-rose-500/12",
+  iconWrapClassName: "border-rose-500/25 bg-rose-500/[0.08]",
   iconClassName: "text-rose-700 dark:text-rose-300",
   badgeClassName: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   progressClassName: "from-rose-500 to-rose-400/85",
@@ -471,43 +471,9 @@ function ModeStepRail({
   const CurrentModeIcon = currentMeta?.icon;
   const {
     scrollRef: horizontalScrollRef,
-    shadowState: horizontalShadowState,
   } = useScrollShadowState<HTMLDivElement>("x");
-  const horizontalMaskStyle = useMemo<React.CSSProperties | undefined>(() => {
-    const fadeWidth = 44;
-
-    if (horizontalShadowState.showStart && horizontalShadowState.showEnd) {
-      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
-      return {
-        WebkitMaskImage: maskImage,
-        maskImage,
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-      };
-    }
-
-    if (horizontalShadowState.showStart) {
-      const maskImage = `linear-gradient(to right, transparent 0px, black ${fadeWidth}px, black 100%)`;
-      return {
-        WebkitMaskImage: maskImage,
-        maskImage,
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-      };
-    }
-
-    if (horizontalShadowState.showEnd) {
-      const maskImage = `linear-gradient(to right, black 0px, black calc(100% - ${fadeWidth}px), transparent 100%)`;
-      return {
-        WebkitMaskImage: maskImage,
-        maskImage,
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-      };
-    }
-
-    return undefined;
-  }, [horizontalShadowState.showEnd, horizontalShadowState.showStart]);
+  // Более простой и совместимый фикс без mask-image
+  const horizontalMaskStyle = undefined;
 
   return (
     <div className="space-y-3">
@@ -587,7 +553,7 @@ function ModeStepRail({
         <div
           className={cn(
             "rounded-2xl border px-3 py-3 shadow-sm backdrop-blur-sm",
-            tone.railCurrentClassName
+            tone.railDoneClassName
           )}
         >
           <div className="flex items-start gap-3">
@@ -1075,12 +1041,12 @@ export function VerseProgressDrawer({
                         <div key={phase.key} className="relative pl-12">
                           <div
                             className={cn(
-                              "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl",
+                              "absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-2xl border bg-background shadow-sm backdrop-blur-2xl ",
                               phase.state === "complete"
-                                ? phase.tone.iconWrapClassName
+                                ? phase.tone.cardClassName
                                 : isCurrent
-                                  ? phase.tone.iconWrapClassName
-                                  : "border-border/60 bg-background/75"
+                                  ? phase.tone.cardClassName
+                                  : phase.tone.cardClassName
                             )}
                           >
                             <span className="text-sm font-semibold tabular-nums">{index + 1}</span>
