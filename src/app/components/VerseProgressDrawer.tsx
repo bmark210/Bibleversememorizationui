@@ -491,7 +491,6 @@ function ModeStepRail({
           aria-label={`${stepLabelPrefix} режимов`}
           className="relative flex min-w-max items-stretch gap-3 px-1 py-1"
         >
-          <div className="pointer-events-none z-[-10] absolute left-7 right-7 top-7 h-px bg-gradient-to-r from-border/20 via-border/70 to-border/20" />
 
           {modeIds.map((modeId, index) => {
             const stepNumber = index + 1;
@@ -873,13 +872,13 @@ export function VerseProgressDrawer({
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
       <DrawerContent
         data-tour="verse-progress-drawer"
-        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
+        className="rounded-t-[32px] border-border/70 bg-card px-4 shadow-2xl backdrop-blur-xl sm:px-6"
       >
         <div className="relative mt-2 max-h-[calc(80vh-28px)] overflow-hidden bg-card">
           <div
             ref={verticalScrollRef}
             data-tour="verse-progress-content"
-            className="max-h-[calc(80vh-28px)] overflow-y-auto bg-card overscroll-contain pr-1"
+            className="max-h-[calc(80vh-28px)] overflow-y-auto overscroll-contain pr-1"
             style={verticalFadeMaskStyle}
           >
             <DrawerHeader className="px-0 pb-0 pt-4">
