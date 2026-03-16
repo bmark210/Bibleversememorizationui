@@ -6,6 +6,7 @@ import {
   getFeedbackPage,
 } from "@/modules/feedback/infrastructure/feedbackRepository";
 import { userExists } from "@/modules/users/infrastructure/userRepository";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 const DEFAULT_PAGE_LIMIT = 20;
@@ -58,7 +59,7 @@ function toFeedbackResponse(feedback: Awaited<ReturnType<typeof createFeedback>>
       telegramId: feedback.user.telegramId,
       name: feedback.user.name,
       nickname: feedback.user.nickname,
-      avatarUrl: feedback.user.avatarUrl,
+      avatarUrl: getTelegramAvatarProxyUrl(feedback.user.telegramId),
     },
   };
 }

@@ -3,7 +3,6 @@ import { Translation } from "@/generated/prisma";
 import {
   upsertUserByTelegramId,
 } from "@/modules/users/infrastructure/userRepository";
-import { fetchTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 
 type TelegramInitPayload = {
@@ -11,6 +10,7 @@ type TelegramInitPayload = {
   translation?: string;
   name?: string | null;
   nickname?: string | null;
+  avatarUrl?: string | null;
 };
 
 const VALID_TRANSLATIONS: Translation[] = [
@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as TelegramInitPayload;
-    const { telegramId, translation, name, nickname } = body ?? {};
+    const { telegramId, translation, name, nickname, avatarUrl } = body ?? {};
 
     if (!telegramId) {
       return res.status(400).json({ error: "telegramId is required" });
@@ -69,7 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const nameValue = normalizeOptionalString(name);
     const nicknameValue = normalizeOptionalString(nickname);
-    const avatarUrlValue = await fetchTelegramAvatarUrl(telegramId);
+    // Сохраняем photo_url от клиента (CDN Telegram, не истекает) как fallback.
+    // В API-ответах всегда возвращаем proxy URL — /api/avatar/{telegramId}.
+    const clientPhotoUrl = (avatarUrl ?? "").trim() || null;
 
     const user = await upsertUserByTelegramId({
       telegramId,
@@ -77,13 +79,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...(validTranslation ? { translation: validTranslation } : {}),
         ...(nameValue ? { name: nameValue } : {}),
         ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        avatarUrl: avatarUrlValue,
+        ...(clientPhotoUrl ? { avatarUrl: clientPhotoUrl } : {}),
       },
       create: {
         ...(validTranslation ? { translation: validTranslation } : {}),
         ...(nameValue ? { name: nameValue } : {}),
         ...(nicknameValue ? { nickname: nicknameValue } : {}),
-        avatarUrl: avatarUrlValue,
+        ...(clientPhotoUrl ? { avatarUrl: clientPhotoUrl } : {}),
       },
     });
     return res.status(200).json(user);

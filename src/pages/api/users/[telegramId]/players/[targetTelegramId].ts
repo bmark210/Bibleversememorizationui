@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { isFollowing } from "@/modules/social/infrastructure/socialRepository";
 import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import {
   assertUserExists,
   buildFriendMetricsMap,
@@ -80,7 +81,7 @@ export default async function handler(
       }),
       name: targetUser.name,
       nickname: targetUser.nickname,
-      avatarUrl: targetUser.avatarUrl ?? null,
+      avatarUrl: getTelegramAvatarProxyUrl(targetUser.telegramId),
       isCurrentUser,
       isFriend,
       lastActiveAt: metrics?.lastActiveAt ?? null,

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Translation } from "@/generated/prisma";
 import { upsertUserByTelegramId, getAllUsers } from "@/modules/users/infrastructure/userRepository";
-import { fetchTelegramAvatarUrl } from "@/app/api/lib/telegramAvatar";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { computeSocialUserXpSummary } from "@/shared/social/xp";
@@ -68,7 +68,7 @@ export default async function handler(
         return {
           telegramId: user.telegramId,
           name: user.name ?? `Участник #${user.telegramId.slice(-4)}`,
-          avatarUrl: user.avatarUrl,
+          avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
           xp: summary.xp,
           dailyStreak: summary.dailyStreak,
         };
@@ -100,21 +100,17 @@ export default async function handler(
         return res.status(400).json({ error: "telegramId is required" });
       }
 
-      const avatarUrlValue = await fetchTelegramAvatarUrl(telegramId);
-
       const user = await upsertUserByTelegramId({
         telegramId,
         update: {
           ...(translationValue ? { translation: translationValue } : {}),
           ...(nameValue ? { name: nameValue } : {}),
           ...(nicknameValue ? { nickname: nicknameValue } : {}),
-          avatarUrl: avatarUrlValue,
         },
         create: {
           ...(translationValue ? { translation: translationValue } : {}),
           ...(nameValue ? { name: nameValue } : {}),
           ...(nicknameValue ? { nickname: nicknameValue } : {}),
-          avatarUrl: avatarUrlValue,
         },
       });
 

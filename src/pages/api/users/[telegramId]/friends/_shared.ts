@@ -3,6 +3,7 @@ import type { VerseStatus } from "@/generated/prisma";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { userExists } from "@/modules/users/infrastructure/userRepository";
 import { computeSocialUserXpSummary } from "@/shared/social/xp";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 
 const DEFAULT_LIST_LIMIT = 8;
 const DEFAULT_ACTIVITY_LIMIT = 6;
@@ -263,7 +264,7 @@ export function mapUsersToFriendListItems(params: {
         name: user.name,
         nickname: user.nickname,
       }),
-      avatarUrl: user.avatarUrl ?? null,
+      avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
       isFriend:
         forceIsFriend || (friendTelegramIds?.has(user.telegramId) ?? false),
       lastActiveAt: metrics?.lastActiveAt ?? null,
@@ -293,7 +294,7 @@ export function buildFriendsActivityResponse(params: {
           name: user.name,
           nickname: user.nickname,
         }),
-        avatarUrl: user.avatarUrl ?? null,
+        avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
         lastActiveAt: metrics?.lastActiveAt ?? null,
         masteredVerses: metrics?.masteredVerses ?? 0,
         weeklyRepetitions: metrics?.weeklyRepetitions ?? 0,

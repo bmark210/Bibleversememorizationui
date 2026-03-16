@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getSocialMetricVerseRows } from "@/modules/social/infrastructure/socialRepository";
 import { getAllUsers } from "@/modules/users/infrastructure/userRepository";
 import { computeSocialUserXpSummary } from "@/shared/social/xp";
+import { getTelegramAvatarProxyUrl } from "@/app/api/lib/telegramAvatar";
 
 type LeaderboardEntry = {
   rank: number;
@@ -119,7 +120,7 @@ export default async function handler(
           name: user.name,
           nickname: user.nickname,
         }),
-        avatarUrl: user.avatarUrl ?? null,
+        avatarUrl: getTelegramAvatarProxyUrl(user.telegramId),
         xp: summary.xp,
         masteredVerses: summary.masteredVerses,
         streakDays: summary.dailyStreak,
