@@ -76,7 +76,10 @@ export function ModeFirstLettersTapExercise({
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
+  const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -85,13 +88,19 @@ export function ModeFirstLettersTapExercise({
     setTokens(shuffleTokens(letters));
     setSelectedCount(0);
     setMistakesSinceReset(0);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
+    setSuccessFlashLetter(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
         clearFlashTimeoutRef.current = null;
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+        clearSuccessFlashTimeoutRef.current = null;
       }
     };
   }, [verse]);
@@ -202,12 +211,22 @@ export function ModeFirstLettersTapExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
+      setSuccessFlashLetter(letter);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlashLetter(null);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       if (next === total) {
         setIsCompleted(true);
       }
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -249,8 +268,13 @@ export function ModeFirstLettersTapExercise({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {totalMistakes > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {totalMistakes}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите первые буквы слов
@@ -294,8 +318,10 @@ export function ModeFirstLettersTapExercise({
                 variant="outline"
                 className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
                   errorFlashLetter === letter
-                    ? 'border-destructive text-destructive'
-                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    ? 'border-destructive text-destructive bg-destructive/10'
+                    : successFlashLetter === letter
+                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
                 style={{ fontSize: `${fontSizes.letter}px` }}
                 onClick={() => handlePick(letter)}

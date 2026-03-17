@@ -119,7 +119,10 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
+  const [successFlashTokenId, setSuccessFlashTokenId] = useState<string | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -128,13 +131,19 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
     setTokens(shuffleTokens(chunks));
     setSelectedIds([]);
     setMistakesSinceReset(0);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashTokenId(null);
+    setSuccessFlashTokenId(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
         clearFlashTimeoutRef.current = null;
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+        clearSuccessFlashTimeoutRef.current = null;
       }
     };
   }, [verse]);
@@ -198,12 +207,22 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       const next = [...selectedIds, token.id];
       setSelectedIds(next);
 
+      setSuccessFlashTokenId(token.id);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlashTokenId(null);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       if (expectedOrder + 1 === totalChunks) {
         setIsCompleted(true);
       }
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -245,8 +264,13 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {totalMistakes > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {totalMistakes}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите стих по фрагментам
@@ -298,8 +322,10 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
                 variant="outline"
                 className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
                   errorFlashTokenId === token.id
-                    ? 'border-destructive text-destructive'
-                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    ? 'border-destructive text-destructive bg-destructive/10'
+                    : successFlashTokenId === token.id
+                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
                 style={{ fontSize: `${fontSizes.sm}px` }}
                 onClick={() => handleChunkClick(token)}

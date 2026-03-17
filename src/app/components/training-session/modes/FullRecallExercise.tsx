@@ -48,7 +48,10 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
+  const [successFlash, setSuccessFlash] = useState(false);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearShakeTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -62,13 +65,19 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
   useEffect(() => {
     setUserInput('');
     setMatchPercent(null);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setShakeInput(false);
+    setSuccessFlash(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
         window.clearTimeout(clearShakeTimeoutRef.current);
         clearShakeTimeoutRef.current = null;
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+        clearSuccessFlashTimeoutRef.current = null;
       }
       if (mobileFocusTimeoutRef.current) {
         window.clearTimeout(mobileFocusTimeoutRef.current);
@@ -158,6 +167,16 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
 
     if (nextMatchPercent >= RECALL_THRESHOLD) {
       setIsCompleted(true);
+
+      setSuccessFlash(true);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlash(false);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
         toasterId: GALLERY_TOASTER_ID,
         size: 'compact',
@@ -165,6 +184,7 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
@@ -176,8 +196,13 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {totalMistakes > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {totalMistakes}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Напечатайте стих по памяти
@@ -197,7 +222,9 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
           className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm transition-colors focus-within:border-primary/40 ${
             shakeInput
               ? 'border-destructive/60 bg-destructive/5'
-              : 'border-border/60'
+              : successFlash
+                ? 'border-emerald-500/60 bg-emerald-500/5'
+                : 'border-border/60'
           }`}
         >
           <div

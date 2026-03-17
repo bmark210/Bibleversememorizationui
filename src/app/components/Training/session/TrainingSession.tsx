@@ -412,15 +412,6 @@ export function TrainingSession({
         requestCloseSession();
         return;
       }
-      if (e.key === "ArrowDown" || e.key === "PageDown") {
-        e.preventDefault();
-        requestNavigationStep(1);
-        return;
-      }
-      if (e.key === "ArrowUp" || e.key === "PageUp") {
-        e.preventDefault();
-        requestNavigationStep(-1);
-      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -709,8 +700,6 @@ export function TrainingSession({
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
-          onTouchStart={handleContentTouchStart}
-          onTouchEnd={handleContentTouchEnd}
         >
           <TrainingProgressPopup popup={session.progressPopup} />
 

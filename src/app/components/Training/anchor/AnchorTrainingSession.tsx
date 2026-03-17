@@ -2098,8 +2098,6 @@ export function AnchorTrainingSession({
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки закрепления"
-          onTouchStart={handleContentTouchStart}
-          onTouchEnd={handleContentTouchEnd}
         >
           <TrainingProgressPopup popup={progressPopup} />
 
