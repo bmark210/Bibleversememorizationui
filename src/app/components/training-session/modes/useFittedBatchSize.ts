@@ -18,6 +18,11 @@ interface FittedBatchSizeOptions {
   maxItems?: number;
   /** Whether measurement is enabled. */
   enabled?: boolean;
+  /**
+   * Fixed px to subtract from measured height before fitting calculation.
+   * Use for wrapper padding (e.g. py-1 = 8px) that isn't part of items.
+   */
+  reduceHeightBy?: number;
 }
 
 const DEFAULT_MIN = 4;
@@ -40,6 +45,7 @@ export function useFittedBatchSize<T extends HTMLElement = HTMLDivElement>(
     minItems = DEFAULT_MIN,
     maxItems = DEFAULT_MAX,
     enabled = true,
+    reduceHeightBy = 0,
   } = options;
 
   const { ref, size } = useMeasuredElementSize<T>(enabled);
@@ -48,15 +54,13 @@ export function useFittedBatchSize<T extends HTMLElement = HTMLDivElement>(
     if (!enabled || size.height <= 0 || size.width <= 0) return maxItems;
 
     const availableWidth = size.width;
-    const availableHeight = size.height;
+    const availableHeight = Math.max(0, size.height - reduceHeightBy);
 
-    // Items per row: floor(availableWidth + columnGap) / (itemMinWidth + columnGap)
     const itemsPerRow = Math.max(
       1,
       Math.floor((availableWidth + columnGap) / (itemMinWidth + columnGap))
     );
 
-    // Rows that fit: (availableHeight + rowGap) / (itemHeight + rowGap)
     const rows = Math.max(
       1,
       Math.floor((availableHeight + rowGap) / (itemHeight + rowGap))
@@ -74,6 +78,7 @@ export function useFittedBatchSize<T extends HTMLElement = HTMLDivElement>(
     columnGap,
     minItems,
     maxItems,
+    reduceHeightBy,
   ]);
 
   return { ref, batchSize };

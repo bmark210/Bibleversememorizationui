@@ -277,14 +277,18 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
+  // border(2) + py-2(16) + max(leading-5 fixed 20px, fontSize)
+  const wordButtonHeight = 18 + Math.max(20, fontSizes.sm);
+  const wordButtonMinWidth = 24 + Math.ceil(fontSizes.sm * 2.2);
   const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
-    itemHeight: 36,
+    itemHeight: wordButtonHeight,
     rowGap: 6,
-    itemMinWidth: 60,
+    itemMinWidth: wordButtonMinWidth,
     columnGap: 6,
     minItems: 4,
     maxItems: 40,
     enabled: showChoices,
+    reduceHeightBy: 8, // py-1 wrapper padding
   });
 
   const displayedChoices = useMemo(() => {

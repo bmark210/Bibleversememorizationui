@@ -334,14 +334,17 @@ export function ModeFirstLettersHintedExercise({
 
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
 
+  // max(min-h-11=44, border(2) + py-1.5(12) + max(leading-4 fixed 16px, fontSize))
+  const letterButtonHeight = Math.max(44, 14 + Math.max(16, fontSizes.letter));
   const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
-    itemHeight: 44,
+    itemHeight: letterButtonHeight,
     rowGap: 4,
-    itemMinWidth: 48,
+    itemMinWidth: 48 + Math.max(0, fontSizes.letter - 15),
     columnGap: 4,
     minItems: 4,
     maxItems: 40,
     enabled: showChoices,
+    reduceHeightBy: 8, // py-1 wrapper padding
   });
 
   const displayedLetters = useMemo(() => {
