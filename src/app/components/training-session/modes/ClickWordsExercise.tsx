@@ -26,7 +26,7 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useFittedBatchSize } from './useFittedBatchSize';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsExerciseProps {
@@ -106,8 +106,6 @@ function initClickWordsExercise(text: string) {
   const uniqueChoices = shuffleArray(buildUniqueChoices(shuffled));
   return { orderedTokens, uniqueChoices };
 }
-
-const MAX_DISPLAYED_CHOICES = 20;
 
 export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
@@ -279,8 +277,18 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
+  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
+    itemHeight: 36,
+    rowGap: 6,
+    itemMinWidth: 60,
+    columnGap: 6,
+    minItems: 4,
+    maxItems: 40,
+    enabled: showChoices,
+  });
+
   const displayedChoices = useMemo(() => {
-    const batch = visibleChoices.slice(0, MAX_DISPLAYED_CHOICES);
+    const batch = visibleChoices.slice(0, batchSize);
     const expectedNormalized = orderedTokens[selectedCount]?.normalized;
     if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
       const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
@@ -290,7 +298,7 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
       }
     }
     return batch;
-  }, [visibleChoices, orderedTokens, selectedCount]);
+  }, [visibleChoices, orderedTokens, selectedCount, batchSize]);
 
   return (
     <motion.div
@@ -298,9 +306,9 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      {totalMistakes > 0 && (
+      {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
+          {maxMistakes - mistakesSinceReset}
         </span>
       )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
@@ -330,15 +338,14 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
       {/* ── Bottom half: word choices ── */}
       {showChoices && (
         <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты слов</span>
-            <span className="tabular-nums">{visibleChoices.length}</span>
           </div>
-          <ScrollShadowContainer
-            className="flex-1 min-h-0"
-            scrollClassName="flex flex-wrap content-start gap-1.5 py-1"
-            shadowSize={16}
+          <div
+            ref={choicesContainerRef}
+            className="flex-1 min-h-0 overflow-hidden"
           >
+            <div className="flex flex-wrap content-start gap-1.5 py-1">
             {displayedChoices.map((choice) => (
               <Button
                 key={choice.normalized}
@@ -360,7 +367,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
                 </span>
               </Button>
             ))}
-          </ScrollShadowContainer>
+            </div>
+          </div>
         </div>
       )}
 

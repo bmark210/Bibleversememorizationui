@@ -230,9 +230,9 @@ export function ModeFirstLettersKeyboardExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      {totalMistakes > 0 && (
+      {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
+          {maxMistakes - mistakesSinceReset}
         </span>
       )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">

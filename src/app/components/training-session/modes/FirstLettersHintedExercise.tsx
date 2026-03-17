@@ -28,7 +28,7 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useFittedBatchSize } from './useFittedBatchSize';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface FirstLettersHintedExerciseProps {
@@ -125,8 +125,6 @@ function buildExercise(params: {
     choiceOrder,
   };
 }
-
-const MAX_DISPLAYED_CHOICES = 20;
 
 export function ModeFirstLettersHintedExercise({
   verse,
@@ -235,18 +233,6 @@ export function ModeFirstLettersHintedExercise({
 
   const expectedFirstLetter = nextHiddenSlot?.firstLetter ?? null;
 
-  const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, MAX_DISPLAYED_CHOICES);
-    if (expectedFirstLetter && !batch.includes(expectedFirstLetter)) {
-      const idx = availableLetters.indexOf(expectedFirstLetter);
-      if (idx >= 0 && batch.length > 0) {
-        const swapIdx = selectedCount % batch.length;
-        batch[swapIdx] = expectedFirstLetter;
-      }
-    }
-    return batch;
-  }, [availableLetters, expectedFirstLetter, selectedCount]);
-
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
     if (selectedCount <= 0) return hiddenSlots[0]?.id ?? null;
@@ -348,20 +334,42 @@ export function ModeFirstLettersHintedExercise({
 
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
 
+  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
+    itemHeight: 44,
+    rowGap: 4,
+    itemMinWidth: 48,
+    columnGap: 4,
+    minItems: 4,
+    maxItems: 40,
+    enabled: showChoices,
+  });
+
+  const displayedLetters = useMemo(() => {
+    const batch = availableLetters.slice(0, batchSize);
+    if (expectedFirstLetter && !batch.includes(expectedFirstLetter)) {
+      const idx = availableLetters.indexOf(expectedFirstLetter);
+      if (idx >= 0 && batch.length > 0) {
+        const swapIdx = selectedCount % batch.length;
+        batch[swapIdx] = expectedFirstLetter;
+      }
+    }
+    return batch;
+  }, [availableLetters, expectedFirstLetter, selectedCount, batchSize]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      {totalMistakes > 0 && (
+      {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
+          {maxMistakes - mistakesSinceReset}
         </span>
       )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
-          Восстановите скрытые слова по первым буквам
+          Выберите первые буквы слов
         </label>
         {onOpenTutorial && (
           <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
@@ -384,34 +392,34 @@ export function ModeFirstLettersHintedExercise({
 
       {showChoices && (
         <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты букв</span>
-            <span className="tabular-nums">{availableLetters.length}</span>
           </div>
-          <ScrollShadowContainer
-            className="flex-1 min-h-0"
-            scrollClassName="flex flex-wrap content-start gap-1 py-1"
-            shadowSize={16}
+          <div
+            ref={choicesContainerRef}
+            className="flex-1 min-h-0 overflow-hidden"
           >
-            {displayedLetters.map((letter) => (
-              <Button
-                key={letter}
-                type="button"
-                variant="outline"
-                className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
-                  errorFlashLetter === letter
-                    ? 'border-destructive text-destructive bg-destructive/10'
-                    : successFlashLetter === letter
-                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                }`}
-                style={{ fontSize: `${fontSizes.letter}px` }}
-                onClick={() => handleLetterClick(letter)}
-              >
-                <span>{letter}</span>
-              </Button>
-            ))}
-          </ScrollShadowContainer>
+            <div className="flex flex-wrap content-start gap-1 py-1">
+              {displayedLetters.map((letter) => (
+                <Button
+                  key={letter}
+                  type="button"
+                  variant="outline"
+                  className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
+                    errorFlashLetter === letter
+                      ? 'border-destructive text-destructive bg-destructive/10'
+                      : successFlashLetter === letter
+                        ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                        : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                  }`}
+                  style={{ fontSize: `${fontSizes.letter}px` }}
+                  onClick={() => handleLetterClick(letter)}
+                >
+                  <span>{letter}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
