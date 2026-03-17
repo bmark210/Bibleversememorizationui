@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronUp, ChevronDown, X } from "lucide-react";
+import { X, ArrowLeft, ArrowRight, Lightbulb } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -139,13 +139,13 @@ function compareCanonically(a: Verse, b: Verse) {
     );
   }
 
-  return String(a.externalVerseId).localeCompare(String(b.externalVerseId), "ru");
+  return String(a.externalVerseId).localeCompare(
+    String(b.externalVerseId),
+    "ru"
+  );
 }
 
-function sortVersesByOrder(
-  verses: Verse[],
-  order: TrainingOrder
-): Verse[] {
+function sortVersesByOrder(verses: Verse[], order: TrainingOrder): Verse[] {
   return verses
     .map((verse, index) => ({ verse, index }))
     .sort((a, b) => {
@@ -196,15 +196,17 @@ export function TrainingSession({
 
   const [direction, setDirection] = useState(0);
   const [hasInteractionStarted, setHasInteractionStarted] = useState(false);
-  const [pendingNavigationStep, setPendingNavigationStep] = useState<1 | -1 | null>(null);
+  const [pendingNavigationStep, setPendingNavigationStep] = useState<
+    1 | -1 | null
+  >(null);
   const [pendingSubsetChange, setPendingSubsetChange] =
     useState<TrainingSubsetSelectValue | null>(null);
   const [pendingOrderChange, setPendingOrderChange] =
     useState<TrainingOrder | null>(null);
   const [pendingCloseConfirm, setPendingCloseConfirm] = useState(false);
   const versePeekTimeoutRef = useRef<number | null>(null);
-  const [subsetFilter, setSubsetFilter] = useState<TrainingSubsetSelectValue>(() =>
-    resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses))
+  const [subsetFilter, setSubsetFilter] = useState<TrainingSubsetSelectValue>(
+    () => resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses))
   );
   const [activeOrder, setActiveOrder] = useState<TrainingOrder>(initialOrder);
 
@@ -286,11 +288,11 @@ export function TrainingSession({
     if (pendingNavigationStep === null) return;
     const step = pendingNavigationStep;
     setPendingNavigationStep(null);
-    await discardCurrentAttempt('navigated-away');
+    await discardCurrentAttempt("navigated-away");
     setHasInteractionStarted(false);
     setDirection(step);
     session.handleNavigationStep(step);
-  }, [discardCurrentAttempt, pendingNavigationStep, session]);
+  }, [pendingNavigationStep, session]);
 
   const cancelNavigationStep = useCallback(() => {
     setPendingNavigationStep(null);
@@ -298,12 +300,13 @@ export function TrainingSession({
 
   const confirmSubsetChange = useCallback(async () => {
     if (pendingSubsetChange === null) return;
-    await discardCurrentAttempt('subset-changed');
+    const nextSubset = pendingSubsetChange;
+    await discardCurrentAttempt("subset-changed");
     setPendingSubsetChange(null);
     setHasInteractionStarted(false);
     setDirection(0);
-    setSubsetFilter(pendingSubsetChange);
-  }, [discardCurrentAttempt, pendingSubsetChange]);
+    setSubsetFilter(nextSubset);
+  }, [pendingSubsetChange]);
 
   const cancelSubsetChange = useCallback(() => {
     setPendingSubsetChange(null);
@@ -311,52 +314,17 @@ export function TrainingSession({
 
   const confirmOrderChange = useCallback(async () => {
     if (pendingOrderChange === null) return;
-    await discardCurrentAttempt('order-changed');
+    const nextOrder = pendingOrderChange;
+    await discardCurrentAttempt("order-changed");
     setPendingOrderChange(null);
     setHasInteractionStarted(false);
     setDirection(0);
-    setActiveOrder(pendingOrderChange);
-  }, [discardCurrentAttempt, pendingOrderChange]);
+    setActiveOrder(nextOrder);
+  }, [pendingOrderChange]);
 
   const cancelOrderChange = useCallback(() => {
     setPendingOrderChange(null);
   }, []);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && session.pendingOutcome !== null) {
-        e.preventDefault();
-        requestCloseSession();
-        return;
-      }
-
-      if (
-        session.pendingOutcome !== null ||
-        session.quickForgetConfirmStage !== null ||
-        pendingNavigationStep !== null ||
-        pendingSubsetChange !== null ||
-        pendingOrderChange !== null ||
-        pendingCloseConfirm
-      ) {
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        requestCloseSession();
-        return;
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [
-    session,
-    pendingNavigationStep,
-    requestCloseSession,
-    pendingOrderChange,
-    pendingCloseConfirm,
-    pendingSubsetChange,
-    requestNavigationStep,
-  ]);
 
   const trainingActiveVerse = session.trainingActiveVerse;
   const trainingModeId = session.trainingModeId;
@@ -370,37 +338,36 @@ export function TrainingSession({
       ? "review"
       : "learning";
 
-  // ── Late-stage review (reps 4–6): no hints, no "Забыл", softer penalties ──
   const isLateStage = isLateStageReview(
     hintAttemptPhase,
-    trainingActiveVerse?.repetitions ?? 0,
+    trainingActiveVerse?.repetitions ?? 0
   );
 
-  // ── Assist system (all modes) ──
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
   const [assistDrawerOpen, setAssistDrawerOpen] = useState(false);
   const activeVerseRaw = trainingActiveVerse?.raw;
   const hintHelpers = useHintState({
     attemptKey: hintAttemptKey,
     phase: hintAttemptPhase,
-    verseText: activeVerseRaw?.text ?? '',
+    verseText: activeVerseRaw?.text ?? "",
     modeId: trainingModeId ?? undefined,
     difficultyLevel: activeVerseRaw?.difficultyLevel,
   });
+
   const showQuickForgetAction = Boolean(
     trainingActiveVerse &&
       trainingModeId &&
       trainingModeId > 1 &&
-      hintAttemptPhase === 'learning' &&
+      hintAttemptPhase === "learning" &&
       session.pendingOutcome === null &&
-      hintHelpers.hintState.flowState === 'active'
+      hintHelpers.hintState.flowState === "active"
   );
+
   const showAssistButton =
-    isHintableMode &&
-    !session.pendingOutcome &&
-    !isLateStage;
+    isHintableMode && !session.pendingOutcome && !isLateStage;
+
   const activeVersePeek =
-    hintHelpers.hintState.activeHintContent?.variant === 'full_text_preview'
+    hintHelpers.hintState.activeHintContent?.variant === "full_text_preview"
       ? hintHelpers.hintState.activeHintContent
       : null;
 
@@ -411,9 +378,12 @@ export function TrainingSession({
     }
   }, []);
 
-  const handleProgressChange = useCallback((progress: ExerciseProgressSnapshot) => {
-    hintHelpers.updateProgress(progress);
-  }, [hintHelpers.updateProgress]);
+  const handleProgressChange = useCallback(
+    (progress: ExerciseProgressSnapshot) => {
+      hintHelpers.updateProgress(progress);
+    },
+    [hintHelpers.updateProgress]
+  );
 
   useEffect(() => {
     clearVersePeekTimeout();
@@ -440,12 +410,12 @@ export function TrainingSession({
 
   useEffect(() => {
     clearVersePeekTimeout();
-    if (!activeVersePeek) {
-      return;
-    }
+    if (!activeVersePeek) return;
 
     const durationSeconds =
-      activeVersePeek.durationSeconds ?? hintHelpers.hintState.showVerseDurationSeconds;
+      activeVersePeek.durationSeconds ??
+      hintHelpers.hintState.showVerseDurationSeconds;
+
     versePeekTimeoutRef.current = window.setTimeout(() => {
       hintHelpers.dismissHintContent();
       versePeekTimeoutRef.current = null;
@@ -463,25 +433,22 @@ export function TrainingSession({
 
   const hasDiscardableAttempt = useMemo(() => {
     const { attempt, flowState } = hintHelpers.hintState;
-    if (!canDiscardTrainingAttempt(flowState)) {
-      return false;
-    }
+    if (!canDiscardTrainingAttempt(flowState)) return false;
 
     return (
-      flowState === 'awaiting_rating' ||
+      flowState === "awaiting_rating" ||
       attempt.assistHistory.length > 0 ||
       (attempt.progress?.completedCount ?? 0) > 0 ||
       (attempt.progress?.mistakeCount ?? 0) > 0
     );
   }, [hintHelpers.hintState]);
+
   const shouldConfirmSessionExit =
     session.pendingOutcome === null &&
     (hasInteractionStarted || hasDiscardableAttempt);
 
   function discardCurrentAttempt(_reason?: string) {
-    if (!hasDiscardableAttempt) {
-      return;
-    }
+    if (!hasDiscardableAttempt) return;
     hintHelpers.abandonAttempt();
   }
 
@@ -490,13 +457,12 @@ export function TrainingSession({
       session.handleClose();
       return;
     }
-
     setPendingCloseConfirm(true);
   }
 
   async function confirmCloseSession() {
     setPendingCloseConfirm(false);
-    await discardCurrentAttempt('session-closed');
+    await discardCurrentAttempt("session-closed");
     session.handleClose();
   }
 
@@ -570,9 +536,42 @@ export function TrainingSession({
   }, [shouldConfirmSessionExit]);
 
   useEffect(() => {
-    if (!shouldConfirmSessionExit || typeof window === "undefined") {
-      return;
-    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && session.pendingOutcome !== null) {
+        e.preventDefault();
+        requestCloseSession();
+        return;
+      }
+
+      if (
+        session.pendingOutcome !== null ||
+        session.quickForgetConfirmStage !== null ||
+        pendingNavigationStep !== null ||
+        pendingSubsetChange !== null ||
+        pendingOrderChange !== null ||
+        pendingCloseConfirm
+      ) {
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        requestCloseSession();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [
+    session,
+    pendingNavigationStep,
+    pendingSubsetChange,
+    pendingOrderChange,
+    pendingCloseConfirm,
+  ]);
+
+  useEffect(() => {
+    if (!shouldConfirmSessionExit || typeof window === "undefined") return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -593,6 +592,12 @@ export function TrainingSession({
     session.pendingOutcome !== null ||
     pendingCloseConfirm;
 
+  const counterCurrent = Math.min(
+    session.trainingIndex + 1,
+    Math.max(session.trainingVerseCount, 1)
+  );
+  const counterTotal = Math.max(session.trainingVerseCount, 1);
+
   return (
     <>
       <div
@@ -606,30 +611,25 @@ export function TrainingSession({
           {session.feedbackMessage}
         </div>
 
-        {/* Top bar: counter */}
         <div
-          className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
+          className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl"
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
-            <div className="flex items-center justify-center">
-              <div
-                role="status"
-                aria-label={`Стих ${Math.min(session.trainingIndex + 1, Math.max(session.trainingVerseCount, 1))} из ${Math.max(session.trainingVerseCount, 1)}`}
-                className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
-              >
-                <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
-                  {Math.min(session.trainingIndex + 1, Math.max(session.trainingVerseCount, 1))} /{" "}
-                  {Math.max(session.trainingVerseCount, 1)}
-                </span>
-              </div>
+          <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-2.5 sm:px-6">
+            <div
+              role="status"
+              aria-label={`Стих ${counterCurrent} из ${counterTotal}`}
+              className="rounded-full border border-border/50 bg-background/90 px-4 py-1 shadow-sm backdrop-blur-md"
+            >
+              <span className="block text-center text-sm font-semibold tabular-nums text-foreground/75">
+                {counterCurrent} / {counterTotal}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Main content: fullscreen exercise */}
         <div
-          className="relative flex-1 min-h-0 flex flex-col px-4 py-3 sm:px-6"
+          className="relative flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
@@ -644,11 +644,11 @@ export function TrainingSession({
               initial="enter"
               animate="center"
               exit="exit"
-              className="absolute inset-0 flex flex-col px-4 py-3 sm:px-6 focus-visible:outline-none"
+              className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
               tabIndex={-1}
             >
               {trainingActiveVerse && session.pendingOutcome ? (
-                <div className="flex flex-1 items-center justify-center min-h-0">
+                <div className="flex min-h-0 flex-1 items-center justify-center">
                   <TrainingOutcomeCard
                     trainingVerse={trainingActiveVerse}
                     outcome={session.pendingOutcome}
@@ -673,9 +673,10 @@ export function TrainingSession({
                   onProgressChange={isHintableMode ? handleProgressChange : undefined}
                 />
               ) : (
-                <div className="flex flex-1 items-center justify-center min-h-0">
-                  <p className="text-sm text-foreground/55 text-center px-6">
-                    Нет стихов для тренировки в выбранной комбинации фильтра и сортировки
+                <div className="flex min-h-0 flex-1 items-center justify-center">
+                  <p className="px-6 text-center text-sm text-foreground/55">
+                    Нет стихов для тренировки в выбранной комбинации фильтра и
+                    сортировки
                   </p>
                 </div>
               )}
@@ -683,95 +684,92 @@ export function TrainingSession({
           </AnimatePresence>
         </div>
 
-        {/* Footer: navigation arrows + action buttons */}
         <div
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
-          className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
+          className="shrink-0 border-t border-border/30 bg-background/70 backdrop-blur-xl"
         >
-          <div className="mx-auto w-full max-w-2xl">
-            <div className="flex items-center justify-between gap-2">
-              {/* Left: prev arrow */}
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
+            <div className="flex flex-1 items-center justify-start gap-1.5">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                className="h-9 w-9 rounded-xl text-foreground/75"
                 disabled={!canNavigatePrev || isNavigationBlocked}
                 onClick={() => requestNavigationStep(-1)}
                 aria-label="Предыдущий стих"
               >
-                <ChevronUp className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4" />
               </Button>
 
-              {/* Center: action buttons */}
-              <div className="flex flex-nowrap gap-2 min-w-0">
-                {showAssistButton && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "h-10 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300 text-sm px-3",
-                      hintHelpers.hintState.assistSuggestion.shouldSuggest && "animate-pulse"
-                    )}
-                    onClick={() => setAssistDrawerOpen(true)}
-                    disabled={session.isActionPending}
-                  >
-                    {/* <Lightbulb className="h-4 w-4 mr-1" /> */}
-                    Помощь
-                  </Button>
-                )}
-                {session.pendingOutcome && (
-                  <Button
-                    type="button"
-                    className={cn(
-                      "h-10 rounded-2xl border border-primary/20 bg-primary/60 text-primary-foreground backdrop-blur-xl text-sm px-3"
-                    )}
-                    onClick={session.acknowledgeOutcome}
-                    disabled={session.isActionPending}
-                  >
-                    Продолжить
-                  </Button>
-                )}
-                {showQuickForgetAction && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "h-10 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-700 backdrop-blur-xl hover:bg-rose-500/18 dark:text-rose-300 text-sm px-3"
-                    )}
-                    onClick={() => {
-                      setHasInteractionStarted(true);
-                      session.requestQuickForget();
-                    }}
-                    disabled={session.isActionPending}
-                  >
-                    Забыл
-                  </Button>
-                )}
+              {showAssistButton && (
                 <Button
-                  variant="outline"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   className={cn(
-                    "h-10 rounded-2xl bg-background border backdrop-blur-xl w-fit text-sm px-3",
-                    "text-foreground/75"
+                    "h-9 w-9 rounded-xl text-amber-700/90 hover:bg-amber-500/10 dark:text-amber-300",
+                    hintHelpers.hintState.assistSuggestion.shouldSuggest &&
+                      "animate-pulse"
                   )}
-                  onClick={requestCloseSession}
+                  onClick={() => setAssistDrawerOpen(true)}
+                  disabled={session.isActionPending}
+                  aria-label="Помощь"
+                  title="Помощь"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center justify-center gap-2">
+              {session.pendingOutcome && (
+                <Button
+                  type="button"
+                  className="h-9 rounded-xl border border-primary/20 bg-primary/60 px-3 text-sm text-primary-foreground backdrop-blur-xl"
+                  onClick={session.acknowledgeOutcome}
                   disabled={session.isActionPending}
                 >
-                  <X className="h-4 w-4" />
+                  Продолжить
                 </Button>
-              </div>
+              )}
 
-              {/* Right: next arrow */}
+              <Button
+                variant="outline"
+                className="h-9 rounded-xl border-border/60 bg-background/80 px-3 text-sm text-foreground/80 backdrop-blur-xl"
+                onClick={requestCloseSession}
+                disabled={session.isActionPending}
+              >
+                Завершить
+              </Button>
+            </div>
+
+            <div className="flex flex-1 items-center justify-end gap-1.5">
+              {showQuickForgetAction && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 rounded-xl px-2.5 text-xs text-rose-700/90 hover:bg-rose-500/10 dark:text-rose-300"
+                  onClick={() => {
+                    setHasInteractionStarted(true);
+                    session.requestQuickForget();
+                  }}
+                  disabled={session.isActionPending}
+                >
+                  Забыл
+                </Button>
+              )}
+
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                className="h-9 w-9 rounded-xl text-foreground/75"
                 disabled={!canNavigateNext || isNavigationBlocked}
                 onClick={() => requestNavigationStep(1)}
                 aria-label="Следующий стих"
               >
-                <ChevronDown className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -788,7 +786,10 @@ export function TrainingSession({
             >
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 text-center">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80 dark:text-amber-300/80">
-                  Полный стих на {activeVersePeek.durationSeconds ?? hintHelpers.hintState.showVerseDurationSeconds} сек.
+                  Полный стих на{" "}
+                  {activeVersePeek.durationSeconds ??
+                    hintHelpers.hintState.showVerseDurationSeconds}{" "}
+                  сек.
                 </p>
                 <p className="whitespace-pre-line text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
                   {activeVersePeek.text}
@@ -799,7 +800,6 @@ export function TrainingSession({
         </AnimatePresence>
       </div>
 
-      {/* Confirm dialogs */}
       <AlertDialog
         open={session.quickForgetConfirmStage !== null}
         onOpenChange={(open) => {
@@ -812,16 +812,22 @@ export function TrainingSession({
               Отметить как «забыл»?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно правилам этапа изучения.
+              Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно
+              правилам этапа изучения.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/70" onClick={session.cancelQuickForget}>
+            <AlertDialogCancel
+              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              onClick={session.cancelQuickForget}
+            >
               Отмена
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 dark:text-destructive-foreground/80 text-background"
-              onClick={() => session.confirmQuickForget(hintHelpers.hintState.attempt)}
+              className="rounded-full border border-border/60 bg-destructive text-background hover:bg-destructive/90 dark:text-destructive-foreground/80"
+              onClick={() =>
+                session.confirmQuickForget(hintHelpers.hintState.attempt)
+              }
             >
               Подтвердить
             </AlertDialogAction>
@@ -852,7 +858,7 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive dark:text-destructive-foreground/80 text-background"
+              className="rounded-full border border-border/60 bg-destructive text-background dark:text-destructive-foreground/80"
               onClick={confirmNavigationStep}
             >
               Перейти без сохранения
@@ -873,7 +879,8 @@ export function TrainingSession({
               Сменить режим тренировки?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если переключить режим сейчас, прогресс текущего упражнения не сохранится.
+              Если переключить режим сейчас, прогресс текущего упражнения не
+              сохранится.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -905,7 +912,8 @@ export function TrainingSession({
               Изменить сортировку?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если сменить порядок сейчас, текущее упражнение перезапустится с новым списком карточек.
+              Если сменить порядок сейчас, текущее упражнение перезапустится с
+              новым списком карточек.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -937,7 +945,8 @@ export function TrainingSession({
               Закрыть тренировку?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Текущая попытка будет закрыта без сохранения и не восстановится автоматически при следующем входе.
+              Текущая попытка будет закрыта без сохранения и не восстановится
+              автоматически при следующем входе.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -948,7 +957,7 @@ export function TrainingSession({
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive dark:text-destructive-foreground/80 text-background"
+              className="rounded-full border border-border/60 bg-destructive text-background dark:text-destructive-foreground/80"
               onClick={() => {
                 void confirmCloseSession();
               }}

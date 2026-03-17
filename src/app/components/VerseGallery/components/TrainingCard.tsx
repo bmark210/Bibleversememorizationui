@@ -118,63 +118,40 @@ export const TrainingCard = memo(function TrainingCard({
       data-tour={dataTour}
       className="flex h-full w-full min-w-0 flex-col overflow-hidden"
     >
-      {/* Header: reference + progress badge */}
-      <div className="shrink-0 pb-3 text-center space-y-2">
+      {/* Header: reference + minimal progress */}
+      <div className="shrink-0 pb-1 text-center space-y-1.5">
         <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
           {trainingVerse.raw.reference}
         </h2>
-        <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
+        {/* <div className="flex items-center justify-center gap-1.5">
           <div
+            role="progressbar"
+            aria-label="Прогресс изучения"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={totalProgressPercent}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur-sm",
-              isReviewStage
-                ? "border-violet-500/25 bg-violet-500/10"
-                : "border-emerald-500/25 bg-emerald-500/10"
+              "h-0.5 w-16 overflow-hidden rounded-full",
+              isReviewStage ? "bg-violet-500/20" : "bg-emerald-500/20"
             )}
           >
-            <span
-              className={cn(
-                "text-[9px] font-semibold uppercase tracking-[0.14em]",
-                isReviewStage
-                  ? "text-violet-700/85 dark:text-violet-300/90"
-                  : "text-emerald-700/80 dark:text-emerald-300/90"
-              )}
-            >
-              {isReviewStage ? "Повторение" : "Освоение"}
-            </span>
-
             <div
-              role="progressbar"
-              aria-label="Прогресс изучения"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={totalProgressPercent}
               className={cn(
-                "relative h-1 w-16 overflow-hidden rounded-full",
-                isReviewStage ? "bg-violet-500/15" : "bg-emerald-500/15"
+                "h-full rounded-full transition-[width] duration-500 ease-out",
+                isReviewStage ? "bg-violet-500/60" : "bg-emerald-500/60"
               )}
-            >
-              <div
-                className={cn(
-                  "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out",
-                  isReviewStage ? "bg-violet-500" : "bg-emerald-500"
-                )}
-                style={{ width: `${totalProgressPercent}%` }}
-              />
-            </div>
-
-            <span
-              className={cn(
-                "text-[11px] font-semibold tabular-nums",
-                isReviewStage
-                  ? "text-violet-700 dark:text-violet-300"
-                  : "text-emerald-700 dark:text-emerald-300"
-              )}
-            >
-              {totalProgressPercent}%
-            </span>
+              style={{ width: `${totalProgressPercent}%` }}
+            />
           </div>
-        </div>
+          <span
+            className={cn(
+              "text-[10px] tabular-nums",
+              isReviewStage ? "text-violet-600/70" : "text-emerald-600/70"
+            )}
+          >
+            {totalProgressPercent}%
+          </span> */}
+        {/* </div> */}
       </div>
 
       {/* Body: exercise renderer takes remaining space */}
