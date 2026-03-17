@@ -23,9 +23,10 @@ export function useMeasuredElementSize<T extends HTMLElement>(enabled: boolean) 
       return;
     }
 
-    const updateSize = (nextWidth?: number) => {
-      const width = Math.ceil(nextWidth ?? node.clientWidth);
-      const height = Math.ceil(node.getBoundingClientRect().height);
+    const updateSize = (rect?: { width: number; height: number }) => {
+      const width = Math.ceil(rect?.width ?? node.clientWidth);
+      // floor для height — консервативно, чтобы не переоценить и не обрезать последний ряд
+      const height = Math.floor(rect?.height ?? node.getBoundingClientRect().height);
 
       setSize((prev) =>
         prev.width === width && prev.height === height ? prev : { width, height }
@@ -45,7 +46,12 @@ export function useMeasuredElementSize<T extends HTMLElement>(enabled: boolean) 
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      updateSize(entry?.contentRect.width);
+      if (entry) {
+        const { width, height } = entry.contentRect;
+        updateSize({ width, height });
+      } else {
+        updateSize();
+      }
     });
 
     observer.observe(node);

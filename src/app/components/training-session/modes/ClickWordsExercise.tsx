@@ -277,8 +277,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
-  // border(2) + py-2(16) + max(leading-5 fixed 20px, fontSize)
-  const wordButtonHeight = 18 + Math.max(20, fontSizes.sm);
+  // Реальная высота кнопки ≈ 38px (content 20 + padding 16 + border 2). +2px запас на subpixel.
+  const wordButtonHeight = 40 + Math.max(0, fontSizes.sm - 14);
   const wordButtonMinWidth = 24 + Math.ceil(fontSizes.sm * 2.2);
   const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
     itemHeight: wordButtonHeight,
@@ -288,7 +288,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
     minItems: 4,
     maxItems: 40,
     enabled: showChoices,
-    reduceHeightBy: 8, // py-1 wrapper padding
+    reduceHeightBy: 8, // py-1 обёртки
+    safetyRows: 0, // убрали — последний ряд не перекрывается футером
   });
 
   const displayedChoices = useMemo(() => {

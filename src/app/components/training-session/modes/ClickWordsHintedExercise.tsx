@@ -344,9 +344,10 @@ export function ModeClickWordsHintedExercise({
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
-  // border(2) + py-2(16) + max(leading-5 fixed 20px, fontSize)
-  const wordButtonHeight = 18 + Math.max(20, fontSizes.sm);
+  // Реальная высота кнопки ≈ 38px (content 20 + padding 16 + border 2). +2px запас на subpixel.
+  const wordButtonHeight = 40 + Math.max(0, fontSizes.sm - 14);
   const wordButtonMinWidth = 24 + Math.ceil(fontSizes.sm * 2.2);
+  // ref на flex-1 контейнере — label и pt-2 уже исключены. reduceHeightBy только для py-1 обёртки.
   const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
     itemHeight: wordButtonHeight,
     rowGap: 6,
@@ -355,7 +356,8 @@ export function ModeClickWordsHintedExercise({
     minItems: 4,
     maxItems: 40,
     enabled: showChoices,
-    reduceHeightBy: 8, // py-1 wrapper padding
+    reduceHeightBy: 8, // py-1 обёртки кнопок
+    safetyRows: 0, // запас: последний ряд не обрезается футером
   });
 
   const displayedChoices = useMemo(() => {
