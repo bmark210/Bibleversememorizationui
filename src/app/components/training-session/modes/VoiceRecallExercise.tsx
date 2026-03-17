@@ -83,6 +83,7 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
   const [isChecked, setIsChecked] = useState(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -101,6 +102,7 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
     setIsChecked(false);
     setRecognitionError(null);
     setMatchPercent(null);
+    setTotalMistakes(0);
     finalTranscriptRef.current = '';
 
     return () => {
@@ -231,6 +233,7 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
       toasterId: GALLERY_TOASTER_ID,
       size: 'compact',
@@ -238,7 +241,12 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+      {totalMistakes > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {totalMistakes}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Голосовой ввод стиха

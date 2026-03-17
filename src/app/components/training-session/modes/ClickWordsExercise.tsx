@@ -26,7 +26,7 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useFittedBatchSize } from './useFittedBatchSize';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsExerciseProps {
@@ -107,8 +107,6 @@ function initClickWordsExercise(text: string) {
   return { orderedTokens, uniqueChoices };
 }
 
-const MAX_DISPLAYED_CHOICES = 20;
-
 export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -119,7 +117,10 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
+  const [successFlashNormalized, setSuccessFlashNormalized] = useState<string | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -130,14 +131,19 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
     setTokenData(initClickWordsExercise(verse.text));
     setSelectedCount(0);
     setMistakesSinceReset(0);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashNormalized(null);
+    setSuccessFlashNormalized(null);
   }, [verse]);
 
   useEffect(() => {
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
       }
     };
   }, []);
@@ -225,12 +231,23 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
     if (choice.normalized === expectedToken.normalized) {
       const next = selectedCount + 1;
       setSelectedCount(next);
+
+      setSuccessFlashNormalized(choice.normalized);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlashNormalized(null);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       if (next === totalWords) {
         setIsCompleted(true);
       }
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldReset = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldReset ? 0 : nextMistakesSinceReset);
@@ -260,8 +277,18 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
 
+  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
+    itemHeight: 36,
+    rowGap: 6,
+    itemMinWidth: 60,
+    columnGap: 6,
+    minItems: 4,
+    maxItems: 40,
+    enabled: showChoices,
+  });
+
   const displayedChoices = useMemo(() => {
-    const batch = visibleChoices.slice(0, MAX_DISPLAYED_CHOICES);
+    const batch = visibleChoices.slice(0, batchSize);
     const expectedNormalized = orderedTokens[selectedCount]?.normalized;
     if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
       const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
@@ -271,14 +298,19 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
       }
     }
     return batch;
-  }, [visibleChoices, orderedTokens, selectedCount]);
+  }, [visibleChoices, orderedTokens, selectedCount, batchSize]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {mistakesSinceReset > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {maxMistakes - mistakesSinceReset}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите стих по словам
@@ -306,15 +338,14 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
       {/* ── Bottom half: word choices ── */}
       {showChoices && (
         <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты слов</span>
-            <span className="tabular-nums">{visibleChoices.length}</span>
           </div>
-          <ScrollShadowContainer
-            className="flex-1 min-h-0"
-            scrollClassName="flex flex-wrap content-start gap-1.5 py-1"
-            shadowSize={16}
+          <div
+            ref={choicesContainerRef}
+            className="flex-1 min-h-0 overflow-hidden"
           >
+            <div className="flex flex-wrap content-start gap-1.5 py-1">
             {displayedChoices.map((choice) => (
               <Button
                 key={choice.normalized}
@@ -323,8 +354,10 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
                 title={choice.displayText}
                 className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap transition-colors ${
                   errorFlashNormalized === choice.normalized
-                    ? 'border-destructive text-destructive'
-                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    ? 'border-destructive text-destructive bg-destructive/10'
+                    : successFlashNormalized === choice.normalized
+                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
                 style={{ fontSize: `${fontSizes.sm}px` }}
                 onClick={() => handleWordClick(choice)}
@@ -334,7 +367,8 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
                 </span>
               </Button>
             ))}
-          </ScrollShadowContainer>
+            </div>
+          </div>
         </div>
       )}
 

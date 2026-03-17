@@ -20,7 +20,7 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
+import { useFittedBatchSize } from './useFittedBatchSize';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface FirstLettersTapExerciseProps {
@@ -59,8 +59,6 @@ function shuffleTokens(letters: string[]): LetterToken[] {
   return shuffled;
 }
 
-const MAX_DISPLAYED_CHOICES = 20;
-
 export function ModeFirstLettersTapExercise({
   verse,
   onRate,
@@ -76,7 +74,10 @@ export function ModeFirstLettersTapExercise({
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
+  const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -85,13 +86,19 @@ export function ModeFirstLettersTapExercise({
     setTokens(shuffleTokens(letters));
     setSelectedCount(0);
     setMistakesSinceReset(0);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
+    setSuccessFlashLetter(null);
 
     return () => {
       if (clearFlashTimeoutRef.current) {
         window.clearTimeout(clearFlashTimeoutRef.current);
         clearFlashTimeoutRef.current = null;
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+        clearSuccessFlashTimeoutRef.current = null;
       }
     };
   }, [verse]);
@@ -160,8 +167,20 @@ export function ModeFirstLettersTapExercise({
     [shuffledUniqueLetters, remainingCountByLetter]
   );
 
+  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
+
+  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
+    itemHeight: 44,
+    rowGap: 4,
+    itemMinWidth: 48,
+    columnGap: 4,
+    minItems: 4,
+    maxItems: 40,
+    enabled: showChoices,
+  });
+
   const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, MAX_DISPLAYED_CHOICES);
+    const batch = availableLetters.slice(0, batchSize);
     if (expectedLetter && !batch.includes(expectedLetter)) {
       const idx = availableLetters.indexOf(expectedLetter);
       if (idx >= 0 && batch.length > 0) {
@@ -170,7 +189,7 @@ export function ModeFirstLettersTapExercise({
       }
     }
     return batch;
-  }, [availableLetters, expectedLetter, selectedCount]);
+  }, [availableLetters, expectedLetter, selectedCount, batchSize]);
 
   const focusItemId = useMemo(() => {
     if (expectedTokens.length === 0) return null;
@@ -202,12 +221,22 @@ export function ModeFirstLettersTapExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
+      setSuccessFlashLetter(letter);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlashLetter(null);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       if (next === total) {
         setIsCompleted(true);
       }
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -243,14 +272,17 @@ export function ModeFirstLettersTapExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {mistakesSinceReset > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {maxMistakes - mistakesSinceReset}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите первые буквы слов
@@ -278,15 +310,14 @@ export function ModeFirstLettersTapExercise({
       {/* ── Bottom half: letter choices ── */}
       {showChoices && (
         <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты букв</span>
-            <span className="tabular-nums">{availableLetters.length}</span>
           </div>
-          <ScrollShadowContainer
-            className="flex-1 min-h-0"
-            scrollClassName="flex flex-wrap content-start gap-1 py-1"
-            shadowSize={16}
+          <div
+            ref={choicesContainerRef}
+            className="flex-1 min-h-0 overflow-hidden"
           >
+            <div className="flex flex-wrap content-start gap-1 py-1">
             {displayedLetters.map((letter) => (
               <Button
                 key={letter}
@@ -294,8 +325,10 @@ export function ModeFirstLettersTapExercise({
                 variant="outline"
                 className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
                   errorFlashLetter === letter
-                    ? 'border-destructive text-destructive'
-                    : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    ? 'border-destructive text-destructive bg-destructive/10'
+                    : successFlashLetter === letter
+                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}
                 style={{ fontSize: `${fontSizes.letter}px` }}
                 onClick={() => handlePick(letter)}
@@ -303,7 +336,8 @@ export function ModeFirstLettersTapExercise({
                 <span>{letter}</span>
               </Button>
             ))}
-          </ScrollShadowContainer>
+            </div>
+          </div>
         </div>
       )}
 

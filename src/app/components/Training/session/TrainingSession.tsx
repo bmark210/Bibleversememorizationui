@@ -296,73 +296,6 @@ export function TrainingSession({
     setPendingNavigationStep(null);
   }, []);
 
-  // ── Swipe gesture handling ──
-  const swipeTouchRef = useRef<{
-    startY: number;
-    startX: number;
-    startTime: number;
-    target: HTMLElement | null;
-    wasAtTop: boolean;
-    wasAtBottom: boolean;
-    hadScroll: boolean;
-  } | null>(null);
-  const SWIPE_THRESHOLD = 50;
-  const SWIPE_MAX_HORIZONTAL = 80;
-  const SWIPE_MAX_TIME = 600;
-
-  const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest('input,textarea,select')) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    // Record scroll boundary state at START so we only navigate
-    // when user was already at the boundary before the gesture.
-    let wasAtTop = true;
-    let wasAtBottom = true;
-    let hadScroll = false;
-    const scrollEl = target?.closest<HTMLElement>('[data-scroll-shadow="true"]');
-    if (scrollEl) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
-      const threshold = 2;
-      hadScroll = scrollHeight > clientHeight + threshold;
-      if (hadScroll) {
-        wasAtTop = scrollTop <= threshold;
-        wasAtBottom = scrollTop + clientHeight >= scrollHeight - threshold;
-      }
-    }
-
-    swipeTouchRef.current = {
-      startY: touch.clientY,
-      startX: touch.clientX,
-      startTime: Date.now(),
-      target,
-      wasAtTop,
-      wasAtBottom,
-      hadScroll,
-    };
-  }, []);
-
-  const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
-    const start = swipeTouchRef.current;
-    swipeTouchRef.current = null;
-    if (!start) return;
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const dy = touch.clientY - start.startY;
-    const dx = Math.abs(touch.clientX - start.startX);
-    const dt = Date.now() - start.startTime;
-    if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
-    const step: 1 | -1 = dy < 0 ? 1 : -1;
-    // Block navigation if the scroll container had content and
-    // was NOT at the boundary matching swipe direction at gesture start.
-    if (start.hadScroll) {
-      if (step === 1 && !start.wasAtBottom) return;
-      if (step === -1 && !start.wasAtTop) return;
-    }
-    requestNavigationStep(step);
-  }, [requestNavigationStep]);
-
   const confirmSubsetChange = useCallback(async () => {
     if (pendingSubsetChange === null) return;
     await discardCurrentAttempt('subset-changed');
@@ -411,15 +344,6 @@ export function TrainingSession({
         e.preventDefault();
         requestCloseSession();
         return;
-      }
-      if (e.key === "ArrowDown" || e.key === "PageDown") {
-        e.preventDefault();
-        requestNavigationStep(1);
-        return;
-      }
-      if (e.key === "ArrowUp" || e.key === "PageUp") {
-        e.preventDefault();
-        requestNavigationStep(-1);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -709,8 +633,6 @@ export function TrainingSession({
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
-          onTouchStart={handleContentTouchStart}
-          onTouchEnd={handleContentTouchEnd}
         >
           <TrainingProgressPopup popup={session.progressPopup} />
 

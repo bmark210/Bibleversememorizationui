@@ -77,7 +77,10 @@ export function ModeFirstLettersKeyboardExercise({
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [shakeInput, setShakeInput] = useState(false);
+  const [successFlash, setSuccessFlash] = useState(false);
+  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearShakeTimeoutRef = useRef<number | null>(null);
+  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -88,13 +91,19 @@ export function ModeFirstLettersKeyboardExercise({
     setExpectedLetters(letters);
     setInputValue('');
     setMistakesSinceReset(0);
+    setTotalMistakes(0);
     setIsCompleted(false);
     setShakeInput(false);
+    setSuccessFlash(false);
 
     return () => {
       if (clearShakeTimeoutRef.current) {
         window.clearTimeout(clearShakeTimeoutRef.current);
         clearShakeTimeoutRef.current = null;
+      }
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+        clearSuccessFlashTimeoutRef.current = null;
       }
       if (mobileFocusTimeoutRef.current) {
         window.clearTimeout(mobileFocusTimeoutRef.current);
@@ -153,12 +162,22 @@ export function ModeFirstLettersKeyboardExercise({
     if (compact === expectedPrefix) {
       setInputValue(sanitized);
 
+      setSuccessFlash(true);
+      if (clearSuccessFlashTimeoutRef.current) {
+        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
+      }
+      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
+        setSuccessFlash(false);
+        clearSuccessFlashTimeoutRef.current = null;
+      }, 260);
+
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
         setIsCompleted(true);
       }
       return;
     }
 
+    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetInput = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
@@ -209,8 +228,13 @@ export function ModeFirstLettersKeyboardExercise({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      {mistakesSinceReset > 0 && (
+        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+          {maxMistakes - mistakesSinceReset}
+        </span>
+      )}
       <div className="shrink-0 flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Введите первые буквы слов
@@ -230,7 +254,9 @@ export function ModeFirstLettersKeyboardExercise({
           className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 transition-colors ${
             shakeInput
               ? 'border-destructive/60 bg-destructive/5'
-              : 'border-border/60'
+              : successFlash
+                ? 'border-emerald-500/60 bg-emerald-500/5'
+                : 'border-border/60'
           }`}
         >
           <div
