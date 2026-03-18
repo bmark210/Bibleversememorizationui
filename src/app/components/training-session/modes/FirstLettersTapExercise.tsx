@@ -14,17 +14,14 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { tokenizeFirstLetters } from './wordUtils';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import {
-  useMeasuredChoiceBatch,
-  type MeasuredChoiceBatchItem,
-} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface FirstLettersTapExerciseProps {
   verse: Verse;
@@ -62,8 +59,61 @@ function shuffleTokens(letters: string[]): LetterToken[] {
   return shuffled;
 }
 
-const LETTER_CHOICE_BUTTON_BASE_CLASS =
-  'h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4';
+const LETTER_GRID_GAP = 8;
+
+function getAutoGridColumns(
+  width: number,
+  minCellWidth: number,
+  gap: number,
+  fallback = 1
+) {
+  if (width <= 0 || minCellWidth <= 0) return fallback;
+  return Math.max(1, Math.floor((width + gap) / (minCellWidth + gap)));
+}
+
+function getVisibleGridItemCount(
+  width: number,
+  height: number,
+  minCellWidth: number,
+  cellHeight: number,
+  gap: number
+) {
+  if (width <= 0 || height <= 0) return 0;
+
+  const columns = getAutoGridColumns(width, minCellWidth, gap, 1);
+  const rows = Math.max(0, Math.floor((height + gap) / (cellHeight + gap)));
+  return columns * rows;
+}
+
+function injectExpectedLetterIntoBatch(
+  letters: string[],
+  expectedLetter: string | null,
+  selectedCount: number
+) {
+  if (!expectedLetter || letters.length === 0 || letters.includes(expectedLetter)) {
+    return letters;
+  }
+
+  const nextLetters = [...letters];
+  const swapIndex = selectedCount % nextLetters.length;
+  nextLetters[swapIndex] = expectedLetter;
+  return nextLetters;
+}
+
+function getSequenceCellClassName(params: {
+  isFilled: boolean;
+  isActiveGap: boolean;
+}) {
+  if (params.isFilled) {
+    return 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+  }
+
+  if (params.isActiveGap) {
+    return 'border-2 border-primary/40 bg-primary/5 text-primary/70';
+  }
+
+  return 'border border-border/60 bg-muted/20 text-muted-foreground';
+}
 
 export function ModeFirstLettersTapExercise({
   verse,
@@ -172,29 +222,75 @@ export function ModeFirstLettersTapExercise({
   );
 
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
-  const availableLetterItems = useMemo<MeasuredChoiceBatchItem<string>[]>(
-    () => availableLetters.map((letter) => ({ key: letter, value: letter })),
-    [availableLetters]
-  );
-
-  const preferredExpectedIndex = useMemo(
-    () =>
-      Math.min(2 + (selectedCount % 3), Math.max(availableLetterItems.length - 1, 0)),
-    [availableLetterItems.length, selectedCount]
-  );
-
+  const sequenceItemRefs = useRef(new Map<string, HTMLSpanElement>());
   const {
-    containerRef: choicesContainerRef,
-    measureRef: measureChoicesRef,
-    measurementItems: measuredLetterItems,
-    displayedItems: displayedLetterItems,
-  } = useMeasuredChoiceBatch({
-    items: availableLetterItems,
-    enabled: showChoices,
-    requiredItemKey: expectedLetter,
-    preferredRequiredIndex: preferredExpectedIndex,
-    dependencies: [fontSizes.level],
-  });
+    ref: sequenceGridContainerRef,
+    size: sequenceGridContainerSize,
+  } = useMeasuredElementSize<HTMLDivElement>(true);
+  const {
+    ref: choicesGridContainerRef,
+    size: choicesGridContainerSize,
+  } = useMeasuredElementSize<HTMLDivElement>(showChoices);
+
+  const sequenceCellMinWidth = Math.max(38, Math.ceil(fontSizes.letter + 22));
+  const sequenceCellHeight = Math.max(40, Math.ceil(fontSizes.letter + 24));
+  const choiceCellMinWidth = Math.max(44, Math.ceil(fontSizes.letter + 26));
+  const choiceCellHeight = Math.max(44, Math.ceil(fontSizes.letter + 26));
+
+  const sequenceColumns = useMemo(
+    () =>
+      Math.max(
+        1,
+        Math.min(
+          total || 1,
+          getAutoGridColumns(
+            sequenceGridContainerSize.width,
+            sequenceCellMinWidth,
+            LETTER_GRID_GAP,
+            8
+          )
+        )
+      ),
+    [sequenceCellMinWidth, sequenceGridContainerSize.width, total]
+  );
+
+  const choiceColumns = useMemo(
+    () =>
+      getAutoGridColumns(
+        choicesGridContainerSize.width,
+        choiceCellMinWidth,
+        LETTER_GRID_GAP,
+        4
+      ),
+    [choiceCellMinWidth, choicesGridContainerSize.width]
+  );
+
+  const visibleChoiceCount = useMemo(
+    () =>
+      getVisibleGridItemCount(
+        choicesGridContainerSize.width,
+        choicesGridContainerSize.height,
+        choiceCellMinWidth,
+        choiceCellHeight,
+        LETTER_GRID_GAP
+      ),
+    [
+      choiceCellHeight,
+      choiceCellMinWidth,
+      choicesGridContainerSize.height,
+      choicesGridContainerSize.width,
+    ]
+  );
+
+  const displayedLetters = useMemo(() => {
+    const batch = availableLetters.slice(0, visibleChoiceCount);
+    return injectExpectedLetterIntoBatch(batch, expectedLetter, selectedCount);
+  }, [availableLetters, expectedLetter, selectedCount, visibleChoiceCount]);
+
+  const renderedChoiceColumns = Math.max(
+    1,
+    Math.min(choiceColumns, displayedLetters.length || 1)
+  );
 
   const focusItemId = useMemo(() => {
     if (expectedTokens.length === 0) return null;
@@ -202,21 +298,38 @@ export function ModeFirstLettersTapExercise({
     return expectedTokens[Math.min(selectedCount - 1, expectedTokens.length - 1)]?.id ?? null;
   }, [expectedTokens, selectedCount]);
 
-  const sequenceItems = useMemo<WordSequenceFieldItem[]>(
-    () =>
-      expectedTokens.map((token, index) => {
-        const isFilled = index < selectedCount;
-        const isActiveGap = !isCompleted && !surrendered && index === selectedCount;
+  useEffect(() => {
+    if (!focusItemId) return;
+    if (typeof window === 'undefined') return;
 
-        return {
-          id: token.id,
-          content: isFilled ? token.letter.toUpperCase() : '•',
-          minWidth: 30,
-          state: isFilled ? 'filled' : isActiveGap ? 'active-gap' : 'future-gap',
-        };
-      }),
-    [expectedTokens, selectedCount, isCompleted, surrendered]
-  );
+    const frameId = window.requestAnimationFrame(() => {
+      const target = sequenceItemRefs.current.get(focusItemId);
+      if (!target) return;
+
+      const prefersReducedMotion = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false;
+
+      target.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [focusItemId, expectedTokens]);
+
+  const setSequenceItemRef = (id: string) => (node: HTMLSpanElement | null) => {
+    if (node) {
+      sequenceItemRefs.current.set(id, node);
+      return;
+    }
+
+    sequenceItemRefs.current.delete(id);
+  };
 
   const handlePick = (letter: string) => {
     if (isCompleted || surrendered) return;
@@ -282,13 +395,14 @@ export function ModeFirstLettersTapExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
+        <label className="text-xs font-medium text-foreground/90">
           Соберите первые буквы слов
         </label>
         {onOpenTutorial && (
@@ -300,15 +414,48 @@ export function ModeFirstLettersTapExercise({
 
       {/* ── Top half: letter sequence ── */}
       <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
-        <WordSequenceField
-          className="h-full"
-          label="Последовательность букв"
-          progressCurrent={selectedCount}
-          progressTotal={total}
-          items={sequenceItems}
-          focusItemId={focusItemId}
-          fontSizes={fontSizes}
-        />
+        <div className="relative flex h-full min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>Последовательность букв</span>
+            <span className="tabular-nums">{selectedCount}/{total}</span>
+          </div>
+
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2 pr-1"
+            role="group"
+            aria-label="Последовательность букв"
+          >
+            <div
+              ref={sequenceGridContainerRef}
+              className="grid content-start"
+              style={{
+                gap: `${LETTER_GRID_GAP}px`,
+                gridTemplateColumns: `repeat(${sequenceColumns}, minmax(0, 1fr))`,
+                gridAutoRows: `${sequenceCellHeight}px`,
+              }}
+            >
+              {expectedTokens.map((token, index) => {
+                const isFilled = index < selectedCount;
+                const isActiveGap = !isCompleted && !surrendered && index === selectedCount;
+
+                return (
+                  <span
+                    key={token.id}
+                    ref={setSequenceItemRef(token.id)}
+                    className={`inline-flex h-full w-full items-center justify-center rounded-lg font-mono uppercase transition-colors ${getSequenceCellClassName({
+                      isFilled,
+                      isActiveGap,
+                    })}`}
+                    style={{ fontSize: `${fontSizes.letter}px` }}
+                    aria-current={token.id === focusItemId ? 'step' : undefined}
+                  >
+                    {isFilled ? token.letter.toUpperCase() : '•'}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Bottom half: letter choices ── */}
@@ -317,18 +464,24 @@ export function ModeFirstLettersTapExercise({
           <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты букв</span>
           </div>
-          <div className="relative flex-1 min-h-0">
+          <div
+            ref={choicesGridContainerRef}
+            className="min-h-0 flex-1 overflow-hidden"
+          >
             <div
-              ref={choicesContainerRef}
-              className="absolute inset-0 min-h-0 overflow-hidden"
+              className="grid content-start"
+              style={{
+                gap: `${LETTER_GRID_GAP}px`,
+                gridTemplateColumns: `repeat(${renderedChoiceColumns}, minmax(0, 1fr))`,
+                gridAutoRows: `${choiceCellHeight}px`,
+              }}
             >
-              <div className="flex flex-wrap content-start gap-1 py-1">
-                {displayedLetterItems.map(({ key, value: letter }) => (
+              {displayedLetters.map((letter) => (
+                <div key={letter} className="min-w-0">
                   <Button
-                    key={key}
                     type="button"
                     variant="outline"
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                    className={`h-full w-full rounded-lg font-mono uppercase transition-colors ${
                       errorFlashLetter === letter
                         ? 'border-destructive text-destructive bg-destructive/10'
                         : successFlashLetter === letter
@@ -340,30 +493,8 @@ export function ModeFirstLettersTapExercise({
                   >
                     <span>{letter}</span>
                   </Button>
-                ))}
-              </div>
-            </div>
-
-            <div
-              aria-hidden="true"
-              className="pointer-events-none invisible absolute inset-x-0 top-0"
-            >
-              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1 py-1">
-                {measuredLetterItems.map(({ key, value: letter }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    haptic={false}
-                    tabIndex={-1}
-                    data-choice-key={key}
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

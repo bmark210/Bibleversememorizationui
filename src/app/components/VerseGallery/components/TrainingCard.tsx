@@ -7,9 +7,9 @@ import {
 import type { HintState } from "@/app/components/training-session/modes/useHintState";
 import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
-// import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
+import { MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
+import { computeTotalProgressPercent } from "../utils";
 import { Verse } from "@/app/App";
 
 type Props = {
@@ -26,17 +26,10 @@ type Props = {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 };
 
-// function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
-//   const total = Math.min(
-//     rawMasteryLevel + repetitions,
-//     TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
-//   );
-//   return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
-// }
-
 function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
-  const progressPercent = Math.round(
-    (Math.max(0, verse.stageMasteryLevel) / MAX_MASTERY_LEVEL) * 100
+  const progressPercent = computeTotalProgressPercent(
+    verse.rawMasteryLevel,
+    verse.repetitions
   );
   return {
     id: String(verse.key),
@@ -91,7 +84,7 @@ export const TrainingCard = memo(function TrainingCard({
       trainingVerse.raw.reference,
       trainingVerse.raw.text,
       (trainingVerse.raw as Record<string, unknown>).translation,
-      trainingVerse.stageMasteryLevel,
+      trainingVerse.rawMasteryLevel,
       trainingVerse.repetitions,
       trainingVerse.lastReviewedAt?.getTime(),
       trainingVerse.nextReviewAt?.getTime(),
@@ -119,8 +112,8 @@ export const TrainingCard = memo(function TrainingCard({
       className="flex h-full w-full min-w-0 flex-col overflow-hidden"
     >
       {/* Header: reference + minimal progress */}
-      <div className="shrink-0 pb-1 pt-4 text-center space-y-1.5">
-        <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
+      <div className="shrink-0 pb-1 pt-2 sm:pt-4 text-center space-y-1.5">
+        <h2 className="text-xl sm:text-3xl italic text-primary/90 font-serif">
           {trainingVerse.raw.reference}
         </h2>
         {/* <div className="flex items-center justify-center gap-1.5">

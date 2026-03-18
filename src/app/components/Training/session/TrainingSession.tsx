@@ -264,26 +264,6 @@ export function TrainingSession({
     setHasInteractionStarted(true);
   }, []);
 
-  const requestNavigationStep = useCallback(
-    (step: 1 | -1) => {
-      if (
-        session.isActionPending ||
-        session.quickForgetConfirmStage !== null ||
-        session.pendingOutcome !== null ||
-        pendingCloseConfirm
-      ) {
-        return;
-      }
-      if (!hasInteractionStarted) {
-        setDirection(step);
-        session.handleNavigationStep(step);
-        return;
-      }
-      setPendingNavigationStep(step);
-    },
-    [hasInteractionStarted, pendingCloseConfirm, session]
-  );
-
   const confirmNavigationStep = useCallback(async () => {
     if (pendingNavigationStep === null) return;
     const step = pendingNavigationStep;
@@ -442,6 +422,36 @@ export function TrainingSession({
       (attempt.progress?.mistakeCount ?? 0) > 0
     );
   }, [hintHelpers.hintState]);
+
+  const hasCorrectTrainingProgress = useMemo(() => {
+    const { attempt, flowState } = hintHelpers.hintState;
+    return (
+      flowState === "awaiting_rating" ||
+      (attempt.progress?.completedCount ?? 0) > 0
+    );
+  }, [hintHelpers.hintState]);
+
+  const requestNavigationStep = useCallback(
+    (step: 1 | -1) => {
+      if (
+        session.isActionPending ||
+        session.quickForgetConfirmStage !== null ||
+        session.pendingOutcome !== null ||
+        pendingCloseConfirm
+      ) {
+        return;
+      }
+
+      if (!hasCorrectTrainingProgress) {
+        setDirection(step);
+        session.handleNavigationStep(step);
+        return;
+      }
+
+      setPendingNavigationStep(step);
+    },
+    [hasCorrectTrainingProgress, pendingCloseConfirm, session]
+  );
 
   const shouldConfirmSessionExit =
     session.pendingOutcome === null &&

@@ -13,6 +13,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { Verse } from '@/app/App';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -120,7 +121,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
   const [successFlashTokenId, setSuccessFlashTokenId] = useState<string | null>(null);
-  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
@@ -131,7 +131,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
     setTokens(shuffleTokens(chunks));
     setSelectedIds([]);
     setMistakesSinceReset(0);
-    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashTokenId(null);
     setSuccessFlashTokenId(null);
@@ -222,7 +221,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       return;
     }
 
-    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -266,12 +264,13 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
         <label className="text-sm font-medium text-foreground/90">
           Соберите стих по фрагментам
         </label>

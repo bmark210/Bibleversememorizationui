@@ -20,6 +20,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -366,13 +367,14 @@ export function ModeFirstLettersHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
+        <label className="text-xs text-center font-medium text-foreground/90">
           Выберите первые буквы слов
         </label>
         {onOpenTutorial && (
