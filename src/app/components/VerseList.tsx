@@ -4,16 +4,16 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+// import {
+//   AlertDialog,
+//   AlertDialogAction,
+//   AlertDialogCancel,
+//   AlertDialogContent,
+//   AlertDialogDescription,
+//   AlertDialogFooter,
+//   AlertDialogHeader,
+//   AlertDialogTitle,
+// } from "@/app/components/ui/alert-dialog";
 
 const AddVerseDialog = dynamic(
   () => import("./AddVerseDialog").then((m) => m.AddVerseDialog),
@@ -53,7 +53,7 @@ import { ONBOARDING_PRIMARY_VERSE_ID } from "@/app/onboarding/onboardingMockVers
 import {
   type VerseSectionTutorialSource,
   readVerseSectionTutorialPromptSeen,
-  writeVerseSectionTutorialPromptSeen,
+  // writeVerseSectionTutorialPromptSeen,
 } from "@/app/verseSectionTutorial/storage";
 import {
   useVerseSectionTutorialStore,
@@ -99,7 +99,7 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
-  onStartVerseSectionTutorial,
+  // onStartVerseSectionTutorial,
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
@@ -220,16 +220,16 @@ export function VerseList({
     setIsFocusMode((prev) => !prev);
   }, []);
 
-  const handleSkipVerseSectionTutorial = useCallback(() => {
-    writeVerseSectionTutorialPromptSeen(telegramId);
-    setIsTutorialPromptOpen(false);
-  }, [telegramId]);
+  // const handleSkipVerseSectionTutorial = useCallback(() => {
+  //   writeVerseSectionTutorialPromptSeen(telegramId);
+  //   setIsTutorialPromptOpen(false);
+  // }, [telegramId]);
 
-  const handleStartVerseSectionTutorial = useCallback(() => {
-    writeVerseSectionTutorialPromptSeen(telegramId);
-    setIsTutorialPromptOpen(false);
-    void Promise.resolve(onStartVerseSectionTutorial?.("prompt"));
-  }, [onStartVerseSectionTutorial, telegramId]);
+  // const handleStartVerseSectionTutorial = useCallback(() => {
+  //   writeVerseSectionTutorialPromptSeen(telegramId);
+  //   setIsTutorialPromptOpen(false);
+  //   void Promise.resolve(onStartVerseSectionTutorial?.("prompt"));
+  // }, [onStartVerseSectionTutorial, telegramId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -537,7 +537,7 @@ export function VerseList({
 
   return (
     <>
-      <AlertDialog
+      {/* <AlertDialog
         open={isTutorialPromptOpen}
         onOpenChange={handleTutorialPromptOpenChange}
       >
@@ -581,7 +581,7 @@ export function VerseList({
             </AlertDialogFooter>
           </div>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog> */}
 
       <motion.div
         className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-hidden"

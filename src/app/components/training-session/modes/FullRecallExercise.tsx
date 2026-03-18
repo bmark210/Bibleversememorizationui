@@ -267,7 +267,7 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
       </ScrollShadowContainer>
 
       <FixedBottomPanel visible={!isCompleted}>
-        <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
+        <Button type="button" className="mb-2 w-full rounded-xl border border-border/60 bg-card/60 text-foreground/80" onClick={handleCheck}>
           Проверить
         </Button>
       </FixedBottomPanel>

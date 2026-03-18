@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, ArrowLeft, ArrowRight, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lightbulb } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -612,7 +612,7 @@ export function TrainingSession({
         </div>
 
         <div
-          className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl"
+          className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl z-40"
           style={{ paddingTop: `${topInset}px` }}
         >
           <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-2.5 sm:px-6">
@@ -686,20 +686,20 @@ export function TrainingSession({
 
         <div
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
-          className="shrink-0 border-t border-border/30 bg-background/70 backdrop-blur-xl"
+          className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl"
         >
           <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
             <div className="flex flex-1 items-center justify-start gap-1.5">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-xl text-foreground/75"
+                className="h-11 w-11 rounded-xl text-foreground/75"
                 disabled={!canNavigatePrev || isNavigationBlocked}
                 onClick={() => requestNavigationStep(-1)}
                 aria-label="Предыдущий стих"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
 
               {showAssistButton && (
@@ -736,7 +736,7 @@ export function TrainingSession({
 
               <Button
                 variant="outline"
-                className="h-9 rounded-xl border-border/60 bg-background/80 px-3 text-sm text-foreground/80 backdrop-blur-xl"
+                className="h-11 rounded-xl border-border/60 bg-background/80 px-3 text-sm text-foreground/80 backdrop-blur-xl"
                 onClick={requestCloseSession}
                 disabled={session.isActionPending}
               >
@@ -749,7 +749,7 @@ export function TrainingSession({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-9 rounded-xl px-2.5 text-xs text-rose-700/90 hover:bg-rose-500/10 dark:text-rose-300"
+                  className="h-11 rounded-xl px-2.5 text-xs text-rose-700/90 hover:bg-rose-500/10 dark:text-rose-300"
                   onClick={() => {
                     setHasInteractionStarted(true);
                     session.requestQuickForget();
@@ -762,9 +762,9 @@ export function TrainingSession({
 
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-xl text-foreground/75"
+                className="h-11 w-11 rounded-xl text-foreground/75"
                 disabled={!canNavigateNext || isNavigationBlocked}
                 onClick={() => requestNavigationStep(1)}
                 aria-label="Следующий стих"

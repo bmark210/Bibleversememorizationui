@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  useCallback,
+  // useCallback,
   useEffect,
   useMemo,
-  useState,
+  // useState,
   type CSSProperties,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -54,15 +54,15 @@ import { Button } from "../../ui/button";
 //   CollapsibleContent,
 //   CollapsibleTrigger,
 // } from "../../ui/collapsible";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../ui/alert-dialog";
+// import {
+//   AlertDialog,
+//   AlertDialogAction,
+//   AlertDialogContent,
+//   AlertDialogDescription,
+//   AlertDialogFooter,
+//   AlertDialogHeader,
+//   AlertDialogTitle,
+// } from "../../ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
 
@@ -125,7 +125,7 @@ type AccentTheme = {
 };
 
 // const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
-const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
+// const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
 const ANCHOR_MIN_REQUIRED = 10;
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
@@ -316,16 +316,16 @@ function triggerSelectionHaptic(isChanged: boolean) {
   triggerHaptic(isChanged ? "medium" : "light");
 }
 
-function getTrainingIntroStorageKey(telegramId?: string | null) {
-  const normalizedTelegramId = telegramId?.trim() || "anonymous";
-  return `${TRAINING_INTRO_STORAGE_PREFIX}:${normalizedTelegramId}`;
-}
+// function getTrainingIntroStorageKey(telegramId?: string | null) {
+//   const normalizedTelegramId = telegramId?.trim() || "anonymous";
+//   return `${TRAINING_INTRO_STORAGE_PREFIX}:${normalizedTelegramId}`;
+// }
 
 export function TrainingHub({
   allVerses,
   dashboardStats,
-  telegramId = null,
-  suppressIntro = false,
+  // telegramId = null,
+  // suppressIntro = false,
   selectionVerses,
   selectedScenario,
   selectedModes,
@@ -342,7 +342,7 @@ export function TrainingHub({
     (state) => state.isTelegramFullscreen,
   );
   // const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
+  // const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
   const practiceCount = counts.learningCount + counts.dueReviewCount;
@@ -487,54 +487,54 @@ export function TrainingHub({
     selectedScenario,
   ]);
 
-  const markTrainingIntroAsSeen = useCallback(() => {
-    if (typeof window === "undefined") {
-      setIsAboutDialogOpen(false);
-      return;
-    }
+  // const markTrainingIntroAsSeen = useCallback(() => {
+  //   if (typeof window === "undefined") {
+  //     setIsAboutDialogOpen(false);
+  //     return;
+  //   }
 
-    try {
-      window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
-    } catch {
-      // ignore storage errors
-    }
+  //   try {
+  //     window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
+  //   } catch {
+  //     // ignore storage errors
+  //   }
 
-    setIsAboutDialogOpen(false);
-  }, [telegramId]);
+  //   // setIsAboutDialogOpen(false);
+  // }, [telegramId]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // useEffect(() => {
+  //   if (typeof window === "undefined") return;
 
-    try {
-      if (suppressIntro) {
-        window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
-        setIsAboutDialogOpen(false);
-        return;
-      }
+  //   try {
+  //     if (suppressIntro) {
+  //       window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
+  //       setIsAboutDialogOpen(false);
+  //       return;
+  //     }
 
-      const storageKey = getTrainingIntroStorageKey(telegramId);
-      const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
-      if (!hasSeenIntro) {
-        setIsAboutDialogOpen(true);
-      }
-    } catch {
-      if (!suppressIntro) {
-        setIsAboutDialogOpen(true);
-      }
-    }
-  }, [suppressIntro, telegramId]);
+  //     const storageKey = getTrainingIntroStorageKey(telegramId);
+  //     const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
+  //     if (!hasSeenIntro) {
+  //       setIsAboutDialogOpen(true);
+  //     }
+  //   } catch {
+  //     if (!suppressIntro) {
+  //       setIsAboutDialogOpen(true);
+  //     }
+  //   }
+  // }, [suppressIntro, telegramId]);
 
-  const handleAboutDialogOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        setIsAboutDialogOpen(true);
-        return;
-      }
+  // const handleAboutDialogOpenChange = useCallback(
+  //   (open: boolean) => {
+  //     if (open) {
+  //       setIsAboutDialogOpen(true);
+  //       return;
+  //     }
 
-      markTrainingIntroAsSeen();
-    },
-    [markTrainingIntroAsSeen],
-  );
+  //     markTrainingIntroAsSeen();
+  //   },
+  //   [markTrainingIntroAsSeen],
+  // );
 
   // const handleAboutDialogOpen = useCallback(() => {
   //   setIsAboutDialogOpen(true);
@@ -573,7 +573,7 @@ export function TrainingHub({
 
   return (
     <>
-      <AlertDialog
+      {/* <AlertDialog
         open={isAboutDialogOpen}
         onOpenChange={handleAboutDialogOpenChange}
       >
@@ -620,7 +620,7 @@ export function TrainingHub({
             </AlertDialogFooter>
           </div>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog> */}
 
       <div
         className={cn(

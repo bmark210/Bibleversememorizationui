@@ -1,5 +1,5 @@
 import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
-import { cn } from "@/app/components/ui/utils";
+// import { cn } from "@/app/components/ui/utils";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -7,7 +7,7 @@ import {
 import type { HintState } from "@/app/components/training-session/modes/useHintState";
 import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+// import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { MAX_MASTERY_LEVEL, MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
 import { Verse } from "@/app/App";
@@ -26,13 +26,13 @@ type Props = {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
 };
 
-function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
-  const total = Math.min(
-    rawMasteryLevel + repetitions,
-    TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
-  );
-  return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
-}
+// function computeTotalProgressPercent(rawMasteryLevel: number, repetitions: number): number {
+//   const total = Math.min(
+//     rawMasteryLevel + repetitions,
+//     TOTAL_REPEATS_AND_STAGE_MASTERY_MAX
+//   );
+//   return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+// }
 
 function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
   const progressPercent = Math.round(
@@ -71,16 +71,16 @@ export const TrainingCard = memo(function TrainingCard({
   onProgressChange,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
-  const isReviewStage =
-    trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED";
-  const totalProgressPercent = useMemo(
-    () =>
-      computeTotalProgressPercent(
-        trainingVerse.rawMasteryLevel,
-        trainingVerse.repetitions
-      ),
-    [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
-  );
+  // const isReviewStage =
+  //   trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED";
+  // const totalProgressPercent = useMemo(
+  //   () =>
+  //     computeTotalProgressPercent(
+  //       trainingVerse.rawMasteryLevel,
+  //       trainingVerse.repetitions
+  //     ),
+  //   [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
+  // );
 
   const verse = useMemo(
     () => asLegacyVerseForRenderer(trainingVerse),
@@ -119,7 +119,7 @@ export const TrainingCard = memo(function TrainingCard({
       className="flex h-full w-full min-w-0 flex-col overflow-hidden"
     >
       {/* Header: reference + minimal progress */}
-      <div className="shrink-0 pb-1 text-center space-y-1.5">
+      <div className="shrink-0 pb-1 pt-4 text-center space-y-1.5">
         <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif">
           {trainingVerse.raw.reference}
         </h2>
