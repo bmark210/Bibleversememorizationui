@@ -272,7 +272,7 @@ export const SwipeableVerseCard = ({
         )}
         aria-label={popularityChip?.label ?? 'Открыть список пользователей'}
       >
-        <span className="font-semibold tabular-nums">{popularityValue}</span>
+        <span className="font-semibold tabular-nums">{verse.popularityScope === 'players' ? 'У игроков: ' : 'У друзей: '} {popularityValue}</span>
         <span className="flex -space-x-1.5">
           {popularityPreviewUsers.map((user) => (
             <Avatar
@@ -392,7 +392,7 @@ export const SwipeableVerseCard = ({
 
           {socialMetaContent ? (
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              {socialMetaContent}
+             {socialMetaContent}
             </div>
           ) : null}
         </div>

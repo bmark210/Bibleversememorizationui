@@ -525,7 +525,6 @@ export function Profile({
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
   const canManageFriends = useOnboardingMockData || Boolean(telegramId);
-  const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
   const fullscreenButtonLabel = "Полный экран";
 
   const activeCount =
@@ -640,9 +639,6 @@ export function Profile({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <div className="inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
-                        {themeLabel} тема
-                      </div>
                       {user?.isPremium ? (
                         <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
                           Telegram Premium
