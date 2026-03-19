@@ -19,10 +19,7 @@ export function VerseStaticList({
   if (items.length === 0) return null;
 
   return (
-    <div
-      data-tour="verse-list-virtualized"
-      className="h-full w-full overflow-y-auto overscroll-contain"
-    >
+    <div data-tour="verse-list-virtualized" className="w-full">
       <div className="space-y-3 pt-4">
         {items.map((verse, index) => (
           <div

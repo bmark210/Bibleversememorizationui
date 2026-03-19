@@ -49,7 +49,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
     statusBadgeClassName:
       'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-    cardClassName: 'border-border dark:border-cyan-500/20 bg-gradient-to-br from-cyan-500/7 via-card to-card',
+    cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-cyan-500/7 via-card to-card',
   },
   learning: {
     dotClassName: 'bg-emerald-400',
@@ -59,7 +59,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     statusBadgeClassName:
       'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    cardClassName: 'border-border dark:border-emerald-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-card',
+    cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-card',
   },
   review: {
     dotClassName: 'bg-violet-400',
@@ -69,7 +69,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
     statusBadgeClassName:
       'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
-    cardClassName: 'border-border dark:border-violet-500/22 bg-gradient-to-br from-violet-500/9 via-card to-card',
+    cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-violet-500/9 via-card to-card',
   },
   mastered: {
     dotClassName: 'bg-amber-400',
@@ -80,7 +80,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     statusBadgeClassName:
       'border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300',
     cardClassName:
-      'border-border dark:border-amber-500/28 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6',
+      'border-border dark:border-gray-500/20 bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6',
   },
   stopped: {
     dotClassName: 'bg-rose-400',
@@ -89,7 +89,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     statusBadgeClassName:
       'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    cardClassName: 'border-border dark:border-rose-500/18 bg-gradient-to-br from-rose-500/6 via-card to-card',
+    cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-rose-500/6 via-card to-card',
   },
   my: {
     dotClassName: 'bg-sky-400',
@@ -98,7 +98,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     statusBadgeClassName:
       'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    cardClassName: 'border-border dark:border-sky-500/18 bg-gradient-to-br from-sky-500/6 via-card to-card',
+    cardClassName: 'border-border dark:border-gray-500/20 bg-gradient-to-br from-sky-500/6 via-card to-card',
   },
 };
 

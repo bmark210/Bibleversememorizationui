@@ -24,8 +24,8 @@ import { VerseGallery } from "./VerseGallery";
 import { ConfirmDeleteModal } from "./verse-list/components/ConfirmDeleteModal";
 import { SwipeableVerseCard } from "./verse-list/components/SwipeableVerseCard";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
-import { VerseListFilterCard } from "./verse-list/components/VerseListFilterCard";
 import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
+import { VerseListFiltersTrigger } from "./verse-list/components/VerseListFiltersTrigger";
 import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
@@ -42,7 +42,9 @@ import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
 } from "./verse-list/storage";
+import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseStaticList } from "./verse-list/virtualization/VerseStaticList";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
@@ -107,6 +109,10 @@ export function VerseList({
   onFriendsChanged,
   suppressSectionIntro = false,
 }: VerseListProps) {
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen,
+  );
+  const { contentSafeAreaInset } = useTelegramSafeArea();
   // --- Verse tutorial store subscriptions (only primitive/stable selectors) ---
   const isVerseSectionTutorialMock = useVerseSectionTutorialStore(
     selectShouldUseVerseSectionTutorialMockData,
@@ -151,6 +157,9 @@ export function VerseList({
     [tutorialMockVerses],
   );
   const tutorialMockTotalCount = tutorialMockVerses.length;
+  const stickyFiltersTop = isTelegramFullscreen
+    ? contentSafeAreaInset.top + 60
+    : 0;
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -534,6 +543,45 @@ export function VerseList({
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
+  const filterCardProps = {
+    totalVisible: isVerseSectionTutorialMock
+      ? tutorialMockVisibleVerses.length
+      : vm.ui.totalVisible,
+    totalCount: isVerseSectionTutorialMock
+      ? tutorialMockTotalCount
+      : vm.pagination.totalCount,
+    currentFilterLabel: isVerseSectionTutorialMock
+      ? "Каталог"
+      : vm.ui.currentFilterLabel,
+    currentFilterTheme: isVerseSectionTutorialMock
+      ? tutorialMockFilterTheme
+      : vm.ui.currentFilterTheme,
+    statusFilter: vm.filters.statusFilter,
+    defaultStatusFilter: vm.filters.defaultStatusFilter,
+    filterOptions: vm.filters.filterOptions,
+    hasFriends,
+    onTabClick: vm.filterTabs.onTabClick,
+    selectedBookId: vm.filters.selectedBookId,
+    bookOptions: vm.filters.bookOptions,
+    onBookChange: vm.filterTabs.onBookChange,
+    sortBy: vm.filters.sortBy,
+    sortOptions: vm.filters.sortOptions,
+    onSortChange: vm.filterTabs.onSortChange,
+    onResetFilters: vm.filterTabs.onResetFilters,
+    searchQuery: vm.search.searchQuery,
+    onSearchChange: vm.search.setSearchQuery,
+    allTags: vm.tagFilter.allTags,
+    isLoadingTags: vm.tagFilter.isLoadingTags,
+    selectedTagSlugs: vm.tagFilter.selectedTagSlugs,
+    hasActiveTags: vm.tagFilter.hasActiveTags,
+    onTagClick: vm.tagFilter.onTagClick,
+    onClearTags: vm.tagFilter.onClearTags,
+    onCreateTagDialogOpen: () => {
+      setAddDialogMode("tag");
+      setAddDialogOpen(true);
+    },
+    onDeleteTag: vm.tagFilter.deleteTag,
+  };
 
   return (
     <>
@@ -584,7 +632,7 @@ export function VerseList({
       </AlertDialog> */}
 
       <motion.div
-        className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-hidden"
+        className="mx-auto flex min-h-full w-full max-w-6xl flex-col pb-4"
         {...(shouldReduceMotion
           ? {}
           : {
@@ -597,7 +645,7 @@ export function VerseList({
           {vm.ui.announcement}
         </div>
 
-        <motion.div className="shrink-0" {...reveal(0.02)}>
+        <motion.div className="shrink-0 pb-4" {...reveal(0.02)}>
           <VerseListHeader
             onAddVerseClick={vm.header.onAddVerseClick}
             isFocusMode={isFocusMode}
@@ -607,53 +655,12 @@ export function VerseList({
         </motion.div>
 
         {!isFocusMode ? (
-          <motion.div className="hidden shrink-0 md:block px-4 sm:px-6 lg:px-8" {...reveal(0.04)}>
-            <VerseListFilterCard
-              totalVisible={
-                isVerseSectionTutorialMock
-                  ? tutorialMockVisibleVerses.length
-                  : vm.ui.totalVisible
-              }
-              totalCount={
-                isVerseSectionTutorialMock
-                  ? tutorialMockTotalCount
-                  : vm.pagination.totalCount
-              }
-              currentFilterLabel={
-                isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
-              }
-              currentFilterTheme={
-                isVerseSectionTutorialMock
-                  ? tutorialMockFilterTheme
-                  : vm.ui.currentFilterTheme
-              }
-              statusFilter={vm.filters.statusFilter}
-              defaultStatusFilter={vm.filters.defaultStatusFilter}
-              filterOptions={vm.filters.filterOptions}
-              hasFriends={hasFriends}
-              onTabClick={vm.filterTabs.onTabClick}
-              selectedBookId={vm.filters.selectedBookId}
-              bookOptions={vm.filters.bookOptions}
-              onBookChange={vm.filterTabs.onBookChange}
-              sortBy={vm.filters.sortBy}
-              sortOptions={vm.filters.sortOptions}
-              onSortChange={vm.filterTabs.onSortChange}
-              onResetFilters={vm.filterTabs.onResetFilters}
-              searchQuery={vm.search.searchQuery}
-              onSearchChange={vm.search.setSearchQuery}
-              allTags={vm.tagFilter.allTags}
-              isLoadingTags={vm.tagFilter.isLoadingTags}
-              selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
-              hasActiveTags={vm.tagFilter.hasActiveTags}
-              onTagClick={vm.tagFilter.onTagClick}
-              onClearTags={vm.tagFilter.onClearTags}
-              onCreateTagDialogOpen={() => {
-                setAddDialogMode("tag");
-                setAddDialogOpen(true);
-              }}
-              onDeleteTag={vm.tagFilter.deleteTag}
-            />
-          </motion.div>
+          <VerseListFiltersTrigger
+            open={isFiltersDrawerOpen}
+            onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+            stickyTop={stickyFiltersTop}
+            {...filterCardProps}
+          />
         ) : null}
 
         {isVerseSectionTutorialMock ? (
@@ -661,13 +668,14 @@ export function VerseList({
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="ready"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.06)}
           >
             <VerseListSectionShell
               totalCount={tutorialMockTotalCount}
               config={tutorialMockSectionConfig}
               count={tutorialMockVisibleVerses.length}
+              contentHeightMode="auto"
             >
               {tutorialMockListContent()}
             </VerseListSectionShell>
@@ -677,10 +685,10 @@ export function VerseList({
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="loading"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            <VerseListSectionShell
+            {/* <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={
                 vm.list.sectionConfig ?? {
@@ -694,19 +702,20 @@ export function VerseList({
                 }
               }
               count={0}
-            >
+              contentHeightMode="auto"
+            > */}
               <VerseListSkeletonCards count={3} />
-            </VerseListSectionShell>
+            {/* </VerseListSectionShell> */}
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="empty"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            <VerseListSectionShell
+            {/* <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={{
                 headingId: "empty-verse-list-heading",
@@ -720,78 +729,33 @@ export function VerseList({
               count={vm.pagination.totalCount}
               contentHeightMode="auto"
               fillAvailableHeight
-            >
+            > */}
               <VerseListEmptyState
                 currentFilterLabel={vm.ui.currentFilterLabel}
                 isAllFilter={vm.filters.statusFilter === "catalog"}
               />
-            </VerseListSectionShell>
+            {/* </VerseListSectionShell> */}
           </motion.div>
         ) : vm.list.sectionConfig ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="ready"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.06)}
           >
-            <VerseListSectionShell
+            {/* <VerseListSectionShell
               totalCount={vm.pagination.totalCount}
               config={vm.list.sectionConfig}
               count={vm.list.sectionItems.length}
-            >
+              contentHeightMode="auto"
+            > */}
               {listContent}
-            </VerseListSectionShell>
+            {/* </VerseListSectionShell> */}
           </motion.div>
         ) : null}
 
-        <VerseListFiltersDrawer
-          open={isFiltersDrawerOpen}
-          onOpenChange={setIsLocalFiltersDrawerOpen}
-          totalVisible={
-            isVerseSectionTutorialMock
-              ? tutorialMockVisibleVerses.length
-              : vm.ui.totalVisible
-          }
-          totalCount={
-            isVerseSectionTutorialMock
-              ? tutorialMockTotalCount
-              : vm.pagination.totalCount
-          }
-          currentFilterLabel={
-            isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
-          }
-          currentFilterTheme={
-            isVerseSectionTutorialMock
-              ? tutorialMockFilterTheme
-              : vm.ui.currentFilterTheme
-          }
-          statusFilter={vm.filters.statusFilter}
-          defaultStatusFilter={vm.filters.defaultStatusFilter}
-          filterOptions={vm.filters.filterOptions}
-          hasFriends={hasFriends}
-          onTabClick={vm.filterTabs.onTabClick}
-          selectedBookId={vm.filters.selectedBookId}
-          bookOptions={vm.filters.bookOptions}
-          onBookChange={vm.filterTabs.onBookChange}
-          sortBy={vm.filters.sortBy}
-          sortOptions={vm.filters.sortOptions}
-          onSortChange={vm.filterTabs.onSortChange}
-          onResetFilters={vm.filterTabs.onResetFilters}
-          searchQuery={vm.search.searchQuery}
-          onSearchChange={vm.search.setSearchQuery}
-          allTags={vm.tagFilter.allTags}
-          isLoadingTags={vm.tagFilter.isLoadingTags}
-          selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
-          hasActiveTags={vm.tagFilter.hasActiveTags}
-          onTagClick={vm.tagFilter.onTagClick}
-          onClearTags={vm.tagFilter.onClearTags}
-          onCreateTagDialogOpen={() => {
-            setAddDialogMode("tag");
-            setAddDialogOpen(true);
-          }}
-          onDeleteTag={vm.tagFilter.deleteTag}
-        />
+       
 
         {/* <motion.div {...reveal(0.08)}>
         <VerseListLoadMoreFooter
@@ -814,6 +778,12 @@ export function VerseList({
           onClose={() => setAddDialogOpen(false)}
           onAdd={onVerseAdded}
           onCreateTag={vm.tagFilter.createTag}
+        />
+
+        <VerseListFiltersDrawer
+          open={isFiltersDrawerOpen}
+          onOpenChange={setIsLocalFiltersDrawerOpen}
+          {...filterCardProps}
         />
 
         <ConfirmDeleteModal

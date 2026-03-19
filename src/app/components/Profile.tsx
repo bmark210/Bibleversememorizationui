@@ -526,9 +526,7 @@ export function Profile({
   const canGoNext = currentPage < totalPages;
   const canManageFriends = useOnboardingMockData || Boolean(telegramId);
   const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
-  const fullscreenButtonLabel = prefersTelegramFullscreen
-    ? "Выключить полный экран"
-    : "Открыть на весь экран";
+  const fullscreenButtonLabel = "Полный экран";
 
   const activeCount =
     activeTab === "players" ? playersPage.totalCount : friendsPage.totalCount;
@@ -758,7 +756,7 @@ export function Profile({
 
           <motion.div variants={sectionVariants}>
             <ProfileSurface>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex w-fit flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-medium text-foreground/82">
                     Полный экран Telegram

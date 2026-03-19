@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Virtuoso, type ListRange } from 'react-virtuoso';
 import { Verse } from '@/app/App';
@@ -8,6 +15,7 @@ import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
 type RangeLike = VerseListLoadRange;
+type AutoLoadSource = 'range' | 'end' | 'scroll';
 const NOOP_DEBUG_INFINITE_SCROLL: DebugInfiniteScroll = () => {};
 
 type VerseVirtualizedListProps = {
@@ -33,6 +41,28 @@ const DEFAULT_INLINE_SKELETON_COUNT = 4;
 const DEFAULT_ITEM_HEIGHT_ESTIMATE = 176;
 const SCROLL_SEEK_ENTER_VELOCITY = 720;
 const SCROLL_SEEK_EXIT_VELOCITY = 140;
+const EXTERNAL_SCROLL_ACTIVATION_PX = 8;
+
+function isScrollableOverflow(value: string) {
+  return value === 'auto' || value === 'scroll' || value === 'overlay';
+}
+
+function findNearestScrollParent(element: HTMLElement | null) {
+  let current = element?.parentElement ?? null;
+
+  while (current) {
+    const styles = window.getComputedStyle(current);
+    if (
+      isScrollableOverflow(styles.overflowY) ||
+      isScrollableOverflow(styles.overflow)
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return null;
+}
 
 function InlineLoadMoreSkeleton({
   count,
@@ -103,12 +133,29 @@ export function VerseVirtualizedList({
   debugInfiniteScroll,
 }: VerseVirtualizedListProps) {
   const shouldReduceMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
   const lastVisibleRangeRef = useRef<RangeLike | null>(null);
+  const [customScrollParent, setCustomScrollParent] = useState<HTMLElement | null>(
+    null
+  );
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
+  const usesExternalScrollParent = customScrollParent !== null;
+
+  useLayoutEffect(() => {
+    const resolveScrollParent = () => {
+      setCustomScrollParent(findNearestScrollParent(containerRef.current));
+    };
+
+    resolveScrollParent();
+    window.addEventListener('resize', resolveScrollParent);
+    return () => {
+      window.removeEventListener('resize', resolveScrollParent);
+    };
+  }, []);
 
   const maybeTriggerAutoLoadMore = useCallback(
-    (range: RangeLike, source: 'range' | 'end') => {
+    (range: RangeLike, source: AutoLoadSource) => {
       if (!enableInfiniteLoader) return;
       if (!hasMoreItems) return;
       if (isFetchingMore) return;
@@ -160,6 +207,58 @@ export function VerseVirtualizedList({
   );
 
   useEffect(() => {
+    if (!usesExternalScrollParent || !customScrollParent) return;
+
+    const handleExternalScroll = () => {
+      if (customScrollParent.scrollTop <= EXTERNAL_SCROLL_ACTIVATION_PX) return;
+
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const scrollParentRect = customScrollParent.getBoundingClientRect();
+      const distanceToBottom = containerRect.bottom - scrollParentRect.bottom;
+      const bottomThresholdPx = Math.max(
+        280,
+        Math.max(1, prefetchRows) * DEFAULT_ITEM_HEIGHT_ESTIMATE,
+      );
+
+      debug('virtuoso-externalScroll', {
+        scrollTop: customScrollParent.scrollTop,
+        distanceToBottom,
+        bottomThresholdPx,
+        itemsLength: items.length,
+        totalCount,
+      });
+
+      if (distanceToBottom > bottomThresholdPx) return;
+
+      maybeTriggerAutoLoadMore(
+        {
+          startIndex: Math.max(0, items.length - Math.max(1, prefetchRows) - 1),
+          stopIndex: Math.max(0, items.length - 1),
+        },
+        'scroll',
+      );
+    };
+
+    customScrollParent.addEventListener('scroll', handleExternalScroll, {
+      passive: true,
+    });
+    return () => {
+      customScrollParent.removeEventListener('scroll', handleExternalScroll);
+    };
+  }, [
+    customScrollParent,
+    debug,
+    items.length,
+    maybeTriggerAutoLoadMore,
+    prefetchRows,
+    totalCount,
+    usesExternalScrollParent,
+  ]);
+
+  useEffect(() => {
     autoLoadTriggeredForItemsLengthRef.current = null;
     lastVisibleRangeRef.current = null;
   }, [statusFilter]);
@@ -171,12 +270,13 @@ export function VerseVirtualizedList({
   }, [items.length]);
 
   useEffect(() => {
+    if (usesExternalScrollParent) return;
     autoLoadTriggeredForItemsLengthRef.current = null;
     const lastRange = lastVisibleRangeRef.current;
     if (lastRange) {
       maybeTriggerAutoLoadMore(lastRange, 'range');
     }
-  }, [items.length, maybeTriggerAutoLoadMore]);
+  }, [items.length, maybeTriggerAutoLoadMore, usesExternalScrollParent]);
 
   const handleRangeChanged = useCallback(
     (range: ListRange) => {
@@ -196,9 +296,17 @@ export function VerseVirtualizedList({
           visibleRange.stopIndex >= Math.max(0, items.length - 1 - Math.max(0, prefetchRows)),
       });
 
+      if (usesExternalScrollParent) return;
       maybeTriggerAutoLoadMore(visibleRange, 'range');
     },
-    [debug, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
+    [
+      debug,
+      items.length,
+      maybeTriggerAutoLoadMore,
+      prefetchRows,
+      totalCount,
+      usesExternalScrollParent,
+    ]
   );
 
   const handleEndReached = useCallback(
@@ -218,9 +326,19 @@ export function VerseVirtualizedList({
         hasMoreItems,
       });
 
+      if (usesExternalScrollParent) return;
       maybeTriggerAutoLoadMore(range, 'end');
     },
-    [debug, hasMoreItems, isFetchingMore, items.length, maybeTriggerAutoLoadMore, prefetchRows, totalCount]
+    [
+      debug,
+      hasMoreItems,
+      isFetchingMore,
+      items.length,
+      maybeTriggerAutoLoadMore,
+      prefetchRows,
+      totalCount,
+      usesExternalScrollParent,
+    ]
   );
 
   const inlineLoadSkeletonCount =
@@ -250,13 +368,17 @@ export function VerseVirtualizedList({
   if (items.length === 0) return null;
 
   return (
-    <div className="h-full w-full">
+    <div
+      ref={containerRef}
+      className={usesExternalScrollParent ? 'w-full' : 'h-full w-full'}
+    >
       <Virtuoso<Verse>
         key={`verse-virtuoso-${statusFilter}`}
         data={items}
         data-tour="verse-list-virtualized"
-        className="h-full w-full"
-        style={{ height: '100%' }}
+        className={usesExternalScrollParent ? 'w-full' : 'h-full w-full'}
+        style={usesExternalScrollParent ? undefined : { height: '100%' }}
+        customScrollParent={customScrollParent ?? undefined}
         components={virtuosoComponents}
         computeItemKey={(_, verse) => getItemKey(verse)}
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
