@@ -20,7 +20,6 @@ type Props = {
   onTrainingInteractionStart?: () => void;
   onRate: (rating: Rating) => void | Promise<void>;
   hideRatingFooter?: boolean;
-  suppressModeTutorials?: boolean;
   isLateStageReview?: boolean;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -159,7 +158,6 @@ export const TrainingCard = memo(function TrainingCard({
             ref={rendererRef as RefObject<TrainingModeRendererHandle>}
             renderer={renderer}
             verse={verse}
-            suppressTutorial={suppressModeTutorials}
             onRate={onRate}
             isLateStageReview={isLateStage}
             hintState={hintState}

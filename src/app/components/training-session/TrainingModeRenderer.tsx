@@ -4,10 +4,8 @@ import {
   forwardRef,
   memo,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
@@ -48,8 +46,6 @@ type ModeTutorialSpec = {
   summary: string;
   bullets: string[];
 };
-
-const MODE_TUTORIAL_STORAGE_KEY = 'bible-memory.training-mode-tutorials.seen.v1';
 
 const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
   [TrainingModeRendererKey.ChunksOrder]: {
@@ -126,31 +122,9 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
   },
 };
 
-function readSeenModeTutorials(): Partial<Record<TrainingModeRendererKey, true>> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(MODE_TUTORIAL_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<Record<TrainingModeRendererKey, true>>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeSeenModeTutorials(value: Partial<Record<TrainingModeRendererKey, true>>) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(MODE_TUTORIAL_STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // ignore storage errors
-  }
-}
-
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: Verse;
-  suppressTutorial?: boolean;
   onRate: (rating: TrainingModeRating) => void;
   isLateStageReview?: boolean;
   hintState?: HintState;
@@ -165,32 +139,13 @@ export interface TrainingModeRendererHandle {
 const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
-  suppressTutorial = false,
   onRate,
   isLateStageReview = false,
   hintState,
   onProgressChange,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
-  const [tutorialOpen, setTutorialOpen] = useState(() => {
-    if (suppressTutorial) return false;
-    const seen = readSeenModeTutorials();
-    return !seen[renderer];
-  });
-  const previousRendererRef = useRef(renderer);
-
-  useEffect(() => {
-    if (suppressTutorial) {
-      previousRendererRef.current = renderer;
-      setTutorialOpen(false);
-      return;
-    }
-    if (previousRendererRef.current === renderer) return;
-    previousRendererRef.current = renderer;
-    const seen = readSeenModeTutorials();
-    const nextOpen = !seen[renderer];
-    setTutorialOpen((prev) => (prev === nextOpen ? prev : nextOpen));
-  }, [renderer, suppressTutorial]);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   useImperativeHandle(ref, () => ({
     handleBackAction: () => {
@@ -199,25 +154,18 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
       return true;
     },
     openTutorial: () => {
-      if (!tutorial || suppressTutorial) return false;
+      if (!tutorial) return false;
       setTutorialOpen(true);
       return true;
     },
-  }), [suppressTutorial, tutorial, tutorialOpen]);
-
-  const handleTutorialComplete = () => {
-    const seen = readSeenModeTutorials();
-    seen[renderer] = true;
-    writeSeenModeTutorials(seen);
-    setTutorialOpen(false);
-  };
+  }), [tutorial, tutorialOpen]);
 
   const modeInstanceKey = `${renderer}:${verse.id}:${verse.status}:${verse.repetitions}:${verse.lastReviewedAt ?? ''}:${verse.nextReviewAt ?? ''}`;
 
   const handleOpenTutorial = useCallback(() => {
-    if (!tutorial || suppressTutorial) return;
+    if (!tutorial) return;
     setTutorialOpen(true);
-  }, [tutorial, suppressTutorial]);
+  }, [tutorial]);
 
   const modeContent = (() => {
   if (renderer === TrainingModeRendererKey.ChunksOrder) {
@@ -255,7 +203,7 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
     <>
       {modeContent}
 
-      {tutorial && !suppressTutorial && (
+      {tutorial && (
         <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
           <AlertDialogContent className="rounded-3xl">
             <AlertDialogHeader>
@@ -277,7 +225,7 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
                 className="w-full sm:w-auto rounded-full border border-border/60 bg-muted/35 text-foreground/90"
                 onClick={(e) => {
                   e.preventDefault();
-                  handleTutorialComplete();
+                  setTutorialOpen(false);
                 }}
               >
                 Понятно, начать

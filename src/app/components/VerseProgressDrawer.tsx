@@ -36,7 +36,7 @@ import {
   getCurrentTrainingModeId,
   getTrainingModeMeta,
 } from "@/app/components/VerseGallery/modeMeta";
-import { VERSE_JOURNEY_PHASE_TITLES } from "@/app/onboarding/verseJourneyModel";
+import { VERSE_JOURNEY_PHASE_TITLES } from "@/shared/verseJourneyPhaseTitles";
 import {
   Drawer,
   DrawerContent,

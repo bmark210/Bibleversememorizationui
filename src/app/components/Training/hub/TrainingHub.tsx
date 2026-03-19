@@ -70,7 +70,6 @@ interface TrainingHubProps {
   allVerses: Verse[];
   dashboardStats?: UserDashboardStats | null;
   telegramId?: string | null;
-  suppressIntro?: boolean;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];

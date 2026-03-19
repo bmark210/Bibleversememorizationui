@@ -174,7 +174,6 @@ interface TrainingSessionProps {
   initialSubsetFilter: TrainingSubsetSelectValue;
   initialOrder: TrainingOrder;
   initialVerseExternalId?: string | null;
-  suppressModeTutorials?: boolean;
   onClose: () => void;
   onVersePatched?: (event: VersePatchEvent) => void;
   onMutationCommitted?: () => void;
@@ -185,7 +184,6 @@ export function TrainingSession({
   initialSubsetFilter,
   initialOrder,
   initialVerseExternalId = null,
-  suppressModeTutorials = false,
   onClose,
   onVersePatched,
   onMutationCommitted,
@@ -670,7 +668,6 @@ export function TrainingSession({
                   trainingVerse={trainingActiveVerse}
                   modeId={trainingModeId}
                   rendererRef={session.rendererRef}
-                  suppressModeTutorials={suppressModeTutorials}
                   onTrainingInteractionStart={markInteractionStarted}
                   onRate={async (rating) => {
                     setHasInteractionStarted(true);
