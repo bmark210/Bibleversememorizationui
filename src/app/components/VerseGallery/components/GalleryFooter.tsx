@@ -3,7 +3,6 @@ import { ChevronDown, ChevronUp, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { haptic } from "@/app/components/VerseGallery/utils";
-import type { GalleryStatusAction } from "@/app/components/VerseGallery/types";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 
 type Props = {
@@ -11,12 +10,11 @@ type Props = {
   isFocusMode?: boolean;
   canGoPrev?: boolean;
   canGoNext?: boolean;
-  previewStatusAction: GalleryStatusAction | null;
+  showDelete?: boolean;
   onClose: () => void;
   onToggleFocusMode?: () => void;
   onGoPrev?: () => void;
   onGoNext?: () => void;
-  onPreviewStatusAction: () => void;
   onDeleteRequest: () => void;
   closeButtonRef?: Ref<HTMLButtonElement>;
 };
@@ -26,12 +24,11 @@ export function GalleryFooter({
   isFocusMode = false,
   canGoPrev = false,
   canGoNext = false,
-  previewStatusAction,
+  showDelete = true,
   onClose,
   onToggleFocusMode,
   onGoPrev,
   onGoNext,
-  onPreviewStatusAction,
   onDeleteRequest,
   closeButtonRef,
 }: Props) {
@@ -74,32 +71,22 @@ export function GalleryFooter({
           </Button>
         ) : null}
 
-        {previewStatusAction ? (
+        {showDelete ? (
           <Button
             variant="outline"
-            className={cn(iconButtonClassName, "flex gap-2")}
-            onClick={onPreviewStatusAction}
+            className={cn(iconButtonClassName, "w-fit gap-2 text-destructive")}
+            haptic={false}
+            onClick={() => {
+              if (isActionPending) return;
+              haptic("warning");
+              onDeleteRequest();
+            }}
             disabled={isActionPending}
-            aria-label={previewStatusAction.label}
+            aria-label="Удалить стих"
           >
-            <previewStatusAction.icon className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         ) : null}
-
-        <Button
-          variant="outline"
-          className={cn(iconButtonClassName, "w-fit gap-2 text-destructive")}
-          haptic={false}
-          onClick={() => {
-            if (isActionPending) return;
-            haptic("warning");
-            onDeleteRequest();
-          }}
-          disabled={isActionPending}
-          aria-label="Удалить стих"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
 
         <Button
           variant="outline"

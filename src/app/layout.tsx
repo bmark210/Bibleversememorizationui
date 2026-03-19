@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
+import { Inter, Literata } from 'next/font/google'
 import Script from 'next/script'
 
 import { DisableViewportZoom } from './components/DisableViewportZoom'
@@ -11,6 +11,12 @@ const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   display: 'swap',
   variable: '--font-inter',
+})
+
+const literata = Literata({
+  subsets: ['latin', 'cyrillic'],
+  display: 'swap',
+  variable: '--font-literata',
 })
 
 export const metadata: Metadata = {
@@ -30,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="ru"
-      className={inter.variable}
+      className={`${inter.variable} ${literata.variable}`}
     >
       <head>
       <Script

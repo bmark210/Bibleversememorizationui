@@ -564,7 +564,12 @@ export function Profile({
   };
 
   return (
-    <div className={cn("mx-auto max-w-5xl p-4 sm:p-6 lg:p-8", isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "")}>
+    <div
+      className={cn(
+        "mx-auto w-full min-w-0 max-w-5xl p-4 sm:p-6 lg:p-8",
+        isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "",
+      )}
+    >
       <motion.div
         {...(shouldReduceMotion
           ? {}

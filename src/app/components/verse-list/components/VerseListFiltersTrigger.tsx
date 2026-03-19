@@ -24,11 +24,11 @@ type VerseListFiltersTriggerProps = Pick<
   stickyTop?: number;
 };
 
-function getSortSummaryLabel(sortBy: VerseListFilterCardProps['sortBy']) {
-  if (sortBy === 'bible') return 'Канон';
-  if (sortBy === 'popularity') return 'Популярность';
-  return 'Активность';
-}
+// function getSortSummaryLabel(sortBy: VerseListFilterCardProps['sortBy']) {
+//   if (sortBy === 'bible') return 'Канон';
+//   if (sortBy === 'popularity') return 'Популярность';
+//   return 'Активность';
+// }
 
 export function VerseListFiltersTrigger({
   onOpen,
@@ -39,17 +39,17 @@ export function VerseListFiltersTrigger({
   statusFilter,
   defaultStatusFilter,
   selectedBookId,
-  bookOptions,
+  // bookOptions,
   sortBy,
   searchQuery = '',
-  selectedTagSlugs,
+  // selectedTagSlugs,
   hasActiveTags,
 }: VerseListFiltersTriggerProps) {
   const trimmedSearchQuery = searchQuery.trim();
-  const selectedBook =
-    selectedBookId == null
-      ? null
-      : bookOptions.find((option) => option.id === selectedBookId) ?? null;
+  // const selectedBook =
+  //   selectedBookId == null
+  //     ? null
+  //     : bookOptions.find((option) => option.id === selectedBookId) ?? null;
   const activeFilterCount = [
     statusFilter !== defaultStatusFilter,
     selectedBookId !== null,
@@ -57,12 +57,12 @@ export function VerseListFiltersTrigger({
     hasActiveTags,
     trimmedSearchQuery.length > 0,
   ].filter(Boolean).length;
-  const summaryChips = [
-    selectedBook?.shortLabel ?? selectedBook?.label ?? null,
-    hasActiveTags ? `${selectedTagSlugs.size} тем` : null,
-    sortBy !== DEFAULT_VERSE_LIST_SORT_BY ? getSortSummaryLabel(sortBy) : null,
-    trimmedSearchQuery.length > 0 ? 'Поиск' : null,
-  ].filter((value): value is string => Boolean(value));
+  // const summaryChips = [
+  //   selectedBook?.shortLabel ?? selectedBook?.label ?? null,
+  //   hasActiveTags ? `${selectedTagSlugs.size} тем` : null,
+  //   sortBy !== DEFAULT_VERSE_LIST_SORT_BY ? getSortSummaryLabel(sortBy) : null,
+  //   trimmedSearchQuery.length > 0 ? 'Поиск' : null,
+  // ].filter((value): value is string => Boolean(value));
 
   return (
     <div
@@ -111,7 +111,7 @@ export function VerseListFiltersTrigger({
             </span>
           </div>
 
-          {summaryChips.length > 0 ? (
+          {/* {summaryChips.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {summaryChips.slice(0, 3).map((chip) => (
                 <span
@@ -122,7 +122,7 @@ export function VerseListFiltersTrigger({
                 </span>
               ))}
             </div>
-          ) : null}
+          ) : null} */}
         </button>
       </div>
     </div>

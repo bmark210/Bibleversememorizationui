@@ -49,7 +49,6 @@ type UseVerseListControllerParams = {
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
   onOpenVerseProgress?: (verse: Verse) => void;
-  onOpenVerseDifficulty?: (verse: Verse) => void;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -83,7 +82,6 @@ export function useVerseListController({
   onOpenVerseOwners,
   onOpenVerseTags,
   onOpenVerseProgress,
-  onOpenVerseDifficulty,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -555,7 +553,6 @@ export function useVerseListController({
         isFocusMode={isFocusMode}
         onOpen={() => openVerseInGallery(verse)}
         onOpenProgress={onOpenVerseProgress}
-        onOpenDifficulty={onOpenVerseDifficulty}
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
         onAddToLearning={(v) => {
@@ -571,7 +568,6 @@ export function useVerseListController({
     [
       actions,
       isFocusMode,
-      onOpenVerseDifficulty,
       onOpenVerseOwners,
       onOpenVerseProgress,
       onOpenVerseTags,
