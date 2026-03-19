@@ -3,6 +3,7 @@ import {
   Anchor,
   Brain,
   Clock3,
+  Dumbbell,
   Pause,
   Play,
   Plus,
@@ -17,8 +18,10 @@ import { cn } from "@/app/components/ui/utils";
 import { VerseCard } from "@/app/components/VerseCard";
 import {
   VerseStatusSummary,
+  VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
+import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { Verse } from "@/app/App";
 import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
 import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
@@ -63,6 +66,9 @@ export function VersePreviewCard({
   );
   const isNotYetDue =
     status === "REVIEW" && nextReviewAt !== null && Date.now() < nextReviewAt.getTime();
+  const availabilityLabel = isNotYetDue
+    ? formatVerseAvailabilityLabel(nextReviewAt)
+    : null;
   const isReviewStage = status === "REVIEW" || status === "MASTERED";
   const activeTagSlugSet = useMemo(() => {
     const next = new Set<string>();
@@ -176,6 +182,7 @@ export function VersePreviewCard({
     onStartTraining,
     onStatusAction,
   });
+  const waitingActionLabel = isNotYetDue ? availabilityLabel : null;
 
   const statusTone = buildStatusTone({
     status,
@@ -419,6 +426,13 @@ export function VersePreviewCard({
               <primaryAction.icon className="h-4 w-4" />
               <span className="min-w-0 truncate">{primaryAction.label}</span>
             </Button>
+          ) : waitingActionLabel ? (
+            <div className="flex justify-center">
+              <VerseStatusMetaPill
+                label={waitingActionLabel}
+                className="gap-2 rounded-2xl border-border/60 bg-background/72 px-4 py-3"
+              />
+            </div>
           ) : null
         }
         footer={
@@ -521,18 +535,18 @@ function buildPrimaryAction(params: {
 
   if (status === VerseStatus.LEARNING) {
     return {
-      label: "Продолжить",
+      label: "Тренироваться",
       ariaLabel: "Продолжить тренировку стиха",
-      icon: Play,
+      icon: Dumbbell,
       onClick: onStartTraining,
     };
   }
 
   if (status === "REVIEW" && !isNotYetDue) {
     return {
-      label: "Повторить",
+      label: "Тренироваться",
       ariaLabel: "Перейти к повторению стиха",
-      icon: Repeat,
+      icon: Dumbbell,
       onClick: onStartTraining,
     };
   }

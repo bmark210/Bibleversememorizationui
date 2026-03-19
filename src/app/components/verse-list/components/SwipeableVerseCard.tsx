@@ -7,9 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar'
 import { cn } from '@/app/components/ui/utils';
 import {
   VerseProgressValue,
+  VerseStatusMetaPill,
   VerseStatusPill,
   type VerseStatusSummaryTone,
 } from '@/app/components/VerseStatusSummary';
+import { formatVerseAvailabilityLabel } from '@/app/components/formatVerseAvailabilityLabel';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
@@ -89,9 +91,17 @@ export const SwipeableVerseCard = ({
     popularityValue != null &&
     popularityValue > 0 &&
     (verse.popularityScope === 'friends' || verse.popularityScope === 'players');
-  const isNotYetDueCard = displayStatus === 'REVIEW' && verse.nextReviewAt
-    ? Date.now() < new Date(verse.nextReviewAt).getTime()
-    : false;
+  const nextReviewAt =
+    displayStatus === 'REVIEW' && verse.nextReviewAt
+      ? new Date(verse.nextReviewAt)
+      : null;
+  const isNotYetDueCard =
+    nextReviewAt !== null && !Number.isNaN(nextReviewAt.getTime())
+      ? Date.now() < nextReviewAt.getTime()
+      : false;
+  const availabilityLabel = isNotYetDueCard
+    ? formatVerseAvailabilityLabel(nextReviewAt)
+    : null;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -149,7 +159,9 @@ export const SwipeableVerseCard = ({
               dataTour: 'verse-card-promote-button',
               onClick: () => onAddToLearning(verse),
             }
-          : displayStatus === VerseStatus.STOPPED
+          : displayStatus === 'REVIEW' && isNotYetDueCard
+            ? null
+            : displayStatus === VerseStatus.STOPPED
             ? {
                 label: 'Продолжить',
                 title: 'Возобновить изучение',
@@ -168,25 +180,33 @@ export const SwipeableVerseCard = ({
 
     return (
       <>
-        <Button
-          type="button"
-          data-tour={primaryAction.dataTour}
-          size="sm"
-          variant="outline"
-          title={primaryAction.title}
-          aria-label={primaryAction.ariaLabel}
-          disabled={isPending}
-          className="h-9 rounded-full border-border/60 bg-background/45 px-3 text-foreground/85 shadow-sm backdrop-blur-sm hover:bg-muted/45"
-          onClick={(e) => {
-            stopCardOpen(e);
-            primaryAction.onClick();
-          }}
-        >
-          <primaryAction.icon className="h-4 w-4 shrink-0" />
-          <span className="max-w-[6.5rem] truncate text-[13px] font-medium">
-            {primaryAction.label}
-          </span>
-        </Button>
+        {primaryAction ? (
+          <Button
+            type="button"
+            data-tour={primaryAction.dataTour}
+            size="sm"
+            variant="outline"
+            title={primaryAction.title}
+            aria-label={primaryAction.ariaLabel}
+            disabled={isPending}
+            className="h-9 rounded-full border-border/60 bg-background/45 px-3 text-foreground/85 shadow-sm backdrop-blur-sm hover:bg-muted/45"
+            onClick={(e) => {
+              stopCardOpen(e);
+              primaryAction.onClick();
+            }}
+          >
+            <primaryAction.icon className="h-4 w-4 shrink-0" />
+            <span className="max-w-[6.5rem] truncate text-[13px] font-medium">
+              {primaryAction.label}
+            </span>
+          </Button>
+        ) : availabilityLabel ? (
+          <VerseStatusMetaPill
+            label={availabilityLabel}
+            size="sm"
+            className="h-9 border-border/60 bg-background/45 px-3"
+          />
+        ) : null}
 
         {canDelete ? (
           <Button
@@ -251,7 +271,7 @@ export const SwipeableVerseCard = ({
       type="button"
       data-tour="verse-card-progress-button"
       onClick={handleOpenProgress}
-      className="inline-flex max-w-full text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
+      className="inline-flex max-w-full items-center text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
       aria-label={`Показать путь прогресса стиха ${verse.reference}`}
     >
       <VerseStatusPill tone={statusTone} size="sm" className="max-w-full" />

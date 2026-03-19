@@ -44,7 +44,7 @@ export function VerseStatusSummary({
   className,
 }: VerseStatusSummaryProps) {
   return (
-    <div className={cn("flex items-center", SIZE_CONFIG[size].containerGap, className)}>
+    <div className={cn("flex min-w-0 items-center", SIZE_CONFIG[size].containerGap, className)}>
       <VerseStatusPill tone={tone} size={size} />
       <VerseProgressValue progressPercent={progressPercent} size={size} />
     </div>
@@ -80,6 +80,34 @@ export function VerseStatusPill({
         )}
       >
         {tone.title}
+      </span>
+    </div>
+  );
+}
+
+export function VerseStatusMetaPill({
+  label,
+  size = "md",
+  className,
+}: {
+  label: string;
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "inline-flex min-w-0 items-center rounded-full border border-border/55 bg-background/45 px-3 py-2 shadow-sm backdrop-blur-sm",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          size === "sm" ? "text-[10px]" : "text-[11px]",
+          "min-w-0 truncate font-medium leading-none text-foreground/58 tabular-nums",
+        )}
+      >
+        {label}
       </span>
     </div>
   );
