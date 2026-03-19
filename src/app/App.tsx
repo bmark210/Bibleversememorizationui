@@ -203,6 +203,8 @@ type AppProps = {
 };
 
 const THEME_STORAGE_KEY = "theme";
+const THEME_EXPLICIT_PREFERENCE_STORAGE_KEY = "theme-explicit-preference";
+const DEFAULT_THEME: Theme = "light";
 const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
 const TRAINING_VERSE_PREFETCH_DELAY_MS = 350;
 const TRAINING_VERSE_PREFETCH_TIMEOUT_MS = 1500;
@@ -244,7 +246,7 @@ function lockTelegramPortraitOrientation(webApp: TelegramWebApp) {
   }
 }
 
-function readStoredTheme(): Theme | null {
+function readStoredThemeValue(): Theme | null {
   if (typeof window === "undefined") return null;
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -254,10 +256,28 @@ function readStoredTheme(): Theme | null {
   }
 }
 
-function writeStoredTheme(theme: Theme) {
+function hasExplicitThemePreference(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.localStorage.getItem(THEME_EXPLICIT_PREFERENCE_STORAGE_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function readStoredTheme(): Theme | null {
+  const storedTheme = readStoredThemeValue();
+  if (!storedTheme) return null;
+  return hasExplicitThemePreference() ? storedTheme : null;
+}
+
+function writeExplicitThemePreference(theme: Theme) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    window.localStorage.setItem(THEME_EXPLICIT_PREFERENCE_STORAGE_KEY, "1");
   } catch {
     // Ignore storage write errors in restricted webviews.
   }
@@ -279,11 +299,6 @@ function applyThemeToDocument(theme: Theme) {
   document.body.style.colorScheme = theme;
   document.documentElement.style.color = foregroundColor;
   document.body.style.color = foregroundColor;
-}
-
-function getTelegramColorScheme(): Theme | null {
-  const colorScheme = getTelegramWebApp()?.colorScheme;
-  return colorScheme === "light" || colorScheme === "dark" ? colorScheme : null;
 }
 
 function syncTelegramChromeTheme(theme: Theme) {
@@ -318,12 +333,10 @@ function syncTelegramChromeTheme(theme: Theme) {
 }
 
 function getPreferredTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   const stored = readStoredTheme();
   if (stored) return stored;
-  const telegramTheme = getTelegramColorScheme();
-  if (telegramTheme) return telegramTheme;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return DEFAULT_THEME;
 }
 
 function scheduleIdleTask(callback: () => void): IdleTaskHandle | null {
@@ -536,7 +549,6 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     applyThemeToDocument(theme);
-    writeStoredTheme(theme);
     syncTelegramChromeTheme(theme);
   }, [theme]);
 
@@ -829,7 +841,11 @@ export default function App({ onInitialContentReady }: AppProps) {
   ]);
 
   const handleToggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+    setTheme((prevTheme) => {
+      const nextTheme = prevTheme === "light" ? "dark" : "light";
+      writeExplicitThemePreference(nextTheme);
+      return nextTheme;
+    });
   };
 
   const loadAllUserVerses = useCallback(async (telegramIdValue: string) => {

@@ -178,18 +178,18 @@ export const SwipeableVerseCard = ({
             type="button"
             data-tour={primaryAction.dataTour}
             size="sm"
-            variant="outline"
+            variant="ghost"
             title={primaryAction.title}
             aria-label={primaryAction.ariaLabel}
             disabled={primaryDisabled}
-            className="h-9 rounded-full border-border/60 bg-background/72 px-3 text-foreground/88 shadow-sm backdrop-blur-sm hover:bg-muted/45"
+            className="h-9 rounded-full px-2.5 text-foreground/58 hover:bg-muted/35 hover:text-foreground/82"
             onClick={(e) => {
               stopCardOpen(e);
               handlePrimaryAction();
             }}
           >
             <primaryAction.icon className="h-4 w-4 shrink-0" />
-            <span className="max-w-[8rem] truncate text-[13px] font-medium">
+            <span className="max-w-[8rem] truncate text-[12px] font-medium">
               {primaryAction.label}
             </span>
           </Button>

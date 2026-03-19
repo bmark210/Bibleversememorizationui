@@ -43,15 +43,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="beforeInteractive"
       />
-      {/* Применяем тему ДО загрузки React, чтобы избежать флэша неправильных цветов */}
+      {/* Применяем сохранённую тему ДО загрузки React, без авто-подстройки под Telegram dark. */}
       <script dangerouslySetInnerHTML={{ __html: `
 (function(){try{
-  var tg=window.Telegram&&window.Telegram.WebApp;
-  var tgScheme=tg&&tg.colorScheme;
   var stored=localStorage.getItem('theme');
-  var theme=stored==='light'||stored==='dark'?stored
-    :tgScheme==='light'||tgScheme==='dark'?tgScheme
-    :(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  var explicitPreference=localStorage.getItem('theme-explicit-preference')==='1';
+  var theme=explicitPreference&&(stored==='light'||stored==='dark')?stored
+    :'light';
   document.documentElement.setAttribute('data-theme',theme);
   document.documentElement.classList.add(theme);
   document.documentElement.style.colorScheme=theme;
