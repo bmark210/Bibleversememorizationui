@@ -31,7 +31,6 @@ function getSortSummaryLabel(sortBy: VerseListFilterCardProps['sortBy']) {
 }
 
 export function VerseListFiltersTrigger({
-  open,
   onOpen,
   stickyTop = 0,
   totalCount,
@@ -70,7 +69,7 @@ export function VerseListFiltersTrigger({
       className="sticky z-30 shrink-0"
       style={{ top: `${stickyTop}px` }}
     >
-      <div className="px-4 py-2 sm:px-6 lg:px-8">
+      <div className="px-2 pt-2 pb-0 sm:px-6 lg:px-8">
         <button
           type="button"
           data-tour="verse-list-filters-trigger"
@@ -78,7 +77,6 @@ export function VerseListFiltersTrigger({
           onClick={onOpen}
           className={cn(
             'w-full shrink-0 rounded-[24px] border border-border/70 bg-card/88 px-4 py-3 text-left backdrop-blur-2xl transition-[opacity,transform] duration-200',
-            open && 'pointer-events-none translate-y-2 opacity-0',
           )}
         >
           <div className="flex items-start justify-between gap-3">

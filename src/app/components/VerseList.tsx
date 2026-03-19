@@ -645,7 +645,7 @@ export function VerseList({
           {vm.ui.announcement}
         </div>
 
-        <motion.div className="shrink-0 pb-4" {...reveal(0.02)}>
+        <motion.div className="shrink-0 pb-2" {...reveal(0.02)}>
           <VerseListHeader
             onAddVerseClick={vm.header.onAddVerseClick}
             isFocusMode={isFocusMode}

@@ -426,7 +426,7 @@ export const SwipeableVerseCard = ({
         }}
         onKeyDown={handleKeyDown}
         className={`
-          relative z-10 rounded-2xl p-4 shadow-sm
+          relative z-10 rounded-3xl p-4 shadow-sm
           border ${stageVisualTheme.cardClassName} 
           active:shadow-md transition-shadow cursor-pointer
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
