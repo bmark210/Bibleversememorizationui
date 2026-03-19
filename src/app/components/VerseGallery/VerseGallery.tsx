@@ -25,6 +25,10 @@ import { Toaster } from "@/app/components/ui/toaster";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 import { VerseOwnersDrawer } from "@/app/components/VerseOwnersDrawer";
+import {
+  resolveVerseCardActionModel,
+  type VerseCardActionId,
+} from "@/app/components/verseCardActionModel";
 import { VerseTagsDrawer } from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -45,7 +49,7 @@ import { useGalleryAux } from "./hooks/useGalleryAux";
 import { usePreviewNavigation } from "./hooks/usePreviewNavigation";
 import {
   normalizeVerseStatus,
-  getGalleryStatusAction,
+  parseDate,
   getVerseIdentity,
   mergePreviewOverrides,
   toPreviewOverrideFromVersePatch,
@@ -166,6 +170,53 @@ function getTrainingLaunchMode(
   return null;
 }
 
+type PreviewStatusMutation = {
+  nextStatus: VerseStatus;
+  successMessage: string;
+};
+
+function getPreviewStatusMutation(
+  status: ReturnType<typeof normalizeVerseStatus>,
+  actionId: VerseCardActionId | null | undefined,
+): PreviewStatusMutation | null {
+  if (!actionId) return null;
+
+  if (actionId === "add-to-my" && status === "CATALOG") {
+    return {
+      nextStatus: VerseStatus.MY,
+      successMessage: "Добавлено в мои стихи",
+    };
+  }
+
+  if (actionId === "start-learning" && status === VerseStatus.MY) {
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      successMessage: "Добавлено в изучение",
+    };
+  }
+
+  if (actionId === "resume" && status === VerseStatus.STOPPED) {
+    return {
+      nextStatus: VerseStatus.LEARNING,
+      successMessage: "Возобновлено",
+    };
+  }
+
+  if (
+    actionId === "pause" &&
+    (status === VerseStatus.LEARNING ||
+      status === "REVIEW" ||
+      status === "MASTERED")
+  ) {
+    return {
+      nextStatus: VerseStatus.STOPPED,
+      successMessage: "Пауза включена",
+    };
+  }
+
+  return null;
+}
+
 export function VerseGallery({
   verses,
   initialIndex,
@@ -259,6 +310,18 @@ export function VerseGallery({
   const previewActiveVerse = activePreviewVerse
     ? mergePreviewOverrides(activePreviewVerse, aux.previewOverrides)
     : null;
+  const previewActionModel = useMemo(() => {
+    if (!previewActiveVerse) return null;
+
+    return resolveVerseCardActionModel({
+      status: normalizeVerseStatus(previewActiveVerse.status),
+      nextReviewAt: parseDate(
+        (previewActiveVerse as Record<string, unknown>).nextReviewAt ??
+          (previewActiveVerse as Record<string, unknown>).nextReview,
+      ),
+      isAnchorEligible,
+    });
+  }, [previewActiveVerse, isAnchorEligible]);
 
   const previewDisplayTotal = Math.max(previewTotalCount, verses.length, 1);
   const selectedTagSlugs = useMemo(() => {
@@ -340,10 +403,11 @@ export function VerseGallery({
   );
 
   // ── Preview status action ────────────────────────────────────────────────────
-  const handlePreviewStatusAction = useCallback(async () => {
+  const handlePreviewStatusMutation = useCallback(async (actionId: VerseCardActionId | null | undefined) => {
     if (!previewActiveVerse || aux.isActionPending) return;
-    const statusAction = getGalleryStatusAction(
+    const statusAction = getPreviewStatusMutation(
       normalizeVerseStatus(previewActiveVerse.status),
+      actionId,
     );
     if (!statusAction) return;
     try {
@@ -601,7 +665,7 @@ export function VerseGallery({
   );
 
   // ── Display values ───────────────────────────────────────────────────────────
-  if (!previewActiveVerse) return null;
+  if (!previewActiveVerse || !previewActionModel) return null;
 
   const displayTotal = previewDisplayTotal;
   const displayActive = Math.max(0, nav.activeIndex);
@@ -612,7 +676,6 @@ export function VerseGallery({
     (previewHasMore &&
       !previewIsLoadingMore &&
       typeof onRequestMorePreviewVerses === "function");
-
   return (
     <>
       {isMounted &&
@@ -678,7 +741,16 @@ export function VerseGallery({
                   isAnchorEligible={isAnchorEligible}
                   isFocusMode={isFocusMode}
                   onStartTraining={handleStartTraining}
-                  onStatusAction={() => void handlePreviewStatusAction()}
+                  onStatusAction={() =>
+                    void handlePreviewStatusMutation(
+                      previewActionModel.primaryAction?.id,
+                    )
+                  }
+                  onUtilityAction={() =>
+                    void handlePreviewStatusMutation(
+                      previewActionModel.utilityAction?.id,
+                    )
+                  }
                   onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}

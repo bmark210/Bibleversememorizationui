@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { motion } from "motion/react";
 import {
@@ -442,7 +443,7 @@ export function VerseCard({
         {header ? <div className="mb-2 min-w-0 flex-shrink-0">{header}</div> : null}
 
         {metaBadge ? (
-          <div className="mb-3 min-w-0 flex-shrink-0 flex justify-center">
+          <div className="mb-1 min-w-0 flex-shrink-0 flex justify-center">
             {metaBadge}
           </div>
         ) : null}
@@ -504,7 +505,7 @@ export function VerseCard({
         </div>
 
         {centerAction ? (
-          <div className="mt-4 mb-2 flex min-w-0 flex-shrink-0 justify-center overflow-hidden">{centerAction}</div>
+          <div className="mt-4 mb-2 flex min-w-0 flex-shrink-0 justify-center">{centerAction}</div>
         ) : null}
 
         {footer ? <div className="mt-6 min-w-0 flex-shrink-0">{footer}</div> : null}

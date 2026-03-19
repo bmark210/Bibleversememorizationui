@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
+import { Eye, Plus } from "lucide-react";
 import { motion } from "motion/react";
 // import {
 //   AlertDialog,
@@ -21,7 +22,6 @@ const AddVerseDialog = dynamic(
 );
 
 import { VerseGallery } from "./VerseGallery";
-import { ConfirmDeleteModal } from "./verse-list/components/ConfirmDeleteModal";
 import { SwipeableVerseCard } from "./verse-list/components/SwipeableVerseCard";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
 import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
@@ -44,6 +44,9 @@ import {
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
+import { isAdminTelegramId } from "@/lib/admins";
+import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseStaticList } from "./verse-list/virtualization/VerseStaticList";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
@@ -156,9 +159,10 @@ export function VerseList({
     [tutorialMockVerses],
   );
   const tutorialMockTotalCount = tutorialMockVerses.length;
-  const stickyFiltersTop = isTelegramFullscreen
-    ? contentSafeAreaInset.top + 60
+  const stickyControlsTop = isTelegramFullscreen
+    ? Math.max(0, contentSafeAreaInset.top)
     : 0;
+  const canAddVerse = isAdminTelegramId(telegramId);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
@@ -216,10 +220,6 @@ export function VerseList({
     setIsTutorialPromptOpen(open);
   }, []);
 
-  const handleTutorialPromptOpen = useCallback(() => {
-    setIsTutorialPromptOpen(true);
-  }, []);
-
   const toggleFocusMode = useCallback(() => {
     setIsFocusMode((prev) => !prev);
   }, []);
@@ -243,6 +243,11 @@ export function VerseList({
     );
   }, [isFocusMode]);
 
+  useEffect(() => {
+    if (canAddVerse || addDialogMode !== "verse" || !addDialogOpen) return;
+    setAddDialogOpen(false);
+  }, [addDialogMode, addDialogOpen, canAddVerse]);
+
   const closeVerseTagsDrawer = useCallback(() => {
     setIsVerseTagsDrawerOpen(false);
     setVerseTagsTarget(null);
@@ -254,6 +259,7 @@ export function VerseList({
     hasFriends,
     isFocusMode,
     onAddVerse: () => {
+      if (!canAddVerse) return;
       setAddDialogMode("verse");
       setAddDialogOpen(true);
     },
@@ -286,6 +292,8 @@ export function VerseList({
       setVerseProgressTarget(verse);
       setIsVerseProgressDrawerOpen(true);
     },
+    onNavigateToTraining,
+    isAnchorEligible,
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
@@ -334,8 +342,6 @@ export function VerseList({
     isVerseSectionTutorialMock || vm.ui.shouldReduceMotion;
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
-  const isDeleteModalOpen =
-    vm.modal.deleteTargetVerse !== null && !vm.modal.isDeleteSubmitting;
   const isGalleryOpen = isVerseSectionTutorialMock
     ? tutorialGalleryIndex !== null
     : vm.gallery.galleryIndex !== null;
@@ -343,11 +349,6 @@ export function VerseList({
   const handleTelegramBack = useCallback(() => {
     if (addDialogOpen) {
       setAddDialogOpen(false);
-      return;
-    }
-
-    if (isDeleteModalOpen) {
-      vm.modal.setDeleteTargetVerse(null);
       return;
     }
 
@@ -391,7 +392,6 @@ export function VerseList({
   }, [
     addDialogOpen,
     handleTutorialPromptOpenChange,
-    isDeleteModalOpen,
     isFiltersDrawerOpen,
     isGalleryOpen,
     isActiveVerseProgressDrawerOpen,
@@ -401,13 +401,11 @@ export function VerseList({
     isVerseSectionTutorialMock,
     closeVerseTagsDrawer,
     vm.gallery,
-    vm.modal,
   ]);
 
   useTelegramBackButton({
     enabled:
       addDialogOpen ||
-      isDeleteModalOpen ||
       isGalleryOpen ||
       isVerseTagsDrawerOpen ||
       isFiltersDrawerOpen ||
@@ -459,6 +457,7 @@ export function VerseList({
               .getState()
               .applyVerseAction(targetVerse.externalVerseId, action);
           }}
+          onStartTraining={() => {}}
           onPauseLearning={(targetVerse) =>
             useVerseSectionTutorialStore
               .getState()
@@ -469,15 +468,11 @@ export function VerseList({
               .getState()
               .applyVerseAction(targetVerse.externalVerseId, "resume")
           }
-          onRequestDelete={(targetVerse) =>
-            useVerseSectionTutorialStore
-              .getState()
-              .applyVerseAction(targetVerse.externalVerseId, "delete")
-          }
+          isAnchorEligible={isAnchorEligible}
         />
       </div>
     ),
-    [isFocusMode],
+    [isAnchorEligible, isFocusMode],
   );
 
   const tutorialMockListContent = useCallback(
@@ -614,21 +609,75 @@ export function VerseList({
           {vm.ui.announcement}
         </div>
 
-        <motion.div className="shrink-0 pb-2" {...reveal(0.02)}>
+        <motion.div
+          className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}
+          {...reveal(0.02)}
+        >
           <VerseListHeader
-            onAddVerseClick={vm.header.onAddVerseClick}
-            isFocusMode={isFocusMode}
-            onToggleFocusMode={toggleFocusMode}
-            onAboutSectionClick={handleTutorialPromptOpen}
+            isFullscreen={isTelegramFullscreen}
           />
         </motion.div>
 
-        <VerseListFiltersTrigger
-          open={isFiltersDrawerOpen}
-          onOpen={() => setIsLocalFiltersDrawerOpen(true)}
-          stickyTop={stickyFiltersTop}
-          {...filterCardProps}
-        />
+              <div
+                className={cn(
+                  "fixed z-50 flex shrink-0 flex-col gap-1.5",
+                )}
+                style={{
+                  bottom: `calc(74px + ${contentSafeAreaInset.bottom}px + 12px)`,
+                  right: `calc(1rem + ${contentSafeAreaInset.right}px)`,
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={isFocusMode}
+                  title={
+                    isFocusMode
+                      ? "Выключить режим чтения"
+                      : "Включить режим чтения"
+                  }
+                  onClick={toggleFocusMode}
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card",
+                    isFocusMode &&
+                      "border-primary/35 bg-primary/10 text-primary",
+                  )}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+
+                {canAddVerse ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={vm.header.onAddVerseClick}
+                    title="Добавить стих"
+                    className="h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+        <div
+          className="sticky z-40 shrink-0"
+          style={{ top: `${stickyControlsTop}px` }}
+        >
+          <motion.div
+            className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
+            {...reveal(0.04)}
+          >
+            <div className="flex items-stretch gap-1">
+              <div className="min-w-0 flex-1">
+                <VerseListFiltersTrigger
+                  open={isFiltersDrawerOpen}
+                  onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+                  {...filterCardProps}
+                />
+              </div>
+
+            </div>
+          </motion.div>
+        </div>
 
         {isVerseSectionTutorialMock ? (
           <motion.div
@@ -739,11 +788,11 @@ export function VerseList({
       </motion.div> */}
 
         <AddVerseDialog
-          open={addDialogOpen}
+          open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}
           mode={addDialogMode}
           viewerTelegramId={telegramId}
           onClose={() => setAddDialogOpen(false)}
-          onAdd={onVerseAdded}
+          onAdd={canAddVerse ? onVerseAdded : undefined}
           onCreateTag={vm.tagFilter.createTag}
         />
 
@@ -751,18 +800,6 @@ export function VerseList({
           open={isFiltersDrawerOpen}
           onOpenChange={setIsLocalFiltersDrawerOpen}
           {...filterCardProps}
-        />
-
-        <ConfirmDeleteModal
-          verse={vm.modal.deleteTargetVerse}
-          open={vm.modal.deleteTargetVerse !== null}
-          onOpenChange={(open) => {
-            if (!open && !vm.modal.isDeleteSubmitting) {
-              vm.modal.setDeleteTargetVerse(null);
-            }
-          }}
-          onConfirm={vm.modal.onConfirmDelete}
-          isSubmitting={vm.modal.isDeleteSubmitting}
         />
 
         {isVerseSectionTutorialMock &&

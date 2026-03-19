@@ -125,6 +125,9 @@ export function useVerseActions({
 
   const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
     const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
+    if (prevStatus === 'CATALOG' && nextStatus === VerseStatus.MY) {
+      return 'Добавлено в мои стихи';
+    }
     if (prevStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
       return 'Добавлено в изучение';
     }

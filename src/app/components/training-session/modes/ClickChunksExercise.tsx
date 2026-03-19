@@ -271,7 +271,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
         </span>
       )}
       <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+        <label className="text-xs text-center font-medium text-foreground/90">
           Соберите стих по фрагментам
         </label>
         {onOpenTutorial && (

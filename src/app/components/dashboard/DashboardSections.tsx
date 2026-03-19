@@ -208,10 +208,10 @@ export function DashboardWelcomeSection({
           : "Откройте тренировку и выберите следующую сессию.";
   const trainingCtaLabel =
     dueReviewVerses > 0
-      ? "Повторить сейчас"
+      ? "Тренировка"
       : learningVersesCount > 0
-        ? "Продолжить практику"
-        : "Открыть тренировку";
+        ? "Тренировка"
+        : "Тренировка";
 
   return (
     <div className="mb-5">

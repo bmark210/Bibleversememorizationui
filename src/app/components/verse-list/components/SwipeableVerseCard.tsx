@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Clock3, Pause, Play, Plus, Repeat, Trash2, Trophy, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -9,11 +9,9 @@ import {
   VerseProgressValue,
   VerseStatusMetaPill,
   VerseStatusPill,
-  type VerseStatusSummaryTone,
 } from '@/app/components/VerseStatusSummary';
-import { formatVerseAvailabilityLabel } from '@/app/components/formatVerseAvailabilityLabel';
+import { resolveVerseCardActionModel } from '@/app/components/verseCardActionModel';
 import { Verse } from '@/app/App';
-import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
 import {
@@ -30,11 +28,12 @@ export type SwipeCardProps = {
   onOpenOwners?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onAddToLearning: (verse: Verse) => void;
+  onStartTraining?: (verse: Verse) => void;
   onPauseLearning: (verse: Verse) => void;
   onResumeLearning: (verse: Verse) => void;
-  onRequestDelete: (verse: Verse) => void;
   isPending?: boolean;
   isFocusMode?: boolean;
+  isAnchorEligible?: boolean;
 };
 
 export const SwipeableVerseCard = ({
@@ -44,11 +43,12 @@ export const SwipeableVerseCard = ({
   onOpenOwners,
   onOpenTags,
   onAddToLearning,
+  onStartTraining,
   onPauseLearning,
   onResumeLearning,
-  onRequestDelete,
   isPending = false,
   isFocusMode = false,
+  isAnchorEligible = false,
 }: SwipeCardProps) => {
   const masteryLevel = Number(verse.masteryLevel ?? 0);
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
@@ -92,16 +92,16 @@ export const SwipeableVerseCard = ({
     popularityValue > 0 &&
     (verse.popularityScope === 'friends' || verse.popularityScope === 'players');
   const nextReviewAt =
-    displayStatus === 'REVIEW' && verse.nextReviewAt
-      ? new Date(verse.nextReviewAt)
+    displayStatus === 'REVIEW' && (verse.nextReviewAt ?? verse.nextReview)
+      ? new Date(verse.nextReviewAt ?? verse.nextReview ?? '')
       : null;
-  const isNotYetDueCard =
-    nextReviewAt !== null && !Number.isNaN(nextReviewAt.getTime())
-      ? Date.now() < nextReviewAt.getTime()
-      : false;
-  const availabilityLabel = isNotYetDueCard
-    ? formatVerseAvailabilityLabel(nextReviewAt)
-    : null;
+  const ctaModel = resolveVerseCardActionModel({
+    status: displayStatus,
+    nextReviewAt,
+    isAnchorEligible,
+  });
+  const visiblePrimaryAction =
+    ctaModel.primaryAction?.id === 'train' ? null : ctaModel.primaryAction;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -131,6 +131,31 @@ export const SwipeableVerseCard = ({
     onOpenProgress(verse);
   };
 
+  const handlePrimaryAction = () => {
+    const action = visiblePrimaryAction;
+    if (!action) return;
+
+    if (action.id === 'add-to-my' || action.id === 'start-learning') {
+      onAddToLearning(verse);
+      return;
+    }
+
+    if (action.id === 'resume') {
+      onResumeLearning(verse);
+      return;
+    }
+
+    if (action.id === 'train' || action.id === 'anchor') {
+      if (!onStartTraining) return;
+      onStartTraining(verse);
+    }
+  };
+
+  const handleUtilityAction = () => {
+    if (ctaModel.utilityAction?.id !== 'pause') return;
+    onPauseLearning(verse);
+  };
+
   const getInitials = (name: string) =>
     name
       .split(' ')
@@ -140,43 +165,11 @@ export const SwipeableVerseCard = ({
       .join('');
 
   const renderActions = () => {
-    const primaryAction =
-      displayStatus === 'CATALOG'
-        ? {
-            label: 'В мои',
-            title: 'Добавить в мои стихи',
-            ariaLabel: 'Добавить стих в список своих',
-            icon: Plus,
-            dataTour: 'verse-card-add-button',
-            onClick: () => onAddToLearning(verse),
-          }
-        : displayStatus === VerseStatus.MY
-          ? {
-              label: 'Начать',
-              title: 'Начать изучение',
-              ariaLabel: 'Добавить стих в изучение',
-              icon: Play,
-              dataTour: 'verse-card-promote-button',
-              onClick: () => onAddToLearning(verse),
-            }
-          : displayStatus === 'REVIEW' && isNotYetDueCard
-            ? null
-            : displayStatus === VerseStatus.STOPPED
-            ? {
-                label: 'Продолжить',
-                title: 'Возобновить изучение',
-                ariaLabel: 'Возобновить изучение стиха',
-                icon: Play,
-                onClick: () => onResumeLearning(verse),
-              }
-            : {
-                label: 'Пауза',
-                title: 'Поставить на паузу',
-                ariaLabel: 'Поставить стих на паузу',
-                icon: Pause,
-                onClick: () => onPauseLearning(verse),
-              };
-    const canDelete = displayStatus !== 'CATALOG';
+    const primaryAction = visiblePrimaryAction;
+    const utilityAction = ctaModel.utilityAction;
+    const primaryNeedsTraining =
+      primaryAction?.id === 'train' || primaryAction?.id === 'anchor';
+    const primaryDisabled = isPending || (primaryNeedsTraining && !onStartTraining);
 
     return (
       <>
@@ -188,94 +181,64 @@ export const SwipeableVerseCard = ({
             variant="outline"
             title={primaryAction.title}
             aria-label={primaryAction.ariaLabel}
-            disabled={isPending}
-            className="h-9 rounded-full border-border/60 bg-background/45 px-3 text-foreground/85 shadow-sm backdrop-blur-sm hover:bg-muted/45"
+            disabled={primaryDisabled}
+            className="h-9 rounded-full border-border/60 bg-background/72 px-3 text-foreground/88 shadow-sm backdrop-blur-sm hover:bg-muted/45"
             onClick={(e) => {
               stopCardOpen(e);
-              primaryAction.onClick();
+              handlePrimaryAction();
             }}
           >
             <primaryAction.icon className="h-4 w-4 shrink-0" />
-            <span className="max-w-[6.5rem] truncate text-[13px] font-medium">
+            <span className="max-w-[8rem] truncate text-[13px] font-medium">
               {primaryAction.label}
             </span>
           </Button>
-        ) : availabilityLabel ? (
-          <VerseStatusMetaPill
-            label={availabilityLabel}
-            size="sm"
-            className="h-9 border-border/60 bg-background/45 px-3"
-          />
         ) : null}
 
-        {canDelete ? (
+        {utilityAction ? (
           <Button
             type="button"
-            size="icon"
-            variant="outline"
-            title="Удалить стих"
-            aria-label="Удалить стих"
+            size="sm"
+            variant="ghost"
+            title={utilityAction.title}
+            aria-label={utilityAction.ariaLabel}
             disabled={isPending}
-            className="h-9 w-9 rounded-full border-border/50 bg-background/35 text-destructive/70 shadow-sm backdrop-blur-sm hover:bg-destructive/10 hover:text-destructive"
+            className="h-9 rounded-full px-2.5 text-foreground/58 hover:bg-muted/35 hover:text-foreground/82"
             onClick={(e) => {
               stopCardOpen(e);
-              onRequestDelete(verse);
+              handleUtilityAction();
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <utilityAction.icon className="h-4 w-4 shrink-0" />
+            <span className="text-[12px] font-medium">{utilityAction.label}</span>
           </Button>
         ) : null}
       </>
     );
   };
 
-  const statusTone = (() => {
-    if (displayStatus === 'MASTERED') {
-      return {
-        icon: Trophy,
-        title: 'Выучен',
-        pillClassName: 'border-amber-500/25 bg-amber-500/[0.08]',
-        titleClassName: 'text-amber-800/85 dark:text-amber-300/85',
-        iconClassName: 'text-amber-700 dark:text-amber-300',
-      };
-    }
-    if (displayStatus === 'REVIEW') {
-      return {
-        icon: isNotYetDueCard ? Clock3 : Repeat,
-        title: isNotYetDueCard ? 'Ждёт повтора' : 'Повторение',
-        pillClassName: 'border-violet-500/20 bg-violet-500/[0.08]',
-        titleClassName: 'text-violet-700/85 dark:text-violet-300/85',
-        iconClassName: 'text-violet-700 dark:text-violet-300',
-      };
-    }
-    if (displayStatus === VerseStatus.STOPPED) {
-      return {
-        icon: Pause,
-        title: 'На паузе',
-        pillClassName: 'border-rose-500/20 bg-rose-500/[0.08]',
-        titleClassName: 'text-rose-700/85 dark:text-rose-300/85',
-        iconClassName: 'text-rose-700 dark:text-rose-300',
-      };
-    }
-    return {
-      icon: Brain,
-      title: 'Изучение',
-      pillClassName: 'border-emerald-500/20 bg-emerald-500/[0.08]',
-      titleClassName: 'text-emerald-700/85 dark:text-emerald-300/85',
-      iconClassName: 'text-emerald-700 dark:text-emerald-300',
-    };
-  })() satisfies VerseStatusSummaryTone;
+  const waitingMetaContent = ctaModel.waitingLabel ? (
+    <VerseStatusMetaPill
+      label={ctaModel.waitingLabel}
+      size="sm"
+      className="max-w-full border-border/60 bg-background/55"
+    />
+  ) : null;
 
-  const statusMetaContent = (displayStatus === VerseStatus.MY || displayStatus === 'CATALOG') ? null : (
-    <button
-      type="button"
-      data-tour="verse-card-progress-button"
-      onClick={handleOpenProgress}
-      className="inline-flex max-w-full items-center text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
-      aria-label={`Показать путь прогресса стиха ${verse.reference}`}
-    >
-      <VerseStatusPill tone={statusTone} size="sm" className="max-w-full" />
-    </button>
+  const statusMetaContent =
+    !ctaModel.showProgress || !ctaModel.statusTone ? null : (
+    <div className="flex max-w-full flex-wrap items-center gap-2">
+      <button
+        type="button"
+        data-tour="verse-card-progress-button"
+        onClick={handleOpenProgress}
+        className="inline-flex max-w-full items-center text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
+        aria-label={`Показать путь прогресса стиха ${verse.reference}`}
+      >
+        <VerseStatusPill tone={ctaModel.statusTone} size="sm" className="max-w-full" />
+      </button>
+      {waitingMetaContent}
+    </div>
   );
 
   const socialMetaContent = !isFocusMode ? (
@@ -416,7 +379,7 @@ export const SwipeableVerseCard = ({
             </div>
           ) : null}
         </div>
-        {!isFocusMode && statusMetaContent ? (
+        {!isFocusMode && (statusMetaContent || waitingMetaContent) ? (
           <motion.div
             key={layoutSignature}
             initial={{ height: 0, opacity: 0, y: -4 }}
@@ -426,7 +389,9 @@ export const SwipeableVerseCard = ({
             className="overflow-hidden"
           >
             <div className="flex items-end justify-between gap-3 pt-2">
-              <div className="min-w-0 flex-1">{statusMetaContent}</div>
+              <div className="min-w-0 flex-1">
+                {statusMetaContent ?? waitingMetaContent}
+              </div>
               <button
                 type="button"
                 onClick={handleOpenProgress}

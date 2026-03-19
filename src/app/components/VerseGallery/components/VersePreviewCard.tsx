@@ -1,16 +1,6 @@
+import React from "react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  Anchor,
-  Brain,
-  Clock3,
-  Dumbbell,
-  Pause,
-  Play,
-  Plus,
-  Repeat,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { Users } from "lucide-react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
@@ -21,7 +11,7 @@ import {
   VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
-import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
+import { resolveVerseCardActionModel } from "@/app/components/verseCardActionModel";
 import type { Verse } from "@/app/App";
 import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
 import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
@@ -34,6 +24,7 @@ type Props = {
   isFocusMode?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onUtilityAction?: () => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
@@ -48,6 +39,7 @@ export function VersePreviewCard({
   isFocusMode = false,
   onStartTraining,
   onStatusAction,
+  onUtilityAction,
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
@@ -64,11 +56,11 @@ export function VersePreviewCard({
     (verse as Record<string, unknown>).nextReviewAt ??
       (verse as Record<string, unknown>).nextReview
   );
-  const isNotYetDue =
-    status === "REVIEW" && nextReviewAt !== null && Date.now() < nextReviewAt.getTime();
-  const availabilityLabel = isNotYetDue
-    ? formatVerseAvailabilityLabel(nextReviewAt)
-    : null;
+  const ctaModel = resolveVerseCardActionModel({
+    status,
+    nextReviewAt,
+    isAnchorEligible,
+  });
   const isReviewStage = status === "REVIEW" || status === "MASTERED";
   const activeTagSlugSet = useMemo(() => {
     const next = new Set<string>();
@@ -175,21 +167,25 @@ export function VersePreviewCard({
     popularityValue > 0 &&
     (verse.popularityScope === "friends" || verse.popularityScope === "players");
 
-  const primaryAction = buildPrimaryAction({
-    status,
-    isNotYetDue,
-    isAnchorEligible,
-    onStartTraining,
-    onStatusAction,
-  });
-  const waitingActionLabel = isNotYetDue ? availabilityLabel : null;
+  const primaryAction = ctaModel.primaryAction;
+  const waitingActionLabel = ctaModel.waitingLabel;
+  const statusTone = ctaModel.statusTone;
+  const showFooter = !isFocusMode && ctaModel.showProgress && statusTone !== null;
+  const inlineUtilityAction =
+    primaryAction?.id === "train" && ctaModel.utilityAction?.id === "pause"
+      ? ctaModel.utilityAction
+      : null;
 
-  const statusTone = buildStatusTone({
-    status,
-    isNotYetDue,
-  });
+  const handlePrimaryAction = () => {
+    if (!primaryAction) return;
 
-  const showFooter = !isFocusMode && statusTone !== null;
+    if (primaryAction.id === "train" || primaryAction.id === "anchor") {
+      onStartTraining();
+      return;
+    }
+
+    onStatusAction();
+  };
 
   useLayoutEffect(() => {
     if (isFocusMode || typeof window === "undefined") return;
@@ -412,20 +408,38 @@ export function VersePreviewCard({
         }
         centerAction={
           primaryAction ? (
-            <Button
-              data-tour="verse-gallery-primary-cta"
-              variant="secondary"
-              className={cn(
-                "gap-2 min-w-[200px] max-w-full rounded-2xl border border-border/60 bg-background/78 text-foreground/88 shadow-lg backdrop-blur-sm hover:bg-muted/48",
-                primaryAction.className
-              )}
-              onClick={primaryAction.onClick}
-              disabled={isActionPending || Boolean(primaryAction.disabled)}
-              aria-label={primaryAction.ariaLabel}
-            >
-              <primaryAction.icon className="h-4 w-4" />
-              <span className="min-w-0 truncate">{primaryAction.label}</span>
-            </Button>
+            <div className="flex max-w-full items-center justify-center gap-2.5">
+              <Button
+                data-tour="verse-gallery-primary-cta"
+                variant="secondary"
+                className={cn(
+                  "gap-2 max-w-full rounded-2xl border border-border/60 bg-background/78 text-foreground/88 shadow-lg backdrop-blur-sm hover:bg-muted/48",
+                  inlineUtilityAction ? "min-w-[184px]" : "min-w-[200px]",
+                )}
+                onClick={handlePrimaryAction}
+                disabled={isActionPending}
+                aria-label={primaryAction.ariaLabel}
+              >
+                <primaryAction.icon className="h-4 w-4" />
+                <span className="min-w-0 truncate">{primaryAction.label}</span>
+              </Button>
+
+              {inlineUtilityAction ? (
+                <Button
+                  type="button"
+                  data-tour="verse-gallery-inline-utility"
+                  variant="secondary"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 rounded-2xl border border-border/60 bg-background/78 text-foreground/72 shadow-lg backdrop-blur-sm hover:bg-muted/48"
+                  onClick={onUtilityAction}
+                  disabled={isActionPending}
+                  aria-label={inlineUtilityAction.ariaLabel}
+                  title={inlineUtilityAction.title}
+                >
+                  <inlineUtilityAction.icon className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
           ) : waitingActionLabel ? (
             <div className="flex justify-center">
               <VerseStatusMetaPill
@@ -473,131 +487,4 @@ function StatusFooter({
       className="w-full justify-between"
     />
   );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-type PrimaryAction = {
-  label: string;
-  ariaLabel: string;
-  icon: typeof Brain;
-  onClick: () => void;
-  className?: string;
-  disabled?: boolean;
-};
-
-function buildPrimaryAction(params: {
-  status: ReturnType<typeof normalizeVerseStatus>;
-  isNotYetDue: boolean;
-  isAnchorEligible: boolean;
-  onStartTraining: () => void;
-  onStatusAction: () => void;
-}): PrimaryAction | null {
-  const { status, isNotYetDue, isAnchorEligible, onStartTraining, onStatusAction } = params;
-
-  if (status === "CATALOG") {
-    return {
-      label: "Добавить в мои",
-      ariaLabel: "Добавить стих в мои стихи",
-      icon: Plus,
-      onClick: onStatusAction,
-    };
-  }
-
-  if (status === VerseStatus.MY) {
-    return {
-      label: "Начать изучение",
-      ariaLabel: "Начать изучение стиха",
-      icon: Play,
-      onClick: onStatusAction,
-    };
-  }
-
-  if (status === VerseStatus.STOPPED) {
-    return {
-      label: "Возобновить",
-      ariaLabel: "Возобновить изучение стиха",
-      icon: Play,
-      onClick: onStatusAction,
-    };
-  }
-
-  if (status === "MASTERED") {
-    return isAnchorEligible
-      ? {
-          label: "Закрепить",
-          ariaLabel: "Перейти к закреплению стиха",
-          icon: Anchor,
-          onClick: onStartTraining,
-        }
-      : null;
-  }
-
-  if (status === VerseStatus.LEARNING) {
-    return {
-      label: "Тренироваться",
-      ariaLabel: "Продолжить тренировку стиха",
-      icon: Dumbbell,
-      onClick: onStartTraining,
-    };
-  }
-
-  if (status === "REVIEW" && !isNotYetDue) {
-    return {
-      label: "Тренироваться",
-      ariaLabel: "Перейти к повторению стиха",
-      icon: Dumbbell,
-      onClick: onStartTraining,
-    };
-  }
-
-  return null;
-}
-
-function buildStatusTone(params: {
-  status: ReturnType<typeof normalizeVerseStatus>;
-  isNotYetDue: boolean;
-}): StatusTone | null {
-  const { status, isNotYetDue } = params;
-
-  if (status === "CATALOG" || status === VerseStatus.MY) {
-    return null;
-  }
-  if (status === VerseStatus.STOPPED) {
-    return {
-      icon: Pause,
-      title: "На паузе",
-      pillClassName: "border-rose-500/20 bg-rose-500/[0.08]",
-      iconClassName: "text-rose-700 dark:text-rose-300",
-      titleClassName: "text-rose-700/80 dark:text-rose-300/80",
-    };
-  }
-  if (status === "MASTERED") {
-    return {
-      icon: Trophy,
-      title: "Выучен",
-      pillClassName: "border-amber-500/25 bg-amber-500/[0.08]",
-      iconClassName: "text-amber-800 dark:text-amber-300",
-      titleClassName: "text-amber-800/80 dark:text-amber-300/80",
-    };
-  }
-  if (status === "REVIEW") {
-    return {
-      icon: isNotYetDue ? Clock3 : Repeat,
-      title: isNotYetDue ? "Ждёт повтора" : "Повторение",
-      pillClassName: "border-violet-500/20 bg-violet-500/[0.08]",
-      iconClassName: "text-violet-700 dark:text-violet-300",
-      titleClassName: "text-violet-700/80 dark:text-violet-300/80",
-    };
-  }
-  if (status === VerseStatus.LEARNING) {
-    return {
-      icon: Brain,
-      title: "Изучение",
-      pillClassName: "border-emerald-500/20 bg-emerald-500/[0.08]",
-      iconClassName: "text-emerald-700 dark:text-emerald-300",
-      titleClassName: "text-emerald-700/80 dark:text-emerald-300/80",
-    };
-  }
-  return null;
 }

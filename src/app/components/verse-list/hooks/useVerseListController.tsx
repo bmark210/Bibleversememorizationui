@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
 import type { Tag } from '@/api/models/Tag';
+import type { DirectLaunchVerse } from '@/app/components/Training/types';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import {
@@ -49,6 +50,8 @@ type UseVerseListControllerParams = {
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
   onOpenVerseProgress?: (verse: Verse) => void;
+  onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
+  isAnchorEligible?: boolean;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -73,6 +76,15 @@ function readInitialStoredStatusFilter(
   return stored === 'friends' && !canUseFriendsFilter ? null : stored;
 }
 
+function getTrainingLaunchMode(
+  status: ReturnType<typeof normalizeDisplayVerseStatus>
+) {
+  if (status === 'MASTERED') return 'anchor' as const;
+  if (status === 'REVIEW') return 'review' as const;
+  if (status === VerseStatus.LEARNING) return 'learning' as const;
+  return null;
+}
+
 export function useVerseListController({
   disabled = false,
   initialTags = [],
@@ -82,6 +94,8 @@ export function useVerseListController({
   onOpenVerseOwners,
   onOpenVerseTags,
   onOpenVerseProgress,
+  onNavigateToTraining,
+  isAnchorEligible = false,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -555,23 +569,38 @@ export function useVerseListController({
         onOpenProgress={onOpenVerseProgress}
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
+        onStartTraining={(v) => {
+          const preferredMode = getTrainingLaunchMode(normalizeDisplayVerseStatus(v.status));
+          if (!preferredMode || !onNavigateToTraining) return;
+          onNavigateToTraining({
+            verse: v,
+            preferredMode,
+            returnTarget: {
+              kind: 'verse-list',
+              statusFilter,
+            },
+          });
+        }}
         onAddToLearning={(v) => {
           const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
           void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
         }}
         onPauseLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.STOPPED)}
         onResumeLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.LEARNING)}
-        onRequestDelete={actions.confirmDeleteVerse}
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
+        isAnchorEligible={isAnchorEligible}
       />
     ),
     [
       actions,
+      isAnchorEligible,
       isFocusMode,
+      onNavigateToTraining,
       onOpenVerseOwners,
       onOpenVerseProgress,
       onOpenVerseTags,
       openVerseInGallery,
+      statusFilter,
     ]
   );
 
