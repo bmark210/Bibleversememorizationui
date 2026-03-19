@@ -203,7 +203,6 @@ type AppProps = {
 };
 
 const THEME_STORAGE_KEY = "theme";
-const THEME_EXPLICIT_PREFERENCE_STORAGE_KEY = "theme-explicit-preference";
 const DEFAULT_THEME: Theme = "light";
 const DASHBOARD_WELCOME_SEEN_STORAGE_KEY = "bible-memory.dashboard-welcome-seen.v1";
 const TRAINING_VERSE_PREFETCH_DELAY_MS = 350;
@@ -256,28 +255,14 @@ function readStoredThemeValue(): Theme | null {
   }
 }
 
-function hasExplicitThemePreference(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return (
-      window.localStorage.getItem(THEME_EXPLICIT_PREFERENCE_STORAGE_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
-
 function readStoredTheme(): Theme | null {
-  const storedTheme = readStoredThemeValue();
-  if (!storedTheme) return null;
-  return hasExplicitThemePreference() ? storedTheme : null;
+  return readStoredThemeValue();
 }
 
-function writeExplicitThemePreference(theme: Theme) {
+function writeStoredTheme(theme: Theme) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-    window.localStorage.setItem(THEME_EXPLICIT_PREFERENCE_STORAGE_KEY, "1");
   } catch {
     // Ignore storage write errors in restricted webviews.
   }
@@ -332,10 +317,20 @@ function syncTelegramChromeTheme(theme: Theme) {
   }
 }
 
+function getTelegramThemePreference(): Theme | null {
+  const webApp = getTelegramWebApp();
+  const colorScheme = webApp?.colorScheme;
+  return colorScheme === "light" || colorScheme === "dark"
+    ? colorScheme
+    : null;
+}
+
 function getPreferredTheme(): Theme {
   if (typeof window === "undefined") return DEFAULT_THEME;
   const stored = readStoredTheme();
   if (stored) return stored;
+  const telegramTheme = getTelegramThemePreference();
+  if (telegramTheme) return telegramTheme;
   return DEFAULT_THEME;
 }
 
@@ -549,6 +544,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     applyThemeToDocument(theme);
+    writeStoredTheme(theme);
     syncTelegramChromeTheme(theme);
   }, [theme]);
 
@@ -843,7 +839,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleToggleTheme = () => {
     setTheme((prevTheme) => {
       const nextTheme = prevTheme === "light" ? "dark" : "light";
-      writeExplicitThemePreference(nextTheme);
       return nextTheme;
     });
   };
