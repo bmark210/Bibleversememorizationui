@@ -16,14 +16,14 @@ import {
   useTelegramUiStore,
 } from "@/app/stores/telegramUiStore";
 import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
+import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
+import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
 import {
   addFriend,
   EMPTY_FRIEND_PLAYERS_PAGE,
   fetchFriendsPage,
   fetchPlayersPage,
   removeFriend,
-  type FriendPlayerListItem,
-  type FriendPlayersPageResponse,
 } from "@/api/services/friends";
 import { toast } from "@/app/lib/toast";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
@@ -42,6 +42,22 @@ type FriendsTab = "players" | "friends";
 
 const FRIENDS_PAGE_SIZE = 8;
 const SEARCH_DEBOUNCE_MS = 280;
+
+function friendPlayerDisplayName(item: domain_FriendPlayerListItem): string {
+  const n = item.name?.trim();
+  if (n) return n;
+  const nick = item.nickname?.trim();
+  if (nick) return nick.startsWith("@") ? nick : `@${nick}`;
+  return item.telegramId ? `ID ${item.telegramId}` : "Игрок";
+}
+
+function friendPlayerSubtitle(item: domain_FriendPlayerListItem): string {
+  const c = item.versesCount;
+  if (c != null && Number.isFinite(c)) {
+    return `${Math.max(0, Math.round(c))} стихов в учёте`;
+  }
+  return "Нет данных по стихам";
+}
 
 interface ProfileProps {
   theme: Theme;
@@ -72,29 +88,6 @@ function pluralizePeople(count: number, one: string, few: string, many: string) 
     return few;
   }
   return many;
-}
-
-function formatRelativeLastActive(value: string | null): string {
-  if (!value) return "Без активности";
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return "Без активности";
-
-  const deltaMs = Date.now() - parsed;
-  if (deltaMs < 2 * 60 * 1000) return "Только что";
-
-  const minutes = Math.floor(deltaMs / (60 * 1000));
-  if (minutes < 60) return `${minutes} мин назад`;
-
-  const hours = Math.floor(deltaMs / (60 * 60 * 1000));
-  if (hours < 24) return `${hours} ч назад`;
-
-  const days = Math.floor(deltaMs / (24 * 60 * 60 * 1000));
-  if (days < 7) return `${days} дн назад`;
-
-  return new Date(parsed).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-  });
 }
 
 export function Profile({
@@ -137,9 +130,9 @@ export function Profile({
   const [playersPageIndex, setPlayersPageIndex] = React.useState(1);
   const [friendsPageIndex, setFriendsPageIndex] = React.useState(1);
   const [playersPage, setPlayersPage] =
-    React.useState<FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
+    React.useState<domain_FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
   const [friendsPage, setFriendsPage] =
-    React.useState<FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
+    React.useState<domain_FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
   const [isListLoading, setIsListLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
   const [pendingMutationByTelegramId, setPendingMutationByTelegramId] =
@@ -149,24 +142,24 @@ export function Profile({
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
 
   const getDisplayXp = React.useCallback(
-    (item: FriendPlayerListItem) =>
+    (item: domain_FriendPlayerListItem) =>
       telegramId &&
       currentUserTelegramId === telegramId &&
       item.telegramId === telegramId &&
       currentUserXp != null
         ? currentUserXp
-        : item.xp,
+        : 0,
     [currentUserTelegramId, currentUserXp, telegramId]
   );
 
   const getDisplayDailyStreak = React.useCallback(
-    (item: FriendPlayerListItem) =>
+    (item: domain_FriendPlayerListItem) =>
       telegramId &&
       currentUserTelegramId === telegramId &&
       item.telegramId === telegramId &&
       currentUserDailyStreak != null
         ? currentUserDailyStreak
-        : item.dailyStreak,
+        : 0,
     [currentUserDailyStreak, currentUserTelegramId, telegramId]
   );
 
@@ -261,9 +254,10 @@ export function Profile({
             : friendsRequestIdRef.current !== requestId;
         if (isStale) return;
 
+        const total = nextPage.total ?? 0;
         const totalPages = Math.max(
           1,
-          Math.ceil(nextPage.totalCount / FRIENDS_PAGE_SIZE),
+          Math.ceil(total / FRIENDS_PAGE_SIZE),
         );
         if (pageIndex > totalPages) {
           if (tab === "players") {
@@ -336,21 +330,23 @@ export function Profile({
     });
   };
 
-  const handleToggleFriend = async (item: FriendPlayerListItem) => {
+  const handleToggleFriend = async (item: domain_FriendPlayerListItem) => {
     if (!telegramId) {
       toast.warning("Не найден telegramId", {
         label: "Друзья",
       });
       return;
     }
-    if (pendingMutationByTelegramId[item.telegramId]) {
+    const targetId = item.telegramId?.trim() ?? "";
+    if (!targetId) return;
+    if (pendingMutationByTelegramId[targetId]) {
       return;
     }
 
-    setMutationPending(item.telegramId, true);
+    setMutationPending(targetId, true);
     try {
       if (item.isFriend) {
-        const response = await removeFriend(telegramId, item.telegramId);
+        const response = await removeFriend(telegramId, targetId);
         if (response.status === "removed") {
           toast.success("Друг удалён", {
             label: "Друзья",
@@ -361,7 +357,7 @@ export function Profile({
           });
         }
       } else {
-        const response = await addFriend(telegramId, item.telegramId);
+        const response = await addFriend(telegramId, targetId);
         if (response.status === "added") {
           toast.success("Друг добавлен", {
             label: "Друзья",
@@ -384,7 +380,7 @@ export function Profile({
         label: "Друзья",
       });
     } finally {
-      setMutationPending(item.telegramId, false);
+      setMutationPending(targetId, false);
     }
   };
 
@@ -393,7 +389,7 @@ export function Profile({
   const currentPageData = activeTab === "players" ? playersPage : friendsPage;
   const totalPages = Math.max(
     1,
-    Math.ceil(currentPageData.totalCount / FRIENDS_PAGE_SIZE),
+    Math.ceil((currentPageData.total ?? 0) / FRIENDS_PAGE_SIZE),
   );
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
@@ -401,7 +397,9 @@ export function Profile({
   const fullscreenButtonLabel = "Полный экран";
 
   const activeCount =
-    activeTab === "players" ? playersPage.totalCount : friendsPage.totalCount;
+    activeTab === "players"
+      ? (playersPage.total ?? 0)
+      : (friendsPage.total ?? 0);
   const activeSearchInput =
     activeTab === "players" ? playersSearchInput : friendsSearchInput;
   const activeSearchQuery =
@@ -769,14 +767,16 @@ export function Profile({
                       </div>
                     ) : (
                       currentPageData.items.map((item) => {
+                        const rowId = String(item.telegramId ?? "");
+                        const displayName = friendPlayerDisplayName(item);
                         const isMutationPending =
-                          pendingMutationByTelegramId[item.telegramId] === true;
+                          pendingMutationByTelegramId[rowId] === true;
                         const showRemoveAction =
                           activeTab === "friends" || item.isFriend;
 
                         return (
                           <div
-                            key={`${activeTab}-${item.telegramId}`}
+                            key={`${activeTab}-${rowId}`}
                             className="flex items-center gap-3 rounded-2xl border border-border/60 bg-background/45 px-3 py-3"
                           >
                             {onOpenPlayerProfile ? (
@@ -784,29 +784,31 @@ export function Profile({
                                 type="button"
                                 onClick={() =>
                                   onOpenPlayerProfile({
-                                    telegramId: item.telegramId,
-                                    name: item.name,
-                                    avatarUrl: item.avatarUrl,
+                                    telegramId: rowId,
+                                    name: displayName,
+                                    avatarUrl: item.avatarUrl?.trim()
+                                      ? item.avatarUrl.trim()
+                                      : null,
                                   })
                                 }
                                 className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:bg-background/20"
-                                aria-label={`Открыть профиль ${item.name}`}
+                                aria-label={`Открыть профиль ${displayName}`}
                               >
                                 <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
                                   {item.avatarUrl ? (
-                                    <AvatarImage src={item.avatarUrl} alt={item.name} />
+                                    <AvatarImage src={item.avatarUrl} alt={displayName} />
                                   ) : null}
                                   <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                                    {getInitials(item.name)}
+                                    {getInitials(displayName)}
                                   </AvatarFallback>
                                 </Avatar>
 
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-sm font-medium text-foreground/82">
-                                    {item.name}
+                                    {displayName}
                                   </div>
                                   <div className="mt-1 truncate text-xs text-foreground/48">
-                                    {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
+                                    {friendPlayerSubtitle(item)} ·{" "}
                                     {formatXp(getDisplayXp(item))} ·{" "}
                                     {getDisplayDailyStreak(item)} дн. подряд
                                   </div>
@@ -816,19 +818,19 @@ export function Profile({
                               <>
                                 <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
                                   {item.avatarUrl ? (
-                                    <AvatarImage src={item.avatarUrl} alt={item.name} />
+                                    <AvatarImage src={item.avatarUrl} alt={displayName} />
                                   ) : null}
                                   <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                                    {getInitials(item.name)}
+                                    {getInitials(displayName)}
                                   </AvatarFallback>
                                 </Avatar>
 
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-sm font-medium text-foreground/82">
-                                    {item.name}
+                                    {displayName}
                                   </div>
                                   <div className="mt-1 truncate text-xs text-foreground/48">
-                                    {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
+                                    {friendPlayerSubtitle(item)} ·{" "}
                                     {formatXp(getDisplayXp(item))} ·{" "}
                                     {getDisplayDailyStreak(item)} дн. подряд
                                   </div>

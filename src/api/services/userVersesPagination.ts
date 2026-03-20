@@ -1,40 +1,20 @@
+import type { domain_UserVersesPageResponse } from "@/api/models/domain_UserVersesPageResponse";
 import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
 import { UserVersesService } from "@/api/services/UserVersesService";
 
-export type UserVersesSemanticFilter =
-  | "friends"
-  | "my"
-  | "learning"
-  | "review"
-  | "mastered"
-  | "stopped";
+type ListUserVersesArgs = Parameters<typeof UserVersesService.listUserVerses>;
 
-export type FetchUserVersesPageParams = {
-  telegramId: string;
-  orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
-  order?: "asc" | "desc";
-  filter?: UserVersesSemanticFilter;
-  bookId?: number;
-  search?: string;
+export async function fetchUserVersesPage(params: {
+  telegramId: ListUserVersesArgs[0];
+  orderBy?: ListUserVersesArgs[2];
+  order?: ListUserVersesArgs[3];
+  filter?: ListUserVersesArgs[4];
+  bookId?: ListUserVersesArgs[5];
+  search?: ListUserVersesArgs[6];
   tagSlugs?: string[];
-  limit?: number;
-  startWith?: number;
-};
-
-function normalizeTotalCount(
-  raw: { total?: number; totalCount?: number },
-  itemsLength: number
-): number {
-  const t = raw.totalCount ?? raw.total;
-  if (typeof t === "number" && Number.isFinite(t)) {
-    return Math.max(0, Math.round(t));
-  }
-  return itemsLength;
-}
-
-export async function fetchUserVersesPage(
-  params: FetchUserVersesPageParams
-): Promise<{ items: Array<domain_VerseListItem>; totalCount: number }> {
+  limit?: ListUserVersesArgs[8];
+  startWith?: ListUserVersesArgs[9];
+}): Promise<domain_UserVersesPageResponse> {
   const {
     telegramId,
     orderBy = "updatedAt",
@@ -50,7 +30,7 @@ export async function fetchUserVersesPage(
   const tagSlugsStr =
     tagSlugs && tagSlugs.length > 0 ? tagSlugs.join(",") : undefined;
 
-  const response = await UserVersesService.listUserVerses(
+  return UserVersesService.listUserVerses(
     telegramId,
     undefined,
     orderBy,
@@ -62,12 +42,15 @@ export async function fetchUserVersesPage(
     limit,
     startWith
   );
+}
 
-  const items = response.items ?? [];
-  return {
-    items,
-    totalCount: normalizeTotalCount(response, items.length),
-  };
+function pageTotalCount(page: domain_UserVersesPageResponse): number {
+  const items = page.items ?? [];
+  const t = page.totalCount ?? page.total;
+  if (typeof t === "number" && Number.isFinite(t)) {
+    return Math.max(0, Math.round(t));
+  }
+  return items.length;
 }
 
 const FETCH_ALL_PAGE_SIZE = 100;
@@ -88,12 +71,14 @@ export async function fetchAllUserVerses(params: {
       startWith: all.length,
     });
 
-    if (page.items.length === 0) break;
+    const batch = page.items ?? [];
+    if (batch.length === 0) break;
 
-    all.push(...page.items);
+    all.push(...batch);
 
-    if (page.items.length < FETCH_ALL_PAGE_SIZE) break;
-    if (page.totalCount > 0 && all.length >= page.totalCount) break;
+    const total = pageTotalCount(page);
+    if (batch.length < FETCH_ALL_PAGE_SIZE) break;
+    if (total > 0 && all.length >= total) break;
   }
 
   return all;

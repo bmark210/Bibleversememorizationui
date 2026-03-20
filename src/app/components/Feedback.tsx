@@ -2,14 +2,21 @@
 
 import React from "react";
 import { Loader2, MessageSquareMore, Send } from "lucide-react";
-import type { FeedbackEntry } from "@/api/models/FeedbackEntry";
-import type { bible_memory_db_internal_domain_Feedback } from "@/api/models/bible_memory_db_internal_domain_Feedback";
+import type { domain_Feedback } from "@/api/models/domain_Feedback";
 import { FeedbackService } from "@/api/services/FeedbackService";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
+
+type FeedbackAdminRow = domain_Feedback & {
+  user: {
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+  };
+};
 
 const MAX_FEEDBACK_LENGTH = 500;
 const ADMIN_FEEDBACK_PAGE_SIZE = 8;
@@ -27,19 +34,18 @@ function getInitials(name: string) {
     .join("");
 }
 
-function getFeedbackAuthorName(item: FeedbackEntry): string {
+function getFeedbackAuthorName(item: FeedbackAdminRow): string {
   const name = item.user.name?.trim();
   if (name) return name;
 
   const nickname = item.user.nickname?.trim();
   if (nickname) return `@${nickname}`;
 
-  return `Пользователь #${item.telegramId.slice(-4)}`;
+  const tid = String(item.telegramId ?? "");
+  return `Пользователь #${tid.slice(-4)}`;
 }
 
-function mapApiFeedbackToEntry(
-  item: bible_memory_db_internal_domain_Feedback
-): FeedbackEntry {
+function mapApiFeedbackToEntry(item: domain_Feedback): FeedbackAdminRow {
   return {
     id: String(item.id ?? ""),
     telegramId: String(item.telegramId ?? ""),
@@ -65,7 +71,7 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
   const [text, setText] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [adminPageIndex, setAdminPageIndex] = React.useState(1);
-  const [adminItems, setAdminItems] = React.useState<FeedbackEntry[]>([]);
+  const [adminItems, setAdminItems] = React.useState<FeedbackAdminRow[]>([]);
   const [adminTotalCount, setAdminTotalCount] = React.useState(0);
   const [isAdminListLoading, setIsAdminListLoading] = React.useState(false);
   const [adminListError, setAdminListError] = React.useState<string | null>(

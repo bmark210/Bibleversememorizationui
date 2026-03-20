@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Verse } from '@/app/App';
-import type { Tag } from '@/api/models/Tag';
+import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { DirectLaunchVerse } from '@/app/components/Training/types';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
@@ -43,7 +43,7 @@ import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
 
 type UseVerseListControllerParams = {
   disabled?: boolean;
-  initialTags?: Tag[];
+  initialTags?: domain_Tag[];
   hasFriends?: boolean;
   isFocusMode?: boolean;
   onAddVerse: () => void;
@@ -206,7 +206,9 @@ export function useVerseListController({
         });
 
         if (hasOwnVersesRequestIdRef.current !== requestId) return null;
-        const nextHasOwnVerses = page.totalCount > 0;
+        const total =
+          page.totalCount ?? page.total ?? (page.items?.length ?? 0);
+        const nextHasOwnVerses = total > 0;
         setHasOwnVerses(nextHasOwnVerses);
         return nextHasOwnVerses;
       } catch (error) {

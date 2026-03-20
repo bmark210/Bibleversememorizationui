@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Verse } from "@/app/App";
-import type { UserDashboardStats } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
@@ -46,7 +46,7 @@ import { cn } from "../../ui/utils";
 
 interface TrainingHubProps {
   allVerses: Verse[];
-  dashboardStats?: UserDashboardStats | null;
+  dashboardStats?: domain_UserDashboardStats | null;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];

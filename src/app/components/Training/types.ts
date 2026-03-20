@@ -1,5 +1,5 @@
 import type { Verse } from "@/app/App";
-import type { UserDashboardStats } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
 
@@ -46,7 +46,7 @@ export interface DirectLaunchVerse {
 export interface TrainingProps {
   allVerses: Verse[];
   isLoadingVerses?: boolean;
-  dashboardStats?: UserDashboardStats | null;
+  dashboardStats?: domain_UserDashboardStats | null;
   telegramId: string | null;
   selectionVerses?: Verse[];
   /** If set, skip the Hub and start a training session immediately for this verse */

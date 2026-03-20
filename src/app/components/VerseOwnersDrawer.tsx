@@ -6,7 +6,7 @@ import {
   fetchVerseOwnersPage,
   type VerseOwnersScope,
 } from "@/api/services/verseOwners";
-import type { FriendPlayerListItem } from "@/api/services/friends";
+import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
@@ -80,7 +80,7 @@ export function VerseOwnersDrawer({
   onOpenChange,
   onOpenPlayerProfile,
 }: VerseOwnersDrawerProps) {
-  const [items, setItems] = React.useState<FriendPlayerListItem[]>([]);
+  const [items, setItems] = React.useState<domain_SocialPlayerListItem[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
   const [isInitialLoading, setIsInitialLoading] = React.useState(false);
   const [isFetchingMore, setIsFetchingMore] = React.useState(false);
@@ -204,30 +204,36 @@ export function VerseOwnersDrawer({
     void loadPage(items.length, "append");
   };
 
-  const handleSelectPlayer = (item: FriendPlayerListItem) => {
+  const ownerDisplayName = (item: domain_SocialPlayerListItem) => {
+    const n = item.name?.trim();
+    if (n) return n;
+    return item.telegramId ? `ID ${item.telegramId}` : "Игрок";
+  };
+
+  const handleSelectPlayer = (item: domain_SocialPlayerListItem) => {
     pendingPlayerRef.current = {
-      telegramId: item.telegramId,
-      name: item.name,
-      avatarUrl: item.avatarUrl,
+      telegramId: String(item.telegramId ?? ""),
+      name: ownerDisplayName(item),
+      avatarUrl: item.avatarUrl?.trim() ? item.avatarUrl.trim() : null,
     };
     onOpenChange(false);
   };
 
-  const getDisplayXp = (item: FriendPlayerListItem) =>
+  const getDisplayXp = (item: domain_SocialPlayerListItem) =>
     viewerTelegramId &&
     currentUserTelegramId === viewerTelegramId &&
     item.telegramId === viewerTelegramId &&
     currentUserXp != null
       ? currentUserXp
-      : item.xp;
+      : item.xp ?? 0;
 
-  const getDisplayDailyStreak = (item: FriendPlayerListItem) =>
+  const getDisplayDailyStreak = (item: domain_SocialPlayerListItem) =>
     viewerTelegramId &&
     currentUserTelegramId === viewerTelegramId &&
     item.telegramId === viewerTelegramId &&
     currentUserDailyStreak != null
       ? currentUserDailyStreak
-      : item.dailyStreak;
+      : item.dailyStreak ?? 0;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
@@ -281,26 +287,28 @@ export function VerseOwnersDrawer({
             </div>
           ) : (
             <div className="space-y-2 pb-2">
-              {items.map((item) => (
+              {items.map((item) => {
+                const label = ownerDisplayName(item);
+                return (
                 <button
-                  key={item.telegramId}
+                  key={item.telegramId ?? label}
                   type="button"
                   onClick={() => handleSelectPlayer(item)}
                   className="flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/55 px-3 py-3 text-left transition-colors hover:bg-background/70"
-                  aria-label={`Открыть профиль ${item.name}`}
+                  aria-label={`Открыть профиль ${label}`}
                 >
                   <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
                     {item.avatarUrl ? (
-                      <AvatarImage src={item.avatarUrl} alt={item.name} />
+                      <AvatarImage src={item.avatarUrl} alt={label} />
                     ) : null}
                     <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
-                      {getInitials(item.name)}
+                      {getInitials(label)}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-foreground/82">
-                      {item.name}
+                      {label}
                     </div>
                     <div className="mt-1 truncate text-xs text-foreground/48">
                       {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
@@ -309,7 +317,8 @@ export function VerseOwnersDrawer({
                     </div>
                   </div>
                 </button>
-              ))}
+              );
+              })}
 
               {isFetchingMore ? (
                 <div className="space-y-2 pt-1">

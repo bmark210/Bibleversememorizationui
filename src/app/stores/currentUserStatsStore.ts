@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { UserDashboardStats } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 
 export type CurrentUserStatsSnapshot = {
   telegramId: string | null;
@@ -14,7 +14,7 @@ export type CurrentUserStatsSnapshot = {
 type CurrentUserStatsStore = CurrentUserStatsSnapshot & {
   setFromDashboardStats: (
     telegramId: string | null | undefined,
-    stats: UserDashboardStats | null
+    stats: domain_UserDashboardStats | null
   ) => void;
   clear: () => void;
 };
@@ -53,7 +53,7 @@ export const useCurrentUserStatsStore = create<CurrentUserStatsStore>((set) => (
       telegramId: normalizedTelegramId,
       xp: toNullableNonNegativeInt(stats?.xp),
       dailyStreak: toNullableNonNegativeInt(stats?.dailyStreak),
-      masteredVerses: toNullableNonNegativeInt(stats?.masteredVerses),
+      masteredVerses: toNullableNonNegativeInt(stats?.masteredCount),
       syncedAt: stats ? new Date().toISOString() : null,
     });
   },

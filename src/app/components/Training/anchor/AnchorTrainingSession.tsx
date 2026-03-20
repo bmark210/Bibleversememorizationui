@@ -9,14 +9,17 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronUp, ChevronDown } from "lucide-react";
-import type { UserVerse } from "@/api/models/UserVerse";
+import type { api_ReferenceTrainerSessionResponse } from "@/api/models/api_ReferenceTrainerSessionResponse";
+import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import {
   fetchReferenceTrainerVerses,
   submitReferenceTrainerSession,
-  type ReferenceTrainerSessionOutcome,
-  type ReferenceTrainerSessionTrack,
-  type ReferenceTrainerSessionUpdate,
 } from "@/api/services/referenceTrainer";
+import type {
+  ReferenceTrainerOutcome,
+  ReferenceTrainerSessionTrack,
+  ReferenceTrainerSessionUpdate,
+} from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
 import { applySessionResults } from "@/modules/reference-trainer/application/applySessionResults";
 import type { ReferenceTrainerScoreRow } from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
@@ -556,8 +559,8 @@ function writeStoredTrack(track: SessionTrack) {
   }
 }
 
-function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
-  const enriched = verse as UserVerse & {
+function mapUserVerseToReferenceVerse(verse: domain_UserVerse): ReferenceVerse | null {
+  const enriched = verse as domain_UserVerse & {
     text?: string | null;
     reference?: string | null;
     externalVerseId?: string | null;
@@ -1222,18 +1225,30 @@ function getResultCaption(percent: number) {
   return "Нужна дополнительная практика. Попробуйте новый микс режимов.";
 }
 
+function skillRowFromUserVerse(row: domain_UserVerse): {
+  externalVerseId: string;
+  referenceScore: number;
+  incipitScore: number;
+  contextScore: number;
+} | null {
+  const externalVerseId = String(row.verse?.externalVerseId ?? row.verseId ?? "");
+  if (!externalVerseId) return null;
+  return {
+    externalVerseId,
+    referenceScore: Math.max(0, Math.round(row.referenceScore ?? 0)),
+    incipitScore: Math.max(0, Math.round(row.incipitScore ?? 0)),
+    contextScore: Math.max(0, Math.round(row.contextScore ?? 0)),
+  };
+}
+
 function mergeUpdatedSkillScores(
   pool: ReferenceVerse[],
-  updated: Array<{
-    externalVerseId: string;
-    referenceScore: number;
-    incipitScore: number;
-    contextScore: number;
-  }>
+  updated: Array<domain_UserVerse> | undefined
 ) {
-  const map = new Map(
-    updated.map((item) => [item.externalVerseId, item] as const)
-  );
+  const rows = (updated ?? [])
+    .map(skillRowFromUserVerse)
+    .filter((x): x is NonNullable<typeof x> => x != null);
+  const map = new Map(rows.map((item) => [item.externalVerseId, item] as const));
   return pool.map((verse) => {
     const next = map.get(verse.externalVerseId);
     if (!next) return verse;
@@ -1259,7 +1274,7 @@ function toReferenceTrainerScoreRow(verse: ReferenceVerse): ReferenceTrainerScor
 function applyOptimisticAnchorOutcome(params: {
   verse: ReferenceVerse;
   track: SkillTrack;
-  outcome: ReferenceTrainerSessionOutcome;
+  outcome: ReferenceTrainerOutcome;
 }): ReferenceVerse {
   const rowMap = new Map([
     [
@@ -1599,16 +1614,7 @@ export function AnchorTrainingSession({
         });
 
       try {
-        let response:
-          | {
-              updated: Array<{
-                externalVerseId: string;
-                referenceScore: number;
-                incipitScore: number;
-                contextScore: number;
-              }>;
-            }
-          | null = null;
+        let response: api_ReferenceTrainerSessionResponse | null = null;
 
         try {
           response = await doSubmit();
@@ -1617,7 +1623,9 @@ export function AnchorTrainingSession({
           response = await doSubmit();
         }
 
-        setVersePool((prev) => mergeUpdatedSkillScores(prev, response.updated));
+        setVersePool((prev) =>
+          mergeUpdatedSkillScores(prev, response?.updated)
+        );
         setSaveSucceeded(true);
         onSessionCommitted?.();
       } catch (error) {
@@ -1663,7 +1671,7 @@ export function AnchorTrainingSession({
       options?: { acceptedWithTolerance?: boolean; forgotten?: boolean }
     ) => {
       if (!currentQuestion || isAnswered) return;
-      const outcome: ReferenceTrainerSessionOutcome = isCorrect
+      const outcome: ReferenceTrainerOutcome = isCorrect
         ? attemptsUsed <= 1
           ? "correct_first"
           : "correct_retry"

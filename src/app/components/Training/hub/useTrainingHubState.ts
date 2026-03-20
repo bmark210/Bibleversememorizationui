@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Verse } from "@/app/App";
-import type { UserDashboardStats } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { CoreTrainingMode, TrainingMode } from "../types";
 import {
   getCoreTrainingCountsFromVerses,
@@ -12,7 +12,7 @@ export type TrainingCounts = CoreTrainingCounts;
 
 export function useTrainingHubState(params: {
   allVerses: Verse[];
-  dashboardStats?: UserDashboardStats | null;
+  dashboardStats?: domain_UserDashboardStats | null;
 }): TrainingCounts {
   const { allVerses, dashboardStats } = params;
 
@@ -25,7 +25,7 @@ export function useTrainingHubState(params: {
     const dueReviewCount =
       dashboardStats?.dueReviewVerses ?? dashboardStats?.reviewVerses ?? 0;
     const totalReviewCount = dashboardStats?.reviewVerses ?? dueReviewCount;
-    const masteredCount = dashboardStats?.masteredVerses ?? 0;
+    const masteredCount = dashboardStats?.masteredCount ?? 0;
 
     return {
       learningCount,

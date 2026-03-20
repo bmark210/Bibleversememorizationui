@@ -23,18 +23,12 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 import {
   fetchAllUserVerses,
 } from "@/api/services/userVersesPagination";
-import {
-  fetchDashboardLeaderboard,
-  type DashboardLeaderboard,
-} from "@/api/services/leaderboard";
-import {
-  fetchDashboardFriendsActivity,
-  type DashboardFriendsActivity,
-} from "@/api/services/friends";
-import {
-  fetchUserDashboardStats,
-  type UserDashboardStats,
-} from "@/api/services/userStats";
+import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import { fetchDashboardFriendsActivity } from "@/api/services/friends";
+import { fetchDashboardLeaderboard } from "@/api/services/leaderboard";
+import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   getDisplayStatusFromFlow,
@@ -482,11 +476,12 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [pendingVerseListReturn, setPendingVerseListReturn] =
     useState<PendingVerseListReturn | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<domain_UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
-  const [dashboardLeaderboard, setDashboardLeaderboard] = useState<DashboardLeaderboard | null>(null);
+  const [dashboardLeaderboard, setDashboardLeaderboard] = useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
-  const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
+  const [dashboardFriendsActivity, setDashboardFriendsActivity] =
+    useState<domain_DashboardFriendsActivityResponse | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
@@ -1319,7 +1314,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               onOpenPlayerProfile={handleOpenPlayerProfile}
               isAnchorEligible={
                 (dashboardStats?.reviewVerses ?? 0) >= 10 ||
-                (dashboardStats?.masteredVerses ?? 0) >= 10
+                (dashboardStats?.masteredCount ?? 0) >= 10
               }
             />
           )}

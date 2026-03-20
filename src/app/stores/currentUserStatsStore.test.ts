@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EMPTY_USER_DASHBOARD_STATS } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import { useCurrentUserStatsStore } from "./currentUserStatsStore";
 
 test("hydrates current user stats from dashboard payload and clears them", () => {
   useCurrentUserStatsStore.getState().clear();
 
-  useCurrentUserStatsStore.getState().setFromDashboardStats("12345", {
-    ...EMPTY_USER_DASHBOARD_STATS,
+  const payload: domain_UserDashboardStats = {
     xp: 620,
     dailyStreak: 8,
-    masteredVerses: 14,
-  });
+    masteredCount: 14,
+  };
+
+  useCurrentUserStatsStore.getState().setFromDashboardStats("12345", payload);
 
   let state = useCurrentUserStatsStore.getState();
   assert.equal(state.telegramId, "12345");

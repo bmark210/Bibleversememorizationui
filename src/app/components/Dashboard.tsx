@@ -4,9 +4,9 @@ import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
-import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
-import type { UserDashboardStats } from '@/api/services/userStats'
-import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
+import type { domain_DashboardFriendsActivityResponse } from '@/api/models/domain_DashboardFriendsActivityResponse'
+import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
+import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
@@ -19,11 +19,11 @@ import {
 
 interface DashboardProps {
   todayVerses: Array<Verse>
-  dashboardStats?: UserDashboardStats | null
+  dashboardStats?: domain_UserDashboardStats | null
   isDashboardStatsLoading?: boolean
-  dashboardLeaderboard?: DashboardLeaderboardData | null
+  dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
-  dashboardFriendsActivity?: DashboardFriendsActivityData | null
+  dashboardFriendsActivity?: domain_DashboardFriendsActivityResponse | null
   isDashboardFriendsActivityLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
@@ -142,7 +142,7 @@ export function Dashboard({
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null
   const masteredVerses =
-    currentUserMasteredVerses ?? dashboardStats?.masteredVerses ?? null
+    currentUserMasteredVerses ?? dashboardStats?.masteredCount ?? null
   const dailyStreak = currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null
 
   const statsCards = useMemo(

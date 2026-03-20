@@ -4,7 +4,7 @@ import type { VerseStatus } from '@/shared/domain/verseStatus';
 import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
-import type { Tag } from '@/api/models/Tag';
+import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { VerseListBookOption } from './bookOptions';
 
 export type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
@@ -62,7 +62,7 @@ export type VerseListController = {
     setSearchQuery: (q: string) => void;
   };
   tagFilter: {
-    allTags: Tag[];
+    allTags: domain_Tag[];
     selectedTagSlugs: Set<string>;
     hasActiveTags: boolean;
     isLoadingTags: boolean;
