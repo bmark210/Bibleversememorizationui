@@ -1,6 +1,8 @@
-import { publicApiUrl } from "@/lib/publicApiBase";
+import type { domain_UserLeaderboardCurrentUser } from "@/api/models/domain_UserLeaderboardCurrentUser";
+import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
+import { UsersService } from "@/api/services/UsersService";
 
-export type LeaderboardEntry = {
+export type DashboardLeaderboardEntry = {
   rank: number;
   telegramId: string;
   name: string;
@@ -11,210 +13,104 @@ export type LeaderboardEntry = {
   isCurrentUser: boolean;
 };
 
-export type CurrentUserLeaderboardSnapshot = {
+export type DashboardLeaderboardCurrentUser = {
   telegramId: string;
   name: string;
   avatarUrl: string | null;
   rank: number | null;
-  xp: number;
-  streakDays: number;
   weeklyRepetitions: number;
+  streakDays: number;
+  xp: number;
+  inTop: boolean;
 };
 
 export type DashboardLeaderboard = {
-  generatedAt: string;
+  entries: Array<DashboardLeaderboardEntry>;
+  currentUser: DashboardLeaderboardCurrentUser | null;
   totalParticipants: number;
-  entries: LeaderboardEntry[];
-  currentUser: CurrentUserLeaderboardSnapshot | null;
 };
 
-export const EMPTY_DASHBOARD_LEADERBOARD: DashboardLeaderboard = {
-  generatedAt: new Date(0).toISOString(),
-  totalParticipants: 0,
-  entries: [],
-  currentUser: null,
-};
-
-function toSafeInt(value: unknown, options?: { min?: number; max?: number }) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return options?.min ?? 0;
-  const rounded = Math.round(numeric);
-  const min = options?.min ?? Number.NEGATIVE_INFINITY;
-  const max = options?.max ?? Number.POSITIVE_INFINITY;
-  return Math.max(min, Math.min(max, rounded));
+function entryName(entry: domain_UserLeaderboardEntry): string {
+  const n = entry.name?.trim();
+  if (n) return n;
+  const nick = entry.nickname?.trim();
+  if (nick) return nick.startsWith("@") ? nick : `@${nick}`;
+  return entry.telegramId ?? "Игрок";
 }
 
-function toSafeString(value: unknown, fallback = ""): string {
-  if (typeof value !== "string") return fallback;
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : fallback;
-}
-
-function toNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function normalizeLeaderboardEntry(
-  value: unknown,
-  index: number
-): LeaderboardEntry {
-  const data = (value ?? {}) as Partial<LeaderboardEntry>;
-  const rank = toSafeInt(data.rank, { min: 1 });
-  const telegramId = toSafeString(data.telegramId);
-  const fallbackName = telegramId
-    ? `Участник #${telegramId.slice(-4)}`
-    : `Участник #${index + 1}`;
-
+function mapEntry(
+  entry: domain_UserLeaderboardEntry,
+  viewerTelegramId: string
+): DashboardLeaderboardEntry {
+  const telegramId = String(entry.telegramId ?? "");
   return {
-    rank,
+    rank: Math.max(1, Math.round(entry.rank ?? 0)),
     telegramId,
-    name: toSafeString(data.name, fallbackName),
-    avatarUrl: toNullableString(data.avatarUrl),
-    xp: toSafeInt(data.xp, { min: 0 }),
-    streakDays: toSafeInt(data.streakDays, { min: 0 }),
-    weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
-    isCurrentUser: Boolean(data.isCurrentUser),
+    name: entryName(entry),
+    avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
+    xp: Math.max(0, Math.round(entry.xp ?? entry.score ?? 0)),
+    streakDays: 0,
+    weeklyRepetitions: Math.max(
+      0,
+      Math.round(entry.versesCount ?? entry.score ?? 0)
+    ),
+    isCurrentUser: telegramId === viewerTelegramId,
   };
 }
 
-function normalizeCurrentUserSnapshot(
-  value: unknown
-): CurrentUserLeaderboardSnapshot | null {
-  if (!value || typeof value !== "object") return null;
-  const data = value as Partial<CurrentUserLeaderboardSnapshot>;
-  const telegramId = toSafeString(data.telegramId);
-  if (!telegramId) return null;
+function buildCurrentUser(
+  viewerTelegramId: string,
+  apiCurrent: domain_UserLeaderboardCurrentUser | undefined,
+  items: Array<domain_UserLeaderboardEntry>
+): DashboardLeaderboardCurrentUser | null {
+  if (!apiCurrent && items.length === 0) return null;
 
-  const rankValue = data.rank;
-  const rank =
-    rankValue == null
-      ? null
-      : toSafeInt(rankValue, {
-          min: 1,
-        });
-
-  return {
-    telegramId,
-    name: toSafeString(data.name, `Участник #${telegramId.slice(-4)}`),
-    avatarUrl: toNullableString(data.avatarUrl),
-    rank,
-    xp: toSafeInt(data.xp, { min: 0 }),
-    streakDays: toSafeInt(data.streakDays, { min: 0 }),
-    weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
-  };
-}
-
-type GoLeaderboardPayload = {
-  items?: unknown[];
-  entries?: unknown[];
-  currentUser?: unknown;
-  totalParticipants?: unknown;
-  generatedAt?: unknown;
-};
-
-export function normalizeDashboardLeaderboard(
-  value: unknown,
-  viewerTelegramId?: string | null
-): DashboardLeaderboard {
-  const data = (value ?? {}) as Partial<DashboardLeaderboard> & GoLeaderboardPayload;
-
-  const goItems = Array.isArray(data.items) ? data.items : null;
-  if (goItems && !Array.isArray(data.entries)) {
-    const tid = (viewerTelegramId ?? "").trim();
-    const entries = goItems.map((entry, index) => {
-      const row = (entry ?? {}) as Record<string, unknown>;
-      const telegramId = toSafeString(row.telegramId);
-      const rank = toSafeInt(row.rank, { min: index + 1 });
-      const xp = toSafeInt(row.score ?? row.xp ?? row.versesCount, { min: 0 });
-      const nick = toNullableString(row.nickname as string | undefined);
-      return {
-        rank,
-        telegramId,
-        name: toSafeString(row.name, nick ?? `Участник #${telegramId.slice(-4) || String(index)}`),
-        avatarUrl: toNullableString(row.avatarUrl),
-        xp,
-        streakDays: toSafeInt(row.streakDays ?? row.dailyStreak, { min: 0 }),
-        weeklyRepetitions: toSafeInt(row.weeklyRepetitions, { min: 0 }),
-        isCurrentUser: Boolean(tid && telegramId === tid),
-      };
-    });
-
-    const cu = (data.currentUser ?? null) as Record<string, unknown> | null;
-    let currentUser: CurrentUserLeaderboardSnapshot | null = null;
-    if (cu && tid) {
-      const rankVal = cu.rank;
-      const rankParsed =
-        rankVal == null
-          ? null
-          : toSafeInt(rankVal, {
-              min: 1,
-            });
-      currentUser = {
-        telegramId: tid,
-        name: `Участник #${tid.slice(-4)}`,
-        avatarUrl: null,
-        rank: rankParsed,
-        xp: toSafeInt(cu.xp ?? cu.score ?? cu.versesCount, { min: 0 }),
-        streakDays: toSafeInt(cu.streakDays ?? cu.dailyStreak, { min: 0 }),
-        weeklyRepetitions: toSafeInt(cu.weeklyRepetitions, { min: 0 }),
-      };
-    }
-
-    const rawTotal = Number(data.totalParticipants);
-    const totalParticipants =
-      Number.isFinite(rawTotal) && rawTotal >= 0
-        ? Math.round(rawTotal)
-        : entries.length;
-
-    return {
-      generatedAt: toSafeString(data.generatedAt, new Date().toISOString()),
-      totalParticipants,
-      entries,
-      currentUser,
-    };
-  }
-
-  const entriesRaw = Array.isArray(data.entries) ? data.entries : [];
-
-  return {
-    generatedAt: toSafeString(data.generatedAt, new Date().toISOString()),
-    totalParticipants: toSafeInt(data.totalParticipants, { min: 0 }),
-    entries: entriesRaw.map((entry, index) => normalizeLeaderboardEntry(entry, index)),
-    currentUser: normalizeCurrentUserSnapshot(data.currentUser),
-  };
-}
-
-type FetchDashboardLeaderboardParams = {
-  telegramId?: string | null;
-  limit?: number;
-};
-
-export async function fetchDashboardLeaderboard(
-  params: FetchDashboardLeaderboardParams = {}
-): Promise<DashboardLeaderboard> {
-  const searchParams = new URLSearchParams();
-  if (params.telegramId?.trim()) {
-    searchParams.set("telegramId", params.telegramId.trim());
-  }
-  if (params.limit != null && Number.isFinite(params.limit)) {
-    searchParams.set("limit", String(Math.round(params.limit)));
-  }
-
-  const url = publicApiUrl(
-    `/api/users/leaderboard${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  const selfFromList = items.find(
+    (e) => String(e.telegramId ?? "") === viewerTelegramId
   );
-  const response = await fetch(url);
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string }
-      | null;
-    throw new Error(
-      payload?.error || `Failed to fetch leaderboard: ${response.status}`
-    );
-  }
 
-  const payload = await response.json();
-  return normalizeDashboardLeaderboard(payload, params.telegramId);
+  const rank =
+    apiCurrent?.rank != null ? Math.round(apiCurrent.rank) : selfFromList?.rank != null
+      ? Math.round(selfFromList.rank!)
+      : null;
+
+  return {
+    telegramId: viewerTelegramId,
+    name: selfFromList ? entryName(selfFromList) : "Вы",
+    avatarUrl:
+      selfFromList?.avatarUrl?.trim() ? selfFromList.avatarUrl.trim() : null,
+    rank,
+    weeklyRepetitions: Math.max(
+      0,
+      Math.round(
+        apiCurrent?.versesCount ?? selfFromList?.versesCount ?? selfFromList?.score ?? 0
+      )
+    ),
+    streakDays: 0,
+    xp: Math.max(
+      0,
+      Math.round(apiCurrent?.xp ?? selfFromList?.xp ?? selfFromList?.score ?? 0)
+    ),
+    inTop: Boolean(apiCurrent?.inTop),
+  };
+}
+
+export async function fetchDashboardLeaderboard(params: {
+  telegramId: string;
+  limit?: number;
+}): Promise<DashboardLeaderboard> {
+  const { telegramId, limit = 25 } = params;
+  const raw = await UsersService.getLeaderboard(telegramId, limit);
+  const items = raw.items ?? [];
+  const mappedEntries = items.map((e) => mapEntry(e, telegramId));
+  const currentUser = buildCurrentUser(telegramId, raw.currentUser, items);
+
+  return {
+    entries: mappedEntries,
+    currentUser,
+    totalParticipants: Math.max(
+      0,
+      Math.round(raw.totalParticipants ?? mappedEntries.length)
+    ),
+  };
 }

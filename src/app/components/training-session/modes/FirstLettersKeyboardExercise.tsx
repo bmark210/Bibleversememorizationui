@@ -5,7 +5,6 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
-import { Info } from 'lucide-react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
@@ -15,7 +14,7 @@ import {
   resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { TrainingStageCorner } from './TrainingStageCorner';
+import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
@@ -231,22 +230,16 @@ export function ModeFirstLettersKeyboardExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
+      <TrainingExerciseModeHeader
+        modeId={trainingModeId}
+        verse={verse}
+        onOpenHelp={onOpenTutorial}
+      />
       {mistakesSinceReset > 0 && (
-        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
-        <label className="text-xs text-center font-medium text-foreground/90">
-          Введите первые буквы слов
-        </label>
-        {onOpenTutorial && (
-          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
-            <Info className="h-4 w-4" />
-          </button>
-        )}
-      </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
 

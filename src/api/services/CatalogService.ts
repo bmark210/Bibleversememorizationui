@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { bible_memory_db_internal_domain_CatalogVerseDeleteResponse } from '../models/bible_memory_db_internal_domain_CatalogVerseDeleteResponse';
-import type { bible_memory_db_internal_domain_CatalogVersesPageResponse } from '../models/bible_memory_db_internal_domain_CatalogVersesPageResponse';
-import type { bible_memory_db_internal_domain_VerseAdminSummary } from '../models/bible_memory_db_internal_domain_VerseAdminSummary';
+import type { domain_CatalogVerseDeleteResponse } from '../models/domain_CatalogVerseDeleteResponse';
+import type { domain_CatalogVersesPageResponse } from '../models/domain_CatalogVersesPageResponse';
+import type { domain_VerseAdminSummary } from '../models/domain_VerseAdminSummary';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -20,7 +20,7 @@ export class CatalogService {
      * @param order Sort direction
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns bible_memory_db_internal_domain_CatalogVersesPageResponse OK
+     * @returns domain_CatalogVersesPageResponse OK
      * @throws ApiError
      */
     public static listCatalogVerses(
@@ -32,7 +32,7 @@ export class CatalogService {
         order: string = 'desc',
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<bible_memory_db_internal_domain_CatalogVersesPageResponse> {
+    ): CancelablePromise<domain_CatalogVersesPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/verses',
@@ -56,14 +56,14 @@ export class CatalogService {
      * @param externalVerseId External verse ID
      * @param telegramId Admin Telegram ID
      * @param xTelegramId Admin Telegram ID
-     * @returns bible_memory_db_internal_domain_VerseAdminSummary OK
+     * @returns domain_VerseAdminSummary OK
      * @throws ApiError
      */
     public static getVerseAdminSummary(
         externalVerseId: string,
         telegramId?: string,
         xTelegramId?: string,
-    ): CancelablePromise<bible_memory_db_internal_domain_VerseAdminSummary> {
+    ): CancelablePromise<domain_VerseAdminSummary> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/verses/{externalVerseId}/admin',
@@ -89,14 +89,14 @@ export class CatalogService {
      * @param externalVerseId External verse ID
      * @param telegramId Admin Telegram ID
      * @param xTelegramId Admin Telegram ID
-     * @returns bible_memory_db_internal_domain_CatalogVerseDeleteResponse OK
+     * @returns domain_CatalogVerseDeleteResponse OK
      * @throws ApiError
      */
     public static deleteCatalogVerse(
         externalVerseId: string,
         telegramId?: string,
         xTelegramId?: string,
-    ): CancelablePromise<bible_memory_db_internal_domain_CatalogVerseDeleteResponse> {
+    ): CancelablePromise<domain_CatalogVerseDeleteResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/verses/{externalVerseId}/admin',

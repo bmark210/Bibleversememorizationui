@@ -1,1 +1,1 @@
-export type { bible_memory_db_internal_domain_UserVerse as UserVerse } from "./bible_memory_db_internal_domain_UserVerse";
+export type { domain_UserVerse as UserVerse } from "./domain_UserVerse";

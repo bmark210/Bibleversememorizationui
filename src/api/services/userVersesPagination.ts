@@ -1,20 +1,19 @@
-import type { bible_memory_db_internal_domain_VerseListItem as VerseListItem } from "../models/bible_memory_db_internal_domain_VerseListItem";
-import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
-import { publicApiUrl } from "@/lib/publicApiBase";
+import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
+import { UserVersesService } from "@/api/services/UserVersesService";
 
-type GetApiUsersVersesParams = {
+export type UserVersesSemanticFilter =
+  | "friends"
+  | "my"
+  | "learning"
+  | "review"
+  | "mastered"
+  | "stopped";
+
+export type FetchUserVersesPageParams = {
   telegramId: string;
-  status?: "MY" | "LEARNING" | "STOPPED";
   orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
-  filter?:
-    | "catalog"
-    | "friends"
-    | "my"
-    | "learning"
-    | "review"
-    | "mastered"
-    | "stopped";
+  filter?: UserVersesSemanticFilter;
   bookId?: number;
   search?: string;
   tagSlugs?: string[];
@@ -22,69 +21,80 @@ type GetApiUsersVersesParams = {
   startWith?: number;
 };
 
-type FetchAllUserVersesParams = Omit<GetApiUsersVersesParams, "startWith"> & {
-  pageLimit?: number;
-};
-
-export async function fetchUserVersesPage(
-  params: GetApiUsersVersesParams
-): Promise<UserVersesPageResponse> {
-  const searchParams = new URLSearchParams();
-  if (params.status) searchParams.set("status", params.status);
-  if (params.orderBy) searchParams.set("orderBy", params.orderBy);
-  if (params.order) searchParams.set("order", params.order);
-  if (params.filter) searchParams.set("filter", params.filter);
-  if (params.bookId != null) searchParams.set("bookId", String(params.bookId));
-  if (params.search?.trim()) searchParams.set("search", params.search.trim());
-  if (params.tagSlugs && params.tagSlugs.length > 0) {
-    searchParams.set("tagSlugs", params.tagSlugs.join(","));
+function normalizeTotalCount(
+  raw: { total?: number; totalCount?: number },
+  itemsLength: number
+): number {
+  const t = raw.totalCount ?? raw.total;
+  if (typeof t === "number" && Number.isFinite(t)) {
+    return Math.max(0, Math.round(t));
   }
-  if (params.limit != null) searchParams.set("limit", String(params.limit));
-  if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
-
-  const url = publicApiUrl(
-    `/api/users/${encodeURIComponent(params.telegramId)}/verses?${searchParams.toString()}`
-  );
-  const response = await fetch(url);
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string }
-      | null;
-    throw new Error(payload?.error || `Failed to fetch user verses: ${response.status}`);
-  }
-
-  const raw = (await response.json()) as UserVersesPageResponse & {
-    total?: number;
-    offset?: number;
-  };
-  const totalCount =
-    typeof (raw as { totalCount?: number }).totalCount === "number"
-      ? (raw as { totalCount: number }).totalCount
-      : typeof raw.total === "number"
-        ? raw.total
-        : raw.items?.length ?? 0;
-  return { ...raw, totalCount };
+  return itemsLength;
 }
 
-export async function fetchAllUserVerses(
-  params: FetchAllUserVersesParams
-): Promise<Array<VerseListItem>> {
-  const pageLimit = params.pageLimit ?? 50;
-  const items: Array<VerseListItem> = [];
-  let startWith = 0;
+export async function fetchUserVersesPage(
+  params: FetchUserVersesPageParams
+): Promise<{ items: Array<domain_VerseListItem>; totalCount: number }> {
+  const {
+    telegramId,
+    orderBy = "updatedAt",
+    order = "desc",
+    filter,
+    bookId,
+    search,
+    tagSlugs,
+    limit = 20,
+    startWith,
+  } = params;
+
+  const tagSlugsStr =
+    tagSlugs && tagSlugs.length > 0 ? tagSlugs.join(",") : undefined;
+
+  const response = await UserVersesService.listUserVerses(
+    telegramId,
+    undefined,
+    orderBy,
+    order,
+    filter,
+    bookId,
+    search,
+    tagSlugsStr,
+    limit,
+    startWith
+  );
+
+  const items = response.items ?? [];
+  return {
+    items,
+    totalCount: normalizeTotalCount(response, items.length),
+  };
+}
+
+const FETCH_ALL_PAGE_SIZE = 100;
+
+/** Все стихи пользователя (без семантического filter) — для дашборда тренировки. */
+export async function fetchAllUserVerses(params: {
+  telegramId: string;
+}): Promise<Array<domain_VerseListItem>> {
+  const { telegramId } = params;
+  const all: Array<domain_VerseListItem> = [];
 
   while (true) {
     const page = await fetchUserVersesPage({
-      ...params,
-      limit: pageLimit,
-      startWith,
+      telegramId,
+      orderBy: "updatedAt",
+      order: "desc",
+      limit: FETCH_ALL_PAGE_SIZE,
+      startWith: all.length,
     });
-    items.push(...(page.items ?? []));
-    if (!page.items?.length) break;
-    const nextOffset = startWith + page.items.length;
-    if (nextOffset >= (page.totalCount ?? 0)) break;
-    startWith = nextOffset;
+
+    if (page.items.length === 0) break;
+
+    all.push(...page.items);
+
+    if (page.items.length < FETCH_ALL_PAGE_SIZE) break;
+    if (page.totalCount > 0 && all.length >= page.totalCount) break;
   }
 
-  return items;
+  return all;
 }

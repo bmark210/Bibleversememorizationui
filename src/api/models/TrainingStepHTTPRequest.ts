@@ -1,7 +1,1 @@
-/** Body for POST .../verses/{externalVerseId}/training-step (matches bible-memory-db). */
-export type TrainingStepHTTPRequest = {
-  phase: "learning" | "review";
-  trainingModeId: number;
-  rating: number;
-  isLearningVerse: boolean;
-};
+export type { domain_TrainingStepHTTPRequest as TrainingStepHTTPRequest } from "./domain_TrainingStepHTTPRequest";

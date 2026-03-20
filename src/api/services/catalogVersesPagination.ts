@@ -1,44 +1,36 @@
-import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
-import { publicApiUrl } from "@/lib/publicApiBase";
+import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
+import { CatalogService } from "@/api/services/CatalogService";
 
-type FetchCatalogVersesPageParams = {
-  telegramId?: string;
-  translation?: string;
+export async function fetchCatalogVersesPage(params: {
+  telegramId: string;
   bookId?: number;
   tagSlugs?: string[];
-  orderBy?: "createdAt" | "bible" | "popularity";
-  order?: "asc" | "desc";
+  orderBy: string;
+  order: string;
   limit?: number;
   startWith?: number;
-};
+}): Promise<{ items: Array<domain_VerseListItem>; totalCount: number }> {
+  const tagSlugsStr =
+    params.tagSlugs && params.tagSlugs.length > 0
+      ? params.tagSlugs.join(",")
+      : undefined;
 
-export async function fetchCatalogVersesPage(
-  params: FetchCatalogVersesPageParams
-): Promise<UserVersesPageResponse> {
-  const searchParams = new URLSearchParams();
-  if (params.telegramId) searchParams.set("telegramId", params.telegramId);
-  if (params.translation) searchParams.set("translation", params.translation);
-  if (params.bookId != null) searchParams.set("bookId", String(params.bookId));
-  if (params.tagSlugs && params.tagSlugs.length > 0) {
-    searchParams.set("tagSlugs", params.tagSlugs.join(","));
-  }
-  if (params.orderBy) searchParams.set("orderBy", params.orderBy);
-  if (params.order) searchParams.set("order", params.order);
-  if (params.limit != null) searchParams.set("limit", String(params.limit));
-  if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
+  const response = await CatalogService.listCatalogVerses(
+    params.telegramId,
+    undefined,
+    params.bookId,
+    tagSlugsStr,
+    params.orderBy,
+    params.order,
+    params.limit ?? 20,
+    params.startWith
+  );
 
-  const response = await fetch(publicApiUrl(`/api/verses?${searchParams.toString()}`));
-  if (!response.ok) {
-    throw new Error(`Failed to fetch catalog verses: ${response.status}`);
-  }
-  const raw = (await response.json()) as UserVersesPageResponse & {
-    total?: number;
+  const items = response.items ?? [];
+  const totalCount = response.totalCount ?? items.length;
+
+  return {
+    items,
+    totalCount: Math.max(0, Math.round(totalCount)),
   };
-  const totalCount =
-    typeof (raw as { totalCount?: number }).totalCount === "number"
-      ? (raw as { totalCount: number }).totalCount
-      : typeof raw.total === "number"
-        ? raw.total
-        : raw.items?.length ?? 0;
-  return { ...raw, totalCount };
 }

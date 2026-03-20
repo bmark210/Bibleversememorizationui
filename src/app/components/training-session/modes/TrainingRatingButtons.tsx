@@ -210,7 +210,8 @@ function applyRatingVisibilityRules(params: {
   buttons: RatingButtonMeta[];
   currentTrainingModeId: TrainingModeId | null | undefined;
 }): RatingButtonMeta[] {
-  let { buttons, stage, currentTrainingModeId } = params;
+  const { stage, currentTrainingModeId } = params;
+  let { buttons } = params;
   if (stage === 'review') {
     buttons = buttons.filter((b) => b.rating !== 0);
   }

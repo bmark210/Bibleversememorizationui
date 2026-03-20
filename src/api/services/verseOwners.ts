@@ -1,43 +1,24 @@
-import {
-  normalizeFriendPlayerListItem,
-  type FriendPlayerListItem,
-  type FriendPlayersPageResponse,
-} from "./friends";
-import { publicApiUrl } from "@/lib/publicApiBase";
+import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
+import { UserVersesService } from "@/api/services/UserVersesService";
+import type { FriendPlayerListItem } from "@/api/services/friends";
 
 export type VerseOwnersScope = "friends" | "players";
 
-function toSafeInt(value: unknown, options?: { min?: number; max?: number }) {
-  const numeric = Number(value);
-  const min = options?.min ?? 0;
-  const max = options?.max ?? Number.POSITIVE_INFINITY;
-  if (!Number.isFinite(numeric)) return min;
-  return Math.max(min, Math.min(max, Math.round(numeric)));
-}
-
-function normalizeVerseOwnersPageResponse(
-  value: unknown
-): FriendPlayersPageResponse {
-  const data = (value ?? {}) as Partial<FriendPlayersPageResponse> & {
-    total?: unknown;
-    offset?: unknown;
-  };
-  const itemsRaw = Array.isArray(data.items) ? data.items : [];
-  const totalRaw = data.totalCount ?? data.total;
-  const startRaw = data.startWith ?? data.offset;
+function mapOwnerItem(raw: domain_SocialPlayerListItem): FriendPlayerListItem {
+  const telegramId = String(raw.telegramId ?? "");
+  const name =
+    raw.name?.trim() ||
+    (raw.telegramId ? `ID ${raw.telegramId}` : "Игрок");
 
   return {
-    items: itemsRaw
-      .map((item) => normalizeFriendPlayerListItem(item))
-      .filter((item): item is FriendPlayerListItem => item != null),
-    totalCount: toSafeInt(totalRaw, { min: 0 }),
-    limit: toSafeInt(data.limit, { min: 1, max: 50 }),
-    startWith: toSafeInt(startRaw, { min: 0 }),
+    telegramId,
+    name,
+    avatarUrl: raw.avatarUrl?.trim() ? raw.avatarUrl.trim() : null,
+    xp: Math.max(0, Math.round(raw.xp ?? 0)),
+    dailyStreak: Math.max(0, Math.round(raw.dailyStreak ?? 0)),
+    lastActiveAt: raw.lastActiveAt?.trim() ? raw.lastActiveAt.trim() : null,
+    weeklyRepetitions: raw.weeklyRepetitions,
   };
-}
-
-async function parseResponsePayload(response: Response) {
-  return (await response.json().catch(() => null)) as { error?: string } | null;
 }
 
 export async function fetchVerseOwnersPage(
@@ -48,30 +29,20 @@ export async function fetchVerseOwnersPage(
     limit?: number;
     startWith?: number;
   }
-): Promise<FriendPlayersPageResponse> {
-  const searchParams = new URLSearchParams();
-  searchParams.set("scope", params.scope);
-  if (params.limit != null && Number.isFinite(params.limit)) {
-    searchParams.set("limit", String(Math.round(params.limit)));
-  }
-  if (params.startWith != null && Number.isFinite(params.startWith)) {
-    searchParams.set("startWith", String(Math.max(0, Math.round(params.startWith))));
-  }
-
-  const response = await fetch(
-    publicApiUrl(
-      `/api/users/${encodeURIComponent(
-        viewerTelegramId
-      )}/verse-owners/${encodeURIComponent(externalVerseId)}?${searchParams.toString()}`
-    )
+): Promise<{ items: Array<FriendPlayerListItem>; totalCount: number }> {
+  const raw = await UserVersesService.listVerseOwners(
+    viewerTelegramId,
+    externalVerseId,
+    params.scope,
+    params.limit ?? 20,
+    params.startWith
   );
 
-  if (!response.ok) {
-    const payload = await parseResponsePayload(response);
-    throw new Error(
-      payload?.error || `Failed to fetch verse owners: ${response.status}`
-    );
-  }
+  const items = (raw.items ?? []).map(mapOwnerItem);
+  const totalCount = raw.totalCount ?? items.length;
 
-  return normalizeVerseOwnersPageResponse(await response.json());
+  return {
+    items,
+    totalCount: Math.max(0, Math.round(totalCount)),
+  };
 }
