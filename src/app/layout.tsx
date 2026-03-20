@@ -38,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${inter.variable} ${literata.variable}`}
     >
       <head>
+      <meta name="color-scheme" content="light dark" />
       <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="beforeInteractive"

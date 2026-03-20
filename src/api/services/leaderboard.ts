@@ -151,9 +151,9 @@ export function normalizeDashboardLeaderboard(
         name: `Участник #${tid.slice(-4)}`,
         avatarUrl: null,
         rank: inTop && rankVal != null ? toSafeInt(rankVal, { min: 1 }) : null,
-        xp: toSafeInt(cu.versesCount ?? cu.score, { min: 0 }),
-        streakDays: 0,
-        weeklyRepetitions: 0,
+        xp: toSafeInt(cu.xp ?? cu.score ?? cu.versesCount, { min: 0 }),
+        streakDays: toSafeInt(cu.streakDays ?? cu.dailyStreak, { min: 0 }),
+        weeklyRepetitions: toSafeInt(cu.weeklyRepetitions, { min: 0 }),
       };
     }
 

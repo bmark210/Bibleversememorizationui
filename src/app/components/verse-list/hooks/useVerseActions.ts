@@ -1,15 +1,13 @@
 import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
 import { UserVersesService } from '@/api/services/UserVersesService';
+import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
-import {
-  buildVerseDeletionXpFeedback,
-  computeVerseXpContribution,
-} from '@/app/utils/verseXp';
+import { buildVerseDeletionXpFeedback } from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -256,17 +254,12 @@ export function useVerseActions({
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
-      const xpLoss = computeVerseXpContribution({
-        status: normalizeDisplayVerseStatus(verse.status),
-        difficultyLevel: verse.difficultyLevel,
-        masteryLevel: verse.masteryLevel,
-        repetitions: verse.repetitions,
-        referenceScore: verse.referenceScore,
-        incipitScore: verse.incipitScore,
-        contextScore: verse.contextScore,
-      });
+      let xpLoss = 0;
       try {
-        await UserVersesService.deleteUserVerse(telegramId, verse.externalVerseId);
+        const del = await deleteUserVerseWithXp(telegramId, verse.externalVerseId);
+        if (del && del.xpDelta < 0) {
+          xpLoss = -del.xpDelta;
+        }
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
         const statusCode = getErrorStatusCode(err);

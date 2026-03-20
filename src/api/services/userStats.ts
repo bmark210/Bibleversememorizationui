@@ -44,6 +44,7 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
   const data = (value ?? {}) as Partial<UserDashboardStats> & {
     versesCount?: unknown;
     masteredCount?: unknown;
+    xp?: unknown;
   };
 
   if (
@@ -62,7 +63,7 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
       stoppedVerses: 0,
       dueReviewVerses: 0,
       totalRepetitions: 0,
-      xp: 0,
+      xp: toSafeNonNegativeInt(data.xp),
       bestVerseReference: null,
       dailyStreak: toSafeNonNegativeInt(data.dailyStreak),
     };

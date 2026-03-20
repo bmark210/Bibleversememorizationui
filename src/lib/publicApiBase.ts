@@ -1,20 +1,14 @@
-const PRODUCTION_GO_API_DEFAULT =
-  "https://bible-memory-db-production.up.railway.app";
-
 /**
  * Базовый URL Go API (Railway). Без завершающего слэша.
  *
- * Основной источник: `NEXT_PUBLIC_API_BASE_URL`.
- * Дополнительная защита: в production helper сам подставляет Railway fallback,
- * даже если клиентский env в конкретной сборке оказался пустым.
+ * Пустая строка → относительные пути `/api/...` (тот же хост, что и UI).
+ * На Netlify в production для таких запросов срабатывает rewrite на Railway в `next.config.mjs`
+ * (без CORS между браузером и Railway).
  */
 export function getPublicApiBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const resolved =
-    raw ||
-    (process.env.NODE_ENV === "production" ? PRODUCTION_GO_API_DEFAULT : "");
-  if (!resolved) return "";
-  return resolved.replace(/\/+$/, "");
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? "";
+  if (!raw) return "";
+  return raw.replace(/\/+$/, "");
 }
 
 /** Абсолютный URL к эндпоинту API; path должен начинаться с `/`. */

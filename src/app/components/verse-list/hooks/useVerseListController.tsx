@@ -655,7 +655,7 @@ export function useVerseListController({
     () => [
       { key: 'bible', label: 'Канон' },
       { key: 'updatedAt', label: 'Активность' },
-      { key: 'popularity', label: isMyScopeFilter ? 'Рейтинг' : 'Популярность' },
+      { key: 'popularity', label: 'Прогресс' },
     ],
     [isMyScopeFilter]
   );
