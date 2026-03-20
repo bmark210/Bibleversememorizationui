@@ -311,7 +311,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       {showChoices && (
         <div
           data-scroll-shadow="true"
-          className="mt-2 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] border-t border-border/60 pt-2"
+          className="my-2 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] border-t border-border/60 pt-2"
         >
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
