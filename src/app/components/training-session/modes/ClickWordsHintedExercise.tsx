@@ -44,6 +44,7 @@ interface ClickWordsHintedExerciseProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 interface WordSlot {
@@ -147,6 +148,7 @@ export function ModeClickWordsHintedExercise({
   onProgressChange,
   isLateStageReview = false,
   onOpenTutorial,
+  onOpenVerseProgress,
 }: ClickWordsHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -381,6 +383,7 @@ export function ModeClickWordsHintedExercise({
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

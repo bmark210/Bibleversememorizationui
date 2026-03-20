@@ -1,4 +1,11 @@
-import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  type RefObject,
+  type SyntheticEvent,
+} from "react";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -8,8 +15,8 @@ import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
 import { MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId, Rating } from "../types";
-import { computeTotalProgressPercent } from "../utils";
 import { Verse } from "@/app/App";
+import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 
 type Props = {
   dataTour?: string;
@@ -25,10 +32,6 @@ type Props = {
 };
 
 function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
-  const progressPercent = computeTotalProgressPercent(
-    verse.rawMasteryLevel,
-    verse.repetitions
-  );
   return {
     id: String(verse.key),
     externalVerseId: verse.externalVerseId,
@@ -37,7 +40,7 @@ function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
     reference: verse.raw.reference,
     text: verse.raw.text,
     translation: String((verse.raw as Record<string, unknown>).translation ?? "rus_syn"),
-    masteryLevel: progressPercent,
+    masteryLevel: verse.rawMasteryLevel,
     repetitions: verse.repetitions,
     lastReviewedAt: verse.lastReviewedAt?.toISOString() ?? null,
     nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
@@ -61,6 +64,10 @@ export const TrainingCard = memo(function TrainingCard({
   onProgressChange,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
+  const [progressDrawerOpen, setProgressDrawerOpen] = useState(false);
+  const openVerseProgressDrawer = useCallback(() => {
+    setProgressDrawerOpen(true);
+  }, []);
 
   const verse = useMemo(
     () => asLegacyVerseForRenderer(trainingVerse),
@@ -122,9 +129,16 @@ export const TrainingCard = memo(function TrainingCard({
             isLateStageReview={isLateStage}
             hintState={hintState}
             onProgressChange={onProgressChange}
+            onOpenVerseProgress={openVerseProgressDrawer}
           />
         </TrainingUiStateProvider>
       </div>
+
+      <VerseProgressDrawer
+        verse={verse}
+        open={progressDrawerOpen}
+        onOpenChange={setProgressDrawerOpen}
+      />
     </div>
   );
 });

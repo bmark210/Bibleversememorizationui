@@ -9,6 +9,10 @@ export type domain_UserVerse = {
     contextScore?: number;
     createdAt?: string;
     flow?: domain_VerseFlow;
+    /** Текст стиха (подстановка с бэка, Helloao) */
+    text?: string;
+    /** Человекочитаемая ссылка */
+    reference?: string;
     id?: number;
     incipitScore?: number;
     lastReviewedAt?: string;

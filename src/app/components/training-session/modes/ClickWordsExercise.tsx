@@ -41,6 +41,7 @@ interface ClickWordsExerciseProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 interface WordToken {
@@ -115,7 +116,7 @@ function initClickWordsExercise(text: string) {
 const WORD_CHOICE_BUTTON_BASE_CLASS =
   'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
 
-export function ModeClickWordsExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
+export function ModeClickWordsExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
@@ -315,6 +316,7 @@ export function ModeClickWordsExercise({ verse, trainingModeId, onRate, hintStat
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

@@ -139,6 +139,7 @@ export class UserVersesService {
     public static getReferenceTrainer(
         telegramId: string,
         limit: number = 12,
+        translation?: 'NRT' | 'SYNOD' | 'RBS2' | 'BTI',
     ): CancelablePromise<api_ReferenceTrainerResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -148,6 +149,7 @@ export class UserVersesService {
             },
             query: {
                 'limit': limit,
+                ...(translation ? { translation } : {}),
             },
             errors: {
                 400: `Bad Request`,

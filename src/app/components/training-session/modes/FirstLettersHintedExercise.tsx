@@ -43,6 +43,7 @@ interface FirstLettersHintedExerciseProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 interface WordSlot {
@@ -142,6 +143,7 @@ export function ModeFirstLettersHintedExercise({
   onProgressChange,
   isLateStageReview = false,
   onOpenTutorial,
+  onOpenVerseProgress,
 }: FirstLettersHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -373,6 +375,7 @@ export function ModeFirstLettersHintedExercise({
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

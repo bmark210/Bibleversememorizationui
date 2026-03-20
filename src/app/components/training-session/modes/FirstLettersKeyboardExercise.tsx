@@ -30,6 +30,7 @@ interface FirstLettersKeyboardExerciseProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 function normalizeComparableLetter(value: string) {
@@ -72,6 +73,7 @@ export function ModeFirstLettersKeyboardExercise({
   onProgressChange,
   isLateStageReview = false,
   onOpenTutorial,
+  onOpenVerseProgress,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -234,6 +236,7 @@ export function ModeFirstLettersKeyboardExercise({
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

@@ -36,6 +36,7 @@ interface VoiceRecallExerciseProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 type SpeechRecognitionResultLike = {
@@ -75,7 +76,7 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -248,6 +249,7 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {totalMistakes > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

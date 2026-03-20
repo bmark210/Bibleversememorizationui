@@ -25,7 +25,6 @@ import type { ReferenceTrainerScoreRow } from "@/modules/reference-trainer/domai
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { triggerHaptic } from "@/app/lib/haptics";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
@@ -54,7 +53,6 @@ import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingP
 import {
   AnchorTrainingQuestionCard,
   AnchorTrainingStateCard,
-  AnchorTrainingSummaryCard,
 } from "./AnchorTrainingCards";
 import type {
   ChoiceQuestion,
@@ -84,7 +82,8 @@ const REFERENCE_OPTIONS_COUNT = 4;
 const BOOK_OPTIONS_COUNT = 4;
 const INCIPIT_OPTIONS_COUNT = 4;
 const INCIPIT_TAP_DISTRACTORS_COUNT = 2;
-const SESSION_TARGET_VERSES = 10;
+/** Размер одной «волны» карточек; после прохождения подмешивается следующая */
+const ANCHOR_SESSION_BATCH_SIZE = 10;
 const MAX_TYPING_ATTEMPTS = 2;
 const REFERENCE_TRAINER_POOL_LIMIT = 24;
 const MIXED_TRACK_WEIGHT_MIN = 5;
@@ -1161,7 +1160,7 @@ function buildRandomSessionQuestions(
     new Map(pool.map((verse) => [verse.externalVerseId, verse] as const)).values()
   );
   const verseOrder = shuffle(uniquePool);
-  const targetQuestionCount = Math.min(SESSION_TARGET_VERSES, verseOrder.length);
+  const targetQuestionCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
 
   const questions: TrainerQuestion[] = [];
   let previousModeId: TrainerModeId | null = null;
@@ -1217,12 +1216,6 @@ function buildRandomSessionQuestions(
   }
 
   return questions;
-}
-
-function getResultCaption(percent: number) {
-  if (percent >= 90) return "Отличная точность. Якоря закрепляются уверенно.";
-  if (percent >= 70) return "Хороший результат. Ещё одна сессия усилит запоминание.";
-  return "Нужна дополнительная практика. Попробуйте новый микс режимов.";
 }
 
 function skillRowFromUserVerse(row: domain_UserVerse): {
@@ -1332,7 +1325,8 @@ export function AnchorTrainingSession({
   const bottomInset = contentSafeAreaInset.bottom;
   const initializedTelegramIdRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-  const savedSessionKeyRef = useRef<string | null>(null);
+  const batchSeqRef = useRef(0);
+  const persistChainRef = useRef(Promise.resolve());
 
   const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
     initialTrack ?? readStoredTrack()
@@ -1356,11 +1350,8 @@ export function AnchorTrainingSession({
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [lastAnswerUsedTolerance, setLastAnswerUsedTolerance] = useState(false);
-  const [lastAnswerForgotten, setLastAnswerForgotten] = useState(false);
+  const [lastAnswerSkipped, setLastAnswerSkipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingSession, setIsSavingSession] = useState(false);
-  const [saveSucceeded, setSaveSucceeded] = useState(false);
-  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [direction, setDirection] = useState(0);
   const [pendingTrackChange, setPendingTrackChange] =
@@ -1436,56 +1427,12 @@ export function AnchorTrainingSession({
       }),
     [questionStates, questions]
   );
-  const sessionUpdates = useMemo<ReferenceTrainerSessionUpdate[]>(
-    () =>
-      questions.flatMap((question) => {
-        const state = questionStates[question.id];
-        if (!state || state.status === "pending" || !state.outcome) return [];
-        return [
-          {
-            externalVerseId: question.verse.externalVerseId,
-            track: question.track,
-            outcome: state.outcome,
-          },
-        ];
-      }),
-    [questionStates, questions]
-  );
   const correctCount = useMemo(
     () => results.filter((result) => result.isCorrect).length,
     [results]
   );
-  const sessionComplete = totalCount > 0 && pendingCount === 0;
   const resultPercent =
     totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-
-  const referenceStats = useMemo(() => {
-    const trackResults = results.filter((item) => item.track === "reference");
-    const total = trackResults.length;
-    const correct = trackResults.filter((item) => item.isCorrect).length;
-    return { total, correct };
-  }, [results]);
-
-  const incipitStats = useMemo(() => {
-    const trackResults = results.filter((item) => item.track === "incipit");
-    const total = trackResults.length;
-    const correct = trackResults.filter((item) => item.isCorrect).length;
-    return { total, correct };
-  }, [results]);
-
-  const endingStats = useMemo(() => {
-    const trackResults = results.filter((item) => item.track === "ending");
-    const total = trackResults.length;
-    const correct = trackResults.filter((item) => item.isCorrect).length;
-    return { total, correct };
-  }, [results]);
-
-  const contextStats = useMemo(() => {
-    const trackResults = results.filter((item) => item.track === "context");
-    const total = trackResults.length;
-    const correct = trackResults.filter((item) => item.isCorrect).length;
-    return { total, correct };
-  }, [results]);
 
   const resetAnswerState = useCallback(() => {
     setSelectedOption(null);
@@ -1495,7 +1442,7 @@ export function AnchorTrainingSession({
     setIsAnswered(false);
     setLastAnswerCorrect(null);
     setLastAnswerUsedTolerance(false);
-    setLastAnswerForgotten(false);
+    setLastAnswerSkipped(false);
   }, []);
 
   const startSessionFromPool = useCallback(
@@ -1508,9 +1455,7 @@ export function AnchorTrainingSession({
       setCurrentQuestionId(firstQuestionId);
       setCurrentPendingQuestionId(firstQuestionId);
       setSessionTrack(effectiveTrack);
-      setSaveSucceeded(false);
-      setSaveErrorMessage(null);
-      savedSessionKeyRef.current = null;
+      batchSeqRef.current = 0;
       resetAnswerState();
     },
     [resetAnswerState, selectedTrack]
@@ -1560,8 +1505,6 @@ export function AnchorTrainingSession({
       setCurrentQuestionId(null);
       setCurrentPendingQuestionId(null);
       setErrorMessage(null);
-      setSaveSucceeded(false);
-      setSaveErrorMessage(null);
       return;
     }
     if (initializedTelegramIdRef.current === telegramId) return;
@@ -1596,79 +1539,49 @@ export function AnchorTrainingSession({
     pendingQuestionIds,
   ]);
 
-  const persistSessionUpdates = useCallback(
-    async (
-      updates: ReferenceTrainerSessionUpdate[],
-      activeTrack: SessionTrack
-    ) => {
-      if (!telegramId || updates.length === 0) return;
-      setIsSavingSession(true);
-      setSaveSucceeded(false);
-      setSaveErrorMessage(null);
-
-      const doSubmit = async () =>
-        submitReferenceTrainerSession({
-          telegramId,
-          sessionTrack: activeTrack as ReferenceTrainerSessionTrack,
-          updates,
+  const enqueueAnchorPersist = useCallback(
+    (update: ReferenceTrainerSessionUpdate) => {
+      if (!telegramId) return;
+      persistChainRef.current = persistChainRef.current
+        .then(async () => {
+          const doSubmit = async () =>
+            submitReferenceTrainerSession({
+              telegramId,
+              sessionTrack: sessionTrack as ReferenceTrainerSessionTrack,
+              updates: [update],
+            });
+          try {
+            let response: api_ReferenceTrainerSessionResponse | null = null;
+            try {
+              response = await doSubmit();
+            } catch (firstError) {
+              console.warn("Anchor save failed, retrying once:", firstError);
+              response = await doSubmit();
+            }
+            setVersePool((prev) =>
+              mergeUpdatedSkillScores(prev, response?.updated),
+            );
+            onSessionCommitted?.();
+          } catch (error) {
+            console.error("Не удалось сохранить прогресс закрепления:", error);
+            toast.error("Прогресс не сохранён", {
+              description: "Проверьте соединение и попробуйте снова.",
+              label: "Закрепление",
+            });
+          }
+        })
+        .catch(() => {
+          /* цепочка уже залогировала ошибку */
         });
-
-      try {
-        let response: api_ReferenceTrainerSessionResponse | null = null;
-
-        try {
-          response = await doSubmit();
-        } catch (firstError) {
-          console.warn("Session save failed, retrying once:", firstError);
-          response = await doSubmit();
-        }
-
-        setVersePool((prev) =>
-          mergeUpdatedSkillScores(prev, response?.updated)
-        );
-        setSaveSucceeded(true);
-        onSessionCommitted?.();
-      } catch (error) {
-        console.error("Не удалось сохранить прогресс закрепления:", error);
-        setSaveSucceeded(false);
-        setSaveErrorMessage("Не удалось сохранить прогресс. Попробуйте пройти новую сессию позже.");
-        toast.error("Прогресс закрепления не сохранён", {
-          description: "Попробуйте открыть режим позже и повторить сессию.",
-          label: "Закрепление",
-        });
-      } finally {
-        setIsSavingSession(false);
-      }
     },
-    [onSessionCommitted, telegramId]
+    [onSessionCommitted, sessionTrack, telegramId],
   );
-
-  const sessionKey = useMemo(
-    () => questions.map((question) => question.id).join("|"),
-    [questions]
-  );
-
-  useEffect(() => {
-    if (!telegramId || !sessionComplete || sessionUpdates.length === 0 || !sessionKey) {
-      return;
-    }
-    if (savedSessionKeyRef.current === sessionKey) return;
-    savedSessionKeyRef.current = sessionKey;
-    void persistSessionUpdates(sessionUpdates, sessionTrack);
-  }, [
-    persistSessionUpdates,
-    sessionComplete,
-    sessionKey,
-    sessionTrack,
-    sessionUpdates,
-    telegramId,
-  ]);
 
   const finalizeAnswer = useCallback(
     (
       isCorrect: boolean,
       attemptsUsed: number,
-      options?: { acceptedWithTolerance?: boolean; forgotten?: boolean }
+      options?: { acceptedWithTolerance?: boolean; skipped?: boolean },
     ) => {
       if (!currentQuestion || isAnswered) return;
       const outcome: ReferenceTrainerOutcome = isCorrect
@@ -1676,19 +1589,15 @@ export function AnchorTrainingSession({
           ? "correct_first"
           : "correct_retry"
         : "wrong";
-      const nextStatus: QuestionTerminalState = options?.forgotten
-        ? "forgotten"
-        : isCorrect
-          ? "correct"
-          : "wrong";
+      const nextStatus: QuestionTerminalState = isCorrect ? "correct" : "wrong";
       const currentPendingOrderIndex = Math.max(
         0,
-        pendingQuestionIds.findIndex((questionId) => questionId === currentQuestion.id)
+        pendingQuestionIds.findIndex((questionId) => questionId === currentQuestion.id),
       );
       const nextPendingQuestionIds = pendingQuestionIds.filter(
-        (questionId) => questionId !== currentQuestion.id
+        (questionId) => questionId !== currentQuestion.id,
       );
-      const nextPendingQuestionId =
+      let nextPendingQuestionId =
         nextPendingQuestionIds.length > 0
           ? nextPendingQuestionIds[
               Math.min(currentPendingOrderIndex, nextPendingQuestionIds.length - 1)
@@ -1696,13 +1605,40 @@ export function AnchorTrainingSession({
           : null;
       const activeVerse =
         versePool.find(
-          (verse) => verse.externalVerseId === currentQuestion.verse.externalVerseId
+          (verse) => verse.externalVerseId === currentQuestion.verse.externalVerseId,
         ) ?? currentQuestion.verse;
       const nextVerse = applyOptimisticAnchorOutcome({
         verse: activeVerse,
         track: currentQuestion.track,
         outcome,
       });
+      const poolAfter = versePool.map((verse) =>
+        verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse,
+      );
+      if (nextPendingQuestionId === null) {
+        const seq = batchSeqRef.current;
+        batchSeqRef.current += 1;
+        const buildFresh = () =>
+          buildRandomSessionQuestions(poolAfter, sessionTrack).map((q) => ({
+            ...q,
+            id: `w${seq}-${q.id}`,
+          }));
+        let fresh = buildFresh();
+        if (fresh.length === 0) {
+          fresh = buildRandomSessionQuestions(poolAfter, sessionTrack).map((q) => ({
+            ...q,
+            id: `w${seq}r-${q.id}`,
+          }));
+        }
+        if (fresh.length > 0) {
+          setQuestions((prev) => [...prev, ...fresh]);
+          setQuestionStates((prev) => ({
+            ...prev,
+            ...buildInitialQuestionSessionState(fresh),
+          }));
+          nextPendingQuestionId = fresh[0]?.id ?? null;
+        }
+      }
       const progressPopupPayload = buildTrainingProgressPopupPayload({
         reference: currentQuestion.verse.reference,
         context: "anchor",
@@ -1730,11 +1666,11 @@ export function AnchorTrainingSession({
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
       setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
-      setLastAnswerForgotten(Boolean(options?.forgotten));
+      setLastAnswerSkipped(Boolean(options?.skipped));
       setVersePool((prev) =>
         prev.map((verse) =>
-          verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse
-        )
+          verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse,
+        ),
       );
       setQuestionStates((prev) => {
         const previousState = prev[currentQuestion.id];
@@ -1755,20 +1691,33 @@ export function AnchorTrainingSession({
       if (progressPopupPayload) {
         showProgressPopup(progressPopupPayload);
       }
+      enqueueAnchorPersist({
+        externalVerseId: currentQuestion.verse.externalVerseId,
+        track: currentQuestion.track,
+        outcome,
+      });
     },
-    [currentQuestion, isAnswered, pendingQuestionIds, showProgressPopup, versePool]
+    [
+      currentQuestion,
+      enqueueAnchorPersist,
+      isAnswered,
+      pendingQuestionIds,
+      sessionTrack,
+      showProgressPopup,
+      versePool,
+    ],
   );
 
   const handleChoiceSelect = (value: string) => {
     if (!currentQuestion || currentQuestion.interaction !== "choice") return;
-    if (isAnswered || sessionComplete) return;
+    if (isAnswered) return;
     setSelectedOption(value);
     finalizeAnswer(currentQuestion.isCorrectOption(value), 1);
   };
 
   const handleTapSelect = (optionId: string) => {
     if (!currentQuestion || currentQuestion.interaction !== "tap") return;
-    if (isAnswered || sessionComplete) return;
+    if (isAnswered) return;
     if (tapSequence.includes(optionId)) return;
 
     const option = currentQuestion.options.find((item) => item.id === optionId);
@@ -1791,7 +1740,7 @@ export function AnchorTrainingSession({
 
   const handleTypeSubmit = () => {
     if (!currentQuestion || currentQuestion.interaction !== "type") return;
-    if (isAnswered || sessionComplete) return;
+    if (isAnswered) return;
 
     const input = typedAnswer.trim();
     if (!input) return;
@@ -1814,20 +1763,17 @@ export function AnchorTrainingSession({
     }
   };
 
-  const handleForgotAnswer = () => {
+  const handleSkipQuestion = () => {
     if (!currentQuestion) return;
-    if (isAnswered || sessionComplete) return;
+    if (isAnswered) return;
 
     const attemptsUsed =
       currentQuestion.interaction === "type" ? currentQuestion.maxAttempts : 1;
-    finalizeAnswer(false, attemptsUsed, { forgotten: true });
+    finalizeAnswer(false, attemptsUsed, { skipped: true });
   };
 
   const controlsLocked =
-    isLoading ||
-    isSavingSession ||
-    pendingTrackChange !== null ||
-    isExitConfirmOpen;
+    isLoading || pendingTrackChange !== null || isExitConfirmOpen;
 
   const advanceToNextQuestion = useCallback(() => {
     if (!isAnswered || !currentPendingQuestionId) return;
@@ -1838,7 +1784,7 @@ export function AnchorTrainingSession({
 
   const navigatePendingQuestion = useCallback(
     (step: 1 | -1) => {
-      if (controlsLocked || isAnswered || sessionComplete) return;
+      if (controlsLocked || isAnswered) return;
       if (pendingQuestionIds.length === 0) return;
 
       const activePendingQuestionId =
@@ -1850,17 +1796,14 @@ export function AnchorTrainingSession({
       const activePendingIndex = pendingQuestionIds.indexOf(activePendingQuestionId);
       if (activePendingIndex < 0) return;
 
-      if (step === -1 && activePendingIndex === 0) {
-        triggerHaptic("light");
-        return;
-      }
-
       if (step === 1 && pendingQuestionIds.length <= 1) return;
 
       const nextPendingIndex =
         step === 1
           ? (activePendingIndex + 1) % pendingQuestionIds.length
-          : activePendingIndex - 1;
+          : activePendingIndex === 0
+            ? pendingQuestionIds.length - 1
+            : activePendingIndex - 1;
       const nextPendingQuestionId = pendingQuestionIds[nextPendingIndex];
 
       if (!nextPendingQuestionId || nextPendingQuestionId === currentQuestionId) return;
@@ -1877,7 +1820,6 @@ export function AnchorTrainingSession({
       isAnswered,
       pendingQuestionIds,
       resetAnswerState,
-      sessionComplete,
     ]
   );
 
@@ -1910,21 +1852,12 @@ export function AnchorTrainingSession({
     currentQuestion?.interaction === "type"
       ? typeInputReadiness?.canSubmit === true
       : false;
-  const shouldLiftTypeCard =
-    isKeyboardOpen && isTypeMode && !isAnswered && !sessionComplete;
+  const shouldLiftTypeCard = isKeyboardOpen && isTypeMode && !isAnswered;
   const revealedVerseText = getRevealedVerseText(currentQuestion);
   const canContinueAfterReveal =
-    isAnswered &&
-    !sessionComplete &&
-    currentPendingQuestionId !== null;
-  // const showTrackSelector = !sessionComplete && telegramId && !isLoading;
-  const showForgotAnswerAction = Boolean(
-    telegramId &&
-      !isLoading &&
-      !errorMessage &&
-      !sessionComplete &&
-      currentQuestion &&
-      !isAnswered
+    isAnswered && currentPendingQuestionId !== null;
+  const showSkipAction = Boolean(
+    telegramId && !isLoading && !errorMessage && currentQuestion && !isAnswered,
   );
 
   const confirmTrackChange = useCallback(() => {
@@ -1949,13 +1882,13 @@ export function AnchorTrainingSession({
   }, [advanceToNextQuestion, canContinueAfterReveal]);
 
   const requestClose = useCallback(() => {
-    if (!sessionComplete && questions.length > 0) {
+    if (questions.length > 0) {
       setIsExitConfirmOpen(true);
       return;
     }
 
     onClose();
-  }, [onClose, questions.length, sessionComplete]);
+  }, [onClose, questions.length]);
 
   const handleBackAction = useCallback(() => {
     if (pendingTrackChange !== null) {
@@ -2042,11 +1975,9 @@ export function AnchorTrainingSession({
     navigatePendingQuestion(step);
   }, [navigatePendingQuestion]);
 
-  const canNavigatePrev = pendingQuestionIds.length > 0 && pendingQuestionIds.indexOf(
-    currentPendingQuestionId ?? currentQuestionId ?? ""
-  ) > 0;
+  const canNavigatePrev = pendingQuestionIds.length > 1;
   const canNavigateNext = pendingQuestionIds.length > 1;
-  const isNavBlocked = controlsLocked || isAnswered || sessionComplete;
+  const isNavBlocked = controlsLocked || isAnswered;
 
   useEffect(() => {
     if (direction === 0 || typeof window === "undefined") return;
@@ -2085,22 +2016,38 @@ export function AnchorTrainingSession({
       <div
         className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
       >
-        {/* Top bar: counter */}
+        {/* Top bar: прогресс сессии (как в основной тренировке — компактно) */}
         <div
-          className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl z-40"
+          className="shrink-0 z-40 border-b border-border/40 bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl"
           style={{ paddingTop: `${topInset}px` }}
         >
           <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
-            <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex w-full max-w-md items-center justify-between gap-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Закрепление
+                </span>
+                {totalCount > 0 ? (
+                  <span className="text-[10px] font-semibold tabular-nums text-foreground/55">
+                    точность {resultPercent}%
+                  </span>
+                ) : null}
+              </div>
               <div
                 role="status"
-                aria-label={`Готово ${completedCount} из ${totalCount}.`}
-                className="rounded-full border border-border/50 bg-background/90 px-3 py-1 shadow-lg backdrop-blur-md"
+                aria-label={`Отвечено ${completedCount}, всего карточек ${totalCount}.`}
+                className="h-2 w-full max-w-md overflow-hidden rounded-full bg-muted/50"
               >
-                <span className="block truncate text-sm font-semibold tabular-nums text-center text-foreground/75">
-                  {completedCount} / {totalCount}
-                </span>
+                <div
+                  className="h-full rounded-full bg-primary/55 transition-[width] duration-300 ease-out"
+                  style={{
+                    width: `${totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : 0}%`,
+                  }}
+                />
               </div>
+              <p className="text-center text-[11px] text-muted-foreground/90">
+                Свайп вверх / вниз — другие нерешённые карточки · прогресс сохраняется после каждого ответа
+              </p>
             </div>
           </div>
         </div>
@@ -2191,7 +2138,6 @@ export function AnchorTrainingSession({
             !errorMessage &&
             versePool.length > 0 &&
             questions.length > 0 &&
-            !sessionComplete &&
             currentQuestion && (
               <AnimatePresence initial={false} mode="sync" custom={direction}>
                 <motion.div
@@ -2220,7 +2166,7 @@ export function AnchorTrainingSession({
                     inputRef={inputRef}
                     lastAnswerCorrect={lastAnswerCorrect}
                     lastAnswerUsedTolerance={lastAnswerUsedTolerance}
-                    lastAnswerForgotten={lastAnswerForgotten}
+                    lastAnswerSkipped={lastAnswerSkipped}
                     revealedVerseText={revealedVerseText}
                     showContinueButton={canContinueAfterReveal}
                     onChoiceSelect={handleChoiceSelect}
@@ -2233,26 +2179,6 @@ export function AnchorTrainingSession({
               </AnimatePresence>
             )}
 
-          {telegramId &&
-            !isLoading &&
-            !errorMessage &&
-            versePool.length > 0 &&
-            sessionComplete && (
-              <AnchorTrainingSummaryCard
-                resultPercent={resultPercent}
-                correctCount={correctCount}
-                totalCount={totalCount}
-                referenceStats={referenceStats}
-                incipitStats={incipitStats}
-                endingStats={endingStats}
-                contextStats={contextStats}
-                caption={getResultCaption(resultPercent)}
-                isSavingSession={isSavingSession}
-                saveSucceeded={saveSucceeded}
-                saveErrorMessage={saveErrorMessage}
-                selectedTrack={selectedTrack}
-              />
-            )}
         </div>
 
         {/* Footer: navigation arrows + action buttons */}
@@ -2277,15 +2203,15 @@ export function AnchorTrainingSession({
 
               {/* Center: action buttons */}
               <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
-                {showForgotAnswerAction && (
+                {showSkipAction && (
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-amber-700 backdrop-blur-xl hover:bg-amber-500/18 dark:text-amber-300 text-sm px-3"
-                    onClick={handleForgotAnswer}
+                    className="h-10 rounded-2xl border border-border/60 bg-muted/25 px-3 text-sm text-foreground/70 backdrop-blur-xl hover:bg-muted/40"
+                    onClick={handleSkipQuestion}
                     disabled={controlsLocked}
                   >
-                    Забыл
+                    Пропустить
                   </Button>
                 )}
                 <Button
@@ -2362,7 +2288,8 @@ export function AnchorTrainingSession({
               Завершить сессию?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если выйти сейчас, прогресс текущей сессии не сохранится.
+              Уже отправленные ответы сохранены на сервере. Текущая нерешённая
+              карточка будет сброшена при следующем входе.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

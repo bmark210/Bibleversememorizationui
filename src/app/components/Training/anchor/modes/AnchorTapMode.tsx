@@ -23,9 +23,9 @@ export function AnchorTapMode({
 }: AnchorTapModeProps) {
   return (
     <div className="space-y-3">
-      <SurfacePanel className="px-4 py-3.5">
+      <SurfacePanel className="border-border/55 bg-card/30 px-4 py-3.5 shadow-sm backdrop-blur-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-foreground/72">Собрано</span>
+          <span className="text-xs font-semibold text-foreground/75">Собрано</span>
           <span className="text-xs font-semibold tabular-nums text-foreground/82">
             {Math.min(tapSequence.length, question.expectedNormalized.length)}/
             {question.expectedNormalized.length}
@@ -38,7 +38,7 @@ export function AnchorTapMode({
         </p>
       </SurfacePanel>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         {question.options.map((option) => {
           const isUsed = tapSequence.includes(option.id);
 
@@ -49,10 +49,10 @@ export function AnchorTapMode({
               disabled={isAnswered || isUsed || controlsLocked}
               onClick={() => onTapSelect(option.id)}
               className={cn(
-                "rounded-[1.45rem] text-foreground/60! border px-3.5 py-3 text-left text-sm transition-colors",
+                "min-h-[3rem] rounded-2xl border px-3.5 py-2.5 text-left text-sm font-medium shadow-sm transition-[transform,colors] active:scale-[0.99]",
                 isUsed
-                  ? "border-primary/25 bg-primary/[0.08] text-foreground/84"
-                  : "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35"
+                  ? "border-primary/30 bg-primary/[0.1] text-foreground/90"
+                  : "border-border/55 bg-card/40 text-foreground/85 hover:bg-muted/40"
               )}
             >
               {option.label}

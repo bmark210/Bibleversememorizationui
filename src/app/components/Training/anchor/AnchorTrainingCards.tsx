@@ -6,11 +6,11 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
+import { AnchorTrainingExerciseHeader } from "./AnchorTrainingExerciseHeader";
 import { QuestionBadge, SurfacePanel } from "./AnchorTrainingCardUi";
 import {
   getSummaryLabel,
   TRACK_ACCENTS,
-  TRACK_LABELS,
   type TrackAccent,
 } from "./anchorTrainingTrackMeta";
 import type {
@@ -36,7 +36,7 @@ type AnchorTrainingQuestionCardProps = {
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   lastAnswerCorrect: boolean | null;
   lastAnswerUsedTolerance: boolean;
-  lastAnswerForgotten: boolean;
+  lastAnswerSkipped: boolean;
   revealedVerseText: string;
   showContinueButton: boolean;
   onChoiceSelect: (value: string) => void;
@@ -151,7 +151,7 @@ export function AnchorTrainingQuestionCard({
   inputRef,
   lastAnswerCorrect,
   lastAnswerUsedTolerance,
-  lastAnswerForgotten,
+  lastAnswerSkipped,
   revealedVerseText,
   showContinueButton,
   onChoiceSelect,
@@ -188,31 +188,36 @@ export function AnchorTrainingQuestionCard({
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-      {/* Header: track badge + mode hint */}
-      <div className="shrink-0 pb-3 space-y-3 text-center">
-        {sessionTrack === "mixed" && (
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <QuestionBadge className={questionAccent.badgeClassName}>
+      <div className="shrink-0 space-y-2">
+        {sessionTrack === "mixed" ? (
+          <div className="flex justify-center">
+            <span
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
+                questionAccent.badgeClassName,
+              )}
+            >
               <span
                 aria-hidden="true"
                 className={cn("h-1.5 w-1.5 rounded-full", questionAccent.dotClassName)}
               />
-              {TRACK_LABELS[question.track]}
-            </QuestionBadge>
+              Микс якорей
+            </span>
           </div>
-        )}
-        <p className="text-sm leading-relaxed text-foreground/66">
+        ) : null}
+        <AnchorTrainingExerciseHeader modeId={question.modeId} verse={question.verse} />
+        <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
           {question.modeHint}
         </p>
       </div>
 
       {/* Body: scrollable question content */}
       <ScrollShadowContainer className="flex-1">
-        <div className="space-y-5">
+        <div className="space-y-4">
           {shouldPinTypeInputToTop ? modeRenderer : null}
 
-          <div className="rounded-[1.85rem] border border-border/60 bg-background/90 px-4 py-5 sm:px-6 sm:py-6">
-            <p className="whitespace-pre-line text-center font-serif italic text-[1.02rem] leading-relaxed text-primary/90 sm:text-[1.1rem]">
+          <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-5 shadow-sm backdrop-blur-sm sm:px-6 sm:py-6">
+            <p className="whitespace-pre-line text-center font-serif text-[1.02rem] italic leading-relaxed text-foreground/90 sm:text-[1.08rem]">
               {question.prompt}
             </p>
           </div>
@@ -239,8 +244,8 @@ export function AnchorTrainingQuestionCard({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={cn("font-medium", resultTheme.titleClassName)}>
-                    {lastAnswerForgotten
-                      ? "Ответ открыт"
+                    {lastAnswerSkipped
+                      ? "Пропущено"
                       : lastAnswerCorrect
                         ? lastAnswerUsedTolerance
                           ? "Зачтено с небольшой ошибкой"
@@ -255,10 +260,10 @@ export function AnchorTrainingQuestionCard({
                     <div className="mt-4 flex justify-end">
                       <Button
                         type="button"
-                        className="rounded-full px-5 text-foreground/60 bg-background/80 border border-border"
+                        className="rounded-full border border-primary/25 bg-primary/85 px-6 text-primary-foreground shadow-sm hover:bg-primary/90"
                         onClick={onContinue}
                       >
-                        Продолжить
+                        Дальше
                       </Button>
                     </div>
                   )}

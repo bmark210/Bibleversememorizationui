@@ -37,13 +37,14 @@ interface TypingModeProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -205,6 +206,7 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
       />
       {totalMistakes > 0 && (
         <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">

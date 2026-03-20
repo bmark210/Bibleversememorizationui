@@ -117,7 +117,7 @@ export function AnchorTypeMode({
             }}
             placeholder={question.placeholder}
             className={cn(
-              "h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35",
+              "h-12 rounded-2xl border-border/55 bg-card/40 pr-[110px] text-base shadow-sm backdrop-blur-sm transition-colors focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/20",
               isCompactTypeMode &&
                 "font-mono uppercase tracking-[0.16em]"
             )}

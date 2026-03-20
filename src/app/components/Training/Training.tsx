@@ -79,7 +79,7 @@ export function Training({
       setView({
         mode: "verse-session",
         verses: sessionVerses,
-        trainingModes: [mode],
+        trainingModes: CORE_SESSION_MODES,
         order: "updatedAt",
         initialVerseExternalId: directLaunch.verse.externalVerseId,
       });

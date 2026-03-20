@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { ChevronDown, ChevronUp, Eye, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { haptic } from "@/app/components/VerseGallery/utils";
@@ -52,11 +52,31 @@ export function GalleryFooter({
           disabled={isActionPending || !canGoPrev}
           aria-label="Предыдущий стих"
         >
-          <ChevronUp className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5" />
         </Button>
 
         <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-center gap-2">
-          {onToggleFocusMode ? (
+          {showDelete ? (
+            <Button
+              variant="outline"
+              className={cn(
+                quietActionClassName,
+                "shrink-0 gap-2 text-foreground/62 hover:text-destructive",
+              )}
+              haptic={false}
+              onClick={() => {
+                if (isActionPending) return;
+                haptic("warning");
+                onDeleteRequest();
+              }}
+              disabled={isActionPending}
+              aria-label="Удалить стих"
+              >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          ) : <div className="w-[42px]"/>}
+
+          {onToggleFocusMode && (
             <Button
               variant="outline"
               className={cn(
@@ -75,28 +95,9 @@ export function GalleryFooter({
             >
               <Eye className="h-4 w-4" />
             </Button>
-          ) : null}
+          )}
 
 
-          {showDelete ? (
-            <Button
-              variant="outline"
-              className={cn(
-                quietActionClassName,
-                "shrink-0 gap-2 text-foreground/62 hover:text-destructive",
-              )}
-              haptic={false}
-              onClick={() => {
-                if (isActionPending) return;
-                haptic("warning");
-                onDeleteRequest();
-              }}
-              disabled={isActionPending}
-              aria-label="Удалить стих"
-              >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : null}
           <Button
             variant="outline"
             className={cn(iconButtonClassName, "shrink-0 flex gap-2")}
@@ -118,7 +119,7 @@ export function GalleryFooter({
           disabled={isActionPending || !canGoNext}
           aria-label="Следующий стих"
         >
-          <ChevronDown className="h-5 w-5" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
     </div>

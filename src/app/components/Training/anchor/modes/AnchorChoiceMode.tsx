@@ -20,7 +20,7 @@ export function AnchorChoiceMode({
   onChoiceSelect,
 }: AnchorChoiceModeProps) {
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {question.options.map((option) => {
         const optionIsSelected = selectedOption === option;
         const optionIsCorrect = question.isCorrectOption(option);
@@ -37,7 +37,7 @@ export function AnchorChoiceMode({
             disabled={isAnswered || controlsLocked}
             onClick={() => onChoiceSelect(option)}
             className={cn(
-              "rounded-[1.45rem] border px-4 py-3.5 text-left text-sm text-foreground/60 leading-relaxed transition-colors",
+              "min-h-[3.25rem] rounded-2xl border px-4 py-3 text-left text-sm font-medium leading-snug shadow-sm transition-[transform,box-shadow,colors] active:scale-[0.99]",
               stateClassName
             )}
           >

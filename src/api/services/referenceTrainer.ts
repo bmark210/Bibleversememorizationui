@@ -10,11 +10,15 @@ import type {
 
 export async function fetchReferenceTrainerVerses(
   telegramId: string,
-  params?: { limit?: number }
+  params?: {
+    limit?: number;
+    translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
+  },
 ): Promise<api_ReferenceTrainerResponse> {
   return UserVersesService.getReferenceTrainer(
     telegramId,
-    params?.limit ?? 12
+    params?.limit ?? 12,
+    params?.translation,
   );
 }
 
