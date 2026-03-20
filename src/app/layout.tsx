@@ -1,16 +1,21 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
+import { Inter, Literata } from 'next/font/google'
 import Script from 'next/script'
 
 import { DisableViewportZoom } from './components/DisableViewportZoom'
 import './globals.css'
-import "driver.js/dist/driver.css"
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   display: 'swap',
   variable: '--font-inter',
+})
+
+const literata = Literata({
+  subsets: ['latin', 'cyrillic'],
+  display: 'swap',
+  variable: '--font-literata',
 })
 
 export const metadata: Metadata = {
@@ -30,25 +35,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="ru"
-      className={inter.variable}
+      className={`${inter.variable} ${literata.variable}`}
     >
       <head>
+      <meta name="color-scheme" content="light dark" />
       <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="beforeInteractive"
       />
-      {/* Применяем тему ДО загрузки React, чтобы избежать флэша неправильных цветов */}
+      {/* Применяем сохранённую тему ДО загрузки React. Если пользователь ещё не выбирал тему, берём Telegram/WebApp theme. */}
       <script dangerouslySetInnerHTML={{ __html: `
 (function(){try{
-  var tg=window.Telegram&&window.Telegram.WebApp;
-  var tgScheme=tg&&tg.colorScheme;
   var stored=localStorage.getItem('theme');
-  var theme=stored==='light'||stored==='dark'?stored
-    :tgScheme==='light'||tgScheme==='dark'?tgScheme
-    :(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
-  document.documentElement.setAttribute('data-theme',theme);
-  document.documentElement.classList.add(theme);
-  document.documentElement.style.colorScheme=theme;
+  var telegramTheme=window.Telegram&&window.Telegram.WebApp&&(window.Telegram.WebApp.colorScheme==='dark'||window.Telegram.WebApp.colorScheme==='light')
+    ? window.Telegram.WebApp.colorScheme
+    : null;
+  var theme=(stored==='light'||stored==='dark')?stored:(telegramTheme||'light');
+  var root=document.documentElement;
+  root.setAttribute('data-theme',theme);
+  root.classList.remove('light','dark');
+  root.classList.add(theme);
+  root.style.colorScheme=theme;
 }catch(e){}}());
       `}} />
       </head>

@@ -41,7 +41,10 @@ import { toast } from "@/app/lib/toast";
 import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
 import { swapArrayItems } from "@/shared/utils/swapArrayItems";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
-import { coerceVerseDifficultyLevel } from "@/shared/verses/difficulty";
+import {
+  coerceVerseDifficultyLevel,
+  getDifficultyLevelByLetters,
+} from "@/shared/verses/difficulty";
 import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
 import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
 import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
@@ -50,7 +53,6 @@ import {
   AnchorTrainingStateCard,
   AnchorTrainingSummaryCard,
 } from "./AnchorTrainingCards";
-// import { AnchorTrainingTrackSelect } from "./AnchorTrainingTrackSelect";
 import type {
   ChoiceQuestion,
   ModeStrategy,
@@ -555,8 +557,19 @@ function writeStoredTrack(track: SessionTrack) {
 }
 
 function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
-  const text = String(verse.text ?? "").trim();
-  const reference = String(verse.reference ?? verse.externalVerseId ?? "").trim();
+  const enriched = verse as UserVerse & {
+    text?: string | null;
+    reference?: string | null;
+    externalVerseId?: string | null;
+    difficultyLevel?: unknown;
+  };
+  const externalVerseId = String(
+    enriched.externalVerseId?.trim() ||
+      enriched.verse?.externalVerseId?.trim() ||
+      ""
+  );
+  const text = String(enriched.text ?? "").trim();
+  const reference = String(enriched.reference ?? externalVerseId).trim();
   if (!text || !reference) return null;
 
   const parsedReference = parseReferenceParts(reference);
@@ -571,12 +584,17 @@ function mapUserVerseToReferenceVerse(verse: UserVerse): ReferenceVerse | null {
   const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
   const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
 
+  const difficultyLevel =
+    enriched.difficultyLevel != null
+      ? coerceVerseDifficultyLevel(enriched.difficultyLevel)
+      : getDifficultyLevelByLetters(enriched.verse?.difficultyLetters);
+
   return {
-    externalVerseId: verse.externalVerseId,
+    externalVerseId,
     text,
     reference,
     status: normalizeDisplayVerseStatus(verse.status),
-    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
+    difficultyLevel,
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
@@ -1985,7 +2003,7 @@ export function AnchorTrainingSession({
   const SWIPE_MAX_HORIZONTAL = 80;
   const SWIPE_MAX_TIME = 600;
 
-  const handleContentTouchStart = useCallback((e: React.TouchEvent) => {
+  const _handleContentTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement | null;
     if (target?.closest('input,textarea,select')) return;
     const touch = e.touches[0];
@@ -1998,7 +2016,7 @@ export function AnchorTrainingSession({
     };
   }, []);
 
-  const handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
+  const _handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
     const start = swipeTouchRef.current;
     swipeTouchRef.current = null;
     if (!start) return;

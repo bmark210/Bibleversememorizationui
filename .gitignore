@@ -21,6 +21,7 @@ node_modules
 .next/cache/react-refresh-runtime-server
 .next/cache/react-refresh-runtime-client
 
-src/generated/prisma
+# Промежуточная спека для openapi-typescript (генерируется из Swagger 2 openapi.json)
+openapi-oas3.json
 
 package-lock.json

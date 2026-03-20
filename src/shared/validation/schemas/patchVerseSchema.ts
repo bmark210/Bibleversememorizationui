@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   MASTERY_MAX,
   REVIEW_REPETITIONS_MAX,

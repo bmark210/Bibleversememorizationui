@@ -1,18 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
+import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
 
 /**
  * GET /api/avatar/:telegramId
  *
  * Прокси для аватарок Telegram. Приоритет источников:
  * 1. Bot API `getUserProfilePhotos` — работает для пользователей с открытым фото
- * 2. DB fallback (`avatarUrl`) — CDN-ссылка из `initDataUnsafe.user.photo_url`,
- *    сохранённая при инициализации. Работает даже если пользователь скрыл фото от ботов.
+ * 2. URL из Go API GET /api/users/{telegramId} (поле avatarUrl)
  *
  * Кэширует на 1 час (max-age=3600).
  */
-
-// ── Типы Bot API ────────────────────────────────────────────────────
 
 type TelegramApiResponse<T> = { ok: boolean; result?: T };
 
@@ -28,8 +25,6 @@ type TelegramUserProfilePhotos = {
 };
 
 type TelegramFile = { file_path?: string };
-
-// ── Хелперы Bot API ─────────────────────────────────────────────────
 
 function getBotToken(): string {
   const token = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
@@ -51,8 +46,6 @@ async function botApi<T>(
   const json = (await res.json().catch(() => null)) as TelegramApiResponse<T> | null;
   return json?.ok ? (json.result ?? null) : null;
 }
-
-// ── Получение изображения через Bot API ─────────────────────────────
 
 async function fetchBotApiImage(
   telegramId: string,
@@ -84,16 +77,24 @@ async function fetchBotApiImage(
   };
 }
 
-// ── Fallback: получение через сохранённый photo_url из БД ───────────
-
-async function fetchDbFallbackImage(
+async function fetchRemoteAvatarFromApi(
   telegramId: string,
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
-  const user = await getUserByTelegramId(telegramId);
+  const base = getPublicApiBaseUrl();
+  if (!base) return null;
+
+  const userRes = await fetch(
+    `${base}/api/users/${encodeURIComponent(telegramId)}`,
+    { method: "GET", cache: "no-store" },
+  );
+  if (!userRes.ok) return null;
+
+  const user = (await userRes.json().catch(() => null)) as {
+    avatarUrl?: string | null;
+  } | null;
   const storedUrl = (user?.avatarUrl ?? "").trim();
   if (!storedUrl) return null;
 
-  // Не редиректим на свой же прокси-URL
   if (storedUrl.startsWith("/api/avatar/")) return null;
 
   try {
@@ -108,8 +109,6 @@ async function fetchDbFallbackImage(
     return null;
   }
 }
-
-// ── Handler ─────────────────────────────────────────────────────────
 
 export default async function handler(
   req: NextApiRequest,
@@ -126,7 +125,6 @@ export default async function handler(
   }
 
   try {
-    // 1. Пробуем Bot API (работает если фото открыто для ботов)
     const botImage = await fetchBotApiImage(telegramId);
 
     if (botImage) {
@@ -135,16 +133,14 @@ export default async function handler(
       return res.status(200).end(botImage.buffer);
     }
 
-    // 2. Fallback: photo_url из initDataUnsafe, сохранённый в БД
-    const dbImage = await fetchDbFallbackImage(telegramId);
+    const remoteImage = await fetchRemoteAvatarFromApi(telegramId);
 
-    if (dbImage) {
+    if (remoteImage) {
       res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-      res.setHeader("Content-Type", dbImage.contentType);
-      return res.status(200).end(dbImage.buffer);
+      res.setHeader("Content-Type", remoteImage.contentType);
+      return res.status(200).end(remoteImage.buffer);
     }
 
-    // 3. Нет аватарки — AvatarFallback покажет инициалы
     return res.status(404).json({ error: "No avatar available" });
   } catch (error) {
     console.error(`[AvatarProxy] Error for ${telegramId}:`, error);

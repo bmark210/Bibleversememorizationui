@@ -2,87 +2,49 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { User } from '../models/User';
-import type { UserDashboardStats } from '../models/UserDashboardStats';
-import type { UserLeaderboardResponse } from '../models/UserLeaderboardResponse';
-import type { UserWithVerses } from '../models/UserWithVerses';
+import type { bible_memory_db_internal_domain_DashboardFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardFriendsActivityResponse';
+import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from '../models/bible_memory_db_internal_domain_FriendPlayersPageResponse';
+import type { bible_memory_db_internal_domain_UpsertUserInput } from '../models/bible_memory_db_internal_domain_UpsertUserInput';
+import type { bible_memory_db_internal_domain_User } from '../models/bible_memory_db_internal_domain_User';
+import type { bible_memory_db_internal_domain_UserDashboardStats } from '../models/bible_memory_db_internal_domain_UserDashboardStats';
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse } from '../models/bible_memory_db_internal_domain_UserLeaderboardResponse';
+import type { bible_memory_db_internal_domain_UserWithVerses } from '../models/bible_memory_db_internal_domain_UserWithVerses';
+import type { internal_api_ActionStatusResponse } from '../models/internal_api_ActionStatusResponse';
+import type { internal_api_AddFriendRequest } from '../models/internal_api_AddFriendRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class UsersService {
     /**
-     * Создать/обновить пользователя по telegramId
-     * @param requestBody
-     * @returns User Создан/обновлён
+     * Create or update a user
+     * @param request User payload
+     * @returns bible_memory_db_internal_domain_User Created
      * @throws ApiError
      */
-    public static postApiUsers(
-        requestBody: {
-            telegramId: string;
-            translation?: string;
-            name?: string;
-            nickname?: string;
-            avatarUrl?: string;
-        },
-    ): CancelablePromise<User> {
+    public static upsertUser(
+        request: bible_memory_db_internal_domain_UpsertUserInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_User> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users',
-            body: requestBody,
-            mediaType: 'application/json',
-        });
-    }
-    /**
-     * Получить пользователя по telegramId
-     * @param telegramId
-     * @returns UserWithVerses OK
-     * @throws ApiError
-     */
-    public static getApiUsers(
-        telegramId: string,
-    ): CancelablePromise<UserWithVerses> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/{telegramId}',
-            path: {
-                'telegramId': telegramId,
-            },
+            body: request,
             errors: {
-                404: `Не найден`,
+                400: `Bad Request`,
+                500: `Internal Server Error`,
             },
         });
     }
     /**
-     * Персональная статистика пользователя для дашборда (включая композитный рейтинг)
-     * @param telegramId
-     * @returns UserDashboardStats OK
+     * Get users leaderboard
+     * @param telegramId Optional current user Telegram ID
+     * @param limit Max items
+     * @returns bible_memory_db_internal_domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
-    public static getApiUsersStats(
-        telegramId: string,
-    ): CancelablePromise<UserDashboardStats> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/{telegramId}/stats',
-            path: {
-                'telegramId': telegramId,
-            },
-            errors: {
-                404: `Не найден`,
-            },
-        });
-    }
-    /**
-     * Таблица лидеров для главной страницы (рейтинг: прогресс + навыки + регулярность)
-     * @param telegramId
-     * @param limit
-     * @returns UserLeaderboardResponse OK
-     * @throws ApiError
-     */
-    public static getApiUsersLeaderboard(
+    public static getLeaderboard(
         telegramId?: string,
-        limit?: number,
-    ): CancelablePromise<UserLeaderboardResponse> {
+        limit: number = 25,
+    ): CancelablePromise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/leaderboard',
@@ -90,28 +52,208 @@ export class UsersService {
                 'telegramId': telegramId,
                 'limit': limit,
             },
+            errors: {
+                500: `Internal Server Error`,
+            },
         });
     }
     /**
-     * Инициализация пользователя через Telegram
-     * @param requestBody
-     * @returns User Пользователь уже существует
+     * Create or refresh a Telegram user
+     * @param request Telegram user payload
+     * @returns bible_memory_db_internal_domain_User OK
      * @throws ApiError
      */
-    public static postApiUsersTelegram(
-        requestBody: {
-            telegramId: string;
-            translation?: string;
-            name?: string;
-            nickname?: string;
-            avatarUrl?: string;
-        },
-    ): CancelablePromise<User> {
+    public static upsertTelegramUser(
+        request: bible_memory_db_internal_domain_UpsertUserInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_User> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/telegram',
-            body: requestBody,
-            mediaType: 'application/json',
+            body: request,
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get user by Telegram ID
+     * @param telegramId Telegram ID
+     * @returns bible_memory_db_internal_domain_UserWithVerses OK
+     * @throws ApiError
+     */
+    public static getUserByTelegramId(
+        telegramId: string,
+    ): CancelablePromise<bible_memory_db_internal_domain_UserWithVerses> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}',
+            path: {
+                'telegramId': telegramId,
+            },
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
+            },
+        });
+    }
+    /**
+     * List friends
+     * @param telegramId Telegram ID
+     * @param search Search by name or nickname
+     * @param limit Max items
+     * @param startWith Pagination offset
+     * @returns bible_memory_db_internal_domain_FriendPlayersPageResponse OK
+     * @throws ApiError
+     */
+    public static listFriends(
+        telegramId: string,
+        search?: string,
+        limit: number = 20,
+        startWith?: number,
+    ): CancelablePromise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/friends',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'search': search,
+                'limit': limit,
+                'startWith': startWith,
+            },
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Add a friend
+     * @param telegramId Telegram ID
+     * @param request Friend payload
+     * @returns internal_api_ActionStatusResponse OK
+     * @throws ApiError
+     */
+    public static addFriend(
+        telegramId: string,
+        request: internal_api_AddFriendRequest,
+    ): CancelablePromise<internal_api_ActionStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/{telegramId}/friends',
+            path: {
+                'telegramId': telegramId,
+            },
+            body: request,
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get friends activity
+     * @param telegramId Telegram ID
+     * @param limit Max items
+     * @returns bible_memory_db_internal_domain_DashboardFriendsActivityResponse OK
+     * @throws ApiError
+     */
+    public static listFriendsActivity(
+        telegramId: string,
+        limit: number = 20,
+    ): CancelablePromise<bible_memory_db_internal_domain_DashboardFriendsActivityResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/friends/activity',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'limit': limit,
+            },
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Remove a friend
+     * @param telegramId Telegram ID
+     * @param friendTelegramId Friend Telegram ID
+     * @returns internal_api_ActionStatusResponse OK
+     * @throws ApiError
+     */
+    public static removeFriend(
+        telegramId: string,
+        friendTelegramId: string,
+    ): CancelablePromise<internal_api_ActionStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/users/{telegramId}/friends/{friendTelegramId}',
+            path: {
+                'telegramId': telegramId,
+                'friendTelegramId': friendTelegramId,
+            },
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * List players
+     * @param telegramId Telegram ID
+     * @param search Search by name or nickname
+     * @param limit Max items
+     * @param startWith Pagination offset
+     * @returns bible_memory_db_internal_domain_FriendPlayersPageResponse OK
+     * @throws ApiError
+     */
+    public static listPlayers(
+        telegramId: string,
+        search?: string,
+        limit: number = 20,
+        startWith?: number,
+    ): CancelablePromise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/players',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'search': search,
+                'limit': limit,
+                'startWith': startWith,
+            },
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get dashboard statistics
+     * @param telegramId Telegram ID
+     * @returns bible_memory_db_internal_domain_UserDashboardStats OK
+     * @throws ApiError
+     */
+    public static getUserStats(
+        telegramId: string,
+    ): CancelablePromise<bible_memory_db_internal_domain_UserDashboardStats> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/stats',
+            path: {
+                'telegramId': telegramId,
+            },
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
+            },
         });
     }
 }

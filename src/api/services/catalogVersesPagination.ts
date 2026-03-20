@@ -1,4 +1,5 @@
 import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
+import { publicApiUrl } from "@/lib/publicApiBase";
 
 type FetchCatalogVersesPageParams = {
   telegramId?: string;
@@ -26,9 +27,18 @@ export async function fetchCatalogVersesPage(
   if (params.limit != null) searchParams.set("limit", String(params.limit));
   if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
 
-  const response = await fetch(`/api/verses?${searchParams.toString()}`);
+  const response = await fetch(publicApiUrl(`/api/verses?${searchParams.toString()}`));
   if (!response.ok) {
     throw new Error(`Failed to fetch catalog verses: ${response.status}`);
   }
-  return response.json() as Promise<UserVersesPageResponse>;
+  const raw = (await response.json()) as UserVersesPageResponse & {
+    total?: number;
+  };
+  const totalCount =
+    typeof (raw as { totalCount?: number }).totalCount === "number"
+      ? (raw as { totalCount: number }).totalCount
+      : typeof raw.total === "number"
+        ? raw.total
+        : raw.items?.length ?? 0;
+  return { ...raw, totalCount };
 }

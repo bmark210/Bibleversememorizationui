@@ -12,7 +12,6 @@ import type {
   TrainingView,
   TrainingMode,
   CoreTrainingMode,
-  TrainingOrder,
   TrainingScenario,
   AnchorTrainingTrack,
 } from "./types";
@@ -44,8 +43,6 @@ export function Training({
   isLoadingVerses = false,
   dashboardStats,
   telegramId,
-  suppressIntro = false,
-  suppressModeTutorials = false,
   selectionVerses,
   directLaunch,
   onDirectLaunchExit,
@@ -57,7 +54,6 @@ export function Training({
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
   const [selectedModes, setSelectedModes] =
     useState<CoreTrainingMode[]>(CORE_SESSION_MODES);
-  const [selectedOrder, setSelectedOrder] = useState<TrainingOrder>("updatedAt");
   const [selectedAnchorTrack, setSelectedAnchorTrack] =
     useState<AnchorTrainingTrack>("mixed");
   const directLaunchConsumedRef = useRef(false);
@@ -129,9 +125,9 @@ export function Training({
       mode: "verse-session",
       verses,
       trainingModes: selectedModes,
-      order: selectedOrder,
+      order: "updatedAt",
     });
-  }, [allVerses, selectedAnchorTrack, selectedModes, selectedOrder, selectedScenario]);
+  }, [allVerses, selectedAnchorTrack, selectedModes, selectedScenario]);
 
   const handleStartSelection = useCallback(() => {
     if (selectedScenario !== "core") return;
@@ -143,9 +139,9 @@ export function Training({
       mode: "verse-session",
       verses,
       trainingModes: selectedModes,
-      order: selectedOrder,
+      order: "updatedAt",
     });
-  }, [selectionVerses, selectedModes, selectedOrder, selectedScenario]);
+  }, [selectionVerses, selectedModes, selectedScenario]);
 
   // Telegram back for core training only. Anchor mode handles back internally.
   useTelegramBackButton({
@@ -168,7 +164,6 @@ export function Training({
 
   return (
     <div className="h-full">
-      {/* Main content */}
       <AnimatePresence mode="wait">
         {view.mode === "hub" && (
           <motion.div
@@ -182,16 +177,12 @@ export function Training({
             <TrainingHub
               allVerses={allVerses}
               dashboardStats={dashboardStats}
-              telegramId={telegramId}
-              suppressIntro={suppressIntro}
               selectionVerses={selectionVerses}
               selectedScenario={selectedScenario}
               selectedModes={selectedModes}
-              selectedOrder={selectedOrder}
               selectedAnchorTrack={selectedAnchorTrack}
               onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
-              onOrderChange={setSelectedOrder}
               onAnchorTrackChange={setSelectedAnchorTrack}
               onStart={handleStart}
               onStartSelection={handleStartSelection}
@@ -229,7 +220,6 @@ export function Training({
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
               initialOrder={view.order}
               initialVerseExternalId={view.initialVerseExternalId}
-              suppressModeTutorials={suppressModeTutorials}
               onClose={handleExitSession}
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}

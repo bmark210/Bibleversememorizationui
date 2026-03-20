@@ -1,9 +1,8 @@
 import type { UserVerse } from "@/api/models/UserVerse";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import type { internal_api_PatchUserVerseRequest } from "@/api/models/internal_api_PatchUserVerseRequest";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
-import type { TrainingModeRating } from "@/shared/training/modeEngine";
-import type { TrainingAttemptPhase } from "@/modules/training/hints/types";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { TrainingVerseState } from "./types";
 
@@ -12,6 +11,12 @@ export function getTelegramId(): string | null {
   const fromStorage = localStorage.getItem("telegramId");
   if (fromStorage) return fromStorage;
   return getTelegramUserId();
+}
+
+function userVerseExternalId(verse: UserVerse): string {
+  const top = (verse as { externalVerseId?: string }).externalVerseId;
+  if (top && String(top).trim()) return String(top);
+  return String(verse.verse?.externalVerseId ?? "");
 }
 
 function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
@@ -28,21 +33,19 @@ export async function persistTrainingVerseProgress(
 ): Promise<UserVerse | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return null;
-  const response = await UserVersesService.patchApiUsersVerses(
+  const body: internal_api_PatchUserVerseRequest = {
+    masteryLevel: verse.rawMasteryLevel,
+    ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
+    reviewLapseStreak: verse.reviewLapseStreak,
+    lastReviewedAt: verse.lastReviewedAt?.toISOString(),
+    nextReviewAt: verse.nextReviewAt?.toISOString(),
+    status: patchStatusForTrainingVerse(verse),
+    ...(verse.lastModeId != null ? { lastTrainingModeId: verse.lastModeId } : {}),
+  };
+  const response = await UserVersesService.patchUserVerse(
     telegramId,
     verse.externalVerseId,
-    {
-      masteryLevel: verse.rawMasteryLevel,
-      ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
-      reviewLapseStreak: verse.reviewLapseStreak,
-      ...(options?.reviewRating !== undefined
-        ? { reviewRating: options.reviewRating }
-        : {}),
-      lastReviewedAt: verse.lastReviewedAt?.toISOString(),
-      nextReviewAt: verse.nextReviewAt?.toISOString(),
-      lastTrainingModeId: verse.lastModeId ?? null,
-      status: patchStatusForTrainingVerse(verse),
-    }
+    body
   );
   return response ?? null;
 }
@@ -62,54 +65,6 @@ export async function fetchTrainingVerseSnapshot(
   });
 
   return (
-    response.items.find((verse) => verse.externalVerseId === externalVerseId) ?? null
+    response.items.find((v) => userVerseExternalId(v) === externalVerseId) ?? null
   );
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-export interface CompleteTrainingInput {
-  telegramId?: string | null;
-  externalVerseId: string;
-  modeId: number;
-  phase: TrainingAttemptPhase;
-  requestedRating: TrainingModeRating;
-  ratingCap: TrainingModeRating;
-}
-
-export interface CompleteTrainingResponse {
-  appliedRating: TrainingModeRating;
-  verse: Record<string, unknown>;
-}
-
-export async function completeTraining(
-  input: CompleteTrainingInput
-): Promise<CompleteTrainingResponse> {
-  const telegramId = input.telegramId ?? getTelegramId();
-  if (!telegramId) {
-    throw new Error("No telegramId available");
-  }
-
-  return postJson<CompleteTrainingResponse>("/api/training/complete", {
-    telegramId,
-    externalVerseId: input.externalVerseId,
-    modeId: input.modeId,
-    phase: input.phase,
-    requestedRating: input.requestedRating,
-    ratingCap: input.ratingCap,
-  });
 }

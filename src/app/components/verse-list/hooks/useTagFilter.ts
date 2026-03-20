@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
+import { postTag } from '@/api/services/tagExtensions';
+import { publicApiUrl } from '@/lib/publicApiBase';
 import type { Tag } from '@/api/models/Tag';
 import type { Verse } from '@/app/App';
 import { getTelegramUserId } from '@/app/lib/telegramWebApp';
@@ -47,7 +49,7 @@ export function useTagFilter(params?: UseTagFilterParams) {
       return;
     }
     setIsLoadingTags(true);
-    const req = TagsService.getApiTags();
+    const req = TagsService.listTags();
     req
       .then((tags) => setAllTags(sortTagsByTitle(tags)))
       .catch(() => {})
@@ -99,7 +101,7 @@ export function useTagFilter(params?: UseTagFilterParams) {
       );
       return;
     }
-    const newTag = await TagsService.postApiTags({ slug, title });
+    const newTag = await postTag({ slug, title });
     setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
   }, [disabled]);
 
@@ -123,7 +125,7 @@ export function useTagFilter(params?: UseTagFilterParams) {
       throw new Error('Удалять теги может только администратор');
     }
 
-    const res = await fetch(`/api/tags/${id}`, {
+    const res = await fetch(publicApiUrl(`/api/tags/${id}`), {
       method: 'DELETE',
       headers: {
         'x-telegram-id': telegramId,

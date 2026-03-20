@@ -1,5 +1,13 @@
 :root {
   --font-body: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-heading: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-verse: var(--font-literata), 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+}
+
+.font-verse {
+  font-family: var(--font-verse);
+  font-optical-sizing: auto;
+  font-feature-settings: "kern", "liga", "clig", "calt";
+  text-rendering: optimizeLegibility;
 }
 

@@ -1,3 +1,5 @@
+import { publicApiUrl } from "@/lib/publicApiBase";
+
 export type FriendPlayerListItem = {
   telegramId: string;
   name: string;
@@ -91,16 +93,24 @@ export function normalizeFriendPlayerListItem(value: unknown): FriendPlayerListI
   const telegramId = toSafeString(data.telegramId);
   if (!telegramId) return null;
 
+  const masteredRaw =
+    (data as { masteredVerses?: unknown }).masteredVerses ??
+    (data as { versesCount?: unknown }).versesCount;
+
+  const nickname = toNullableString((data as { nickname?: unknown }).nickname);
+
   return {
     telegramId,
-    name: toSafeString(data.name, `Участник #${telegramId.slice(-4)}`),
+    name: toSafeString(data.name, nickname ?? `Участник #${telegramId.slice(-4)}`),
     avatarUrl: toNullableString(data.avatarUrl),
     isFriend: Boolean(data.isFriend),
-    lastActiveAt: toNullableString(data.lastActiveAt),
-    masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
+    lastActiveAt: toNullableString(
+      (data as { lastActiveAt?: unknown }).lastActiveAt ?? (data as { at?: unknown }).at
+    ),
+    masteredVerses: toSafeInt(masteredRaw, { min: 0 }),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
-    xp: toSafeInt(data.xp, { min: 0 }),
+    xp: toSafeInt((data as { score?: unknown }).score ?? data.xp, { min: 0 }),
   };
 }
 
@@ -110,18 +120,25 @@ function normalizeFriendPlayersPageResponse(
   const data = (value ?? {}) as Partial<FriendPlayersPageResponse>;
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
 
+  const totalRaw =
+    (data as { totalCount?: unknown }).totalCount ??
+    (data as { total?: unknown }).total;
+  const startRaw =
+    (data as { startWith?: unknown }).startWith ??
+    (data as { offset?: unknown }).offset;
+
   return {
     items: itemsRaw
       .map((item) => normalizeFriendPlayerListItem(item))
       .filter((item): item is FriendPlayerListItem => item != null),
-    totalCount: toSafeInt(data.totalCount, { min: 0 }),
+    totalCount: toSafeInt(totalRaw, { min: 0 }),
     limit: toSafeInt(data.limit, { min: 1, max: 50 }),
-    startWith: toSafeInt(data.startWith, { min: 0 }),
+    startWith: toSafeInt(startRaw, { min: 0 }),
   };
 }
 
 function normalizeFriendsMutationResponse(value: unknown): FriendsMutationResponse {
-  const data = (value ?? {}) as Partial<FriendsMutationResponse>;
+  const data = (value ?? {}) as Partial<FriendsMutationResponse> & { status?: string };
   const status = toSafeString(data.status, "");
   if (
     status === "added" ||
@@ -130,6 +147,16 @@ function normalizeFriendsMutationResponse(value: unknown): FriendsMutationRespon
     status === "not-following"
   ) {
     return { status };
+  }
+  const lower = status.toLowerCase();
+  if (lower.includes("remove") || lower === "deleted") {
+    return { status: "removed" };
+  }
+  if (lower === "not-following" || lower === "not_following") {
+    return { status: "not-following" };
+  }
+  if (lower === "ok" || lower === "success" || status.length > 0) {
+    return { status: "added" };
   }
   return { status: "already-following" };
 }
@@ -142,22 +169,51 @@ export function normalizeDashboardFriendActivityEntry(
   const telegramId = toSafeString(data.telegramId);
   if (!telegramId) return null;
 
+  const actNickname = toNullableString((data as { nickname?: unknown }).nickname);
+
   return {
     telegramId,
-    name: toSafeString(data.name, `Участник #${telegramId.slice(-4)}`),
+    name: toSafeString(data.name, actNickname ?? `Участник #${telegramId.slice(-4)}`),
     avatarUrl: toNullableString(data.avatarUrl),
-    lastActiveAt: toNullableString(data.lastActiveAt),
-    masteredVerses: toSafeInt((data as { masteredVerses?: unknown }).masteredVerses, { min: 0 }),
+    lastActiveAt: toNullableString(
+      (data as { lastActiveAt?: unknown }).lastActiveAt ?? (data as { at?: unknown }).at
+    ),
+    masteredVerses: toSafeInt(
+      (data as { masteredVerses?: unknown }).masteredVerses ??
+        (data as { versesCount?: unknown }).versesCount,
+      { min: 0 }
+    ),
     weeklyRepetitions: toSafeInt(data.weeklyRepetitions, { min: 0 }),
     dailyStreak: toSafeInt(data.dailyStreak, { min: 0 }),
-    xp: toSafeInt(data.xp, { min: 0 }),
+    xp: toSafeInt((data as { score?: unknown }).score ?? data.xp, { min: 0 }),
   };
 }
 
 function normalizeDashboardFriendsActivity(
   value: unknown
 ): DashboardFriendsActivity {
-  const data = (value ?? {}) as Partial<DashboardFriendsActivity>;
+  const data = (value ?? {}) as Partial<DashboardFriendsActivity> & {
+    items?: unknown[];
+  };
+
+  const itemsFromGo = Array.isArray(data.items) ? data.items : null;
+  if (itemsFromGo && !data.summary) {
+    const entries = itemsFromGo
+      .map((entry) => normalizeDashboardFriendActivityEntry(entry))
+      .filter((entry): entry is DashboardFriendActivityEntry => entry != null);
+    return {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        friendsTotal: entries.length,
+        activeLast7Days: 0,
+        avgWeeklyRepetitions: 0,
+        avgStreakDays: 0,
+        avgXp: 0,
+      },
+      entries,
+    };
+  }
+
   const entriesRaw = Array.isArray(data.entries) ? data.entries : [];
   const summary = (data.summary ?? {}) as Partial<DashboardFriendsActivitySummary>;
 
@@ -210,9 +266,11 @@ export async function fetchPlayersPage(
   const searchParams = new URLSearchParams();
   appendListQuery(searchParams, params);
 
-  const url = `/api/users/${encodeURIComponent(telegramId)}/players${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const url = publicApiUrl(
+    `/api/users/${encodeURIComponent(telegramId)}/players${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`
+  );
   const response = await fetch(url);
   if (!response.ok) {
     const payload = await parseResponsePayload(response);
@@ -233,9 +291,11 @@ export async function fetchFriendsPage(
   const searchParams = new URLSearchParams();
   appendListQuery(searchParams, params);
 
-  const url = `/api/users/${encodeURIComponent(telegramId)}/friends${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const url = publicApiUrl(
+    `/api/users/${encodeURIComponent(telegramId)}/friends${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`
+  );
   const response = await fetch(url);
   if (!response.ok) {
     const payload = await parseResponsePayload(response);
@@ -249,13 +309,16 @@ export async function addFriend(
   telegramId: string,
   targetTelegramId: string
 ): Promise<FriendsMutationResponse> {
-  const response = await fetch(`/api/users/${encodeURIComponent(telegramId)}/friends`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ targetTelegramId }),
-  });
+  const response = await fetch(
+    publicApiUrl(`/api/users/${encodeURIComponent(telegramId)}/friends`),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ targetTelegramId }),
+    }
+  );
 
   if (!response.ok) {
     const payload = await parseResponsePayload(response);
@@ -270,9 +333,11 @@ export async function removeFriend(
   targetTelegramId: string
 ): Promise<FriendsMutationResponse> {
   const response = await fetch(
-    `/api/users/${encodeURIComponent(telegramId)}/friends/${encodeURIComponent(
-      targetTelegramId
-    )}`,
+    publicApiUrl(
+      `/api/users/${encodeURIComponent(telegramId)}/friends/${encodeURIComponent(
+        targetTelegramId
+      )}`
+    ),
     {
       method: "DELETE",
     }
@@ -295,9 +360,11 @@ export async function fetchDashboardFriendsActivity(
     searchParams.set("limit", String(Math.round(params.limit)));
   }
 
-  const url = `/api/users/${encodeURIComponent(telegramId)}/friends/activity${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const url = publicApiUrl(
+    `/api/users/${encodeURIComponent(telegramId)}/friends/activity${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`
+  );
   const response = await fetch(url);
   if (!response.ok) {
     const payload = await parseResponsePayload(response);

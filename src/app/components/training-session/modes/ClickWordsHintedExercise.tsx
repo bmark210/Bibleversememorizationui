@@ -13,6 +13,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { Verse } from '@/app/App';
 import {
   tokenizeWords,
@@ -29,7 +30,10 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { useFittedBatchSize } from './useFittedBatchSize';
+import {
+  useMeasuredChoiceBatch,
+  type MeasuredChoiceBatchItem,
+} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsHintedExerciseProps {
@@ -131,7 +135,8 @@ function buildExercise(params: {
   return { slots, uniqueChoices };
 }
 
-const MAX_DISPLAYED_CHOICES = 20;
+const WORD_CHOICE_BUTTON_BASE_CLASS =
+  'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
 
 export function ModeClickWordsHintedExercise({
   verse,
@@ -151,7 +156,6 @@ export function ModeClickWordsHintedExercise({
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
   const [successFlashNormalized, setSuccessFlashNormalized] = useState<string | null>(null);
-  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
@@ -164,7 +168,6 @@ export function ModeClickWordsHintedExercise({
     setExerciseData(buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel }));
     setSelectedCount(0);
     setMistakesSinceReset(0);
-    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashNormalized(null);
     setSuccessFlashNormalized(null);
@@ -199,7 +202,6 @@ export function ModeClickWordsHintedExercise({
     totalUnits: totalHiddenWords,
   });
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
-  // const nextHiddenNormalized = nextHiddenSlot?.normalized ?? null;
 
   useEffect(() => {
     onProgressChange?.(
@@ -314,7 +316,6 @@ export function ModeClickWordsHintedExercise({
       return;
     }
 
-    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldReset = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldReset ? 0 : nextMistakesSinceReset);
@@ -343,29 +344,30 @@ export function ModeClickWordsHintedExercise({
   };
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
+  const visibleChoiceItems = useMemo<MeasuredChoiceBatchItem<UniqueChoice>[]>(
+    () => visibleChoices.map((choice) => ({ key: choice.normalized, value: choice })),
+    [visibleChoices]
+  );
 
-  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
-    itemHeight: 36,
-    rowGap: 6,
-    itemMinWidth: 60,
-    columnGap: 6,
-    minItems: 4,
-    maxItems: 40,
+  const expectedNormalized = nextHiddenSlot?.normalized ?? null;
+  const preferredExpectedIndex = useMemo(
+    () =>
+      Math.min(2 + (selectedCount % 3), Math.max(visibleChoiceItems.length - 1, 0)),
+    [selectedCount, visibleChoiceItems.length]
+  );
+
+  const {
+    containerRef: choicesContainerRef,
+    measureRef: measureChoicesRef,
+    measurementItems: measuredChoiceItems,
+    displayedItems: displayedChoiceItems,
+  } = useMeasuredChoiceBatch({
+    items: visibleChoiceItems,
     enabled: showChoices,
+    requiredItemKey: expectedNormalized,
+    preferredRequiredIndex: preferredExpectedIndex,
+    dependencies: [fontSizes.level],
   });
-
-  const displayedChoices = useMemo(() => {
-    const batch = visibleChoices.slice(0, batchSize);
-    const expectedNormalized = nextHiddenSlot?.normalized;
-    if (expectedNormalized && !batch.some((c) => c.normalized === expectedNormalized)) {
-      const expectedChoice = visibleChoices.find((c) => c.normalized === expectedNormalized);
-      if (expectedChoice && batch.length > 0) {
-        const swapIdx = selectedCount % batch.length;
-        batch[swapIdx] = expectedChoice;
-      }
-    }
-    return batch;
-  }, [visibleChoices, nextHiddenSlot, selectedCount, batchSize]);
 
   return (
     <motion.div
@@ -373,13 +375,14 @@ export function ModeClickWordsHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
+        <label className="text-xs text-center font-medium text-foreground/90">
           Выберите слова по порядку
         </label>
         {onOpenTutorial && (
@@ -408,32 +411,59 @@ export function ModeClickWordsHintedExercise({
           <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты слов</span>
           </div>
-          <div
-            ref={choicesContainerRef}
-            className="flex-1 min-h-0 overflow-hidden"
-          >
-            <div className="flex flex-wrap content-start gap-1.5 py-1">
-            {displayedChoices.map((choice) => (
-              <Button
-                key={choice.normalized}
-                type="button"
-                variant="outline"
-                title={choice.displayText}
-                className={`h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap transition-colors ${
-                  errorFlashNormalized === choice.normalized
-                    ? 'border-destructive text-destructive bg-destructive/10'
-                    : successFlashNormalized === choice.normalized
-                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                }`}
-                style={{ fontSize: `${fontSizes.sm}px` }}
-                onClick={() => handleWordClick(choice)}
-              >
-                <span className="block min-w-0 truncate">
-                  {choice.displayText}
-                </span>
-              </Button>
-            ))}
+          <div className="relative flex-1 min-h-0">
+            <div
+              ref={choicesContainerRef}
+              className="absolute inset-0 min-h-0 overflow-hidden"
+            >
+              <div className="flex flex-wrap content-start gap-1.5 py-1">
+                {displayedChoiceItems.map(({ key, value: choice }) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    title={choice.displayText}
+                    className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                      errorFlashNormalized === choice.normalized
+                        ? 'border-destructive text-destructive bg-destructive/10'
+                        : successFlashNormalized === choice.normalized
+                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    }`}
+                    style={{ fontSize: `${fontSizes.sm}px` }}
+                    onClick={() => handleWordClick(choice)}
+                  >
+                    <span className="block min-w-0 truncate">
+                      {choice.displayText}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="pointer-events-none invisible absolute inset-x-0 top-0"
+            >
+              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1.5 py-1">
+                {measuredChoiceItems.map(({ key, value: choice }) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    title={choice.displayText}
+                    haptic={false}
+                    tabIndex={-1}
+                    data-choice-key={key}
+                    className={`${WORD_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
+                    style={{ fontSize: `${fontSizes.sm}px` }}
+                  >
+                    <span className="block min-w-0 truncate">
+                      {choice.displayText}
+                    </span>
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

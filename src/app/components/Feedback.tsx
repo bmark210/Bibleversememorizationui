@@ -3,6 +3,7 @@
 import React from "react";
 import { Loader2, MessageSquareMore, Send } from "lucide-react";
 import type { FeedbackEntry } from "@/api/models/FeedbackEntry";
+import type { bible_memory_db_internal_domain_Feedback } from "@/api/models/bible_memory_db_internal_domain_Feedback";
 import { FeedbackService } from "@/api/services/FeedbackService";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
@@ -34,6 +35,18 @@ function getFeedbackAuthorName(item: FeedbackEntry): string {
   if (nickname) return `@${nickname}`;
 
   return `Пользователь #${item.telegramId.slice(-4)}`;
+}
+
+function mapApiFeedbackToEntry(
+  item: bible_memory_db_internal_domain_Feedback
+): FeedbackEntry {
+  return {
+    id: String(item.id ?? ""),
+    telegramId: String(item.telegramId ?? ""),
+    text: String(item.text ?? ""),
+    createdAt: item.createdAt,
+    user: { name: null, nickname: null, avatarUrl: null },
+  };
 }
 
 function formatFeedbackDate(value: string): string {
@@ -87,8 +100,8 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
       0,
       (adminPageIndex - 1) * ADMIN_FEEDBACK_PAGE_SIZE,
     );
-    const request = FeedbackService.getApiFeedback(
-      normalizedTelegramId,
+    const request = FeedbackService.listFeedback(
+      undefined,
       ADMIN_FEEDBACK_PAGE_SIZE,
       startWith,
     );
@@ -98,12 +111,14 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
 
     request
       .then((page) => {
-        setAdminItems(page.items);
-        setAdminTotalCount(page.totalCount);
+        const items = (page.items ?? []).map(mapApiFeedbackToEntry);
+        setAdminItems(items);
+        const total = page.total ?? items.length;
+        setAdminTotalCount(total);
 
         const nextTotalPages = Math.max(
           1,
-          Math.ceil(page.totalCount / ADMIN_FEEDBACK_PAGE_SIZE),
+          Math.ceil(total / ADMIN_FEEDBACK_PAGE_SIZE),
         );
         if (adminPageIndex > nextTotalPages) {
           setAdminPageIndex(nextTotalPages);
@@ -149,7 +164,7 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
 
     setIsSubmitting(true);
     try {
-      await FeedbackService.postApiFeedback({
+      await FeedbackService.createFeedback({
         telegramId: normalizedTelegramId,
         text: trimmedText,
       });

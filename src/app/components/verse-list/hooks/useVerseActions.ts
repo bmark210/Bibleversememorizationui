@@ -1,15 +1,13 @@
 import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
 import { UserVersesService } from '@/api/services/UserVersesService';
+import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
 import { Verse } from '@/app/App';
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
-import {
-  buildVerseDeletionXpFeedback,
-  computeVerseXpContribution,
-} from '@/app/utils/verseXp';
+import { buildVerseDeletionXpFeedback } from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -125,6 +123,9 @@ export function useVerseActions({
 
   const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
     const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
+    if (prevStatus === 'CATALOG' && nextStatus === VerseStatus.MY) {
+      return 'Добавлено в мои стихи';
+    }
     if (prevStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
       return 'Добавлено в изучение';
     }
@@ -147,7 +148,7 @@ export function useVerseActions({
   const patchVerseStatusOnServer = useCallback(
     async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
       if (!telegramId) throw new Error('No telegramId');
-      const response = await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, { status });
+      const response = await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, { status });
       const patch = pickMutableVersePatchFromApiResponse(response);
       return patch ?? { status };
     },
@@ -158,13 +159,7 @@ export function useVerseActions({
   const addVerseToCollection = useCallback(
     async (externalVerseId: string): Promise<void> => {
       if (!telegramId) throw new Error('No telegramId');
-      const response = await fetch(
-        `/api/users/${encodeURIComponent(telegramId)}/verses/${encodeURIComponent(externalVerseId)}`,
-        { method: 'PUT' }
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to add verse to collection: ${response.status}`);
-      }
+      await UserVersesService.upsertUserVerse(telegramId, { externalVerseId });
     },
     [telegramId]
   );
@@ -259,17 +254,12 @@ export function useVerseActions({
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
-      const xpLoss = computeVerseXpContribution({
-        status: normalizeDisplayVerseStatus(verse.status),
-        difficultyLevel: verse.difficultyLevel,
-        masteryLevel: verse.masteryLevel,
-        repetitions: verse.repetitions,
-        referenceScore: verse.referenceScore,
-        incipitScore: verse.incipitScore,
-        contextScore: verse.contextScore,
-      });
+      let xpLoss = 0;
       try {
-        await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
+        const del = await deleteUserVerseWithXp(telegramId, verse.externalVerseId);
+        if (del && del.xpDelta < 0) {
+          xpLoss = -del.xpDelta;
+        }
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
         const statusCode = getErrorStatusCode(err);

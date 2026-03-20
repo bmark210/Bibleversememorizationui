@@ -1,19 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
+import { Eye, Plus } from "lucide-react";
 import { motion } from "motion/react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 
 const AddVerseDialog = dynamic(
   () => import("./AddVerseDialog").then((m) => m.AddVerseDialog),
@@ -21,20 +12,15 @@ const AddVerseDialog = dynamic(
 );
 
 import { VerseGallery } from "./VerseGallery";
-import { ConfirmDeleteModal } from "./verse-list/components/ConfirmDeleteModal";
-import { SwipeableVerseCard } from "./verse-list/components/SwipeableVerseCard";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
-import { VerseListFilterCard } from "./verse-list/components/VerseListFilterCard";
 import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
+import { VerseListFiltersTrigger } from "./verse-list/components/VerseListFiltersTrigger";
 import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
-import { VerseListSectionShell } from "./verse-list/components/VerseListSectionShell";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
-import { VerseDifficultyDrawer } from "./VerseDifficultyDrawer";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import {
-  FILTER_VISUAL_THEME,
   getVerseCardLayoutSignature,
   type VerseListStatusFilter,
 } from "./verse-list/constants";
@@ -42,25 +28,16 @@ import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
 } from "./verse-list/storage";
+import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
+import { isAdminTelegramId } from "@/lib/admins";
+import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
-import { VerseStaticList } from "./verse-list/virtualization/VerseStaticList";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import type { Verse } from "@/app/App";
-import type { Tag } from "@/api/models/Tag";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import { ONBOARDING_PRIMARY_VERSE_ID } from "@/app/onboarding/onboardingMockVerseFlow";
-import {
-  type VerseSectionTutorialSource,
-  readVerseSectionTutorialPromptSeen,
-  writeVerseSectionTutorialPromptSeen,
-} from "@/app/verseSectionTutorial/storage";
-import {
-  useVerseSectionTutorialStore,
-  selectShouldUseVerseSectionTutorialMockData,
-  getVerseSectionTutorialMockSectionConfig,
-  filterAndSortVerseSectionTutorialMockVerses,
-} from "@/app/verseSectionTutorial/store";
 
 interface VerseListProps {
   onVerseAdded: (verse: {
@@ -75,9 +52,6 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
-  onStartVerseSectionTutorial?: (
-    source: VerseSectionTutorialSource,
-  ) => void | Promise<void>;
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
@@ -87,9 +61,7 @@ interface VerseListProps {
     name: string;
     avatarUrl: string | null;
   }) => void;
-  suppressSectionIntro?: boolean;
 }
-const VERSE_SECTION_TUTORIAL_STATUS_FILTER: VerseListStatusFilter = "catalog";
 
 export function VerseList({
   onVerseAdded,
@@ -99,62 +71,23 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
-  onStartVerseSectionTutorial,
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
   isAnchorEligible = false,
   onFriendsChanged,
-  suppressSectionIntro = false,
 }: VerseListProps) {
-  // --- Verse tutorial store subscriptions (only primitive/stable selectors) ---
-  const isVerseSectionTutorialMock = useVerseSectionTutorialStore(
-    selectShouldUseVerseSectionTutorialMockData,
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen,
   );
-  const tutorialMockVerses = useVerseSectionTutorialStore((s) => s.mockVerses);
-  const tutorialProgressTargetVerseId = useVerseSectionTutorialStore(
-    (s) => s.progressTargetVerseId,
-  );
-  const tutorialGalleryTargetVerseId = useVerseSectionTutorialStore(
-    (s) => s.galleryTargetVerseId,
-  );
-
-  // Derived values via useMemo (avoids new-reference selectors causing infinite loops)
-  const tutorialProgressTarget = useMemo(
-    () =>
-      tutorialProgressTargetVerseId == null
-        ? null
-        : tutorialMockVerses.find(
-            (v) => v.externalVerseId === tutorialProgressTargetVerseId,
-          ) ?? null,
-    [tutorialProgressTargetVerseId, tutorialMockVerses],
-  );
-  const tutorialMockFilterTheme = useMemo(
-    () => FILTER_VISUAL_THEME[VERSE_SECTION_TUTORIAL_STATUS_FILTER],
-    [],
-  );
-  const tutorialMockSectionConfig = useMemo(
-    () =>
-      getVerseSectionTutorialMockSectionConfig(
-        VERSE_SECTION_TUTORIAL_STATUS_FILTER,
-      ),
-    [],
-  );
-  const tutorialMockInitialTags = useMemo(
-    () =>
-      tutorialMockVerses
-        .flatMap((verse) => verse.tags ?? [])
-        .filter(
-          (tag, index, tags) =>
-            tags.findIndex((candidate) => candidate.slug === tag.slug) === index,
-        ) as Tag[],
-    [tutorialMockVerses],
-  );
-  const tutorialMockTotalCount = tutorialMockVerses.length;
+  const { contentSafeAreaInset } = useTelegramSafeArea();
+  // const stickyControlsTop = isTelegramFullscreen
+  //   ? Math.max(0, contentSafeAreaInset.top)
+  //   : 0;
+  const canAddVerse = isAdminTelegramId(telegramId);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
-  const [isTutorialPromptOpen, setIsTutorialPromptOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -176,60 +109,13 @@ export function VerseList({
     scope: "friends" | "players";
     totalCount: number;
   } | null>(null);
-  const [isVerseDifficultyDrawerOpen, setIsVerseDifficultyDrawerOpen] =
-    useState(false);
-  const [verseDifficultyTarget, setVerseDifficultyTarget] =
-    useState<Verse | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
-  const activeVerseProgressTarget = isVerseSectionTutorialMock
-    ? tutorialProgressTarget
-    : verseProgressTarget;
-  const isActiveVerseProgressDrawerOpen = isVerseSectionTutorialMock
-    ? tutorialProgressTarget !== null
-    : isVerseProgressDrawerOpen;
-
-  useEffect(() => {
-    if (
-      suppressSectionIntro ||
-      isVerseSectionTutorialMock ||
-      typeof window === "undefined"
-    ) {
-      setIsTutorialPromptOpen(false);
-      return;
-    }
-
-    if (readVerseSectionTutorialPromptSeen(telegramId)) {
-      return;
-    }
-
-    setIsTutorialPromptOpen(true);
-  }, [isVerseSectionTutorialMock, suppressSectionIntro, telegramId]);
-
-  const handleTutorialPromptOpenChange = useCallback((open: boolean) => {
-    setIsTutorialPromptOpen(open);
-  }, []);
-
-  const handleTutorialPromptOpen = useCallback(() => {
-    setIsTutorialPromptOpen(true);
-  }, []);
-
   const toggleFocusMode = useCallback(() => {
     setIsFocusMode((prev) => !prev);
   }, []);
-
-  const handleSkipVerseSectionTutorial = useCallback(() => {
-    writeVerseSectionTutorialPromptSeen(telegramId);
-    setIsTutorialPromptOpen(false);
-  }, [telegramId]);
-
-  const handleStartVerseSectionTutorial = useCallback(() => {
-    writeVerseSectionTutorialPromptSeen(telegramId);
-    setIsTutorialPromptOpen(false);
-    void Promise.resolve(onStartVerseSectionTutorial?.("prompt"));
-  }, [onStartVerseSectionTutorial, telegramId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -240,26 +126,22 @@ export function VerseList({
   }, [isFocusMode]);
 
   useEffect(() => {
-    if (!isFocusMode) return;
-    setIsLocalFiltersDrawerOpen(false);
-  }, [isFocusMode]);
+    if (canAddVerse || addDialogMode !== "verse" || !addDialogOpen) return;
+    setAddDialogOpen(false);
+  }, [addDialogMode, addDialogOpen, canAddVerse]);
 
   const closeVerseTagsDrawer = useCallback(() => {
     setIsVerseTagsDrawerOpen(false);
     setVerseTagsTarget(null);
   }, []);
 
-  const closeVerseDifficultyDrawer = useCallback(() => {
-    setIsVerseDifficultyDrawerOpen(false);
-    setVerseDifficultyTarget(null);
-  }, []);
-
   const vm = useVerseListController({
-    disabled: isVerseSectionTutorialMock,
-    initialTags: tutorialMockInitialTags,
+    disabled: false,
+    initialTags: [],
     hasFriends,
     isFocusMode,
     onAddVerse: () => {
+      if (!canAddVerse) return;
       setAddDialogMode("verse");
       setAddDialogOpen(true);
     },
@@ -292,10 +174,8 @@ export function VerseList({
       setVerseProgressTarget(verse);
       setIsVerseProgressDrawerOpen(true);
     },
-    onOpenVerseDifficulty: (verse: Verse) => {
-      setVerseDifficultyTarget(verse);
-      setIsVerseDifficultyDrawerOpen(true);
-    },
+    onNavigateToTraining,
+    isAnchorEligible,
     reopenGalleryVerseId,
     reopenGalleryStatusFilter,
     onReopenGalleryHandled,
@@ -303,52 +183,19 @@ export function VerseList({
     onVerseMutationCommitted,
   });
 
-  // Visible mock verses — computed from store data + controller filter state
-  const tutorialMockVisibleVerses = useMemo(
-    () =>
-      filterAndSortVerseSectionTutorialMockVerses(
-        tutorialMockVerses,
-        VERSE_SECTION_TUTORIAL_STATUS_FILTER,
-        vm.filters.selectedBookId,
-        vm.filters.sortBy,
-        vm.search.searchQuery,
-        vm.tagFilter.selectedTagSlugs,
-      ),
-    [
-      tutorialMockVerses,
-      vm.filters.selectedBookId,
-      vm.filters.sortBy,
-      vm.search.searchQuery,
-      vm.tagFilter.selectedTagSlugs,
-    ],
-  );
-  const tutorialGalleryIndex = useMemo(() => {
-    if (tutorialGalleryTargetVerseId == null) return null;
-    const index = tutorialMockVisibleVerses.findIndex(
-      (verse) => verse.externalVerseId === tutorialGalleryTargetVerseId,
-    );
-    return index >= 0 ? index : null;
-  }, [tutorialGalleryTargetVerseId, tutorialMockVisibleVerses]);
-
   const reveal = useCallback(
-    (delay: number) =>
-      isVerseSectionTutorialMock ? {} : vm.view.getRevealProps(delay),
-    [isVerseSectionTutorialMock, vm.view.getRevealProps],
+    (delay: number) => vm.view.getRevealProps(delay),
+    [vm.view.getRevealProps],
   );
   const getListItemLayoutSignature = useCallback(
     (verse: Verse) =>
       `${getVerseCardLayoutSignature(verse)}:${isFocusMode ? "focus" : "default"}`,
     [isFocusMode],
   );
-  const shouldReduceMotion =
-    isVerseSectionTutorialMock || vm.ui.shouldReduceMotion;
+  const shouldReduceMotion = vm.ui.shouldReduceMotion;
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
-  const isDeleteModalOpen =
-    vm.modal.deleteTargetVerse !== null && !vm.modal.isDeleteSubmitting;
-  const isGalleryOpen = isVerseSectionTutorialMock
-    ? tutorialGalleryIndex !== null
-    : vm.gallery.galleryIndex !== null;
+  const isGalleryOpen = vm.gallery.galleryIndex !== null;
 
   const handleTelegramBack = useCallback(() => {
     if (addDialogOpen) {
@@ -356,27 +203,13 @@ export function VerseList({
       return;
     }
 
-    if (isDeleteModalOpen) {
-      vm.modal.setDeleteTargetVerse(null);
-      return;
-    }
-
     if (isGalleryOpen) {
-      if (isVerseSectionTutorialMock) {
-        useVerseSectionTutorialStore.getState().closeGallery();
-      } else {
-        vm.gallery.onClose();
-      }
+      vm.gallery.onClose();
       return;
     }
 
     if (isVerseTagsDrawerOpen) {
       closeVerseTagsDrawer();
-      return;
-    }
-
-    if (isVerseDifficultyDrawerOpen) {
-      closeVerseDifficultyDrawer();
       return;
     }
 
@@ -390,48 +223,29 @@ export function VerseList({
       return;
     }
 
-    if (isActiveVerseProgressDrawerOpen) {
-      if (isVerseSectionTutorialMock) {
-        useVerseSectionTutorialStore.getState().closeProgressDrawer();
-      } else {
-        setIsVerseProgressDrawerOpen(false);
-        setVerseProgressTarget(null);
-      }
-      return;
-    }
-
-    if (isTutorialPromptOpen) {
-      handleTutorialPromptOpenChange(false);
+    if (isVerseProgressDrawerOpen) {
+      setIsVerseProgressDrawerOpen(false);
+      setVerseProgressTarget(null);
     }
   }, [
     addDialogOpen,
-    handleTutorialPromptOpenChange,
-    isDeleteModalOpen,
+    closeVerseTagsDrawer,
     isFiltersDrawerOpen,
     isGalleryOpen,
-    isActiveVerseProgressDrawerOpen,
-    isTutorialPromptOpen,
-    isVerseDifficultyDrawerOpen,
-    isVerseTagsDrawerOpen,
     isVerseOwnersDrawerOpen,
-    closeVerseDifficultyDrawer,
-    isVerseSectionTutorialMock,
-    closeVerseTagsDrawer,
+    isVerseProgressDrawerOpen,
+    isVerseTagsDrawerOpen,
     vm.gallery,
-    vm.modal,
   ]);
 
   useTelegramBackButton({
     enabled:
       addDialogOpen ||
-      isDeleteModalOpen ||
       isGalleryOpen ||
       isVerseTagsDrawerOpen ||
-      isVerseDifficultyDrawerOpen ||
       isFiltersDrawerOpen ||
       isVerseOwnersDrawerOpen ||
-      isActiveVerseProgressDrawerOpen ||
-      isTutorialPromptOpen,
+      isVerseProgressDrawerOpen,
     onBack: handleTelegramBack,
     priority: 60,
   });
@@ -444,74 +258,6 @@ export function VerseList({
       closeVerseTagsDrawer();
     },
     [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
-  );
-
-  const renderTutorialMockVerseRow = useCallback(
-    (verse: Verse) => (
-      <div
-        data-tour={
-          verse.externalVerseId === ONBOARDING_PRIMARY_VERSE_ID
-            ? "onboarding-mock-primary-verse-card"
-            : undefined
-        }
-      >
-        <SwipeableVerseCard
-          verse={verse}
-          isFocusMode={isFocusMode}
-          onOpen={() => useVerseSectionTutorialStore.getState().openGallery(verse)}
-          onOpenProgress={(v) =>
-            useVerseSectionTutorialStore.getState().openProgressDrawer(v)
-          }
-          onOpenDifficulty={(targetVerse) => {
-            setVerseDifficultyTarget(targetVerse);
-            setIsVerseDifficultyDrawerOpen(true);
-          }}
-          onOpenTags={(targetVerse) => {
-            if (!targetVerse.tags || targetVerse.tags.length === 0) return;
-            setVerseTagsTarget({
-              reference: targetVerse.reference,
-              tags: targetVerse.tags,
-            });
-            setIsVerseTagsDrawerOpen(true);
-          }}
-          onAddToLearning={(targetVerse) => {
-            const action =
-              targetVerse.status === "CATALOG" ? "add-to-learning" : "start-learning";
-            useVerseSectionTutorialStore
-              .getState()
-              .applyVerseAction(targetVerse.externalVerseId, action);
-          }}
-          onPauseLearning={(targetVerse) =>
-            useVerseSectionTutorialStore
-              .getState()
-              .applyVerseAction(targetVerse.externalVerseId, "pause")
-          }
-          onResumeLearning={(targetVerse) =>
-            useVerseSectionTutorialStore
-              .getState()
-              .applyVerseAction(targetVerse.externalVerseId, "resume")
-          }
-          onRequestDelete={(targetVerse) =>
-            useVerseSectionTutorialStore
-              .getState()
-              .applyVerseAction(targetVerse.externalVerseId, "delete")
-          }
-        />
-      </div>
-    ),
-    [isFocusMode],
-  );
-
-  const tutorialMockListContent = useCallback(
-    () => (
-      <VerseStaticList
-        items={tutorialMockVisibleVerses}
-        renderRow={renderTutorialMockVerseRow}
-        getItemKey={(verse) => verse.externalVerseId}
-        getItemLayoutSignature={getListItemLayoutSignature}
-      />
-    ),
-    [getListItemLayoutSignature, tutorialMockVisibleVerses, renderTutorialMockVerseRow],
   );
 
   const listContent =
@@ -534,57 +280,44 @@ export function VerseList({
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
+  const filterCardProps = {
+    totalVisible: vm.ui.totalVisible,
+    totalCount: vm.pagination.totalCount,
+    currentFilterLabel: vm.ui.currentFilterLabel,
+    currentFilterTheme: vm.ui.currentFilterTheme,
+    statusFilter: vm.filters.statusFilter,
+    defaultStatusFilter: vm.filters.defaultStatusFilter,
+    filterOptions: vm.filters.filterOptions,
+    hasFriends,
+    onTabClick: vm.filterTabs.onTabClick,
+    selectedBookId: vm.filters.selectedBookId,
+    bookOptions: vm.filters.bookOptions,
+    onBookChange: vm.filterTabs.onBookChange,
+    sortBy: vm.filters.sortBy,
+    sortOptions: vm.filters.sortOptions,
+    onSortChange: vm.filterTabs.onSortChange,
+    onResetFilters: vm.filterTabs.onResetFilters,
+    searchQuery: vm.search.searchQuery,
+    onSearchChange: vm.search.setSearchQuery,
+    allTags: vm.tagFilter.allTags,
+    isLoadingTags: vm.tagFilter.isLoadingTags,
+    selectedTagSlugs: vm.tagFilter.selectedTagSlugs,
+    hasActiveTags: vm.tagFilter.hasActiveTags,
+    onTagClick: vm.tagFilter.onTagClick,
+    onClearTags: vm.tagFilter.onClearTags,
+    onCreateTagDialogOpen: () => {
+      setAddDialogMode("tag");
+      setAddDialogOpen(true);
+    },
+    onDeleteTag: vm.tagFilter.deleteTag,
+  };
+
+  const headerHeight = document.querySelector("#app-layout-header")?.clientHeight ?? 0;
 
   return (
     <>
-      <AlertDialog
-        open={isTutorialPromptOpen}
-        onOpenChange={handleTutorialPromptOpenChange}
-      >
-        <AlertDialogContent className="overflow-hidden backdrop-blur-xl rounded-3xl border-border/70 bg-gradient-to-br from-amber-500/15 via-background to-primary/10 p-0 shadow-2xl">
-          <div className="relative px-6 py-6 sm:px-7">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-amber-500/20 blur-2xl" />
-              <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
-            </div>
-
-            <AlertDialogHeader className="relative gap-3">
-              <AlertDialogTitle className="text-xl text-primary">
-                Короткое обучение по разделу «Стихи»
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
-                Могу за пару шагов показать главное: как добавить стих,
-                посмотреть его путь и где открывается подробный просмотр с
-                запуском тренировки.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <div className="relative mt-4 rounded-2xl border border-border/90 bg-background/40 p-3 text-xs leading-relaxed text-foreground/75">
-              Обучение касается только раздела «Стихи» и не уводит в
-              тренировку. Отдельный tutorial по тренировке можно добавить
-              позже.
-            </div>
-
-            <AlertDialogFooter className="relative mt-5">
-              <AlertDialogCancel
-                className="h-10 rounded-xl border border-border/90 bg-background/40 px-5 text-sm font-medium text-foreground/75"
-                onClick={handleSkipVerseSectionTutorial}
-              >
-                Не сейчас
-              </AlertDialogCancel>
-              <AlertDialogAction
-                className="h-10 rounded-xl border border-border/90 bg-background/40 text-foreground/75 px-5 text-sm font-medium"
-                onClick={handleStartVerseSectionTutorial}
-              >
-                Пройти обучение
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <motion.div
-        className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-hidden"
+        className="mx-auto flex min-h-full w-full max-w-6xl flex-col pb-4"
         {...(shouldReduceMotion
           ? {}
           : {
@@ -597,267 +330,127 @@ export function VerseList({
           {vm.ui.announcement}
         </div>
 
-        <motion.div className="shrink-0" {...reveal(0.02)}>
+        <motion.div
+          className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}
+          {...reveal(0.02)}
+        >
           <VerseListHeader
-            onAddVerseClick={vm.header.onAddVerseClick}
-            isFocusMode={isFocusMode}
-            onToggleFocusMode={toggleFocusMode}
-            onAboutSectionClick={handleTutorialPromptOpen}
+            isFullscreen={isTelegramFullscreen}
           />
         </motion.div>
 
-        {!isFocusMode ? (
-          <motion.div className="hidden shrink-0 md:block px-4 sm:px-6 lg:px-8" {...reveal(0.04)}>
-            <VerseListFilterCard
-              totalVisible={
-                isVerseSectionTutorialMock
-                  ? tutorialMockVisibleVerses.length
-                  : vm.ui.totalVisible
-              }
-              totalCount={
-                isVerseSectionTutorialMock
-                  ? tutorialMockTotalCount
-                  : vm.pagination.totalCount
-              }
-              currentFilterLabel={
-                isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
-              }
-              currentFilterTheme={
-                isVerseSectionTutorialMock
-                  ? tutorialMockFilterTheme
-                  : vm.ui.currentFilterTheme
-              }
-              statusFilter={vm.filters.statusFilter}
-              defaultStatusFilter={vm.filters.defaultStatusFilter}
-              filterOptions={vm.filters.filterOptions}
-              hasFriends={hasFriends}
-              onTabClick={vm.filterTabs.onTabClick}
-              selectedBookId={vm.filters.selectedBookId}
-              bookOptions={vm.filters.bookOptions}
-              onBookChange={vm.filterTabs.onBookChange}
-              sortBy={vm.filters.sortBy}
-              sortOptions={vm.filters.sortOptions}
-              onSortChange={vm.filterTabs.onSortChange}
-              onResetFilters={vm.filterTabs.onResetFilters}
-              searchQuery={vm.search.searchQuery}
-              onSearchChange={vm.search.setSearchQuery}
-              allTags={vm.tagFilter.allTags}
-              isLoadingTags={vm.tagFilter.isLoadingTags}
-              selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
-              hasActiveTags={vm.tagFilter.hasActiveTags}
-              onTagClick={vm.tagFilter.onTagClick}
-              onClearTags={vm.tagFilter.onClearTags}
-              onCreateTagDialogOpen={() => {
-                setAddDialogMode("tag");
-                setAddDialogOpen(true);
-              }}
-              onDeleteTag={vm.tagFilter.deleteTag}
-            />
-          </motion.div>
-        ) : null}
+              <div
+                className={cn(
+                  "fixed z-50 flex shrink-0 flex-col gap-1.5",
+                )}
+                style={{
+                  bottom: `calc(74px + ${contentSafeAreaInset.bottom}px + 12px)`,
+                  right: `calc(1rem + ${contentSafeAreaInset.right}px)`,
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={isFocusMode}
+                  title={
+                    isFocusMode
+                      ? "Выключить режим чтения"
+                      : "Включить режим чтения"
+                  }
+                  onClick={toggleFocusMode}
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card",
+                    isFocusMode &&
+                      "border-primary/35 bg-primary/10 text-primary",
+                  )}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
 
-        {isVerseSectionTutorialMock ? (
+                {canAddVerse ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={vm.header.onAddVerseClick}
+                    title="Добавить стих"
+                    className="h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+        <div
+          className="sticky z-40 shrink-0"
+          style={{ top: `${headerHeight}px` }}
+        >
           <motion.div
-            data-tour="verse-list-content"
-            data-tour-filter={vm.filters.statusFilter}
-            data-tour-state="ready"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
-            {...reveal(0.06)}
+            className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
+            {...reveal(0.04)}
           >
-            <VerseListSectionShell
-              totalCount={tutorialMockTotalCount}
-              config={tutorialMockSectionConfig}
-              count={tutorialMockVisibleVerses.length}
-            >
-              {tutorialMockListContent()}
-            </VerseListSectionShell>
+            <div className="flex items-stretch gap-1">
+              <div className="min-w-0 flex-1">
+                <VerseListFiltersTrigger
+                  open={isFiltersDrawerOpen}
+                  onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+                  {...filterCardProps}
+                />
+              </div>
+
+            </div>
           </motion.div>
-        ) : vm.ui.isListLoading ? (
+        </div>
+
+        {vm.ui.isListLoading ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="loading"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={
-                vm.list.sectionConfig ?? {
-                  headingId: "my-verses-heading",
-                  title: "Загрузка...",
-                  subtitle: "Загрузка...",
-                  dotClassName: "bg-gray-400",
-                  borderClassName:
-                    "bg-gradient-to-b from-gray-500/5 to-background",
-                  tintClassName: "bg-gray-500/5",
-                }
-              }
-              count={0}
-            >
-              <VerseListSkeletonCards count={3} />
-            </VerseListSectionShell>
+            <VerseListSkeletonCards count={3} />
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="empty"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={{
-                headingId: "empty-verse-list-heading",
-                title: vm.ui.currentFilterLabel,
-                subtitle: `По фильтру «${vm.ui.currentFilterLabel}» сейчас нет карточек.`,
-                dotClassName: "bg-gray-400",
-                borderClassName:
-                  "bg-gradient-to-b from-gray-500/5 to-background",
-                tintClassName: "bg-gray-500/5",
-              }}
-              count={vm.pagination.totalCount}
-              contentHeightMode="auto"
-              fillAvailableHeight
-            >
-              <VerseListEmptyState
-                currentFilterLabel={vm.ui.currentFilterLabel}
-                isAllFilter={vm.filters.statusFilter === "catalog"}
-              />
-            </VerseListSectionShell>
+            <VerseListEmptyState
+              currentFilterLabel={vm.ui.currentFilterLabel}
+              isAllFilter={vm.filters.statusFilter === "catalog"}
+            />
           </motion.div>
         ) : vm.list.sectionConfig ? (
           <motion.div
             data-tour="verse-list-content"
             data-tour-filter={vm.filters.statusFilter}
             data-tour-state="ready"
-            className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8"
+            className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.06)}
           >
-            <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={vm.list.sectionConfig}
-              count={vm.list.sectionItems.length}
-            >
-              {listContent}
-            </VerseListSectionShell>
+            {listContent}
           </motion.div>
         ) : null}
+
+        <AddVerseDialog
+          open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}
+          mode={addDialogMode}
+          viewerTelegramId={telegramId}
+          onClose={() => setAddDialogOpen(false)}
+          onAdd={canAddVerse ? onVerseAdded : undefined}
+          onCreateTag={vm.tagFilter.createTag}
+        />
 
         <VerseListFiltersDrawer
           open={isFiltersDrawerOpen}
           onOpenChange={setIsLocalFiltersDrawerOpen}
-          totalVisible={
-            isVerseSectionTutorialMock
-              ? tutorialMockVisibleVerses.length
-              : vm.ui.totalVisible
-          }
-          totalCount={
-            isVerseSectionTutorialMock
-              ? tutorialMockTotalCount
-              : vm.pagination.totalCount
-          }
-          currentFilterLabel={
-            isVerseSectionTutorialMock ? "Каталог" : vm.ui.currentFilterLabel
-          }
-          currentFilterTheme={
-            isVerseSectionTutorialMock
-              ? tutorialMockFilterTheme
-              : vm.ui.currentFilterTheme
-          }
-          statusFilter={vm.filters.statusFilter}
-          defaultStatusFilter={vm.filters.defaultStatusFilter}
-          filterOptions={vm.filters.filterOptions}
-          hasFriends={hasFriends}
-          onTabClick={vm.filterTabs.onTabClick}
-          selectedBookId={vm.filters.selectedBookId}
-          bookOptions={vm.filters.bookOptions}
-          onBookChange={vm.filterTabs.onBookChange}
-          sortBy={vm.filters.sortBy}
-          sortOptions={vm.filters.sortOptions}
-          onSortChange={vm.filterTabs.onSortChange}
-          onResetFilters={vm.filterTabs.onResetFilters}
-          searchQuery={vm.search.searchQuery}
-          onSearchChange={vm.search.setSearchQuery}
-          allTags={vm.tagFilter.allTags}
-          isLoadingTags={vm.tagFilter.isLoadingTags}
-          selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
-          hasActiveTags={vm.tagFilter.hasActiveTags}
-          onTagClick={vm.tagFilter.onTagClick}
-          onClearTags={vm.tagFilter.onClearTags}
-          onCreateTagDialogOpen={() => {
-            setAddDialogMode("tag");
-            setAddDialogOpen(true);
-          }}
-          onDeleteTag={vm.tagFilter.deleteTag}
+          {...filterCardProps}
         />
 
-        {/* <motion.div {...reveal(0.08)}>
-        <VerseListLoadMoreFooter
-          visible={footerVisible}
-          isFetchingMore={vm.pagination.isFetchingMoreVerses}
-          showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
-          loadMoreError={vm.pagination.loadMoreError}
-          hasMoreVerses={vm.pagination.hasMoreVerses}
-          versesLength={vm.pagination.verses.length}
-          onRetryLoadMore={() => {
-            void vm.footerLoadState.onRetryLoadMore();
-          }}
-        />
-      </motion.div> */}
-
-        <AddVerseDialog
-          open={addDialogOpen}
-          mode={addDialogMode}
-          viewerTelegramId={telegramId}
-          onClose={() => setAddDialogOpen(false)}
-          onAdd={onVerseAdded}
-          onCreateTag={vm.tagFilter.createTag}
-        />
-
-        <ConfirmDeleteModal
-          verse={vm.modal.deleteTargetVerse}
-          open={vm.modal.deleteTargetVerse !== null}
-          onOpenChange={(open) => {
-            if (!open && !vm.modal.isDeleteSubmitting) {
-              vm.modal.setDeleteTargetVerse(null);
-            }
-          }}
-          onConfirm={vm.modal.onConfirmDelete}
-          isSubmitting={vm.modal.isDeleteSubmitting}
-        />
-
-        {isVerseSectionTutorialMock &&
-          tutorialGalleryIndex !== null &&
-          tutorialMockVisibleVerses[tutorialGalleryIndex] &&
-          typeof document !== "undefined" &&
-          createPortal(
-            <VerseGallery
-              verses={tutorialMockVisibleVerses}
-              initialIndex={tutorialGalleryIndex}
-              activeTagSlugs={vm.tagFilter.selectedTagSlugs}
-              viewerTelegramId={telegramId}
-              isFocusMode={isFocusMode}
-              onToggleFocusMode={toggleFocusMode}
-              onClose={() => {
-                useVerseSectionTutorialStore.getState().closeGallery();
-              }}
-              onStatusChange={async () => {}}
-              onDelete={async () => ({ xpLoss: 0 })}
-              onSelectTag={handleVerseTagSelect}
-              onFriendsChanged={onFriendsChanged}
-              onNavigateToTraining={() => {}}
-              previewTotalCount={tutorialMockVisibleVerses.length}
-              previewHasMore={false}
-              previewIsLoadingMore={false}
-              isAnchorEligible={isAnchorEligible}
-            />,
-            document.body,
-          )}
-
-        {!isVerseSectionTutorialMock &&
-          vm.gallery.galleryIndex !== null &&
+        {vm.gallery.galleryIndex !== null &&
           vm.pagination.verses[vm.gallery.galleryIndex] &&
           typeof document !== "undefined" &&
           createPortal(
@@ -919,30 +512,10 @@ export function VerseList({
           onSelectTag={handleVerseTagSelect}
         />
 
-        <VerseDifficultyDrawer
-          verse={verseDifficultyTarget}
-          open={isVerseDifficultyDrawerOpen}
-          onOpenChange={(open) => {
-            setIsVerseDifficultyDrawerOpen(open);
-            if (!open) {
-              setVerseDifficultyTarget(null);
-            }
-          }}
-        />
-
         <VerseProgressDrawer
-          verse={activeVerseProgressTarget}
-          open={isActiveVerseProgressDrawerOpen}
+          verse={verseProgressTarget}
+          open={isVerseProgressDrawerOpen}
           onOpenChange={(open) => {
-            if (isVerseSectionTutorialMock) {
-              if (open) {
-                // Progress drawer is opened via store.openProgressDrawer
-              } else {
-                useVerseSectionTutorialStore.getState().closeProgressDrawer();
-              }
-              return;
-            }
-
             setIsVerseProgressDrawerOpen(open);
             if (!open) {
               setVerseProgressTarget(null);

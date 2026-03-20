@@ -2,6 +2,10 @@ import { useCallback } from "react";
 import type { UserVerse } from "@/api/models/UserVerse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { computeDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
+import {
+  getDisplayStatusFromFlow,
+  normalizeVerseFlow,
+} from "@/shared/domain/verseFlow";
 import type { Verse } from "@/app/App";
 import {
   normalizeRawMasteryLevel,
@@ -11,7 +15,17 @@ import {
 } from "../utils";
 import type { ModeId, TrainingVerseState } from "../types";
 
-type PersistedTrainingVerse = Partial<UserVerse> | null;
+/** PATCH-ответ и расширения бэкенда могут отдавать поля текста/ссылки вне схемы OpenAPI. */
+type PersistedTrainingVerse =
+  | (Partial<UserVerse> & {
+      text?: string | null;
+      reference?: string | null;
+      tags?: Verse["tags"];
+      difficultyLevel?: Verse["difficultyLevel"];
+      externalVerseId?: string;
+      flow?: Verse["flow"];
+    })
+  | null;
 
 type UseVerseSyncParams = {
   onDesync: (externalVerseId: string) => Promise<TrainingVerseState | null>;
@@ -50,7 +64,12 @@ export function normalizePersistedTrainingVerseState(
   persistedResponse: PersistedTrainingVerse
 ): TrainingVerseState {
   const persistedStatus = normalizeVerseStatus(
-    (persistedResponse?.status as Verse["status"] | undefined) ?? currentVerse.status
+    (getDisplayStatusFromFlow(normalizeVerseFlow(persistedResponse?.flow)) ??
+      (persistedResponse?.status as Verse["status"] | undefined)) ??
+      currentVerse.status
+  );
+  const persistedFlow = normalizeVerseFlow(
+    persistedResponse?.flow ?? currentVerse.raw.flow
   );
   const persistedMasteryLevel = normalizeRawMasteryLevel(
     persistedResponse?.masteryLevel ?? currentVerse.rawMasteryLevel
@@ -94,6 +113,7 @@ export function normalizePersistedTrainingVerseState(
       externalVerseId:
         persistedResponse?.externalVerseId ?? currentVerse.raw.externalVerseId,
       status: persistedDisplayStatus,
+      flow: persistedFlow,
       masteryLevel: persistedMasteryLevel,
       repetitions: persistedRepetitions,
       reviewLapseStreak: persistedReviewLapseStreak,

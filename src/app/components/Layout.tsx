@@ -86,6 +86,7 @@ export function Layout({
     <div className="min-h-dvh flex flex-col">
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
+          id="app-layout-header"
           className={`bg-card/90 backdrop-blur-xl border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
             isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
           }`}
@@ -101,7 +102,7 @@ export function Layout({
         </header>
       ) : null}
 
-      <div className="flex-1 min-h-0 flex max-w-7xl w-full mx-auto">
+      <div className="flex min-h-0 w-full max-w-7xl flex-1 min-w-0 mx-auto">
         {/* Sidebar Navigation */}
         <aside data-tour="app-nav" className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
           <nav className="p-4 space-y-1">
@@ -131,7 +132,7 @@ export function Layout({
 
         {/* Main Content */}
         <main
-          className="flex-1 min-h-0 overflow-x-hidden md:overflow-auto"
+          className="min-w-0 flex-1 min-h-0 [overflow-x:clip]"
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`

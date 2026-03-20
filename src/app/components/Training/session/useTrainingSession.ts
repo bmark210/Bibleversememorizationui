@@ -25,7 +25,7 @@ import {
   getModeByShiftInProgressOrder,
 } from "@/app/components/VerseGallery/utils";
 import {
-  completeTraining,
+  persistTrainingVerseProgress,
   fetchTrainingVerseSnapshot,
 } from "@/app/components/VerseGallery/trainingApi";
 import {
@@ -378,14 +378,17 @@ export function useTrainingSession({
 
         // Persist
         try {
-          const completionResponse = await completeTraining({
-            externalVerseId: current.externalVerseId,
-            modeId: trainingModeId,
-            phase: wasReviewExercise ? "review" : "learning",
-            requestedRating: rating,
-            ratingCap: attempt?.ratingPolicy.maxRating ?? (wasReviewExercise ? 2 : 3),
+          const persistedUserVerse = await persistTrainingVerseProgress(updated, {
+            includeRepetitions: progressDelta.canUpdateRepetitions,
+            reviewRating: cappedRating,
           });
-          const persistedResponse = completionResponse.verse;
+          const persistedResponse = persistedUserVerse as unknown as Record<
+            string,
+            unknown
+          > | null;
+          if (!persistedResponse) {
+            throw new Error("Training progress was not persisted");
+          }
           const persistedUpdated = await verseSync.reconcile({
             optimistic: updated,
             persistedResponse,

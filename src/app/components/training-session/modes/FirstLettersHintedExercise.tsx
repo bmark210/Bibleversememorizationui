@@ -20,6 +20,7 @@ import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -28,7 +29,10 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { useFittedBatchSize } from './useFittedBatchSize';
+import {
+  useMeasuredChoiceBatch,
+  type MeasuredChoiceBatchItem,
+} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface FirstLettersHintedExerciseProps {
@@ -126,6 +130,9 @@ function buildExercise(params: {
   };
 }
 
+const LETTER_CHOICE_BUTTON_BASE_CLASS =
+  'h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4';
+
 export function ModeFirstLettersHintedExercise({
   verse,
   onRate,
@@ -143,7 +150,6 @@ export function ModeFirstLettersHintedExercise({
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
   const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
-  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
@@ -158,7 +164,6 @@ export function ModeFirstLettersHintedExercise({
     setChoiceOrder(exercise.choiceOrder);
     setSelectedCount(0);
     setMistakesSinceReset(0);
-    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashLetter(null);
     setSuccessFlashLetter(null);
@@ -296,7 +301,6 @@ export function ModeFirstLettersHintedExercise({
       return;
     }
 
-    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -333,28 +337,29 @@ export function ModeFirstLettersHintedExercise({
   };
 
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
+  const availableLetterItems = useMemo<MeasuredChoiceBatchItem<string>[]>(
+    () => availableLetters.map((letter) => ({ key: letter, value: letter })),
+    [availableLetters]
+  );
 
-  const { ref: choicesContainerRef, batchSize } = useFittedBatchSize({
-    itemHeight: 44,
-    rowGap: 4,
-    itemMinWidth: 48,
-    columnGap: 4,
-    minItems: 4,
-    maxItems: 40,
+  const preferredExpectedIndex = useMemo(
+    () =>
+      Math.min(2 + (selectedCount % 3), Math.max(availableLetterItems.length - 1, 0)),
+    [availableLetterItems.length, selectedCount]
+  );
+
+  const {
+    containerRef: choicesContainerRef,
+    measureRef: measureChoicesRef,
+    measurementItems: measuredLetterItems,
+    displayedItems: displayedLetterItems,
+  } = useMeasuredChoiceBatch({
+    items: availableLetterItems,
     enabled: showChoices,
+    requiredItemKey: expectedFirstLetter,
+    preferredRequiredIndex: preferredExpectedIndex,
+    dependencies: [fontSizes.level],
   });
-
-  const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, batchSize);
-    if (expectedFirstLetter && !batch.includes(expectedFirstLetter)) {
-      const idx = availableLetters.indexOf(expectedFirstLetter);
-      if (idx >= 0 && batch.length > 0) {
-        const swapIdx = selectedCount % batch.length;
-        batch[swapIdx] = expectedFirstLetter;
-      }
-    }
-    return batch;
-  }, [availableLetters, expectedFirstLetter, selectedCount, batchSize]);
 
   return (
     <motion.div
@@ -362,13 +367,14 @@ export function ModeFirstLettersHintedExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
+        <label className="text-xs text-center font-medium text-foreground/90">
           Выберите первые буквы слов
         </label>
         {onOpenTutorial && (
@@ -395,29 +401,53 @@ export function ModeFirstLettersHintedExercise({
           <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
             <span>Варианты букв</span>
           </div>
-          <div
-            ref={choicesContainerRef}
-            className="flex-1 min-h-0 overflow-hidden"
-          >
-            <div className="flex flex-wrap content-start gap-1 py-1">
-              {displayedLetters.map((letter) => (
-                <Button
-                  key={letter}
-                  type="button"
-                  variant="outline"
-                  className={`h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 transition-colors ${
-                    errorFlashLetter === letter
-                      ? 'border-destructive text-destructive bg-destructive/10'
-                      : successFlashLetter === letter
-                        ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                        : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
-                  style={{ fontSize: `${fontSizes.letter}px` }}
-                  onClick={() => handleLetterClick(letter)}
-                >
-                  <span>{letter}</span>
-                </Button>
-              ))}
+          <div className="relative flex-1 min-h-0">
+            <div
+              ref={choicesContainerRef}
+              className="absolute inset-0 min-h-0 overflow-hidden"
+            >
+              <div className="flex flex-wrap content-start gap-1 py-1">
+                {displayedLetterItems.map(({ key, value: letter }) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                      errorFlashLetter === letter
+                        ? 'border-destructive text-destructive bg-destructive/10'
+                        : successFlashLetter === letter
+                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                    }`}
+                    style={{ fontSize: `${fontSizes.letter}px` }}
+                    onClick={() => handleLetterClick(letter)}
+                  >
+                    <span>{letter}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="pointer-events-none invisible absolute inset-x-0 top-0"
+            >
+              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1 py-1">
+                {measuredLetterItems.map(({ key, value: letter }) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    haptic={false}
+                    tabIndex={-1}
+                    data-choice-key={key}
+                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
+                    style={{ fontSize: `${fontSizes.letter}px` }}
+                  >
+                    <span>{letter}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

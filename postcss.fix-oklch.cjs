@@ -1,5 +1,27 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const postcss = require('postcss');
+const { transform, Features } = require('lightningcss');
+
 const COLOR_MIX_FALLBACK_RE =
   /^color-mix\(\s*in\s+(oklab|oklch)\s*,\s*var\((--[\w-]+)\)\s*([\d.]+)%\s*,\s*transparent\s*\)$/;
+
+function toTargetVersion(major, minor = 0) {
+  return (major << 16) | (minor << 8);
+}
+
+function lowerModernColors(css, filename) {
+  return transform({
+    filename,
+    code: Buffer.from(css),
+    minify: false,
+    include: Features.Colors,
+    targets: {
+      // Telegram WebView often trails current Safari/Chrome releases.
+      chrome: toTargetVersion(110),
+      safari: toTargetVersion(15),
+    },
+  }).code.toString();
+}
 
 function toRgbVarName(colorVarName) {
   if (colorVarName.startsWith('--color-')) {
@@ -57,37 +79,48 @@ function ensureFallbackDecl(atRule, innerRule, decl, fallbackValue) {
   atRule.parent.insertBefore(atRule, fallbackRule);
 }
 
+function injectDynamicColorMixFallbacks(root) {
+  root.walkAtRules('supports', (atRule) => {
+    if (!atRule.params.includes('color-mix(')) return;
+
+    if (atRule.parent?.type === 'rule') {
+      const outerRule = atRule.parent;
+
+      atRule.walkDecls((decl) => {
+        const match = decl.value.match(COLOR_MIX_FALLBACK_RE);
+        if (!match) return;
+
+        const [, , colorVarName, pct] = match;
+        setFallbackDecl(outerRule, decl, toFallbackValue(colorVarName, pct));
+      });
+
+      return;
+    }
+
+    atRule.walkRules((innerRule) => {
+      innerRule.walkDecls((decl) => {
+        const match = decl.value.match(COLOR_MIX_FALLBACK_RE);
+        if (!match) return;
+
+        const [, , colorVarName, pct] = match;
+        ensureFallbackDecl(atRule, innerRule, decl, toFallbackValue(colorVarName, pct));
+      });
+    });
+  });
+}
+
 function fixOklch() {
   return {
     postcssPlugin: 'postcss-fix-oklch',
     OnceExit(root) {
-      root.walkAtRules('supports', (atRule) => {
-        if (!atRule.params.includes('color-mix(')) return;
+      const filename = root.source?.input?.file ?? 'input.css';
+      const transformedCss = lowerModernColors(root.toString(), filename);
+      const transformedRoot = postcss.parse(transformedCss, { from: filename });
 
-        if (atRule.parent?.type === 'rule') {
-          const outerRule = atRule.parent;
+      injectDynamicColorMixFallbacks(transformedRoot);
 
-          atRule.walkDecls((decl) => {
-            const match = decl.value.match(COLOR_MIX_FALLBACK_RE);
-            if (!match) return;
-
-            const [, , colorVarName, pct] = match;
-            setFallbackDecl(outerRule, decl, toFallbackValue(colorVarName, pct));
-          });
-
-          return;
-        }
-
-        atRule.walkRules((innerRule) => {
-          innerRule.walkDecls((decl) => {
-            const match = decl.value.match(COLOR_MIX_FALLBACK_RE);
-            if (!match) return;
-
-            const [, , colorVarName, pct] = match;
-            ensureFallbackDecl(atRule, innerRule, decl, toFallbackValue(colorVarName, pct));
-          });
-        });
-      });
+      root.removeAll();
+      root.append(transformedRoot.nodes);
     },
   };
 }

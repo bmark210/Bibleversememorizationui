@@ -1,11 +1,1 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-export type Tag = {
-    id?: string;
-    slug?: string;
-    title?: string;
-    createdAt?: string;
-};
-
+export type { bible_memory_db_internal_domain_Tag as Tag } from "./bible_memory_db_internal_domain_Tag";

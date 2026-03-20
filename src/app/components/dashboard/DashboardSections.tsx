@@ -10,7 +10,6 @@ import type {
   DashboardLeaderboard as DashboardLeaderboardData,
 } from "@/api/services/leaderboard";
 import type { DashboardFriendsActivity } from "@/api/services/friends";
-import type { AllUsersResponse } from "@/api/services/allUsers";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
@@ -208,13 +207,16 @@ export function DashboardWelcomeSection({
           : "Откройте тренировку и выберите следующую сессию.";
   const trainingCtaLabel =
     dueReviewVerses > 0
-      ? "Повторить сейчас"
+      ? "Тренировка"
       : learningVersesCount > 0
-        ? "Продолжить практику"
-        : "Открыть тренировку";
+        ? "Тренировка"
+        : "Тренировка";
 
   return (
     <div className="mb-5">
+          <span className="absolute top-2 right-2 z-10 text-xs text-foreground/45">
+            v3.0.1
+          </span>
       <DashboardSurface className="rounded-[32px]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
@@ -642,92 +644,6 @@ export function DashboardFriendsActivityCard({
                     </Button>
                   ) : null}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      </DashboardSurface>
-    </div>
-  );
-}
-
-type AllUsersAvatarsCardProps = {
-  allUsers?: AllUsersResponse | null;
-  isLoading?: boolean;
-  onOpenPlayerProfile?: (player: {
-    telegramId: string;
-    name: string;
-    avatarUrl: string | null;
-  }) => void;
-};
-
-export function AllUsersAvatarsCard({
-  allUsers = null,
-  isLoading = false,
-  onOpenPlayerProfile,
-}: AllUsersAvatarsCardProps) {
-  const entries = allUsers?.entries ?? [];
-  const totalCount = allUsers?.totalCount ?? 0;
-
-  return (
-    <div>
-      <DashboardSurface>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight text-foreground/80">
-            Все пользователи
-          </h2>
-          <div className="text-xs text-foreground/45">{totalCount}</div>
-        </div>
-
-        <div className="space-y-2.5">
-          {entries.length > 0 ? (
-            entries.map((entry) => (
-              <button
-                key={entry.telegramId}
-                type="button"
-                onClick={() =>
-                  onOpenPlayerProfile?.({
-                    telegramId: entry.telegramId,
-                    name: entry.name,
-                    avatarUrl: entry.avatarUrl,
-                  })
-                }
-                className="w-full rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5 text-left transition-colors hover:bg-background/70"
-                aria-label={`Открыть профиль ${entry.name}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
-                    {entry.avatarUrl ? (
-                      <AvatarImage src={entry.avatarUrl} alt={entry.name} />
-                    ) : null}
-                    <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                      {getInitials(entry.name)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground/78">
-                      {entry.name}
-                    </div>
-                    <div className="mt-1 text-xs text-foreground/48">
-                      {entry.dailyStreak} дн. подряд
-                    </div>
-                  </div>
-
-                  <div className="text-xs font-medium text-foreground/68">
-                    {formatXp(entry.xp)}
-                  </div>
-                </div>
-              </button>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4">
-              {isLoading ? (
-                <div className="text-sm text-foreground/56">Загрузка...</div>
-              ) : (
-                <p className="text-sm leading-relaxed text-foreground/56">
-                  Пока нет данных о других пользователях.
-                </p>
               )}
             </div>
           )}

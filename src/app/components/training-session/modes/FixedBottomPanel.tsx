@@ -11,7 +11,7 @@ export function FixedBottomPanel({ children, visible }: FixedBottomPanelProps) {
   if (!visible) return null;
 
   return (
-    <div className="shrink-0 mt-2 border-t border-border/60 pt-2">
+    <div className="shrink-0 mt-2 pt-2">
       {children}
     </div>
   );

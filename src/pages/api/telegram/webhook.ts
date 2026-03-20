@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { buildOpenAppKeyboard, sendTelegramMessage } from "@/lib/telegramBot";
-import { upsertUserByTelegramId } from "@/modules/users/infrastructure/userRepository";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
+import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+import { resolvePublicWebAppUrl } from "@/lib/serverWebAppUrl";
 
 type TelegramUpdate = {
   message?: {
@@ -44,9 +45,36 @@ function buildWelcomeText(firstName: string | undefined) {
 
 function buildOpenText(appUrl: string) {
   return [
-    "Открывайте приложение и продолжайте тренировку.",
+    "Открывайте приложение и продолжите тренировку.",
     appUrl ? "Нажмите кнопку ниже, чтобы открыть приложение." : "Приложение сейчас недоступно.",
   ].join("\n");
+}
+
+async function upsertTelegramUserOnApi(params: {
+  telegramId: string;
+  name: string | null;
+}): Promise<void> {
+  const base = getPublicApiBaseUrl();
+  if (!base) {
+    console.error("NEXT_PUBLIC_API_BASE_URL is not configured");
+    return;
+  }
+
+  const res = await fetch(`${base}/api/users/telegram`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      telegramId: params.telegramId,
+      name: params.name,
+      nickname: null,
+      avatarUrl: null,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("Failed to upsert user on Bible Memory API:", res.status, text);
+  }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -87,20 +115,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const telegramId = String(fromIdRaw);
     const firstName = message.from?.first_name?.trim() || null;
     const fallbackName = firstName || `Участник #${telegramId.slice(-4) || telegramId}`;
-    const openAppUrl = String(process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+    const openAppUrl = resolvePublicWebAppUrl();
     const replyMarkup = buildOpenAppKeyboard(openAppUrl);
 
     const { command } = normalizeCommand(text);
 
     if (command === "/start") {
-      await upsertUserByTelegramId({
+      await upsertTelegramUserOnApi({
         telegramId,
-        update: {
-          ...(firstName ? { name: firstName } : {}),
-        },
-        create: {
-          name: fallbackName,
-        },
+        name: firstName ?? fallbackName,
       });
 
       await sendTelegramMessage({

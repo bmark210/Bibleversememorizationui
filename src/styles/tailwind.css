@@ -5,12 +5,15 @@
 
 /* Override used Tailwind colors to sRGB hex so generated utilities stop depending on oklch tokens. */
 @theme {
+  --color-amber-100: #fef3c6;
+  --color-amber-200: #fee685;
   --color-amber-300: #ffd230;
   --color-amber-400: #ffb900;
   --color-amber-500: #fe9a00;
   --color-amber-600: #e17100;
   --color-amber-700: #bb4d00;
   --color-amber-800: #973c00;
+  --color-amber-900: #7b3306;
   --color-amber-950: #461901;
   --color-blue-500: #2b7fff;
   --color-blue-700: #1447e6;
@@ -23,14 +26,17 @@
   --color-emerald-500: #00bc7d;
   --color-emerald-600: #009966;
   --color-emerald-700: #007a55;
+  --color-emerald-800: #005f46;
+  --color-emerald-900: #004e3b;
   --color-fuchsia-500: #e12afb;
   --color-fuchsia-700: #a800b7;
+  --color-gray-600: #4a5565;
   --color-gray-100: #f3f4f6;
   --color-gray-300: #d1d5dc;
   --color-gray-400: #99a1af;
   --color-gray-500: #6a7282;
-  --color-gray-600: #4a5565;
   --color-gray-700: #364153;
+  --color-green-600: #00a544;
   --color-lime-500: #7ccf00;
   --color-lime-700: #497d00;
   --color-orange-300: #ffb86a;
@@ -47,30 +53,42 @@
   --color-sky-500: #00a6f4;
   --color-sky-600: #0084d1;
   --color-sky-700: #0069a8;
+  --color-sky-800: #005986;
+  --color-sky-900: #024a70;
+  --color-sky-950: #052f4a;
   --color-slate-200: #e2e8f0;
   --color-slate-300: #cad5e2;
   --color-slate-400: #90a1b9;
   --color-slate-500: #62748e;
   --color-slate-700: #314158;
+  --color-teal-500: #00baa7;
+  --color-teal-700: #00776e;
+  --color-teal-800: #005f5a;
   --color-violet-300: #c4b4ff;
   --color-violet-400: #a684ff;
   --color-violet-500: #8e51ff;
   --color-violet-600: #7f22fe;
   --color-violet-700: #7008e7;
+  --color-violet-800: #5d0ec0;
+  --color-violet-900: #4d179a;
   --color-yellow-300: #ffdf20;
   --color-yellow-400: #fdc700;
+  --color-yellow-500: #edb200;
   --color-black: #000000;
   --color-white: #ffffff;
 }
 
 /* Runtime RGB tuples for the PostCSS rgba() fallback injected before color-mix(). */
 :root {
+  --color-amber-100-rgb: 254, 243, 198;
+  --color-amber-200-rgb: 254, 230, 133;
   --color-amber-300-rgb: 255, 210, 48;
   --color-amber-400-rgb: 255, 185, 0;
   --color-amber-500-rgb: 254, 154, 0;
   --color-amber-600-rgb: 225, 113, 0;
   --color-amber-700-rgb: 187, 77, 0;
   --color-amber-800-rgb: 151, 60, 0;
+  --color-amber-900-rgb: 123, 51, 6;
   --color-amber-950-rgb: 70, 25, 1;
   --color-blue-500-rgb: 43, 127, 255;
   --color-blue-700-rgb: 20, 71, 230;
@@ -83,6 +101,8 @@
   --color-emerald-500-rgb: 0, 188, 125;
   --color-emerald-600-rgb: 0, 153, 102;
   --color-emerald-700-rgb: 0, 122, 85;
+  --color-emerald-800-rgb: 0, 95, 70;
+  --color-emerald-900-rgb: 0, 78, 59;
   --color-fuchsia-500-rgb: 225, 42, 251;
   --color-fuchsia-700-rgb: 168, 0, 183;
   --color-gray-100-rgb: 243, 244, 246;
@@ -91,6 +111,7 @@
   --color-gray-500-rgb: 106, 114, 130;
   --color-gray-600-rgb: 74, 85, 101;
   --color-gray-700-rgb: 54, 65, 83;
+  --color-green-600-rgb: 0, 165, 68;
   --color-lime-500-rgb: 124, 207, 0;
   --color-lime-700-rgb: 73, 125, 0;
   --color-orange-300-rgb: 255, 184, 106;
@@ -107,18 +128,27 @@
   --color-sky-500-rgb: 0, 166, 244;
   --color-sky-600-rgb: 0, 132, 209;
   --color-sky-700-rgb: 0, 105, 168;
+  --color-sky-800-rgb: 0, 89, 134;
+  --color-sky-900-rgb: 2, 74, 112;
+  --color-sky-950-rgb: 5, 47, 74;
   --color-slate-200-rgb: 226, 232, 240;
   --color-slate-300-rgb: 202, 213, 226;
   --color-slate-400-rgb: 144, 161, 185;
   --color-slate-500-rgb: 98, 116, 142;
   --color-slate-700-rgb: 49, 65, 88;
+  --color-teal-500-rgb: 0, 186, 167;
+  --color-teal-700-rgb: 0, 119, 110;
+  --color-teal-800-rgb: 0, 95, 90;
   --color-violet-300-rgb: 196, 180, 255;
   --color-violet-400-rgb: 166, 132, 255;
   --color-violet-500-rgb: 142, 81, 255;
   --color-violet-600-rgb: 127, 34, 254;
   --color-violet-700-rgb: 112, 8, 231;
+  --color-violet-800-rgb: 93, 14, 192;
+  --color-violet-900-rgb: 77, 23, 154;
   --color-yellow-300-rgb: 255, 223, 32;
   --color-yellow-400-rgb: 253, 199, 0;
+  --color-yellow-500-rgb: 237, 178, 0;
   --color-black-rgb: 0, 0, 0;
   --color-white-rgb: 255, 255, 255;
 }

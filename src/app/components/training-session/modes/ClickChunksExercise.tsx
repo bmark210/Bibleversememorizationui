@@ -8,11 +8,13 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
+import { TrainingStageCorner } from './TrainingStageCorner';
 import { Verse } from '@/app/App';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -120,7 +122,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
   const [successFlashTokenId, setSuccessFlashTokenId] = useState<string | null>(null);
-  const [totalMistakes, setTotalMistakes] = useState(0);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
 
@@ -131,7 +132,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
     setTokens(shuffleTokens(chunks));
     setSelectedIds([]);
     setMistakesSinceReset(0);
-    setTotalMistakes(0);
     setIsCompleted(false);
     setErrorFlashTokenId(null);
     setSuccessFlashTokenId(null);
@@ -222,7 +222,6 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       return;
     }
 
-    setTotalMistakes((prev) => prev + 1);
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
     setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
@@ -266,13 +265,14 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
+      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
       {mistakesSinceReset > 0 && (
         <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 flex items-center justify-center gap-1.5">
-        <label className="text-sm font-medium text-foreground/90">
+      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
+        <label className="text-xs text-center font-medium text-foreground/90">
           Соберите стих по фрагментам
         </label>
         {onOpenTutorial && (
@@ -283,7 +283,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       </div>
 
       {/* ── Top half: assembled sequence ── */}
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
+      <div className="mt-3 max-h-[38%] min-h-0 shrink overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Последовательность</span>
@@ -310,10 +310,14 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
 
       {/* ── Bottom half: chunk choices ── */}
       {showChoices && (
-        <div
-          data-scroll-shadow="true"
-          className="mt-2 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] border-t border-border/60 pt-2"
+        <ScrollShadowContainer
+          className="min-h-0 shrink mt-8 border-t border-border/60"
+          scrollClassName="h-full py-2 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+          shadowSize={18}
         >
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
+            <span>Варианты фрагментов</span>
+          </div>
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
@@ -334,7 +338,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               </Button>
             ))}
           </div>
-        </div>
+        </ScrollShadowContainer>
       )}
 
       {isCompleted && (
