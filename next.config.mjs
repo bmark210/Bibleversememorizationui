@@ -4,18 +4,25 @@ const PRODUCTION_GO_API_DEFAULT =
 
 const productionGoApiBase = PRODUCTION_GO_API_DEFAULT.replace(/\/+$/, "");
 
+function isSameOriginApiExplicitlyEnabled() {
+  const raw = process.env.NEXT_PUBLIC_USE_SAME_ORIGIN_API;
+  if (raw == null) return false;
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
 /**
  * Публичный URL Go API для браузера и serverless routes.
- * На Netlify относительные `/api/...` с пустым base уходят на сам Netlify (rewrites из next.config там не спасают),
- * поэтому при сборке production без явной переменной подставляем Railway.
- *
- * Чтобы снова использовать same-origin + rewrite (например `next start` за своим прокси),
- * задайте в окружении `NEXT_PUBLIC_API_BASE_URL=` (пустая строка — явный выбор).
+ * В production по умолчанию всегда указываем внешний backend.
+ * Same-origin API разрешается только явным opt-in через `NEXT_PUBLIC_USE_SAME_ORIGIN_API=true`.
  */
 function resolveNextPublicApiBaseUrl() {
   const raw = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (raw !== undefined && raw !== null) {
+  if (raw !== undefined && raw !== null && String(raw).trim()) {
     return String(raw).trim();
+  }
+  if (isSameOriginApiExplicitlyEnabled()) {
+    return "";
   }
   if (process.env.NODE_ENV === "production") {
     return productionGoApiBase;
