@@ -13,6 +13,12 @@ export function getTelegramId(): string | null {
   return getTelegramUserId();
 }
 
+function userVerseExternalId(verse: UserVerse): string {
+  const top = (verse as { externalVerseId?: string }).externalVerseId;
+  if (top && String(top).trim()) return String(top);
+  return String(verse.verse?.externalVerseId ?? "");
+}
+
 function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
   if (verse.status === VerseStatus.STOPPED) return "STOPPED";
   return verse.rawMasteryLevel > 0 ? "LEARNING" : "MY";
