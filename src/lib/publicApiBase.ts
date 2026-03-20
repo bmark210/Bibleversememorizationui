@@ -1,6 +1,9 @@
 /**
  * Базовый URL Go API (Railway). Без завершающего слэша.
- * Пример: https://bible-memory-db-production.up.railway.app
+ *
+ * Задаётся `NEXT_PUBLIC_API_BASE_URL` (в Netlify — в Environment + пересборка;
+ * иначе в клиентском бандле останется пусто и `/api/...` пойдёт на тот же домен, что и UI).
+ * В production next.config подмешивает дефолтный Railway URL, если переменная не задана.
  */
 export function getPublicApiBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? "";
