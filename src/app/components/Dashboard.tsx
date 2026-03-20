@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
+import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
 import type { DashboardLeaderboard as DashboardLeaderboardData } from '@/api/services/leaderboard'
 import type { UserDashboardStats } from '@/api/services/userStats'
 import type { DashboardFriendsActivity as DashboardFriendsActivityData } from '@/api/services/friends'
@@ -62,17 +63,22 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
   const summary = todayVerses.reduce(
     (acc, verse) => {
       const progress = toMasteryPercent(verse.masteryLevel, verse.repetitions)
+      const flow = normalizeVerseFlow(verse.flow)
 
       acc.progressTotal += progress
 
-      if (verse.status === 'LEARNING') {
+      if (flow?.code === 'LEARNING' || verse.status === 'LEARNING') {
         acc.learningVersesCount += 1
       }
 
-      if (verse.status === 'REVIEW') {
+      if (
+        flow?.code === 'REVIEW_DUE' ||
+        flow?.code === 'REVIEW_WAITING' ||
+        verse.status === 'REVIEW'
+      ) {
         acc.reviewVersesCount += 1
 
-        if (!verse.nextReviewAt) {
+        if (flow?.code === 'REVIEW_DUE' || !verse.nextReviewAt) {
           acc.dueReviewCount += 1
         } else {
           const nextReviewTime = new Date(verse.nextReviewAt).getTime()
@@ -82,7 +88,7 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
         }
       }
 
-      if (verse.status === 'MASTERED') {
+      if (flow?.code === 'MASTERED' || verse.status === 'MASTERED') {
         acc.masteredVerses += 1
       }
 

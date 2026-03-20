@@ -8,6 +8,7 @@ export type UserDashboardStats = {
   masteredVerses: number;
   stoppedVerses: number;
   dueReviewVerses: number;
+  waitingReviewVerses: number;
   totalRepetitions: number;
   xp: number;
   bestVerseReference: string | null;
@@ -22,6 +23,7 @@ export const EMPTY_USER_DASHBOARD_STATS: UserDashboardStats = {
   masteredVerses: 0,
   stoppedVerses: 0,
   dueReviewVerses: 0,
+  waitingReviewVerses: 0,
   totalRepetitions: 0,
   xp: 0,
   bestVerseReference: null,
@@ -62,6 +64,7 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
       masteredVerses: mastered,
       stoppedVerses: 0,
       dueReviewVerses: 0,
+      waitingReviewVerses: 0,
       totalRepetitions: 0,
       xp: toSafeNonNegativeInt(data.xp),
       bestVerseReference: null,
@@ -77,6 +80,9 @@ export function normalizeUserDashboardStats(value: unknown): UserDashboardStats 
     masteredVerses: toSafeNonNegativeInt(data.masteredVerses),
     stoppedVerses: toSafeNonNegativeInt(data.stoppedVerses),
     dueReviewVerses: toSafeNonNegativeInt(data.dueReviewVerses),
+    waitingReviewVerses: toSafeNonNegativeInt(
+      (data as { waitingReviewVerses?: unknown }).waitingReviewVerses
+    ),
     totalRepetitions: toSafeNonNegativeInt(data.totalRepetitions),
     xp: toSafeNonNegativeInt(data.xp),
     bestVerseReference: toNullableString(data.bestVerseReference),

@@ -36,6 +36,11 @@ import {
   type UserDashboardStats,
 } from "@/api/services/userStats";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import {
+  getDisplayStatusFromFlow,
+  normalizeVerseFlow,
+  type VerseFlow,
+} from "@/shared/domain/verseFlow";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { VersePatchEvent } from "@/app/types/verseSync";
@@ -98,6 +103,7 @@ export type Verse = {
   externalVerseId: string;
   difficultyLevel: VerseDifficultyLevel;
   status: DisplayVerseStatus;
+  flow?: VerseFlow | null;
   masteryLevel: number;
   repetitions: number;
   reviewLapseStreak?: number;
@@ -135,6 +141,7 @@ type AppVerseApiRecord = {
   } | null;
   difficultyLevel?: VerseDifficultyLevel | null;
   status?: string | null;
+  flow?: unknown;
   masteryLevel?: number | null;
   repetitions?: number | null;
   reviewLapseStreak?: number | null;
@@ -384,11 +391,17 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     verse.difficultyLevel != null
       ? coerceVerseDifficultyLevel(verse.difficultyLevel)
       : getDifficultyLevelByLetters(verse.verse?.difficultyLetters ?? undefined);
+  const flow = normalizeVerseFlow(verse.flow);
+  const displayStatusFromFlow = getDisplayStatusFromFlow(flow);
+  const nextReviewAt =
+    verse.nextReviewAt ??
+    (flow?.availableAt ?? null);
   return {
     id: verse.id ?? verse.verse?.id ?? undefined,
     externalVerseId,
     difficultyLevel,
-    status: normalizeDisplayVerseStatus(verse.status),
+    status: normalizeDisplayVerseStatus(displayStatusFromFlow ?? verse.status),
+    flow,
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
     reviewLapseStreak: Math.max(
@@ -402,7 +415,7 @@ function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     lastReviewedAt: verse.lastReviewedAt ?? null,
     createdAt: verse.createdAt ?? null,
     updatedAt: verse.updatedAt ?? null,
-    nextReviewAt: verse.nextReviewAt ?? null,
+    nextReviewAt,
     tags: verse.tags ?? [],
     popularityScope: verse.popularityScope ?? undefined,
     popularityValue: verse.popularityValue ?? undefined,

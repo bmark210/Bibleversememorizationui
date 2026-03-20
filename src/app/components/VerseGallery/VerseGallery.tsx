@@ -315,6 +315,7 @@ export function VerseGallery({
 
     return resolveVerseCardActionModel({
       status: normalizeVerseStatus(previewActiveVerse.status),
+      flow: previewActiveVerse.flow,
       nextReviewAt: parseDate(
         (previewActiveVerse as Record<string, unknown>).nextReviewAt ??
           (previewActiveVerse as Record<string, unknown>).nextReview,

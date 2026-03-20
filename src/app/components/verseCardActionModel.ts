@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { normalizeVerseFlow, type VerseFlow } from "@/shared/domain/verseFlow";
 import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { VerseStatusSummaryTone } from "@/app/components/VerseStatusSummary";
 
@@ -42,6 +43,7 @@ export type VerseCardActionModel = {
 
 type ResolveVerseCardActionModelParams = {
   status: DisplayVerseStatus;
+  flow?: VerseFlow | null;
   nextReviewAt?: Date | null;
   isAnchorEligible?: boolean;
   now?: Date;
@@ -57,16 +59,19 @@ export function resolveVerseCardActionModel(
 ): VerseCardActionModel {
   const {
     status,
+    flow: rawFlow = null,
     nextReviewAt = null,
     isAnchorEligible = false,
     now = new Date(),
     timeZone,
   } = params;
 
+  const flow = normalizeVerseFlow(rawFlow);
   const isNotYetDue =
-    status === "REVIEW" &&
-    isValidDate(nextReviewAt) &&
-    nextReviewAt.getTime() > now.getTime();
+    flow?.code === "REVIEW_WAITING" ||
+    (status === "REVIEW" &&
+      isValidDate(nextReviewAt) &&
+      nextReviewAt.getTime() > now.getTime());
   const waitingLabel = isNotYetDue
     ? formatVerseAvailabilityLabel(nextReviewAt, { now, timeZone })
     : null;

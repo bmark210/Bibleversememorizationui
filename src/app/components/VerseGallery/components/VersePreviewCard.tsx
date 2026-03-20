@@ -58,6 +58,7 @@ export function VersePreviewCard({
   );
   const ctaModel = resolveVerseCardActionModel({
     status,
+    flow: verse.flow,
     nextReviewAt,
     isAnchorEligible,
   });

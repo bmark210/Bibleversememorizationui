@@ -97,6 +97,7 @@ export const SwipeableVerseCard = ({
       : null;
   const ctaModel = resolveVerseCardActionModel({
     status: displayStatus,
+    flow: verse.flow,
     nextReviewAt,
     isAnchorEligible,
   });
