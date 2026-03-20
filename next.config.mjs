@@ -2,12 +2,33 @@
 const PRODUCTION_GO_API_DEFAULT =
   "https://bible-memory-db-production.up.railway.app";
 
+const productionGoApiBase = PRODUCTION_GO_API_DEFAULT.replace(/\/+$/, "");
+
+/**
+ * Публичный URL Go API для браузера и serverless routes.
+ * На Netlify относительные `/api/...` с пустым base уходят на сам Netlify (rewrites из next.config там не спасают),
+ * поэтому при сборке production без явной переменной подставляем Railway.
+ *
+ * Чтобы снова использовать same-origin + rewrite (например `next start` за своим прокси),
+ * задайте в окружении `NEXT_PUBLIC_API_BASE_URL=` (пустая строка — явный выбор).
+ */
+function resolveNextPublicApiBaseUrl() {
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (raw !== undefined && raw !== null) {
+    return String(raw).trim();
+  }
+  if (process.env.NODE_ENV === "production") {
+    return productionGoApiBase;
+  }
+  return "";
+}
+
 /**
  * CORS настраивает только ответ API (Railway/Go). Переменная CORS_ALLOWED_ORIGINS
  * задаётся в окружении бэкенда, не в Netlify — Next.js её не читает.
  *
- * Обход без правок Go: в production клиент ходит на тот же origin (`/api/...`),
- * а ниже fallback-rewrite пересылает запросы на Railway (после проверки pages/api).
+ * Обход без правок Go: при пустом NEXT_PUBLIC_API_BASE_URL клиент ходит на `/api/...` на том же origin,
+ * а ниже fallback-rewrite пересылает на Railway (актуально для `next start`, не для типичного Netlify).
  */
 const apiRewriteTarget =
   process.env.API_UPSTREAM_URL?.trim() || PRODUCTION_GO_API_DEFAULT;
@@ -17,14 +38,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_URL:
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    /**
-     * В production по умолчанию пусто → относительные `/api/...` → same-origin → rewrite на Railway (без CORS в браузере).
-     * Явно задайте URL, если нужны прямые запросы к API (тогда CORS должен быть на бэкенде).
-     */
-    NEXT_PUBLIC_API_BASE_URL:
-      process.env.NEXT_PUBLIC_API_BASE_URL !== undefined
-        ? String(process.env.NEXT_PUBLIC_API_BASE_URL).trim()
-        : "",
+    NEXT_PUBLIC_API_BASE_URL: resolveNextPublicApiBaseUrl(),
   },
   async rewrites() {
     if (process.env.NODE_ENV !== "production") {
