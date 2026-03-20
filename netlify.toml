@@ -1,0 +1,4 @@
+# С NODE_ENV=production npm по умолчанию не ставит devDependencies, из‑за чего на сборке
+# пропадают TypeScript, ESLint, а ранее и @tailwindcss/postcss (если только в devDependencies).
+[build.environment]
+  NPM_CONFIG_PRODUCTION = "false"
