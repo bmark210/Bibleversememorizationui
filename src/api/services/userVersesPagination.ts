@@ -1,5 +1,6 @@
 import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
 import type { UserVerse } from "../models/UserVerse";
+import { publicApiUrl } from "@/lib/publicApiBase";
 
 type GetApiUsersVersesParams = {
   telegramId: string;
@@ -41,7 +42,9 @@ export async function fetchUserVersesPage(
   if (params.limit != null) searchParams.set("limit", String(params.limit));
   if (params.startWith != null) searchParams.set("startWith", String(params.startWith));
 
-  const url = `/api/users/${encodeURIComponent(params.telegramId)}/verses?${searchParams.toString()}`;
+  const url = publicApiUrl(
+    `/api/users/${encodeURIComponent(params.telegramId)}/verses?${searchParams.toString()}`
+  );
   const response = await fetch(url);
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
@@ -50,7 +53,17 @@ export async function fetchUserVersesPage(
     throw new Error(payload?.error || `Failed to fetch user verses: ${response.status}`);
   }
 
-  return response.json() as Promise<UserVersesPageResponse>;
+  const raw = (await response.json()) as UserVersesPageResponse & {
+    total?: number;
+    offset?: number;
+  };
+  const totalCount =
+    typeof (raw as { totalCount?: number }).totalCount === "number"
+      ? (raw as { totalCount: number }).totalCount
+      : typeof raw.total === "number"
+        ? raw.total
+        : raw.items?.length ?? 0;
+  return { ...raw, totalCount };
 }
 
 export async function fetchAllUserVerses(
@@ -66,10 +79,10 @@ export async function fetchAllUserVerses(
       limit: pageLimit,
       startWith,
     });
-    items.push(...page.items);
-    if (page.items.length === 0) break;
+    items.push(...(page.items ?? []));
+    if (!page.items?.length) break;
     const nextOffset = startWith + page.items.length;
-    if (nextOffset >= page.totalCount) break;
+    if (nextOffset >= (page.totalCount ?? 0)) break;
     startWith = nextOffset;
   }
 

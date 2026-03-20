@@ -1,3 +1,5 @@
+import { publicApiUrl } from "@/lib/publicApiBase";
+
 export type UserDashboardStats = {
   totalVerses: number;
   learningStatusVerses: number;
@@ -39,7 +41,32 @@ function toNullableString(value: unknown): string | null {
 }
 
 export function normalizeUserDashboardStats(value: unknown): UserDashboardStats {
-  const data = (value ?? {}) as Partial<UserDashboardStats>;
+  const data = (value ?? {}) as Partial<UserDashboardStats> & {
+    versesCount?: unknown;
+    masteredCount?: unknown;
+  };
+
+  if (
+    typeof data.versesCount === "number" &&
+    data.totalVerses === undefined &&
+    data.learningVerses === undefined
+  ) {
+    const total = toSafeNonNegativeInt(data.versesCount);
+    const mastered = toSafeNonNegativeInt(data.masteredCount);
+    return {
+      totalVerses: total,
+      learningStatusVerses: 0,
+      learningVerses: Math.max(0, total - mastered),
+      reviewVerses: 0,
+      masteredVerses: mastered,
+      stoppedVerses: 0,
+      dueReviewVerses: 0,
+      totalRepetitions: 0,
+      xp: 0,
+      bestVerseReference: null,
+      dailyStreak: toSafeNonNegativeInt(data.dailyStreak),
+    };
+  }
 
   return {
     totalVerses: toSafeNonNegativeInt(data.totalVerses),
@@ -60,7 +87,7 @@ export async function fetchUserDashboardStats(
   telegramId: string
 ): Promise<UserDashboardStats> {
   const response = await fetch(
-    `/api/users/${encodeURIComponent(telegramId)}/stats`
+    publicApiUrl(`/api/users/${encodeURIComponent(telegramId)}/stats`)
   );
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as

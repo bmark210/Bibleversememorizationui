@@ -25,7 +25,6 @@ import {
 } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
-// import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface VoiceRecallExerciseProps {
   verse: Verse;
@@ -74,7 +73,6 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
 }
 
 export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: VoiceRecallExerciseProps) {
-  // const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');

@@ -150,7 +150,7 @@ export function useVerseActions({
   const patchVerseStatusOnServer = useCallback(
     async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
       if (!telegramId) throw new Error('No telegramId');
-      const response = await UserVersesService.patchApiUsersVerses(telegramId, verse.externalVerseId, { status });
+      const response = await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, { status });
       const patch = pickMutableVersePatchFromApiResponse(response);
       return patch ?? { status };
     },
@@ -161,13 +161,7 @@ export function useVerseActions({
   const addVerseToCollection = useCallback(
     async (externalVerseId: string): Promise<void> => {
       if (!telegramId) throw new Error('No telegramId');
-      const response = await fetch(
-        `/api/users/${encodeURIComponent(telegramId)}/verses/${encodeURIComponent(externalVerseId)}`,
-        { method: 'PUT' }
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to add verse to collection: ${response.status}`);
-      }
+      await UserVersesService.upsertUserVerse(telegramId, { externalVerseId });
     },
     [telegramId]
   );
@@ -272,7 +266,7 @@ export function useVerseActions({
         contextScore: verse.contextScore,
       });
       try {
-        await UserVersesService.deleteApiUsersVerses(telegramId, verse.externalVerseId);
+        await UserVersesService.deleteUserVerse(telegramId, verse.externalVerseId);
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
         const statusCode = getErrorStatusCode(err);

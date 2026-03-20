@@ -1,3 +1,5 @@
+import { publicApiUrl } from "@/lib/publicApiBase";
+
 export type PlayerProfile = {
   telegramId: string;
   displayName: string;
@@ -71,9 +73,11 @@ export async function fetchPlayerProfile(
   targetTelegramId: string
 ): Promise<PlayerProfile> {
   const response = await fetch(
-    `/api/users/${encodeURIComponent(viewerTelegramId)}/players/${encodeURIComponent(
-      targetTelegramId
-    )}`
+    publicApiUrl(
+      `/api/users/${encodeURIComponent(viewerTelegramId)}/players/${encodeURIComponent(
+        targetTelegramId
+      )}`
+    )
   );
 
   if (!response.ok) {

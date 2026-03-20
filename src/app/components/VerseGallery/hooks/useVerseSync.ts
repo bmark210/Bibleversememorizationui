@@ -11,7 +11,16 @@ import {
 } from "../utils";
 import type { ModeId, TrainingVerseState } from "../types";
 
-type PersistedTrainingVerse = Partial<UserVerse> | null;
+/** PATCH-ответ и расширения бэкенда могут отдавать поля текста/ссылки вне схемы OpenAPI. */
+type PersistedTrainingVerse =
+  | (Partial<UserVerse> & {
+      text?: string | null;
+      reference?: string | null;
+      tags?: Verse["tags"];
+      difficultyLevel?: Verse["difficultyLevel"];
+      externalVerseId?: string;
+    })
+  | null;
 
 type UseVerseSyncParams = {
   onDesync: (externalVerseId: string) => Promise<TrainingVerseState | null>;

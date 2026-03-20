@@ -117,17 +117,6 @@ export function VerseList({
     setIsFocusMode((prev) => !prev);
   }, []);
 
-  // const handleSkipVerseSectionTutorial = useCallback(() => {
-  //   writeVerseSectionTutorialPromptSeen(telegramId);
-  //   setIsTutorialPromptOpen(false);
-  // }, [telegramId]);
-
-  // const handleStartVerseSectionTutorial = useCallback(() => {
-  //   writeVerseSectionTutorialPromptSeen(telegramId);
-  //   setIsTutorialPromptOpen(false);
-  //   void Promise.resolve(onStartVerseSectionTutorial?.("prompt"));
-  // }, [onStartVerseSectionTutorial, telegramId]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(
@@ -323,6 +312,8 @@ export function VerseList({
     onDeleteTag: vm.tagFilter.deleteTag,
   };
 
+  const headerHeight = document.querySelector("#app-layout-header")?.clientHeight ?? 0;
+
   return (
     <>
       <motion.div
@@ -390,7 +381,7 @@ export function VerseList({
               </div>
         <div
           className="sticky z-40 shrink-0"
-          style={{ top: `${stickyControlsTop}px` }}
+          style={{ top: `${stickyControlsTop + headerHeight}px` }}
         >
           <motion.div
             className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
@@ -417,24 +408,7 @@ export function VerseList({
             className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            {/* <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={
-                vm.list.sectionConfig ?? {
-                  headingId: "my-verses-heading",
-                  title: "Загрузка...",
-                  subtitle: "Загрузка...",
-                  dotClassName: "bg-gray-400",
-                  borderClassName:
-                    "bg-gradient-to-b from-gray-500/5 to-background",
-                  tintClassName: "bg-gray-500/5",
-                }
-              }
-              count={0}
-              contentHeightMode="auto"
-            > */}
-              <VerseListSkeletonCards count={3} />
-            {/* </VerseListSectionShell> */}
+            <VerseListSkeletonCards count={3} />
           </motion.div>
         ) : vm.ui.isEmptyFiltered ? (
           <motion.div
@@ -444,26 +418,10 @@ export function VerseList({
             className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.05)}
           >
-            {/* <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={{
-                headingId: "empty-verse-list-heading",
-                title: vm.ui.currentFilterLabel,
-                subtitle: `По фильтру «${vm.ui.currentFilterLabel}» сейчас нет карточек.`,
-                dotClassName: "bg-gray-400",
-                borderClassName:
-                  "bg-gradient-to-b from-gray-500/5 to-background",
-                tintClassName: "bg-gray-500/5",
-              }}
-              count={vm.pagination.totalCount}
-              contentHeightMode="auto"
-              fillAvailableHeight
-            > */}
-              <VerseListEmptyState
-                currentFilterLabel={vm.ui.currentFilterLabel}
-                isAllFilter={vm.filters.statusFilter === "catalog"}
-              />
-            {/* </VerseListSectionShell> */}
+            <VerseListEmptyState
+              currentFilterLabel={vm.ui.currentFilterLabel}
+              isAllFilter={vm.filters.statusFilter === "catalog"}
+            />
           </motion.div>
         ) : vm.list.sectionConfig ? (
           <motion.div
@@ -473,32 +431,9 @@ export function VerseList({
             className="px-4 sm:px-6 lg:px-8"
             {...reveal(0.06)}
           >
-            {/* <VerseListSectionShell
-              totalCount={vm.pagination.totalCount}
-              config={vm.list.sectionConfig}
-              count={vm.list.sectionItems.length}
-              contentHeightMode="auto"
-            > */}
-              {listContent}
-            {/* </VerseListSectionShell> */}
+            {listContent}
           </motion.div>
         ) : null}
-
-       
-
-        {/* <motion.div {...reveal(0.08)}>
-        <VerseListLoadMoreFooter
-          visible={footerVisible}
-          isFetchingMore={vm.pagination.isFetchingMoreVerses}
-          showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
-          loadMoreError={vm.pagination.loadMoreError}
-          hasMoreVerses={vm.pagination.hasMoreVerses}
-          versesLength={vm.pagination.verses.length}
-          onRetryLoadMore={() => {
-            void vm.footerLoadState.onRetryLoadMore();
-          }}
-        />
-      </motion.div> */}
 
         <AddVerseDialog
           open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}

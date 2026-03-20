@@ -86,6 +86,7 @@ export function Layout({
     <div className="min-h-dvh flex flex-col">
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
+          id="app-layout-header"
           className={`bg-card/90 backdrop-blur-xl border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
             isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
           }`}

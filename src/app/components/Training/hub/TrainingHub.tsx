@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  // useCallback,
-  useEffect,
-  useMemo,
-  // useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
@@ -40,44 +34,25 @@ import {
 import type {
   AnchorTrainingTrack,
   CoreTrainingMode,
-  TrainingOrder,
   TrainingScenario,
 } from "../types";
 import {
   ANCHOR_TRAINING_TRACK_LABELS,
-  // TRAINING_ORDER_LABELS,
   TRAINING_SCENARIO_LABELS,
 } from "../types";
 import { Button } from "../../ui/button";
-// import {
-//   Collapsible,
-//   CollapsibleContent,
-//   CollapsibleTrigger,
-// } from "../../ui/collapsible";
-// import {
-//   AlertDialog,
-//   AlertDialogAction,
-//   AlertDialogContent,
-//   AlertDialogDescription,
-//   AlertDialogFooter,
-//   AlertDialogHeader,
-//   AlertDialogTitle,
-// } from "../../ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
 
 interface TrainingHubProps {
   allVerses: Verse[];
   dashboardStats?: UserDashboardStats | null;
-  telegramId?: string | null;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
-  selectedOrder: TrainingOrder;
   selectedAnchorTrack: AnchorTrainingTrack;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
-  onOrderChange: (order: TrainingOrder) => void;
   onAnchorTrackChange: (track: AnchorTrainingTrack) => void;
   onStart: () => void;
   onStartSelection: () => void;
@@ -123,8 +98,6 @@ type AccentTheme = {
   ctaClassName: string;
 };
 
-// const ORDERS: TrainingOrder[] = ["updatedAt", "bible", "popularity"];
-// const TRAINING_INTRO_STORAGE_PREFIX = "bible-memory.training.intro.v1";
 const ANCHOR_MIN_REQUIRED = 10;
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
@@ -242,33 +215,6 @@ const TEAL_ACCENT: AccentTheme = {
     "border-teal-500/30 bg-teal-500/[0.10] text-teal-900 shadow-[0_18px_36px_-24px_rgba(20,184,166,0.68)] dark:text-teal-100",
 };
 
-// const ORDER_THEME: Record<TrainingOrder, OrderTheme> = {
-//   updatedAt: {
-//     triggerClassName:
-//       "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300 shadow-[0_6px_18px_-12px_rgba(245,158,11,0.55)]",
-//     contentClassName: "border-amber-500/20 bg-background/95 backdrop-blur-xl",
-//     itemClassName:
-//       "focus:bg-amber-500/8 focus:text-amber-800 dark:focus:text-amber-300 data-[state=checked]:bg-amber-500/10 data-[state=checked]:text-amber-800 dark:data-[state=checked]:text-amber-300",
-//     hintClassName: "text-amber-700 dark:text-amber-300",
-//   },
-//   bible: {
-//     triggerClassName:
-//       "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300 shadow-[0_6px_18px_-12px_rgba(14,165,233,0.5)]",
-//     contentClassName: "border-sky-500/20 bg-background/95 backdrop-blur-xl",
-//     itemClassName:
-//       "focus:bg-sky-500/8 focus:text-sky-700 dark:focus:text-sky-300 data-[state=checked]:bg-sky-500/10 data-[state=checked]:text-sky-700 dark:data-[state=checked]:text-sky-300",
-//     hintClassName: "text-sky-700 dark:text-sky-300",
-//   },
-//   popularity: {
-//     triggerClassName:
-//       "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300 shadow-[0_6px_18px_-12px_rgba(244,63,94,0.5)]",
-//     contentClassName: "border-rose-500/20 bg-background/95 backdrop-blur-xl",
-//     itemClassName:
-//       "focus:bg-rose-500/8 focus:text-rose-700 dark:focus:text-rose-300 data-[state=checked]:bg-rose-500/10 data-[state=checked]:text-rose-700 dark:data-[state=checked]:text-rose-300",
-//     hintClassName: "text-rose-700 dark:text-rose-300",
-//   },
-// };
-
 const CORE_MODE_PRESETS: CoreModePreset[] = [
   {
     id: "learning",
@@ -315,16 +261,9 @@ function triggerSelectionHaptic(isChanged: boolean) {
   triggerHaptic(isChanged ? "medium" : "light");
 }
 
-// function getTrainingIntroStorageKey(telegramId?: string | null) {
-//   const normalizedTelegramId = telegramId?.trim() || "anonymous";
-//   return `${TRAINING_INTRO_STORAGE_PREFIX}:${normalizedTelegramId}`;
-// }
-
 export function TrainingHub({
   allVerses,
   dashboardStats,
-  // telegramId = null,
-  // suppressIntro = false,
   selectionVerses,
   selectedScenario,
   selectedModes,
@@ -340,8 +279,6 @@ export function TrainingHub({
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
   );
-  // const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  // const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
   const practiceCount = counts.learningCount + counts.dueReviewCount;
@@ -399,7 +336,6 @@ export function TrainingHub({
     selectedScenario === "anchor"
       ? activeAnchorTrack.theme
       : activeCorePreset.theme;
-  // const activeOrderTheme = ORDER_THEME[selectedOrder];
 
   const selectionCounts = useMemo(
     () =>
@@ -486,59 +422,6 @@ export function TrainingHub({
     selectedScenario,
   ]);
 
-  // const markTrainingIntroAsSeen = useCallback(() => {
-  //   if (typeof window === "undefined") {
-  //     setIsAboutDialogOpen(false);
-  //     return;
-  //   }
-
-  //   try {
-  //     window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
-  //   } catch {
-  //     // ignore storage errors
-  //   }
-
-  //   // setIsAboutDialogOpen(false);
-  // }, [telegramId]);
-
-  // useEffect(() => {
-  //   if (typeof window === "undefined") return;
-
-  //   try {
-  //     if (suppressIntro) {
-  //       window.localStorage.setItem(getTrainingIntroStorageKey(telegramId), "1");
-  //       setIsAboutDialogOpen(false);
-  //       return;
-  //     }
-
-  //     const storageKey = getTrainingIntroStorageKey(telegramId);
-  //     const hasSeenIntro = window.localStorage.getItem(storageKey) === "1";
-  //     if (!hasSeenIntro) {
-  //       setIsAboutDialogOpen(true);
-  //     }
-  //   } catch {
-  //     if (!suppressIntro) {
-  //       setIsAboutDialogOpen(true);
-  //     }
-  //   }
-  // }, [suppressIntro, telegramId]);
-
-  // const handleAboutDialogOpenChange = useCallback(
-  //   (open: boolean) => {
-  //     if (open) {
-  //       setIsAboutDialogOpen(true);
-  //       return;
-  //     }
-
-  //     markTrainingIntroAsSeen();
-  //   },
-  //   [markTrainingIntroAsSeen],
-  // );
-
-  // const handleAboutDialogOpen = useCallback(() => {
-  //   setIsAboutDialogOpen(true);
-  // }, []);
-
   const handleScenarioChange = (value: string) => {
     const nextScenario = value as TrainingScenario;
     triggerSelectionHaptic(nextScenario !== selectedScenario);
@@ -559,69 +442,8 @@ export function TrainingHub({
     onAnchorTrackChange(nextTrack);
   };
 
-  // const handleAdvancedOpenChange = (open: boolean) => {
-  //   triggerHaptic("light");
-  //   setIsAdvancedOpen(open);
-  // };
-
-  // const handleOrderChange = (value: string) => {
-  //   const nextOrder = value as TrainingOrder;
-  //   triggerSelectionHaptic(nextOrder !== selectedOrder);
-  //   onOrderChange(nextOrder);
-  // };
-
   return (
-    <>
-      {/* <AlertDialog
-        open={isAboutDialogOpen}
-        onOpenChange={handleAboutDialogOpenChange}
-      >
-        <AlertDialogContent className="overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-emerald-500/12 via-background to-amber-500/10 p-0 shadow-2xl backdrop-blur-xl">
-          <div className="relative px-6 py-6 sm:px-7">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-emerald-500/18 blur-2xl" />
-              <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-500/18 blur-2xl" />
-            </div>
-
-            <AlertDialogHeader className="relative gap-3">
-              <AlertDialogTitle className="text-xl text-primary">
-                Раздел «Тренировка»
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-sm leading-relaxed text-foreground/80">
-                Здесь вы выбираете сценарий сессии под текущую задачу: пройти
-                новые карточки, закрыть повторения или закрепить уже знакомые
-                стихи.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <div className="relative mt-4 rounded-2xl border border-border/90 bg-background/40 p-3 text-xs leading-relaxed text-foreground/75">
-              <p>
-                <span className="font-medium text-emerald-700 dark:text-emerald-300">
-                  Практика
-                </span>{" "}
-                подходит для изучения и повторения.
-              </p>
-              <p className="mt-2">
-                <span className="font-medium text-amber-700 dark:text-amber-300">
-                  Закрепление
-                </span>{" "}
-                проверяет ссылку, начало стиха, конец стиха, контекст и смешанный формат.
-              </p>
-            </div>
-
-            <AlertDialogFooter className="relative mt-5">
-              <AlertDialogAction
-                className="h-10 rounded-xl border border-border/90 bg-background/40 px-5 text-sm font-medium text-foreground/75"
-                onClick={markTrainingIntroAsSeen}
-              >
-                Понятно
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog> */}
-
-      <div
+    <div
         className={cn(
           "mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8",
           isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
@@ -781,62 +603,6 @@ export function TrainingHub({
             </section>
           ) : null}
 
-          {/* {selectedScenario === "core" ? (
-          <Collapsible
-            open={isAdvancedOpen}
-            onOpenChange={handleAdvancedOpenChange}
-            className="rounded-[24px] border border-border/60 bg-card/45 backdrop-blur-xl"
-          >
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground/80 mb-1">
-                  Дополнительно
-                </p>
-                <p className="text-xs">
-                  Порядок: {TRAINING_ORDER_LABELS[selectedOrder]}
-                </p>
-              </div>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 shrink-0 text-foreground/45 transition-transform duration-200",
-                  isAdvancedOpen && "rotate-180",
-                )}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="border-t border-border/50 px-4 py-4">
-              <div className="space-y-2">
-                <SectionLabel>Порядок карточек</SectionLabel>
-                <Select
-                  value={selectedOrder}
-                  onOpenChange={handleOrderOpenChange}
-                  onValueChange={handleOrderChange}
-                >
-                  <SelectTrigger
-                    aria-label="Порядок карточек"
-                    className={cn(
-                      "h-11 rounded-2xl backdrop-blur-lg transition-colors",
-                      activeOrderTheme.triggerClassName,
-                    )}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className={activeOrderTheme.contentClassName}>
-                    {ORDERS.map((order) => (
-                      <SelectItem
-                        key={order}
-                        value={order}
-                        className={ORDER_THEME[order].itemClassName}
-                      >
-                        {TRAINING_ORDER_LABELS[order]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : null} */}
-
           <div className="mx-auto w-full flex-1 content-end">
             <div
               data-tour="training-start-cta"
@@ -894,7 +660,6 @@ export function TrainingHub({
           </div>
         </motion.div>
       </div>
-    </>
   );
 }
 

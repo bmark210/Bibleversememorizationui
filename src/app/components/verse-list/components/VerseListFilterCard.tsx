@@ -176,7 +176,6 @@ function VerseListFilterSections({
   const visibleRootTabs = hasFriends
     ? ROOT_TABS
     : ROOT_TABS.filter((tab) => tab.key !== 'friends');
-  // const isMyMode = activeRootTab === 'my';
   const selectedBook =
     selectedBookId == null
       ? null

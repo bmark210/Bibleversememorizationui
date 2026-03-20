@@ -202,7 +202,6 @@ export function ModeClickWordsHintedExercise({
     totalUnits: totalHiddenWords,
   });
   const nextHiddenSlot = hiddenSlots[selectedCount] ?? null;
-  // const nextHiddenNormalized = nextHiddenSlot?.normalized ?? null;
 
   useEffect(() => {
     onProgressChange?.(

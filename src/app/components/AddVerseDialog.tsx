@@ -36,9 +36,11 @@ import {
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 import { TagsService } from "@/api/services/TagsService";
+import { listVerseTags, postTag } from "@/api/services/tagExtensions";
 import type { Tag } from "@/api/models/Tag";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
+import { publicApiUrl } from "@/lib/publicApiBase";
 import {
   MAX_EXTERNAL_VERSE_RANGE_SIZE,
   formatParsedExternalVerseReference,
@@ -245,7 +247,7 @@ export function AddVerseDialog({
   useEffect(() => {
     if (!open) return;
     setTagsLoading(true);
-    const req = TagsService.getApiTags();
+    const req = TagsService.listTags();
     req
       .then((tags) => setAllTags(sortTagsByTitle(tags)))
       .catch(() => {})
@@ -339,7 +341,9 @@ export function AddVerseDialog({
 
     setAdminVerseSummaryLoading(true);
     void fetch(
-      `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`
+      publicApiUrl(
+        `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`
+      )
     )
       .then(async (response) => {
         if (cancelled) return;
@@ -387,7 +391,7 @@ export function AddVerseDialog({
   const loadSelectedVerseTags = useCallback(async (externalVerseId: string) => {
     setVerseTagsLoaded(false);
     try {
-      const tags = await TagsService.getApiVersesTags(externalVerseId);
+      const tags = await listVerseTags(externalVerseId);
       const slugs = tags
         .map((tag) => tag.slug ?? "")
         .filter(Boolean);
@@ -427,7 +431,7 @@ export function AddVerseDialog({
 
     setSavingTagId(tagId);
     try {
-      const response = await fetch(`/api/tags/${tagId}`, {
+      const response = await fetch(publicApiUrl(`/api/tags/${tagId}`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -482,7 +486,9 @@ export function AddVerseDialog({
     setIsDeletingVerseFromCatalog(true);
     try {
       const response = await fetch(
-        `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`,
+        publicApiUrl(
+          `/api/verses/${externalVerseId}/admin?telegramId=${encodeURIComponent(viewerTelegramId)}`
+        ),
         { method: "DELETE" }
       );
       const payload = await response.json().catch(() => null) as
@@ -530,10 +536,10 @@ export function AddVerseDialog({
     try {
       if (onCreateTag) {
         await onCreateTag(title, newTagSlug);
-        const refreshedTags = await TagsService.getApiTags();
+        const refreshedTags = await TagsService.listTags();
         setAllTags(sortTagsByTitle(refreshedTags));
       } else {
-        const newTag = await TagsService.postApiTags({ title, slug: newTagSlug });
+        const newTag = await postTag({ title, slug: newTagSlug });
         setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
       }
 
@@ -561,17 +567,20 @@ export function AddVerseDialog({
     if (!tag.id) return;
     setDeletingTagId(tag.id);
     try {
-      const response = await fetch(`/api/verses/${GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID}/tags`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-id": viewerTelegramId,
-        },
-        body: JSON.stringify({
-          tagId: tag.id,
-          deleteTagIfUnused: true,
-        }),
-      });
+      const response = await fetch(
+        publicApiUrl(`/api/verses/${GLOBAL_TAG_MANAGEMENT_EXTERNAL_VERSE_ID}/tags`),
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "x-telegram-id": viewerTelegramId,
+          },
+          body: JSON.stringify({
+            tagId: tag.id,
+            deleteTagIfUnused: true,
+          }),
+        }
+      );
 
       const payload = await response.json().catch(() => null) as
         | {

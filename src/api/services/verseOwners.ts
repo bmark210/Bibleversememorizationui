@@ -3,6 +3,7 @@ import {
   type FriendPlayerListItem,
   type FriendPlayersPageResponse,
 } from "./friends";
+import { publicApiUrl } from "@/lib/publicApiBase";
 
 export type VerseOwnersScope = "friends" | "players";
 
@@ -17,16 +18,21 @@ function toSafeInt(value: unknown, options?: { min?: number; max?: number }) {
 function normalizeVerseOwnersPageResponse(
   value: unknown
 ): FriendPlayersPageResponse {
-  const data = (value ?? {}) as Partial<FriendPlayersPageResponse>;
+  const data = (value ?? {}) as Partial<FriendPlayersPageResponse> & {
+    total?: unknown;
+    offset?: unknown;
+  };
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
+  const totalRaw = data.totalCount ?? data.total;
+  const startRaw = data.startWith ?? data.offset;
 
   return {
     items: itemsRaw
       .map((item) => normalizeFriendPlayerListItem(item))
       .filter((item): item is FriendPlayerListItem => item != null),
-    totalCount: toSafeInt(data.totalCount, { min: 0 }),
+    totalCount: toSafeInt(totalRaw, { min: 0 }),
     limit: toSafeInt(data.limit, { min: 1, max: 50 }),
-    startWith: toSafeInt(data.startWith, { min: 0 }),
+    startWith: toSafeInt(startRaw, { min: 0 }),
   };
 }
 
@@ -53,9 +59,11 @@ export async function fetchVerseOwnersPage(
   }
 
   const response = await fetch(
-    `/api/users/${encodeURIComponent(
-      viewerTelegramId
-    )}/verse-owners/${encodeURIComponent(externalVerseId)}?${searchParams.toString()}`
+    publicApiUrl(
+      `/api/users/${encodeURIComponent(
+        viewerTelegramId
+      )}/verse-owners/${encodeURIComponent(externalVerseId)}?${searchParams.toString()}`
+    )
   );
 
   if (!response.ok) {

@@ -24,12 +24,6 @@ type VerseListFiltersTriggerProps = Pick<
   className?: string;
 };
 
-// function getSortSummaryLabel(sortBy: VerseListFilterCardProps['sortBy']) {
-//   if (sortBy === 'bible') return 'Канон';
-//   if (sortBy === 'popularity') return 'Популярность';
-//   return 'Активность';
-// }
-
 export function VerseListFiltersTrigger({
   onOpen,
   className,
@@ -39,17 +33,13 @@ export function VerseListFiltersTrigger({
   statusFilter,
   defaultStatusFilter,
   selectedBookId,
-  // bookOptions,
+  bookOptions: _bookOptions,
   sortBy,
   searchQuery = '',
-  // selectedTagSlugs,
+  selectedTagSlugs: _selectedTagSlugs,
   hasActiveTags,
 }: VerseListFiltersTriggerProps) {
   const trimmedSearchQuery = searchQuery.trim();
-  // const selectedBook =
-  //   selectedBookId == null
-  //     ? null
-  //     : bookOptions.find((option) => option.id === selectedBookId) ?? null;
   const activeFilterCount = [
     statusFilter !== defaultStatusFilter,
     selectedBookId !== null,

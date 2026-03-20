@@ -1,4 +1,4 @@
-import { VerseStatus as PrismaVerseStatus } from "@/generated/prisma";
+import type { VerseStatus as ApiVerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { DISPLAY_STATUS_LABELS } from "@/shared/constants/ui";
 import {
@@ -41,10 +41,10 @@ const STAGE_RANK: Partial<Record<DisplayVerseStatus, number>> = {
   MASTERED: 4,
 };
 
-function toSocialVerseStatus(status: DisplayVerseStatus): PrismaVerseStatus {
-  if (status === "STOPPED") return PrismaVerseStatus.STOPPED;
-  if (status === "MY") return PrismaVerseStatus.MY;
-  return PrismaVerseStatus.LEARNING;
+function toSocialVerseStatus(status: DisplayVerseStatus): ApiVerseStatus {
+  if (status === "STOPPED") return "STOPPED";
+  if (status === "MY") return "MY";
+  return "LEARNING";
 }
 
 function toSocialVerseRow(

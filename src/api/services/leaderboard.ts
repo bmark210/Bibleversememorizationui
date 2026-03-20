@@ -1,3 +1,5 @@
+import { publicApiUrl } from "@/lib/publicApiBase";
+
 export type LeaderboardEntry = {
   rank: number;
   telegramId: string;
@@ -104,8 +106,65 @@ function normalizeCurrentUserSnapshot(
   };
 }
 
-export function normalizeDashboardLeaderboard(value: unknown): DashboardLeaderboard {
-  const data = (value ?? {}) as Partial<DashboardLeaderboard>;
+type GoLeaderboardPayload = {
+  items?: unknown[];
+  entries?: unknown[];
+  currentUser?: unknown;
+  totalParticipants?: unknown;
+  generatedAt?: unknown;
+};
+
+export function normalizeDashboardLeaderboard(
+  value: unknown,
+  viewerTelegramId?: string | null
+): DashboardLeaderboard {
+  const data = (value ?? {}) as Partial<DashboardLeaderboard> & GoLeaderboardPayload;
+
+  const goItems = Array.isArray(data.items) ? data.items : null;
+  if (goItems && !Array.isArray(data.entries)) {
+    const tid = (viewerTelegramId ?? "").trim();
+    const entries = goItems.map((entry, index) => {
+      const row = (entry ?? {}) as Record<string, unknown>;
+      const telegramId = toSafeString(row.telegramId);
+      const rank = toSafeInt(row.rank, { min: index + 1 });
+      const xp = toSafeInt(row.score ?? row.xp ?? row.versesCount, { min: 0 });
+      const nick = toNullableString(row.nickname as string | undefined);
+      return {
+        rank,
+        telegramId,
+        name: toSafeString(row.name, nick ?? `Участник #${telegramId.slice(-4) || String(index)}`),
+        avatarUrl: toNullableString(row.avatarUrl),
+        xp,
+        streakDays: toSafeInt(row.streakDays ?? row.dailyStreak, { min: 0 }),
+        weeklyRepetitions: toSafeInt(row.weeklyRepetitions, { min: 0 }),
+        isCurrentUser: Boolean(tid && telegramId === tid),
+      };
+    });
+
+    const cu = (data.currentUser ?? null) as Record<string, unknown> | null;
+    let currentUser: CurrentUserLeaderboardSnapshot | null = null;
+    if (cu && tid) {
+      const inTop = Boolean(cu.inTop);
+      const rankVal = cu.rank;
+      currentUser = {
+        telegramId: tid,
+        name: `Участник #${tid.slice(-4)}`,
+        avatarUrl: null,
+        rank: inTop && rankVal != null ? toSafeInt(rankVal, { min: 1 }) : null,
+        xp: toSafeInt(cu.versesCount ?? cu.score, { min: 0 }),
+        streakDays: 0,
+        weeklyRepetitions: 0,
+      };
+    }
+
+    return {
+      generatedAt: toSafeString(data.generatedAt, new Date().toISOString()),
+      totalParticipants: entries.length,
+      entries,
+      currentUser,
+    };
+  }
+
   const entriesRaw = Array.isArray(data.entries) ? data.entries : [];
 
   return {
@@ -132,9 +191,9 @@ export async function fetchDashboardLeaderboard(
     searchParams.set("limit", String(Math.round(params.limit)));
   }
 
-  const url = `/api/users/leaderboard${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const url = publicApiUrl(
+    `/api/users/leaderboard${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  );
   const response = await fetch(url);
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
@@ -146,5 +205,5 @@ export async function fetchDashboardLeaderboard(
   }
 
   const payload = await response.json();
-  return normalizeDashboardLeaderboard(payload);
+  return normalizeDashboardLeaderboard(payload, params.telegramId);
 }

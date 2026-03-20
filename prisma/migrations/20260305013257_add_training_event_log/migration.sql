@@ -1,2 +1,0 @@
--- Baseline migration placeholder.
--- The database already contains the required historical state.

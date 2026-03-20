@@ -14,10 +14,7 @@ import {
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
-  AllUsersAvatarsCard,
 } from './dashboard/DashboardSections'
-
-import type { AllUsersResponse } from '@/api/services/allUsers'
 
 interface DashboardProps {
   todayVerses: Array<Verse>
@@ -27,8 +24,6 @@ interface DashboardProps {
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardFriendsActivityData | null
   isDashboardFriendsActivityLoading?: boolean
-  allUsers?: AllUsersResponse | null
-  isAllUsersLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
@@ -122,8 +117,6 @@ export function Dashboard({
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
   isDashboardFriendsActivityLoading = false,
-  allUsers = null,
-  isAllUsersLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
@@ -131,7 +124,7 @@ export function Dashboard({
   onOpenPlayerProfile,
   isInitializingData = false,
 }: DashboardProps) {
-  const { user, initDataUnsafe, platform } = useTelegram()
+  const { user } = useTelegram()
   const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
   const currentUserXp = useCurrentUserStatsStore((state) => state.xp)
@@ -223,83 +216,8 @@ export function Dashboard({
             onOpenProfile={onOpenProfile}
             onOpenPlayerProfile={onOpenPlayerProfile}
           />
-          <AllUsersAvatarsCard
-            allUsers={allUsers}
-            isLoading={isAllUsersLoading}
-            onOpenPlayerProfile={onOpenPlayerProfile}
-          />
         </div>
       </div>
-
-      {/* ── DEBUG: Telegram User Data ── */}
-      <details className="mt-6 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-        <summary className="cursor-pointer font-medium text-muted-foreground">
-          DEBUG: Telegram User Data
-        </summary>
-        <div className="mt-2 space-y-2 font-mono text-[11px] leading-relaxed">
-          <div>
-            <span className="font-semibold text-foreground/70">platform:</span>{' '}
-            {platform}
-          </div>
-          <div className="border-t border-border/40 pt-2">
-            <div className="mb-1 font-semibold text-foreground/70">
-              initDataUnsafe.user (raw):
-            </div>
-            {initDataUnsafe?.user ? (
-              <div className="space-y-0.5 pl-2">
-                {Object.entries(initDataUnsafe.user).map(([key, value]) => (
-                  <div key={key} className="break-all">
-                    <span className="text-primary/80">{key}:</span>{' '}
-                    <span className="text-foreground/90">
-                      {value === undefined ? '(undefined)' : value === null ? '(null)' : String(value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span className="text-destructive">initDataUnsafe.user отсутствует</span>
-            )}
-          </div>
-          <div className="border-t border-border/40 pt-2">
-            <div className="mb-1 font-semibold text-foreground/70">
-              Parsed user (context):
-            </div>
-            {user ? (
-              <div className="space-y-0.5 pl-2">
-                <div><span className="text-primary/80">id:</span> {user.id}</div>
-                <div><span className="text-primary/80">firstName:</span> {user.firstName || '(empty)'}</div>
-                <div><span className="text-primary/80">lastName:</span> {user.lastName ?? '(undefined)'}</div>
-                <div><span className="text-primary/80">username:</span> {user.username ?? '(undefined)'}</div>
-                <div className="break-all">
-                  <span className="text-primary/80">photoUrl:</span>{' '}
-                  {user.photoUrl ? (
-                    <span className="text-green-600">{user.photoUrl}</span>
-                  ) : (
-                    <span className="text-destructive">{user.photoUrl === undefined ? '(undefined)' : '(empty string)'}</span>
-                  )}
-                </div>
-                <div><span className="text-primary/80">isPremium:</span> {String(user.isPremium ?? '(undefined)')}</div>
-              </div>
-            ) : (
-              <span className="text-destructive">user = null</span>
-            )}
-          </div>
-          {user?.photoUrl && (
-            <div className="border-t border-border/40 pt-2">
-              <div className="mb-1 font-semibold text-foreground/70">Avatar preview:</div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={user.photoUrl}
-                alt="avatar"
-                className="h-12 w-12 rounded-full border border-border"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).alt = 'Failed to load avatar'
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </details>
     </div>
   )
 }

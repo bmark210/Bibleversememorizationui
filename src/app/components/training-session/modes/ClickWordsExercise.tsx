@@ -166,7 +166,6 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
     totalUnits: totalWords,
   });
   const expectedWordIndex = orderedTokens[selectedCount]?.order ?? null;
-  // const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
 
   useEffect(() => {
     onProgressChange?.(

@@ -2,25 +2,26 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { FeedbackEntry } from '../models/FeedbackEntry';
-import type { FeedbackPageResponse } from '../models/FeedbackPageResponse';
+import type { bible_memory_db_internal_domain_CreateFeedbackInput } from '../models/bible_memory_db_internal_domain_CreateFeedbackInput';
+import type { bible_memory_db_internal_domain_Feedback } from '../models/bible_memory_db_internal_domain_Feedback';
+import type { bible_memory_db_internal_domain_FeedbackPageResponse } from '../models/bible_memory_db_internal_domain_FeedbackPageResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class FeedbackService {
     /**
-     * Получить все отзывы с пагинацией (только для админов)
-     * @param telegramId
-     * @param limit
-     * @param startWith
-     * @returns FeedbackPageResponse OK
+     * List feedback
+     * @param telegramId Optional Telegram ID filter
+     * @param limit Max items
+     * @param startWith Pagination offset
+     * @returns bible_memory_db_internal_domain_FeedbackPageResponse OK
      * @throws ApiError
      */
-    public static getApiFeedback(
+    public static listFeedback(
         telegramId?: string,
-        limit?: number,
+        limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<FeedbackPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_FeedbackPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/feedback',
@@ -30,30 +31,26 @@ export class FeedbackService {
                 'startWith': startWith,
             },
             errors: {
-                403: `Только для админов`,
+                500: `Internal Server Error`,
             },
         });
     }
     /**
-     * Отправить отзыв
-     * @param requestBody
-     * @returns FeedbackEntry Создано
+     * Create feedback
+     * @param request Feedback payload
+     * @returns bible_memory_db_internal_domain_Feedback Created
      * @throws ApiError
      */
-    public static postApiFeedback(
-        requestBody: {
-            telegramId: string;
-            text: string;
-        },
-    ): CancelablePromise<FeedbackEntry> {
+    public static createFeedback(
+        request: bible_memory_db_internal_domain_CreateFeedbackInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_Feedback> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/feedback',
-            body: requestBody,
-            mediaType: 'application/json',
+            body: request,
             errors: {
-                400: `Некорректный запрос`,
-                404: `Пользователь не найден`,
+                400: `Bad Request`,
+                404: `Not Found`,
             },
         });
     }

@@ -1,4 +1,4 @@
-import { VerseStatus } from "@/generated/prisma";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import { computeDisplayStatus as computeTrainingDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeActiveDailyStreak } from "@/shared/training/dailyStreak";

@@ -1,5 +1,4 @@
 import { memo, useMemo, type RefObject, type SyntheticEvent } from "react";
-// import { cn } from "@/app/components/ui/utils";
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
@@ -57,22 +56,11 @@ export const TrainingCard = memo(function TrainingCard({
   onTrainingInteractionStart,
   onRate,
   hideRatingFooter = false,
-  suppressModeTutorials = false,
   isLateStageReview: isLateStage = false,
   hintState,
   onProgressChange,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
-  // const isReviewStage =
-  //   trainingVerse.status === "REVIEW" || trainingVerse.status === "MASTERED";
-  // const totalProgressPercent = useMemo(
-  //   () =>
-  //     computeTotalProgressPercent(
-  //       trainingVerse.rawMasteryLevel,
-  //       trainingVerse.repetitions
-  //     ),
-  //   [trainingVerse.rawMasteryLevel, trainingVerse.repetitions]
-  // );
 
   const verse = useMemo(
     () => asLegacyVerseForRenderer(trainingVerse),
@@ -115,35 +103,6 @@ export const TrainingCard = memo(function TrainingCard({
         <h2 className="text-xl sm:text-3xl italic text-primary/90 font-serif">
           {trainingVerse.raw.reference}
         </h2>
-        {/* <div className="flex items-center justify-center gap-1.5">
-          <div
-            role="progressbar"
-            aria-label="Прогресс изучения"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={totalProgressPercent}
-            className={cn(
-              "h-0.5 w-16 overflow-hidden rounded-full",
-              isReviewStage ? "bg-violet-500/20" : "bg-emerald-500/20"
-            )}
-          >
-            <div
-              className={cn(
-                "h-full rounded-full transition-[width] duration-500 ease-out",
-                isReviewStage ? "bg-violet-500/60" : "bg-emerald-500/60"
-              )}
-              style={{ width: `${totalProgressPercent}%` }}
-            />
-          </div>
-          <span
-            className={cn(
-              "text-[10px] tabular-nums",
-              isReviewStage ? "text-violet-600/70" : "text-emerald-600/70"
-            )}
-          >
-            {totalProgressPercent}%
-          </span> */}
-        {/* </div> */}
       </div>
 
       {/* Body: exercise renderer takes remaining space */}

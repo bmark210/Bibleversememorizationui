@@ -14,6 +14,9 @@ import {
 import { Toaster } from "./components/ui/toaster";
 import { OpenAPI } from "@/api/core/OpenAPI";
 import { request as apiRequest } from "@/api/core/request";
+import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+
+OpenAPI.BASE = getPublicApiBaseUrl();
 import { UsersService } from "@/api/services/UsersService";
 import type { ApiError } from "@/api/core/ApiError";
 import { UserVersesService } from "@/api/services/UserVersesService";
@@ -29,10 +32,6 @@ import {
   type DashboardFriendsActivity,
 } from "@/api/services/friends";
 import {
-  fetchAllUsers,
-  type AllUsersResponse,
-} from "@/api/services/allUsers";
-import {
   fetchUserDashboardStats,
   type UserDashboardStats,
 } from "@/api/services/userStats";
@@ -42,6 +41,7 @@ import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import {
   coerceVerseDifficultyLevel,
+  getDifficultyLevelByLetters,
   type VerseDifficultyLevel,
 } from "@/shared/verses/difficulty";
 import {
@@ -128,6 +128,11 @@ export type Verse = {
 type AppVerseApiRecord = {
   id?: string | number | null;
   externalVerseId?: string | number | null;
+  verse?: {
+    externalVerseId?: string | null;
+    difficultyLetters?: number | null;
+    id?: string | null;
+  } | null;
   difficultyLevel?: VerseDifficultyLevel | null;
   status?: string | null;
   masteryLevel?: number | null;
@@ -371,10 +376,18 @@ function sortByUpdatedAtDesc(a: Verse, b: Verse) {
 }
 
 function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
+  const externalVerseId =
+    verse.externalVerseId != null && String(verse.externalVerseId).trim()
+      ? String(verse.externalVerseId)
+      : String(verse.verse?.externalVerseId ?? "");
+  const difficultyLevel =
+    verse.difficultyLevel != null
+      ? coerceVerseDifficultyLevel(verse.difficultyLevel)
+      : getDifficultyLevelByLetters(verse.verse?.difficultyLetters ?? undefined);
   return {
-    id: verse.id ?? undefined,
-    externalVerseId: String(verse.externalVerseId ?? ""),
-    difficultyLevel: coerceVerseDifficultyLevel(verse.difficultyLevel),
+    id: verse.id ?? verse.verse?.id ?? undefined,
+    externalVerseId,
+    difficultyLevel,
     status: normalizeDisplayVerseStatus(verse.status),
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
@@ -462,8 +475,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
   const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
-  const [allUsers, setAllUsers] = useState<AllUsersResponse | null>(null);
-  const [isAllUsersLoading, setIsAllUsersLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
@@ -508,11 +519,29 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
-  const allUsersRequestIdRef = useRef(0);
   const trainingVersesRequestIdRef = useRef(0);
   const trainingVersesPromiseRef = useRef<Promise<Array<Verse>> | null>(null);
   const trainingVersesPrefetchHandleRef = useRef<IdleTaskHandle | null>(null);
+  /**
+   * Без этого второй useEffect при ошибке бэкенда видит `data == null` и `!loading` и снова
+   * дёргает загрузку — получается бесконечный цикл запросов.
+   */
+  const dashboardFetchFailedRef = useRef({
+    stats: false,
+    leaderboard: false,
+    friends: false,
+  });
+  const trainingVersesFetchFailedRef = useRef(false);
   const canGoBackInApp = pageStack.length > 1;
+
+  useEffect(() => {
+    dashboardFetchFailedRef.current = {
+      stats: false,
+      leaderboard: false,
+      friends: false,
+    };
+    trainingVersesFetchFailedRef.current = false;
+  }, [telegramId]);
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -635,6 +664,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     try {
       const nextStats = await fetchUserDashboardStats(telegramIdValue);
       if (dashboardStatsRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.stats = false;
         setDashboardStats(nextStats);
         useCurrentUserStatsStore
           .getState()
@@ -644,6 +674,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     } catch (error) {
       console.error("Не удалось получить статистику пользователя:", error);
       if (dashboardStatsRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.stats = true;
         setDashboardStats(null);
         useCurrentUserStatsStore
           .getState()
@@ -669,12 +700,14 @@ export default function App({ onInitialContentReady }: AppProps) {
         limit: 4,
       });
       if (dashboardLeaderboardRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.leaderboard = false;
         setDashboardLeaderboard(nextLeaderboard);
       }
       return nextLeaderboard;
     } catch (error) {
       console.error("Не удалось получить лидерборд:", error);
       if (dashboardLeaderboardRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.leaderboard = true;
         setDashboardLeaderboard(null);
       }
       return null;
@@ -696,41 +729,20 @@ export default function App({ onInitialContentReady }: AppProps) {
         limit: 6,
       });
       if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.friends = false;
         setDashboardFriendsActivity(nextFriendsActivity);
       }
       return nextFriendsActivity;
     } catch (error) {
       console.error("Не удалось получить активность друзей:", error);
       if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.friends = true;
         setDashboardFriendsActivity(null);
       }
       return null;
     } finally {
       if (dashboardFriendsActivityRequestIdRef.current === requestId) {
         setIsDashboardFriendsActivityLoading(false);
-      }
-    }
-  }, []);
-
-  const loadAllUsersData = useCallback(async () => {
-    const requestId = ++allUsersRequestIdRef.current;
-    setIsAllUsersLoading(true);
-
-    try {
-      const nextAllUsers = await fetchAllUsers({ limit: 20 });
-      if (allUsersRequestIdRef.current === requestId) {
-        setAllUsers(nextAllUsers);
-      }
-      return nextAllUsers;
-    } catch (error) {
-      console.error("Не удалось получить список всех пользователей:", error);
-      if (allUsersRequestIdRef.current === requestId) {
-        setAllUsers(null);
-      }
-      return null;
-    } finally {
-      if (allUsersRequestIdRef.current === requestId) {
-        setIsAllUsersLoading(false);
       }
     }
   }, []);
@@ -812,6 +824,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         );
 
         if (trainingVersesRequestIdRef.current === requestId) {
+          trainingVersesFetchFailedRef.current = false;
           setVerses(trainingPool);
           setHasLoadedTrainingVerses(true);
         }
@@ -820,6 +833,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       })
       .catch((err) => {
         if (trainingVersesRequestIdRef.current === requestId) {
+          trainingVersesFetchFailedRef.current = true;
           setVerses([]);
           setHasLoadedTrainingVerses(false);
         }
@@ -857,6 +871,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         return verses;
       }
 
+      trainingVersesFetchFailedRef.current = false;
       return loadTrainingVersesForDashboard(resolvedTelegramId);
     },
     [hasLoadedTrainingVerses, loadTrainingVersesForDashboard, telegramId, verses]
@@ -864,9 +879,16 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const scheduleTrainingVersePrefetch = useCallback(
     (telegramIdValue: string) => {
+      if (trainingVersesFetchFailedRef.current) {
+        return;
+      }
       cancelIdleTask(trainingVersesPrefetchHandleRef.current);
       trainingVersesPrefetchHandleRef.current = scheduleIdleTask(() => {
-        if (hasLoadedTrainingVerses || trainingVersesPromiseRef.current) {
+        if (
+          hasLoadedTrainingVerses ||
+          trainingVersesPromiseRef.current ||
+          trainingVersesFetchFailedRef.current
+        ) {
           return;
         }
 
@@ -918,11 +940,13 @@ export default function App({ onInitialContentReady }: AppProps) {
 
       if (telegramWebUser?.id) {
         try {
-          const initializedUser = await UsersService.postApiUsersTelegram({
+          const initializedUser = await UsersService.upsertTelegramUser({
             telegramId,
-            name: telegramName || null,
-            nickname: telegramNickname || null,
-            avatarUrl: telegramWebUser?.photo_url || null,
+            ...(telegramName ? { name: telegramName } : {}),
+            ...(telegramNickname ? { nickname: telegramNickname } : {}),
+            ...(telegramWebUser?.photo_url
+              ? { avatarUrl: String(telegramWebUser.photo_url) }
+              : {}),
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
@@ -931,10 +955,10 @@ export default function App({ onInitialContentReady }: AppProps) {
       } else {
         // Browser/dev fallback: make sure the user row exists before loading paginated verses/stats.
         try {
-          const initializedUser = await UsersService.postApiUsers({
+          const initializedUser = await UsersService.upsertUser({
             telegramId,
-            name: telegramName || null,
-            nickname: telegramNickname || null,
+            ...(telegramName ? { name: telegramName } : {}),
+            ...(telegramNickname ? { nickname: telegramNickname } : {}),
           });
           setCurrentUserAvatarUrl(normalizeAvatarUrl(initializedUser.avatarUrl));
         } catch (error) {
@@ -947,7 +971,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           loadDashboardStats(telegramId),
           loadDashboardLeaderboard(telegramId),
           loadDashboardFriendsActivity(telegramId),
-          loadAllUsersData(),
         ]);
       } catch (err) {
         console.error("Не удалось получить данные дашборда:", err);
@@ -965,7 +988,6 @@ export default function App({ onInitialContentReady }: AppProps) {
       isMounted = false;
     };
   }, [
-    loadAllUsersData,
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
@@ -974,19 +996,37 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   useEffect(() => {
     if (!telegramId) return;
-    if (dashboardStats == null && !isDashboardStatsLoading) {
+    if (isBootstrapping) return;
+
+    if (
+      dashboardStats == null &&
+      !isDashboardStatsLoading &&
+      !dashboardFetchFailedRef.current.stats
+    ) {
       void loadDashboardStats(telegramId);
     }
 
-    if (dashboardLeaderboard == null && !isDashboardLeaderboardLoading) {
+    if (
+      dashboardLeaderboard == null &&
+      !isDashboardLeaderboardLoading &&
+      !dashboardFetchFailedRef.current.leaderboard
+    ) {
       void loadDashboardLeaderboard(telegramId);
     }
 
-    if (dashboardFriendsActivity == null && !isDashboardFriendsActivityLoading) {
+    if (
+      dashboardFriendsActivity == null &&
+      !isDashboardFriendsActivityLoading &&
+      !dashboardFetchFailedRef.current.friends
+    ) {
       void loadDashboardFriendsActivity(telegramId);
     }
 
-    if (!hasLoadedTrainingVerses && !trainingVersesPromiseRef.current) {
+    if (
+      !hasLoadedTrainingVerses &&
+      !trainingVersesPromiseRef.current &&
+      !trainingVersesFetchFailedRef.current
+    ) {
       scheduleTrainingVersePrefetch(telegramId);
     }
   }, [
@@ -994,6 +1034,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     dashboardLeaderboard,
     dashboardStats,
     hasLoadedTrainingVerses,
+    isBootstrapping,
     isDashboardFriendsActivityLoading,
     isDashboardLeaderboardLoading,
     isDashboardStatsLoading,
@@ -1009,6 +1050,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (currentPage !== "training") return;
     if (hasLoadedTrainingVerses || trainingVersesPromiseRef.current) return;
 
+    trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
   }, [
     currentPage,
@@ -1090,6 +1132,9 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const handleVerseListMutationCommitted = () => {
     if (!telegramId) return;
+    dashboardFetchFailedRef.current.stats = false;
+    dashboardFetchFailedRef.current.leaderboard = false;
+    trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
     void loadDashboardLeaderboard(telegramId);
@@ -1099,6 +1144,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     setFriendsRefreshVersion((prev) => prev + 1);
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
+    dashboardFetchFailedRef.current.friends = false;
     void loadDashboardFriendsActivity(telegramIdValue);
   };
 
@@ -1135,19 +1181,12 @@ export default function App({ onInitialContentReady }: AppProps) {
     const telegramId = localStorage.getItem("telegramId") ?? "";
 
     try {
-      // 1) Ensure verse exists in global catalog.
-      await UserVersesService.postApiUsersVerses(telegramId, {
+      await UserVersesService.upsertUserVerse(telegramId, {
         externalVerseId: verse.externalVerseId,
       });
 
-      // 2) Ensure verse is attached to current user progress (MY by default).
-      await apiRequest(OpenAPI, {
-        method: "PUT",
-        url: "/api/users/{telegramId}/verses/{externalVerseId}",
-        path: {
-          telegramId,
-          externalVerseId: verse.externalVerseId,
-        },
+      await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, {
+        status: "MY",
       });
 
       if (verse.replaceTags === false) {
@@ -1240,8 +1279,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                 dashboardFriendsActivity={dashboardFriendsActivity}
                 isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                allUsers={allUsers}
-                isAllUsersLoading={isAllUsersLoading}
                 currentTelegramId={telegramId}
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}

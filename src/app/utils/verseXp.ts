@@ -1,4 +1,4 @@
-import { VerseStatus as PrismaVerseStatus } from "@/generated/prisma";
+import type { VerseStatus as ApiVerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { computeSocialVerseXp } from "@/shared/social/xp";
 import { formatXp } from "@/shared/social/formatXp";
@@ -14,12 +14,12 @@ export type VerseXpSnapshot = {
   contextScore?: number | null;
 };
 
-function toSocialStatus(status: DisplayVerseStatus): PrismaVerseStatus {
+function toSocialStatus(status: DisplayVerseStatus): ApiVerseStatus {
   if (status === "LEARNING" || status === "REVIEW" || status === "MASTERED") {
-    return PrismaVerseStatus.LEARNING;
+    return "LEARNING";
   }
-  if (status === "STOPPED") return PrismaVerseStatus.STOPPED;
-  return PrismaVerseStatus.MY;
+  if (status === "STOPPED") return "STOPPED";
+  return "MY";
 }
 
 export function computeVerseXpContribution(snapshot: VerseXpSnapshot): number {

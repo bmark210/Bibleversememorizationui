@@ -1,4 +1,5 @@
 import type { UserVerse } from "../models/UserVerse";
+import { UserVersesService } from "./UserVersesService";
 
 export type ReferenceTrainerSessionTrack =
   | "reference"
@@ -43,35 +44,18 @@ export async function fetchReferenceTrainerVerses(
     limit?: number;
   }
 ): Promise<ReferenceTrainerVersesResponse> {
-  const params = new URLSearchParams();
-  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
-    params.set("limit", String(Math.max(1, Math.round(options.limit))));
-  }
-  const query = params.toString();
-  const response = await fetch(
-    `/api/users/${encodeURIComponent(telegramId)}/verses/reference-trainer${
-      query ? `?${query}` : ""
-    }`
-  );
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string }
-      | null;
-    throw new Error(
-      payload?.error ||
-        `Failed to fetch reference trainer verses: ${response.status}`
-    );
-  }
+  const limit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.round(options.limit))
+      : 12;
 
-  const data = await response.json();
-  if (Array.isArray(data)) {
-    return {
-      verses: data as Array<UserVerse>,
-      totalCount: data.length,
-      minRequired: 10,
-    };
-  }
-  return data as ReferenceTrainerVersesResponse;
+  const data = await UserVersesService.getReferenceTrainer(telegramId, limit);
+  const verses = data.verses ?? [];
+  return {
+    verses,
+    totalCount: data.totalCount ?? verses.length,
+    minRequired: data.minRequired ?? 10,
+  };
 }
 
 export async function submitReferenceTrainerSession(params: {
@@ -79,29 +63,23 @@ export async function submitReferenceTrainerSession(params: {
   sessionTrack: ReferenceTrainerSessionTrack;
   updates: ReferenceTrainerSessionUpdate[];
 }): Promise<ReferenceTrainerSessionResponse> {
-  const response = await fetch(
-    `/api/users/${encodeURIComponent(params.telegramId)}/verses/reference-trainer/session`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sessionTrack: params.sessionTrack,
-        updates: params.updates,
-      }),
-    }
-  );
+  const raw = await UserVersesService.saveReferenceTrainerSession(params.telegramId, {
+    sessionTrack: params.sessionTrack,
+    updates: params.updates,
+  });
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string }
-      | null;
-    throw new Error(
-      payload?.error ||
-        `Failed to submit reference trainer session: ${response.status}`
-    );
-  }
-
-  return response.json() as Promise<ReferenceTrainerSessionResponse>;
+  const rows = Array.isArray(raw.updated) ? raw.updated : [];
+  const updated = rows.map((row) => {
+    const ext =
+      row?.verse?.externalVerseId != null && String(row.verse.externalVerseId).trim()
+        ? String(row.verse.externalVerseId)
+        : String((row as { externalVerseId?: string }).externalVerseId ?? "");
+    return {
+      externalVerseId: ext,
+      referenceScore: Number(row?.referenceScore ?? 0),
+      incipitScore: Number(row?.incipitScore ?? 0),
+      contextScore: Number(row?.contextScore ?? 0),
+    };
+  });
+  return { updated };
 }
