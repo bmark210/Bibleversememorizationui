@@ -144,22 +144,33 @@ export function normalizeDashboardLeaderboard(
     const cu = (data.currentUser ?? null) as Record<string, unknown> | null;
     let currentUser: CurrentUserLeaderboardSnapshot | null = null;
     if (cu && tid) {
-      const inTop = Boolean(cu.inTop);
       const rankVal = cu.rank;
+      const rankParsed =
+        rankVal == null
+          ? null
+          : toSafeInt(rankVal, {
+              min: 1,
+            });
       currentUser = {
         telegramId: tid,
         name: `Участник #${tid.slice(-4)}`,
         avatarUrl: null,
-        rank: inTop && rankVal != null ? toSafeInt(rankVal, { min: 1 }) : null,
+        rank: rankParsed,
         xp: toSafeInt(cu.xp ?? cu.score ?? cu.versesCount, { min: 0 }),
         streakDays: toSafeInt(cu.streakDays ?? cu.dailyStreak, { min: 0 }),
         weeklyRepetitions: toSafeInt(cu.weeklyRepetitions, { min: 0 }),
       };
     }
 
+    const rawTotal = Number(data.totalParticipants);
+    const totalParticipants =
+      Number.isFinite(rawTotal) && rawTotal >= 0
+        ? Math.round(rawTotal)
+        : entries.length;
+
     return {
       generatedAt: toSafeString(data.generatedAt, new Date().toISOString()),
-      totalParticipants: entries.length,
+      totalParticipants,
       entries,
       currentUser,
     };
