@@ -12,6 +12,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -24,6 +25,7 @@ import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficu
 
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -65,6 +67,7 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 
 export function ModeFirstLettersKeyboardExercise({
   verse,
+  trainingModeId,
   onRate,
   hintState,
   onProgressChange,
@@ -270,7 +273,7 @@ export function ModeFirstLettersKeyboardExercise({
             placeholder="Введите первые буквы..."
             disabled={isCompleted || surrendered}
             data-swipe-through="true"
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             style={{ fontSize: `${fontSizes.base}px` }}
             autoCorrect="off"
             autoCapitalize="none"
@@ -289,7 +292,13 @@ export function ModeFirstLettersKeyboardExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

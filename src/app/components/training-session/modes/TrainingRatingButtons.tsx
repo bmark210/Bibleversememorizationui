@@ -5,6 +5,10 @@ import { motion } from 'motion/react';
 import { Button } from "@/app/components/ui/button";
 import type { TrainingModeRating } from './types';
 import type { HintRatingPolicy } from '@/modules/training/hints/types';
+import {
+  TrainingModeId,
+  isLearnEasyRatingAllowed,
+} from '@/shared/training/modeEngine';
 
 export type TrainingRatingStage = 'learning' | 'review';
 export type TrainingRatingMode =
@@ -20,12 +24,14 @@ type TrainingRatingButtonsProps = {
   maxRating?: TrainingModeRating;
   allowedRatings?: readonly TrainingModeRating[];
   ratingPolicy?: HintRatingPolicy;
-  /** When false, hides "Легко" (skip) and adds "Забыл" (go back) for final training modes */
+  /** When false, hides the easiest option (rating 3) and adds "Забыл" for final training modes */
   allowEasySkip?: boolean;
-  /** When true, removes "Забыл" (rating 0) from buttons — used when hint is active and "Сдаюсь" replaces it */
+  /** When true, hides rating 0 ("Забыл") in this row — e.g. learning uses the session toolbar; hint flows may use "Сдаюсь" */
   excludeForget?: boolean;
-  /** Late-stage review (reps 4–6): only show "Вспомнил" */
+  /** Late-stage review (reps 4–6): only show "Хорошо" */
   lateStageReview?: boolean;
+  /** Current training mode; gates «Легко» (rating 3) to early progress steps only */
+  currentTrainingModeId?: TrainingModeId | null;
   disabled?: boolean;
 };
 
@@ -44,24 +50,21 @@ const BUTTON_STYLE_BY_RATING: Record<TrainingModeRating, string> = {
   3: 'rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300',
 };
 
+/** Review never uses rating 0 («Забыл») — use session actions if needed. */
 function getReviewButtons(maxRating: TrainingModeRating): RatingButtonMeta[] {
   if (maxRating === 0) {
     return [
-      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
+      { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[3] },
     ];
   }
 
   if (maxRating === 1) {
-    return [
-      { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
-      { rating: 1, label: 'С подсказкой', className: BUTTON_STYLE_BY_RATING[1] },
-    ];
+    return [{ rating: 1, label: 'С подсказкой', className: BUTTON_STYLE_BY_RATING[1] }];
   }
 
   return [
-    { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
     { rating: 1, label: 'С подсказкой', className: BUTTON_STYLE_BY_RATING[1] },
-    { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
+    { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[3] },
   ];
 }
 
@@ -80,7 +83,7 @@ function getLearningButtonMeta(
   if (rating === 2) {
     return {
       rating: 2,
-      label: allowEasySkip ? 'Хорошо' : 'Далее',
+      label: 'Хорошо',
       className: BUTTON_STYLE_BY_RATING[2],
     };
   }
@@ -94,7 +97,7 @@ function getLearningButtonMeta(
 
 function getReviewButtonMeta(rating: TrainingModeRating): RatingButtonMeta | null {
   if (rating === 0) {
-    return { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] };
+    return null;
   }
 
   if (rating === 1) {
@@ -102,7 +105,7 @@ function getReviewButtonMeta(rating: TrainingModeRating): RatingButtonMeta | nul
   }
 
   if (rating === 2) {
-    return { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] };
+    return { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[3] };
   }
 
   return null;
@@ -125,7 +128,7 @@ function getLearningButtonsNoSkip(maxRating: TrainingModeRating): RatingButtonMe
   return [
     { rating: 0, label: 'Забыл', className: BUTTON_STYLE_BY_RATING[0] },
     { rating: 1, label: 'Сложно', className: BUTTON_STYLE_BY_RATING[1] },
-    { rating: 2, label: 'Далее', className: BUTTON_STYLE_BY_RATING[2] },
+    { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[2] },
   ];
 }
 
@@ -164,7 +167,11 @@ function buildButtonsFromAllowedRatings(params: {
   allowEasySkip: boolean;
   allowedRatings: readonly TrainingModeRating[];
 }): RatingButtonMeta[] {
-  return params.allowedRatings
+  const ratings =
+    params.stage === 'review'
+      ? params.allowedRatings.filter((r) => r !== 0)
+      : params.allowedRatings;
+  return ratings
     .map((rating) =>
       resolveButtonMeta({
         stage: params.stage,
@@ -180,10 +187,39 @@ export function resolveTrainingRatingStage(status: string | null | undefined): T
   return normalized === 'REVIEW' || normalized === 'MASTERED' ? 'review' : 'learning';
 }
 
+/** Toolbar «Забыл» for modes &gt; 1; rating row shows «Забыл» only in ClickChunks (mode 1). */
+export function resolveTrainingRatingExcludeForget(opts: {
+  isLateStageReview: boolean;
+  ratingStage: TrainingRatingStage;
+  trainingModeId: TrainingModeId;
+  surrendered: boolean;
+}): boolean {
+  if (opts.isLateStageReview) return true;
+  if (opts.ratingStage === 'learning') return opts.trainingModeId !== TrainingModeId.ClickChunks;
+  return !opts.surrendered;
+}
+
 function gridClassName(count: number): string {
   if (count === 1) return 'grid grid-cols-1 gap-3';
   if (count === 2) return 'grid grid-cols-2 gap-3';
   return 'grid grid-cols-3 gap-3';
+}
+
+function applyRatingVisibilityRules(params: {
+  stage: TrainingRatingStage;
+  buttons: RatingButtonMeta[];
+  currentTrainingModeId: TrainingModeId | null | undefined;
+}): RatingButtonMeta[] {
+  let { buttons, stage, currentTrainingModeId } = params;
+  if (stage === 'review') {
+    buttons = buttons.filter((b) => b.rating !== 0);
+  }
+  if (stage === 'learning') {
+    if (!isLearnEasyRatingAllowed(currentTrainingModeId)) {
+      buttons = buttons.filter((b) => b.rating !== 3);
+    }
+  }
+  return buttons;
 }
 
 export function resolveTrainingRatingButtonsConfig(params: {
@@ -194,6 +230,7 @@ export function resolveTrainingRatingButtonsConfig(params: {
   allowEasySkip?: boolean;
   excludeForget?: boolean;
   lateStageReview?: boolean;
+  currentTrainingModeId?: TrainingModeId | null;
 }): {
   title: string;
   buttons: ResolvedTrainingRatingButton[];
@@ -206,14 +243,15 @@ export function resolveTrainingRatingButtonsConfig(params: {
     allowEasySkip = true,
     excludeForget = false,
     lateStageReview = false,
+    currentTrainingModeId,
   } = params;
 
-  // Late-stage review: only "Вспомнил" button
+  // Late-stage review: only "Хорошо" button
   if (lateStageReview && stage === 'review') {
     return {
       title: 'Результат повторения',
       buttons: [
-        { rating: 2, label: 'Вспомнил', className: BUTTON_STYLE_BY_RATING[3] },
+        { rating: 2, label: 'Хорошо', className: BUTTON_STYLE_BY_RATING[3] },
       ],
     };
   }
@@ -233,23 +271,45 @@ export function resolveTrainingRatingButtonsConfig(params: {
     );
   }
 
+  buttons = applyRatingVisibilityRules({
+    stage,
+    buttons,
+    currentTrainingModeId,
+  });
+
   if (buttons.length === 0) {
+    let fallbackRatings =
+      policyAllowedRatings ??
+      (effectiveMaxRating === 0
+        ? stage === 'review'
+          ? [2]
+          : [0]
+        : effectiveMaxRating === 1
+          ? stage === 'review'
+            ? [1]
+            : [0, 1]
+          : effectiveMaxRating === 2
+            ? stage === 'review'
+              ? [1, 2]
+              : [0, 1, 2]
+            : [0, 1, 2, 3]);
+    if (stage === 'review') {
+      const nz = fallbackRatings.filter((r) => r !== 0);
+      fallbackRatings = nz.length > 0 ? nz : [2];
+    }
     buttons = buildButtonsFromAllowedRatings({
       stage,
       allowEasySkip,
-      allowedRatings:
-        policyAllowedRatings ??
-        (effectiveMaxRating === 0
-          ? [0]
-          : effectiveMaxRating === 1
-            ? [0, 1]
-            : effectiveMaxRating === 2
-              ? [0, 1, 2]
-              : [0, 1, 2, 3]),
+      allowedRatings: fallbackRatings,
+    });
+    buttons = applyRatingVisibilityRules({
+      stage,
+      buttons,
+      currentTrainingModeId,
     });
   }
 
-  if (buttons.length === 0) {
+  if (buttons.length === 0 && stage !== 'review') {
     const forgotButton = resolveButtonMeta({
       stage,
       rating: 0,
@@ -274,6 +334,7 @@ export function TrainingRatingButtons({
   allowEasySkip = true,
   excludeForget = false,
   lateStageReview = false,
+  currentTrainingModeId,
   disabled = false,
 }: TrainingRatingButtonsProps) {
   const { buttons, title } = resolveTrainingRatingButtonsConfig({
@@ -284,6 +345,7 @@ export function TrainingRatingButtons({
     allowEasySkip,
     excludeForget,
     lateStageReview,
+    currentTrainingModeId,
   });
 
   return (

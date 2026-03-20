@@ -655,7 +655,7 @@
           },
           {
             "type": "integer",
-            "default": 20,
+            "default": 6,
             "description": "Max items",
             "name": "limit",
             "in": "query"
@@ -670,6 +670,12 @@
           },
           "400": {
             "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/internal_api.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/internal_api.ErrorResponse"
             }
@@ -995,21 +1001,58 @@
             "in": "query"
           },
           {
+            "enum": [
+              "createdAt",
+              "updatedAt",
+              "bible",
+              "popularity"
+            ],
             "type": "string",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
           },
           {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string",
             "description": "Sort direction",
             "name": "order",
             "in": "query"
           },
           {
+            "enum": [
+              "catalog",
+              "friends",
+              "my",
+              "learning",
+              "review",
+              "mastered",
+              "stopped"
+            ],
             "type": "string",
-            "description": "Search filter",
+            "description": "Semantic list filter",
             "name": "filter",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Bible book number filter",
+            "name": "bookId",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Search in verse text or reference",
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Comma-separated tag slugs",
+            "name": "tagSlugs",
             "in": "query"
           },
           {
@@ -1049,6 +1092,7 @@
         }
       },
       "post": {
+        "description": "If no User row exists for telegramId yet, creates a minimal user (same defaults as user upsert) so the verse can be linked. Body must include externalVerseId; other fields are optional.",
         "consumes": [
           "application/json"
         ],
@@ -1058,7 +1102,7 @@
         "tags": [
           "user-verses"
         ],
-        "summary": "Create or update verse progress",
+        "summary": "Add verse to My verses or update progress",
         "operationId": "upsertUserVerse",
         "parameters": [
           {
@@ -1203,14 +1247,15 @@
     },
     "/api/users/{telegramId}/verses/review": {
       "get": {
+        "description": "Same selection as GET /api/users/{telegramId}/verses?filter=review; returns a flat array (legacy OpenAPI contract).",
         "produces": [
           "application/json"
         ],
         "tags": [
           "user-verses"
         ],
-        "summary": "List verses ready for review",
-        "operationId": "listReviewVerses",
+        "summary": "List verses in review stage",
+        "operationId": "listUserVersesReview",
         "parameters": [
           {
             "type": "string",
@@ -1220,12 +1265,20 @@
             "required": true
           },
           {
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ],
             "type": "string",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
           },
           {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string",
             "description": "Sort direction",
             "name": "order",
@@ -1238,7 +1291,7 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+                "$ref": "#/definitions/bible-memory-db_internal_domain.VerseListItem"
               }
             }
           },
@@ -1287,7 +1340,7 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ActionStatusResponse"
+              "$ref": "#/definitions/bible-memory-db_internal_domain.DeleteUserVerseResult"
             }
           },
           "400": {
@@ -1365,6 +1418,7 @@
     },
     "/api/verses": {
       "get": {
+        "description": "Semantically same as GET /api/users/{telegramId}/verses with filter=catalog; response shape is catalog-only (items + totalCount).",
         "produces": [
           "application/json"
         ],
@@ -1393,6 +1447,12 @@
             "in": "query"
           },
           {
+            "type": "integer",
+            "description": "Bible book number filter",
+            "name": "bookId",
+            "in": "query"
+          },
+          {
             "type": "string",
             "description": "Comma-separated tag slugs",
             "name": "tagSlugs",
@@ -1400,7 +1460,7 @@
           },
           {
             "type": "string",
-            "default": "popularity",
+            "default": "createdAt",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
@@ -1431,7 +1491,7 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserVersesPageResponse"
+              "$ref": "#/definitions/bible-memory-db_internal_domain.CatalogVersesPageResponse"
             }
           },
           "500": {
@@ -1761,6 +1821,20 @@
         }
       }
     },
+    "bible-memory-db_internal_domain.CatalogVersesPageResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bible-memory-db_internal_domain.VerseListItem"
+          }
+        },
+        "totalCount": {
+          "type": "integer"
+        }
+      }
+    },
     "bible-memory-db_internal_domain.CreateFeedbackInput": {
       "type": "object",
       "required": [
@@ -1778,37 +1852,83 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.DashboardFriendsActivityEntry": {
+    "bible-memory-db_internal_domain.DashboardFriendActivityEntry": {
       "type": "object",
       "properties": {
-        "activityType": {
-          "type": "string"
-        },
-        "at": {
-          "type": "string"
-        },
         "avatarUrl": {
           "type": "string"
+        },
+        "dailyStreak": {
+          "type": "integer"
+        },
+        "lastActiveAt": {
+          "type": "string"
+        },
+        "masteredVerses": {
+          "type": "integer"
         },
         "name": {
           "type": "string"
         },
-        "nickname": {
-          "type": "string"
-        },
         "telegramId": {
           "type": "string"
+        },
+        "weeklyRepetitions": {
+          "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
     "bible-memory-db_internal_domain.DashboardFriendsActivityResponse": {
       "type": "object",
       "properties": {
-        "items": {
+        "entries": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.DashboardFriendsActivityEntry"
+            "$ref": "#/definitions/bible-memory-db_internal_domain.DashboardFriendActivityEntry"
           }
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.DashboardFriendsActivitySummary"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.DashboardFriendsActivitySummary": {
+      "type": "object",
+      "properties": {
+        "activeLast7Days": {
+          "type": "integer"
+        },
+        "avgStreakDays": {
+          "type": "integer"
+        },
+        "avgWeeklyRepetitions": {
+          "type": "integer"
+        },
+        "avgXp": {
+          "type": "integer"
+        },
+        "friendsTotal": {
+          "type": "integer"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.DeleteUserVerseResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "xp": {
+          "type": "integer"
+        },
+        "xpDelta": {
+          "type": "integer"
         }
       }
     },
@@ -2102,6 +2222,9 @@
         },
         "translation": {
           "$ref": "#/definitions/bible-memory-db_internal_domain.Translation"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
@@ -2111,13 +2234,31 @@
         "dailyStreak": {
           "type": "integer"
         },
+        "dueReviewVerses": {
+          "type": "integer"
+        },
+        "learningVerses": {
+          "type": "integer"
+        },
         "masteredCount": {
+          "type": "integer"
+        },
+        "reviewVerses": {
+          "type": "integer"
+        },
+        "stoppedVerses": {
           "type": "integer"
         },
         "telegramId": {
           "type": "string"
         },
         "versesCount": {
+          "type": "integer"
+        },
+        "waitingReviewVerses": {
+          "type": "integer"
+        },
+        "xp": {
           "type": "integer"
         }
       }
@@ -2132,6 +2273,9 @@
           "type": "integer"
         },
         "versesCount": {
+          "type": "integer"
+        },
+        "xp": {
           "type": "integer"
         }
       }
@@ -2159,6 +2303,9 @@
         },
         "versesCount": {
           "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
@@ -2173,6 +2320,9 @@
           "items": {
             "$ref": "#/definitions/bible-memory-db_internal_domain.UserLeaderboardEntry"
           }
+        },
+        "totalParticipants": {
+          "type": "integer"
         }
       }
     },
@@ -2184,6 +2334,9 @@
         },
         "createdAt": {
           "type": "string"
+        },
+        "flow": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlow"
         },
         "id": {
           "type": "integer"
@@ -2240,7 +2393,7 @@
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+            "$ref": "#/definitions/bible-memory-db_internal_domain.VerseListItem"
           }
         },
         "limit": {
@@ -2250,6 +2403,9 @@
           "type": "integer"
         },
         "total": {
+          "type": "integer"
+        },
+        "totalCount": {
           "type": "integer"
         }
       }
@@ -2283,6 +2439,9 @@
         },
         "versesCount": {
           "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
@@ -2303,6 +2462,25 @@
         }
       }
     },
+    "bible-memory-db_internal_domain.VerseAction": {
+      "type": "string",
+      "enum": [
+        "add_to_my",
+        "start_learning",
+        "train",
+        "pause",
+        "resume",
+        "anchor"
+      ],
+      "x-enum-varnames": [
+        "VerseActionAddToMy",
+        "VerseActionStartLearning",
+        "VerseActionTrain",
+        "VerseActionPause",
+        "VerseActionResume",
+        "VerseActionAnchor"
+      ]
+    },
     "bible-memory-db_internal_domain.VerseAdminSummary": {
       "type": "object",
       "properties": {
@@ -2319,6 +2497,270 @@
           "type": "integer"
         }
       }
+    },
+    "bible-memory-db_internal_domain.VerseDifficultyLevel": {
+      "type": "string",
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD",
+        "EXPERT"
+      ],
+      "x-enum-varnames": [
+        "VerseDifficultyEasy",
+        "VerseDifficultyMedium",
+        "VerseDifficultyHard",
+        "VerseDifficultyExpert"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseDisplayStatus": {
+      "type": "string",
+      "enum": [
+        "MY",
+        "LEARNING",
+        "STOPPED",
+        "REVIEW",
+        "MASTERED",
+        "CATALOG"
+      ],
+      "x-enum-varnames": [
+        "VerseDisplayMy",
+        "VerseDisplayLearning",
+        "VerseDisplayStopped",
+        "VerseDisplayReview",
+        "VerseDisplayMastered",
+        "VerseDisplayCatalog"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseFlow": {
+      "type": "object",
+      "properties": {
+        "allowedActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bible-memory-db_internal_domain.VerseAction"
+          }
+        },
+        "availability": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlowAvailability"
+        },
+        "availableAt": {
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlowCode"
+        },
+        "group": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlowGroup"
+        },
+        "phase": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlowPhase"
+        },
+        "progressPercent": {
+          "type": "integer"
+        },
+        "remainingLearnings": {
+          "type": "integer"
+        },
+        "remainingReviews": {
+          "type": "integer"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.VerseFlowAvailability": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "WAITING",
+        "PAUSED",
+        "NONE"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowAvailabilityReady",
+        "VerseFlowAvailabilityWaiting",
+        "VerseFlowAvailabilityPaused",
+        "VerseFlowAvailabilityNone"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseFlowCode": {
+      "type": "string",
+      "enum": [
+        "CATALOG",
+        "MY",
+        "LEARNING",
+        "REVIEW_DUE",
+        "REVIEW_WAITING",
+        "MASTERED",
+        "PAUSED_LEARNING",
+        "PAUSED_REVIEW",
+        "PAUSED_MASTERED"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowCatalog",
+        "VerseFlowMy",
+        "VerseFlowLearning",
+        "VerseFlowReviewDue",
+        "VerseFlowReviewWaiting",
+        "VerseFlowMastered",
+        "VerseFlowPausedLearning",
+        "VerseFlowPausedReview",
+        "VerseFlowPausedMastered"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseFlowGroup": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "library",
+        "active",
+        "paused",
+        "complete"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowGroupCatalog",
+        "VerseFlowGroupLibrary",
+        "VerseFlowGroupActive",
+        "VerseFlowGroupPaused",
+        "VerseFlowGroupComplete"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseFlowPhase": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "my",
+        "learning",
+        "review",
+        "mastered"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowPhaseCatalog",
+        "VerseFlowPhaseMy",
+        "VerseFlowPhaseLearning",
+        "VerseFlowPhaseReview",
+        "VerseFlowPhaseMastered"
+      ]
+    },
+    "bible-memory-db_internal_domain.VerseListItem": {
+      "type": "object",
+      "properties": {
+        "contextPromptReference": {
+          "type": "string"
+        },
+        "contextPromptText": {
+          "type": "string"
+        },
+        "contextScore": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "difficultyLevel": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseDifficultyLevel"
+        },
+        "externalVerseId": {
+          "type": "string"
+        },
+        "flow": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseFlow"
+        },
+        "incipitScore": {
+          "type": "integer"
+        },
+        "lastReviewedAt": {
+          "type": "string"
+        },
+        "lastTrainingModeId": {
+          "type": "integer"
+        },
+        "masteryLevel": {
+          "type": "integer"
+        },
+        "nextReviewAt": {
+          "type": "string"
+        },
+        "popularityPreviewUsers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bible-memory-db_internal_domain.VersePopularityPreviewUser"
+          }
+        },
+        "popularityScope": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VersePopularityScope"
+        },
+        "popularityValue": {
+          "type": "integer"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "referenceScore": {
+          "type": "integer"
+        },
+        "repetitions": {
+          "type": "integer"
+        },
+        "reviewLapseStreak": {
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseDisplayStatus"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bible-memory-db_internal_domain.VerseListTag"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.VerseListTag": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.VersePopularityPreviewUser": {
+      "type": "object",
+      "properties": {
+        "avatarUrl": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "telegramId": {
+          "type": "string"
+        }
+      }
+    },
+    "bible-memory-db_internal_domain.VersePopularityScope": {
+      "type": "string",
+      "enum": [
+        "friends",
+        "players",
+        "self"
+      ],
+      "x-enum-varnames": [
+        "VersePopularityFriends",
+        "VersePopularityPlayers",
+        "VersePopularitySelf"
+      ]
     },
     "bible-memory-db_internal_domain.VerseStatus": {
       "type": "string",

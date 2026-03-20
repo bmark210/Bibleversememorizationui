@@ -11,6 +11,7 @@ import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -35,6 +36,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -114,7 +116,7 @@ function initClickWordsExercise(text: string) {
 const WORD_CHOICE_BUTTON_BASE_CLASS =
   'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
 
-export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
+export function ModeClickWordsExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
@@ -412,7 +414,14 @@ export function ModeClickWordsExercise({ verse, onRate, hintState, onProgressCha
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              allowEasySkip={false}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

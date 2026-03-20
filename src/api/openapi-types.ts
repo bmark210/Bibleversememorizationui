@@ -256,7 +256,10 @@ export interface paths {
         /** List a user's verses */
         get: operations["listUserVerses"];
         put?: never;
-        /** Create or update verse progress */
+        /**
+         * Add verse to My verses or update progress
+         * @description If no User row exists for telegramId yet, creates a minimal user (same defaults as user upsert) so the verse can be linked. Body must include externalVerseId; other fields are optional.
+         */
         post: operations["upsertUserVerse"];
         delete?: never;
         options?: never;
@@ -305,8 +308,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List verses ready for review */
-        get: operations["listReviewVerses"];
+        /**
+         * List verses in review stage
+         * @description Same selection as GET /api/users/{telegramId}/verses?filter=review; returns a flat array (legacy OpenAPI contract).
+         */
+        get: operations["listUserVersesReview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -340,7 +346,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List catalog verses */
+        /**
+         * List catalog verses
+         * @description Semantically same as GET /api/users/{telegramId}/verses with filter=catalog; response shape is catalog-only (items + totalCount).
+         */
         get: operations["listCatalogVerses"];
         put?: never;
         post?: never;
@@ -431,20 +440,40 @@ export interface components {
             deletedExternalVerseId?: string;
             ok?: boolean;
         };
+        "bible-memory-db_internal_domain.CatalogVersesPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
+            totalCount?: number;
+        };
         "bible-memory-db_internal_domain.CreateFeedbackInput": {
             telegramId: string;
             text: string;
         };
-        "bible-memory-db_internal_domain.DashboardFriendsActivityEntry": {
-            activityType?: string;
-            at?: string;
+        "bible-memory-db_internal_domain.DashboardFriendActivityEntry": {
             avatarUrl?: string;
+            dailyStreak?: number;
+            lastActiveAt?: string;
+            masteredVerses?: number;
             name?: string;
-            nickname?: string;
             telegramId?: string;
+            weeklyRepetitions?: number;
+            xp?: number;
         };
         "bible-memory-db_internal_domain.DashboardFriendsActivityResponse": {
-            items?: components["schemas"]["bible-memory-db_internal_domain.DashboardFriendsActivityEntry"][];
+            entries?: components["schemas"]["bible-memory-db_internal_domain.DashboardFriendActivityEntry"][];
+            generatedAt?: string;
+            summary?: components["schemas"]["bible-memory-db_internal_domain.DashboardFriendsActivitySummary"];
+        };
+        "bible-memory-db_internal_domain.DashboardFriendsActivitySummary": {
+            activeLast7Days?: number;
+            avgStreakDays?: number;
+            avgWeeklyRepetitions?: number;
+            avgXp?: number;
+            friendsTotal?: number;
+        };
+        "bible-memory-db_internal_domain.DeleteUserVerseResult": {
+            status?: string;
+            xp?: number;
+            xpDelta?: number;
         };
         "bible-memory-db_internal_domain.Feedback": {
             createdAt?: string;
@@ -540,17 +569,25 @@ export interface components {
             nickname?: string;
             telegramId?: string;
             translation?: components["schemas"]["bible-memory-db_internal_domain.Translation"];
+            xp?: number;
         };
         "bible-memory-db_internal_domain.UserDashboardStats": {
             dailyStreak?: number;
+            dueReviewVerses?: number;
+            learningVerses?: number;
             masteredCount?: number;
+            reviewVerses?: number;
+            stoppedVerses?: number;
             telegramId?: string;
             versesCount?: number;
+            waitingReviewVerses?: number;
+            xp?: number;
         };
         "bible-memory-db_internal_domain.UserLeaderboardCurrentUser": {
             inTop?: boolean;
             rank?: number;
             versesCount?: number;
+            xp?: number;
         };
         "bible-memory-db_internal_domain.UserLeaderboardEntry": {
             avatarUrl?: string;
@@ -560,14 +597,17 @@ export interface components {
             score?: number;
             telegramId?: string;
             versesCount?: number;
+            xp?: number;
         };
         "bible-memory-db_internal_domain.UserLeaderboardResponse": {
             currentUser?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardCurrentUser"];
             items?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardEntry"][];
+            totalParticipants?: number;
         };
         "bible-memory-db_internal_domain.UserVerse": {
             contextScore?: number;
             createdAt?: string;
+            flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
             id?: number;
             incipitScore?: number;
             lastReviewedAt?: string;
@@ -585,10 +625,11 @@ export interface components {
             verseId?: string;
         };
         "bible-memory-db_internal_domain.UserVersesPageResponse": {
-            items?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"][];
+            items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
             limit?: number;
             offset?: number;
             total?: number;
+            totalCount?: number;
         };
         "bible-memory-db_internal_domain.UserWithVerses": {
             avatarUrl?: string;
@@ -600,6 +641,7 @@ export interface components {
             telegramId?: string;
             translation?: components["schemas"]["bible-memory-db_internal_domain.Translation"];
             versesCount?: number;
+            xp?: number;
         };
         "bible-memory-db_internal_domain.Verse": {
             createdAt?: string;
@@ -607,12 +649,74 @@ export interface components {
             externalVerseId?: string;
             id?: string;
         };
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseAction": "add_to_my" | "start_learning" | "train" | "pause" | "resume" | "anchor";
         "bible-memory-db_internal_domain.VerseAdminSummary": {
             canDelete?: boolean;
             externalVerseId?: string;
             tagLinksCount?: number;
             userLinksCount?: number;
         };
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseDifficultyLevel": "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseDisplayStatus": "MY" | "LEARNING" | "STOPPED" | "REVIEW" | "MASTERED" | "CATALOG";
+        "bible-memory-db_internal_domain.VerseFlow": {
+            allowedActions?: components["schemas"]["bible-memory-db_internal_domain.VerseAction"][];
+            availability?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowAvailability"];
+            availableAt?: string;
+            code?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowCode"];
+            group?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowGroup"];
+            phase?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowPhase"];
+            progressPercent?: number;
+            remainingLearnings?: number;
+            remainingReviews?: number;
+        };
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseFlowAvailability": "READY" | "WAITING" | "PAUSED" | "NONE";
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseFlowCode": "CATALOG" | "MY" | "LEARNING" | "REVIEW_DUE" | "REVIEW_WAITING" | "MASTERED" | "PAUSED_LEARNING" | "PAUSED_REVIEW" | "PAUSED_MASTERED";
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseFlowGroup": "catalog" | "library" | "active" | "paused" | "complete";
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VerseFlowPhase": "catalog" | "my" | "learning" | "review" | "mastered";
+        "bible-memory-db_internal_domain.VerseListItem": {
+            contextPromptReference?: string;
+            contextPromptText?: string;
+            contextScore?: number;
+            createdAt?: string;
+            difficultyLevel?: components["schemas"]["bible-memory-db_internal_domain.VerseDifficultyLevel"];
+            externalVerseId?: string;
+            flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
+            incipitScore?: number;
+            lastReviewedAt?: string;
+            lastTrainingModeId?: number;
+            masteryLevel?: number;
+            nextReviewAt?: string;
+            popularityPreviewUsers?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityPreviewUser"][];
+            popularityScope?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityScope"];
+            popularityValue?: number;
+            reference?: string;
+            referenceScore?: number;
+            repetitions?: number;
+            reviewLapseStreak?: number;
+            status?: components["schemas"]["bible-memory-db_internal_domain.VerseDisplayStatus"];
+            tags?: components["schemas"]["bible-memory-db_internal_domain.VerseListTag"][];
+            text?: string;
+            updatedAt?: string;
+        };
+        "bible-memory-db_internal_domain.VerseListTag": {
+            id?: string;
+            slug?: string;
+            title?: string;
+        };
+        "bible-memory-db_internal_domain.VersePopularityPreviewUser": {
+            avatarUrl?: string;
+            name?: string;
+            telegramId?: string;
+        };
+        /** @enum {string} */
+        "bible-memory-db_internal_domain.VersePopularityScope": "friends" | "players" | "self";
         /** @enum {string} */
         "bible-memory-db_internal_domain.VerseStatus": "MY" | "LEARNING" | "STOPPED";
         "bible-memory-db_internal_domain.VerseTagLinkResponse": {
@@ -1294,6 +1398,15 @@ export interface operations {
                     "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -1554,11 +1667,17 @@ export interface operations {
                 /** @description Verse status */
                 status?: "MY" | "LEARNING" | "STOPPED";
                 /** @description Sort field */
-                orderBy?: string;
+                orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
                 /** @description Sort direction */
-                order?: string;
-                /** @description Search filter */
-                filter?: string;
+                order?: "asc" | "desc";
+                /** @description Semantic list filter */
+                filter?: "catalog" | "friends" | "my" | "learning" | "review" | "mastered" | "stopped";
+                /** @description Bible book number filter */
+                bookId?: number;
+                /** @description Search in verse text or reference */
+                search?: string;
+                /** @description Comma-separated tag slugs */
+                tagSlugs?: string;
                 /** @description Max items */
                 limit?: number;
                 /** @description Pagination offset */
@@ -1738,13 +1857,13 @@ export interface operations {
             };
         };
     };
-    listReviewVerses: {
+    listUserVersesReview: {
         parameters: {
             query?: {
                 /** @description Sort field */
-                orderBy?: string;
+                orderBy?: "createdAt" | "updatedAt";
                 /** @description Sort direction */
-                order?: string;
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -1761,7 +1880,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserVerse"][];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
                 };
             };
             /** @description Bad Request */
@@ -1804,7 +1923,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["internal_api.ActionStatusResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.DeleteUserVerseResult"];
                 };
             };
             /** @description Bad Request */
@@ -1882,6 +2001,8 @@ export interface operations {
                 telegramId?: string;
                 /** @description Bible translation */
                 translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
+                /** @description Bible book number filter */
+                bookId?: number;
                 /** @description Comma-separated tag slugs */
                 tagSlugs?: string;
                 /** @description Sort field */
@@ -1905,7 +2026,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserVersesPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.CatalogVersesPageResponse"];
                 };
             };
             /** @description Internal Server Error */

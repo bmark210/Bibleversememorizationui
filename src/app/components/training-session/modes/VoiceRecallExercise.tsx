@@ -10,6 +10,7 @@ import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -25,9 +26,11 @@ import {
 } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 
 interface VoiceRecallExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -72,7 +75,7 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
@@ -336,7 +339,13 @@ export function ModeVoiceRecallExercise({ verse, onRate, hintState, onProgressCh
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

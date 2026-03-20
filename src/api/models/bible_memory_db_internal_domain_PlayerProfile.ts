@@ -2,16 +2,19 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { bible_memory_db_internal_domain_Translation } from './bible_memory_db_internal_domain_Translation';
-export type bible_memory_db_internal_domain_User = {
+export type bible_memory_db_internal_domain_PlayerProfile = {
     avatarUrl?: string;
     createdAt?: string;
     dailyStreak?: number;
-    id?: string;
+    displayName?: string;
+    isCurrentUser?: boolean;
+    isFriend?: boolean;
+    lastActiveAt?: string;
+    masteredVerses?: number;
     name?: string;
     nickname?: string;
     telegramId?: string;
-    translation?: bible_memory_db_internal_domain_Translation;
+    weeklyRepetitions?: number;
     xp?: number;
 };
 

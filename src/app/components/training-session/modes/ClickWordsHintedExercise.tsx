@@ -11,6 +11,7 @@ import { Button } from '@/app/components/ui/button';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -38,6 +39,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -140,6 +142,7 @@ const WORD_CHOICE_BUTTON_BASE_CLASS =
 
 export function ModeClickWordsHintedExercise({
   verse,
+  trainingModeId,
   onRate,
   hintState,
   onProgressChange,
@@ -477,7 +480,14 @@ export function ModeClickWordsHintedExercise({
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              allowEasySkip={false}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

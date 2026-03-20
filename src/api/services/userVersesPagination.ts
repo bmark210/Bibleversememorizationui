@@ -1,5 +1,5 @@
+import type { bible_memory_db_internal_domain_VerseListItem as VerseListItem } from "../models/bible_memory_db_internal_domain_VerseListItem";
 import type { UserVersesPageResponse } from "../models/UserVersesPageResponse";
-import type { UserVerse } from "../models/UserVerse";
 import { publicApiUrl } from "@/lib/publicApiBase";
 
 type GetApiUsersVersesParams = {
@@ -68,9 +68,9 @@ export async function fetchUserVersesPage(
 
 export async function fetchAllUserVerses(
   params: FetchAllUserVersesParams
-): Promise<Array<UserVerse>> {
+): Promise<Array<VerseListItem>> {
   const pageLimit = params.pageLimit ?? 50;
-  const items: Array<UserVerse> = [];
+  const items: Array<VerseListItem> = [];
   let startWith = 0;
 
   while (true) {

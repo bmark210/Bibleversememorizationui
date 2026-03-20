@@ -1,6 +1,9 @@
+import type { bible_memory_db_internal_domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
 import type { UserVerse } from "@/api/models/UserVerse";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
+import type { TrainingStepHTTPRequest } from "@/api/models/TrainingStepHTTPRequest";
+import type { TrainingStepHTTPResponse } from "@/api/models/TrainingStepHTTPResponse";
 import type { internal_api_PatchUserVerseRequest } from "@/api/models/internal_api_PatchUserVerseRequest";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 import { VerseStatus } from "@/shared/domain/verseStatus";
@@ -11,12 +14,6 @@ export function getTelegramId(): string | null {
   const fromStorage = localStorage.getItem("telegramId");
   if (fromStorage) return fromStorage;
   return getTelegramUserId();
-}
-
-function userVerseExternalId(verse: UserVerse): string {
-  const top = (verse as { externalVerseId?: string }).externalVerseId;
-  if (top && String(top).trim()) return String(top);
-  return String(verse.verse?.externalVerseId ?? "");
 }
 
 function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
@@ -50,10 +47,23 @@ export async function persistTrainingVerseProgress(
   return response ?? null;
 }
 
+/** Applies one training rating; server is SSOT for progress and next mode. */
+export async function postTrainingVerseStep(
+  telegramId: string,
+  externalVerseId: string,
+  body: TrainingStepHTTPRequest
+): Promise<TrainingStepHTTPResponse | null> {
+  return UserVersesService.postUserVerseTrainingStep(
+    telegramId,
+    externalVerseId,
+    body
+  );
+}
+
 export async function fetchTrainingVerseSnapshot(
   externalVerseId: string,
   telegramIdOverride?: string | null
-): Promise<UserVerse | null> {
+): Promise<bible_memory_db_internal_domain_VerseListItem | null> {
   const telegramId = telegramIdOverride ?? getTelegramId();
   if (!telegramId) return null;
 
@@ -65,6 +75,8 @@ export async function fetchTrainingVerseSnapshot(
   });
 
   return (
-    response.items.find((v) => userVerseExternalId(v) === externalVerseId) ?? null
+    response.items.find(
+      (v) => String(v.externalVerseId ?? "").trim() === externalVerseId
+    ) ?? null
   );
 }

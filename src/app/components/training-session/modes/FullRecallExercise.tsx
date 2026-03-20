@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 import { similarityRatio } from '@/shared/utils/levenshtein';
 
 import { Info } from 'lucide-react';
@@ -15,6 +16,7 @@ import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -30,6 +32,7 @@ import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDif
 
 interface TypingModeProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -41,7 +44,7 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -283,7 +286,13 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

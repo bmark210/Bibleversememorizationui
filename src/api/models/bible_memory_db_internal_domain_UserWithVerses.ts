@@ -13,5 +13,6 @@ export type bible_memory_db_internal_domain_UserWithVerses = {
     telegramId?: string;
     translation?: bible_memory_db_internal_domain_Translation;
     versesCount?: number;
+    xp?: number;
 };
 

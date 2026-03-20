@@ -16,7 +16,7 @@ import {
 import type { ModeId, TrainingVerseState } from "../types";
 
 /** PATCH-ответ и расширения бэкенда могут отдавать поля текста/ссылки вне схемы OpenAPI. */
-type PersistedTrainingVerse =
+export type PersistedTrainingVerse =
   | (Partial<UserVerse> & {
       text?: string | null;
       reference?: string | null;

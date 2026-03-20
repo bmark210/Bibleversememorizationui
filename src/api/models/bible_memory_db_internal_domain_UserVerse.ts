@@ -3,10 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { bible_memory_db_internal_domain_Verse } from './bible_memory_db_internal_domain_Verse';
+import type { bible_memory_db_internal_domain_VerseFlow } from './bible_memory_db_internal_domain_VerseFlow';
 import type { bible_memory_db_internal_domain_VerseStatus } from './bible_memory_db_internal_domain_VerseStatus';
 export type bible_memory_db_internal_domain_UserVerse = {
     contextScore?: number;
     createdAt?: string;
+    flow?: bible_memory_db_internal_domain_VerseFlow;
     id?: number;
     incipitScore?: number;
     lastReviewedAt?: string;

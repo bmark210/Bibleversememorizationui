@@ -2,14 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type bible_memory_db_internal_domain_UserLeaderboardEntry = {
+export type bible_memory_db_internal_domain_DashboardFriendActivityEntry = {
     avatarUrl?: string;
+    dailyStreak?: number;
+    lastActiveAt?: string;
+    masteredVerses?: number;
     name?: string;
-    nickname?: string;
-    rank?: number;
-    score?: number;
     telegramId?: string;
-    versesCount?: number;
+    weeklyRepetitions?: number;
     xp?: number;
 };
 

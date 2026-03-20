@@ -117,6 +117,7 @@ export const TrainingCard = memo(function TrainingCard({
             ref={rendererRef as RefObject<TrainingModeRendererHandle>}
             renderer={renderer}
             verse={verse}
+            trainingModeId={modeId}
             onRate={onRate}
             isLateStageReview={isLateStage}
             hintState={hintState}

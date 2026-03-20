@@ -12,6 +12,7 @@ import { Verse } from '@/app/App';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -25,6 +26,7 @@ import { useMeasuredElementSize } from './useMeasuredElementSize';
 
 interface FirstLettersTapExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -117,6 +119,7 @@ function getSequenceCellClassName(params: {
 
 export function ModeFirstLettersTapExercise({
   verse,
+  trainingModeId,
   onRate,
   hintState,
   onProgressChange,
@@ -509,7 +512,13 @@ export function ModeFirstLettersTapExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

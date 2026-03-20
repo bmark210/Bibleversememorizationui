@@ -3,11 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { bible_memory_db_internal_domain_VerseListItem } from './bible_memory_db_internal_domain_VerseListItem';
-export type bible_memory_db_internal_domain_UserVersesPageResponse = {
+export type bible_memory_db_internal_domain_CatalogVersesPageResponse = {
     items?: Array<bible_memory_db_internal_domain_VerseListItem>;
-    limit?: number;
-    offset?: number;
-    total?: number;
     totalCount?: number;
 };
 

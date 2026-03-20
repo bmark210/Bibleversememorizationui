@@ -12,6 +12,7 @@ import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
 import { TrainingStageCorner } from './TrainingStageCorner';
@@ -24,6 +25,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickChunksExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
@@ -113,7 +115,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickChunksExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
@@ -349,7 +351,14 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              allowEasySkip={false}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

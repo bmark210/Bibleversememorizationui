@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { bible_memory_db_internal_domain_DashboardFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardFriendsActivityResponse';
 import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from '../models/bible_memory_db_internal_domain_FriendPlayersPageResponse';
+import type { bible_memory_db_internal_domain_PlayerProfile } from '../models/bible_memory_db_internal_domain_PlayerProfile';
 import type { bible_memory_db_internal_domain_UpsertUserInput } from '../models/bible_memory_db_internal_domain_UpsertUserInput';
 import type { bible_memory_db_internal_domain_User } from '../models/bible_memory_db_internal_domain_User';
 import type { bible_memory_db_internal_domain_UserDashboardStats } from '../models/bible_memory_db_internal_domain_UserDashboardStats';
@@ -162,7 +163,7 @@ export class UsersService {
      */
     public static listFriendsActivity(
         telegramId: string,
-        limit: number = 20,
+        limit: number = 6,
     ): CancelablePromise<bible_memory_db_internal_domain_DashboardFriendsActivityResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -175,6 +176,7 @@ export class UsersService {
             },
             errors: {
                 400: `Bad Request`,
+                404: `Not Found`,
                 500: `Internal Server Error`,
             },
         });
@@ -231,6 +233,31 @@ export class UsersService {
             },
             errors: {
                 400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get player profile
+     * @param telegramId Viewer Telegram ID
+     * @param targetTelegramId Target Telegram ID
+     * @returns bible_memory_db_internal_domain_PlayerProfile OK
+     * @throws ApiError
+     */
+    public static getPlayerProfile(
+        telegramId: string,
+        targetTelegramId: string,
+    ): CancelablePromise<bible_memory_db_internal_domain_PlayerProfile> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/players/{targetTelegramId}',
+            path: {
+                'telegramId': telegramId,
+                'targetTelegramId': targetTelegramId,
+            },
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
                 500: `Internal Server Error`,
             },
         });
