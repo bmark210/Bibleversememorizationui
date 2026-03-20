@@ -8,6 +8,7 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
@@ -282,7 +283,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       </div>
 
       {/* ── Top half: assembled sequence ── */}
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
+      <div className="mt-3 max-h-[38%] min-h-0 shrink overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
         <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Последовательность</span>
@@ -309,10 +310,14 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
 
       {/* ── Bottom half: chunk choices ── */}
       {showChoices && (
-        <div
-          data-scroll-shadow="true"
-          className="my-2 min-h-0 flex-1 basis-1/2 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] border-t border-border/60 pt-2"
+        <ScrollShadowContainer
+          className="min-h-0 shrink mt-8 border-t border-border/60"
+          scrollClassName="h-full py-2 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+          shadowSize={18}
         >
+          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
+            <span>Варианты фрагментов</span>
+          </div>
           <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
             {remainingTokens.map((token) => (
               <Button
@@ -333,7 +338,7 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               </Button>
             ))}
           </div>
-        </div>
+        </ScrollShadowContainer>
       )}
 
       {isCompleted && (

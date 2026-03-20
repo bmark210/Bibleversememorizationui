@@ -81,9 +81,9 @@ export function VerseList({
     (state) => state.isTelegramFullscreen,
   );
   const { contentSafeAreaInset } = useTelegramSafeArea();
-  const stickyControlsTop = isTelegramFullscreen
-    ? Math.max(0, contentSafeAreaInset.top)
-    : 0;
+  // const stickyControlsTop = isTelegramFullscreen
+  //   ? Math.max(0, contentSafeAreaInset.top)
+  //   : 0;
   const canAddVerse = isAdminTelegramId(telegramId);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -381,7 +381,7 @@ export function VerseList({
               </div>
         <div
           className="sticky z-40 shrink-0"
-          style={{ top: `${stickyControlsTop + headerHeight}px` }}
+          style={{ top: `${headerHeight}px` }}
         >
           <motion.div
             className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
