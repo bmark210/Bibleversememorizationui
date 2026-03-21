@@ -1,6 +1,7 @@
 import {
   Anchor,
   Brain,
+  CalendarClock,
   Dumbbell,
   Pause,
   Play,
@@ -182,7 +183,7 @@ function getStatusTone(params: {
   status: DisplayVerseStatus;
   isNotYetDue: boolean;
 }): VerseStatusSummaryTone | null {
-  const { status } = params;
+  const { status, isNotYetDue } = params;
 
   if (status === "CATALOG" || status === VerseStatus.MY) {
     return null;
@@ -219,12 +220,24 @@ function getStatusTone(params: {
   }
 
   if (status === "REVIEW") {
-    return {
-      icon: RefreshCw,
-      title: "Повторение",
+    const reviewTone = {
       pillClassName: "border-violet-500/20 bg-violet-500/[0.08]",
       iconClassName: "text-violet-700 dark:text-violet-300",
       titleClassName: "text-violet-700/80 dark:text-violet-300/80",
+    } as const;
+
+    if (isNotYetDue) {
+      return {
+        icon: CalendarClock,
+        title: "В ожидании",
+        ...reviewTone,
+      };
+    }
+
+    return {
+      icon: RefreshCw,
+      title: "Повторение",
+      ...reviewTone,
     };
   }
 

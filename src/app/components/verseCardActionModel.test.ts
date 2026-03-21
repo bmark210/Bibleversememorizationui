@@ -51,7 +51,7 @@ test("returns waiting label and pause utility for review verses with future wind
   assert.equal(model.primaryAction, null);
   assert.equal(model.utilityAction?.id, "pause");
   assert.equal(model.waitingLabel, "Сегодня в 15:30");
-  assert.equal(model.statusTone?.title, "Повторение");
+  assert.equal(model.statusTone?.title, "В ожидании");
   assert.match(model.statusTone?.pillClassName ?? "", /violet-500/);
 });
 

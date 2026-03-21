@@ -130,7 +130,7 @@ test("gallery learning cards place pause inline next to training without visible
   assert.ok(!galleryHtml.includes(">Пауза<"));
 });
 
-test("waiting review keeps its own review pill and a separate next-step pill", () => {
+test("waiting review shows waiting title and a separate next-step pill", () => {
   const listHtml = renderListCard(
     createVerse({
       status: "REVIEW",
@@ -148,8 +148,8 @@ test("waiting review keeps its own review pill and a separate next-step pill", (
     }),
   );
 
-  assert.ok(listHtml.includes("Повторение"));
-  assert.ok(galleryHtml.includes("Повторение"));
+  assert.ok(listHtml.includes("В ожидании"));
+  assert.ok(galleryHtml.includes("В ожидании"));
   assert.ok(!listHtml.includes("В изучении"));
   assert.ok(!galleryHtml.includes("В изучении"));
   assert.match(listHtml, /Сегодня в|Завтра в|до /);
