@@ -38,13 +38,17 @@ export class UsersService {
     /**
      * Get users leaderboard
      * @param telegramId Optional current user Telegram ID
-     * @param limit Max items
+     * @param limit Legacy max items (deprecated)
+     * @param page 1-based page; omit to anchor on current user’s page when telegramId is set
+     * @param pageSize Items per page (default 5 on server)
      * @returns domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
     public static getLeaderboard(
         telegramId?: string,
-        limit: number = 25,
+        limit?: number,
+        page?: number,
+        pageSize?: number,
     ): CancelablePromise<domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -52,6 +56,8 @@ export class UsersService {
             query: {
                 'telegramId': telegramId,
                 'limit': limit,
+                'page': page,
+                'pageSize': pageSize,
             },
             errors: {
                 500: `Internal Server Error`,

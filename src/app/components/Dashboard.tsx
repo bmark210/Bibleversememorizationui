@@ -29,6 +29,8 @@ interface DashboardProps {
     name: string
     avatarUrl: string | null
   }) => void
+  onLeaderboardPageChange?: (page: number) => void
+  onLeaderboardJumpToMe?: () => void
   isInitializingData?: boolean
 }
 
@@ -203,6 +205,8 @@ export function Dashboard({
             isLeaderboardLoading={isDashboardLeaderboardLoading}
             onOpenTraining={onOpenTraining}
             onOpenPlayerProfile={onOpenPlayerProfile}
+            onLeaderboardPageChange={onLeaderboardPageChange}
+            onLeaderboardJumpToMe={onLeaderboardJumpToMe}
           />
         </div>
       </div>

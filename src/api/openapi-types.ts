@@ -686,6 +686,12 @@ export interface components {
         "domain.UserLeaderboardResponse": {
             currentUser?: components["schemas"]["domain.UserLeaderboardCurrentUser"];
             items?: components["schemas"]["domain.UserLeaderboardEntry"][];
+            /** Current 1-based page */
+            page?: number;
+            /** Items per page for this response */
+            pageSize?: number;
+            /** Total number of pages */
+            totalPages?: number;
             totalParticipants?: number;
         };
         "domain.UserVerse": {
@@ -1182,8 +1188,12 @@ export interface operations {
             query?: {
                 /** @description Optional current user Telegram ID */
                 telegramId?: string;
-                /** @description Max items */
+                /** @description Deprecated: prefer pageSize */
                 limit?: number;
+                /** @description 1-based page; omit to anchor on current user */
+                page?: number;
+                /** @description Items per page (default 5) */
+                pageSize?: number;
             };
             header?: never;
             path?: never;

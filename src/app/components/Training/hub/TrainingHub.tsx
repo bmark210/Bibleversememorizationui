@@ -457,7 +457,7 @@ export function TrainingHub({
           </div>
 
           {/* Mode list */}
-          <div className="px-4 pb-3 pt-3 my-2 mx-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl">
+          <div className="px-4 pb-3 pt-3 my-2 mx-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div

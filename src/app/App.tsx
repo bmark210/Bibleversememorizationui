@@ -26,7 +26,10 @@ import {
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { fetchFriendsPage } from "@/api/services/friends";
-import { fetchDashboardLeaderboard } from "@/api/services/leaderboard";
+import {
+  DASHBOARD_LEADERBOARD_PAGE_SIZE,
+  fetchDashboardLeaderboard,
+} from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
@@ -465,6 +468,10 @@ function toDirectLaunchPayload(
   return { verse: launchOrVerse };
 }
 
+type DashboardLeaderboardQuery =
+  | { mode: "anchor" }
+  | { mode: "page"; page: number };
+
 export default function App({ onInitialContentReady }: AppProps) {
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
   const [pageStack, setPageStack] = useState<Page[]>(["dashboard"]);
@@ -526,6 +533,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
+  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({ mode: "anchor" });
   const verseListFriendsPresenceRequestIdRef = useRef(0);
   const trainingVersesRequestIdRef = useRef(0);
   const trainingVersesPromiseRef = useRef<Promise<Array<Verse>> | null>(null);
@@ -550,6 +558,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     verseListFriendsFetchFailedRef.current = false;
     setVerseListFriendsPresence(null);
     trainingVersesFetchFailedRef.current = false;
+    leaderboardQueryRef.current = { mode: "anchor" };
   }, [telegramId]);
 
   useEffect(() => {
@@ -700,35 +709,63 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   }, []);
 
-  const loadDashboardLeaderboard = useCallback(async (telegramIdValue: string) => {
-    if (!telegramIdValue) return null;
+  const loadDashboardLeaderboard = useCallback(
+    async (telegramIdValue: string, queryOverride?: DashboardLeaderboardQuery) => {
+      if (!telegramIdValue) return null;
 
-    const requestId = ++dashboardLeaderboardRequestIdRef.current;
-    setIsDashboardLeaderboardLoading(true);
+      if (queryOverride) {
+        leaderboardQueryRef.current = queryOverride;
+      }
 
-    try {
-      const nextLeaderboard = await fetchDashboardLeaderboard({
-        telegramId: telegramIdValue,
-        limit: 4,
-      });
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.leaderboard = false;
-        setDashboardLeaderboard(nextLeaderboard);
+      const requestId = ++dashboardLeaderboardRequestIdRef.current;
+      setIsDashboardLeaderboardLoading(true);
+
+      const q = leaderboardQueryRef.current;
+
+      try {
+        const nextLeaderboard = await fetchDashboardLeaderboard({
+          telegramId: telegramIdValue,
+          pageSize: DASHBOARD_LEADERBOARD_PAGE_SIZE,
+          ...(q.mode === "page" ? { page: q.page } : {}),
+        });
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          dashboardFetchFailedRef.current.leaderboard = false;
+          setDashboardLeaderboard(nextLeaderboard);
+          const resolvedPage = nextLeaderboard.page;
+          if (typeof resolvedPage === "number" && resolvedPage >= 1) {
+            leaderboardQueryRef.current = { mode: "page", page: resolvedPage };
+          }
+        }
+        return nextLeaderboard;
+      } catch (error) {
+        console.error("Не удалось получить лидерборд:", error);
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          dashboardFetchFailedRef.current.leaderboard = true;
+          setDashboardLeaderboard(null);
+        }
+        return null;
+      } finally {
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          setIsDashboardLeaderboardLoading(false);
+        }
       }
-      return nextLeaderboard;
-    } catch (error) {
-      console.error("Не удалось получить лидерборд:", error);
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.leaderboard = true;
-        setDashboardLeaderboard(null);
-      }
-      return null;
-    } finally {
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        setIsDashboardLeaderboardLoading(false);
-      }
-    }
-  }, []);
+    },
+    []
+  );
+
+  const handleLeaderboardPageChange = useCallback(
+    (page: number) => {
+      if (!telegramId) return;
+      if (page < 1) return;
+      void loadDashboardLeaderboard(telegramId, { mode: "page", page });
+    },
+    [loadDashboardLeaderboard, telegramId]
+  );
+
+  const handleLeaderboardJumpToMe = useCallback(() => {
+    if (!telegramId) return;
+    void loadDashboardLeaderboard(telegramId, { mode: "anchor" });
+  }, [loadDashboardLeaderboard, telegramId]);
 
   const loadVerseListFriendsPresence = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
@@ -1305,6 +1342,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}
                 onOpenPlayerProfile={handleOpenPlayerProfile}
+                onLeaderboardPageChange={handleLeaderboardPageChange}
+                onLeaderboardJumpToMe={handleLeaderboardJumpToMe}
                 isInitializingData={isBootstrapping}
               />
             </div>

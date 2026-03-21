@@ -1,7 +1,17 @@
 "use client";
 
 import React from "react";
-import { Crown, Dumbbell, Medal, Trophy, FlameIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Crown,
+  Dumbbell,
+  Medal,
+  Trophy,
+  FlameIcon,
+} from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -352,6 +362,8 @@ type DashboardLeaderboardCardProps = {
     name: string;
     avatarUrl: string | null;
   }) => void;
+  onLeaderboardPageChange?: (page: number) => void;
+  onLeaderboardJumpToMe?: () => void;
 };
 
 export function DashboardLeaderboardCard({
@@ -359,6 +371,8 @@ export function DashboardLeaderboardCard({
   isLeaderboardLoading = false,
   onOpenTraining,
   onOpenPlayerProfile,
+  onLeaderboardPageChange,
+  onLeaderboardJumpToMe,
 }: DashboardLeaderboardCardProps) {
   const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
   const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
@@ -367,6 +381,30 @@ export function DashboardLeaderboardCard({
   );
   const entries = leaderboard?.items ?? [];
   const apiCurrentUser = leaderboard?.currentUser ?? null;
+  const pageSize = leaderboard?.pageSize ?? DASHBOARD_LEADERBOARD_PAGE_SIZE;
+  const totalParticipants = leaderboard?.totalParticipants ?? 0;
+  const derivedTotalPages =
+    leaderboard?.totalPages ??
+    (totalParticipants > 0
+      ? Math.max(1, Math.ceil(totalParticipants / pageSize))
+      : 1);
+  const currentPage = Math.min(
+    Math.max(1, leaderboard?.page ?? 1),
+    derivedTotalPages
+  );
+  const showPagination =
+    Boolean(onLeaderboardPageChange) && derivedTotalPages > 1;
+  const currentUserRank = apiCurrentUser?.rank;
+  const isCurrentUserInEntries =
+    currentUserTelegramId != null &&
+    entries.some((e) => String(e.telegramId ?? "") === currentUserTelegramId);
+  const showJumpToMe =
+    Boolean(onLeaderboardJumpToMe) &&
+    Boolean(currentUserTelegramId) &&
+    showPagination &&
+    typeof currentUserRank === "number" &&
+    currentUserRank >= 1 &&
+    !isCurrentUserInEntries;
   const shouldShowCurrentUserSnapshot =
     apiCurrentUser != null &&
     currentUserTelegramId != null &&
@@ -419,7 +457,7 @@ export function DashboardLeaderboardCard({
                 });
 
               return (
-                <div key={entryTelegramId || displayName}>
+                <div key={`${rank}-${entryTelegramId || displayName}`}>
                   <button
                     type="button"
                     onClick={handleOpenProfile}
@@ -504,6 +542,74 @@ export function DashboardLeaderboardCard({
             </div>
           )}
         </div>
+
+        {showPagination && onLeaderboardPageChange ? (
+          <div className="mt-4 flex flex-col gap-2 border-t border-border/55 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage <= 1}
+                  aria-label="Первая страница"
+                  onClick={() => onLeaderboardPageChange(1)}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage <= 1}
+                  aria-label="Предыдущая страница"
+                  onClick={() => onLeaderboardPageChange(currentPage - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage >= derivedTotalPages}
+                  aria-label="Следующая страница"
+                  onClick={() => onLeaderboardPageChange(currentPage + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage >= derivedTotalPages}
+                  aria-label="Последняя страница"
+                  onClick={() => onLeaderboardPageChange(derivedTotalPages)}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <span className="text-xs tabular-nums text-foreground/48">
+                Стр. {currentPage} / {derivedTotalPages}
+              </span>
+            </div>
+            {showJumpToMe ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 w-full rounded-full text-xs sm:w-auto"
+                disabled={isLeaderboardLoading}
+                onClick={() => onLeaderboardJumpToMe?.()}
+              >
+                Показать меня
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
         {shouldShowCurrentUserSnapshot ? (
           <div className="mt-3 border-t border-border/55 pt-3">
