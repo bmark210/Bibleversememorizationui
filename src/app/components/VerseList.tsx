@@ -318,8 +318,6 @@ export function VerseList({
     onDeleteTag: vm.tagFilter.deleteTag,
   };
 
-  const headerHeight = document.querySelector("#app-layout-header")?.clientHeight ?? 0;
-
   return (
     <>
       <motion.div
@@ -386,8 +384,7 @@ export function VerseList({
                 ) : null}
               </div>
         <div
-          className="sticky z-40 shrink-0"
-          style={{ top: `${headerHeight}px` }}
+          className="sticky top-0 z-40 shrink-0"
         >
           <motion.div
             className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
