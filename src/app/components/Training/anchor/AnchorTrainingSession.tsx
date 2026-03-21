@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -32,10 +32,10 @@ import {
   coerceVerseDifficultyLevel,
   getDifficultyLevelByLetters,
 } from "@/shared/verses/difficulty";
-import {
-  AnchorTrainingQuestionCard,
-  AnchorTrainingStateCard,
-} from "./AnchorTrainingCards";
+import { AnchorTrainingStateCard } from "./AnchorTrainingCards";
+import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
+import { getAnchorModeShortLabel } from "./anchorModeLabels";
 import { fetchAnchorVersesPool, submitAnchorSession } from "./services/sessionApi";
 import { generateImpostorWord, getAIAvailability } from "./services/aiService";
 import { MODE_STRATEGIES, pickWeightedStrategy } from "./modeRegistry";
@@ -439,8 +439,10 @@ export function AnchorTrainingSession({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [direction, setDirection] = useState(0);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const sessionXpRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -508,8 +510,10 @@ export function AnchorTrainingSession({
     () => results.filter((result) => result.isCorrect).length,
     [results]
   );
+  const answeredCount = results.length;
+  const wrongCount = answeredCount - correctCount;
   const resultPercent =
-    totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+    answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
 
   const resetAnswerState = useCallback(() => {
     setSelectedOption(null);
@@ -622,10 +626,13 @@ export function AnchorTrainingSession({
       persistChainRef.current = persistChainRef.current
         .then(async () => {
           try {
-            await submitAnchorSession({
+            const response = await submitAnchorSession({
               telegramId,
               results: [result],
             });
+            if (response?.xpAwarded) {
+              sessionXpRef.current += response.xpAwarded;
+            }
             onSessionCommitted?.();
           } catch (error) {
             console.error("Не удалось сохранить прогресс закрепления:", error);
@@ -879,14 +886,22 @@ export function AnchorTrainingSession({
     advanceToNextQuestion();
   }, [advanceToNextQuestion, canContinueAfterReveal]);
 
+  const showResultModal = useCallback(() => {
+    setIsExitConfirmOpen(false);
+    if (answeredCount > 0) {
+      setIsResultModalOpen(true);
+    } else {
+      onClose();
+    }
+  }, [answeredCount, onClose]);
+
   const requestClose = useCallback(() => {
     if (hasInteracted && !isAnswered) {
       setIsExitConfirmOpen(true);
       return;
     }
-
-    onClose();
-  }, [hasInteracted, isAnswered, onClose]);
+    showResultModal();
+  }, [hasInteracted, isAnswered, showResultModal]);
 
   const handleBackAction = useCallback(() => {
     if (isExitConfirmOpen) {
@@ -1004,59 +1019,72 @@ export function AnchorTrainingSession({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleBackAction, navigatePendingQuestion]);
 
+  const hasActiveQuestion = Boolean(
+    telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length > 0 && currentQuestion,
+  );
+
+  const modeRenderer = currentQuestion && (currentQuestion.interaction !== "type" || !isAnswered) ? (
+    <AnchorTrainingModeRenderer
+      question={currentQuestion}
+      selectedOption={selectedOption}
+      isAnswered={isAnswered}
+      controlsLocked={controlsLocked}
+      tapSequence={tapSequence}
+      selectedTapLabels={selectedTapLabels}
+      typedAnswer={typedAnswer}
+      typingAttempts={typingAttempts}
+      canSubmitTypeAnswer={canSubmitTypeAnswer}
+      isCompactTypeMode={Boolean(isCompactTypeMode)}
+      typeInputReadiness={typeInputReadiness}
+      inputRef={inputRef}
+      onChoiceSelect={handleChoiceSelect}
+      onTapSelect={handleTapSelect}
+      onTypedAnswerChange={(v: string) => {
+        setTypedAnswer(v);
+        if (v.trim()) setHasInteracted(true);
+      }}
+      onTypeSubmit={handleTypeSubmit}
+      onOrderSubmit={handleOrderSubmit}
+    />
+  ) : null;
+
   return (
     <>
       <div
         className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
+        onTouchStart={_handleContentTouchStart}
+        onTouchEnd={_handleContentTouchEnd}
       >
-        {/* Top bar: прогресс сессии (как в основной тренировке — компактно) */}
-        <div
-          className="shrink-0 z-40 border-b border-border/40 bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl"
-          style={{ paddingTop: `${topInset}px` }}
-        >
-          <div className="mx-auto max-w-4xl px-4 py-2.5 sm:px-6">
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="flex w-full max-w-md items-center justify-between gap-3">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Закрепление
-                </span>
-                {totalCount > 0 ? (
-                  <span className="text-[10px] font-semibold tabular-nums text-foreground/55">
-                    точность {resultPercent}%
-                  </span>
-                ) : null}
-              </div>
-              <div
-                role="status"
-                aria-label={`Отвечено ${completedCount}, всего карточек ${totalCount}.`}
-                className="h-2 w-full max-w-md overflow-hidden rounded-full bg-muted/50"
-              >
-                <div
-                  className="h-full rounded-full bg-primary/55 transition-[width] duration-300 ease-out"
-                  style={{
-                    width: `${totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : 0}%`,
-                  }}
-                />
-              </div>
-              <p className="text-center text-[11px] text-muted-foreground/90">
-                Свайп вверх / вниз — другие нерешённые карточки · прогресс сохраняется после каждого ответа
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Empty top spacer for Telegram buttons */}
+        <div className="shrink-0" style={{ height: `${topInset}px` }} />
 
-        {/* Main content: fullscreen exercise */}
+        {/* Accuracy bar + mode info */}
+        {hasActiveQuestion && currentQuestion && (
+          <div className="shrink-0 px-4 pt-2 pb-1 space-y-1.5">
+            <div className="h-1.5 w-full max-w-md mx-auto rounded-full overflow-hidden bg-rose-500/30 flex">
+              {answeredCount > 0 && (
+                <div
+                  className="bg-emerald-500/70 transition-[width] duration-300"
+                  style={{ width: `${resultPercent}%` }}
+                />
+              )}
+            </div>
+            <p className="text-center text-[11px] text-muted-foreground/80 truncate">
+              {getAnchorModeShortLabel(currentQuestion.modeId)} · {currentQuestion.modeHint}
+            </p>
+          </div>
+        )}
+
+        {/* Main content */}
         <div
-          className={cn(
-            "relative flex-1 min-h-0 flex flex-col px-4 py-3 sm:px-6",
-            shouldLiftTypeCard && "pt-1 sm:pt-2",
-          )}
+          className="relative flex-1 min-h-0 flex flex-col"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки закрепления"
         >
+          {/* State screens (loading, error, empty) */}
           {!telegramId && (
-            <div className="flex flex-1 items-center justify-center min-h-0">
+            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
                 title="Нет Telegram ID"
                 description="Не удалось определить пользователя. Откройте закрепление из Telegram Mini App и попробуйте снова."
@@ -1065,7 +1093,7 @@ export function AnchorTrainingSession({
           )}
 
           {telegramId && isLoading && (
-            <div className="flex flex-1 items-center justify-center min-h-0">
+            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
                 title="Загружаем сессию"
                 description="Подбираем стихи для закрепления и собираем последовательность вопросов."
@@ -1075,16 +1103,12 @@ export function AnchorTrainingSession({
           )}
 
           {telegramId && !isLoading && errorMessage && (
-            <div className="flex flex-1 items-center justify-center min-h-0">
+            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
                 title="Не удалось загрузить стихи"
                 description={errorMessage}
                 action={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void loadVersePool(telegramId)}
-                  >
+                  <Button type="button" variant="outline" onClick={() => void loadVersePool(telegramId)}>
                     Повторить
                   </Button>
                 }
@@ -1093,7 +1117,7 @@ export function AnchorTrainingSession({
           )}
 
           {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
-            <div className="flex flex-1 items-center justify-center min-h-0">
+            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
                 title="Нет стихов для закрепления"
                 description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
@@ -1101,137 +1125,145 @@ export function AnchorTrainingSession({
             </div>
           )}
 
-          {telegramId &&
-            !isLoading &&
-            !errorMessage &&
-            versePool.length > 0 &&
-            questions.length === 0 && (
-              <div className="flex flex-1 items-center justify-center min-h-0">
-                <AnchorTrainingStateCard
-                  title="Недостаточно данных для режима"
-                  description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
-                />
-              </div>
-            )}
+          {telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length === 0 && (
+            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
+              <AnchorTrainingStateCard
+                title="Недостаточно данных для режима"
+                description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
+              />
+            </div>
+          )}
 
-          {telegramId &&
-            !isLoading &&
-            !errorMessage &&
-            versePool.length > 0 &&
-            questions.length > 0 &&
-            currentQuestion && (
-              <AnimatePresence initial={false} mode="sync" custom={direction}>
-                <motion.div
-                  key={currentQuestion.id}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  className="absolute inset-0 flex flex-col px-4 py-3 sm:px-6 focus-visible:outline-none"
-                  tabIndex={-1}
-                >
-                  <AnchorTrainingQuestionCard
-                    question={currentQuestion}
-                    selectedOption={selectedOption}
-                    isAnswered={isAnswered}
-                    controlsLocked={controlsLocked}
-                    tapSequence={tapSequence}
-                    selectedTapLabels={selectedTapLabels}
-                    typedAnswer={typedAnswer}
-                    typingAttempts={typingAttempts}
-                    canSubmitTypeAnswer={canSubmitTypeAnswer}
-                    isCompactTypeMode={Boolean(isCompactTypeMode)}
-                    typeInputReadiness={typeInputReadiness}
-                    inputRef={inputRef}
-                    lastAnswerCorrect={lastAnswerCorrect}
-                    lastAnswerUsedTolerance={lastAnswerUsedTolerance}
-                    lastAnswerSkipped={lastAnswerSkipped}
-                    revealedVerseText={revealedVerseText}
-                    showContinueButton={canContinueAfterReveal}
-                    onChoiceSelect={handleChoiceSelect}
-                    onTapSelect={handleTapSelect}
-                    onTypedAnswerChange={(v: string) => {
-                      setTypedAnswer(v);
-                      if (v.trim()) setHasInteracted(true);
-                    }}
-                    onTypeSubmit={handleTypeSubmit}
-                    onContinue={handleContinueAfterReveal}
-                    onOrderSubmit={handleOrderSubmit}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            )}
+          {/* Active question — 2-half layout */}
+          {hasActiveQuestion && currentQuestion && (
+            <AnimatePresence initial={false} mode="sync" custom={direction}>
+              <motion.div
+                key={currentQuestion.id}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="absolute inset-0 flex flex-col focus-visible:outline-none"
+                tabIndex={-1}
+              >
+                {/* TOP HALF: verse prompt */}
+                <div className={cn(
+                  "flex items-center justify-center px-4 overflow-hidden",
+                  shouldLiftTypeCard ? "flex-none max-h-[22vh] py-1" : "flex-1 min-h-0 py-3",
+                )}>
+                  <div className="w-full max-w-lg">
+                    <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-4 shadow-sm backdrop-blur-sm">
+                      <p className="whitespace-pre-line text-center font-serif text-[1.02rem] italic leading-relaxed text-foreground/90 sm:text-[1.08rem]">
+                        {currentQuestion.prompt}
+                      </p>
+                    </div>
+                    {/* Compact result feedback */}
+                    {isAnswered && (
+                      <div className="mt-2 flex items-center justify-center gap-2">
+                        {lastAnswerCorrect ? (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                        )}
+                        <span className="text-sm text-foreground/70">
+                          {lastAnswerSkipped
+                            ? "Пропущено"
+                            : lastAnswerCorrect
+                              ? lastAnswerUsedTolerance
+                                ? "Почти верно"
+                                : "Верно"
+                              : currentQuestion.answerLabel}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
+                {/* BOTTOM HALF: action area */}
+                <ScrollShadowContainer className={cn(
+                  "px-4 pb-2",
+                  shouldLiftTypeCard ? "flex-1" : "flex-1 min-h-0",
+                )}>
+                  {modeRenderer}
+                </ScrollShadowContainer>
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
 
-        {/* Footer: navigation arrows + action buttons */}
+        {/* Footer */}
         <div
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
           className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
         >
           <div className="mx-auto w-full max-w-2xl">
-            <div className="flex items-center justify-between gap-2">
-              {/* Left: prev arrow */}
+            {isAnswered ? (
+              /* After answer: full-width "Дальше" */
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
-                disabled={!canNavigatePrev || isNavBlocked}
-                onClick={() => navigatePendingQuestion(-1)}
-                aria-label="Предыдущий вопрос"
+                className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90"
+                onClick={handleContinueAfterReveal}
               >
-                <ChevronUp className="h-5 w-5" />
+                Дальше
               </Button>
-
-              {/* Center: action buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
-                {showSkipAction && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-2xl border border-border/60 bg-muted/25 px-3 text-sm text-foreground/70 backdrop-blur-xl hover:bg-muted/40"
-                    onClick={handleSkipQuestion}
-                    disabled={controlsLocked}
-                  >
-                    Пропустить
-                  </Button>
-                )}
+            ) : (
+              /* Before answer: nav + skip + finish */
+              <div className="flex items-center justify-between gap-2">
                 <Button
+                  type="button"
                   variant="outline"
-                  className={cn(
-                    "h-10 rounded-2xl bg-background border border-border/60 backdrop-blur-xl w-fit text-sm px-3",
-                    "text-foreground/75"
-                  )}
-                  onClick={requestClose}
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                  disabled={!canNavigatePrev || isNavBlocked}
+                  onClick={() => navigatePendingQuestion(-1)}
+                  aria-label="Предыдущий вопрос"
                 >
-                  Завершить
+                  <ChevronUp className="h-5 w-5" />
+                </Button>
+
+                <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
+                  {showSkipAction && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-2xl border border-border/60 bg-muted/25 px-3 text-sm text-foreground/70 hover:bg-muted/40"
+                      onClick={handleSkipQuestion}
+                      disabled={controlsLocked}
+                    >
+                      Пропустить
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="h-10 rounded-2xl bg-background border border-border/60 w-fit text-sm px-3 text-foreground/75"
+                    onClick={requestClose}
+                  >
+                    Завершить
+                  </Button>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
+                  disabled={!canNavigateNext || isNavBlocked}
+                  onClick={() => navigatePendingQuestion(1)}
+                  aria-label="Следующий вопрос"
+                >
+                  <ChevronDown className="h-5 w-5" />
                 </Button>
               </div>
-
-              {/* Right: next arrow */}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
-                disabled={!canNavigateNext || isNavBlocked}
-                onClick={() => navigatePendingQuestion(1)}
-                aria-label="Следующий вопрос"
-              >
-                <ChevronDown className="h-5 w-5" />
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Exit confirmation dialog */}
       <AlertDialog
         open={isExitConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) setIsExitConfirmOpen(false);
-        }}
+        onOpenChange={(open) => { if (!open) setIsExitConfirmOpen(false); }}
       >
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
@@ -1239,8 +1271,7 @@ export function AnchorTrainingSession({
               Завершить сессию?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Уже отправленные ответы сохранены на сервере. Текущая нерешённая
-              карточка будет сброшена при следующем входе.
+              Уже отправленные ответы сохранены. Текущая нерешённая карточка будет сброшена.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1252,9 +1283,52 @@ export function AnchorTrainingSession({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90 text-white rounded-full border border-border/60"
-              onClick={onClose}
+              onClick={showResultModal}
             >
               Выйти
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Result modal */}
+      <AlertDialog
+        open={isResultModalOpen}
+        onOpenChange={(open) => { if (!open) onClose(); }}
+      >
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-base text-foreground/90">
+              Сессия завершена
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-5xl font-semibold tabular-nums text-foreground/90">
+              {resultPercent}%
+            </p>
+            <p className="text-sm text-foreground/70">
+              {correctCount} из {answeredCount} верно
+            </p>
+            <div className="h-2 w-full max-w-xs mx-auto rounded-full overflow-hidden bg-rose-500/30 flex">
+              {answeredCount > 0 && (
+                <div
+                  className="bg-emerald-500/70 rounded-full"
+                  style={{ width: `${resultPercent}%` }}
+                />
+              )}
+            </div>
+            {sessionXpRef.current > 0 && (
+              <p className="text-sm font-medium text-primary/85">
+                +{sessionXpRef.current} XP
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction
+              className="rounded-full border border-primary/25 bg-primary/85 px-8 text-primary-foreground hover:bg-primary/90"
+              onClick={onClose}
+            >
+              Закрыть
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

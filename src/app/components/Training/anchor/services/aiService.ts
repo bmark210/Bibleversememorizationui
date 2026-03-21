@@ -1,3 +1,4 @@
+import { OpenAPI } from "@/api/core/OpenAPI";
 import type { TrainingVerse } from "../types";
 import type { ImpostorWordData } from "../modes/builders/aiBuilders";
 
@@ -21,7 +22,8 @@ export async function generateImpostorWord(
   if (!isAIAvailable()) return null;
 
   try {
-    const res = await fetch("/api/generate-exercise", {
+    const baseUrl = OpenAPI.BASE || "";
+    const res = await fetch(`${baseUrl}/api/generate-exercise`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -29,7 +31,7 @@ export async function generateImpostorWord(
         verseText: verse.text,
         verseReference: verse.reference,
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(25_000),
     });
 
     if (!res.ok) {

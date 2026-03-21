@@ -2,12 +2,23 @@ import type { ChoiceQuestion, TrainingVerse } from "../../types";
 import { extractWordTokens } from "../../services/validation";
 
 export type ImpostorWordData = {
-  original: string;
-  modified: string;
   changedWord: string;
   correctWord: string;
   wordIndex: number;
 };
+
+/**
+ * Reconstruct modified text by replacing the word at wordIndex.
+ */
+function buildModifiedText(
+  originalText: string,
+  data: ImpostorWordData,
+): string | null {
+  const words = extractWordTokens(originalText);
+  if (data.wordIndex < 0 || data.wordIndex >= words.length) return null;
+  words[data.wordIndex] = data.changedWord;
+  return words.join(" ");
+}
 
 /**
  * Impostor Word: AI replaces one word, user identifies the fake.
@@ -20,9 +31,12 @@ export function buildImpostorWordQuestion(
   aiData?: unknown,
 ): ChoiceQuestion | null {
   const data = aiData as ImpostorWordData | undefined;
-  if (!data?.modified || !data?.changedWord) return null;
+  if (!data?.changedWord || !data?.correctWord || data.wordIndex == null) return null;
 
-  const words = extractWordTokens(data.modified);
+  const modified = buildModifiedText(verse.text, data);
+  if (!modified) return null;
+
+  const words = extractWordTokens(modified);
   if (words.length < 3) return null;
 
   return {
@@ -30,7 +44,7 @@ export function buildImpostorWordQuestion(
     modeId: "impostor-word",
     modeHint: "Найдите слово, которое было заменено.",
     verse,
-    prompt: `${verse.reference}\n${data.modified}`,
+    prompt: `${verse.reference}\n${modified}`,
     answerLabel: data.correctWord,
     interaction: "choice",
     options: words,

@@ -20,7 +20,7 @@ export function AnchorChoiceMode({
   onChoiceSelect,
 }: AnchorChoiceModeProps) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="flex flex-row flex-wrap gap-2 w-fit">
       {question.options.map((option) => {
         const optionIsSelected = selectedOption === option;
         const optionIsCorrect = question.isCorrectOption(option);
