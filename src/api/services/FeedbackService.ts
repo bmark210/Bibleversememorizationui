@@ -51,6 +51,7 @@ export class FeedbackService {
             errors: {
                 400: `Bad Request`,
                 404: `Not Found`,
+                429: `Too Many Requests`,
             },
         });
     }

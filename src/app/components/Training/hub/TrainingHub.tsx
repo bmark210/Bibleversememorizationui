@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Verse } from "@/app/App";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { bible_memory_db_internal_domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
@@ -50,7 +50,7 @@ import { cn } from "../../ui/utils";
 
 interface TrainingHubProps {
   allVerses: Verse[];
-  dashboardStats?: domain_UserDashboardStats | null;
+  dashboardStats?: bible_memory_db_internal_domain_UserDashboardStats | null;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];

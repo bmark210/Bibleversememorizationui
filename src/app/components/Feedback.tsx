@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Loader2, MessageSquareMore, Send } from "lucide-react";
-import type { domain_Feedback } from "@/api/models/domain_Feedback";
+import { ApiError } from "@/api/core/ApiError";
+import type { bible_memory_db_internal_domain_Feedback } from "@/api/models/bible_memory_db_internal_domain_Feedback";
 import { FeedbackService } from "@/api/services/FeedbackService";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
@@ -10,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
-type FeedbackAdminRow = domain_Feedback & {
+type FeedbackAdminRow = bible_memory_db_internal_domain_Feedback & {
   user: {
     name: string | null;
     nickname: string | null;
@@ -20,6 +21,57 @@ type FeedbackAdminRow = domain_Feedback & {
 
 const MAX_FEEDBACK_LENGTH = 500;
 const ADMIN_FEEDBACK_PAGE_SIZE = 8;
+const FEEDBACK_COOLDOWN_MS = 60 * 60 * 1000;
+const FEEDBACK_LAST_SUBMIT_KEY_PREFIX = "feedback:lastSubmitAt:";
+
+function feedbackLastSubmitStorageKey(telegramId: string): string {
+  return `${FEEDBACK_LAST_SUBMIT_KEY_PREFIX}${telegramId}`;
+}
+
+function readLastSubmitAt(telegramId: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(
+      feedbackLastSubmitStorageKey(telegramId),
+    );
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastSubmitAt(telegramId: string, at: number): void {
+  try {
+    window.localStorage.setItem(
+      feedbackLastSubmitStorageKey(telegramId),
+      String(at),
+    );
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function computeCooldownRemainingMs(telegramId: string): number {
+  const last = readLastSubmitAt(telegramId);
+  if (last == null) return 0;
+  return Math.max(0, last + FEEDBACK_COOLDOWN_MS - Date.now());
+}
+
+function formatCooldownRemaining(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+  }
+  if (m > 0) {
+    return `${m} мин`;
+  }
+  return `${s} с`;
+}
 
 type FeedbackProps = {
   telegramId?: string | null;
@@ -45,7 +97,9 @@ function getFeedbackAuthorName(item: FeedbackAdminRow): string {
   return `Пользователь #${tid.slice(-4)}`;
 }
 
-function mapApiFeedbackToEntry(item: domain_Feedback): FeedbackAdminRow {
+function mapApiFeedbackToEntry(
+  item: bible_memory_db_internal_domain_Feedback,
+): FeedbackAdminRow {
   return {
     id: String(item.id ?? ""),
     telegramId: String(item.telegramId ?? ""),
@@ -78,6 +132,7 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
     null,
   );
   const [refreshVersion, setRefreshVersion] = React.useState(0);
+  const [cooldownRemainingMs, setCooldownRemainingMs] = React.useState(0);
 
   const normalizedTelegramId = telegramId?.trim() ?? "";
   const isAdmin = isAdminTelegramId(normalizedTelegramId);
@@ -87,11 +142,27 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
     1,
     Math.ceil(adminTotalCount / ADMIN_FEEDBACK_PAGE_SIZE),
   );
+  const isFeedbackCooldownActive = cooldownRemainingMs > 0;
   const canSubmit =
     normalizedTelegramId.length > 0 &&
     trimmedText.length > 0 &&
     text.length <= MAX_FEEDBACK_LENGTH &&
-    !isSubmitting;
+    !isSubmitting &&
+    !isFeedbackCooldownActive;
+
+  React.useEffect(() => {
+    if (!normalizedTelegramId) {
+      setCooldownRemainingMs(0);
+      return;
+    }
+    const tick = () =>
+      setCooldownRemainingMs(
+        computeCooldownRemainingMs(normalizedTelegramId),
+      );
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [normalizedTelegramId]);
 
   React.useEffect(() => {
     if (!isAdmin || !normalizedTelegramId) {
@@ -168,12 +239,27 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
       return;
     }
 
+    const remaining = computeCooldownRemainingMs(normalizedTelegramId);
+    if (remaining > 0) {
+      toast.info(
+        `Следующий отзыв можно отправить через ${formatCooldownRemaining(remaining)}.`,
+        { label: "Обратная связь" },
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await FeedbackService.createFeedback({
         telegramId: normalizedTelegramId,
         text: trimmedText,
       });
+
+      const sentAt = Date.now();
+      writeLastSubmitAt(normalizedTelegramId, sentAt);
+      setCooldownRemainingMs(
+        Math.max(0, sentAt + FEEDBACK_COOLDOWN_MS - Date.now()),
+      );
 
       setText("");
       toast.success("Отзыв отправлен", {
@@ -188,11 +274,31 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
         }
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Не удалось отправить отзыв";
-      toast.error(message, {
-        label: "Обратная связь",
-      });
+      if (error instanceof ApiError && error.status === 429) {
+        const bodyError =
+          error.body &&
+          typeof error.body === "object" &&
+          "error" in error.body &&
+          typeof (error.body as { error?: unknown }).error === "string"
+            ? (error.body as { error: string }).error
+            : null;
+        writeLastSubmitAt(normalizedTelegramId, Date.now());
+        setCooldownRemainingMs(
+          computeCooldownRemainingMs(normalizedTelegramId),
+        );
+        toast.warning(
+          bodyError ?? error.message ?? "Слишком частые отправки отзывов",
+          { label: "Обратная связь" },
+        );
+      } else {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Не удалось отправить отзыв";
+        toast.error(message, {
+          label: "Обратная связь",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -214,7 +320,8 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
           </div>
           <p className="mt-2 text-sm text-foreground/56">
             Напишите, чего не хватает, что неудобно, что стоит улучшить, опишите
-            найденный баг или просто поделитесь своим мнением.
+            найденный баг или просто поделитесь своим мнением. Отправлять отзыв
+            можно не чаще одного раза в час.
           </p>
         </div>
       </div>
@@ -225,12 +332,22 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
         </div>
       ) : (
         <div className="space-y-3">
+          {isFeedbackCooldownActive ? (
+            <div className="rounded-2xl border border-border/60 bg-background/45 px-4 py-3 text-sm text-foreground/62">
+              Следующую отправку можно будет сделать через{" "}
+              <span className="font-medium text-foreground/80">
+                {formatCooldownRemaining(cooldownRemainingMs)}
+              </span>
+              .
+            </div>
+          ) : null}
           <Textarea
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="Введите ваше сообщение..."
             maxLength={MAX_FEEDBACK_LENGTH}
-            className="min-h-28 rounded-2xl border-border/60 bg-background/45 px-4 py-3 shadow-none"
+            disabled={isFeedbackCooldownActive}
+            className="min-h-28 rounded-2xl border-border/60 bg-background/45 px-4 py-3 shadow-none disabled:opacity-60"
           />
 
           <div className="flex items-center justify-between gap-3">
