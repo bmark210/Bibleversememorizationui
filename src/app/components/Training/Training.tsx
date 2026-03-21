@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
@@ -16,6 +16,10 @@ import type {
   AnchorModeGroup,
 } from "./types";
 import { ALL_ANCHOR_MODE_GROUPS } from "./types";
+import {
+  readTrainingHubPreferences,
+  writeTrainingHubPreferences,
+} from "./trainingHubPreferences";
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
@@ -39,6 +43,19 @@ function getInitialSubsetFilter(
   return "catalog";
 }
 
+function computeInitialHubSelections(): {
+  scenario: TrainingScenario;
+  coreModes: CoreTrainingMode[];
+  anchorModes: AnchorModeGroup[];
+} {
+  const prefs = readTrainingHubPreferences();
+  return {
+    scenario: prefs?.scenario ?? "core",
+    coreModes: prefs?.coreModes ?? CORE_SESSION_MODES,
+    anchorModes: prefs?.anchorModes ?? [...ALL_ANCHOR_MODE_GROUPS],
+  };
+}
+
 export function Training({
   allVerses,
   isLoadingVerses = false,
@@ -52,12 +69,27 @@ export function Training({
   onSessionFullscreenChange,
 }: TrainingProps) {
   const [view, setView] = useState<TrainingView>({ mode: "hub" });
-  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
-  const [selectedModes, setSelectedModes] =
-    useState<CoreTrainingMode[]>(CORE_SESSION_MODES);
-  const [selectedAnchorModes, setSelectedAnchorModes] =
-    useState<AnchorModeGroup[]>([...ALL_ANCHOR_MODE_GROUPS]);
+
+  const initialHub = useMemo(() => computeInitialHubSelections(), []);
+
+  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(
+    initialHub.scenario,
+  );
+  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(
+    initialHub.coreModes,
+  );
+  const [selectedAnchorModes, setSelectedAnchorModes] = useState<
+    AnchorModeGroup[]
+  >(initialHub.anchorModes);
   const directLaunchConsumedRef = useRef(false);
+
+  useEffect(() => {
+    writeTrainingHubPreferences({
+      scenario: selectedScenario,
+      coreModes: selectedModes,
+      anchorModes: selectedAnchorModes,
+    });
+  }, [selectedScenario, selectedModes, selectedAnchorModes]);
 
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
   useEffect(() => {
