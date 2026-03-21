@@ -389,7 +389,6 @@ export function TrainingHub({
     <div
         className={cn(
           "mx-auto flex h-full w-full flex-col overflow-y-auto",
-          isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
         )}
         style={
           {
@@ -404,14 +403,12 @@ export function TrainingHub({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: "easeOut",
           }}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-0 flex-1 flex-col p-4"
         >
           {/* Fixed top: header + tabs */}
-          <div className="shrink-0 px-4 sm:pt-1 lg:pt-3">
+          <div className="shrink-0">
             <div className="flex flex-col gap-4">
-              {isTelegramFullscreen ? (
-                <div className="shrink-0" style={{ height: `${contentSafeAreaInset.top}px` }} />
-              ) : (
+              {isTelegramFullscreen ? (null) : (
                 <header className="space-y-1.5">
                   <div className="flex items-center gap-2.5">
                     <h1 className="text-2xl font-semibold text-primary">
@@ -457,7 +454,7 @@ export function TrainingHub({
           </div>
 
           {/* Mode list */}
-          <div className="px-4 pb-3 pt-3 my-2 mx-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl overflow-y-auto">
+          <div className="pb-4 pt-3 my-2 px-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div
@@ -610,7 +607,7 @@ export function TrainingHub({
           {/* Bottom: start card */}
           <div
             className={cn(
-              "mx-2 mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
+              "mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
               anchorLocked
                 ? "border-foreground/10"
                 : currentAccentTheme.summaryClassName,
