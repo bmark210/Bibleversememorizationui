@@ -597,9 +597,9 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     try {
-      webApp.enableClosingConfirmation?.();
+      webApp.disableClosingConfirmation?.();
     } catch (error) {
-      console.warn("Telegram enableClosingConfirmation failed:", error);
+      console.warn("Telegram disableClosingConfirmation failed:", error);
     }
 
     try {

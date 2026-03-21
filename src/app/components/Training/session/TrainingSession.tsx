@@ -17,7 +17,6 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
@@ -529,21 +528,6 @@ export function TrainingSession({
   });
 
   useEffect(() => {
-    const webApp = getTelegramWebApp();
-    if (!webApp) return;
-
-    if (shouldConfirmSessionExit) {
-      webApp.enableClosingConfirmation?.();
-    } else {
-      webApp.disableClosingConfirmation?.();
-    }
-
-    return () => {
-      webApp.enableClosingConfirmation?.();
-    };
-  }, [shouldConfirmSessionExit]);
-
-  useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && session.pendingOutcome !== null) {
         e.preventDefault();
@@ -577,20 +561,6 @@ export function TrainingSession({
     pendingOrderChange,
     pendingCloseConfirm,
   ]);
-
-  useEffect(() => {
-    if (!shouldConfirmSessionExit || typeof window === "undefined") return;
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [shouldConfirmSessionExit]);
 
   const canNavigatePrev = session.trainingIndex > 0;
   const canNavigateNext = session.trainingIndex < session.trainingVerseCount - 1;
