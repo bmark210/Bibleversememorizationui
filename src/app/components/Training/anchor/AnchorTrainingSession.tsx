@@ -77,35 +77,17 @@ const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
 
 const slideVariants = {
-  enter: (dir: number) =>
-    dir === 0
-      ? { opacity: 0, scale: 1, y: 0 }
-      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.95 },
-  center: (dir: number) => ({
-    y: 0,
+  enter: { opacity: 0, scale: 0.97 },
+  center: {
     opacity: 1,
     scale: 1,
-    transition:
-      dir === 0
-        ? {
-            duration: 0.22,
-            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-          }
-        : { type: "spring" as const, stiffness: 320, damping: 32 },
-  }),
-  exit: (dir: number) =>
-    dir === 0
-      ? {
-          opacity: 0,
-          scale: 1,
-          transition: { duration: 0.15, ease: "easeIn" as const },
-        }
-      : {
-          y: dir > 0 ? "-18%" : "18%",
-          opacity: 0,
-          scale: 0.86,
-          transition: { duration: 0.2, ease: "easeIn" as const },
-        },
+    transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.97,
+    transition: { duration: 0.15, ease: "easeIn" as const },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -425,7 +407,6 @@ export function AnchorTrainingSession({
   const [lastAnswerSkipped, setLastAnswerSkipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [direction, setDirection] = useState(0);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -824,7 +805,6 @@ export function AnchorTrainingSession({
 
   const handleContinueAfterReveal = useCallback(() => {
     if (!canContinueAfterReveal) return;
-    setDirection(1);
     advanceToNextQuestion();
   }, [advanceToNextQuestion, canContinueAfterReveal]);
 
@@ -882,16 +862,6 @@ export function AnchorTrainingSession({
           .map((id) => currentQuestion.options.find((option) => option.id === id)?.label)
           .filter((value): value is string => Boolean(value))
       : [];
-
-  useEffect(() => {
-    if (direction === 0 || typeof window === "undefined") return;
-
-    const timeoutId = window.setTimeout(() => {
-      setDirection(0);
-    }, 260);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [direction, currentQuestion?.id]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -985,7 +955,7 @@ export function AnchorTrainingSession({
 
         {/* Main content */}
         <div
-          className="relative flex-1 min-h-0 flex flex-col"
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки закрепления"
@@ -1049,67 +1019,79 @@ export function AnchorTrainingSession({
 
           {/* Active question */}
           {hasActiveQuestion && currentQuestion && (
-            <AnimatePresence initial={false} mode="sync" custom={direction}>
+            <AnimatePresence initial={false} mode="wait">
               <motion.div
                 key={currentQuestion.id}
-                custom={direction}
                 variants={slideVariants}
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="absolute inset-0 flex flex-col focus-visible:outline-none"
+                className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
                 tabIndex={-1}
               >
-                {/* Prompt area */}
-                <div className={cn(
-                  "flex items-center justify-center px-4 overflow-hidden",
-                  shouldLiftTypeCard ? "flex-none max-h-[22vh] py-1" : "flex-1 min-h-0 py-3",
-                )}>
-                  <div className="w-full max-w-lg">
-                    <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-4 shadow-sm backdrop-blur-sm">
-                      <p
-                        className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
-                        style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                    {/* Prompt area */}
+                    <ScrollShadowContainer
+                      className={cn(
+                        "px-4",
+                        shouldLiftTypeCard ? "flex-none max-h-[22vh]" : "flex-1 min-h-0",
+                      )}
+                      scrollClassName="flex items-center justify-center"
+                      shadowSize={24}
+                    >
+                      <div
+                        className={cn(
+                          "w-full max-w-lg",
+                          shouldLiftTypeCard ? "py-1" : "py-3",
+                        )}
                       >
-                        {currentQuestion.prompt}
-                      </p>
-                    </div>
-                    {/* Compact result feedback */}
-                    {isAnswered && (
-                      <div className="mt-2 space-y-1">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className={cn(
-                            "h-1.5 w-1.5 rounded-full shrink-0",
-                            lastAnswerCorrect ? "bg-emerald-500" : "bg-rose-500"
-                          )} />
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              lastAnswerCorrect
-                                ? "text-emerald-700 dark:text-emerald-300"
-                                : "text-rose-600 dark:text-rose-300",
-                            )}
+                        <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-4 shadow-sm backdrop-blur-sm">
+                          <p
+                            className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                            style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
                           >
-                            {feedbackStatusLabel}
-                          </span>
-                        </div>
-                        {showCorrectAnswer && (
-                          <p className="text-center text-sm text-foreground/70 leading-relaxed">
-                            {currentQuestion.answerLabel}
+                            {currentQuestion.prompt}
                           </p>
+                        </div>
+                        {/* Compact result feedback */}
+                        {isAnswered && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-center gap-2">
+                              <div
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full shrink-0",
+                                  lastAnswerCorrect ? "bg-emerald-500" : "bg-rose-500",
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "text-sm font-medium",
+                                  lastAnswerCorrect
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-rose-600 dark:text-rose-300",
+                                )}
+                              >
+                                {feedbackStatusLabel}
+                              </span>
+                            </div>
+                            {showCorrectAnswer && (
+                              <p className="text-center text-sm text-foreground/70 leading-relaxed">
+                                {currentQuestion.answerLabel}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </ScrollShadowContainer>
 
-                {/* Action area */}
-                <ScrollShadowContainer className={cn(
-                  "px-4 pb-2",
-                  shouldLiftTypeCard ? "flex-1" : "flex-1 min-h-0",
-                )}>
-                  {modeRenderer}
-                </ScrollShadowContainer>
+                    {/* Action area */}
+                    <ScrollShadowContainer
+                      className={cn(
+                        "px-4 pb-2",
+                        shouldLiftTypeCard ? "flex-1" : "flex-1 min-h-0",
+                      )}
+                    >
+                      {modeRenderer}
+                    </ScrollShadowContainer>
               </motion.div>
             </AnimatePresence>
           )}
