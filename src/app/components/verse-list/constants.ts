@@ -98,7 +98,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     statusBadgeClassName:
       'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    cardClassName: 'bg-gradient-to-br from-sky-500/6 via-card to-card',
+    cardClassName: 'bg-gradient-to-br from-sky-500/13 via-card to-card',
   },
 };
 
