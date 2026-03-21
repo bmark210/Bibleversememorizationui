@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { Inter, Literata } from 'next/font/google'
 import Script from 'next/script'
 
-import { DisableOverscrollBounce } from './components/DisableOverscrollBounce'
 import { DisableViewportZoom } from './components/DisableViewportZoom'
 import './globals.css'
 
@@ -62,7 +61,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="text-foreground">
         <DisableViewportZoom />
-        <DisableOverscrollBounce />
         <div className="app-scroll">
           {children}
         </div>
