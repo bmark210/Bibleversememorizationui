@@ -409,7 +409,9 @@ export function TrainingHub({
           {/* Fixed top: header + tabs */}
           <div className="shrink-0 px-4 sm:pt-1 lg:pt-3">
             <div className="flex flex-col gap-4">
-              {isTelegramFullscreen ? null : (
+              {isTelegramFullscreen ? (
+                <div className="shrink-0" style={{ height: `${contentSafeAreaInset.top}px` }} />
+              ) : (
                 <header className="space-y-1.5">
                   <div className="flex items-center gap-2.5">
                     <h1 className="text-2xl font-semibold text-primary">
