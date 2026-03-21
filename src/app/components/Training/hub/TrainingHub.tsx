@@ -4,11 +4,18 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
+  Bone,
   Brain,
+  Check,
+  FlipHorizontal,
   Layers,
+  Link2,
+  ListEnd,
+  ListStart,
   Lock,
   Play,
   Repeat,
+  VenetianMask,
   type LucideIcon,
 } from "lucide-react";
 import type { Verse } from "@/app/App";
@@ -91,6 +98,16 @@ type AccentTheme = {
 };
 
 const ANCHOR_MIN_REQUIRED = 10;
+
+const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
+  reference: Link2,
+  incipit: ListStart,
+  ending: ListEnd,
+  context: Layers,
+  "broken-mirror": FlipHorizontal,
+  "skeleton-verse": Bone,
+  "impostor-word": VenetianMask,
+};
 
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
   core: {
@@ -306,10 +323,10 @@ export function TrainingHub({
       ? 0
       : getWaitingReviewCountForCoreModes(selectedModes, selectionCounts);
   const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
-  const sessionSummary =
-    selectedScenario === "anchor"
-      ? TRAINING_SCENARIO_LABELS.anchor
-      : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
+  // const sessionSummary =
+  //   selectedScenario === "anchor"
+  //     ? TRAINING_SCENARIO_LABELS.anchor
+  //     : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
   const startLabel =
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
@@ -371,7 +388,7 @@ export function TrainingHub({
   return (
     <div
         className={cn(
-          "mx-auto h-full w-full p-4 sm:pt-6 md:pb-8 lg:pt-8",
+          "mx-auto flex h-full w-full flex-col overflow-hidden",
           isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
         )}
         style={
@@ -387,212 +404,243 @@ export function TrainingHub({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: "easeOut",
           }}
-          className="flex h-full flex-col gap-4 "
+          className="flex min-h-0 flex-1 flex-col"
         >
-          {isTelegramFullscreen ? null : (
-            <header className="space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-semibold text-primary">
-                  Тренировка
-                </h1>
-              </div>
-            </header>
-          )}
+          {/* Fixed top: header + tabs */}
+          <div className="shrink-0 px-4 sm:pt-1 lg:pt-3">
+            <div className="flex flex-col gap-4">
+              {isTelegramFullscreen ? null : (
+                <header className="space-y-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <h1 className="text-2xl font-semibold text-primary">
+                      Тренировка
+                    </h1>
+                  </div>
+                </header>
+              )}
 
-          <section data-tour="training-scenarios" className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
-            <Tabs
-              value={selectedScenario}
-              onValueChange={handleScenarioChange}
-              className="gap-4"
-            >
-              <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
-                <TabsTrigger
-                  data-tour="training-scenario-core"
-                  value="core"
-                  className={SCENARIO_THEME.core.triggerClassName}
+              <section data-tour="training-scenarios" className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
+                <Tabs
+                  value={selectedScenario}
+                  onValueChange={handleScenarioChange}
+                  className="gap-4"
                 >
-                  <ScenarioTabLabel
-                    title={TRAINING_SCENARIO_LABELS.core}
-                    count={practiceCount}
-                    countClassName={SCENARIO_THEME.core.countClassName}
-                  />
-                </TabsTrigger>
-                <TabsTrigger
-                  data-tour="training-scenario-anchor"
-                  value="anchor"
-                  className={SCENARIO_THEME.anchor.triggerClassName}
-                >
-                  <ScenarioTabLabel
-                    title={TRAINING_SCENARIO_LABELS.anchor}
-                    count={anchorTotalAvailableCount}
-                    countClassName={SCENARIO_THEME.anchor.countClassName}
-                  />
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="mt-4">
-              <AnimatePresence mode="wait" initial={false}>
-                {selectedScenario === "core" ? (
-                  <motion.div
-                    data-tour="training-core-presets"
-                    key="core"
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={
-                      shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
-                    }
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                  >
-                    <SectionLabel>Режим практики</SectionLabel>
-                    <RadioGroupPrimitive.Root
-                      value={activeCorePreset.id}
-                      onValueChange={handleCorePresetChange}
-                      aria-label="Режим практики"
-                      className="mt-2 grid gap-2 sm:grid-cols-3"
+                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
+                    <TabsTrigger
+                      data-tour="training-scenario-core"
+                      value="core"
+                      className={SCENARIO_THEME.core.triggerClassName}
                     >
-                      {corePresetStates.map((preset) => (
-                        <RadioCardOption
-                          key={preset.id}
-                          value={preset.id}
-                          title={preset.label}
-                          subtitle={getModeAvailabilityLabel(preset)}
-                          icon={preset.icon}
-                          theme={preset.theme}
-                          disabled={preset.disabled}
-                        />
-                      ))}
-                    </RadioGroupPrimitive.Root>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    data-tour="training-anchor-presets"
-                    key="anchor"
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={
-                      shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
-                    }
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
+                      <ScenarioTabLabel
+                        title={TRAINING_SCENARIO_LABELS.core}
+                        count={practiceCount}
+                        countClassName={SCENARIO_THEME.core.countClassName}
+                      />
+                    </TabsTrigger>
+                    <TabsTrigger
+                      data-tour="training-scenario-anchor"
+                      value="anchor"
+                      className={SCENARIO_THEME.anchor.triggerClassName}
+                    >
+                      <ScenarioTabLabel
+                        title={TRAINING_SCENARIO_LABELS.anchor}
+                        count={anchorTotalAvailableCount}
+                        countClassName={SCENARIO_THEME.anchor.countClassName}
+                      />
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </section>
+            </div>
+          </div>
+
+          {/* Section label */}
+          <div className="shrink-0 px-5 pt-3 pb-1">
+            <SectionLabel>
+              {selectedScenario === "core" ? "Режим практики" : "Режимы закрепления"}
+            </SectionLabel>
+          </div>
+
+          {/* Scrollable middle: mode list */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+            <AnimatePresence mode="wait" initial={false}>
+              {selectedScenario === "core" ? (
+                <motion.div
+                  data-tour="training-core-presets"
+                  key="core"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={
+                    shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
+                  }
+                  transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
+                  className="grid gap-2 sm:grid-cols-3"
+                >
+                  <RadioGroupPrimitive.Root
+                    value={activeCorePreset.id}
+                    onValueChange={handleCorePresetChange}
+                    aria-label="Режим практики"
+                    className="grid gap-2 sm:grid-cols-3"
                   >
-                    <SectionLabel>Режимы закрепления</SectionLabel>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {ALL_ANCHOR_MODE_GROUPS.map((group) => {
-                        const isChecked = selectedAnchorModes.includes(group);
-                        return (
-                          <button
-                            key={group}
-                            type="button"
-                            onClick={() => {
-                              const next = isChecked
-                                ? selectedAnchorModes.filter((g) => g !== group)
-                                : [...selectedAnchorModes, group];
-                              if (next.length > 0) {
-                                triggerHaptic(isChecked ? "light" : "medium");
-                                onAnchorModesChange(next);
-                              }
-                            }}
+                    {corePresetStates.map((preset) => (
+                      <RadioCardOption
+                        key={preset.id}
+                        value={preset.id}
+                        title={preset.label}
+                        subtitle={getModeAvailabilityLabel(preset)}
+                        icon={preset.icon}
+                        theme={preset.theme}
+                        disabled={preset.disabled}
+                      />
+                    ))}
+                  </RadioGroupPrimitive.Root>
+                </motion.div>
+              ) : (
+                <motion.div
+                  data-tour="training-anchor-presets"
+                  key="anchor"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={
+                    shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
+                  }
+                  transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {ALL_ANCHOR_MODE_GROUPS.map((group) => {
+                    const isChecked = selectedAnchorModes.includes(group);
+                    const Icon = ANCHOR_MODE_GROUP_ICONS[group];
+                    return (
+                      <button
+                        key={group}
+                        type="button"
+                        aria-pressed={isChecked}
+                        onClick={() => {
+                          const next = isChecked
+                            ? selectedAnchorModes.filter((g) => g !== group)
+                            : [...selectedAnchorModes, group];
+                          if (next.length > 0) {
+                            triggerHaptic(isChecked ? "light" : "medium");
+                            onAnchorModesChange(next);
+                          }
+                        }}
+                        className={cn(
+                          "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
+                          "outline-none focus-visible:border-amber-500/40 focus-visible:ring-[3px] focus-visible:ring-amber-500/25",
+                          isChecked
+                            ? "border-amber-500/35 bg-amber-500/[0.11] text-amber-950 shadow-[0_10px_28px_-14px_rgba(245,158,11,0.55)] dark:border-amber-500/28 dark:bg-amber-500/[0.12] dark:text-amber-50 dark:shadow-[0_10px_28px_-14px_rgba(245,158,11,0.35)]"
+                            : "border-border/60 bg-background/55 text-foreground/70 hover:border-border hover:bg-background/80 dark:text-foreground/60",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                            isChecked
+                              ? "border-amber-500/30 bg-amber-500/18 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/20 dark:text-amber-200"
+                              : "border-border/55 bg-background/70 text-foreground/45 group-hover:border-border group-hover:text-foreground/55",
+                          )}
+                        >
+                          <Icon
+                            className="h-[17px] w-[17px]"
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span
                             className={cn(
-                              "rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-150",
+                              "block text-[13px] font-semibold leading-tight tracking-tight",
                               isChecked
-                                ? "border-primary/30 bg-primary/[0.10] text-primary shadow-[0_4px_12px_-6px_rgba(217,169,102,0.5)]"
-                                : "border-border/60 bg-background/55 text-foreground/55 hover:bg-background/80",
+                                ? "text-amber-950 dark:text-amber-50"
+                                : "text-foreground/82",
                             )}
                           >
                             {ANCHOR_MODE_GROUP_LABELS[group]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </section>
-
-          {hasSelection && selectionVerses ? (
-            <section className="mt-3 flex items-center justify-between gap-3 rounded-[24px] border border-border/60 bg-background/45 px-4 py-3 backdrop-blur-xl">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground/78">
-                  Подборка
-                </p>
-                <p className="text-xs text-foreground/50">
-                  {getSelectionSummaryText({
-                    totalCount: selectionVerses.length,
-                    availableCount: selectionAvailableCount,
-                    waitingReviewCount: selectionWaitingReviewCount,
-                    selectedModes,
+                          </span>
+                        </span>
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                            isChecked
+                              ? "border-amber-600/50 bg-amber-500 text-white dark:border-amber-400/60 dark:bg-amber-400 dark:text-amber-950"
+                              : "border-border/55 bg-background/50 opacity-70",
+                          )}
+                          aria-hidden
+                        >
+                          {isChecked ? (
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          ) : null}
+                        </span>
+                      </button>
+                    );
                   })}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                haptic="medium"
-                disabled={selectionStartLocked}
-                onClick={onStartSelection}
-                className="rounded-xl border-border/60 bg-background/70 text-foreground/78 hover:bg-background"
-              >
-                Начать
-              </Button>
-            </section>
-          ) : null}
-
-          <div className="mx-auto w-full flex-1 content-end">
-            <div
-              data-tour="training-start-cta"
-              className={cn(
-                "rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
-                anchorLocked
-                  ? "border-foreground/10"
-                  : currentAccentTheme.summaryClassName,
+                </motion.div>
               )}
-            >
-              <p
-                className={cn(
-                  "mb-3 px-1 text-sm font-medium",
-                  anchorLocked
-                    ? "text-foreground/50"
-                    : currentAccentTheme.summaryClassName,
-                )}
-              >
-                {sessionSummary}
-              </p>
+            </AnimatePresence>
 
-              {startLocked ? (
-                <div className="space-y-3">
-                  <Button
-                    type="button"
-                    size="lg"
-                    disabled
-                    className="h-14 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
-                  >
-                    <Lock className="h-4 w-4" />
-                    {lockedStartLabel}
-                  </Button>
-                  <p className="px-1 text-xs leading-relaxed text-foreground/55">
-                    {lockedSummaryText}
+            {hasSelection && selectionVerses ? (
+              <section className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/45 px-4 py-3 backdrop-blur-xl">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground/78">
+                    Подборка
+                  </p>
+                  <p className="text-xs text-foreground/50">
+                    {getSelectionSummaryText({
+                      totalCount: selectionVerses.length,
+                      availableCount: selectionAvailableCount,
+                      waitingReviewCount: selectionWaitingReviewCount,
+                      selectedModes,
+                    })}
                   </p>
                 </div>
-              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  haptic="medium"
+                  disabled={selectionStartLocked}
+                  onClick={onStartSelection}
+                  className="rounded-xl border-border/60 bg-background/70 text-foreground/78 hover:bg-background"
+                >
+                  Начать
+                </Button>
+              </section>
+            ) : null}
+          </div>
+
+          {/* Pinned bottom: start button */}
+          <div className="shrink-0 px-4 pb-3 pt-2">
+            {startLocked ? (
+              <div className="space-y-2">
                 <Button
                   type="button"
                   size="lg"
-                  haptic="medium"
-                  data-tour="training-start-button"
-                  onClick={onStart}
-                  className={cn(
-                    "h-14 flex-1 w-full gap-2 rounded-2xl text-base",
-                    "rounded-2xl px-5 border text-sm font-medium !shadow-none",
-                    currentAccentTheme.ctaClassName,
-                  )}
+                  disabled
+                  className="h-12 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
                 >
-                  <Play className="h-4 w-4" />
-                  {startLabel}
+                  <Lock className="h-4 w-4" />
+                  {lockedStartLabel}
                 </Button>
-              )}
-            </div>
+                <p className="px-1 text-center text-[11px] leading-relaxed text-foreground/45">
+                  {lockedSummaryText}
+                </p>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                haptic="medium"
+                data-tour="training-start-button"
+                onClick={onStart}
+                className={cn(
+                  "h-12 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
+                  currentAccentTheme.ctaClassName,
+                )}
+              >
+                <Play className="h-4 w-4" />
+                {startLabel}
+              </Button>
+            )}
           </div>
         </motion.div>
       </div>

@@ -83,7 +83,7 @@ export function Layout({
   const hideAppChrome = hideChrome;
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="h-dvh flex flex-col overflow-hidden">
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
           id="app-layout-header"
@@ -132,7 +132,7 @@ export function Layout({
 
         {/* Main Content */}
         <main
-          className="min-w-0 flex-1 min-h-0 [overflow-x:clip]"
+          className="min-w-0 flex-1 min-h-0 overflow-y-auto [overflow-x:clip]"
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`

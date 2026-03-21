@@ -1269,7 +1269,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     <>
       <div
         aria-hidden={false}
-        className="min-h-screen transition-colors"
+        className="h-dvh transition-colors"
       >
         <Layout
           currentPage={currentPage}

@@ -173,7 +173,7 @@ export function Training({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="h-full"
+            className="h-full overflow-hidden"
           >
             <TrainingHub
               allVerses={allVerses}
