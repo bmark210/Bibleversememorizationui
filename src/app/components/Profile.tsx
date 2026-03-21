@@ -113,6 +113,7 @@ export function Profile({
   const prefersTelegramFullscreen = useTelegramUiStore(
     (state) => state.prefersTelegramFullscreen
   );
+  const isNextJsDev = process.env.NODE_ENV === "development";
   const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
   const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
   const currentUserDailyStreak = useCurrentUserStatsStore(
@@ -638,7 +639,10 @@ export function Profile({
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={!isTelegramMiniApp || !canToggleTelegramFullscreen}
+                  disabled={
+                    !(isTelegramMiniApp || isNextJsDev) ||
+                    (!canToggleTelegramFullscreen && !isNextJsDev)
+                  }
                   onClick={() =>
                     applyTelegramFullscreenPreference(!prefersTelegramFullscreen)
                   }

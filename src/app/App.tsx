@@ -50,7 +50,10 @@ import {
 import type { DirectLaunchVerse } from "./components/Training/types";
 import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
-import { useTelegramUiStore } from "./stores/telegramUiStore";
+import {
+  syncTelegramFullscreenFromWebApp,
+  useTelegramUiStore,
+} from "./stores/telegramUiStore";
 import { useTrainingFontStore } from "./stores/trainingFontStore";
 
 const VerseList = dynamic(
@@ -568,20 +571,23 @@ export default function App({ onInitialContentReady }: AppProps) {
     const webApp = getTelegramWebApp();
     if (!webApp) {
       telegramUiStore.resetTelegramRuntime();
+      if (process.env.NODE_ENV === "development") {
+        telegramUiStore.setTelegramRuntime({
+          canToggleTelegramFullscreen: true,
+        });
+      }
+      syncTelegramFullscreenFromWebApp();
       return;
     }
 
     telegramUiStore.setTelegramRuntime({
       isTelegramMiniApp: true,
-      canToggleTelegramFullscreen:
-      typeof webApp.requestFullscreen === "function" &&
-      typeof webApp.exitFullscreen === "function",
+      // Кнопка в профиле переключает хотя бы UI-полный экран; нативный API может отсутствовать (Telegram 6.0).
+      canToggleTelegramFullscreen: true,
     });
 
     const syncTelegramViewportState = () => {
-      useTelegramUiStore
-        .getState()
-        .setTelegramFullscreen(Boolean(webApp.isFullscreen));
+      syncTelegramFullscreenFromWebApp();
     };
 
     try {
@@ -1138,15 +1144,26 @@ export default function App({ onInitialContentReady }: AppProps) {
     priority: 10,
   });
 
-  const handleVerseListMutationCommitted = () => {
+  // Отложенный рефетч: во время тренировки не грузим стихи заново,
+  // а помечаем что нужен рефетч после завершения сессии.
+  const pendingMutationRefetchRef = useRef(false);
+
+  const handleVerseListMutationCommitted = useCallback(() => {
     if (!telegramId) return;
+
+    // Во время активной тренировки — откладываем ВСЕ рефетчи до завершения
+    if (isTrainingSessionFullscreen) {
+      pendingMutationRefetchRef.current = true;
+      return;
+    }
+
     dashboardFetchFailedRef.current.stats = false;
     dashboardFetchFailedRef.current.leaderboard = false;
     trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
     void loadDashboardLeaderboard(telegramId);
-  };
+  }, [isTrainingSessionFullscreen, loadDashboardLeaderboard, loadDashboardStats, loadTrainingVersesForDashboard, telegramId]);
 
   const handleFriendsChanged = () => {
     setFriendsRefreshVersion((prev) => prev + 1);
@@ -1264,6 +1281,19 @@ export default function App({ onInitialContentReady }: AppProps) {
       setIsTrainingSessionFullscreen(false);
     }
   }, [currentPage, isTrainingSessionFullscreen]);
+
+  // Когда тренировочная сессия завершается — выполняем отложенные рефетчи
+  useEffect(() => {
+    if (!isTrainingSessionFullscreen && pendingMutationRefetchRef.current && telegramId) {
+      pendingMutationRefetchRef.current = false;
+      dashboardFetchFailedRef.current.stats = false;
+      dashboardFetchFailedRef.current.leaderboard = false;
+      trainingVersesFetchFailedRef.current = false;
+      void loadTrainingVersesForDashboard(telegramId);
+      void loadDashboardStats(telegramId);
+      void loadDashboardLeaderboard(telegramId);
+    }
+  }, [isTrainingSessionFullscreen, loadDashboardLeaderboard, loadDashboardStats, loadTrainingVersesForDashboard, telegramId]);
 
   return (
     <>

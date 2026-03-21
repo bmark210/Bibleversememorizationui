@@ -323,10 +323,10 @@ export function TrainingHub({
       ? 0
       : getWaitingReviewCountForCoreModes(selectedModes, selectionCounts);
   const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
-  // const sessionSummary =
-  //   selectedScenario === "anchor"
-  //     ? TRAINING_SCENARIO_LABELS.anchor
-  //     : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
+  const sessionSummary =
+    selectedScenario === "anchor"
+      ? TRAINING_SCENARIO_LABELS.anchor
+      : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
   const startLabel =
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
@@ -388,7 +388,7 @@ export function TrainingHub({
   return (
     <div
         className={cn(
-          "mx-auto flex h-full w-full flex-col overflow-hidden",
+          "mx-auto flex h-full w-full flex-col overflow-y-auto",
           isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
         )}
         style={
@@ -456,15 +456,8 @@ export function TrainingHub({
             </div>
           </div>
 
-          {/* Section label */}
-          <div className="shrink-0 px-5 pt-3 pb-1">
-            <SectionLabel>
-              {selectedScenario === "core" ? "Режим практики" : "Режимы закрепления"}
-            </SectionLabel>
-          </div>
-
-          {/* Scrollable middle: mode list */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+          {/* Mode list */}
+          <div className="px-4 pb-3 pt-3 my-2 mx-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div
@@ -476,13 +469,13 @@ export function TrainingHub({
                     shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
                   }
                   transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                  className="grid gap-2 sm:grid-cols-3"
                 >
+                  <SectionLabel>Режим практики</SectionLabel>
                   <RadioGroupPrimitive.Root
                     value={activeCorePreset.id}
                     onValueChange={handleCorePresetChange}
                     aria-label="Режим практики"
-                    className="grid gap-2 sm:grid-cols-3"
+                    className="mt-2 grid gap-2 sm:grid-cols-3"
                   >
                     {corePresetStates.map((preset) => (
                       <RadioCardOption
@@ -507,8 +500,9 @@ export function TrainingHub({
                     shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
                   }
                   transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                  className="grid grid-cols-2 gap-2"
                 >
+                  <SectionLabel>Режимы закрепления</SectionLabel>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
                   {ALL_ANCHOR_MODE_GROUPS.map((group) => {
                     const isChecked = selectedAnchorModes.includes(group);
                     const Icon = ANCHOR_MODE_GROUP_ICONS[group];
@@ -530,7 +524,7 @@ export function TrainingHub({
                           "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
                           "outline-none focus-visible:border-amber-500/40 focus-visible:ring-[3px] focus-visible:ring-amber-500/25",
                           isChecked
-                            ? "border-amber-500/35 bg-amber-500/[0.11] text-amber-950 shadow-[0_10px_28px_-14px_rgba(245,158,11,0.55)] dark:border-amber-500/28 dark:bg-amber-500/[0.12] dark:text-amber-50 dark:shadow-[0_10px_28px_-14px_rgba(245,158,11,0.35)]"
+                            ? "border-amber-500/35 bg-amber-500/[0.11] text-amber-950 shadow-[0_10px_28px_-14px_rgba(245,158,11,0.55)] dark:border-amber-500/28 dark:bg-amber-500/10 dark:text-amber-50 dark:shadow-[0_10px_28px_-14px_rgba(245,158,11,0.35)]"
                             : "border-border/60 bg-background/55 text-foreground/70 hover:border-border hover:bg-background/80 dark:text-foreground/60",
                         )}
                       >
@@ -564,7 +558,7 @@ export function TrainingHub({
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                             isChecked
-                              ? "border-amber-600/50 bg-amber-500 text-white dark:border-amber-400/60 dark:bg-amber-400 dark:text-amber-950"
+                              ? "border-amber-600/50 bg-amber-500 text-white dark:border-amber-400/60 dark:bg-amber-400/60 dark:text-amber-950"
                               : "border-border/55 bg-background/50 opacity-70",
                           )}
                           aria-hidden
@@ -576,6 +570,7 @@ export function TrainingHub({
                       </button>
                     );
                   })}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -610,20 +605,40 @@ export function TrainingHub({
             ) : null}
           </div>
 
-          {/* Pinned bottom: start button */}
-          <div className="shrink-0 px-4 pb-3 pt-2">
+<div className="flex-1 content-end">
+
+          {/* Bottom: start card */}
+          <div
+            className={cn(
+              "mx-2 mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
+              anchorLocked
+                ? "border-foreground/10"
+                : currentAccentTheme.summaryClassName,
+            )}
+          >
+            <p
+              className={cn(
+                "mb-3 px-1 text-sm font-medium",
+                anchorLocked
+                  ? "text-foreground/50"
+                  : currentAccentTheme.summaryClassName,
+              )}
+            >
+              {sessionSummary}
+            </p>
+
             {startLocked ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Button
                   type="button"
                   size="lg"
                   disabled
-                  className="h-12 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
+                  className="h-14 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
                 >
                   <Lock className="h-4 w-4" />
                   {lockedStartLabel}
                 </Button>
-                <p className="px-1 text-center text-[11px] leading-relaxed text-foreground/45">
+                <p className="px-1 text-xs leading-relaxed text-foreground/55">
                   {lockedSummaryText}
                 </p>
               </div>
@@ -635,7 +650,7 @@ export function TrainingHub({
                 data-tour="training-start-button"
                 onClick={onStart}
                 className={cn(
-                  "h-12 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
+                  "h-14 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
                   currentAccentTheme.ctaClassName,
                 )}
               >
@@ -644,6 +659,8 @@ export function TrainingHub({
               </Button>
             )}
           </div>
+  
+</div>
         </motion.div>
       </div>
   );

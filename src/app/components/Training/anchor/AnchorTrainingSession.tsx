@@ -8,14 +8,14 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronUp, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
+import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { isSwipeBlockedByScroll, handleSwipeScroll } from "@/app/components/ui/ScrollShadowContainer";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   AlertDialog,
@@ -42,10 +42,8 @@ import { MODE_STRATEGIES, pickWeightedStrategy } from "./modeRegistry";
 import type { TrainingVerse, DragQuestion } from "./types";
 import type { AnchorTrainingResult } from "./types/session";
 import type {
-  ChoiceQuestion,
   QuestionSessionState,
   QuestionTerminalState,
-  TapQuestion,
   TrainerModeId,
   TrainerQuestion,
   TypeInputReadiness,
@@ -162,20 +160,6 @@ function mapToTrainingVerse(verse: domain_UserVerse): TrainingVerse | null {
     contextPromptText,
     contextPromptReference,
   };
-}
-
-// ---------------------------------------------------------------------------
-// getRevealedVerseText
-// ---------------------------------------------------------------------------
-
-function getRevealedVerseText(question: TrainerQuestion | null): string {
-  if (!question) return "";
-  const reference = question.verse.reference.trim();
-  const text = question.verse.text.trim();
-  if (reference && text) return `${reference}\n${text}`;
-  if (text) return text;
-  if (reference) return reference;
-  return question.answerLabel;
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +397,9 @@ export function AnchorTrainingSession({
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
+  const isTelegramFullscreen = useTelegramUiStore(
+    (state) => state.isTelegramFullscreen,
+  );
   const initializedTelegramIdRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const batchSeqRef = useRef(0);
@@ -489,9 +476,6 @@ export function AnchorTrainingSession({
   const currentQuestion = currentQuestionId
     ? questionById.get(currentQuestionId) ?? null
     : null;
-  const totalCount = questions.length;
-  const pendingCount = pendingQuestions.length;
-  const completedCount = totalCount - pendingCount;
   const results = useMemo(
     () =>
       questions.flatMap((question) => {
@@ -511,7 +495,6 @@ export function AnchorTrainingSession({
     [results]
   );
   const answeredCount = results.length;
-  const wrongCount = answeredCount - correctCount;
   const resultPercent =
     answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
 
@@ -819,47 +802,6 @@ export function AnchorTrainingSession({
     resetAnswerState();
   }, [currentPendingQuestionId, isAnswered, resetAnswerState]);
 
-  const navigatePendingQuestion = useCallback(
-    (step: 1 | -1) => {
-      if (controlsLocked || isAnswered) return;
-      if (pendingQuestionIds.length === 0) return;
-
-      const activePendingQuestionId =
-        currentPendingQuestionId && pendingQuestionIds.includes(currentPendingQuestionId)
-          ? currentPendingQuestionId
-          : currentQuestionId && pendingQuestionIds.includes(currentQuestionId)
-            ? currentQuestionId
-            : pendingQuestionIds[0];
-      const activePendingIndex = pendingQuestionIds.indexOf(activePendingQuestionId);
-      if (activePendingIndex < 0) return;
-
-      if (step === 1 && pendingQuestionIds.length <= 1) return;
-
-      const nextPendingIndex =
-        step === 1
-          ? (activePendingIndex + 1) % pendingQuestionIds.length
-          : activePendingIndex === 0
-            ? pendingQuestionIds.length - 1
-            : activePendingIndex - 1;
-      const nextPendingQuestionId = pendingQuestionIds[nextPendingIndex];
-
-      if (!nextPendingQuestionId || nextPendingQuestionId === currentQuestionId) return;
-
-      setDirection(step);
-      setCurrentPendingQuestionId(nextPendingQuestionId);
-      setCurrentQuestionId(nextPendingQuestionId);
-      resetAnswerState();
-    },
-    [
-      controlsLocked,
-      currentPendingQuestionId,
-      currentQuestionId,
-      isAnswered,
-      pendingQuestionIds,
-      resetAnswerState,
-    ]
-  );
-
   const isTypeMode = currentQuestion?.interaction === "type";
   const isCompactTypeMode =
     currentQuestion?.modeId === "context-prefix-type" ||
@@ -873,7 +815,6 @@ export function AnchorTrainingSession({
       ? typeInputReadiness?.canSubmit === true
       : false;
   const shouldLiftTypeCard = isKeyboardOpen && isTypeMode && !isAnswered;
-  const revealedVerseText = getRevealedVerseText(currentQuestion);
   const canContinueAfterReveal =
     isAnswered && currentPendingQuestionId !== null;
   const showSkipAction = Boolean(
@@ -941,52 +882,6 @@ export function AnchorTrainingSession({
           .filter((value): value is string => Boolean(value))
       : [];
 
-  // ── Swipe gesture handling ──
-  const swipeTouchRef = useRef<{
-    startY: number;
-    startX: number;
-    startTime: number;
-    target: HTMLElement | null;
-  } | null>(null);
-  const SWIPE_THRESHOLD = 50;
-  const SWIPE_MAX_HORIZONTAL = 80;
-  const SWIPE_MAX_TIME = 600;
-
-  const _handleContentTouchStart = useCallback((e: React.TouchEvent) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest('input,textarea,select')) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-    swipeTouchRef.current = {
-      startY: touch.clientY,
-      startX: touch.clientX,
-      startTime: Date.now(),
-      target,
-    };
-  }, []);
-
-  const _handleContentTouchEnd = useCallback((e: React.TouchEvent) => {
-    const start = swipeTouchRef.current;
-    swipeTouchRef.current = null;
-    if (!start) return;
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const dy = touch.clientY - start.startY;
-    const dx = Math.abs(touch.clientX - start.startX);
-    const dt = Date.now() - start.startTime;
-    if (dt > SWIPE_MAX_TIME || dx > SWIPE_MAX_HORIZONTAL || Math.abs(dy) < SWIPE_THRESHOLD) return;
-    const step: 1 | -1 = dy < 0 ? 1 : -1;
-    // If touch originated in a swipe-scroll container, scroll it instead of switching cards
-    if (handleSwipeScroll(start.target, step)) return;
-    // Block swipe if touch originated in a scrollable container that hasn't reached the boundary
-    if (isSwipeBlockedByScroll(start.target, step)) return;
-    navigatePendingQuestion(step);
-  }, [navigatePendingQuestion]);
-
-  const canNavigatePrev = pendingQuestionIds.length > 1;
-  const canNavigateNext = pendingQuestionIds.length > 1;
-  const isNavBlocked = controlsLocked || isAnswered;
-
   useEffect(() => {
     if (direction === 0 || typeof window === "undefined") return;
 
@@ -1002,22 +897,12 @@ export function AnchorTrainingSession({
       if (event.key === "Escape") {
         event.preventDefault();
         handleBackAction();
-        return;
-      }
-      if (event.key === "ArrowDown" || event.key === "PageDown") {
-        event.preventDefault();
-        navigatePendingQuestion(1);
-        return;
-      }
-      if (event.key === "ArrowUp" || event.key === "PageUp") {
-        event.preventDefault();
-        navigatePendingQuestion(-1);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleBackAction, navigatePendingQuestion]);
+  }, [handleBackAction]);
 
   const hasActiveQuestion = Boolean(
     telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length > 0 && currentQuestion,
@@ -1050,13 +935,24 @@ export function AnchorTrainingSession({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
-        onTouchStart={_handleContentTouchStart}
-        onTouchEnd={_handleContentTouchEnd}
-      >
-        {/* Empty top spacer for Telegram buttons */}
-        <div className="shrink-0" style={{ height: `${topInset}px` }} />
+      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20">
+        {isTelegramFullscreen ? (
+          <header
+            id="anchor-session-header"
+            className="sticky top-0 z-10 shrink-0 overflow-hidden border-b border-border bg-card/90 backdrop-blur-xl transition-[opacity,transform] duration-400 ease-out opacity-100 translate-y-0"
+            style={{ paddingTop: `${topInset}px` }}
+          >
+            <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
+              <div className="flex min-h-11 items-center justify-center">
+                <div className="truncate text-sm font-semibold text-primary">
+                  Закрепление
+                </div>
+              </div>
+            </div>
+          </header>
+        ) : (
+          <div className="shrink-0" style={{ height: `${topInset}px` }} />
+        )}
 
         {/* Accuracy bar + mode info */}
         {hasActiveQuestion && currentQuestion && (
@@ -1069,7 +965,7 @@ export function AnchorTrainingSession({
                 />
               )}
             </div>
-            <p className="text-center text-[11px] text-muted-foreground/80 truncate">
+            <p className="text-center text-[13px] text-muted-foreground/80 truncate">
               {getAnchorModeShortLabel(currentQuestion.modeId)} · {currentQuestion.modeHint}
             </p>
           </div>
@@ -1197,7 +1093,7 @@ export function AnchorTrainingSession({
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
           className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
         >
-          <div className="mx-auto w-full max-w-2xl">
+          <div className="mx-auto w-full max-w-lg">
             {isAnswered ? (
               /* After answer: full-width "Дальше" */
               <Button
@@ -1209,19 +1105,7 @@ export function AnchorTrainingSession({
               </Button>
             ) : (
               /* Before answer: nav + skip + finish */
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
-                  disabled={!canNavigatePrev || isNavBlocked}
-                  onClick={() => navigatePendingQuestion(-1)}
-                  aria-label="Предыдущий вопрос"
-                >
-                  <ChevronUp className="h-5 w-5" />
-                </Button>
-
+              <div className="flex items-center justify-center gap-2">
                 <div className="flex flex-wrap items-center justify-center gap-2 min-w-0">
                   {showSkipAction && (
                     <Button
@@ -1242,18 +1126,6 @@ export function AnchorTrainingSession({
                     Завершить
                   </Button>
                 </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-2xl border-border/60"
-                  disabled={!canNavigateNext || isNavBlocked}
-                  onClick={() => navigatePendingQuestion(1)}
-                  aria-label="Следующий вопрос"
-                >
-                  <ChevronDown className="h-5 w-5" />
-                </Button>
               </div>
             )}
           </div>

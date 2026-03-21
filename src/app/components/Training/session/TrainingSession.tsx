@@ -618,8 +618,8 @@ export function TrainingSession({
           style={{ paddingTop: `${topInset}px` }}
         >
           <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-2.5 sm:px-6">
-            <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Тренировка
+            <p className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 uppercase text-sm font-semibold text-foreground/75">
+              {`${session.trainingIndex + 1} / ${session.trainingVerseCount}`}
             </p>
           </div>
         </div>

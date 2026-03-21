@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { isDevTelegramFullscreenEmulationEnabled } from "@/app/lib/devTelegramFullscreen";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 
 const TELEGRAM_FULLSCREEN_PREFERENCE_STORAGE_KEY =
@@ -83,26 +84,49 @@ export const useTelegramUiStore = create<TelegramUiStore>((set) => ({
   setTelegramFullscreen: (enabled) => set({ isTelegramFullscreen: enabled }),
 }));
 
+/**
+ * Единый источник для UI: нативный полный экран Telegram ИЛИ пользовательская настройка
+ * (нужно для клиентов без requestFullscreen / WebAppMethodUnsupported, напр. Bot API 6.0).
+ */
+export function syncTelegramFullscreenFromWebApp() {
+  const store = useTelegramUiStore.getState();
+  const webApp = getTelegramWebApp();
+  const { prefersTelegramFullscreen } = store;
+
+  if (!webApp) {
+    const mirrorPrefersInUi =
+      process.env.NODE_ENV === "development" ||
+      isDevTelegramFullscreenEmulationEnabled();
+    store.setTelegramFullscreen(
+      mirrorPrefersInUi ? prefersTelegramFullscreen : false,
+    );
+    return;
+  }
+
+  const native = Boolean(webApp.isFullscreen);
+  store.setTelegramFullscreen(native || prefersTelegramFullscreen);
+}
+
 export function applyTelegramFullscreenPreference(enabled: boolean) {
   const store = useTelegramUiStore.getState();
   store.setTelegramFullscreenPreference(enabled);
 
   const webApp = getTelegramWebApp();
-  if (!webApp) return;
-
-  try {
-    if (enabled) {
-      webApp.requestFullscreen?.();
-    } else {
-      webApp.exitFullscreen?.();
+  if (webApp) {
+    try {
+      if (enabled) {
+        if (typeof webApp.requestFullscreen === "function") {
+          webApp.requestFullscreen();
+        }
+      } else if (typeof webApp.exitFullscreen === "function") {
+        webApp.exitFullscreen();
+      }
+    } catch {
+      // Telegram 6.x и др.: метод есть, но бросает WebAppMethodUnsupported — оставляем UI по prefers*
     }
-  } catch (error) {
-    console.error("Не удалось применить fullscreen-настройку Telegram:", error);
   }
 
-  window.setTimeout(() => {
-    useTelegramUiStore
-      .getState()
-      .setTelegramFullscreen(Boolean(webApp.isFullscreen));
-  }, 0);
+  queueMicrotask(() => {
+    syncTelegramFullscreenFromWebApp();
+  });
 }
