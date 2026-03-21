@@ -16,8 +16,8 @@ const LIST_PAGE_LIMIT = 100;
 
 type FetchUserVersesPageParams = {
   telegramId: string;
-  orderBy: "bible" | "popularity" | "updatedAt";
-  order: "asc" | "desc";
+  orderBy?: "bible" | "popularity" | "updatedAt";
+  order?: "asc" | "desc";
   filter: UserVersesListFilter;
   bookId?: number;
   search?: string;
@@ -38,6 +38,8 @@ function apiFilter(
 export async function fetchUserVersesPage(
   params: FetchUserVersesPageParams
 ): Promise<domain_UserVersesPageResponse> {
+  const orderBy = params.orderBy ?? "updatedAt";
+  const order = params.order ?? "desc";
   const tagSlugs =
     params.tagSlugs && params.tagSlugs.length > 0
       ? params.tagSlugs.join(",")
@@ -45,8 +47,8 @@ export async function fetchUserVersesPage(
   return UserVersesService.listUserVerses(
     params.telegramId,
     undefined,
-    params.orderBy,
-    params.order,
+    orderBy,
+    order,
     apiFilter(params.filter),
     params.bookId,
     params.search,
