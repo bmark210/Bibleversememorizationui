@@ -502,7 +502,7 @@ export function TrainingHub({
                   transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
                 >
                   <SectionLabel>Режимы закрепления</SectionLabel>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                   {ALL_ANCHOR_MODE_GROUPS.map((group) => {
                     const isChecked = selectedAnchorModes.includes(group);
                     const Icon = ANCHOR_MODE_GROUP_ICONS[group];
