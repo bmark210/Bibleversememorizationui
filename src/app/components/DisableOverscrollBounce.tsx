@@ -6,21 +6,22 @@ import { useEffect } from 'react'
  * Prevents iOS rubber-band / overscroll bounce in Telegram WebApp.
  *
  * CSS `overscroll-behavior: none` is unreliable in iOS WKWebView.
- * This component intercepts `touchmove` events and blocks them when the
- * nearest scrollable ancestor has reached its scroll boundary.
+ * This component intercepts `touchmove` events and clamps scrollable
+ * containers so they never exceed their scroll boundaries.
  */
 export function DisableOverscrollBounce() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    /** Walk up the DOM and find the first scrollable ancestor. */
+    const EDGE_PX = 2
+
     function findScrollableParent(node: HTMLElement | null): HTMLElement | null {
       let el = node
       while (el && el !== document.documentElement) {
         const style = window.getComputedStyle(el)
-        const overflowY = style.overflowY
+        const oy = style.overflowY
         if (
-          (overflowY === 'auto' || overflowY === 'scroll') &&
+          (oy === 'auto' || oy === 'scroll') &&
           el.scrollHeight > el.clientHeight
         ) {
           return el
@@ -30,33 +31,53 @@ export function DisableOverscrollBounce() {
       return null
     }
 
-    let startY = 0
+    let lastY = 0
 
     function handleTouchStart(e: TouchEvent) {
       if (e.touches.length === 1) {
-        startY = e.touches[0].clientY
+        lastY = e.touches[0].clientY
+      }
+
+      // Clamp if already overscrolled
+      const scrollable = findScrollableParent(e.target as HTMLElement | null)
+      if (scrollable) {
+        const maxScroll = scrollable.scrollHeight - scrollable.clientHeight
+        if (scrollable.scrollTop < 0) scrollable.scrollTop = 0
+        if (scrollable.scrollTop > maxScroll) scrollable.scrollTop = maxScroll
       }
     }
 
     function handleTouchMove(e: TouchEvent) {
       if (e.touches.length !== 1) return
 
+      const currentY = e.touches[0].clientY
+      // Instantaneous direction: positive = finger moving down (pulling content up)
+      const dy = currentY - lastY
+      lastY = currentY
+
       const target = e.target as HTMLElement | null
       const scrollable = findScrollableParent(target)
 
-      // No scrollable ancestor — block all vertical movement
       if (!scrollable) {
         e.preventDefault()
         return
       }
 
-      const deltaY = e.touches[0].clientY - startY
       const { scrollTop, scrollHeight, clientHeight } = scrollable
-      const atTop = scrollTop <= 0 && deltaY > 0
-      const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY < 0
+      const maxScroll = scrollHeight - clientHeight
 
-      if (atTop || atBottom) {
+      // Pulling down (finger moves down) while at/near top
+      if (scrollTop <= EDGE_PX && dy > 0) {
+        scrollable.scrollTop = 0
         e.preventDefault()
+        return
+      }
+
+      // Pulling up (finger moves up) while at/near bottom
+      if (scrollTop >= maxScroll - EDGE_PX && dy < 0) {
+        scrollable.scrollTop = maxScroll
+        e.preventDefault()
+        return
       }
     }
 
