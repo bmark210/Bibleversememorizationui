@@ -13,8 +13,9 @@ import type {
   TrainingMode,
   CoreTrainingMode,
   TrainingScenario,
-  AnchorTrainingTrack,
+  AnchorModeGroup,
 } from "./types";
+import { ALL_ANCHOR_MODE_GROUPS } from "./types";
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
@@ -54,8 +55,8 @@ export function Training({
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
   const [selectedModes, setSelectedModes] =
     useState<CoreTrainingMode[]>(CORE_SESSION_MODES);
-  const [selectedAnchorTrack, setSelectedAnchorTrack] =
-    useState<AnchorTrainingTrack>("mixed");
+  const [selectedAnchorModes, setSelectedAnchorModes] =
+    useState<AnchorModeGroup[]>([...ALL_ANCHOR_MODE_GROUPS]);
   const directLaunchConsumedRef = useRef(false);
 
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
@@ -66,7 +67,7 @@ export function Training({
     const mode = directLaunch.preferredMode ?? autoModeForVerse(directLaunch.verse);
 
     if (mode === "anchor") {
-      setView({ mode: "anchor", track: selectedAnchorTrack });
+      setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS] });
     } else {
       // Build a verse list: put the target verse first, then add other eligible verses
       const targetKey = `${directLaunch.verse.externalVerseId}`;
@@ -84,7 +85,7 @@ export function Training({
         initialVerseExternalId: directLaunch.verse.externalVerseId,
       });
     }
-  }, [directLaunch, allVerses, selectedAnchorTrack]);
+  }, [directLaunch, allVerses]);
 
   // Reset consumed ref when directLaunch changes to a new value
   useEffect(() => {
@@ -115,7 +116,7 @@ export function Training({
 
   const handleStart = useCallback(() => {
     if (selectedScenario === "anchor") {
-      setView({ mode: "anchor", track: selectedAnchorTrack });
+      setView({ mode: "anchor", anchorModes: selectedAnchorModes });
       return;
     }
     const selectedVerses = pickVersesForCoreModes(selectedModes, allVerses);
@@ -127,7 +128,7 @@ export function Training({
       trainingModes: selectedModes,
       order: "updatedAt",
     });
-  }, [allVerses, selectedAnchorTrack, selectedModes, selectedScenario]);
+  }, [allVerses, selectedAnchorModes, selectedModes, selectedScenario]);
 
   const handleStartSelection = useCallback(() => {
     if (selectedScenario !== "core") return;
@@ -180,10 +181,10 @@ export function Training({
               selectionVerses={selectionVerses}
               selectedScenario={selectedScenario}
               selectedModes={selectedModes}
-              selectedAnchorTrack={selectedAnchorTrack}
+              selectedAnchorModes={selectedAnchorModes}
               onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
-              onAnchorTrackChange={setSelectedAnchorTrack}
+              onAnchorModesChange={setSelectedAnchorModes}
               onStart={handleStart}
               onStartSelection={handleStartSelection}
             />
@@ -200,7 +201,7 @@ export function Training({
           >
             <AnchorSession
               telegramId={telegramId}
-              initialTrack={view.track}
+              anchorModes={view.anchorModes}
               onSessionCommitted={onVerseMutationCommitted}
               onClose={handleExitSession}
             />

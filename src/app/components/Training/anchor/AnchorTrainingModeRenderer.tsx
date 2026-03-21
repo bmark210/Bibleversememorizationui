@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { AnchorChoiceMode } from "./modes/AnchorChoiceMode";
 import { AnchorTapMode } from "./modes/AnchorTapMode";
 import { AnchorTypeMode } from "./modes/AnchorTypeMode";
+import { DragReorderMode } from "./modes/interactions/DragReorderMode";
 import type {
   TrainerQuestion,
   TypeInputReadiness,
@@ -26,6 +27,7 @@ type AnchorTrainingModeRendererProps = {
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
+  onOrderSubmit: (orderedIds: string[]) => void;
 };
 
 export function AnchorTrainingModeRenderer({
@@ -45,7 +47,19 @@ export function AnchorTrainingModeRenderer({
   onTapSelect,
   onTypedAnswerChange,
   onTypeSubmit,
+  onOrderSubmit,
 }: AnchorTrainingModeRendererProps) {
+  if (question.interaction === "drag") {
+    return (
+      <DragReorderMode
+        question={question}
+        isAnswered={isAnswered}
+        controlsLocked={controlsLocked}
+        onOrderSubmit={onOrderSubmit}
+      />
+    );
+  }
+
   if (question.interaction === "choice") {
     return (
       <AnchorChoiceMode

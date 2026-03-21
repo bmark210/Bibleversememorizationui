@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { AnchorTrainingTrack } from "../types";
 
 const AnchorTrainingSession = dynamic(
   () =>
@@ -11,9 +10,11 @@ const AnchorTrainingSession = dynamic(
   { loading: () => <div className="min-h-[60vh]" /> },
 );
 
+import type { AnchorModeGroup } from "../types";
+
 export type AnchorTrainingSessionRootProps = {
   telegramId: string | null;
-  initialTrack: AnchorTrainingTrack;
+  anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;
 };

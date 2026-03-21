@@ -23,6 +23,12 @@ export function getAnchorModeShortLabel(modeId: TrainerModeId): string {
       return "Контекст · тап";
     case "context-prefix-type":
       return "Контекст · буквы";
+    case "broken-mirror":
+      return "Зеркало";
+    case "skeleton-verse":
+      return "Скелет";
+    case "impostor-word":
+      return "Самозванец";
     default:
       return "Закрепление";
   }

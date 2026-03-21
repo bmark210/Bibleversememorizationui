@@ -15,8 +15,5 @@ export function referenceVerseToTrainingHeaderVerse(
     reference: verse.reference,
     lastReviewedAt: null,
     nextReviewAt: null,
-    referenceScore: verse.referenceScore,
-    incipitScore: verse.incipitScore,
-    contextScore: verse.contextScore,
   };
 }

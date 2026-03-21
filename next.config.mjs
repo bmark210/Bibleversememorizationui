@@ -44,6 +44,7 @@ const nextConfig = {
   reactStrictMode: true,
   env: {
     NEXT_PUBLIC_API_BASE_URL: resolveNextPublicApiBaseUrl(),
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
   async rewrites() {
     if (process.env.NODE_ENV !== "production") {

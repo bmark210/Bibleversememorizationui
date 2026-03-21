@@ -9,19 +9,7 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronUp, ChevronDown } from "lucide-react";
-import type { api_ReferenceTrainerSessionResponse } from "@/api/models/api_ReferenceTrainerSessionResponse";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
-import {
-  fetchReferenceTrainerVerses,
-  submitReferenceTrainerSession,
-} from "@/api/services/referenceTrainer";
-import type {
-  ReferenceTrainerOutcome,
-  ReferenceTrainerSessionTrack,
-  ReferenceTrainerSessionUpdate,
-} from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
-import { applySessionResults } from "@/modules/reference-trainer/application/applySessionResults";
-import type { ReferenceTrainerScoreRow } from "@/modules/reference-trainer/domain/ReferenceTrainerTypes";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -40,55 +28,53 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { toast } from "@/app/lib/toast";
-import { levenshteinDistance, similarityRatio } from "@/shared/utils/levenshtein";
-import { swapArrayItems } from "@/shared/utils/swapArrayItems";
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import {
   coerceVerseDifficultyLevel,
   getDifficultyLevelByLetters,
 } from "@/shared/verses/difficulty";
-import { TrainingProgressPopup } from "@/app/components/Training/TrainingProgressPopup";
-import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
-import { useTrainingProgressPopup } from "@/app/components/Training/useTrainingProgressPopup";
 import {
   AnchorTrainingQuestionCard,
   AnchorTrainingStateCard,
 } from "./AnchorTrainingCards";
+import { fetchAnchorVersesPool, submitAnchorSession } from "./services/sessionApi";
+import { generateImpostorWord, getAIAvailability } from "./services/aiService";
+import { MODE_STRATEGIES, pickWeightedStrategy } from "./modeRegistry";
+import type { TrainingVerse, DragQuestion } from "./types";
+import type { AnchorTrainingResult } from "./types/session";
 import type {
   ChoiceQuestion,
-  ModeStrategy,
   QuestionSessionState,
   QuestionTerminalState,
-  QuestionResult,
-  ReferenceVerse,
-  SessionTrack,
-  SkillTrack,
   TapQuestion,
   TrainerModeId,
   TrainerQuestion,
   TypeInputReadiness,
   TypeQuestion,
 } from "./anchorTrainingTypes";
+import {
+  evaluateIncipitInput,
+  evaluateCompactPrefixInput,
+  getIncipitPrefixTokens,
+  type TypeInputEvaluation,
+} from "./modes/builders/builderUtils";
+import {
+  normalizeIncipitText,
+  parseReferenceParts,
+  extractWordTokens,
+} from "./services/validation";
+
+import type { AnchorModeGroup } from "../types";
 
 type AnchorTrainingSessionProps = {
   telegramId: string | null;
-  initialTrack?: SessionTrack;
+  anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;
 };
 
-const TRACK_STORAGE_KEY = "bible-memory.reference-trainer.track.v1";
-const REFERENCE_OPTIONS_COUNT = 4;
-const BOOK_OPTIONS_COUNT = 4;
-const INCIPIT_OPTIONS_COUNT = 4;
-const INCIPIT_TAP_DISTRACTORS_COUNT = 2;
 /** Размер одной «волны» карточек; после прохождения подмешивается следующая */
 const ANCHOR_SESSION_BATCH_SIZE = 10;
-const MAX_TYPING_ATTEMPTS = 2;
 const REFERENCE_TRAINER_POOL_LIMIT = 24;
-const MIXED_TRACK_WEIGHT_MIN = 5;
-const MIXED_TRACK_WEIGHT_BASE = 110;
-const TYPE_INPUT_SIMILARITY_THRESHOLD = 0.8;
 const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
 
@@ -124,348 +110,77 @@ const slideVariants = {
         },
 };
 
-function randomFloat() {
-  if (typeof window !== "undefined") {
-    const maybeCrypto = window.crypto;
-    if (maybeCrypto?.getRandomValues) {
-      const values = new Uint32Array(1);
-      maybeCrypto.getRandomValues(values);
-      return (values[0] ?? 0) / 4294967296;
-    }
-  }
-  return Math.random();
-}
+// ---------------------------------------------------------------------------
+// mapToTrainingVerse
+// ---------------------------------------------------------------------------
 
-function randomInt(max: number) {
-  if (max <= 0) return 0;
-  return Math.floor(randomFloat() * max);
-}
-
-function clampSkillScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function shuffle<T>(source: T[]) {
-  const next = [...source];
-  for (let index = next.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomInt(index + 1);
-    swapArrayItems(next, index, swapIndex);
-  }
-  return next;
-}
-
-function normalizeBookName(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
-function softenBookName(value: string) {
-  return value.replace(/^ко/u, "").replace(/^к/u, "").replace(/^от/u, "");
-}
-
-function normalizeIncipitText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}\s-]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractWordTokens(value: string): string[] {
-  const matches = value.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu);
-  return matches ? matches.map((token) => token.trim()).filter(Boolean) : [];
-}
-
-function parseReferenceParts(reference: string): {
-  bookName: string;
-  chapterVerse: string;
-} | null {
-  const normalized = reference.replace(/\u00A0/g, " ").trim();
-  const match = normalized.match(/^(.*?)(\d+)\s*:\s*(\d+(?:\s*-\s*\d+)?)$/u);
-  if (!match) return null;
-
-  const bookName = match[1]?.trim() ?? "";
-  const chapter = match[2]?.trim() ?? "";
-  const verse = (match[3] ?? "").replace(/\s*-\s*/g, "-").trim();
-
-  if (!bookName || !chapter || !verse) return null;
-
-  return {
-    bookName,
-    chapterVerse: `${chapter}:${verse}`,
+function mapToTrainingVerse(verse: domain_UserVerse): TrainingVerse | null {
+  const enriched = verse as domain_UserVerse & {
+    text?: string | null;
+    reference?: string | null;
+    externalVerseId?: string | null;
+    difficultyLevel?: unknown;
   };
-}
-
-function normalizeReferenceForComparison(reference: string) {
-  const parsed = parseReferenceParts(reference);
-  if (parsed) {
-    return `${normalizeBookName(parsed.bookName)}:${parsed.chapterVerse.replace(/\s+/g, "")}`;
-  }
-
-  return reference
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}:-]+/gu, "")
-    .replace(/\s+/g, "");
-}
-
-function matchesReferenceWithTolerance(input: string, expected: string) {
-  const parsedInput = parseReferenceParts(input);
-  const parsedExpected = parseReferenceParts(expected);
-
-  if (!parsedInput || !parsedExpected) {
-    return (
-      normalizeReferenceForComparison(input) ===
-      normalizeReferenceForComparison(expected)
-    );
-  }
-
-  const inputChapterVerse = parsedInput.chapterVerse
-    .replace(/\s+/g, "")
-    .replace(/[—–]/g, "-");
-  const expectedChapterVerse = parsedExpected.chapterVerse
-    .replace(/\s+/g, "")
-    .replace(/[—–]/g, "-");
-
-  if (inputChapterVerse !== expectedChapterVerse) return false;
-
-  const inputBook = normalizeBookName(parsedInput.bookName);
-  const expectedBook = normalizeBookName(parsedExpected.bookName);
-  if (inputBook === expectedBook) return true;
-
-  const inputSoft = softenBookName(inputBook);
-  const expectedSoft = softenBookName(expectedBook);
-  if (inputSoft === expectedSoft) return true;
-  if (!inputSoft || !expectedSoft) return false;
-
-  const distance = levenshteinDistance(inputSoft, expectedSoft);
-  const maxLength = Math.max(inputSoft.length, expectedSoft.length);
-  const maxAllowedDistance = maxLength >= 10 ? 2 : 1;
-
-  return distance <= maxAllowedDistance;
-}
-
-function matchesIncipitWithTolerance(input: string, expected: string) {
-  const evaluation = evaluateIncipitInput(input, expected);
-  return evaluation.isCorrect;
-}
-
-type TypeInputEvaluation = {
-  isCorrect: boolean;
-  acceptedWithTolerance: boolean;
-};
-
-type ContextTargetRelation = {
-  direction: "forward" | "backward";
-  distance: number;
-};
-
-function getPluralForm(
-  value: number,
-  one: string,
-  few: string,
-  many: string
-) {
-  const absValue = Math.abs(value) % 100;
-  const lastDigit = absValue % 10;
-
-  if (absValue > 10 && absValue < 20) return many;
-  if (lastDigit > 1 && lastDigit < 5) return few;
-  if (lastDigit === 1) return one;
-  return many;
-}
-
-function formatVerseGap(count: number) {
-  if (count === 1) return "один стих";
-  if (count === 2) return "два стиха";
-  if (count === 3) return "три стиха";
-  if (count === 4) return "четыре стиха";
-  return `${count} ${getPluralForm(count, "стих", "стиха", "стихов")}`;
-}
-
-function parseReferenceChapterAndVerseStart(reference: string): {
-  chapter: number;
-  verseStart: number;
-} | null {
-  const normalized = reference.replace(/\u00A0/g, " ").trim();
-  const match = normalized.match(
-    /^(.*?)(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?$/u
+  const externalVerseId = String(
+    enriched.externalVerseId?.trim() ||
+      enriched.verse?.externalVerseId?.trim() ||
+      ""
   );
-  if (!match) return null;
+  const text = String(enriched.text ?? "").trim();
+  const reference = String(enriched.reference ?? externalVerseId).trim();
+  if (!text || !reference) return null;
 
-  const chapter = Number(match[2]);
-  const verseStart = Number(match[3]);
-  if (!Number.isInteger(chapter) || chapter <= 0) return null;
-  if (!Number.isInteger(verseStart) || verseStart <= 0) return null;
+  const parsedReference = parseReferenceParts(reference);
+  const words = extractWordTokens(text);
+  const incipitLength = words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const incipitWords = words.slice(0, incipitLength);
+  const endingLength = words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const endingWords = words.slice(-endingLength);
+  const rawVerse = verse as Record<string, unknown>;
+  const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
+  const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
+
+  const difficultyLevel =
+    enriched.difficultyLevel != null
+      ? coerceVerseDifficultyLevel(enriched.difficultyLevel)
+      : getDifficultyLevelByLetters(enriched.verse?.difficultyLetters);
 
   return {
-    chapter,
-    verseStart,
+    externalVerseId,
+    text,
+    reference,
+    status: normalizeDisplayVerseStatus(verse.status),
+    difficultyLevel,
+    masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
+    repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+    bookName: parsedReference?.bookName ?? "",
+    chapterVerse: parsedReference?.chapterVerse ?? "",
+    incipit: incipitWords.join(" "),
+    incipitWords,
+    ending: endingWords.join(" "),
+    endingWords,
+    contextPromptText,
+    contextPromptReference,
   };
 }
 
-function resolveContextTargetRelation(
-  verse: ReferenceVerse
-): ContextTargetRelation | null {
-  const targetReference = parseExternalVerseId(verse.externalVerseId);
-  const promptReference = parseReferenceChapterAndVerseStart(
-    verse.contextPromptReference
-  );
+// ---------------------------------------------------------------------------
+// getRevealedVerseText
+// ---------------------------------------------------------------------------
 
-  if (
-    !targetReference ||
-    !promptReference ||
-    targetReference.chapter !== promptReference.chapter
-  ) {
-    return null;
-  }
-
-  const distance = Math.abs(targetReference.verseStart - promptReference.verseStart);
-  if (distance <= 0) return null;
-
-  return {
-    direction:
-      targetReference.verseStart > promptReference.verseStart
-        ? "forward"
-        : "backward",
-    distance,
-  };
+function getRevealedVerseText(question: TrainerQuestion | null): string {
+  if (!question) return "";
+  const reference = question.verse.reference.trim();
+  const text = question.verse.text.trim();
+  if (reference && text) return `${reference}\n${text}`;
+  if (text) return text;
+  if (reference) return reference;
+  return question.answerLabel;
 }
 
-function getContextTargetDescriptor(verse: ReferenceVerse) {
-  const relation = resolveContextTargetRelation(verse);
-  if (!relation) return "нужного стиха";
-
-  if (relation.direction === "forward") {
-    if (relation.distance === 1) return "следующего стиха";
-    return `стиха, который идёт через ${formatVerseGap(
-      relation.distance - 1
-    )} после подсказки`;
-  }
-
-  if (relation.distance === 1) return "предыдущего стиха";
-  return `стиха, который находится через ${formatVerseGap(
-    relation.distance - 1
-  )} до подсказки`;
-}
-
-function buildContextModeHint(
-  verse: ReferenceVerse,
-  mode: "incipit" | "tap" | "prefix"
-) {
-  const descriptor = getContextTargetDescriptor(verse);
-
-  if (mode === "tap") {
-    return `Соберите начало ${descriptor}.`;
-  }
-
-  if (mode === "prefix") {
-    return `Введите первые буквы начала ${descriptor}.`;
-  }
-
-  return `Введите начало ${descriptor}.`;
-}
-
-function getExpectedWordPrefixMatch(input: string, expected: string): boolean {
-  const expectedTokens = expected.split(" ").filter(Boolean);
-  const inputTokens = input.split(" ").filter(Boolean);
-  if (expectedTokens.length === 0 || inputTokens.length < expectedTokens.length) {
-    return false;
-  }
-  return expectedTokens.every((token, index) => inputTokens[index] === token);
-}
-
-function evaluateIncipitInput(input: string, expected: string): TypeInputEvaluation {
-  const normalizedInput = normalizeIncipitText(input);
-  const normalizedExpected = normalizeIncipitText(expected);
-  if (!normalizedInput || !normalizedExpected) {
-    return { isCorrect: false, acceptedWithTolerance: false };
-  }
-  if (normalizedInput === normalizedExpected) {
-    return { isCorrect: true, acceptedWithTolerance: false };
-  }
-
-  if (getExpectedWordPrefixMatch(normalizedInput, normalizedExpected)) {
-    return { isCorrect: true, acceptedWithTolerance: true };
-  }
-
-  const distance = levenshteinDistance(normalizedInput, normalizedExpected);
-  const maxAllowedDistance = normalizedExpected.length >= 24 ? 2 : 1;
-  if (distance <= maxAllowedDistance) {
-    return { isCorrect: true, acceptedWithTolerance: true };
-  }
-
-  const similarity = similarityRatio(normalizedInput, normalizedExpected);
-  if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
-    return { isCorrect: true, acceptedWithTolerance: true };
-  }
-
-  return { isCorrect: false, acceptedWithTolerance: false };
-}
-
-function hasContextPrompt(verse: ReferenceVerse): boolean {
-  return verse.contextPromptText.trim().length > 0;
-}
-
-function buildContextPrompt(verse: ReferenceVerse): string {
-  const promptText = verse.contextPromptText.trim();
-  const promptReference = verse.contextPromptReference.trim();
-  if (!promptText) return "";
-  if (!promptReference) return promptText;
-  return `${promptText}`;
-}
-
-function getIncipitPrefixTokens(verse: ReferenceVerse): string[] {
-  return verse.incipitWords
-    .map((word) => normalizeIncipitText(word))
-    .filter(Boolean)
-    .map((word) => Array.from(word)[0] ?? "")
-    .filter(Boolean);
-}
-
-function matchesCompactPrefixInput(input: string, expectedTokens: string[]): boolean {
-  return evaluateCompactPrefixInput(input, expectedTokens).isCorrect;
-}
-
-function evaluateCompactPrefixInput(
-  input: string,
-  expectedTokens: string[]
-): TypeInputEvaluation {
-  if (expectedTokens.length === 0) {
-    return { isCorrect: false, acceptedWithTolerance: false };
-  }
-
-  const normalizedInput = normalizeIncipitText(input);
-  if (!normalizedInput) {
-    return { isCorrect: false, acceptedWithTolerance: false };
-  }
-
-  const joinedExpected = expectedTokens.join("");
-  const joinedInput = normalizedInput.replace(/\s+/g, "");
-
-  if (!joinedInput || !joinedExpected) {
-    return { isCorrect: false, acceptedWithTolerance: false };
-  }
-
-  if (joinedInput === joinedExpected) {
-    return { isCorrect: true, acceptedWithTolerance: false };
-  }
-
-  if (joinedInput.startsWith(joinedExpected)) {
-    return { isCorrect: true, acceptedWithTolerance: true };
-  }
-
-  const similarity = similarityRatio(joinedInput, joinedExpected);
-  if (similarity >= TYPE_INPUT_SIMILARITY_THRESHOLD) {
-    return { isCorrect: true, acceptedWithTolerance: true };
-  }
-
-  return { isCorrect: false, acceptedWithTolerance: false };
-}
+// ---------------------------------------------------------------------------
+// getTypeInputReadiness / evaluateTypeInput
+// ---------------------------------------------------------------------------
 
 function getTypeInputReadiness(
   question: TypeQuestion | null,
@@ -530,774 +245,9 @@ function evaluateTypeInput(
   };
 }
 
-function readStoredTrack(): SessionTrack {
-  if (typeof window === "undefined") return "mixed";
-  try {
-    const value = window.localStorage.getItem(TRACK_STORAGE_KEY);
-    if (
-      value === "reference" ||
-      value === "incipit" ||
-      value === "ending" ||
-      value === "context" ||
-      value === "mixed"
-    ) {
-      return value;
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return "mixed";
-}
-
-function writeStoredTrack(track: SessionTrack) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(TRACK_STORAGE_KEY, track);
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function mapUserVerseToReferenceVerse(verse: domain_UserVerse): ReferenceVerse | null {
-  const enriched = verse as domain_UserVerse & {
-    text?: string | null;
-    reference?: string | null;
-    externalVerseId?: string | null;
-    difficultyLevel?: unknown;
-  };
-  const externalVerseId = String(
-    enriched.externalVerseId?.trim() ||
-      enriched.verse?.externalVerseId?.trim() ||
-      ""
-  );
-  const text = String(enriched.text ?? "").trim();
-  const reference = String(enriched.reference ?? externalVerseId).trim();
-  if (!text || !reference) return null;
-
-  const parsedReference = parseReferenceParts(reference);
-  const words = extractWordTokens(text);
-  const incipitLength =
-    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
-  const incipitWords = words.slice(0, incipitLength);
-  const endingLength =
-    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
-  const endingWords = words.slice(-endingLength);
-  const rawVerse = verse as Record<string, unknown>;
-  const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
-  const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
-
-  const difficultyLevel =
-    enriched.difficultyLevel != null
-      ? coerceVerseDifficultyLevel(enriched.difficultyLevel)
-      : getDifficultyLevelByLetters(enriched.verse?.difficultyLetters);
-
-  return {
-    externalVerseId,
-    text,
-    reference,
-    status: normalizeDisplayVerseStatus(verse.status),
-    difficultyLevel,
-    masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
-    repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
-    bookName: parsedReference?.bookName ?? "",
-    chapterVerse: parsedReference?.chapterVerse ?? "",
-    incipit: incipitWords.join(" "),
-    incipitWords,
-    ending: endingWords.join(" "),
-    endingWords,
-    referenceScore: clampSkillScore(rawVerse.referenceScore as number | undefined),
-    incipitScore: clampSkillScore(rawVerse.incipitScore as number | undefined),
-    contextScore: clampSkillScore(rawVerse.contextScore as number | undefined),
-    contextPromptText,
-    contextPromptReference,
-  };
-}
-
-function getRevealedVerseText(question: TrainerQuestion | null): string {
-  if (!question) return "";
-  const reference = question.verse.reference.trim();
-  const text = question.verse.text.trim();
-  if (reference && text) return `${reference}\n${text}`;
-  if (text) return text;
-  if (reference) return reference;
-  return question.answerLabel;
-}
-
-function buildReferenceChoiceQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): ChoiceQuestion | null {
-  const normalizedCorrect = normalizeReferenceForComparison(verse.reference);
-  const distractors = shuffle(
-    pool
-      .map((item) => item.reference)
-      .filter(
-        (candidate) =>
-          normalizeReferenceForComparison(candidate) !== normalizedCorrect
-      )
-  );
-
-  if (distractors.length < REFERENCE_OPTIONS_COUNT - 1) return null;
-
-  const options = shuffle([
-    verse.reference,
-    ...distractors.slice(0, REFERENCE_OPTIONS_COUNT - 1),
-  ]);
-
-  return {
-    id: `reference-choice-${order}-${verse.externalVerseId}`,
-    modeId: "reference-choice",
-    track: "reference",
-    // modeLabel: "Выбор ссылки",
-    modeHint: "Выберите правильную ссылку.",
-    verse,
-    prompt: verse.text,
-    answerLabel: verse.reference,
-    interaction: "choice",
-    options,
-    isCorrectOption: (value: string) =>
-      normalizeReferenceForComparison(value) === normalizedCorrect,
-  };
-}
-
-function buildBookChoiceQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): ChoiceQuestion | null {
-  if (!verse.bookName) return null;
-
-  const uniqueBooks = Array.from(
-    new Map(
-      pool
-        .map((item) => item.bookName)
-        .filter(Boolean)
-        .map((book) => [normalizeBookName(book), book])
-    ).values()
-  );
-
-  const distractorBooks = shuffle(
-    uniqueBooks.filter(
-      (book) => normalizeBookName(book) !== normalizeBookName(verse.bookName)
-    )
-  );
-  if (distractorBooks.length < BOOK_OPTIONS_COUNT - 1) return null;
-
-  const normalizedCorrect = normalizeBookName(verse.bookName);
-
-  return {
-    id: `book-choice-${order}-${verse.externalVerseId}`,
-    modeId: "book-choice",
-    track: "reference",
-    modeHint: "Выберите правильную книгу",
-    verse,
-    prompt: verse.text,
-    answerLabel: verse.bookName,
-    interaction: "choice",
-    options: shuffle([
-      verse.bookName,
-      ...distractorBooks.slice(0, BOOK_OPTIONS_COUNT - 1),
-    ]),
-    isCorrectOption: (value: string) =>
-      normalizeBookName(value) === normalizedCorrect,
-  };
-}
-
-function buildReferenceTypeQuestion(
-  verse: ReferenceVerse,
-  order: number
-): TypeQuestion {
-  return {
-    id: `reference-type-${order}-${verse.externalVerseId}`,
-    modeId: "reference-type",
-    track: "reference",
-    modeHint: "Введите ссылку вручную",
-    verse,
-    prompt: verse.text,
-    answerLabel: verse.reference,
-    interaction: "type",
-    placeholder: "Иоанна 3:16",
-    maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: `${verse.bookName} ${verse.chapterVerse}`.trim(),
-    isCorrectInput: (value: string) =>
-      matchesReferenceWithTolerance(value, verse.reference),
-  };
-}
-
-function buildIncipitChoiceQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): ChoiceQuestion | null {
-  if (verse.incipitWords.length < 2) return null;
-  const normalizedCorrect = normalizeIncipitText(verse.incipit);
-
-  const distractors = shuffle(
-    pool
-      .map((item) => item.incipit)
-      .filter((candidate) => candidate.trim().length > 0)
-      .filter(
-        (candidate) => normalizeIncipitText(candidate) !== normalizedCorrect
-      )
-  );
-
-  if (distractors.length < INCIPIT_OPTIONS_COUNT - 1) return null;
-
-  return {
-    id: `incipit-choice-${order}-${verse.externalVerseId}`,
-    modeId: "incipit-choice",
-    track: "incipit",
-    modeHint: "Выберите правильное начало стиха.",
-    verse,
-    prompt: verse.reference,
-    answerLabel: verse.incipit,
-    interaction: "choice",
-    options: shuffle([
-      verse.incipit,
-      ...distractors.slice(0, INCIPIT_OPTIONS_COUNT - 1),
-    ]),
-    isCorrectOption: (value: string) =>
-      normalizeIncipitText(value) === normalizedCorrect,
-  };
-}
-
-function buildIncipitTapQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): TapQuestion | null {
-  if (verse.incipitWords.length < 2) return null;
-
-  const expectedNormalized = verse.incipitWords.map((word) =>
-    normalizeIncipitText(word)
-  );
-  const expectedSet = new Set(expectedNormalized);
-  const distractorCandidates = Array.from(
-    new Map(
-      pool
-        .flatMap((item) => item.incipitWords)
-        .filter((word) => word.trim().length > 0)
-        .filter((word) => !expectedSet.has(normalizeIncipitText(word)))
-        .map((word) => [normalizeIncipitText(word), word])
-    ).values()
-  );
-
-  const distractors = shuffle(distractorCandidates).slice(
-    0,
-    INCIPIT_TAP_DISTRACTORS_COUNT
-  );
-
-  const options = shuffle([...verse.incipitWords, ...distractors]).map(
-    (word, index) => ({
-      id: `incipit-tap-${order}-${index}`,
-      label: word,
-      normalized: normalizeIncipitText(word),
-    })
-  );
-
-  return {
-    id: `incipit-tap-${order}-${verse.externalVerseId}`,
-    modeId: "incipit-tap",
-    track: "incipit",
-    modeHint: "Соберите начало стиха по словам.",
-    verse,
-    prompt: verse.reference,
-    answerLabel: verse.incipit,
-    interaction: "tap",
-    options,
-    expectedNormalized,
-  };
-}
-
-function buildIncipitTypeQuestion(
-  verse: ReferenceVerse,
-  order: number
-): TypeQuestion | null {
-  if (verse.incipitWords.length < 2) return null;
-  const prefixTokens = getIncipitPrefixTokens(verse);
-  if (prefixTokens.length === 0) return null;
-  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
-
-  return {
-    id: `incipit-type-${order}-${verse.externalVerseId}`,
-    modeId: "incipit-type",
-    track: "incipit",
-    modeHint: "Введите первые буквы начала стиха.",
-    verse,
-    prompt: verse.reference,
-    answerLabel: compactUppercasePrefix,
-    interaction: "type",
-    placeholder: "ИТВБМ",
-    maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: `Формат: ${compactUppercasePrefix}`,
-    isCorrectInput: (value: string) =>
-      matchesCompactPrefixInput(value, prefixTokens),
-  };
-}
-
-function buildEndingChoiceQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): ChoiceQuestion | null {
-  if (verse.endingWords.length < 2) return null;
-  const normalizedCorrect = normalizeIncipitText(verse.ending);
-
-  const distractors = shuffle(
-    pool
-      .map((item) => item.ending)
-      .filter((candidate) => candidate.trim().length > 0)
-      .filter(
-        (candidate) => normalizeIncipitText(candidate) !== normalizedCorrect
-      )
-  );
-
-  if (distractors.length < INCIPIT_OPTIONS_COUNT - 1) return null;
-
-  return {
-    id: `ending-choice-${order}-${verse.externalVerseId}`,
-    modeId: "ending-choice",
-    track: "ending",
-    modeHint: "Выберите правильный конец стиха.",
-    verse,
-    prompt: verse.reference,
-    answerLabel: verse.ending,
-    interaction: "choice",
-    options: shuffle([
-      verse.ending,
-      ...distractors.slice(0, INCIPIT_OPTIONS_COUNT - 1),
-    ]),
-    isCorrectOption: (value: string) =>
-      normalizeIncipitText(value) === normalizedCorrect,
-  };
-}
-
-function buildContextIncipitTypeQuestion(
-  verse: ReferenceVerse,
-  order: number
-): TypeQuestion | null {
-  if (!hasContextPrompt(verse)) return null;
-  if (verse.incipitWords.length < 2) return null;
-
-  const prompt = buildContextPrompt(verse);
-  if (!prompt) return null;
-
-  const initials = verse.incipitWords
-    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    id: `context-incipit-type-${order}-${verse.externalVerseId}`,
-    modeId: "context-incipit-type",
-    track: "context",
-    modeHint: buildContextModeHint(verse, "incipit"),
-    verse,
-    prompt,
-    answerLabel: verse.incipit,
-    interaction: "type",
-    placeholder: `Введите начало ${getContextTargetDescriptor(verse)}`,
-    maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
-    isCorrectInput: (value: string) => matchesIncipitWithTolerance(value, verse.incipit),
-  };
-}
-
-function buildContextIncipitTapQuestion(
-  verse: ReferenceVerse,
-  pool: ReferenceVerse[],
-  order: number
-): TapQuestion | null {
-  if (!hasContextPrompt(verse)) return null;
-  if (verse.incipitWords.length < 2) return null;
-
-  const prompt = buildContextPrompt(verse);
-  if (!prompt) return null;
-
-  const expectedNormalized = verse.incipitWords.map((word) =>
-    normalizeIncipitText(word)
-  );
-  const expectedSet = new Set(expectedNormalized);
-  const distractorCandidates = Array.from(
-    new Map(
-      pool
-        .flatMap((item) => item.incipitWords)
-        .filter((word) => word.trim().length > 0)
-        .filter((word) => !expectedSet.has(normalizeIncipitText(word)))
-        .map((word) => [normalizeIncipitText(word), word])
-    ).values()
-  );
-
-  const distractors = shuffle(distractorCandidates).slice(
-    0,
-    INCIPIT_TAP_DISTRACTORS_COUNT
-  );
-
-  const options = shuffle([...verse.incipitWords, ...distractors]).map(
-    (word, index) => ({
-      id: `context-incipit-tap-${order}-${index}`,
-      label: word,
-      normalized: normalizeIncipitText(word),
-    })
-  );
-
-  return {
-    id: `context-incipit-tap-${order}-${verse.externalVerseId}`,
-    modeId: "context-incipit-tap",
-    track: "context",
-    modeHint: buildContextModeHint(verse, "tap"),
-    verse,
-    prompt,
-    answerLabel: verse.incipit,
-    interaction: "tap",
-    options,
-    expectedNormalized,
-  };
-}
-
-function buildContextPrefixTypeQuestion(
-  verse: ReferenceVerse,
-  order: number
-): TypeQuestion | null {
-  if (!hasContextPrompt(verse)) return null;
-
-  const prompt = buildContextPrompt(verse);
-  if (!prompt) return null;
-
-  const prefixTokens = getIncipitPrefixTokens(verse);
-  if (prefixTokens.length === 0) return null;
-  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
-
-  return {
-    id: `context-prefix-type-${order}-${verse.externalVerseId}`,
-    modeId: "context-prefix-type",
-    track: "context",
-    modeHint: buildContextModeHint(verse, "prefix"),
-    verse,
-    prompt,
-    answerLabel: compactUppercasePrefix,
-    interaction: "type",
-    placeholder: "ИТВБМ",
-    maxAttempts: MAX_TYPING_ATTEMPTS,
-    retryHint: `Формат: ${compactUppercasePrefix}`,
-    isCorrectInput: (value: string) =>
-      matchesCompactPrefixInput(value, prefixTokens),
-  };
-}
-
-const MODE_STRATEGIES: ReadonlyArray<ModeStrategy> = [
-  {
-    id: "reference-choice",
-    track: "reference",
-    hint: "Выберите правильную ссылку",
-    weight: 2,
-    canBuild: (verse, pool) => buildReferenceChoiceQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildReferenceChoiceQuestion(verse, pool, order),
-  },
-  {
-    id: "book-choice",
-    track: "reference",
-    hint: "Выберите правильную книгу",
-    weight: 1,
-    canBuild: (verse, pool) => buildBookChoiceQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildBookChoiceQuestion(verse, pool, order),
-  },
-  {
-    id: "reference-type",
-    track: "reference",
-    hint: "Введите ссылку вручную",
-    weight: 2,
-    canBuild: () => true,
-    buildQuestion: (verse, _pool, order) => buildReferenceTypeQuestion(verse, order),
-  },
-  {
-    id: "incipit-choice",
-    track: "incipit",
-    hint: "Выберите правильное начало стиха",
-    weight: 2,
-    canBuild: (verse, pool) => buildIncipitChoiceQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildIncipitChoiceQuestion(verse, pool, order),
-  },
-  {
-    id: "incipit-tap",
-    track: "incipit",
-    hint: "Соберите начало стиха по словам",
-    weight: 1,
-    canBuild: (verse, pool) => buildIncipitTapQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildIncipitTapQuestion(verse, pool, order),
-  },
-  {
-    id: "incipit-type",
-    track: "incipit",
-    hint: "Введите первые буквы начала стиха",
-    weight: 2,
-    canBuild: (verse, _pool) => buildIncipitTypeQuestion(verse, -1) !== null,
-    buildQuestion: (verse, _pool, order) => buildIncipitTypeQuestion(verse, order),
-  },
-  {
-    id: "ending-choice",
-    track: "ending",
-    hint: "Выберите правильный конец стиха",
-    weight: 2,
-    canBuild: (verse, pool) => buildEndingChoiceQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildEndingChoiceQuestion(verse, pool, order),
-  },
-  {
-    id: "context-incipit-type",
-    track: "context",
-    hint: "Введите начало стиха по контексту",
-    weight: 2,
-    canBuild: (verse, _pool) => buildContextIncipitTypeQuestion(verse, -1) !== null,
-    buildQuestion: (verse, _pool, order) => buildContextIncipitTypeQuestion(verse, order),
-  },
-  {
-    id: "context-incipit-tap",
-    track: "context",
-    hint: "Соберите начало стиха по контексту",
-    weight: 1,
-    canBuild: (verse, pool) => buildContextIncipitTapQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) => buildContextIncipitTapQuestion(verse, pool, order),
-  },
-  {
-    id: "context-prefix-type",
-    track: "context",
-    hint: "Введите первые буквы начала стиха",
-    weight: 1,
-    canBuild: (verse, _pool) => buildContextPrefixTypeQuestion(verse, -1) !== null,
-    buildQuestion: (verse, _pool, order) => buildContextPrefixTypeQuestion(verse, order),
-  },
-];
-
-function pickWeightedStrategy(strategies: ReadonlyArray<ModeStrategy>) {
-  const totalWeight = strategies.reduce(
-    (sum, strategy) => sum + Math.max(1, strategy.weight),
-    0
-  );
-  let cursor = randomFloat() * totalWeight;
-  for (const strategy of strategies) {
-    cursor -= Math.max(1, strategy.weight);
-    if (cursor <= 0) return strategy;
-  }
-  return strategies[strategies.length - 1] ?? null;
-}
-
-function resolveMixedTrack(verse: ReferenceVerse): SkillTrack {
-  const fragmentWeight = Math.max(
-    MIXED_TRACK_WEIGHT_MIN,
-    MIXED_TRACK_WEIGHT_BASE - verse.incipitScore
-  );
-  const splitFragmentWeight = Math.max(1, Math.round(fragmentWeight / 2));
-  const weightedTracks: Array<{ track: SkillTrack; weight: number }> = [
-    {
-      track: "reference",
-      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.referenceScore),
-    },
-    {
-      track: "incipit",
-      weight: splitFragmentWeight,
-    },
-    {
-      track: "ending",
-      weight: splitFragmentWeight,
-    },
-    {
-      track: "context",
-      weight: Math.max(MIXED_TRACK_WEIGHT_MIN, MIXED_TRACK_WEIGHT_BASE - verse.contextScore),
-    },
-  ];
-
-  const totalWeight = weightedTracks.reduce((sum, item) => sum + item.weight, 0);
-  let cursor = randomFloat() * totalWeight;
-
-  for (const item of weightedTracks) {
-    cursor -= item.weight;
-    if (cursor <= 0) return item.track;
-  }
-
-  return weightedTracks[weightedTracks.length - 1]?.track ?? "reference";
-}
-
-function buildQuestionForTrack(params: {
-  track: SkillTrack;
-  verse: ReferenceVerse;
-  pool: ReferenceVerse[];
-  order: number;
-  previousModeId: TrainerModeId | null;
-}): TrainerQuestion | null {
-  const { track, verse, pool, order, previousModeId } = params;
-  const allStrategies = MODE_STRATEGIES.filter(
-    (strategy) => strategy.track === track && strategy.canBuild(verse, pool)
-  );
-  if (allStrategies.length === 0) return null;
-
-  const candidateStrategies =
-    previousModeId &&
-    allStrategies.some((strategy) => strategy.id !== previousModeId)
-      ? allStrategies.filter((strategy) => strategy.id !== previousModeId)
-      : allStrategies;
-
-  const remaining = [...candidateStrategies];
-  while (remaining.length > 0) {
-    const picked = pickWeightedStrategy(remaining);
-    if (!picked) break;
-    const question = picked.buildQuestion(verse, pool, order);
-    if (question) return question;
-    const pickedIndex = remaining.findIndex((strategy) => strategy.id === picked.id);
-    if (pickedIndex >= 0) remaining.splice(pickedIndex, 1);
-  }
-
-  return null;
-}
-
-function buildRandomSessionQuestions(
-  pool: ReferenceVerse[],
-  sessionTrack: SessionTrack
-): TrainerQuestion[] {
-  if (pool.length === 0) return [];
-
-  const uniquePool = Array.from(
-    new Map(pool.map((verse) => [verse.externalVerseId, verse] as const)).values()
-  );
-  const verseOrder = shuffle(uniquePool);
-  const targetQuestionCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
-
-  const questions: TrainerQuestion[] = [];
-  let previousModeId: TrainerModeId | null = null;
-
-  for (const verse of verseOrder) {
-    if (questions.length >= targetQuestionCount) break;
-
-    const order = questions.length;
-    let question: TrainerQuestion | null = null;
-
-    if (sessionTrack === "mixed") {
-      const preferredTrack = resolveMixedTrack(verse);
-      question = buildQuestionForTrack({
-        track: preferredTrack,
-        verse,
-        pool: uniquePool,
-        order,
-        previousModeId,
-      });
-
-      if (!question) {
-        const fallbackTracks = shuffle(
-          (["reference", "incipit", "ending", "context"] as const).filter(
-            (track) => track !== preferredTrack
-          )
-        );
-
-        for (const fallbackTrack of fallbackTracks) {
-          question = buildQuestionForTrack({
-            track: fallbackTrack,
-            verse,
-            pool: uniquePool,
-            order,
-            previousModeId,
-          });
-          if (question) break;
-        }
-      }
-    } else {
-      question = buildQuestionForTrack({
-        track: sessionTrack,
-        verse,
-        pool: uniquePool,
-        order,
-        previousModeId,
-      });
-    }
-
-    if (!question) continue;
-
-    questions.push(question);
-    previousModeId = question.modeId;
-  }
-
-  return questions;
-}
-
-function skillRowFromUserVerse(row: domain_UserVerse): {
-  externalVerseId: string;
-  referenceScore: number;
-  incipitScore: number;
-  contextScore: number;
-} | null {
-  const externalVerseId = String(row.verse?.externalVerseId ?? row.verseId ?? "");
-  if (!externalVerseId) return null;
-  return {
-    externalVerseId,
-    referenceScore: Math.max(0, Math.round(row.referenceScore ?? 0)),
-    incipitScore: Math.max(0, Math.round(row.incipitScore ?? 0)),
-    contextScore: Math.max(0, Math.round(row.contextScore ?? 0)),
-  };
-}
-
-function mergeUpdatedSkillScores(
-  pool: ReferenceVerse[],
-  updated: Array<domain_UserVerse> | undefined
-) {
-  const rows = (updated ?? [])
-    .map(skillRowFromUserVerse)
-    .filter((x): x is NonNullable<typeof x> => x != null);
-  const map = new Map(rows.map((item) => [item.externalVerseId, item] as const));
-  return pool.map((verse) => {
-    const next = map.get(verse.externalVerseId);
-    if (!next) return verse;
-    return {
-      ...verse,
-      referenceScore: clampSkillScore(next.referenceScore),
-      incipitScore: clampSkillScore(next.incipitScore),
-      contextScore: clampSkillScore(next.contextScore),
-    };
-  });
-}
-
-function toReferenceTrainerScoreRow(verse: ReferenceVerse): ReferenceTrainerScoreRow {
-  return {
-    id: 0,
-    externalVerseId: verse.externalVerseId,
-    referenceScore: verse.referenceScore,
-    incipitScore: verse.incipitScore,
-    contextScore: verse.contextScore,
-  };
-}
-
-function applyOptimisticAnchorOutcome(params: {
-  verse: ReferenceVerse;
-  track: SkillTrack;
-  outcome: ReferenceTrainerOutcome;
-}): ReferenceVerse {
-  const rowMap = new Map([
-    [
-      params.verse.externalVerseId,
-      {
-        ...toReferenceTrainerScoreRow(params.verse),
-      },
-    ] as const,
-  ]);
-
-  const [updatedRow] = applySessionResults({
-    rowsByExternalVerseId: rowMap,
-    updates: [
-      {
-        externalVerseId: params.verse.externalVerseId,
-        track: params.track,
-        outcome: params.outcome,
-      },
-    ],
-  });
-
-  if (!updatedRow) return params.verse;
-
-  return {
-    ...params.verse,
-    referenceScore: updatedRow.referenceScore,
-    incipitScore: updatedRow.incipitScore,
-    contextScore: updatedRow.contextScore,
-  };
-}
+// ---------------------------------------------------------------------------
+// buildInitialQuestionSessionState
+// ---------------------------------------------------------------------------
 
 function buildInitialQuestionSessionState(
   questions: TrainerQuestion[]
@@ -1314,9 +264,149 @@ function buildInitialQuestionSessionState(
   );
 }
 
+// ---------------------------------------------------------------------------
+// buildRandomSessionQuestions (async — supports AI modes)
+// ---------------------------------------------------------------------------
+
+async function buildRandomSessionQuestions(
+  pool: TrainingVerse[],
+  allowedGroups?: AnchorModeGroup[],
+): Promise<TrainerQuestion[]> {
+  if (pool.length === 0) return [];
+
+  const uniquePool = Array.from(
+    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values()
+  );
+
+  const allowedSet = allowedGroups ? new Set(allowedGroups) : null;
+  const filteredStrategies = allowedSet
+    ? MODE_STRATEGIES.filter((s) => allowedSet.has(s.group))
+    : MODE_STRATEGIES;
+
+  // Shuffle verse order
+  const verseOrder = [...uniquePool];
+  for (let i = verseOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [verseOrder[i], verseOrder[j]] = [verseOrder[j]!, verseOrder[i]!];
+  }
+
+  const targetCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
+  const questions: TrainerQuestion[] = [];
+  let previousModeId: TrainerModeId | null = null;
+  const aiAvailable = getAIAvailability();
+
+  for (const verse of verseOrder) {
+    if (questions.length >= targetCount) break;
+
+    const order = questions.length;
+
+    // Filter strategies that can build for this verse
+    const eligible = filteredStrategies.filter((s) =>
+      s.canBuild(verse, uniquePool, aiAvailable)
+    );
+    if (eligible.length === 0) continue;
+
+    // Avoid repeating the same mode consecutively
+    const candidates =
+      previousModeId && eligible.some((s) => s.id !== previousModeId)
+        ? eligible.filter((s) => s.id !== previousModeId)
+        : eligible;
+
+    // Try weighted pick, fall back if build returns null
+    const remaining = [...candidates];
+    let question: TrainerQuestion | null = null;
+
+    while (remaining.length > 0) {
+      const picked = pickWeightedStrategy(remaining);
+      if (!picked) break;
+
+      // For AI modes, fetch data first
+      let aiData: unknown;
+      if (picked.requiresAI && picked.id === "impostor-word") {
+        aiData = await generateImpostorWord(verse);
+        if (!aiData) {
+          // AI failed, remove this strategy and try another
+          const idx = remaining.findIndex((s) => s.id === picked.id);
+          if (idx >= 0) remaining.splice(idx, 1);
+          continue;
+        }
+      }
+
+      question = picked.buildQuestion(verse, uniquePool, order, aiData);
+      if (question) break;
+
+      const idx = remaining.findIndex((s) => s.id === picked.id);
+      if (idx >= 0) remaining.splice(idx, 1);
+    }
+
+    if (!question) continue;
+    questions.push(question);
+    previousModeId = question.modeId;
+  }
+
+  return questions;
+}
+
+// ---------------------------------------------------------------------------
+// buildSyncSessionQuestions (sync — client-only modes, for mid-session refresh)
+// ---------------------------------------------------------------------------
+
+function buildSyncSessionQuestions(
+  pool: TrainingVerse[],
+  allowedGroups?: AnchorModeGroup[],
+): TrainerQuestion[] {
+  if (pool.length === 0) return [];
+  const uniquePool = Array.from(
+    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values()
+  );
+  const allowedSet = allowedGroups ? new Set(allowedGroups) : null;
+  const verseOrder = [...uniquePool];
+  for (let i = verseOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [verseOrder[i], verseOrder[j]] = [verseOrder[j]!, verseOrder[i]!];
+  }
+  const targetCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
+  const questions: TrainerQuestion[] = [];
+  let previousModeId: TrainerModeId | null = null;
+  const clientStrategies = MODE_STRATEGIES.filter(
+    (s) => !s.requiresAI && (!allowedSet || allowedSet.has(s.group)),
+  );
+
+  for (const verse of verseOrder) {
+    if (questions.length >= targetCount) break;
+    const order = questions.length;
+    const eligible = clientStrategies.filter((s) =>
+      s.canBuild(verse, uniquePool, false)
+    );
+    if (eligible.length === 0) continue;
+    const candidates =
+      previousModeId && eligible.some((s) => s.id !== previousModeId)
+        ? eligible.filter((s) => s.id !== previousModeId)
+        : eligible;
+    const remaining = [...candidates];
+    let question: TrainerQuestion | null = null;
+    while (remaining.length > 0) {
+      const picked = pickWeightedStrategy(remaining);
+      if (!picked) break;
+      question = picked.buildQuestion(verse, uniquePool, order);
+      if (question) break;
+      const idx = remaining.findIndex((s) => s.id === picked.id);
+      if (idx >= 0) remaining.splice(idx, 1);
+    }
+    if (!question) continue;
+    questions.push(question);
+    previousModeId = question.modeId;
+  }
+  return questions;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function AnchorTrainingSession({
   telegramId,
-  initialTrack,
+  anchorModes,
   onSessionCommitted,
   onClose,
 }: AnchorTrainingSessionProps) {
@@ -1328,13 +418,7 @@ export function AnchorTrainingSession({
   const batchSeqRef = useRef(0);
   const persistChainRef = useRef(Promise.resolve());
 
-  const [selectedTrack, setSelectedTrack] = useState<SessionTrack>(() =>
-    initialTrack ?? readStoredTrack()
-  );
-  const [sessionTrack, setSessionTrack] = useState<SessionTrack>(() =>
-    initialTrack ?? readStoredTrack()
-  );
-  const [versePool, setVersePool] = useState<ReferenceVerse[]>([]);
+  const [versePool, setVersePool] = useState<TrainingVerse[]>([]);
   const [questions, setQuestions] = useState<TrainerQuestion[]>([]);
   const [questionStates, setQuestionStates] = useState<
     Record<string, QuestionSessionState>
@@ -1354,15 +438,9 @@ export function AnchorTrainingSession({
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [direction, setDirection] = useState(0);
-  const [pendingTrackChange, setPendingTrackChange] =
-    useState<SessionTrack | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const { progressPopup, showProgressPopup } = useTrainingProgressPopup();
-
-  useEffect(() => {
-    writeStoredTrack(selectedTrack);
-  }, [selectedTrack]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1412,14 +490,13 @@ export function AnchorTrainingSession({
   const totalCount = questions.length;
   const pendingCount = pendingQuestions.length;
   const completedCount = totalCount - pendingCount;
-  const results = useMemo<QuestionResult[]>(
+  const results = useMemo(
     () =>
       questions.flatMap((question) => {
         const state = questionStates[question.id];
         if (!state || state.status === "pending") return [];
         return [
           {
-            track: question.track,
             modeId: question.modeId,
             isCorrect: state.status === "correct",
           },
@@ -1443,22 +520,21 @@ export function AnchorTrainingSession({
     setLastAnswerCorrect(null);
     setLastAnswerUsedTolerance(false);
     setLastAnswerSkipped(false);
+    setHasInteracted(false);
   }, []);
 
   const startSessionFromPool = useCallback(
-    (pool: ReferenceVerse[], nextTrack?: SessionTrack) => {
-      const effectiveTrack = nextTrack ?? selectedTrack;
-      const nextQuestions = buildRandomSessionQuestions(pool, effectiveTrack);
+    async (pool: TrainingVerse[]) => {
+      const nextQuestions = await buildRandomSessionQuestions(pool, anchorModes);
       const firstQuestionId = nextQuestions[0]?.id ?? null;
       setQuestions(nextQuestions);
       setQuestionStates(buildInitialQuestionSessionState(nextQuestions));
       setCurrentQuestionId(firstQuestionId);
       setCurrentPendingQuestionId(firstQuestionId);
-      setSessionTrack(effectiveTrack);
       batchSeqRef.current = 0;
       resetAnswerState();
     },
-    [resetAnswerState, selectedTrack]
+    [resetAnswerState],
   );
 
   const loadVersePool = useCallback(
@@ -1467,7 +543,8 @@ export function AnchorTrainingSession({
       setIsLoading(true);
 
       try {
-        const response = await fetchReferenceTrainerVerses(telegramIdValue, {
+        const response = await fetchAnchorVersesPool({
+          telegramId: telegramIdValue,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
         });
         if (response.verses.length === 0 && response.totalCount < response.minRequired) {
@@ -1478,10 +555,10 @@ export function AnchorTrainingSession({
           return;
         }
         const merged = response.verses
-          .map(mapUserVerseToReferenceVerse)
-          .filter((verse): verse is ReferenceVerse => verse !== null);
+          .map(mapToTrainingVerse)
+          .filter((verse): verse is TrainingVerse => verse !== null);
         setVersePool(merged);
-        startSessionFromPool(merged, selectedTrack);
+        await startSessionFromPool(merged);
       } catch (error) {
         console.error("Не удалось загрузить стихи для закрепления:", error);
         setErrorMessage("Не удалось загрузить стихи для закрепления.");
@@ -1493,7 +570,7 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [selectedTrack, startSessionFromPool]
+    [startSessionFromPool],
   );
 
   useEffect(() => {
@@ -1540,27 +617,15 @@ export function AnchorTrainingSession({
   ]);
 
   const enqueueAnchorPersist = useCallback(
-    (update: ReferenceTrainerSessionUpdate) => {
+    (result: AnchorTrainingResult) => {
       if (!telegramId) return;
       persistChainRef.current = persistChainRef.current
         .then(async () => {
-          const doSubmit = async () =>
-            submitReferenceTrainerSession({
-              telegramId,
-              sessionTrack: sessionTrack as ReferenceTrainerSessionTrack,
-              updates: [update],
-            });
           try {
-            let response: api_ReferenceTrainerSessionResponse | null = null;
-            try {
-              response = await doSubmit();
-            } catch (firstError) {
-              console.warn("Anchor save failed, retrying once:", firstError);
-              response = await doSubmit();
-            }
-            setVersePool((prev) =>
-              mergeUpdatedSkillScores(prev, response?.updated),
-            );
+            await submitAnchorSession({
+              telegramId,
+              results: [result],
+            });
             onSessionCommitted?.();
           } catch (error) {
             console.error("Не удалось сохранить прогресс закрепления:", error);
@@ -1570,11 +635,9 @@ export function AnchorTrainingSession({
             });
           }
         })
-        .catch(() => {
-          /* цепочка уже залогировала ошибку */
-        });
+        .catch(() => {});
     },
-    [onSessionCommitted, sessionTrack, telegramId],
+    [onSessionCommitted, telegramId],
   );
 
   const finalizeAnswer = useCallback(
@@ -1584,7 +647,7 @@ export function AnchorTrainingSession({
       options?: { acceptedWithTolerance?: boolean; skipped?: boolean },
     ) => {
       if (!currentQuestion || isAnswered) return;
-      const outcome: ReferenceTrainerOutcome = isCorrect
+      const outcome: "correct_first" | "correct_retry" | "wrong" = isCorrect
         ? attemptsUsed <= 1
           ? "correct_first"
           : "correct_retry"
@@ -1603,29 +666,18 @@ export function AnchorTrainingSession({
               Math.min(currentPendingOrderIndex, nextPendingQuestionIds.length - 1)
             ] ?? nextPendingQuestionIds[0] ?? null
           : null;
-      const activeVerse =
-        versePool.find(
-          (verse) => verse.externalVerseId === currentQuestion.verse.externalVerseId,
-        ) ?? currentQuestion.verse;
-      const nextVerse = applyOptimisticAnchorOutcome({
-        verse: activeVerse,
-        track: currentQuestion.track,
-        outcome,
-      });
-      const poolAfter = versePool.map((verse) =>
-        verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse,
-      );
+
       if (nextPendingQuestionId === null) {
         const seq = batchSeqRef.current;
         batchSeqRef.current += 1;
         const buildFresh = () =>
-          buildRandomSessionQuestions(poolAfter, sessionTrack).map((q) => ({
+          buildSyncSessionQuestions(versePool, anchorModes).map((q) => ({
             ...q,
             id: `w${seq}-${q.id}`,
           }));
         let fresh = buildFresh();
         if (fresh.length === 0) {
-          fresh = buildRandomSessionQuestions(poolAfter, sessionTrack).map((q) => ({
+          fresh = buildSyncSessionQuestions(versePool, anchorModes).map((q) => ({
             ...q,
             id: `w${seq}r-${q.id}`,
           }));
@@ -1639,39 +691,11 @@ export function AnchorTrainingSession({
           nextPendingQuestionId = fresh[0]?.id ?? null;
         }
       }
-      const progressPopupPayload = buildTrainingProgressPopupPayload({
-        reference: currentQuestion.verse.reference,
-        context: "anchor",
-        track: currentQuestion.track,
-        before: {
-          status: activeVerse.status,
-          difficultyLevel: activeVerse.difficultyLevel,
-          masteryLevel: activeVerse.masteryLevel,
-          repetitions: activeVerse.repetitions,
-          referenceScore: activeVerse.referenceScore,
-          incipitScore: activeVerse.incipitScore,
-          contextScore: activeVerse.contextScore,
-        },
-        after: {
-          status: nextVerse.status,
-          difficultyLevel: nextVerse.difficultyLevel,
-          masteryLevel: nextVerse.masteryLevel,
-          repetitions: nextVerse.repetitions,
-          referenceScore: nextVerse.referenceScore,
-          incipitScore: nextVerse.incipitScore,
-          contextScore: nextVerse.contextScore,
-        },
-      });
 
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
       setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
       setLastAnswerSkipped(Boolean(options?.skipped));
-      setVersePool((prev) =>
-        prev.map((verse) =>
-          verse.externalVerseId === nextVerse.externalVerseId ? nextVerse : verse,
-        ),
-      );
       setQuestionStates((prev) => {
         const previousState = prev[currentQuestion.id];
         if (previousState && previousState.status !== "pending") {
@@ -1688,12 +712,9 @@ export function AnchorTrainingSession({
         };
       });
       setCurrentPendingQuestionId(nextPendingQuestionId);
-      if (progressPopupPayload) {
-        showProgressPopup(progressPopupPayload);
-      }
       enqueueAnchorPersist({
         externalVerseId: currentQuestion.verse.externalVerseId,
-        track: currentQuestion.track,
+        modeId: currentQuestion.modeId,
         outcome,
       });
     },
@@ -1702,8 +723,6 @@ export function AnchorTrainingSession({
       enqueueAnchorPersist,
       isAnswered,
       pendingQuestionIds,
-      sessionTrack,
-      showProgressPopup,
       versePool,
     ],
   );
@@ -1711,6 +730,7 @@ export function AnchorTrainingSession({
   const handleChoiceSelect = (value: string) => {
     if (!currentQuestion || currentQuestion.interaction !== "choice") return;
     if (isAnswered) return;
+    setHasInteracted(true);
     setSelectedOption(value);
     finalizeAnswer(currentQuestion.isCorrectOption(value), 1);
   };
@@ -1723,6 +743,7 @@ export function AnchorTrainingSession({
     const option = currentQuestion.options.find((item) => item.id === optionId);
     if (!option) return;
 
+    setHasInteracted(true);
     const nextSequence = [...tapSequence, optionId];
     setTapSequence(nextSequence);
 
@@ -1736,6 +757,16 @@ export function AnchorTrainingSession({
     if (nextSequence.length >= currentQuestion.expectedNormalized.length) {
       finalizeAnswer(true, 1);
     }
+  };
+
+  const handleOrderSubmit = (orderedIds: string[]) => {
+    if (!currentQuestion || currentQuestion.interaction !== "drag") return;
+    if (isAnswered) return;
+    setHasInteracted(true);
+    const isCorrect = orderedIds.every(
+      (id, i) => id === (currentQuestion as DragQuestion).correctOrder[i],
+    );
+    finalizeAnswer(isCorrect, 1);
   };
 
   const handleTypeSubmit = () => {
@@ -1772,8 +803,7 @@ export function AnchorTrainingSession({
     finalizeAnswer(false, attemptsUsed, { skipped: true });
   };
 
-  const controlsLocked =
-    isLoading || pendingTrackChange !== null || isExitConfirmOpen;
+  const controlsLocked = isLoading || isExitConfirmOpen;
 
   const advanceToNextQuestion = useCallback(() => {
     if (!isAnswered || !currentPendingQuestionId) return;
@@ -1823,23 +853,6 @@ export function AnchorTrainingSession({
     ]
   );
 
-  // const handleTrackSelect = useCallback(
-  //   (nextTrack: SessionTrack) => {
-  //     if (nextTrack === selectedTrack) return;
-  //     if (versePool.length === 0 || questions.length === 0) {
-  //       setDirection(0);
-  //       setSelectedTrack(nextTrack);
-  //       if (versePool.length > 0) {
-  //         startSessionFromPool(versePool, nextTrack);
-  //       }
-  //       return;
-  //     }
-
-  //     setPendingTrackChange(nextTrack);
-  //   },
-  //   [questions.length, selectedTrack, startSessionFromPool, versePool]
-  // );
-
   const isTypeMode = currentQuestion?.interaction === "type";
   const isCompactTypeMode =
     currentQuestion?.modeId === "context-prefix-type" ||
@@ -1860,21 +873,6 @@ export function AnchorTrainingSession({
     telegramId && !isLoading && !errorMessage && currentQuestion && !isAnswered,
   );
 
-  const confirmTrackChange = useCallback(() => {
-    if (pendingTrackChange === null) return;
-
-    setDirection(0);
-    setSelectedTrack(pendingTrackChange);
-    setPendingTrackChange(null);
-    if (versePool.length > 0) {
-      startSessionFromPool(versePool, pendingTrackChange);
-    }
-  }, [pendingTrackChange, startSessionFromPool, versePool]);
-
-  const cancelTrackChange = useCallback(() => {
-    setPendingTrackChange(null);
-  }, []);
-
   const handleContinueAfterReveal = useCallback(() => {
     if (!canContinueAfterReveal) return;
     setDirection(1);
@@ -1882,27 +880,22 @@ export function AnchorTrainingSession({
   }, [advanceToNextQuestion, canContinueAfterReveal]);
 
   const requestClose = useCallback(() => {
-    if (questions.length > 0) {
+    if (hasInteracted && !isAnswered) {
       setIsExitConfirmOpen(true);
       return;
     }
 
     onClose();
-  }, [onClose, questions.length]);
+  }, [hasInteracted, isAnswered, onClose]);
 
   const handleBackAction = useCallback(() => {
-    if (pendingTrackChange !== null) {
-      setPendingTrackChange(null);
-      return;
-    }
-
     if (isExitConfirmOpen) {
       setIsExitConfirmOpen(false);
       return;
     }
 
     requestClose();
-  }, [isExitConfirmOpen, pendingTrackChange, requestClose]);
+  }, [isExitConfirmOpen, requestClose]);
 
   useTelegramBackButton({
     enabled: true,
@@ -2052,16 +1045,6 @@ export function AnchorTrainingSession({
           </div>
         </div>
 
-        {/* {showTrackSelector && (
-          <div className="shrink-0 px-4 pt-3 sm:px-6 z-30 mx-auto w-full max-w-4xl">
-            <AnchorTrainingTrackSelect
-              value={selectedTrack}
-              onValueChange={handleTrackSelect}
-              disabled={controlsLocked}
-            />
-          </div>
-        )} */}
-
         {/* Main content: fullscreen exercise */}
         <div
           className={cn(
@@ -2072,8 +1055,6 @@ export function AnchorTrainingSession({
           aria-roledescription="carousel"
           aria-label="Карточки закрепления"
         >
-          <TrainingProgressPopup popup={progressPopup} />
-
           {!telegramId && (
             <div className="flex flex-1 items-center justify-center min-h-0">
               <AnchorTrainingStateCard
@@ -2152,7 +1133,6 @@ export function AnchorTrainingSession({
                 >
                   <AnchorTrainingQuestionCard
                     question={currentQuestion}
-                    sessionTrack={sessionTrack}
                     selectedOption={selectedOption}
                     isAnswered={isAnswered}
                     controlsLocked={controlsLocked}
@@ -2171,9 +1151,13 @@ export function AnchorTrainingSession({
                     showContinueButton={canContinueAfterReveal}
                     onChoiceSelect={handleChoiceSelect}
                     onTapSelect={handleTapSelect}
-                    onTypedAnswerChange={setTypedAnswer}
+                    onTypedAnswerChange={(v: string) => {
+                      setTypedAnswer(v);
+                      if (v.trim()) setHasInteracted(true);
+                    }}
                     onTypeSubmit={handleTypeSubmit}
                     onContinue={handleContinueAfterReveal}
+                    onOrderSubmit={handleOrderSubmit}
                   />
                 </motion.div>
               </AnimatePresence>
@@ -2242,39 +1226,6 @@ export function AnchorTrainingSession({
           </div>
         </div>
       </div>
-
-      <AlertDialog
-        open={pendingTrackChange !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelTrackChange();
-        }}
-      >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/60">
-              Сменить режим закрепления?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/60">
-              При смене режима прогресс текущей сессии сбросится. Сохранение произойдёт
-              только после завершения всех стихов.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
-              onClick={cancelTrackChange}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="rounded-full border border-border/60 bg-primary/60 text-background"
-              onClick={confirmTrackChange}
-            >
-              Сменить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={isExitConfirmOpen}

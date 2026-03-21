@@ -5,4 +5,3 @@
 
 export * from './AnchorValidationService';
 export * from './AnchorQuestionBuilderService';
-export * from './AnchorSessionAPI';

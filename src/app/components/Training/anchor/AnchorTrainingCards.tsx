@@ -8,21 +8,13 @@ import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
 import { AnchorTrainingExerciseHeader } from "./AnchorTrainingExerciseHeader";
 import { QuestionBadge, SurfacePanel } from "./AnchorTrainingCardUi";
-import {
-  getSummaryLabel,
-  TRACK_ACCENTS,
-  type TrackAccent,
-} from "./anchorTrainingTrackMeta";
 import type {
-  SessionTrack,
-  TrackStat,
   TrainerQuestion,
   TypeInputReadiness,
 } from "./anchorTrainingTypes";
 
 type AnchorTrainingQuestionCardProps = {
   question: TrainerQuestion;
-  sessionTrack: SessionTrack;
   selectedOption: string | null;
   isAnswered: boolean;
   controlsLocked: boolean;
@@ -43,6 +35,7 @@ type AnchorTrainingQuestionCardProps = {
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
+  onOrderSubmit: (orderedIds: string[]) => void;
   onContinue: () => void;
 };
 
@@ -50,15 +43,8 @@ type AnchorTrainingSummaryCardProps = {
   resultPercent: number;
   correctCount: number;
   totalCount: number;
-  referenceStats: TrackStat;
-  incipitStats: TrackStat;
-  endingStats: TrackStat;
-  contextStats: TrackStat;
+  xpAwarded: number;
   caption: string;
-  isSavingSession: boolean;
-  saveSucceeded: boolean;
-  saveErrorMessage: string | null;
-  selectedTrack: SessionTrack;
 };
 
 type AnchorTrainingStateCardProps = {
@@ -137,7 +123,6 @@ function AnchorTrainingLoadingVisual() {
 
 export function AnchorTrainingQuestionCard({
   question,
-  sessionTrack,
   selectedOption,
   isAnswered,
   controlsLocked,
@@ -158,14 +143,14 @@ export function AnchorTrainingQuestionCard({
   onTapSelect,
   onTypedAnswerChange,
   onTypeSubmit,
+  onOrderSubmit,
   onContinue,
 }: AnchorTrainingQuestionCardProps) {
-  const questionAccent = TRACK_ACCENTS[question.track];
   const resultTheme = getResultTheme(lastAnswerCorrect);
   const shouldPinTypeInputToTop =
     question.interaction === "type" && !isAnswered;
   const modeRenderer =
-    question.interaction !== "type" || !isAnswered ? (
+    (question.interaction !== "type" || !isAnswered) ? (
       <AnchorTrainingModeRenderer
         question={question}
         selectedOption={selectedOption}
@@ -183,28 +168,13 @@ export function AnchorTrainingQuestionCard({
         onTapSelect={onTapSelect}
         onTypedAnswerChange={onTypedAnswerChange}
         onTypeSubmit={onTypeSubmit}
+        onOrderSubmit={onOrderSubmit}
       />
     ) : null;
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
       <div className="shrink-0 space-y-2">
-        {sessionTrack === "mixed" ? (
-          <div className="flex justify-center">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
-                questionAccent.badgeClassName,
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn("h-1.5 w-1.5 rounded-full", questionAccent.dotClassName)}
-              />
-              Микс якорей
-            </span>
-          </div>
-        ) : null}
         <AnchorTrainingExerciseHeader modeId={question.modeId} verse={question.verse} />
         <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
           {question.modeHint}
@@ -281,34 +251,15 @@ export function AnchorTrainingSummaryCard({
   resultPercent,
   correctCount,
   totalCount,
-  referenceStats,
-  incipitStats,
-  endingStats,
-  contextStats,
+  xpAwarded,
   caption,
-  isSavingSession,
-  saveSucceeded,
-  saveErrorMessage,
-  selectedTrack,
 }: AnchorTrainingSummaryCardProps) {
-  const accent = TRACK_ACCENTS[selectedTrack];
-
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-      {/* Header: badges + accuracy */}
       <div className="shrink-0 pb-3 space-y-4 text-center">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <QuestionBadge className="border-border/60 bg-background/82 text-foreground/62">
-            Сессия завершена
-          </QuestionBadge>
-          <QuestionBadge className={accent.badgeClassName}>
-            <span
-              aria-hidden="true"
-              className={cn("h-1.5 w-1.5 rounded-full", accent.dotClassName)}
-            />
-            {getSummaryLabel(selectedTrack)}
-          </QuestionBadge>
-        </div>
+        <QuestionBadge className="border-border/60 bg-background/82 text-foreground/62">
+          Сессия завершена
+        </QuestionBadge>
 
         <SurfacePanel className="px-6 py-6 sm:px-8">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/42">
@@ -320,64 +271,16 @@ export function AnchorTrainingSummaryCard({
           <p className="mt-2 text-sm text-foreground/76">
             {correctCount} из {totalCount} ответов верны.
           </p>
+          {xpAwarded > 0 && (
+            <p className="mt-2 text-sm font-medium text-primary/85">
+              +{xpAwarded} XP
+            </p>
+          )}
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
             {caption}
           </p>
         </SurfacePanel>
       </div>
-
-      {/* Body: stat rows */}
-      <ScrollShadowContainer className="flex-1">
-        <div className="mx-auto w-full max-w-xl space-y-3">
-          {referenceStats.total > 0 && (
-            <SummaryStatRow
-              label="Ссылка"
-              stat={referenceStats}
-              accent={TRACK_ACCENTS.reference}
-            />
-          )}
-          {incipitStats.total > 0 && (
-            <SummaryStatRow
-              label="Начало"
-              stat={incipitStats}
-              accent={TRACK_ACCENTS.incipit}
-            />
-          )}
-          {endingStats.total > 0 && (
-            <SummaryStatRow
-              label="Конец"
-              stat={endingStats}
-              accent={TRACK_ACCENTS.ending}
-            />
-          )}
-          {contextStats.total > 0 && (
-            <SummaryStatRow
-              label="Контекст"
-              stat={contextStats}
-              accent={TRACK_ACCENTS.context}
-            />
-          )}
-        </div>
-
-        {/* Save status */}
-        <div className="mt-4 flex justify-center">
-          {isSavingSession && (
-            <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
-              Сохраняем прогресс закрепления...
-            </QuestionBadge>
-          )}
-          {saveSucceeded && !isSavingSession && (
-            <QuestionBadge className="border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-300">
-              Прогресс закрепления сохранён.
-            </QuestionBadge>
-          )}
-          {saveErrorMessage && !isSavingSession && (
-            <QuestionBadge className="border-rose-500/20 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300">
-              {saveErrorMessage}
-            </QuestionBadge>
-          )}
-        </div>
-      </ScrollShadowContainer>
     </div>
   );
 }
@@ -413,37 +316,3 @@ export function AnchorTrainingStateCard({
   );
 }
 
-function SummaryStatRow({
-  label,
-  stat,
-  accent,
-}: {
-  label: string;
-  stat: TrackStat;
-  accent: TrackAccent;
-}) {
-  const percent = stat.total > 0 ? Math.round((stat.correct / stat.total) * 100) : 0;
-
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-4 rounded-[1.6rem] border px-4 py-3 text-sm",
-        accent.statClassName
-      )}
-    >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={cn("h-2 w-2 rounded-full", accent.dotClassName)}
-          />
-          <span className="font-medium">{label}</span>
-        </div>
-        <p className="mt-1 text-xs opacity-75">{percent}% точности</p>
-      </div>
-      <span className="shrink-0 font-semibold tabular-nums">
-        {stat.correct}/{stat.total}
-      </span>
-    </div>
-  );
-}

@@ -4,15 +4,11 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
-  BookOpen,
   Brain,
-  ChevronsRight,
   Layers,
   Lock,
   Play,
   Repeat,
-  Shuffle,
-  TextCursorInput,
   type LucideIcon,
 } from "lucide-react";
 import type { Verse } from "@/app/App";
@@ -32,12 +28,13 @@ import {
   getWaitingReviewCountForCoreModes,
 } from "../coreTrainingAvailability";
 import type {
-  AnchorTrainingTrack,
+  AnchorModeGroup,
   CoreTrainingMode,
   TrainingScenario,
 } from "../types";
 import {
-  ANCHOR_TRAINING_TRACK_LABELS,
+  ALL_ANCHOR_MODE_GROUPS,
+  ANCHOR_MODE_GROUP_LABELS,
   TRAINING_SCENARIO_LABELS,
 } from "../types";
 import { Button } from "../../ui/button";
@@ -50,10 +47,10 @@ interface TrainingHubProps {
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
-  selectedAnchorTrack: AnchorTrainingTrack;
+  selectedAnchorModes: AnchorModeGroup[];
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
-  onAnchorTrackChange: (track: AnchorTrainingTrack) => void;
+  onAnchorModesChange: (modes: AnchorModeGroup[]) => void;
   onStart: () => void;
   onStartSelection: () => void;
 }
@@ -76,11 +73,6 @@ type CorePresetState = CoreModePreset & {
   disabled: boolean;
 };
 
-type AnchorTrackOption = {
-  track: AnchorTrainingTrack;
-  icon: LucideIcon;
-  theme: AccentTheme;
-};
 
 type ScenarioTheme = {
   triggerClassName: string;
@@ -164,56 +156,6 @@ const PRIMARY_ACCENT: AccentTheme = {
     "border-primary/30 bg-primary/12 text-foreground/90 shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)] dark:bg-primary/50",
 };
 
-const SKY_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-sky-500/30 data-[state=checked]:bg-sky-500/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(14,165,233,0.72)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-sky-500/20 group-data-[state=checked]/radio:bg-sky-500/14 group-data-[state=checked]/radio:text-sky-700 dark:group-data-[state=checked]/radio:text-sky-300",
-  checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-sky-800 dark:group-data-[state=checked]/radio:text-sky-300",
-  checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-sky-700 dark:group-data-[state=checked]/radio:text-sky-300",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-sky-500/30",
-  checkedDotClassName: "bg-sky-600 dark:bg-sky-300",
-  summaryClassName: "text-sky-800 dark:text-sky-300",
-  ctaClassName:
-    "border-sky-500/30 bg-sky-500/[0.10] text-sky-900 shadow-[0_18px_36px_-24px_rgba(14,165,233,0.68)] dark:text-sky-100",
-};
-
-const ROSE_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-rose-500/30 data-[state=checked]:bg-rose-500/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(244,63,94,0.72)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-rose-500/20 group-data-[state=checked]/radio:bg-rose-500/14 group-data-[state=checked]/radio:text-rose-700 dark:group-data-[state=checked]/radio:text-rose-300",
-  checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-rose-800 dark:group-data-[state=checked]/radio:text-rose-300",
-  checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-rose-700 dark:group-data-[state=checked]/radio:text-rose-300",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-rose-500/30",
-  checkedDotClassName: "bg-rose-600 dark:bg-rose-300",
-  summaryClassName: "text-rose-800 dark:text-rose-300",
-  ctaClassName:
-    "border-rose-500/30 bg-rose-500/[0.10] text-rose-900 shadow-[0_18px_36px_-24px_rgba(244,63,94,0.68)] dark:text-rose-100",
-};
-
-const TEAL_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-teal-500/30 data-[state=checked]:bg-teal-500/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(20,184,166,0.72)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-teal-500/20 group-data-[state=checked]/radio:bg-teal-500/14 group-data-[state=checked]/radio:text-teal-700 dark:group-data-[state=checked]/radio:text-teal-300",
-  checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-teal-800 dark:group-data-[state=checked]/radio:text-teal-300",
-  checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-teal-700 dark:group-data-[state=checked]/radio:text-teal-300",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-teal-500/30",
-  checkedDotClassName: "bg-cyan-500 dark:bg-cyan-300",
-  summaryClassName: "text-teal-800 dark:text-teal-300",
-  ctaClassName:
-    "border-teal-500/30 bg-teal-500/[0.10] text-teal-900 shadow-[0_18px_36px_-24px_rgba(20,184,166,0.68)] dark:text-teal-100",
-};
 
 const CORE_MODE_PRESETS: CoreModePreset[] = [
   {
@@ -239,13 +181,7 @@ const CORE_MODE_PRESETS: CoreModePreset[] = [
   },
 ];
 
-const ANCHOR_TRACK_OPTIONS: AnchorTrackOption[] = [
-  { track: "reference", icon: BookOpen, theme: SKY_ACCENT },
-  { track: "incipit", icon: TextCursorInput, theme: ROSE_ACCENT },
-  { track: "ending", icon: ChevronsRight, theme: VIOLET_ACCENT },
-  { track: "context", icon: Brain, theme: TEAL_ACCENT },
-  { track: "mixed", icon: Shuffle, theme: PRIMARY_ACCENT },
-];
+const ANCHOR_ACCENT = PRIMARY_ACCENT;
 
 function matchesModes(
   current: CoreTrainingMode[],
@@ -267,10 +203,10 @@ export function TrainingHub({
   selectionVerses,
   selectedScenario,
   selectedModes,
-  selectedAnchorTrack,
+  selectedAnchorModes,
   onScenarioChange,
   onModesChange,
-  onAnchorTrackChange,
+  onAnchorModesChange,
   onStart,
   onStartSelection,
 }: TrainingHubProps) {
@@ -328,13 +264,9 @@ export function TrainingHub({
     matchesModes(selectedModes, preset.modes),
   );
   const activeCorePreset = selectedCorePreset ?? preferredCorePreset;
-  const activeAnchorTrack =
-    ANCHOR_TRACK_OPTIONS.find(
-      (option) => option.track === selectedAnchorTrack,
-    ) ?? ANCHOR_TRACK_OPTIONS[0];
   const currentAccentTheme =
     selectedScenario === "anchor"
-      ? activeAnchorTrack.theme
+      ? ANCHOR_ACCENT
       : activeCorePreset.theme;
 
   const selectionCounts = useMemo(
@@ -376,7 +308,7 @@ export function TrainingHub({
   const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
   const sessionSummary =
     selectedScenario === "anchor"
-      ? `${TRAINING_SCENARIO_LABELS.anchor} · ${ANCHOR_TRAINING_TRACK_LABELS[selectedAnchorTrack]}`
+      ? TRAINING_SCENARIO_LABELS.anchor
       : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
   const startLabel =
     selectedScenario === "anchor" ? "Начать закрепление" : "Начать практику";
@@ -434,12 +366,6 @@ export function TrainingHub({
 
     triggerSelectionHaptic(!matchesModes(selectedModes, nextPreset.modes));
     onModesChange(nextPreset.modes);
-  };
-
-  const handleAnchorTrackChange = (value: string) => {
-    const nextTrack = value as AnchorTrainingTrack;
-    triggerSelectionHaptic(nextTrack !== selectedAnchorTrack);
-    onAnchorTrackChange(nextTrack);
   };
 
   return (
@@ -549,25 +475,35 @@ export function TrainingHub({
                     }
                     transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
                   >
-                    <SectionLabel>Формат закрепления</SectionLabel>
-                    <RadioGroupPrimitive.Root
-                      value={selectedAnchorTrack}
-                      onValueChange={handleAnchorTrackChange}
-                      aria-label="Формат закрепления"
-                      className="mt-2 grid sm:grid-cols-2 gap-2"
-                    >
-                      {ANCHOR_TRACK_OPTIONS.map((option) => (
-                        <RadioCardOption
-                          key={option.track}
-                          value={option.track}
-                          title={ANCHOR_TRAINING_TRACK_LABELS[option.track]}
-                          icon={option.icon}
-                          theme={option.theme}
-                          compact
-                        />
-                      ))}
-                    </RadioGroupPrimitive.Root>
-
+                    <SectionLabel>Режимы закрепления</SectionLabel>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {ALL_ANCHOR_MODE_GROUPS.map((group) => {
+                        const isChecked = selectedAnchorModes.includes(group);
+                        return (
+                          <button
+                            key={group}
+                            type="button"
+                            onClick={() => {
+                              const next = isChecked
+                                ? selectedAnchorModes.filter((g) => g !== group)
+                                : [...selectedAnchorModes, group];
+                              if (next.length > 0) {
+                                triggerHaptic(isChecked ? "light" : "medium");
+                                onAnchorModesChange(next);
+                              }
+                            }}
+                            className={cn(
+                              "rounded-2xl border px-3 py-2 text-sm font-medium transition-all duration-150",
+                              isChecked
+                                ? "border-primary/30 bg-primary/[0.10] text-primary shadow-[0_4px_12px_-6px_rgba(217,169,102,0.5)]"
+                                : "border-border/60 bg-background/55 text-foreground/55 hover:bg-background/80",
+                            )}
+                          >
+                            {ANCHOR_MODE_GROUP_LABELS[group]}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

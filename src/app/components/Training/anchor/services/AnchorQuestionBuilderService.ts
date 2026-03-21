@@ -9,7 +9,6 @@ import type {
   ChoiceQuestion,
   ModeStrategy,
   ReferenceVerse,
-  SkillTrack,
   TapQuestion,
   TapQuestionOption,
   TrainerModeId,
@@ -145,7 +144,7 @@ export function buildReferenceChoiceQuestion(
   return {
     id: `reference-choice-${order}-${verse.externalVerseId}`,
     modeId: "reference-choice",
-    track: "reference",
+
     modeHint: "Выберите правильную ссылку",
     verse,
     prompt: verse.text,
@@ -186,7 +185,7 @@ export function buildBookChoiceQuestion(
   return {
     id: `book-choice-${order}-${verse.externalVerseId}`,
     modeId: "book-choice",
-    track: "reference",
+
     modeHint: "Выберите правильную книгу",
     verse,
     prompt: verse.text,
@@ -228,7 +227,7 @@ export function buildIncipitChoiceQuestion(
   return {
     id: `incipit-choice-${order}-${verse.externalVerseId}`,
     modeId: "incipit-choice",
-    track: "incipit",
+
     modeHint: "Выберите правильное начало стиха.",
     verse,
     prompt: verse.reference,
@@ -285,7 +284,7 @@ export function buildIncipitTapQuestion(
   return {
     id: `incipit-tap-${order}-${verse.externalVerseId}`,
     modeId: "incipit-tap",
-    track: "incipit",
+
     modeHint: "Соберите начало стиха по словам.",
     verse,
     prompt: verse.reference,
@@ -308,7 +307,7 @@ export function buildIncipitTypeQuestion(
   return {
     id: `incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "incipit-type",
-    track: "incipit",
+
     modeHint: "Введите первые буквы начала стиха.",
     verse,
     prompt: verse.reference,
@@ -340,7 +339,7 @@ export function buildContextIncipitTypeQuestion(
   return {
     id: `context-incipit-type-${order}-${verse.externalVerseId}`,
     modeId: "context-incipit-type",
-    track: "context",
+
     modeHint: buildContextModeHint(verse, "incipit"),
     verse,
     prompt,
