@@ -1,4 +1,3 @@
-import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
 import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
 import type { api_ActionStatusResponse } from "@/api/models/api_ActionStatusResponse";
 import { UsersService } from "@/api/services/UsersService";
@@ -48,12 +47,3 @@ export async function removeFriend(
   return UsersService.removeFriend(telegramId, friendTelegramId);
 }
 
-export async function fetchDashboardFriendsActivity(
-  telegramId: string,
-  params?: { limit?: number }
-): Promise<domain_DashboardFriendsActivityResponse> {
-  return UsersService.listFriendsActivity(
-    telegramId,
-    params?.limit ?? 6
-  );
-}
