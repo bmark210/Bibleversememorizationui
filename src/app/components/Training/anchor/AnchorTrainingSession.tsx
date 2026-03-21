@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CheckCircle2, XCircle } from "lucide-react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -35,6 +34,7 @@ import {
 import { AnchorTrainingStateCard } from "./AnchorTrainingCards";
 import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
+import { useTrainingFontSize } from "@/app/components/training-session/modes/useTrainingFontSize";
 import { getAnchorModeShortLabel } from "./anchorModeLabels";
 import { fetchAnchorVersesPool, submitAnchorSession } from "./services/sessionApi";
 import { generateImpostorWord, getAIAvailability } from "./services/aiService";
@@ -400,6 +400,7 @@ export function AnchorTrainingSession({
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
   );
+  const fontSizes = useTrainingFontSize();
   const initializedTelegramIdRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const batchSeqRef = useRef(0);
@@ -910,6 +911,7 @@ export function AnchorTrainingSession({
 
   const modeRenderer = currentQuestion && (currentQuestion.interaction !== "type" || !isAnswered) ? (
     <AnchorTrainingModeRenderer
+      fontSizes={fontSizes}
       question={currentQuestion}
       selectedOption={selectedOption}
       isAnswered={isAnswered}
@@ -932,6 +934,16 @@ export function AnchorTrainingSession({
       onOrderSubmit={handleOrderSubmit}
     />
   ) : null;
+
+  const feedbackStatusLabel = lastAnswerSkipped
+    ? "Пропущено"
+    : lastAnswerCorrect
+      ? lastAnswerUsedTolerance
+        ? "Принято с допуском"
+        : "Верно"
+      : "Неверно";
+
+  const showCorrectAnswer = isAnswered && !lastAnswerCorrect && currentQuestion;
 
   return (
     <>
@@ -978,12 +990,12 @@ export function AnchorTrainingSession({
           aria-roledescription="carousel"
           aria-label="Карточки закрепления"
         >
-          {/* State screens (loading, error, empty) */}
+          {/* State screens */}
           {!telegramId && (
             <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
                 title="Нет Telegram ID"
-                description="Не удалось определить пользователя. Откройте закрепление из Telegram Mini App и попробуйте снова."
+                description="Откройте закрепление из Telegram Mini App."
               />
             </div>
           )}
@@ -991,8 +1003,8 @@ export function AnchorTrainingSession({
           {telegramId && isLoading && (
             <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
-                title="Загружаем сессию"
-                description="Подбираем стихи для закрепления и собираем последовательность вопросов."
+                title="Подготовка"
+                description="Собираем вопросы для закрепления..."
                 visual="loading"
               />
             </div>
@@ -1001,10 +1013,15 @@ export function AnchorTrainingSession({
           {telegramId && !isLoading && errorMessage && (
             <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
-                title="Не удалось загрузить стихи"
+                title="Ошибка загрузки"
                 description={errorMessage}
                 action={
-                  <Button type="button" variant="outline" onClick={() => void loadVersePool(telegramId)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl text-sm"
+                    onClick={() => void loadVersePool(telegramId)}
+                  >
                     Повторить
                   </Button>
                 }
@@ -1015,7 +1032,7 @@ export function AnchorTrainingSession({
           {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
             <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
-                title="Нет стихов для закрепления"
+                title="Нет стихов"
                 description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
               />
             </div>
@@ -1024,13 +1041,13 @@ export function AnchorTrainingSession({
           {telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length === 0 && (
             <div className="flex flex-1 items-center justify-center min-h-0 px-4">
               <AnchorTrainingStateCard
-                title="Недостаточно данных для режима"
-                description="Для выбранного режима пока не хватает подходящих стихов. Выберите другой режим закрепления."
+                title="Недостаточно стихов"
+                description="Для этого режима не хватает подходящих стихов."
               />
             </div>
           )}
 
-          {/* Active question — 2-half layout */}
+          {/* Active question */}
           {hasActiveQuestion && currentQuestion && (
             <AnimatePresence initial={false} mode="sync" custom={direction}>
               <motion.div
@@ -1043,40 +1060,50 @@ export function AnchorTrainingSession({
                 className="absolute inset-0 flex flex-col focus-visible:outline-none"
                 tabIndex={-1}
               >
-                {/* TOP HALF: verse prompt */}
+                {/* Prompt area */}
                 <div className={cn(
                   "flex items-center justify-center px-4 overflow-hidden",
                   shouldLiftTypeCard ? "flex-none max-h-[22vh] py-1" : "flex-1 min-h-0 py-3",
                 )}>
                   <div className="w-full max-w-lg">
                     <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-4 shadow-sm backdrop-blur-sm">
-                      <p className="whitespace-pre-line text-center font-serif text-[1.02rem] italic leading-relaxed text-foreground/90 sm:text-[1.08rem]">
+                      <p
+                        className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                        style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                      >
                         {currentQuestion.prompt}
                       </p>
                     </div>
                     {/* Compact result feedback */}
                     {isAnswered && (
-                      <div className="mt-2 flex items-center justify-center gap-2">
-                        {lastAnswerCorrect ? (
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                        ) : (
-                          <XCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className={cn(
+                            "h-1.5 w-1.5 rounded-full shrink-0",
+                            lastAnswerCorrect ? "bg-emerald-500" : "bg-rose-500"
+                          )} />
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              lastAnswerCorrect
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-rose-600 dark:text-rose-300",
+                            )}
+                          >
+                            {feedbackStatusLabel}
+                          </span>
+                        </div>
+                        {showCorrectAnswer && (
+                          <p className="text-center text-sm text-foreground/70 leading-relaxed">
+                            {currentQuestion.answerLabel}
+                          </p>
                         )}
-                        <span className="text-sm text-foreground/70">
-                          {lastAnswerSkipped
-                            ? "Пропущено"
-                            : lastAnswerCorrect
-                              ? lastAnswerUsedTolerance
-                                ? "Почти верно"
-                                : "Верно"
-                              : currentQuestion.answerLabel}
-                        </span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* BOTTOM HALF: action area */}
+                {/* Action area */}
                 <ScrollShadowContainer className={cn(
                   "px-4 pb-2",
                   shouldLiftTypeCard ? "flex-1" : "flex-1 min-h-0",
@@ -1098,7 +1125,7 @@ export function AnchorTrainingSession({
               /* After answer: full-width "Дальше" */
               <Button
                 type="button"
-                className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90"
+                className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
                 onClick={handleContinueAfterReveal}
               >
                 Дальше
@@ -1120,7 +1147,7 @@ export function AnchorTrainingSession({
                   )}
                   <Button
                     variant="outline"
-                    className="h-10 rounded-2xl bg-background border border-border/60 w-fit text-sm px-3 text-foreground/75"
+                    className="h-10 rounded-2xl bg-background border border-border/60 w-fit px-3 text-sm text-foreground/75"
                     onClick={requestClose}
                   >
                     Завершить

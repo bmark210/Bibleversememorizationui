@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import type { TrainingFontSizes } from "@/app/components/training-session/modes/useTrainingFontSize";
 import { AnchorChoiceMode } from "./modes/AnchorChoiceMode";
 import { AnchorTapMode } from "./modes/AnchorTapMode";
 import { AnchorTypeMode } from "./modes/AnchorTypeMode";
@@ -11,6 +12,7 @@ import type {
 } from "./anchorTrainingTypes";
 
 type AnchorTrainingModeRendererProps = {
+  fontSizes: TrainingFontSizes;
   question: TrainerQuestion;
   selectedOption: string | null;
   isAnswered: boolean;
@@ -31,6 +33,7 @@ type AnchorTrainingModeRendererProps = {
 };
 
 export function AnchorTrainingModeRenderer({
+  fontSizes,
   question,
   selectedOption,
   isAnswered,
@@ -52,6 +55,7 @@ export function AnchorTrainingModeRenderer({
   if (question.interaction === "drag") {
     return (
       <DragReorderMode
+        fontSizes={fontSizes}
         question={question}
         isAnswered={isAnswered}
         controlsLocked={controlsLocked}
@@ -63,6 +67,7 @@ export function AnchorTrainingModeRenderer({
   if (question.interaction === "choice") {
     return (
       <AnchorChoiceMode
+        fontSizes={fontSizes}
         question={question}
         selectedOption={selectedOption}
         isAnswered={isAnswered}
@@ -75,6 +80,7 @@ export function AnchorTrainingModeRenderer({
   if (question.interaction === "tap") {
     return (
       <AnchorTapMode
+        fontSizes={fontSizes}
         question={question}
         tapSequence={tapSequence}
         selectedTapLabels={selectedTapLabels}
@@ -87,6 +93,7 @@ export function AnchorTrainingModeRenderer({
 
   return (
     <AnchorTypeMode
+      fontSizes={fontSizes}
       question={question}
       typedAnswer={typedAnswer}
       typingAttempts={typingAttempts}

@@ -2,9 +2,11 @@
 
 import { useState, useCallback, useRef } from "react";
 import { cn } from "@/app/components/ui/utils";
+import type { TrainingFontSizes } from "@/app/components/training-session/modes/useTrainingFontSize";
 import type { DragQuestion } from "../../types";
 
 type DragReorderModeProps = {
+  fontSizes: TrainingFontSizes;
   question: DragQuestion;
   isAnswered: boolean;
   controlsLocked: boolean;
@@ -12,11 +14,13 @@ type DragReorderModeProps = {
 };
 
 export function DragReorderMode({
+  fontSizes,
   question,
   isAnswered,
   controlsLocked,
   onOrderSubmit,
 }: DragReorderModeProps) {
+  const fragmentPx = Math.max(12, Math.round(fontSizes.sm * 0.93));
   const [items, setItems] = useState(() =>
     question.fragments.map((f) => ({ ...f })),
   );
@@ -79,7 +83,6 @@ export function DragReorderMode({
     const touch = e.touches[0];
     if (!touch) return;
 
-    const listRect = listRef.current.getBoundingClientRect();
     const children = Array.from(listRef.current.children);
     let targetIndex = touchStartRef.current.index;
 
@@ -120,7 +123,7 @@ export function DragReorderMode({
 
   return (
     <div className="space-y-3">
-      <div ref={listRef} className="flex flex-col gap-2">
+      <div ref={listRef} className="flex flex-col gap-1.5">
         {items.map((item, index) => {
           const isDragging = draggedIndex === index;
           const isOver = overIndex === index && draggedIndex !== index;
@@ -139,43 +142,66 @@ export function DragReorderMode({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               className={cn(
-                "flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm font-medium shadow-sm transition-all select-none",
-                isDragging && "opacity-50 scale-95",
-                isOver && "border-primary/50 bg-primary/5",
+                "flex items-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all duration-150 select-none",
+                isDragging && "opacity-40 scale-[0.97]",
+                isOver && "border-primary/40 bg-primary/[0.04]",
                 isAnswered && isCorrectPosition &&
-                  "border-green-500/40 bg-green-500/10",
+                  "border-emerald-500/30 bg-emerald-500/[0.06]",
                 isAnswered && !isCorrectPosition &&
-                  "border-red-500/40 bg-red-500/10",
+                  "border-rose-500/30 bg-rose-500/[0.06]",
                 !isAnswered &&
                   !isDragging &&
                   !isOver &&
-                  "border-border/55 bg-card/40 cursor-grab active:cursor-grabbing",
+                  "border-border/40 bg-card/50 cursor-grab active:cursor-grabbing",
               )}
               style={{ touchAction: "none" }}
             >
-              <span className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleMoveUp(index)}
-                  disabled={index === 0 || controlsLocked || isAnswered}
-                  className="h-6 w-6 rounded-md text-xs text-foreground/50 hover:bg-muted/40 disabled:opacity-30"
-                  aria-label="Move up"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMoveDown(index)}
-                  disabled={
-                    index === items.length - 1 || controlsLocked || isAnswered
-                  }
-                  className="h-6 w-6 rounded-md text-xs text-foreground/50 hover:bg-muted/40 disabled:opacity-30"
-                  aria-label="Move down"
-                >
-                  ↓
-                </button>
+              {/* Position number */}
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums",
+                  isAnswered && isCorrectPosition
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : isAnswered && !isCorrectPosition
+                      ? "bg-rose-500/15 text-rose-500 dark:text-rose-400"
+                      : "bg-foreground/[0.06] text-foreground/40",
+                )}
+              >
+                {index + 1}
               </span>
-              <span className="text-foreground/85 leading-snug">{item.text}</span>
+
+              {/* Move buttons */}
+              {!isAnswered && (
+                <span className="flex flex-col gap-0.5 shrink-0 -my-1">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveUp(index)}
+                    disabled={index === 0 || controlsLocked || isAnswered}
+                    className="h-4 w-5 rounded text-[10px] text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors"
+                    aria-label="Move up"
+                  >
+                    &#8593;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveDown(index)}
+                    disabled={
+                      index === items.length - 1 || controlsLocked || isAnswered
+                    }
+                    className="h-4 w-5 rounded text-[10px] text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors"
+                    aria-label="Move down"
+                  >
+                    &#8595;
+                  </button>
+                </span>
+              )}
+
+              <span
+                className="text-foreground/80 leading-snug"
+                style={{ fontSize: `${fragmentPx}px` }}
+              >
+                {item.text}
+              </span>
             </div>
           );
         })}
@@ -186,15 +212,15 @@ export function DragReorderMode({
           type="button"
           onClick={() => onOrderSubmit(items.map((i) => i.id))}
           disabled={controlsLocked}
-          className="w-full rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/20 disabled:opacity-50"
+          className="w-full rounded-xl border border-primary/30 bg-primary/[0.07] px-4 py-2.5 text-sm font-semibold text-primary transition-all duration-150 hover:bg-primary/[0.12] active:scale-[0.99] disabled:opacity-40"
         >
           Проверить порядок
         </button>
       )}
 
       {isAnswered && !isCorrectOrder && (
-        <p className="text-xs text-muted-foreground text-center">
-          Правильный порядок показан ниже
+        <p className="text-[11px] text-muted-foreground/60 text-center">
+          Правильный порядок показан выше
         </p>
       )}
     </div>

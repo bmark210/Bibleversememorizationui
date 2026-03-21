@@ -7,13 +7,13 @@ export function QuestionBadge({
   className,
   children,
 }: {
-  className: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide",
         className
       )}
     >
@@ -32,7 +32,7 @@ export function SurfacePanel({
   return (
     <div
       className={cn(
-        "rounded-[1.7rem] border border-border/60 bg-background/82",
+        "rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm",
         className
       )}
     >
@@ -47,13 +47,13 @@ export function getChoiceStateClass(params: {
   optionIsSelected: boolean;
 }) {
   if (!params.isAnswered) {
-    return "border-border/60 bg-background/88 text-foreground/86 hover:bg-muted/35";
+    return "border-border/50 bg-card/60 text-foreground/88 hover:bg-card/80 active:bg-card/90";
   }
   if (params.optionIsCorrect) {
-    return "border-emerald-500/24 bg-emerald-500/[0.08] text-emerald-800 dark:text-emerald-300";
+    return "border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/20";
   }
   if (params.optionIsSelected) {
-    return "border-rose-500/24 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300";
+    return "border-rose-500/30 bg-rose-500/[0.08] text-rose-600 dark:text-rose-300 ring-1 ring-rose-500/20";
   }
-  return "border-border/55 bg-muted/25 text-foreground/62";
+  return "border-border/40 bg-muted/20 text-foreground/50";
 }

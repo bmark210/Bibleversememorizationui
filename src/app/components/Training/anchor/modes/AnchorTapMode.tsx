@@ -1,10 +1,11 @@
 "use client";
 
 import { cn } from "@/app/components/ui/utils";
-import { SurfacePanel } from "../AnchorTrainingCardUi";
+import type { TrainingFontSizes } from "@/app/components/training-session/modes/useTrainingFontSize";
 import type { TapQuestion } from "../anchorTrainingTypes";
 
 type AnchorTapModeProps = {
+  fontSizes: TrainingFontSizes;
   question: TapQuestion;
   tapSequence: string[];
   selectedTapLabels: string[];
@@ -14,6 +15,7 @@ type AnchorTapModeProps = {
 };
 
 export function AnchorTapMode({
+  fontSizes,
   question,
   tapSequence,
   selectedTapLabels,
@@ -21,24 +23,44 @@ export function AnchorTapMode({
   controlsLocked,
   onTapSelect,
 }: AnchorTapModeProps) {
+  const total = question.expectedNormalized.length;
+  const current = Math.min(tapSequence.length, total);
+  const progress = total > 0 ? (current / total) * 100 : 0;
+  const optionPx = Math.max(12, Math.round(fontSizes.sm * 0.93));
+
   return (
     <div className="space-y-3">
-      <SurfacePanel className="border-border/55 bg-card/30 px-4 py-3.5 shadow-sm backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-foreground/75">Собрано</span>
-          <span className="text-xs font-semibold tabular-nums text-foreground/82">
-            {Math.min(tapSequence.length, question.expectedNormalized.length)}/
-            {question.expectedNormalized.length}
+      {/* Progress + assembled text */}
+      <div className="rounded-xl border border-border/40 bg-card/40 px-3.5 py-3 backdrop-blur-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex-1 h-1 rounded-full bg-foreground/[0.06] overflow-hidden">
+            <div
+              className="h-full bg-primary/50 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-medium tabular-nums text-muted-foreground/60 shrink-0">
+            {current}/{total}
           </span>
         </div>
-        <p className="mt-2 text-sm leading-relaxed text-foreground/82">
-          {selectedTapLabels.length > 0
-            ? selectedTapLabels.join(" ")
-            : "Нажимайте слова по порядку"}
+        <p className="leading-relaxed min-h-[1.5rem]">
+          {selectedTapLabels.length > 0 ? (
+            <span
+              className="text-foreground/85"
+              style={{ fontSize: `${fontSizes.sm}px` }}
+            >
+              {selectedTapLabels.join(" ")}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground/45 italic">
+              Нажимайте слова по порядку
+            </span>
+          )}
         </p>
-      </SurfacePanel>
+      </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      {/* Word grid */}
+      <div className="grid grid-cols-2 gap-1.5">
         {question.options.map((option) => {
           const isUsed = tapSequence.includes(option.id);
 
@@ -49,11 +71,12 @@ export function AnchorTapMode({
               disabled={isAnswered || isUsed || controlsLocked}
               onClick={() => onTapSelect(option.id)}
               className={cn(
-                "min-h-[3rem] rounded-2xl border px-3.5 py-2.5 text-left text-sm font-medium shadow-sm transition-[transform,colors] active:scale-[0.99]",
+                "min-h-[2.6rem] rounded-xl border px-3 py-2 text-left font-medium transition-all duration-150 active:scale-[0.98]",
                 isUsed
-                  ? "border-primary/30 bg-primary/[0.1] text-foreground/90"
-                  : "border-border/55 bg-card/40 text-foreground/85 hover:bg-muted/40"
+                  ? "border-primary/25 bg-primary/[0.06] text-primary/70"
+                  : "border-border/40 bg-card/50 text-foreground/80 hover:bg-card/80 active:bg-card/90"
               )}
+              style={{ fontSize: `${optionPx}px` }}
             >
               {option.label}
             </button>
