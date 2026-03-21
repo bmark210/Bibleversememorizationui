@@ -118,6 +118,8 @@ export function Dashboard({
   currentUserAvatarUrl = null,
   onOpenTraining,
   onOpenPlayerProfile,
+  onLeaderboardPageChange,
+  onLeaderboardJumpToMe,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()

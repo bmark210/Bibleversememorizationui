@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { domain_CreateFeedbackInput } from '../models/domain_CreateFeedbackInput';
-import type { domain_Feedback } from '../models/domain_Feedback';
-import type { domain_FeedbackPageResponse } from '../models/domain_FeedbackPageResponse';
+import type { bible_memory_db_internal_domain_CreateFeedbackInput } from '../models/bible_memory_db_internal_domain_CreateFeedbackInput';
+import type { bible_memory_db_internal_domain_Feedback } from '../models/bible_memory_db_internal_domain_Feedback';
+import type { bible_memory_db_internal_domain_FeedbackPageResponse } from '../models/bible_memory_db_internal_domain_FeedbackPageResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -14,14 +14,14 @@ export class FeedbackService {
      * @param telegramId Optional Telegram ID filter
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns domain_FeedbackPageResponse OK
+     * @returns bible_memory_db_internal_domain_FeedbackPageResponse OK
      * @throws ApiError
      */
     public static listFeedback(
         telegramId?: string,
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<domain_FeedbackPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_FeedbackPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/feedback',
@@ -38,12 +38,12 @@ export class FeedbackService {
     /**
      * Create feedback
      * @param request Feedback payload
-     * @returns domain_Feedback Created
+     * @returns bible_memory_db_internal_domain_Feedback Created
      * @throws ApiError
      */
     public static createFeedback(
-        request: domain_CreateFeedbackInput,
-    ): CancelablePromise<domain_Feedback> {
+        request: bible_memory_db_internal_domain_CreateFeedbackInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_Feedback> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/feedback',

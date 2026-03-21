@@ -2,22 +2,22 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { api_BooleanOKResponse } from '../models/api_BooleanOKResponse';
-import type { api_CreateTagRequest } from '../models/api_CreateTagRequest';
-import type { api_UpdateTagRequest } from '../models/api_UpdateTagRequest';
-import type { api_VerseTagMutationRequest } from '../models/api_VerseTagMutationRequest';
-import type { domain_Tag } from '../models/domain_Tag';
-import type { domain_VerseTagLinkResponse } from '../models/domain_VerseTagLinkResponse';
+import type { bible_memory_db_internal_domain_Tag } from '../models/bible_memory_db_internal_domain_Tag';
+import type { bible_memory_db_internal_domain_VerseTagLinkResponse } from '../models/bible_memory_db_internal_domain_VerseTagLinkResponse';
+import type { internal_api_BooleanOKResponse } from '../models/internal_api_BooleanOKResponse';
+import type { internal_api_CreateTagRequest } from '../models/internal_api_CreateTagRequest';
+import type { internal_api_UpdateTagRequest } from '../models/internal_api_UpdateTagRequest';
+import type { internal_api_VerseTagMutationRequest } from '../models/internal_api_VerseTagMutationRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class TagsService {
     /**
      * List tags
-     * @returns domain_Tag OK
+     * @returns bible_memory_db_internal_domain_Tag OK
      * @throws ApiError
      */
-    public static listTags(): CancelablePromise<Array<domain_Tag>> {
+    public static listTags(): CancelablePromise<Array<bible_memory_db_internal_domain_Tag>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/tags',
@@ -31,14 +31,14 @@ export class TagsService {
      * @param request Tag payload
      * @param telegramId Admin Telegram ID
      * @param xTelegramId Admin Telegram ID
-     * @returns domain_Tag Created
+     * @returns bible_memory_db_internal_domain_Tag Created
      * @throws ApiError
      */
     public static createTag(
-        request: api_CreateTagRequest,
+        request: internal_api_CreateTagRequest,
         telegramId?: string,
         xTelegramId?: string,
-    ): CancelablePromise<domain_Tag> {
+    ): CancelablePromise<bible_memory_db_internal_domain_Tag> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/tags',
@@ -61,14 +61,14 @@ export class TagsService {
      * @param telegramId Admin Telegram ID
      * @param id Tag ID
      * @param xTelegramId Admin Telegram ID
-     * @returns api_BooleanOKResponse OK
+     * @returns internal_api_BooleanOKResponse OK
      * @throws ApiError
      */
     public static deleteTag(
         telegramId: string,
         id: string,
         xTelegramId?: string,
-    ): CancelablePromise<api_BooleanOKResponse> {
+    ): CancelablePromise<internal_api_BooleanOKResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/tags/{id}',
@@ -96,15 +96,15 @@ export class TagsService {
      * @param request Tag title payload
      * @param telegramId Admin Telegram ID
      * @param xTelegramId Admin Telegram ID
-     * @returns domain_Tag OK
+     * @returns bible_memory_db_internal_domain_Tag OK
      * @throws ApiError
      */
     public static updateTag(
         id: string,
-        request: api_UpdateTagRequest,
+        request: internal_api_UpdateTagRequest,
         telegramId?: string,
         xTelegramId?: string,
-    ): CancelablePromise<domain_Tag> {
+    ): CancelablePromise<bible_memory_db_internal_domain_Tag> {
         return __request(OpenAPI, {
             method: 'PATCH',
             url: '/api/tags/{id}',
@@ -129,12 +129,12 @@ export class TagsService {
     /**
      * List verse tags
      * @param externalVerseId External verse ID
-     * @returns domain_Tag OK
+     * @returns bible_memory_db_internal_domain_Tag OK
      * @throws ApiError
      */
     public static listVerseTags(
         externalVerseId: string,
-    ): CancelablePromise<Array<domain_Tag>> {
+    ): CancelablePromise<Array<bible_memory_db_internal_domain_Tag>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/verses/{externalVerseId}/tags',
@@ -150,13 +150,13 @@ export class TagsService {
      * Attach tag to verse
      * @param externalVerseId External verse ID
      * @param request Verse-tag payload
-     * @returns domain_VerseTagLinkResponse Created
+     * @returns bible_memory_db_internal_domain_VerseTagLinkResponse Created
      * @throws ApiError
      */
     public static attachTagToVerse(
         externalVerseId: string,
-        request: api_VerseTagMutationRequest,
-    ): CancelablePromise<domain_VerseTagLinkResponse> {
+        request: internal_api_VerseTagMutationRequest,
+    ): CancelablePromise<bible_memory_db_internal_domain_VerseTagLinkResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/verses/{externalVerseId}/tags',
@@ -175,13 +175,13 @@ export class TagsService {
      * Remove tag from verse
      * @param externalVerseId External verse ID
      * @param request Verse-tag payload
-     * @returns api_BooleanOKResponse OK
+     * @returns internal_api_BooleanOKResponse OK
      * @throws ApiError
      */
     public static removeTagFromVerse(
         externalVerseId: string,
-        request: api_VerseTagMutationRequest,
-    ): CancelablePromise<api_BooleanOKResponse> {
+        request: internal_api_VerseTagMutationRequest,
+    ): CancelablePromise<internal_api_BooleanOKResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/verses/{externalVerseId}/tags',

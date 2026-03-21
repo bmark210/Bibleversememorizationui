@@ -19,6 +19,8 @@ import { Skeleton } from "../ui/skeleton";
 import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { formatXp } from "@/shared/social/formatXp";
+
+const DASHBOARD_LEADERBOARD_PAGE_SIZE = 5;
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
 
