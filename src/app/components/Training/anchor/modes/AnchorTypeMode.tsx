@@ -151,12 +151,11 @@ export function AnchorTypeMode({
               type="submit"
               size="sm"
               className={cn(
-                "rounded-lg px-3.5 font-medium transition-all duration-200",
+                "rounded-lg px-3.5 text-xs font-medium transition-all duration-200",
                 canSubmitTypeAnswer
                   ? "bg-primary/90 text-primary-foreground shadow-sm"
                   : "bg-muted/50 text-muted-foreground/60 border border-border/30"
               )}
-              style={{ fontSize: `${submitBtnPx}px` }}
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
