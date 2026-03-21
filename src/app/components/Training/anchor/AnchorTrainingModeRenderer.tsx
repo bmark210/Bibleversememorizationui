@@ -1,15 +1,18 @@
 "use client";
 
 import type { RefObject } from "react";
+import type { TrainingFontSizes } from "@/app/components/training-session/modes/useTrainingFontSize";
 import { AnchorChoiceMode } from "./modes/AnchorChoiceMode";
 import { AnchorTapMode } from "./modes/AnchorTapMode";
 import { AnchorTypeMode } from "./modes/AnchorTypeMode";
+import { DragReorderMode } from "./modes/interactions/DragReorderMode";
 import type {
   TrainerQuestion,
   TypeInputReadiness,
 } from "./anchorTrainingTypes";
 
 type AnchorTrainingModeRendererProps = {
+  fontSizes: TrainingFontSizes;
   question: TrainerQuestion;
   selectedOption: string | null;
   isAnswered: boolean;
@@ -26,9 +29,11 @@ type AnchorTrainingModeRendererProps = {
   onTapSelect: (optionId: string) => void;
   onTypedAnswerChange: (value: string) => void;
   onTypeSubmit: () => void;
+  onOrderSubmit: (orderedIds: string[]) => void;
 };
 
 export function AnchorTrainingModeRenderer({
+  fontSizes,
   question,
   selectedOption,
   isAnswered,
@@ -45,10 +50,24 @@ export function AnchorTrainingModeRenderer({
   onTapSelect,
   onTypedAnswerChange,
   onTypeSubmit,
+  onOrderSubmit,
 }: AnchorTrainingModeRendererProps) {
+  if (question.interaction === "drag") {
+    return (
+      <DragReorderMode
+        fontSizes={fontSizes}
+        question={question}
+        isAnswered={isAnswered}
+        controlsLocked={controlsLocked}
+        onOrderSubmit={onOrderSubmit}
+      />
+    );
+  }
+
   if (question.interaction === "choice") {
     return (
       <AnchorChoiceMode
+        fontSizes={fontSizes}
         question={question}
         selectedOption={selectedOption}
         isAnswered={isAnswered}
@@ -61,6 +80,7 @@ export function AnchorTrainingModeRenderer({
   if (question.interaction === "tap") {
     return (
       <AnchorTapMode
+        fontSizes={fontSizes}
         question={question}
         tapSequence={tapSequence}
         selectedTapLabels={selectedTapLabels}
@@ -73,6 +93,7 @@ export function AnchorTrainingModeRenderer({
 
   return (
     <AnchorTypeMode
+      fontSizes={fontSizes}
       question={question}
       typedAnswer={typedAnswer}
       typingAttempts={typingAttempts}

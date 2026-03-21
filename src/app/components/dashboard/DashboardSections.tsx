@@ -6,13 +6,28 @@ import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import type {
-  DashboardLeaderboard as DashboardLeaderboardData,
-} from "@/api/services/leaderboard";
-import type { DashboardFriendsActivity } from "@/api/services/friends";
+import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
+import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
+import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
+
+function leaderboardEntryDisplayName(entry: domain_UserLeaderboardEntry): string {
+  const n = entry.name?.trim();
+  if (n) return n;
+  const nick = entry.nickname?.trim();
+  if (nick) return nick.startsWith("@") ? nick : `@${nick}`;
+  return entry.telegramId ?? "Игрок";
+}
+
+function leaderboardEntryXp(entry: domain_UserLeaderboardEntry): number {
+  return Math.max(0, Math.round(entry.xp ?? entry.score ?? 0));
+}
+
+function leaderboardEntryWeeklyReps(entry: domain_UserLeaderboardEntry): number {
+  return Math.max(0, Math.round(entry.versesCount ?? entry.score ?? 0));
+}
 
 type DashboardUser = {
   firstName: string;
@@ -353,7 +368,7 @@ export function DashboardTrainingStatsCard({
 }
 
 type DashboardLeaderboardCardProps = {
-  leaderboard?: DashboardLeaderboardData | null;
+  leaderboard?: domain_UserLeaderboardResponse | null;
   isLeaderboardLoading?: boolean;
   onOpenTraining?: () => void;
   onOpenPlayerProfile?: (player: {
@@ -374,23 +389,20 @@ export function DashboardLeaderboardCard({
   const currentUserDailyStreak = useCurrentUserStatsStore(
     (state) => state.dailyStreak
   );
-  const entries = leaderboard?.entries ?? [];
-  const currentUser = leaderboard?.currentUser ?? null;
+  const entries = leaderboard?.items ?? [];
+  const apiCurrentUser = leaderboard?.currentUser ?? null;
   const shouldShowCurrentUserSnapshot =
-    currentUser != null &&
-    !entries.some((entry) => entry.telegramId === currentUser.telegramId);
+    apiCurrentUser != null &&
+    currentUserTelegramId != null &&
+    !entries.some(
+      (entry) => String(entry.telegramId ?? "") === currentUserTelegramId
+    );
   const currentUserSnapshotDisplayXp =
-    currentUser != null &&
-    currentUserTelegramId === currentUser.telegramId &&
     currentUserXp != null
       ? currentUserXp
-      : currentUser?.xp ?? 0;
+      : Math.max(0, Math.round(apiCurrentUser?.xp ?? 0));
   const currentUserSnapshotDisplayStreakDays =
-    currentUser != null &&
-    currentUserTelegramId === currentUser.telegramId &&
-    currentUserDailyStreak != null
-      ? currentUserDailyStreak
-      : currentUser?.streakDays ?? 0;
+    currentUserDailyStreak != null ? currentUserDailyStreak : 0;
 
   return (
     <div>
@@ -407,31 +419,31 @@ export function DashboardLeaderboardCard({
         <div className="space-y-2.5">
           {entries.length > 0 ? (
             entries.map((entry) => {
-              const rankMarker = getRankMarker(entry.rank);
+              const rank = entry.rank ?? 0;
+              const rankMarker = getRankMarker(rank);
               const RankIcon = rankMarker.icon;
+              const entryTelegramId = String(entry.telegramId ?? "");
+              const displayName = leaderboardEntryDisplayName(entry);
               const isCurrentUserEntry =
-                entry.isCurrentUser || entry.telegramId === currentUserTelegramId;
+                entryTelegramId !== "" &&
+                entryTelegramId === currentUserTelegramId;
               const displayXp =
-                isCurrentUserEntry &&
-                currentUserTelegramId === entry.telegramId &&
-                currentUserXp != null
+                isCurrentUserEntry && currentUserXp != null
                   ? currentUserXp
-                  : entry.xp;
+                  : leaderboardEntryXp(entry);
               const displayStreakDays =
-                isCurrentUserEntry &&
-                currentUserTelegramId === entry.telegramId &&
-                currentUserDailyStreak != null
+                isCurrentUserEntry && currentUserDailyStreak != null
                   ? currentUserDailyStreak
-                  : entry.streakDays;
+                  : 0;
               const handleOpenProfile = () =>
                 onOpenPlayerProfile?.({
-                  telegramId: entry.telegramId,
-                  name: entry.name,
-                  avatarUrl: entry.avatarUrl,
+                  telegramId: entryTelegramId,
+                  name: displayName,
+                  avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
                 });
 
               return (
-                <div key={entry.telegramId}>
+                <div key={entryTelegramId || displayName}>
                   <button
                     type="button"
                     onClick={handleOpenProfile}
@@ -441,7 +453,7 @@ export function DashboardLeaderboardCard({
                         ? "border-primary/20 bg-primary/[0.07]"
                         : "border-border/60 bg-background/55",
                     )}
-                    aria-label={`Открыть профиль ${entry.name}`}
+                    aria-label={`Открыть профиль ${displayName}`}
                   >
                     <div
                       className={cn(
@@ -453,16 +465,16 @@ export function DashboardLeaderboardCard({
                       {RankIcon ? (
                         <RankIcon className="h-4 w-4" />
                       ) : (
-                        <span>#{entry.rank}</span>
+                        <span>#{rank}</span>
                       )}
                     </div>
 
                     <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
                       {entry.avatarUrl ? (
-                        <AvatarImage src={entry.avatarUrl} alt={entry.name} />
+                        <AvatarImage src={entry.avatarUrl} alt={displayName} />
                       ) : null}
                       <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                        {getInitials(entry.name)}
+                        {getInitials(displayName)}
                       </AvatarFallback>
                     </Avatar>
 
@@ -475,10 +487,11 @@ export function DashboardLeaderboardCard({
                             : "text-foreground/78",
                         )}
                       >
-                        {entry.name}
+                        {displayName}
                       </div>
                       <div className="mt-1 text-xs text-foreground/48">
-                        {entry.weeklyRepetitions} · {displayStreakDays} дн. подряд
+                        {leaderboardEntryWeeklyReps(entry)} · {displayStreakDays}{" "}
+                        дн. подряд
                       </div>
                     </div>
 
@@ -522,9 +535,9 @@ export function DashboardLeaderboardCard({
               type="button"
               onClick={() =>
                 onOpenPlayerProfile?.({
-                  telegramId: currentUser?.telegramId ?? "",
-                  name: currentUser?.name ?? "Вы",
-                  avatarUrl: currentUser?.avatarUrl ?? null,
+                  telegramId: currentUserTelegramId ?? "",
+                  name: "Вы",
+                  avatarUrl: null,
                 })
               }
               className="flex w-full items-center justify-between gap-3 text-left text-sm"
@@ -533,8 +546,8 @@ export function DashboardLeaderboardCard({
               <div className="min-w-0">
                 <div className="truncate font-medium text-primary">Вы</div>
                 <div className="mt-1 text-xs text-foreground/48">
-                  {currentUser?.rank ? `#${currentUser.rank}` : "Вне топа"} ·{" "}
-                  {currentUser?.weeklyRepetitions ?? 0} ·{" "}
+                  {apiCurrentUser?.rank ? `#${apiCurrentUser.rank}` : "Вне топа"} ·{" "}
+                  {apiCurrentUser?.versesCount ?? 0} ·{" "}
                   {currentUserSnapshotDisplayStreakDays} дн. подряд
                 </div>
               </div>
@@ -550,7 +563,7 @@ export function DashboardLeaderboardCard({
 }
 
 type DashboardFriendsActivityCardProps = {
-  friendsActivity?: DashboardFriendsActivity | null;
+  friendsActivity?: domain_DashboardFriendsActivityResponse | null;
   isFriendsActivityLoading?: boolean;
   onOpenProfile?: () => void;
   onOpenPlayerProfile?: (player: {

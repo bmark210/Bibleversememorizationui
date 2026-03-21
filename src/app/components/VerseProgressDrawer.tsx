@@ -6,11 +6,8 @@ import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { getStoppedVerseStageKind } from "@/app/components/verse-list/constants";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import {
-  REPEAT_THRESHOLD_FOR_MASTERED,
-  TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
-  TRAINING_STAGE_MASTERY_MAX,
-} from "@/shared/training/constants";
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { computeVerseProgressBreakdown } from "@/shared/training/verseTotalProgress";
 import {
   Drawer,
   DrawerContent,
@@ -30,12 +27,6 @@ type StatusTone = {
   pillClassName: string;
   progressClassName: string;
 };
-
-function normalizeCount(value: unknown): number {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.round(numeric));
-}
 
 function resolveCurrentPhase(verse: Verse): PhaseKey {
   const status = normalizeDisplayVerseStatus(verse.status);
@@ -182,39 +173,13 @@ export function VerseProgressDrawer({
     const phase = resolveCurrentPhase(verse);
     const status = normalizeDisplayVerseStatus(verse.status);
     const isPaused = status === VerseStatus.STOPPED;
-    const masteryLevel = normalizeCount(verse.masteryLevel);
-    const repetitions = normalizeCount(verse.repetitions);
-
-    const completedLearnings =
-      phase === "review" || phase === "mastered"
-        ? TRAINING_STAGE_MASTERY_MAX
-        : phase === "learning"
-          ? Math.min(Math.max(masteryLevel - 1, 0), TRAINING_STAGE_MASTERY_MAX)
-          : 0;
-
-    const completedRepeats =
-      phase === "mastered"
-        ? REPEAT_THRESHOLD_FOR_MASTERED
-        : phase === "review"
-          ? Math.min(repetitions, REPEAT_THRESHOLD_FOR_MASTERED)
-          : 0;
-
-    const remainingLearnings = Math.max(
-      0,
-      TRAINING_STAGE_MASTERY_MAX - completedLearnings,
-    );
-    const remainingRepeats = Math.max(
-      0,
-      REPEAT_THRESHOLD_FOR_MASTERED - completedRepeats,
-    );
-    const totalCompleted = Math.min(
-      completedLearnings + completedRepeats,
-      TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
-    );
-    const progressPercent = Math.round(
-      (totalCompleted / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100,
-    );
-    const totalRemaining = remainingLearnings + remainingRepeats;
+    const {
+      totalCompleted,
+      totalRemaining,
+      remainingLearnings,
+      remainingRepeats,
+      progressPercent,
+    } = computeVerseProgressBreakdown(verse.masteryLevel, verse.repetitions);
 
     return {
       phase,

@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Verse } from '@/app/App';
+import type { TrainingModeId } from '@/shared/training/modeEngine';
 
 export enum TrainingModeRendererKey {
   ChunksOrder = 'chunks-order',
@@ -125,10 +126,12 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: TrainingModeRating) => void;
   isLateStageReview?: boolean;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  onOpenVerseProgress?: () => void;
 }
 
 export interface TrainingModeRendererHandle {
@@ -139,10 +142,12 @@ export interface TrainingModeRendererHandle {
 const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, TrainingModeRendererProps>(function TrainingModeRenderer({
   renderer,
   verse,
+  trainingModeId,
   onRate,
   isLateStageReview = false,
   hintState,
   onProgressChange,
+  onOpenVerseProgress,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -169,34 +174,34 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
 
   const modeContent = (() => {
   if (renderer === TrainingModeRendererKey.ChunksOrder) {
-    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersTap) {
-    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersType) {
-    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.OrderHints) {
-    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.Order) {
-    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersHints) {
-    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
   if (renderer === TrainingModeRendererKey.VoiceTyping) {
-    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   }
 
-  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} />;
+  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
   })();
 
   return (

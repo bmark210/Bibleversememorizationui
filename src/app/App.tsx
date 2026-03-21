@@ -23,18 +23,12 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 import {
   fetchAllUserVerses,
 } from "@/api/services/userVersesPagination";
-import {
-  fetchDashboardLeaderboard,
-  type DashboardLeaderboard,
-} from "@/api/services/leaderboard";
-import {
-  fetchDashboardFriendsActivity,
-  type DashboardFriendsActivity,
-} from "@/api/services/friends";
-import {
-  fetchUserDashboardStats,
-  type UserDashboardStats,
-} from "@/api/services/userStats";
+import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import { fetchDashboardFriendsActivity } from "@/api/services/friends";
+import { fetchDashboardLeaderboard } from "@/api/services/leaderboard";
+import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   getDisplayStatusFromFlow,
@@ -56,7 +50,10 @@ import {
 import type { DirectLaunchVerse } from "./components/Training/types";
 import type { VerseListStatusFilter } from "./components/verse-list/constants";
 import { useCurrentUserStatsStore } from "./stores/currentUserStatsStore";
-import { useTelegramUiStore } from "./stores/telegramUiStore";
+import {
+  syncTelegramFullscreenFromWebApp,
+  useTelegramUiStore,
+} from "./stores/telegramUiStore";
 import { useTrainingFontStore } from "./stores/trainingFontStore";
 
 const VerseList = dynamic(
@@ -482,11 +479,12 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [pendingVerseListReturn, setPendingVerseListReturn] =
     useState<PendingVerseListReturn | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [dashboardStats, setDashboardStats] = useState<UserDashboardStats | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<domain_UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
-  const [dashboardLeaderboard, setDashboardLeaderboard] = useState<DashboardLeaderboard | null>(null);
+  const [dashboardLeaderboard, setDashboardLeaderboard] = useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
-  const [dashboardFriendsActivity, setDashboardFriendsActivity] = useState<DashboardFriendsActivity | null>(null);
+  const [dashboardFriendsActivity, setDashboardFriendsActivity] =
+    useState<domain_DashboardFriendsActivityResponse | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
@@ -573,20 +571,23 @@ export default function App({ onInitialContentReady }: AppProps) {
     const webApp = getTelegramWebApp();
     if (!webApp) {
       telegramUiStore.resetTelegramRuntime();
+      if (process.env.NODE_ENV === "development") {
+        telegramUiStore.setTelegramRuntime({
+          canToggleTelegramFullscreen: true,
+        });
+      }
+      syncTelegramFullscreenFromWebApp();
       return;
     }
 
     telegramUiStore.setTelegramRuntime({
       isTelegramMiniApp: true,
-      canToggleTelegramFullscreen:
-      typeof webApp.requestFullscreen === "function" &&
-      typeof webApp.exitFullscreen === "function",
+      // Кнопка в профиле переключает хотя бы UI-полный экран; нативный API может отсутствовать (Telegram 6.0).
+      canToggleTelegramFullscreen: true,
     });
 
     const syncTelegramViewportState = () => {
-      useTelegramUiStore
-        .getState()
-        .setTelegramFullscreen(Boolean(webApp.isFullscreen));
+      syncTelegramFullscreenFromWebApp();
     };
 
     try {
@@ -1143,15 +1144,26 @@ export default function App({ onInitialContentReady }: AppProps) {
     priority: 10,
   });
 
-  const handleVerseListMutationCommitted = () => {
+  // Отложенный рефетч: во время тренировки не грузим стихи заново,
+  // а помечаем что нужен рефетч после завершения сессии.
+  const pendingMutationRefetchRef = useRef(false);
+
+  const handleVerseListMutationCommitted = useCallback(() => {
     if (!telegramId) return;
+
+    // Во время активной тренировки — откладываем ВСЕ рефетчи до завершения
+    if (isTrainingSessionFullscreen) {
+      pendingMutationRefetchRef.current = true;
+      return;
+    }
+
     dashboardFetchFailedRef.current.stats = false;
     dashboardFetchFailedRef.current.leaderboard = false;
     trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
     void loadDashboardLeaderboard(telegramId);
-  };
+  }, [isTrainingSessionFullscreen, loadDashboardLeaderboard, loadDashboardStats, loadTrainingVersesForDashboard, telegramId]);
 
   const handleFriendsChanged = () => {
     setFriendsRefreshVersion((prev) => prev + 1);
@@ -1270,11 +1282,24 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   }, [currentPage, isTrainingSessionFullscreen]);
 
+  // Когда тренировочная сессия завершается — выполняем отложенные рефетчи
+  useEffect(() => {
+    if (!isTrainingSessionFullscreen && pendingMutationRefetchRef.current && telegramId) {
+      pendingMutationRefetchRef.current = false;
+      dashboardFetchFailedRef.current.stats = false;
+      dashboardFetchFailedRef.current.leaderboard = false;
+      trainingVersesFetchFailedRef.current = false;
+      void loadTrainingVersesForDashboard(telegramId);
+      void loadDashboardStats(telegramId);
+      void loadDashboardLeaderboard(telegramId);
+    }
+  }, [isTrainingSessionFullscreen, loadDashboardLeaderboard, loadDashboardStats, loadTrainingVersesForDashboard, telegramId]);
+
   return (
     <>
       <div
         aria-hidden={false}
-        className="min-h-screen transition-colors"
+        className="h-dvh transition-colors"
       >
         <Layout
           currentPage={currentPage}
@@ -1319,7 +1344,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               onOpenPlayerProfile={handleOpenPlayerProfile}
               isAnchorEligible={
                 (dashboardStats?.reviewVerses ?? 0) >= 10 ||
-                (dashboardStats?.masteredVerses ?? 0) >= 10
+                (dashboardStats?.masteredCount ?? 0) >= 10
               }
             />
           )}

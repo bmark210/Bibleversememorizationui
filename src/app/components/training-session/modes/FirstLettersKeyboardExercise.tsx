@@ -5,16 +5,16 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
-import { Info } from 'lucide-react';
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { TrainingStageCorner } from './TrainingStageCorner';
+import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
@@ -24,11 +24,13 @@ import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficu
 
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 function normalizeComparableLetter(value: string) {
@@ -65,11 +67,13 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 
 export function ModeFirstLettersKeyboardExercise({
   verse,
+  trainingModeId,
   onRate,
   hintState,
   onProgressChange,
   isLateStageReview = false,
   onOpenTutorial,
+  onOpenVerseProgress,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -228,22 +232,17 @@ export function ModeFirstLettersKeyboardExercise({
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
+      <TrainingExerciseModeHeader
+        modeId={trainingModeId}
+        verse={verse}
+        onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
+      />
       {mistakesSinceReset > 0 && (
-        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
-        <label className="text-xs text-center font-medium text-foreground/90">
-          Введите первые буквы слов
-        </label>
-        {onOpenTutorial && (
-          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
-            <Info className="h-4 w-4" />
-          </button>
-        )}
-      </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
 
@@ -270,7 +269,7 @@ export function ModeFirstLettersKeyboardExercise({
             placeholder="Введите первые буквы..."
             disabled={isCompleted || surrendered}
             data-swipe-through="true"
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 font-mono uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             style={{ fontSize: `${fontSizes.base}px` }}
             autoCorrect="off"
             autoCapitalize="none"
@@ -289,7 +288,13 @@ export function ModeFirstLettersKeyboardExercise({
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

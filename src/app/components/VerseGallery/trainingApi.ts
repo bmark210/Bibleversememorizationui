@@ -1,7 +1,10 @@
-import type { UserVerse } from "@/api/models/UserVerse";
+import type { api_PatchUserVerseRequest } from "@/api/models/api_PatchUserVerseRequest";
+import type { domain_TrainingStepHTTPRequest } from "@/api/models/domain_TrainingStepHTTPRequest";
+import type { domain_TrainingStepHTTPResponse } from "@/api/models/domain_TrainingStepHTTPResponse";
+import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
+import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
-import type { internal_api_PatchUserVerseRequest } from "@/api/models/internal_api_PatchUserVerseRequest";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { TrainingVerseState } from "./types";
@@ -11,12 +14,6 @@ export function getTelegramId(): string | null {
   const fromStorage = localStorage.getItem("telegramId");
   if (fromStorage) return fromStorage;
   return getTelegramUserId();
-}
-
-function userVerseExternalId(verse: UserVerse): string {
-  const top = (verse as { externalVerseId?: string }).externalVerseId;
-  if (top && String(top).trim()) return String(top);
-  return String(verse.verse?.externalVerseId ?? "");
 }
 
 function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
@@ -30,10 +27,10 @@ export async function persistTrainingVerseProgress(
     includeRepetitions?: boolean;
     reviewRating?: 0 | 1 | 2 | 3;
   }
-): Promise<UserVerse | null> {
+): Promise<domain_UserVerse | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
   if (!telegramId) return null;
-  const body: internal_api_PatchUserVerseRequest = {
+  const body: api_PatchUserVerseRequest = {
     masteryLevel: verse.rawMasteryLevel,
     ...(options?.includeRepetitions ? { repetitions: verse.repetitions } : {}),
     reviewLapseStreak: verse.reviewLapseStreak,
@@ -50,10 +47,23 @@ export async function persistTrainingVerseProgress(
   return response ?? null;
 }
 
+/** Applies one training rating; server is SSOT for progress and next mode. */
+export async function postTrainingVerseStep(
+  telegramId: string,
+  externalVerseId: string,
+  body: domain_TrainingStepHTTPRequest
+): Promise<domain_TrainingStepHTTPResponse | null> {
+  return UserVersesService.postUserVerseTrainingStep(
+    telegramId,
+    externalVerseId,
+    body
+  );
+}
+
 export async function fetchTrainingVerseSnapshot(
   externalVerseId: string,
   telegramIdOverride?: string | null
-): Promise<UserVerse | null> {
+): Promise<domain_VerseListItem | null> {
   const telegramId = telegramIdOverride ?? getTelegramId();
   if (!telegramId) return null;
 
@@ -64,7 +74,10 @@ export async function fetchTrainingVerseSnapshot(
     limit: 50,
   });
 
+  const items = response.items ?? [];
   return (
-    response.items.find((v) => userVerseExternalId(v) === externalVerseId) ?? null
+    items.find(
+      (v) => String(v.externalVerseId ?? "").trim() === externalVerseId
+    ) ?? null
   );
 }

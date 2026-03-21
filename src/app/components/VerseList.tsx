@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { Eye, Plus } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 
 const AddVerseDialog = dynamic(
   () => import("./AddVerseDialog").then((m) => m.AddVerseDialog),
@@ -193,6 +193,12 @@ export function VerseList({
     [isFocusMode],
   );
   const shouldReduceMotion = vm.ui.shouldReduceMotion;
+  const listCrossfadeSlow = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.1, ease: [0.22, 1, 0.36, 1] as const };
+  const listCrossfadeExit = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
@@ -312,8 +318,6 @@ export function VerseList({
     onDeleteTag: vm.tagFilter.deleteTag,
   };
 
-  const headerHeight = document.querySelector("#app-layout-header")?.clientHeight ?? 0;
-
   return (
     <>
       <motion.div
@@ -341,7 +345,7 @@ export function VerseList({
 
               <div
                 className={cn(
-                  "fixed z-50 flex shrink-0 flex-col gap-1.5",
+                  "fixed z-50 flex shrink-0 flex-col gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
                 )}
                 style={{
                   bottom: `calc(74px + ${contentSafeAreaInset.bottom}px + 12px)`,
@@ -380,8 +384,7 @@ export function VerseList({
                 ) : null}
               </div>
         <div
-          className="sticky z-40 shrink-0"
-          style={{ top: `${headerHeight}px` }}
+          className="sticky top-0 z-40 shrink-0"
         >
           <motion.div
             className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
@@ -400,40 +403,56 @@ export function VerseList({
           </motion.div>
         </div>
 
-        {vm.ui.isListLoading ? (
-          <motion.div
-            data-tour="verse-list-content"
-            data-tour-filter={vm.filters.statusFilter}
-            data-tour-state="loading"
-            className="px-4 sm:px-6 lg:px-8"
-            {...reveal(0.05)}
-          >
-            <VerseListSkeletonCards count={3} />
-          </motion.div>
-        ) : vm.ui.isEmptyFiltered ? (
-          <motion.div
-            data-tour="verse-list-content"
-            data-tour-filter={vm.filters.statusFilter}
-            data-tour-state="empty"
-            className="px-4 sm:px-6 lg:px-8"
-            {...reveal(0.05)}
-          >
-            <VerseListEmptyState
-              currentFilterLabel={vm.ui.currentFilterLabel}
-              isAllFilter={vm.filters.statusFilter === "catalog"}
-            />
-          </motion.div>
-        ) : vm.list.sectionConfig ? (
-          <motion.div
-            data-tour="verse-list-content"
-            data-tour-filter={vm.filters.statusFilter}
-            data-tour-state="ready"
-            className="px-4 sm:px-6 lg:px-8"
-            {...reveal(0.06)}
-          >
-            {listContent}
-          </motion.div>
-        ) : null}
+        <AnimatePresence mode="sync">
+          {vm.ui.isListLoading ? (
+            <motion.div
+              key="verse-list-loading"
+              data-tour="verse-list-content"
+              data-tour-filter={vm.filters.statusFilter}
+              data-tour-state="loading"
+              className="px-4 sm:px-6 lg:px-8"
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={listCrossfadeExit}
+            >
+              <VerseListSkeletonCards count={5} />
+            </motion.div>
+          ) : null}
+          {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
+            <motion.div
+              key="verse-list-empty"
+              data-tour="verse-list-content"
+              data-tour-filter={vm.filters.statusFilter}
+              data-tour-state="empty"
+              className="px-4 sm:px-6 lg:px-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={listCrossfadeSlow}
+            >
+              <VerseListEmptyState
+                currentFilterLabel={vm.ui.currentFilterLabel}
+                isAllFilter={vm.filters.statusFilter === "catalog"}
+              />
+            </motion.div>
+          ) : null}
+          {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+            <motion.div
+              key="verse-list-ready"
+              data-tour="verse-list-content"
+              data-tour-filter={vm.filters.statusFilter}
+              data-tour-state="ready"
+              className="px-4 sm:px-6 lg:px-8"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={listCrossfadeSlow}
+            >
+              {listContent}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         <AddVerseDialog
           open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}

@@ -1,5 +1,5 @@
 import type { Verse } from "@/app/App";
-import type { UserDashboardStats } from "@/api/services/userStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
 
@@ -7,20 +7,13 @@ import type { VerseListStatusFilter } from "@/app/components/verse-list/constant
 export type TrainingMode = "learning" | "review" | "anchor";
 export type CoreTrainingMode = Exclude<TrainingMode, "anchor">;
 export type TrainingScenario = "core" | "anchor";
-export type AnchorTrainingTrack =
-  | "reference"
-  | "incipit"
-  | "ending"
-  | "context"
-  | "mixed";
-
 /** Training order — how to sort verses before session start */
 export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
   | { mode: "hub" }
-  | { mode: "anchor"; track: AnchorTrainingTrack }
+  | { mode: "anchor"; anchorModes: AnchorModeGroup[] }
   | {
       mode: "verse-session";
       verses: Verse[];
@@ -46,7 +39,7 @@ export interface DirectLaunchVerse {
 export interface TrainingProps {
   allVerses: Verse[];
   isLoadingVerses?: boolean;
-  dashboardStats?: UserDashboardStats | null;
+  dashboardStats?: domain_UserDashboardStats | null;
   telegramId: string | null;
   selectionVerses?: Verse[];
   /** If set, skip the Hub and start a training session immediately for this verse */
@@ -70,16 +63,39 @@ export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
   anchor: "Закрепление",
 };
 
+/** Anchor mode groups — user-facing categories that map to TrainerModeId sets */
+export type AnchorModeGroup =
+  | "reference"
+  | "incipit"
+  | "ending"
+  | "context"
+  | "broken-mirror"
+  | "skeleton-verse"
+  | "impostor-word";
+
+export const ANCHOR_MODE_GROUP_LABELS: Record<AnchorModeGroup, string> = {
+  reference: "Ссылки",
+  incipit: "Начало стиха",
+  ending: "Конец стиха",
+  context: "Контекст",
+  "broken-mirror": "Зеркало",
+  "skeleton-verse": "Скелет",
+  "impostor-word": "Самозванец",
+};
+
+export const ALL_ANCHOR_MODE_GROUPS: AnchorModeGroup[] = [
+  "reference",
+  "incipit",
+  "ending",
+  "context",
+  "broken-mirror",
+  "skeleton-verse",
+  "impostor-word",
+];
+
 export const TRAINING_ORDER_LABELS: Record<TrainingOrder, string> = {
   updatedAt: "По активности",
   bible: "По канону",
   popularity: "По популярности",
 };
 
-export const ANCHOR_TRAINING_TRACK_LABELS: Record<AnchorTrainingTrack, string> = {
-  reference: "Ссылки",
-  incipit: "Начало стиха",
-  ending: "Конец стиха",
-  context: "Контекст",
-  mixed: "Смешанный",
-};

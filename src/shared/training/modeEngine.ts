@@ -42,6 +42,18 @@ export const TRAINING_MODE_SHIFT_BY_RATING: Record<TrainingModeRating, number> =
   3: 2,
 };
 
+/** In learning, «Легко» (rating 3) only for modes with index < this in TRAINING_MODE_PROGRESS_ORDER (first 3 modes). */
+export const TRAINING_LEARN_EASY_MAX_EXCLUSIVE_INDEX = 3;
+
+export function isLearnEasyRatingAllowed(
+  modeId: TrainingModeId | null | undefined
+): boolean {
+  if (modeId == null) return true;
+  const idx = TRAINING_MODE_PROGRESS_ORDER.indexOf(modeId);
+  if (idx < 0) return false;
+  return idx < TRAINING_LEARN_EASY_MAX_EXCLUSIVE_INDEX;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }

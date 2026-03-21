@@ -13,7 +13,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Card } from '@/app/components/ui/card';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
-import type { Tag } from '@/api/models/Tag';
+import type { domain_Tag } from '@/api/models/domain_Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
   // FILTER_VISUAL_THEME,
@@ -125,7 +125,7 @@ export type VerseListFilterCardProps = {
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   isLoadingTags?: boolean;
-  allTags?: Tag[];
+  allTags?: domain_Tag[];
   selectedTagSlugs?: Set<string>;
   hasActiveTags?: boolean;
   onTagClick?: (slug: string) => void;
@@ -229,7 +229,7 @@ function VerseListFilterSections({
     );
   };
 
-  const renderTagButton = (tag: Tag, index: number, layout: 'row' | 'wrap') => {
+  const renderTagButton = (tag: domain_Tag, index: number, layout: 'row' | 'wrap') => {
     const slug = tag.slug ?? '';
     const isActive = selectedTagSlugs.has(slug);
     const isDeleting = deletingTagId === tag.id;

@@ -11,26 +11,22 @@ import type { VersePatchEvent } from "@/app/types/verseSync";
 import {
   type TrainingModeRendererHandle,
 } from "@/app/components/training-session/TrainingModeRenderer";
-import { computeDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
-import { computeProgressDelta } from "@/modules/training/application/computeProgressDelta";
-import {
-  MODE_SHIFT_BY_RATING,
-} from "@/app/components/VerseGallery/constants";
 import {
   haptic,
   toTrainingVerseState,
   isTrainingEligibleVerse,
   isTrainingReviewVerse,
   chooseModeId,
-  getModeByShiftInProgressOrder,
 } from "@/app/components/VerseGallery/utils";
 import {
-  persistTrainingVerseProgress,
   fetchTrainingVerseSnapshot,
+  getTelegramId,
+  postTrainingVerseStep,
 } from "@/app/components/VerseGallery/trainingApi";
 import {
   normalizePersistedTrainingVerseState,
   useVerseSync,
+  type PersistedTrainingVerse,
 } from "@/app/components/VerseGallery/hooks/useVerseSync";
 import type {
   ModeId,
@@ -197,7 +193,10 @@ export function useTrainingSession({
         current.telegramId
       );
       if (!snapshot) return null;
-      return normalizePersistedTrainingVerseState(current, snapshot);
+      return normalizePersistedTrainingVerseState(
+        current,
+        snapshot as unknown as PersistedTrainingVerse
+      );
     },
     [trainingVerses]
   );
@@ -302,183 +301,131 @@ export function useTrainingSession({
       try {
         const wasReviewExercise = isTrainingReviewVerse(current);
         const isLearningVerse = current.status === VerseStatus.LEARNING;
-        const now = new Date();
         const cappedRating = Math.min(
           rating,
           attempt?.ratingPolicy.maxRating ?? (wasReviewExercise ? 2 : 3)
         ) as Rating;
 
-        const progressDelta = computeProgressDelta({
-          phase: wasReviewExercise ? "review" : "learning",
-          rating: cappedRating,
-          rawMasteryLevel: current.rawMasteryLevel,
-          repetitions: current.repetitions,
-          reviewLapseStreak: current.reviewLapseStreak,
-          now,
-          trainingModeId,
-          isLearningVerse,
-        });
+        const telegramId = current.telegramId ?? getTelegramId();
+        if (!telegramId) {
+          haptic("error");
+          showFeedback("Не удалось определить пользователя");
+          return;
+        }
 
-        const rawMasteryAfter = progressDelta.rawMasteryLevel;
-        const graduatesToReview = progressDelta.graduatesToReview;
-        const nextRepetitions = progressDelta.repetitions;
-        const nextReviewAt = progressDelta.nextReviewAt;
-        const becameLearned = graduatesToReview;
+        const stepRes = await postTrainingVerseStep(
+          telegramId,
+          current.externalVerseId,
+          {
+            phase: wasReviewExercise ? "review" : "learning",
+            trainingModeId,
+            rating: cappedRating,
+            isLearningVerse,
+          }
+        );
 
-        const nextStatus =
-          current.status === VerseStatus.STOPPED
-            ? VerseStatus.STOPPED
-            : rawMasteryAfter > 0
-              ? computeDisplayStatus(rawMasteryAfter, nextRepetitions)
-              : VerseStatus.MY;
+        const userVerse = stepRes?.userVerse;
+        if (!userVerse) {
+          throw new Error("Training step returned no userVerse");
+        }
 
-        const updated: TrainingVerseState = {
-          ...current,
-          raw: {
-            ...current.raw,
-            masteryLevel: rawMasteryAfter,
-            repetitions: nextRepetitions,
-            status: nextStatus,
-          } as Verse,
-          rawMasteryLevel: rawMasteryAfter,
-          stageMasteryLevel: progressDelta.stageMasteryLevel,
-          repetitions: nextRepetitions,
-          reviewLapseStreak: progressDelta.reviewLapseStreak,
-          status: nextStatus,
-          lastModeId: !wasReviewExercise && graduatesToReview ? null : trainingModeId,
-          lastReviewedAt: now,
-          nextReviewAt,
-        };
+        const becameLearned = stepRes.graduatedToReview === true;
+        const reviewWasSuccessful = stepRes.reviewWasSuccessful === true;
+
+        const persistedUpdated = normalizePersistedTrainingVerseState(
+          current,
+          userVerse as unknown as PersistedTrainingVerse
+        );
 
         const shouldMoveToNextVerse =
-          wasReviewExercise || becameLearned || nextStatus === "MASTERED";
-
-        // Optimistic update
-        const updatedList = [...trainingVerses];
-        updatedList[trainingIndex] = updated;
-        setTrainingVerses(updatedList);
+          wasReviewExercise ||
+          becameLearned ||
+          persistedUpdated.status === "MASTERED";
 
         if (becameLearned) {
           haptic("success");
         }
 
-        const nextMode = getModeByShiftInProgressOrder(
-          trainingModeId,
-          MODE_SHIFT_BY_RATING[cappedRating] ?? 1
-        );
-        const nextModeForCurrentVerse = becameLearned
-          ? chooseModeId(updated)
-          : !wasReviewExercise && nextMode
-            ? nextMode
-            : chooseModeId(updated);
+        const nextModeId =
+          typeof stepRes.nextTrainingModeId === "number"
+            ? (stepRes.nextTrainingModeId as ModeId)
+            : chooseModeId(persistedUpdated);
 
         if (!shouldMoveToNextVerse) {
-          setTrainingModeId(nextModeForCurrentVerse);
+          setTrainingModeId(nextModeId);
         }
 
-        // Persist
-        try {
-          const persistedUserVerse = await persistTrainingVerseProgress(updated, {
-            includeRepetitions: progressDelta.canUpdateRepetitions,
-            reviewRating: cappedRating,
-          });
-          const persistedResponse = persistedUserVerse as unknown as Record<
-            string,
-            unknown
-          > | null;
-          if (!persistedResponse) {
-            throw new Error("Training progress was not persisted");
-          }
-          const persistedUpdated = await verseSync.reconcile({
-            optimistic: updated,
-            persistedResponse,
-          });
+        const pendingCompletionOutcome = buildTrainingPendingOutcome({
+          verseKey: persistedUpdated.key,
+          reference: persistedUpdated.raw.reference,
+          previousStatus: current.status,
+          nextStatus: persistedUpdated.status,
+          nextReviewAt: persistedUpdated.nextReviewAt,
+          wasReviewExercise,
+          reviewWasSuccessful,
+        });
+        const finalShouldMoveImmediately =
+          pendingCompletionOutcome === null &&
+          (wasReviewExercise ||
+            becameLearned ||
+            persistedUpdated.status === "MASTERED");
 
-          const pendingCompletionOutcome = buildTrainingPendingOutcome({
-            verseKey: persistedUpdated.key,
-            reference: persistedUpdated.raw.reference,
-            previousStatus: current.status,
-            nextStatus: persistedUpdated.status,
-            nextReviewAt: persistedUpdated.nextReviewAt,
-            wasReviewExercise,
-            reviewWasSuccessful: progressDelta.reviewWasSuccessful,
-          });
-          const finalShouldMoveImmediately =
-            pendingCompletionOutcome === null &&
-            (wasReviewExercise ||
-              becameLearned ||
-              persistedUpdated.status === "MASTERED");
+        applyAuthoritativeVerse(current, persistedUpdated);
+        hasCommittedMutationRef.current = true;
 
-          applyAuthoritativeVerse(current, persistedUpdated);
-          hasCommittedMutationRef.current = true;
+        if (!finalShouldMoveImmediately && pendingCompletionOutcome === null) {
+          setTrainingModeId(nextModeId);
+        }
 
-          if (!finalShouldMoveImmediately && pendingCompletionOutcome === null) {
-            const persistedNextMode = becameLearned
-              ? chooseModeId(persistedUpdated)
-              : !wasReviewExercise && nextMode
-                ? nextMode
-                : chooseModeId(persistedUpdated);
-            setTrainingModeId(persistedNextMode);
-          }
+        const progressPopupPayload = buildTrainingProgressPopupPayload({
+          reference: persistedUpdated.raw.reference,
+          context: "core",
+          before: {
+            status: current.status,
+            difficultyLevel: current.raw.difficultyLevel,
+            masteryLevel: current.rawMasteryLevel,
+            repetitions: current.repetitions,
+          },
+          after: {
+            status: persistedUpdated.status,
+            difficultyLevel: persistedUpdated.raw.difficultyLevel,
+            masteryLevel: persistedUpdated.rawMasteryLevel,
+            repetitions: persistedUpdated.repetitions,
+          },
+        });
 
-          const progressPopupPayload = buildTrainingProgressPopupPayload({
-            reference: persistedUpdated.raw.reference,
-            context: "core",
-            before: {
-              status: current.status,
-              difficultyLevel: current.raw.difficultyLevel,
-              masteryLevel: current.rawMasteryLevel,
-              repetitions: current.repetitions,
-            },
-            after: {
-              status: persistedUpdated.status,
-              difficultyLevel: persistedUpdated.raw.difficultyLevel,
-              masteryLevel: persistedUpdated.rawMasteryLevel,
-              repetitions: persistedUpdated.repetitions,
-            },
-          });
-
-          if (progressPopupPayload) {
-            showProgressPopup(progressPopupPayload);
-            const xpDeltaLabel =
-              progressPopupPayload.xpDelta === 0
-                ? progressPopupPayload.stageLabel
-                : `${progressPopupPayload.xpDelta > 0 ? "+" : ""}${progressPopupPayload.xpDelta} XP`;
-            showFeedback(
-              `${progressPopupPayload.title}. ${progressPopupPayload.stageLabel}. ${xpDeltaLabel}`
-            );
-          }
-
-          if (pendingCompletionOutcome) {
-            setPendingOutcome(pendingCompletionOutcome);
-          } else if (finalShouldMoveImmediately) {
-            removeCompletedVerseAndNavigate(1);
-          }
-        } catch (error) {
-          console.error("Failed to persist training progress", error);
-          const recovered = await verseSync.recoverFromPatchFailure(
-            current.externalVerseId
+        if (progressPopupPayload) {
+          showProgressPopup(progressPopupPayload);
+          const xpDeltaLabel =
+            progressPopupPayload.xpDelta === 0
+              ? progressPopupPayload.stageLabel
+              : `${progressPopupPayload.xpDelta > 0 ? "+" : ""}${progressPopupPayload.xpDelta} XP`;
+          showFeedback(
+            `${progressPopupPayload.title}. ${progressPopupPayload.stageLabel}. ${xpDeltaLabel}`
           );
-
-          if (recovered) {
-            applyAuthoritativeVerse(current, recovered);
-            setTrainingModeId(chooseModeId(recovered));
-          } else {
-            // Restore original
-            setTrainingVerses((prev) => {
-              const idx = prev.findIndex((v) => v.key === current.key);
-              if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = current;
-              return next;
-            });
-            setTrainingModeId(chooseModeId(current));
-          }
-
-          haptic("error");
-          showFeedback("Ошибка — попробуйте ещё раз");
-          setPendingOutcome(null);
         }
+
+        if (pendingCompletionOutcome) {
+          setPendingOutcome(pendingCompletionOutcome);
+        } else if (finalShouldMoveImmediately) {
+          removeCompletedVerseAndNavigate(1);
+        }
+      } catch (error) {
+        console.error("Failed to apply training step", error);
+        const recovered = await verseSync.recoverFromPatchFailure(
+          current.externalVerseId
+        );
+
+        if (recovered) {
+          applyAuthoritativeVerse(current, recovered);
+          setTrainingModeId(chooseModeId(recovered));
+        } else {
+          setTrainingModeId(chooseModeId(current));
+        }
+
+        haptic("error");
+        showFeedback("Ошибка — попробуйте ещё раз");
+        setPendingOutcome(null);
       } finally {
         setIsActionPending(false);
       }
@@ -492,6 +439,7 @@ export function useTrainingSession({
       removeCompletedVerseAndNavigate,
       showFeedback,
       showProgressPopup,
+      verseSync,
     ]
   );
 

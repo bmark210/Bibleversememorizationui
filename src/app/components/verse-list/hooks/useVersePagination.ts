@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { domain_CatalogVersesPageResponse } from '@/api/models/domain_CatalogVersesPageResponse';
+import type { domain_UserVersesPageResponse } from '@/api/models/domain_UserVersesPageResponse';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
 import { Verse } from '@/app/App';
@@ -25,6 +27,22 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => {
     globalThis.setTimeout(resolve, Math.max(0, ms));
   });
+}
+
+function listPageTotalCount(
+  page: domain_UserVersesPageResponse | domain_CatalogVersesPageResponse
+): number {
+  const items = page.items ?? [];
+  const t =
+    'totalCount' in page && page.totalCount != null
+      ? page.totalCount
+      : 'total' in page && page.total != null
+        ? page.total
+        : undefined;
+  if (typeof t === 'number' && Number.isFinite(t)) {
+    return Math.max(0, Math.round(t));
+  }
+  return items.length;
 }
 
 export function useVersePagination({
@@ -138,8 +156,8 @@ export function useVersePagination({
           startWith: startWith ?? undefined,
         });
         return {
-          ...page,
-          items: page.items as Array<Verse>,
+          items: (page.items ?? []) as Array<Verse>,
+          totalCount: listPageTotalCount(page),
         };
       }
 
@@ -161,8 +179,8 @@ export function useVersePagination({
       });
 
       return {
-        ...page,
-        items: page.items as Array<Verse>,
+        items: (page.items ?? []) as Array<Verse>,
+        totalCount: listPageTotalCount(page),
       };
     },
     [bookId, disabled, normalizedSearchQuery, normalizedTagSlugsKey, pageSize, sortBy]

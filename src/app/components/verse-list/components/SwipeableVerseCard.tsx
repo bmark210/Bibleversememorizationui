@@ -13,7 +13,7 @@ import {
 import { resolveVerseCardActionModel } from '@/app/components/verseCardActionModel';
 import { Verse } from '@/app/App';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress';
 import {
   FILTER_VISUAL_THEME,
   getVerseCardLayoutSignature,
@@ -50,14 +50,14 @@ export const SwipeableVerseCard = ({
   isFocusMode = false,
   isAnchorEligible = false,
 }: SwipeCardProps) => {
-  const masteryLevel = Number(verse.masteryLevel ?? 0);
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
   const stageVisual = getVerseStageVisual(verse);
   const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
-  const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
-  const totalProgress = Math.min(masteryLevel + repetitionsCount, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
-  const totalProgressPercent = Math.round((totalProgress / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+  const totalProgressPercent = computeVerseTotalProgressPercent(
+    verse.masteryLevel,
+    verse.repetitions
+  );
   const popularityValue =
     typeof verse.popularityValue === 'number'
       ? Math.max(0, Math.round(verse.popularityValue))

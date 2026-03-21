@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
 import { postTag } from '@/api/services/tagExtensions';
 import { publicApiUrl } from '@/lib/publicApiBase';
-import type { Tag } from '@/api/models/Tag';
+import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { Verse } from '@/app/App';
 import { getTelegramUserId } from '@/app/lib/telegramWebApp';
 import { isAdminTelegramId } from '@/lib/admins';
@@ -13,20 +13,20 @@ const TAG_TITLE_COLLATOR = new Intl.Collator(['ru', 'en'], {
   numeric: true,
 });
 
-const sortTagsByTitle = (tags: Tag[]) =>
+const sortTagsByTitle = (tags: domain_Tag[]) =>
   [...tags].sort((a, b) =>
     TAG_TITLE_COLLATOR.compare((a.title ?? '').trim(), (b.title ?? '').trim())
   );
 
 type UseTagFilterParams = {
   disabled?: boolean;
-  initialTags?: Tag[];
+  initialTags?: domain_Tag[];
 };
 
 export function useTagFilter(params?: UseTagFilterParams) {
   const disabled = params?.disabled ?? false;
   const initialTags = params?.initialTags ?? [];
-  const [allTags, setAllTags] = useState<Tag[]>(() => sortTagsByTitle(initialTags));
+  const [allTags, setAllTags] = useState<domain_Tag[]>(() => sortTagsByTitle(initialTags));
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(() => {
     if (disabled) return new Set();
     if (typeof window === 'undefined') return new Set();
@@ -96,7 +96,7 @@ export function useTagFilter(params?: UseTagFilterParams) {
       setAllTags((prev) =>
         sortTagsByTitle([
           ...prev,
-          { id: `mock-${slug}`, slug, title } as Tag,
+          { id: `mock-${slug}`, slug, title } as domain_Tag,
         ])
       );
       return;

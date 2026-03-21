@@ -5,10 +5,8 @@ import {
   normalizeDisplayVerseStatus,
   type DisplayVerseStatus,
 } from "@/app/types/verseStatus";
-import {
-  TRAINING_STAGE_MASTERY_MAX,
-  TOTAL_REPEATS_AND_STAGE_MASTERY_MAX,
-} from "@/shared/training/constants";
+import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { computeVerseTotalProgressPercent } from "@/shared/training/verseTotalProgress";
 import {
   getTrainingModeByShiftInProgressOrder,
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
@@ -395,6 +393,5 @@ export function computeTotalProgressPercent(
   rawMasteryLevel: number,
   repetitions: number
 ): number {
-  const total = Math.min(rawMasteryLevel + repetitions, TOTAL_REPEATS_AND_STAGE_MASTERY_MAX);
-  return Math.round((total / TOTAL_REPEATS_AND_STAGE_MASTERY_MAX) * 100);
+  return computeVerseTotalProgressPercent(rawMasteryLevel, repetitions);
 }

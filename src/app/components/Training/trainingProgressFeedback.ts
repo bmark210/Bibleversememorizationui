@@ -6,8 +6,14 @@ import {
   type SocialVerseProgressRow,
 } from "@/shared/social/xp";
 import type { VerseDifficultyLevel } from "@/shared/verses/difficulty";
-import { TRACK_LABELS } from "./anchor/anchorTrainingTrackMeta";
-import type { SkillTrack } from "./anchor/anchorTrainingTypes";
+const TRACK_LABELS: Record<SkillTrack, string> = {
+  reference: "Ссылка",
+  incipit: "Начало",
+  ending: "Конец",
+  context: "Контекст",
+};
+
+type SkillTrack = "reference" | "incipit" | "ending" | "context";
 
 type TrainingProgressPopupContext = "core" | "anchor";
 

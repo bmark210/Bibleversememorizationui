@@ -144,8 +144,35 @@ const DEV_TELEGRAM_SAFE_AREA: TelegramSafeAreaInsets = {
   right: 0,
 };
 
+const DEV_TELEGRAM_FULLSCREEN_SAFE_AREA: TelegramSafeAreaInsets = {
+  top: 54,
+  bottom: 34,
+  left: 0,
+  right: 0,
+};
+
+const DEV_TELEGRAM_FULLSCREEN_CONTENT_SAFE_AREA: TelegramSafeAreaInsets = {
+  top: 88,
+  bottom: 0,
+  left: 0,
+  right: 0,
+};
+
 let telegramDevMock: TelegramWebAppWithDevFlag | null = null;
 let emitTelegramDevMockEvent: ((eventType: string) => void) | null = null;
+
+/** Inline-проверка dev fullscreen emulation (без импорта, чтобы избежать circular deps) */
+function isDevFullscreenEmulationActive(): boolean {
+  if (process.env.NODE_ENV !== "development") return false;
+  const fromEnv = process.env.NEXT_PUBLIC_DEV_EMULATE_TELEGRAM_FULLSCREEN;
+  if (fromEnv === "1" || fromEnv === "true") return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("bible-memory.devTelegramFullscreen") === "1";
+  } catch {
+    return false;
+  }
+}
 
 declare global {
   interface Window {
@@ -199,20 +226,22 @@ function createTelegramDevMock(): TelegramWebAppWithDevFlag {
     },
   };
 
+  const startFullscreen = isDevFullscreenEmulationActive();
+
   const webApp: TelegramWebAppWithDevFlag = {
     __isDevMock: true,
     platform: "web",
     colorScheme: "light",
     version: "8.0",
-    isFullscreen: false,
+    isFullscreen: startFullscreen,
     isClosingConfirmationEnabled: false,
     isOrientationLocked: false,
     isVerticalSwipesEnabled: true,
     isExpanded: true,
     viewportHeight: window.innerHeight,
     viewportStableHeight: window.innerHeight,
-    safeAreaInset: cloneInsets(DEV_TELEGRAM_SAFE_AREA),
-    contentSafeAreaInset: cloneInsets(DEV_TELEGRAM_SAFE_AREA),
+    safeAreaInset: cloneInsets(startFullscreen ? DEV_TELEGRAM_FULLSCREEN_SAFE_AREA : DEV_TELEGRAM_SAFE_AREA),
+    contentSafeAreaInset: cloneInsets(startFullscreen ? DEV_TELEGRAM_FULLSCREEN_CONTENT_SAFE_AREA : DEV_TELEGRAM_SAFE_AREA),
     initDataUnsafe: {
       user: {
         id: process.env.NEXT_PUBLIC_DEV_TELEGRAM_ID?.trim() || "0",
@@ -230,12 +259,20 @@ function createTelegramDevMock(): TelegramWebAppWithDevFlag {
     },
     requestFullscreen: () => {
       webApp.isFullscreen = true;
+      webApp.safeAreaInset = cloneInsets(DEV_TELEGRAM_FULLSCREEN_SAFE_AREA);
+      webApp.contentSafeAreaInset = cloneInsets(DEV_TELEGRAM_FULLSCREEN_CONTENT_SAFE_AREA);
       emitEvent("fullscreenChanged");
+      emitEvent("safeAreaChanged");
+      emitEvent("contentSafeAreaChanged");
       updateViewport(webApp);
     },
     exitFullscreen: () => {
       webApp.isFullscreen = false;
+      webApp.safeAreaInset = cloneInsets(DEV_TELEGRAM_SAFE_AREA);
+      webApp.contentSafeAreaInset = cloneInsets(DEV_TELEGRAM_SAFE_AREA);
       emitEvent("fullscreenChanged");
+      emitEvent("safeAreaChanged");
+      emitEvent("contentSafeAreaChanged");
       updateViewport(webApp);
     },
     disableVerticalSwipes: () => {
@@ -312,7 +349,20 @@ function ensureTelegramWebApp(): TelegramWebApp | null {
   }
 
   const existing = window.Telegram?.WebApp as TelegramWebAppWithDevFlag | undefined;
-  if (existing) {
+
+  if (existing && !existing.__isDevMock) {
+    // В dev-режиме с эмуляцией fullscreen: если реальный WebApp не поддерживает
+    // fullscreen (старая версия), заменяем на dev mock.
+    if (
+      isTelegramDevMockEnabled() &&
+      isDevFullscreenEmulationActive() &&
+      typeof existing.requestFullscreen !== "function"
+    ) {
+      // Реальный WebApp без fullscreen — заменяем на mock
+    } else {
+      return existing;
+    }
+  } else if (existing) {
     return existing;
   }
 

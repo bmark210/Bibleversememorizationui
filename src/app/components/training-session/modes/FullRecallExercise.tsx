@@ -5,9 +5,9 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
+import { TrainingModeId } from '@/shared/training/modeEngine';
 import { similarityRatio } from '@/shared/utils/levenshtein';
 
-import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
@@ -15,9 +15,10 @@ import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { TrainingStageCorner } from './TrainingStageCorner';
+import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { FixedBottomPanel } from './FixedBottomPanel';
 import type { HintState } from './useHintState';
 import { tokenizeWords } from './wordUtils';
@@ -30,18 +31,20 @@ import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDif
 
 interface TypingModeProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const ratingStage = resolveTrainingRatingStage(verse.status);
@@ -199,22 +202,17 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
+      <TrainingExerciseModeHeader
+        modeId={trainingModeId}
+        verse={verse}
+        onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
+      />
       {totalMistakes > 0 && (
-        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {totalMistakes}
         </span>
       )}
-      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
-        <label className="text-xs text-center font-medium text-foreground/90">
-          Напечатайте стих по памяти
-        </label>
-        {onOpenTutorial && (
-          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
-            <Info className="h-4 w-4" />
-          </button>
-        )}
-      </div>
 
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
 
@@ -283,7 +281,13 @@ export function ModeFullRecallExercise({ verse, onRate, hintState, onProgressCha
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
               allowEasySkip={false}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

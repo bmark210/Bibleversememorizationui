@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { QuestionBadge } from "../AnchorTrainingCardUi";
+import type { TrainingFontSizes } from "@/app/components/training-session/modes/useTrainingFontSize";
 import type { TypeInputReadiness, TypeQuestion } from "../anchorTrainingTypes";
 import { cn } from "@/app/components/ui/utils";
 
@@ -26,6 +26,7 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 }
 
 type AnchorTypeModeProps = {
+  fontSizes: TrainingFontSizes;
   question: TypeQuestion;
   typedAnswer: string;
   typingAttempts: number;
@@ -39,6 +40,7 @@ type AnchorTypeModeProps = {
 };
 
 export function AnchorTypeMode({
+  fontSizes,
   question,
   typedAnswer,
   typingAttempts,
@@ -85,8 +87,21 @@ export function AnchorTypeMode({
     }, 140);
   };
 
+  const attemptsLeft = question.maxAttempts - typingAttempts;
+  const readinessPercent =
+    typeInputReadiness && !typeInputReadiness.canSubmit
+      ? Math.min(
+          100,
+          Math.round(
+            ((typedAnswer.trim().length) /
+              (typedAnswer.trim().length + typeInputReadiness.remainingChars)) *
+              100
+          )
+        )
+      : 100;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -97,6 +112,7 @@ export function AnchorTypeMode({
           <Input
             ref={inputRef as RefObject<HTMLInputElement>}
             value={typedAnswer}
+            style={{ fontSize: `${fontSizes.base}px` }}
             onChange={(event) =>
               onTypedAnswerChange(
                 isCompactTypeMode
@@ -117,9 +133,10 @@ export function AnchorTypeMode({
             }}
             placeholder={question.placeholder}
             className={cn(
-              "h-12 rounded-[1.45rem] border-border/60 bg-background/88 pr-[110px] text-base transition-colors focus:border-primary/35",
+              "h-12 rounded-xl border-border/40 bg-card/50 pr-[6.5rem] shadow-sm backdrop-blur-sm transition-all duration-200",
+              "focus-visible:border-primary/30 focus-visible:ring-1 focus-visible:ring-primary/15 focus-visible:bg-card/70",
               isCompactTypeMode &&
-                "font-mono uppercase tracking-[0.16em]"
+                "font-mono uppercase tracking-[0.18em] text-center pr-[6.5rem]"
             )}
             onFocus={handleInputFocus}
             autoCapitalize={isCompactTypeMode ? "characters" : "none"}
@@ -129,11 +146,17 @@ export function AnchorTypeMode({
             enterKeyHint="done"
             disabled={controlsLocked}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
             <Button
               type="submit"
               size="sm"
-              className="rounded-xl px-4 text-xs font-medium bg-primary/80 border border-border/60 text-primary-foreground"
+              className={cn(
+                "rounded-lg px-3.5 font-medium transition-all duration-200",
+                canSubmitTypeAnswer
+                  ? "bg-primary/90 text-primary-foreground shadow-sm"
+                  : "bg-muted/50 text-muted-foreground/60 border border-border/30"
+              )}
+              style={{ fontSize: `${submitBtnPx}px` }}
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
@@ -142,28 +165,52 @@ export function AnchorTypeMode({
         </div>
       </form>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <QuestionBadge className="border-border/60 bg-background/82 text-foreground/68">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[10px] font-semibold tabular-nums text-primary">
-            {Math.min(typingAttempts + 1, question.maxAttempts)}
+      {/* Attempts and readiness indicators */}
+      <div className="flex items-center justify-between gap-3 px-0.5">
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: question.maxAttempts }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-1 w-4 rounded-full transition-colors duration-200",
+                i < typingAttempts
+                  ? "bg-rose-400/50"
+                  : i === typingAttempts
+                    ? "bg-primary/40"
+                    : "bg-foreground/[0.08]"
+              )}
+            />
+          ))}
+          <span className="ml-1 text-[11px] text-muted-foreground/60 tabular-nums">
+            {attemptsLeft > 0
+              ? `${attemptsLeft} ${attemptsLeft === 1 ? "попытка" : "попытки"}`
+              : ""}
           </span>
-          из {question.maxAttempts} попыток
-        </QuestionBadge>
-        {typingAttempts > 0 && question.retryHint && (
-          <p className="text-xs font-medium text-foreground/72">
-            {question.retryHint}
-          </p>
-        )}
+        </div>
+
+        {typeInputReadiness &&
+          !typeInputReadiness.canSubmit &&
+          typeInputReadiness.remainingChars > 0 &&
+          typedAnswer.trim().length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="h-1 w-8 rounded-full bg-foreground/[0.06] overflow-hidden">
+                <div
+                  className="h-full bg-primary/30 rounded-full transition-all duration-300"
+                  style={{ width: `${readinessPercent}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+                ещё {typeInputReadiness.remainingChars}
+              </span>
+            </div>
+          )}
       </div>
 
-      {typeInputReadiness &&
-        !typeInputReadiness.canSubmit &&
-        typeInputReadiness.remainingChars > 0 && (
-          <p className="text-[11px] text-muted-foreground">
-            Введите ещё минимум {typeInputReadiness.remainingChars} симв. для
-            проверки.
-          </p>
-        )}
+      {typingAttempts > 0 && question.retryHint && (
+        <p className="text-xs text-foreground/55 px-0.5">
+          {question.retryHint}
+        </p>
+      )}
     </div>
   );
 }

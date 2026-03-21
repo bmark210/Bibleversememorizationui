@@ -9,10 +9,10 @@
     "build": "node scripts/clean-next.mjs && next build",
     "start": "next start",
     "lint": "eslint src/ --max-warnings 0",
-    "generate-api": "tsx scripts/generate-openapi.ts && openapi-typescript-codegen --input openapi.json --output src/api --client axios && openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
+    "generate-api": "tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios && npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
     "generate-api:fetch": "tsx scripts/generate-openapi.ts",
-    "generate-api:codegen": "openapi-typescript-codegen --input openapi.json --output src/api --client axios",
-    "generate-api:types": "openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
+    "generate-api:codegen": "npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
+    "generate-api:types": "npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
     "telegram:webhook": "tsx scripts/register-telegram-webhook.ts",
     "telegram:webhook:dev": "tsx scripts/register-telegram-webhook_forDev.ts"
   },

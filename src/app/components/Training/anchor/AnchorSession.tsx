@@ -1,35 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { AnchorTrainingTrack } from "../types";
+import {
+  AnchorTrainingSessionRoot,
+  type AnchorTrainingSessionRootProps,
+} from "./AnchorTrainingSession.lazy";
 
-const AnchorTrainingSession = dynamic(
-  () =>
-    import("@/app/components/Training/anchor/AnchorTrainingSession").then(
-      (m) => m.AnchorTrainingSession
-    ),
-  { loading: () => <div className="min-h-[60vh]" /> }
-);
+export type AnchorSessionProps = AnchorTrainingSessionRootProps;
 
-interface AnchorSessionProps {
-  telegramId: string | null;
-  initialTrack: AnchorTrainingTrack;
-  onSessionCommitted?: () => void;
-  onClose: () => void;
-}
-
-export function AnchorSession({
-  telegramId,
-  initialTrack,
-  onSessionCommitted,
-  onClose,
-}: AnchorSessionProps) {
-  return (
-    <AnchorTrainingSession
-      telegramId={telegramId}
-      initialTrack={initialTrack}
-      onSessionCommitted={onSessionCommitted}
-      onClose={onClose}
-    />
-  );
+/** Fullscreen chrome (верхний бар как в Layout) рендерится внутри AnchorTrainingSession. */
+export function AnchorSession(props: AnchorSessionProps) {
+  return <AnchorTrainingSessionRoot {...props} />;
 }

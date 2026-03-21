@@ -49,13 +49,13 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.FeedbackPageResponse"
+              "$ref": "#/definitions/domain.FeedbackPageResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -79,7 +79,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.CreateFeedbackInput"
+              "$ref": "#/definitions/domain.CreateFeedbackInput"
             }
           }
         ],
@@ -87,19 +87,19 @@
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.Feedback"
+              "$ref": "#/definitions/domain.Feedback"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -121,14 +121,14 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/bible-memory-db_internal_domain.Tag"
+                "$ref": "#/definitions/domain.Tag"
               }
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -164,7 +164,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.CreateTagRequest"
+              "$ref": "#/definitions/api.CreateTagRequest"
             }
           }
         ],
@@ -172,25 +172,25 @@
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.Tag"
+              "$ref": "#/definitions/domain.Tag"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "403": {
             "description": "Forbidden",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -232,37 +232,37 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.BooleanOKResponse"
+              "$ref": "#/definitions/api.BooleanOKResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "403": {
             "description": "Forbidden",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "409": {
             "description": "Conflict",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -305,7 +305,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.UpdateTagRequest"
+              "$ref": "#/definitions/api.UpdateTagRequest"
             }
           }
         ],
@@ -313,31 +313,31 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.Tag"
+              "$ref": "#/definitions/domain.Tag"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "403": {
             "description": "Forbidden",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -363,7 +363,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UpsertUserInput"
+              "$ref": "#/definitions/domain.UpsertUserInput"
             }
           }
         ],
@@ -371,19 +371,19 @@
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.User"
+              "$ref": "#/definitions/domain.User"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -418,13 +418,13 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserLeaderboardResponse"
+              "$ref": "#/definitions/domain.UserLeaderboardResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -450,7 +450,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UpsertUserInput"
+              "$ref": "#/definitions/domain.UpsertUserInput"
             }
           }
         ],
@@ -458,25 +458,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.User"
+              "$ref": "#/definitions/domain.User"
             }
           },
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.User"
+              "$ref": "#/definitions/domain.User"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -505,19 +505,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserWithVerses"
+              "$ref": "#/definitions/domain.UserWithVerses"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -566,19 +566,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.FriendPlayersPageResponse"
+              "$ref": "#/definitions/domain.FriendPlayersPageResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -609,7 +609,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.AddFriendRequest"
+              "$ref": "#/definitions/api.AddFriendRequest"
             }
           }
         ],
@@ -617,19 +617,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ActionStatusResponse"
+              "$ref": "#/definitions/api.ActionStatusResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -655,7 +655,7 @@
           },
           {
             "type": "integer",
-            "default": 20,
+            "default": 6,
             "description": "Max items",
             "name": "limit",
             "in": "query"
@@ -665,19 +665,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.DashboardFriendsActivityResponse"
+              "$ref": "#/definitions/domain.DashboardFriendsActivityResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -713,19 +719,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ActionStatusResponse"
+              "$ref": "#/definitions/api.ActionStatusResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -774,19 +780,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.FriendPlayersPageResponse"
+              "$ref": "#/definitions/domain.FriendPlayersPageResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -822,25 +828,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.PlayerProfile"
+              "$ref": "#/definitions/domain.PlayerProfile"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -869,19 +875,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserDashboardStats"
+              "$ref": "#/definitions/domain.UserDashboardStats"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -941,25 +947,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.SocialPlayersPageResponse"
+              "$ref": "#/definitions/domain.SocialPlayersPageResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -995,21 +1001,58 @@
             "in": "query"
           },
           {
+            "enum": [
+              "createdAt",
+              "updatedAt",
+              "bible",
+              "popularity"
+            ],
             "type": "string",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
           },
           {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string",
             "description": "Sort direction",
             "name": "order",
             "in": "query"
           },
           {
+            "enum": [
+              "catalog",
+              "friends",
+              "my",
+              "learning",
+              "review",
+              "mastered",
+              "stopped"
+            ],
             "type": "string",
-            "description": "Search filter",
+            "description": "Semantic list filter",
             "name": "filter",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "Bible book number filter",
+            "name": "bookId",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Search in verse text or reference",
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Comma-separated tag slugs",
+            "name": "tagSlugs",
             "in": "query"
           },
           {
@@ -1031,24 +1074,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserVersesPageResponse"
+              "$ref": "#/definitions/domain.UserVersesPageResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
       },
       "post": {
+        "description": "If no User row exists for telegramId yet, creates a minimal user (same defaults as user upsert) so the verse can be linked. Body must include externalVerseId; other fields are optional.",
         "consumes": [
           "application/json"
         ],
@@ -1058,7 +1102,7 @@
         "tags": [
           "user-verses"
         ],
-        "summary": "Create or update verse progress",
+        "summary": "Add verse to My verses or update progress",
         "operationId": "upsertUserVerse",
         "parameters": [
           {
@@ -1074,7 +1118,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.UpsertUserVerseRequest"
+              "$ref": "#/definitions/api.UpsertUserVerseRequest"
             }
           }
         ],
@@ -1082,19 +1126,19 @@
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+              "$ref": "#/definitions/domain.UserVerse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1130,19 +1174,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ReferenceTrainerResponse"
+              "$ref": "#/definitions/api.ReferenceTrainerResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1175,7 +1219,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.ReferenceTrainerSessionInput"
+              "$ref": "#/definitions/domain.ReferenceTrainerSessionInput"
             }
           }
         ],
@@ -1183,19 +1227,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ReferenceTrainerSessionResponse"
+              "$ref": "#/definitions/api.ReferenceTrainerSessionResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1203,14 +1247,15 @@
     },
     "/api/users/{telegramId}/verses/review": {
       "get": {
+        "description": "Same selection as GET /api/users/{telegramId}/verses?filter=review; returns a flat array (legacy OpenAPI contract).",
         "produces": [
           "application/json"
         ],
         "tags": [
           "user-verses"
         ],
-        "summary": "List verses ready for review",
-        "operationId": "listReviewVerses",
+        "summary": "List verses in review stage",
+        "operationId": "listUserVersesReview",
         "parameters": [
           {
             "type": "string",
@@ -1220,12 +1265,20 @@
             "required": true
           },
           {
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ],
             "type": "string",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
           },
           {
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string",
             "description": "Sort direction",
             "name": "order",
@@ -1238,20 +1291,20 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+                "$ref": "#/definitions/domain.VerseListItem"
               }
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1287,19 +1340,19 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.ActionStatusResponse"
+              "$ref": "#/definitions/domain.DeleteUserVerseResult"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1337,7 +1390,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.PatchUserVerseRequest"
+              "$ref": "#/definitions/api.PatchUserVerseRequest"
             }
           }
         ],
@@ -1345,19 +1398,86 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+              "$ref": "#/definitions/domain.UserVerse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{telegramId}/verses/{externalVerseId}/training-step": {
+      "post": {
+        "description": "Computes mastery, repetitions, next review, and next training mode from rating (SSOT).",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user-verses"
+        ],
+        "summary": "Apply one training rating (server-side progress)",
+        "operationId": "postUserVerseTrainingStep",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Telegram ID",
+            "name": "telegramId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "External verse ID",
+            "name": "externalVerseId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Training step payload",
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.TrainingStepHTTPRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/domain.TrainingStepHTTPResponse"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/api.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/api.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1365,6 +1485,7 @@
     },
     "/api/verses": {
       "get": {
+        "description": "Semantically same as GET /api/users/{telegramId}/verses with filter=catalog; response shape is catalog-only (items + totalCount).",
         "produces": [
           "application/json"
         ],
@@ -1393,6 +1514,12 @@
             "in": "query"
           },
           {
+            "type": "integer",
+            "description": "Bible book number filter",
+            "name": "bookId",
+            "in": "query"
+          },
+          {
             "type": "string",
             "description": "Comma-separated tag slugs",
             "name": "tagSlugs",
@@ -1400,7 +1527,7 @@
           },
           {
             "type": "string",
-            "default": "popularity",
+            "default": "createdAt",
             "description": "Sort field",
             "name": "orderBy",
             "in": "query"
@@ -1431,13 +1558,13 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.UserVersesPageResponse"
+              "$ref": "#/definitions/domain.CatalogVersesPageResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1478,31 +1605,31 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.VerseAdminSummary"
+              "$ref": "#/definitions/domain.VerseAdminSummary"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "403": {
             "description": "Forbidden",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1541,37 +1668,37 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.CatalogVerseDeleteResponse"
+              "$ref": "#/definitions/domain.CatalogVerseDeleteResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "403": {
             "description": "Forbidden",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "409": {
             "description": "Conflict",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1602,14 +1729,14 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/bible-memory-db_internal_domain.Tag"
+                "$ref": "#/definitions/domain.Tag"
               }
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1640,7 +1767,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.VerseTagMutationRequest"
+              "$ref": "#/definitions/api.VerseTagMutationRequest"
             }
           }
         ],
@@ -1648,25 +1775,25 @@
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.VerseTagLinkResponse"
+              "$ref": "#/definitions/domain.VerseTagLinkResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1697,7 +1824,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/internal_api.VerseTagMutationRequest"
+              "$ref": "#/definitions/api.VerseTagMutationRequest"
             }
           }
         ],
@@ -1705,25 +1832,25 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.BooleanOKResponse"
+              "$ref": "#/definitions/api.BooleanOKResponse"
             }
           },
           "400": {
             "description": "Bad Request",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "404": {
             "description": "Not Found",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           },
           "500": {
             "description": "Internal Server Error",
             "schema": {
-              "$ref": "#/definitions/internal_api.ErrorResponse"
+              "$ref": "#/definitions/api.ErrorResponse"
             }
           }
         }
@@ -1742,7 +1869,7 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/internal_api.HealthResponse"
+              "$ref": "#/definitions/api.HealthResponse"
             }
           }
         }
@@ -1750,7 +1877,154 @@
     }
   },
   "definitions": {
-    "bible-memory-db_internal_domain.CatalogVerseDeleteResponse": {
+    "api.ActionStatusResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "api.AddFriendRequest": {
+      "type": "object",
+      "properties": {
+        "targetTelegramId": {
+          "type": "string"
+        }
+      }
+    },
+    "api.BooleanOKResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "api.CreateTagRequest": {
+      "type": "object",
+      "properties": {
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "api.ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "api.HealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "api.PatchUserVerseRequest": {
+      "type": "object",
+      "properties": {
+        "lastReviewedAt": {
+          "type": "string"
+        },
+        "lastTrainingModeId": {
+          "type": "integer"
+        },
+        "masteryLevel": {
+          "type": "integer"
+        },
+        "nextReviewAt": {
+          "type": "string"
+        },
+        "repetitions": {
+          "type": "integer"
+        },
+        "reviewLapseStreak": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "api.ReferenceTrainerResponse": {
+      "type": "object",
+      "properties": {
+        "minRequired": {
+          "type": "integer"
+        },
+        "totalCount": {
+          "type": "integer"
+        },
+        "verses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.UserVerse"
+          }
+        }
+      }
+    },
+    "api.ReferenceTrainerSessionResponse": {
+      "type": "object",
+      "properties": {
+        "updated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.UserVerse"
+          }
+        }
+      }
+    },
+    "api.UpdateTagRequest": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "api.UpsertUserVerseRequest": {
+      "type": "object",
+      "properties": {
+        "externalVerseId": {
+          "type": "string"
+        },
+        "lastReviewedAt": {
+          "type": "string"
+        },
+        "lastTrainingModeId": {
+          "type": "integer"
+        },
+        "masteryLevel": {
+          "type": "integer"
+        },
+        "nextReviewAt": {
+          "type": "string"
+        },
+        "repetitions": {
+          "type": "integer"
+        }
+      }
+    },
+    "api.VerseTagMutationRequest": {
+      "type": "object",
+      "properties": {
+        "tagId": {
+          "type": "string"
+        },
+        "tagSlug": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.CatalogVerseDeleteResponse": {
       "type": "object",
       "properties": {
         "deletedExternalVerseId": {
@@ -1761,7 +2035,21 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.CreateFeedbackInput": {
+    "domain.CatalogVersesPageResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.VerseListItem"
+          }
+        },
+        "totalCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "domain.CreateFeedbackInput": {
       "type": "object",
       "required": [
         "telegramId",
@@ -1778,41 +2066,87 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.DashboardFriendsActivityEntry": {
+    "domain.DashboardFriendActivityEntry": {
       "type": "object",
       "properties": {
-        "activityType": {
-          "type": "string"
-        },
-        "at": {
-          "type": "string"
-        },
         "avatarUrl": {
           "type": "string"
+        },
+        "dailyStreak": {
+          "type": "integer"
+        },
+        "lastActiveAt": {
+          "type": "string"
+        },
+        "masteredVerses": {
+          "type": "integer"
         },
         "name": {
           "type": "string"
         },
-        "nickname": {
-          "type": "string"
-        },
         "telegramId": {
           "type": "string"
+        },
+        "weeklyRepetitions": {
+          "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.DashboardFriendsActivityResponse": {
+    "domain.DashboardFriendsActivityResponse": {
       "type": "object",
       "properties": {
-        "items": {
+        "entries": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.DashboardFriendsActivityEntry"
+            "$ref": "#/definitions/domain.DashboardFriendActivityEntry"
           }
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/definitions/domain.DashboardFriendsActivitySummary"
         }
       }
     },
-    "bible-memory-db_internal_domain.Feedback": {
+    "domain.DashboardFriendsActivitySummary": {
+      "type": "object",
+      "properties": {
+        "activeLast7Days": {
+          "type": "integer"
+        },
+        "avgStreakDays": {
+          "type": "integer"
+        },
+        "avgWeeklyRepetitions": {
+          "type": "integer"
+        },
+        "avgXp": {
+          "type": "integer"
+        },
+        "friendsTotal": {
+          "type": "integer"
+        }
+      }
+    },
+    "domain.DeleteUserVerseResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "xp": {
+          "type": "integer"
+        },
+        "xpDelta": {
+          "type": "integer"
+        }
+      }
+    },
+    "domain.Feedback": {
       "type": "object",
       "properties": {
         "createdAt": {
@@ -1832,13 +2166,13 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.FeedbackPageResponse": {
+    "domain.FeedbackPageResponse": {
       "type": "object",
       "properties": {
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.Feedback"
+            "$ref": "#/definitions/domain.Feedback"
           }
         },
         "limit": {
@@ -1852,7 +2186,7 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.FriendPlayerListItem": {
+    "domain.FriendPlayerListItem": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -1875,13 +2209,13 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.FriendPlayersPageResponse": {
+    "domain.FriendPlayersPageResponse": {
       "type": "object",
       "properties": {
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.FriendPlayerListItem"
+            "$ref": "#/definitions/domain.FriendPlayerListItem"
           }
         },
         "limit": {
@@ -1895,7 +2229,7 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.PlayerProfile": {
+    "domain.PlayerProfile": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -1939,7 +2273,7 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.ReferenceTrainerSessionInput": {
+    "domain.ReferenceTrainerSessionInput": {
       "type": "object",
       "properties": {
         "sessionTrack": {
@@ -1948,12 +2282,12 @@
         "updates": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.ReferenceTrainerSessionUpdate"
+            "$ref": "#/definitions/domain.ReferenceTrainerSessionUpdate"
           }
         }
       }
     },
-    "bible-memory-db_internal_domain.ReferenceTrainerSessionUpdate": {
+    "domain.ReferenceTrainerSessionUpdate": {
       "type": "object",
       "properties": {
         "externalVerseId": {
@@ -1969,7 +2303,7 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.SocialPlayerListItem": {
+    "domain.SocialPlayerListItem": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -2001,13 +2335,13 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.SocialPlayersPageResponse": {
+    "domain.SocialPlayersPageResponse": {
       "type": "object",
       "properties": {
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.SocialPlayerListItem"
+            "$ref": "#/definitions/domain.SocialPlayerListItem"
           }
         },
         "limit": {
@@ -2021,7 +2355,7 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.Tag": {
+    "domain.Tag": {
       "type": "object",
       "properties": {
         "createdAt": {
@@ -2038,7 +2372,42 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.Translation": {
+    "domain.TrainingStepHTTPRequest": {
+      "type": "object",
+      "properties": {
+        "isLearningVerse": {
+          "type": "boolean"
+        },
+        "phase": {
+          "description": "\"learning\" | \"review\"",
+          "type": "string"
+        },
+        "rating": {
+          "type": "integer"
+        },
+        "trainingModeId": {
+          "type": "integer"
+        }
+      }
+    },
+    "domain.TrainingStepHTTPResponse": {
+      "type": "object",
+      "properties": {
+        "graduatedToReview": {
+          "type": "boolean"
+        },
+        "nextTrainingModeId": {
+          "type": "integer"
+        },
+        "reviewWasSuccessful": {
+          "type": "boolean"
+        },
+        "userVerse": {
+          "$ref": "#/definitions/domain.UserVerse"
+        }
+      }
+    },
+    "domain.Translation": {
       "type": "string",
       "enum": [
         "NRT",
@@ -2053,7 +2422,7 @@
         "TranslationBTI"
       ]
     },
-    "bible-memory-db_internal_domain.UpsertUserInput": {
+    "domain.UpsertUserInput": {
       "type": "object",
       "required": [
         "telegramId"
@@ -2072,11 +2441,11 @@
           "type": "string"
         },
         "translation": {
-          "$ref": "#/definitions/bible-memory-db_internal_domain.Translation"
+          "$ref": "#/definitions/domain.Translation"
         }
       }
     },
-    "bible-memory-db_internal_domain.User": {
+    "domain.User": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -2101,17 +2470,32 @@
           "type": "string"
         },
         "translation": {
-          "$ref": "#/definitions/bible-memory-db_internal_domain.Translation"
+          "$ref": "#/definitions/domain.Translation"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserDashboardStats": {
+    "domain.UserDashboardStats": {
       "type": "object",
       "properties": {
         "dailyStreak": {
           "type": "integer"
         },
+        "dueReviewVerses": {
+          "type": "integer"
+        },
+        "learningVerses": {
+          "type": "integer"
+        },
         "masteredCount": {
+          "type": "integer"
+        },
+        "reviewVerses": {
+          "type": "integer"
+        },
+        "stoppedVerses": {
           "type": "integer"
         },
         "telegramId": {
@@ -2119,10 +2503,16 @@
         },
         "versesCount": {
           "type": "integer"
+        },
+        "waitingReviewVerses": {
+          "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserLeaderboardCurrentUser": {
+    "domain.UserLeaderboardCurrentUser": {
       "type": "object",
       "properties": {
         "inTop": {
@@ -2133,10 +2523,13 @@
         },
         "versesCount": {
           "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserLeaderboardEntry": {
+    "domain.UserLeaderboardEntry": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -2159,24 +2552,30 @@
         },
         "versesCount": {
           "type": "integer"
+        },
+        "xp": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserLeaderboardResponse": {
+    "domain.UserLeaderboardResponse": {
       "type": "object",
       "properties": {
         "currentUser": {
-          "$ref": "#/definitions/bible-memory-db_internal_domain.UserLeaderboardCurrentUser"
+          "$ref": "#/definitions/domain.UserLeaderboardCurrentUser"
         },
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.UserLeaderboardEntry"
+            "$ref": "#/definitions/domain.UserLeaderboardEntry"
           }
+        },
+        "totalParticipants": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserVerse": {
+    "domain.UserVerse": {
       "type": "object",
       "properties": {
         "contextScore": {
@@ -2184,6 +2583,9 @@
         },
         "createdAt": {
           "type": "string"
+        },
+        "flow": {
+          "$ref": "#/definitions/domain.VerseFlow"
         },
         "id": {
           "type": "integer"
@@ -2213,7 +2615,7 @@
           "type": "integer"
         },
         "status": {
-          "$ref": "#/definitions/bible-memory-db_internal_domain.VerseStatus"
+          "$ref": "#/definitions/domain.VerseStatus"
         },
         "telegramId": {
           "type": "string"
@@ -2225,7 +2627,7 @@
           "description": "Joined",
           "allOf": [
             {
-              "$ref": "#/definitions/bible-memory-db_internal_domain.Verse"
+              "$ref": "#/definitions/domain.Verse"
             }
           ]
         },
@@ -2234,13 +2636,13 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.UserVersesPageResponse": {
+    "domain.UserVersesPageResponse": {
       "type": "object",
       "properties": {
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
+            "$ref": "#/definitions/domain.VerseListItem"
           }
         },
         "limit": {
@@ -2251,10 +2653,13 @@
         },
         "total": {
           "type": "integer"
+        },
+        "totalCount": {
+          "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.UserWithVerses": {
+    "domain.UserWithVerses": {
       "type": "object",
       "properties": {
         "avatarUrl": {
@@ -2279,14 +2684,17 @@
           "type": "string"
         },
         "translation": {
-          "$ref": "#/definitions/bible-memory-db_internal_domain.Translation"
+          "$ref": "#/definitions/domain.Translation"
         },
         "versesCount": {
+          "type": "integer"
+        },
+        "xp": {
           "type": "integer"
         }
       }
     },
-    "bible-memory-db_internal_domain.Verse": {
+    "domain.Verse": {
       "type": "object",
       "properties": {
         "createdAt": {
@@ -2303,7 +2711,26 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.VerseAdminSummary": {
+    "domain.VerseAction": {
+      "type": "string",
+      "enum": [
+        "add_to_my",
+        "start_learning",
+        "train",
+        "pause",
+        "resume",
+        "anchor"
+      ],
+      "x-enum-varnames": [
+        "VerseActionAddToMy",
+        "VerseActionStartLearning",
+        "VerseActionTrain",
+        "VerseActionPause",
+        "VerseActionResume",
+        "VerseActionAnchor"
+      ]
+    },
+    "domain.VerseAdminSummary": {
       "type": "object",
       "properties": {
         "canDelete": {
@@ -2320,7 +2747,271 @@
         }
       }
     },
-    "bible-memory-db_internal_domain.VerseStatus": {
+    "domain.VerseDifficultyLevel": {
+      "type": "string",
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD",
+        "EXPERT"
+      ],
+      "x-enum-varnames": [
+        "VerseDifficultyEasy",
+        "VerseDifficultyMedium",
+        "VerseDifficultyHard",
+        "VerseDifficultyExpert"
+      ]
+    },
+    "domain.VerseDisplayStatus": {
+      "type": "string",
+      "enum": [
+        "MY",
+        "LEARNING",
+        "STOPPED",
+        "REVIEW",
+        "MASTERED",
+        "CATALOG"
+      ],
+      "x-enum-varnames": [
+        "VerseDisplayMy",
+        "VerseDisplayLearning",
+        "VerseDisplayStopped",
+        "VerseDisplayReview",
+        "VerseDisplayMastered",
+        "VerseDisplayCatalog"
+      ]
+    },
+    "domain.VerseFlow": {
+      "type": "object",
+      "properties": {
+        "allowedActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.VerseAction"
+          }
+        },
+        "availability": {
+          "$ref": "#/definitions/domain.VerseFlowAvailability"
+        },
+        "availableAt": {
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/definitions/domain.VerseFlowCode"
+        },
+        "group": {
+          "$ref": "#/definitions/domain.VerseFlowGroup"
+        },
+        "phase": {
+          "$ref": "#/definitions/domain.VerseFlowPhase"
+        },
+        "progressPercent": {
+          "type": "integer"
+        },
+        "remainingLearnings": {
+          "type": "integer"
+        },
+        "remainingReviews": {
+          "type": "integer"
+        }
+      }
+    },
+    "domain.VerseFlowAvailability": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "WAITING",
+        "PAUSED",
+        "NONE"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowAvailabilityReady",
+        "VerseFlowAvailabilityWaiting",
+        "VerseFlowAvailabilityPaused",
+        "VerseFlowAvailabilityNone"
+      ]
+    },
+    "domain.VerseFlowCode": {
+      "type": "string",
+      "enum": [
+        "CATALOG",
+        "MY",
+        "LEARNING",
+        "REVIEW_DUE",
+        "REVIEW_WAITING",
+        "MASTERED",
+        "PAUSED_LEARNING",
+        "PAUSED_REVIEW",
+        "PAUSED_MASTERED"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowCatalog",
+        "VerseFlowMy",
+        "VerseFlowLearning",
+        "VerseFlowReviewDue",
+        "VerseFlowReviewWaiting",
+        "VerseFlowMastered",
+        "VerseFlowPausedLearning",
+        "VerseFlowPausedReview",
+        "VerseFlowPausedMastered"
+      ]
+    },
+    "domain.VerseFlowGroup": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "library",
+        "active",
+        "paused",
+        "complete"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowGroupCatalog",
+        "VerseFlowGroupLibrary",
+        "VerseFlowGroupActive",
+        "VerseFlowGroupPaused",
+        "VerseFlowGroupComplete"
+      ]
+    },
+    "domain.VerseFlowPhase": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "my",
+        "learning",
+        "review",
+        "mastered"
+      ],
+      "x-enum-varnames": [
+        "VerseFlowPhaseCatalog",
+        "VerseFlowPhaseMy",
+        "VerseFlowPhaseLearning",
+        "VerseFlowPhaseReview",
+        "VerseFlowPhaseMastered"
+      ]
+    },
+    "domain.VerseListItem": {
+      "type": "object",
+      "properties": {
+        "contextPromptReference": {
+          "type": "string"
+        },
+        "contextPromptText": {
+          "type": "string"
+        },
+        "contextScore": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "difficultyLevel": {
+          "$ref": "#/definitions/domain.VerseDifficultyLevel"
+        },
+        "externalVerseId": {
+          "type": "string"
+        },
+        "flow": {
+          "$ref": "#/definitions/domain.VerseFlow"
+        },
+        "incipitScore": {
+          "type": "integer"
+        },
+        "lastReviewedAt": {
+          "type": "string"
+        },
+        "lastTrainingModeId": {
+          "type": "integer"
+        },
+        "masteryLevel": {
+          "type": "integer"
+        },
+        "nextReviewAt": {
+          "type": "string"
+        },
+        "popularityPreviewUsers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.VersePopularityPreviewUser"
+          }
+        },
+        "popularityScope": {
+          "$ref": "#/definitions/domain.VersePopularityScope"
+        },
+        "popularityValue": {
+          "type": "integer"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "referenceScore": {
+          "type": "integer"
+        },
+        "repetitions": {
+          "type": "integer"
+        },
+        "reviewLapseStreak": {
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/definitions/domain.VerseDisplayStatus"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.VerseListTag"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.VerseListTag": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.VersePopularityPreviewUser": {
+      "type": "object",
+      "properties": {
+        "avatarUrl": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "telegramId": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.VersePopularityScope": {
+      "type": "string",
+      "enum": [
+        "friends",
+        "players",
+        "self"
+      ],
+      "x-enum-varnames": [
+        "VersePopularityFriends",
+        "VersePopularityPlayers",
+        "VersePopularitySelf"
+      ]
+    },
+    "domain.VerseStatus": {
       "type": "string",
       "enum": [
         "MY",
@@ -2333,7 +3024,7 @@
         "StatusStopped"
       ]
     },
-    "bible-memory-db_internal_domain.VerseTagLinkResponse": {
+    "domain.VerseTagLinkResponse": {
       "type": "object",
       "properties": {
         "externalVerseId": {
@@ -2343,153 +3034,6 @@
           "type": "string"
         },
         "tagId": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.ActionStatusResponse": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.AddFriendRequest": {
-      "type": "object",
-      "properties": {
-        "targetTelegramId": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.BooleanOKResponse": {
-      "type": "object",
-      "properties": {
-        "ok": {
-          "type": "boolean"
-        }
-      }
-    },
-    "internal_api.CreateTagRequest": {
-      "type": "object",
-      "properties": {
-        "slug": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.ErrorResponse": {
-      "type": "object",
-      "properties": {
-        "error": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.HealthResponse": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.PatchUserVerseRequest": {
-      "type": "object",
-      "properties": {
-        "lastReviewedAt": {
-          "type": "string"
-        },
-        "lastTrainingModeId": {
-          "type": "integer"
-        },
-        "masteryLevel": {
-          "type": "integer"
-        },
-        "nextReviewAt": {
-          "type": "string"
-        },
-        "repetitions": {
-          "type": "integer"
-        },
-        "reviewLapseStreak": {
-          "type": "integer"
-        },
-        "status": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.ReferenceTrainerResponse": {
-      "type": "object",
-      "properties": {
-        "minRequired": {
-          "type": "integer"
-        },
-        "totalCount": {
-          "type": "integer"
-        },
-        "verses": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
-          }
-        }
-      }
-    },
-    "internal_api.ReferenceTrainerSessionResponse": {
-      "type": "object",
-      "properties": {
-        "updated": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/bible-memory-db_internal_domain.UserVerse"
-          }
-        }
-      }
-    },
-    "internal_api.UpdateTagRequest": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        }
-      }
-    },
-    "internal_api.UpsertUserVerseRequest": {
-      "type": "object",
-      "properties": {
-        "externalVerseId": {
-          "type": "string"
-        },
-        "lastReviewedAt": {
-          "type": "string"
-        },
-        "lastTrainingModeId": {
-          "type": "integer"
-        },
-        "masteryLevel": {
-          "type": "integer"
-        },
-        "nextReviewAt": {
-          "type": "string"
-        },
-        "repetitions": {
-          "type": "integer"
-        }
-      }
-    },
-    "internal_api.VerseTagMutationRequest": {
-      "type": "object",
-      "properties": {
-        "tagId": {
-          "type": "string"
-        },
-        "tagSlug": {
           "type": "string"
         }
       }

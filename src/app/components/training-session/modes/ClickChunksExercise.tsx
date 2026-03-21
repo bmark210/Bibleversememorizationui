@@ -6,15 +6,15 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
-import { Info } from 'lucide-react';
 import { Button } from "@/app/components/ui/button";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingRatingFooter } from './TrainingRatingFooter';
 import {
   TrainingRatingButtons,
+  resolveTrainingRatingExcludeForget,
   resolveTrainingRatingStage,
 } from './TrainingRatingButtons';
-import { TrainingStageCorner } from './TrainingStageCorner';
+import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { Verse } from '@/app/App';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -24,11 +24,13 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 
 interface ClickChunksExerciseProps {
   verse: Verse;
+  trainingModeId: TrainingModeId;
   onRate: (rating: 0 | 1 | 2 | 3) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
 }
 
 interface ChunkToken {
@@ -113,7 +115,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: ClickChunksExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const ratingStage = resolveTrainingRatingStage(verse.status);
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
@@ -265,22 +267,17 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
       animate={{ opacity: 1, y: 0 }}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
     >
-      <TrainingStageCorner stage={ratingStage} progressPercent={verse.masteryLevel} />
+      <TrainingExerciseModeHeader
+        modeId={trainingModeId}
+        verse={verse}
+        onOpenHelp={onOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
+      />
       {mistakesSinceReset > 0 && (
-        <span className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
+        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
           {maxMistakes - mistakesSinceReset}
         </span>
       )}
-      <div className="shrink-0 text-xs sm:text-xs flex items-center justify-center gap-1.5">
-        <label className="text-xs text-center font-medium text-foreground/90">
-          Соберите стих по фрагментам
-        </label>
-        {onOpenTutorial && (
-          <button type="button" onClick={onOpenTutorial} className="inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground/80 transition-colors" aria-label="Подробнее о режиме">
-            <Info className="h-4 w-4" />
-          </button>
-        )}
-      </div>
 
       {/* ── Top half: assembled sequence ── */}
       <div className="mt-3 max-h-[38%] min-h-0 shrink overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
@@ -349,7 +346,14 @@ export function ModeClickChunksExercise({ verse, onRate, hintState, onProgressCh
               mode="default"
               onRate={onRate}
               ratingPolicy={hintState?.ratingPolicy}
-              excludeForget={isLateStageReview ? true : (ratingStage === 'learning' ? false : !surrendered)}
+              allowEasySkip={false}
+              excludeForget={resolveTrainingRatingExcludeForget({
+                isLateStageReview,
+                ratingStage,
+                trainingModeId,
+                surrendered,
+              })}
+              currentTrainingModeId={trainingModeId}
               lateStageReview={isLateStageReview}
               disabled={false}
             />

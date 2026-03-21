@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { UserVerse } from "@/api/models/UserVerse";
+import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { computeDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
 import {
@@ -16,8 +16,8 @@ import {
 import type { ModeId, TrainingVerseState } from "../types";
 
 /** PATCH-ответ и расширения бэкенда могут отдавать поля текста/ссылки вне схемы OpenAPI. */
-type PersistedTrainingVerse =
-  | (Partial<UserVerse> & {
+export type PersistedTrainingVerse =
+  | (Partial<domain_UserVerse> & {
       text?: string | null;
       reference?: string | null;
       tags?: Verse["tags"];

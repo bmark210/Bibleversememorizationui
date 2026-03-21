@@ -37,7 +37,7 @@ import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";
 import { TagsService } from "@/api/services/TagsService";
 import { listVerseTags, postTag } from "@/api/services/tagExtensions";
-import type { Tag } from "@/api/models/Tag";
+import type { domain_Tag } from "@/api/models/domain_Tag";
 import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
 import { publicApiUrl } from "@/lib/publicApiBase";
@@ -110,7 +110,7 @@ const TAG_TITLE_COLLATOR = new Intl.Collator(["ru", "en"], {
   numeric: true,
 });
 
-const sortTagsByTitle = (tags: Tag[]) =>
+const sortTagsByTitle = (tags: domain_Tag[]) =>
   [...tags].sort((a, b) =>
     TAG_TITLE_COLLATOR.compare((a.title ?? "").trim(), (b.title ?? "").trim())
   );
@@ -170,7 +170,7 @@ export function AddVerseDialog({
   const [submitting, setSubmitting] = useState(false);
 
   // ── Tags ─────────────────────────────────────────────────────────────────────
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [allTags, setAllTags] = useState<domain_Tag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(new Set());
   const [createTagMode, setCreateTagMode] = useState(false);
@@ -404,7 +404,7 @@ export function AddVerseDialog({
     }
   }, []);
 
-  const beginTagRename = useCallback((tag: Tag) => {
+  const beginTagRename = useCallback((tag: domain_Tag) => {
     if (!isAdmin) return;
     if (!tag.id) return;
     setEditingTagId(tag.id);
@@ -557,7 +557,7 @@ export function AddVerseDialog({
     }
   };
 
-  const handleDeleteTag = async (tag: Tag) => {
+  const handleDeleteTag = async (tag: domain_Tag) => {
     if (!isAdmin) {
       toast.error("Удалять теги может только администратор", {
         label: "Теги",
