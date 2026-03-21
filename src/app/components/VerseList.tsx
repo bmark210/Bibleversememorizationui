@@ -195,10 +195,10 @@ export function VerseList({
   const shouldReduceMotion = vm.ui.shouldReduceMotion;
   const listCrossfadeSlow = shouldReduceMotion
     ? { duration: 0 }
-    : { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
+    : { duration: 0.1, ease: [0.22, 1, 0.36, 1] as const };
   const listCrossfadeExit = shouldReduceMotion
     ? { duration: 0 }
-    : { duration: 0.15, ease: [0.4, 0, 0.2, 1] as const };
+    : { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
@@ -345,7 +345,7 @@ export function VerseList({
 
               <div
                 className={cn(
-                  "fixed z-50 flex shrink-0 flex-col gap-1.5 p-0.5 border border-primary/20 bg-primary/10 backdrop-blur-xl rounded-[24px]",
+                  "fixed z-50 flex shrink-0 flex-col gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
                 )}
                 style={{
                   bottom: `calc(74px + ${contentSafeAreaInset.bottom}px + 12px)`,
@@ -444,8 +444,8 @@ export function VerseList({
               data-tour-filter={vm.filters.statusFilter}
               data-tour-state="ready"
               className="px-4 sm:px-6 lg:px-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 6 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={listCrossfadeSlow}
             >
