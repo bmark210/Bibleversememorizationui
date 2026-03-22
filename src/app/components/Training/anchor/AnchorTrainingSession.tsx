@@ -258,12 +258,14 @@ async function buildRandomSessionQuestions(
   const targetCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
   const questions: TrainerQuestion[] = [];
   let previousModeId: TrainerModeId | null = null;
-  const aiAvailable = getAIAvailability();
 
   for (const verse of verseOrder) {
     if (questions.length >= targetCount) break;
 
     const order = questions.length;
+
+    // Re-check AI availability before each verse (cooldown may have been triggered)
+    const aiAvailable = getAIAvailability();
 
     // Filter strategies that can build for this verse
     const eligible = filteredStrategies.filter((s) =>
@@ -1096,14 +1098,25 @@ export function AnchorTrainingSession({
         >
           <div className="mx-auto w-full max-w-lg">
             {isAnswered ? (
-              /* After answer: full-width "Дальше" */
-              <Button
-                type="button"
-                className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
-                onClick={handleContinueAfterReveal}
-              >
-                Дальше
-              </Button>
+              canContinueAfterReveal ? (
+                /* More questions ahead */
+                <Button
+                  type="button"
+                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  onClick={handleContinueAfterReveal}
+                >
+                  Дальше
+                </Button>
+              ) : (
+                /* Last question — show results */
+                <Button
+                  type="button"
+                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  onClick={showResultModal}
+                >
+                  Завершить
+                </Button>
+              )
             ) : (
               /* Before answer: nav + skip + finish */
               <div className="flex items-center justify-center gap-2">
