@@ -5,14 +5,17 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
   Bone,
+  BookOpen,
   Brain,
   Check,
   FlipHorizontal,
+  KeyRound,
   Layers,
   Link2,
   ListEnd,
   ListStart,
   Lock,
+  PenLine,
   Play,
   Repeat,
   VenetianMask,
@@ -100,10 +103,12 @@ type AccentTheme = {
 const ANCHOR_MIN_REQUIRED = 10;
 
 const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
-  reference: Link2,
+  "reference-v1": Link2,
+  "reference-v2": KeyRound,
   incipit: ListStart,
   ending: ListEnd,
-  context: Layers,
+  "context-v1": BookOpen,
+  "context-v2": PenLine,
   "broken-mirror": FlipHorizontal,
   "skeleton-verse": Bone,
   "impostor-word": VenetianMask,

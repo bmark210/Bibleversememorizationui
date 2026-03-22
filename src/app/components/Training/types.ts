@@ -65,29 +65,35 @@ export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
 
 /** Anchor mode groups — user-facing categories that map to TrainerModeId sets */
 export type AnchorModeGroup =
-  | "reference"
+  | "reference-v1"
+  | "reference-v2"
   | "incipit"
   | "ending"
-  | "context"
+  | "context-v1"
+  | "context-v2"
   | "broken-mirror"
   | "skeleton-verse"
   | "impostor-word";
 
 export const ANCHOR_MODE_GROUP_LABELS: Record<AnchorModeGroup, string> = {
-  reference: "Ссылки",
+  "reference-v1": "Ссылка · выбор",
+  "reference-v2": "Ссылка · ввод",
   incipit: "Начало стиха",
   ending: "Конец стиха",
-  context: "Контекст",
+  "context-v1": "Контекст · выбор",
+  "context-v2": "Контекст · ввод",
   "broken-mirror": "Зеркало",
   "skeleton-verse": "Скелет",
   "impostor-word": "Самозванец",
 };
 
 export const ALL_ANCHOR_MODE_GROUPS: AnchorModeGroup[] = [
-  "reference",
+  "reference-v1",
+  "reference-v2",
   "incipit",
   "ending",
-  "context",
+  "context-v1",
+  "context-v2",
   "broken-mirror",
   "skeleton-verse",
   "impostor-word",
