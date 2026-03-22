@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { haptic } from "@/app/components/VerseGallery/utils";
-import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 
 type Props = {
   isActionPending: boolean;
@@ -11,6 +10,7 @@ type Props = {
   canGoPrev?: boolean;
   canGoNext?: boolean;
   showDelete?: boolean;
+  bottomInset?: number;
   onClose: () => void;
   onToggleFocusMode?: () => void;
   onGoPrev?: () => void;
@@ -25,6 +25,7 @@ export function GalleryFooter({
   canGoPrev = false,
   canGoNext = false,
   showDelete = true,
+  bottomInset = 0,
   onClose,
   onToggleFocusMode,
   onGoPrev,
@@ -32,8 +33,6 @@ export function GalleryFooter({
   onDeleteRequest,
   closeButtonRef,
 }: Props) {
-  const { contentSafeAreaInset } = useTelegramSafeArea();
-  const bottomInset = contentSafeAreaInset.bottom;
   const navButtonClassName =
     "h-11 w-11 shrink-0 rounded-xl text-foreground/75";
   const iconButtonClassName =
