@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { Verse } from "@/app/App";
 import { haptic, getVerseIdentity } from "../utils";
 
@@ -29,37 +29,56 @@ export function usePreviewNavigation({
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
 
+  // Use refs for values accessed inside navigatePreviewTo to avoid
+  // recreating the callback on every index / list change.
+  const versesLengthRef = useRef(verses.length);
+  versesLengthRef.current = verses.length;
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+  const previewHasMoreRef = useRef(previewHasMore);
+  previewHasMoreRef.current = previewHasMore;
+  const previewIsLoadingMoreRef = useRef(previewIsLoadingMore);
+  previewIsLoadingMoreRef.current = previewIsLoadingMore;
+  const onRequestMoreRef = useRef(onRequestMorePreviewVerses);
+  onRequestMoreRef.current = onRequestMorePreviewVerses;
+
   const navigatePreviewTo = useCallback(
     async (dir: "prev" | "next") => {
+      const idx = activeIndexRef.current;
+      const len = versesLengthRef.current;
       const newDir = dir === "next" ? 1 : -1;
+
       if (dir === "next") {
-        if (activeIndex < verses.length - 1) {
+        if (idx < len - 1) {
           haptic("light");
           setDirection(newDir);
-          setActiveIndex(Math.min(activeIndex + 1, Math.max(0, verses.length - 1)));
+          setActiveIndex(Math.min(idx + 1, Math.max(0, len - 1)));
           return;
         }
-        if (!previewHasMore || previewIsLoadingMore || !onRequestMorePreviewVerses) {
-          if (!previewIsLoadingMore) haptic("warning");
+        const hasMore = previewHasMoreRef.current;
+        const isLoading = previewIsLoadingMoreRef.current;
+        const requestMore = onRequestMoreRef.current;
+        if (!hasMore || isLoading || !requestMore) {
+          if (!isLoading) haptic("warning");
           return;
         }
-        const didLoadMore = await onRequestMorePreviewVerses();
+        const didLoadMore = await requestMore();
         if (!didLoadMore) return;
         haptic("light");
         setDirection(newDir);
-        setActiveIndex(Math.min(activeIndex + 1, Math.max(0, verses.length)));
+        setActiveIndex((prev) => Math.min(prev + 1, Math.max(0, versesLengthRef.current)));
         return;
       }
-      const newIndex = Math.max(0, activeIndex - 1);
-      if (newIndex === activeIndex) {
+
+      if (idx === 0) {
         haptic("warning");
         return;
       }
       haptic("light");
       setDirection(newDir);
-      setActiveIndex(Math.max(0, activeIndex - 1));
+      setActiveIndex((prev) => Math.max(0, prev - 1));
     },
-    [activeIndex, verses.length, previewHasMore, previewIsLoadingMore, onRequestMorePreviewVerses]
+    [] // stable — all mutable state accessed via refs
   );
 
   const syncIndexToVerseKey = useCallback(

@@ -443,6 +443,14 @@ export function VerseGallery({
     }
   }, [previewActiveVerse, aux, onStatusChange]);
 
+  const handlePrimaryStatusAction = useCallback(() => {
+    void handlePreviewStatusMutation(previewActionModel?.primaryAction?.id);
+  }, [handlePreviewStatusMutation, previewActionModel]);
+
+  const handleUtilityStatusAction = useCallback(() => {
+    void handlePreviewStatusMutation(previewActionModel?.utilityAction?.id);
+  }, [handlePreviewStatusMutation, previewActionModel]);
+
   // ── Delete ───────────────────────────────────────────────────────────────────
   const handleDelete = useCallback(async () => {
     if (!previewActiveVerse) return;
@@ -570,7 +578,7 @@ export function VerseGallery({
     },
     { axis: "y", filterTaps: true, pointer: { touch: false }, threshold: 10 },
   );
-  const previewSwipeHandlers = previewSwipeBind();
+  const previewSwipeHandlers = useMemo(() => previewSwipeBind(), [previewSwipeBind]);
 
   const handlePreviewTouchStart = useCallback(
     (e: ReactTouchEvent<HTMLDivElement>) => {
@@ -636,6 +644,43 @@ export function VerseGallery({
     priority: 100,
   });
 
+  const handleOpenProgress = useCallback(() => {
+    setIsVerseProgressDrawerOpen(true);
+  }, []);
+
+  const handleVerseTagsOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        closeVerseTagsDrawer();
+        return;
+      }
+      setIsVerseTagsDrawerOpen(true);
+    },
+    [closeVerseTagsDrawer],
+  );
+
+  const handleVerseOwnersOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        closeVerseOwnersDrawer();
+        return;
+      }
+      setIsVerseOwnersDrawerOpen(true);
+    },
+    [closeVerseOwnersDrawer],
+  );
+
+  const handlePlayerProfileOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        closePlayerProfileDrawer();
+        return;
+      }
+      setIsPlayerProfileDrawerOpen(true);
+    },
+    [closePlayerProfileDrawer],
+  );
+
   const handleStartTraining = useCallback(() => {
     if (!previewActiveVerse) return;
 
@@ -649,6 +694,10 @@ export function VerseGallery({
       preferredMode: launchMode,
     });
   }, [onNavigateToTraining, previewActiveVerse]);
+
+  const handleDeleteDialogOpen = useCallback(() => {
+    aux.setIsDeleteDialogOpen(true);
+  }, [aux]);
 
   const handleGoPrev = useCallback(() => {
     void nav.navigatePreviewTo("prev");
@@ -738,21 +787,13 @@ export function VerseGallery({
                 <VersePreviewCard
                   verse={previewActiveVerse}
                   isActionPending={aux.isActionPending}
-                  activeTagSlugs={activeTagSlugs}
+                  activeTagSlugs={selectedTagSlugs}
                   isAnchorEligible={isAnchorEligible}
                   isFocusMode={isFocusMode}
                   onStartTraining={handleStartTraining}
-                  onStatusAction={() =>
-                    void handlePreviewStatusMutation(
-                      previewActionModel.primaryAction?.id,
-                    )
-                  }
-                  onUtilityAction={() =>
-                    void handlePreviewStatusMutation(
-                      previewActionModel.utilityAction?.id,
-                    )
-                  }
-                  onOpenProgress={() => setIsVerseProgressDrawerOpen(true)}
+                  onStatusAction={handlePrimaryStatusAction}
+                  onUtilityAction={handleUtilityStatusAction}
+                  onOpenProgress={handleOpenProgress}
                   onOpenTags={handleOpenTagsDrawer}
                   onOpenOwners={handleOpenOwnersDrawer}
                   onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
@@ -769,11 +810,12 @@ export function VerseGallery({
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
           showDelete={normalizeVerseStatus(previewActiveVerse.status) !== "CATALOG"}
+          bottomInset={contentSafeAreaInset.bottom}
           onClose={onClose}
           onToggleFocusMode={onToggleFocusMode}
           onGoPrev={handleGoPrev}
           onGoNext={handleGoNext}
-          onDeleteRequest={() => aux.setIsDeleteDialogOpen(true)}
+          onDeleteRequest={handleDeleteDialogOpen}
           closeButtonRef={closeButtonRef}
         />
 
@@ -811,13 +853,7 @@ export function VerseGallery({
         target={verseTagsTarget}
         open={isVerseTagsDrawerOpen}
         selectedTagSlugs={selectedTagSlugs}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeVerseTagsDrawer();
-            return;
-          }
-          setIsVerseTagsDrawerOpen(true);
-        }}
+        onOpenChange={handleVerseTagsOpenChange}
         onSelectTag={handleVerseTagSelect}
       />
 
@@ -825,13 +861,7 @@ export function VerseGallery({
         viewerTelegramId={viewerTelegramId}
         target={verseOwnersTarget}
         open={isVerseOwnersDrawerOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeVerseOwnersDrawer();
-            return;
-          }
-          setIsVerseOwnersDrawerOpen(true);
-        }}
+        onOpenChange={handleVerseOwnersOpenChange}
         onOpenPlayerProfile={handleOpenPlayerProfile}
       />
 
@@ -839,13 +869,7 @@ export function VerseGallery({
         viewerTelegramId={viewerTelegramId}
         preview={activePlayerProfile}
         open={isPlayerProfileDrawerOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closePlayerProfileDrawer();
-            return;
-          }
-          setIsPlayerProfileDrawerOpen(true);
-        }}
+        onOpenChange={handlePlayerProfileOpenChange}
         onFriendsChanged={onFriendsChanged}
       />
 

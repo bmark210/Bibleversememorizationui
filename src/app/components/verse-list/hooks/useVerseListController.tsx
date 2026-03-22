@@ -472,10 +472,17 @@ export function useVerseListController({
     onReopenGalleryHandled,
   ]);
 
-  const filteredVerses = useMemo(() => {
+  // Single-pass filtering + classification: O(n) instead of O(5n).
+  const { filteredVerses, reviewVerses, masteredVerses, learningVerses, stoppedVerses } = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const useClientTextSearch = statusFilter === 'catalog';
-    return pagination.verses.filter((verse) => {
+    const filtered: Verse[] = [];
+    const review: Verse[] = [];
+    const mastered: Verse[] = [];
+    const learning: Verse[] = [];
+    const stopped: Verse[] = [];
+
+    for (const verse of pagination.verses) {
       const matchesStatus = matchesListFilter(verse, statusFilter);
       const verseBookId = parseExternalVerseId(verse.externalVerseId)?.book ?? null;
       const matchesBook = selectedBookId == null || verseBookId === selectedBookId;
@@ -485,26 +492,27 @@ export function useVerseListController({
         verse.reference.toLowerCase().includes(normalizedQuery) ||
         verse.text.toLowerCase().includes(normalizedQuery);
 
-      return matchesStatus && matchesBook && matchesSearch;
-    });
+      if (!(matchesStatus && matchesBook && matchesSearch)) continue;
+      filtered.push(verse);
+
+      const displayStatus = normalizeDisplayVerseStatus(verse.status);
+      if (displayStatus === 'REVIEW') review.push(verse);
+      else if (displayStatus === 'MASTERED') mastered.push(verse);
+      else if (displayStatus === VerseStatus.LEARNING) learning.push(verse);
+      else if (displayStatus === VerseStatus.STOPPED) stopped.push(verse);
+    }
+
+    return {
+      filteredVerses: filtered,
+      reviewVerses: review,
+      masteredVerses: mastered,
+      learningVerses: learning,
+      stoppedVerses: stopped,
+    };
   }, [pagination.verses, selectedBookId, statusFilter, matchesListFilter, searchQuery]);
 
   const hasLocalClientSearchActive = statusFilter === 'catalog' && searchQuery.trim().length > 0;
   const hasLocalClientFiltersActive = hasLocalClientSearchActive;
-
-  const reviewVerses = useMemo(() => filteredVerses.filter((v) => isReviewVerse(v)), [filteredVerses, isReviewVerse]);
-  const masteredVerses = useMemo(
-    () => filteredVerses.filter((v) => isMasteredVerse(v)),
-    [filteredVerses, isMasteredVerse]
-  );
-  const learningVerses = useMemo(
-    () => filteredVerses.filter((v) => normalizeDisplayVerseStatus(v.status) === VerseStatus.LEARNING),
-    [filteredVerses]
-  );
-  const stoppedVerses = useMemo(
-    () => filteredVerses.filter((v) => v.status === VerseStatus.STOPPED),
-    [filteredVerses]
-  );
 
 
   const filterOptions = useMemo<VerseListFilterOption[]>(

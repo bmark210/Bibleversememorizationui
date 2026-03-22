@@ -19,9 +19,7 @@ import {
 } from "./modes/builders/incipitBuilders";
 import { buildEndingChoiceQuestion } from "./modes/builders/endingBuilders";
 import {
-  buildContextIncipitTypeQuestion,
-  buildContextIncipitTapQuestion,
-  buildContextPrefixTypeQuestion,
+  buildContextReferenceTypeQuestion,
 } from "./modes/builders/contextBuilders";
 import {
   buildBrokenMirrorQuestion,
@@ -133,46 +131,18 @@ export const MODE_STRATEGIES: readonly ModeStrategy[] = [
 
   // --- context ---
   {
-    id: "context-incipit-type",
+    id: "context-reference-type",
     group: "context",
     category: "client",
     interaction: "type",
-    hint: "Введите начало стиха по контексту",
-    weight: 2,
+    hint: "Введите ссылку на стих по контексту",
+    weight: 3,
     requiresAI: false,
     canBuild: (verse) =>
       hasContextPrompt(verse) &&
-      buildContextIncipitTypeQuestion(verse, -1) !== null,
+      buildContextReferenceTypeQuestion(verse, -1) !== null,
     buildQuestion: (verse, _pool, order) =>
-      buildContextIncipitTypeQuestion(verse, order),
-  },
-  {
-    id: "context-incipit-tap",
-    group: "context",
-    category: "client",
-    interaction: "tap",
-    hint: "Соберите начало стиха по контексту",
-    weight: 1,
-    requiresAI: false,
-    canBuild: (verse, pool) =>
-      hasContextPrompt(verse) &&
-      buildContextIncipitTapQuestion(verse, pool, -1) !== null,
-    buildQuestion: (verse, pool, order) =>
-      buildContextIncipitTapQuestion(verse, pool, order),
-  },
-  {
-    id: "context-prefix-type",
-    group: "context",
-    category: "client",
-    interaction: "type",
-    hint: "Введите первые буквы начала стиха",
-    weight: 1,
-    requiresAI: false,
-    canBuild: (verse) =>
-      hasContextPrompt(verse) &&
-      buildContextPrefixTypeQuestion(verse, -1) !== null,
-    buildQuestion: (verse, _pool, order) =>
-      buildContextPrefixTypeQuestion(verse, order),
+      buildContextReferenceTypeQuestion(verse, order),
   },
 
   // --- recall (new MVP) ---

@@ -58,6 +58,7 @@ import {
   normalizeIncipitText,
   parseReferenceParts,
   extractWordTokens,
+  calculateTextMatchPercent,
 } from "./services/validation";
 
 import type { AnchorModeGroup } from "../types";
@@ -156,14 +157,11 @@ function getTypeInputReadiness(
     return { canSubmit: false, remainingChars: 0 };
   }
 
-  if (question.modeId === "reference-type") {
+  if (question.modeId === "reference-type" || question.modeId === "context-reference-type") {
     return { canSubmit: true, remainingChars: 0 };
   }
 
-  if (
-    question.modeId === "context-prefix-type" ||
-    question.modeId === "incipit-type"
-  ) {
+  if (question.modeId === "incipit-type") {
     const expected = getIncipitPrefixTokens(question.verse).join("");
     const normalizedInput = normalizeIncipitText(raw).replace(/\s+/g, "");
     const expectedLength = Array.from(expected).length;
@@ -178,7 +176,12 @@ function getTypeInputReadiness(
     return { canSubmit: remainingChars === 0, remainingChars };
   }
 
-  const expected = normalizeIncipitText(question.verse.incipit);
+  // skeleton-verse compares against full text
+  const isFullTextMode = question.modeId === "skeleton-verse";
+  const expectedRaw = isFullTextMode
+    ? question.answerLabel
+    : question.verse.incipit;
+  const expected = normalizeIncipitText(expectedRaw);
   const normalizedInput = normalizeIncipitText(raw);
   const expectedLength = Array.from(expected).length;
   if (expectedLength === 0) return { canSubmit: true, remainingChars: 0 };
@@ -193,14 +196,11 @@ function evaluateTypeInput(
   question: TypeQuestion,
   input: string
 ): TypeInputEvaluation {
-  if (question.modeId === "context-incipit-type") {
-    return evaluateIncipitInput(input, question.verse.incipit);
+  if (question.modeId === "skeleton-verse") {
+    return evaluateIncipitInput(input, question.verse.text);
   }
 
-  if (
-    question.modeId === "context-prefix-type" ||
-    question.modeId === "incipit-type"
-  ) {
+  if (question.modeId === "incipit-type") {
     return evaluateCompactPrefixInput(input, getIncipitPrefixTokens(question.verse));
   }
 
@@ -398,6 +398,7 @@ export function AnchorTrainingSession({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingAttempts, setTypingAttempts] = useState(0);
+  const [typeMatchPercent, setTypeMatchPercent] = useState<number | null>(null);
   const [tapSequence, setTapSequence] = useState<string[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
@@ -482,6 +483,7 @@ export function AnchorTrainingSession({
     setSelectedOption(null);
     setTypedAnswer("");
     setTypingAttempts(0);
+    setTypeMatchPercent(null);
     setTapSequence([]);
     setIsAnswered(false);
     setLastAnswerCorrect(null);
@@ -751,6 +753,13 @@ export function AnchorTrainingSession({
     const nextAttempt = typingAttempts + 1;
     setTypingAttempts(nextAttempt);
 
+    // Calculate match percent for full-text modes
+    const isFullTextMode = currentQuestion.modeId === "skeleton-verse";
+    if (isFullTextMode) {
+      const percent = calculateTextMatchPercent(input, currentQuestion.answerLabel);
+      setTypeMatchPercent(percent);
+    }
+
     const evaluation = evaluateTypeInput(currentQuestion, input);
     if (evaluation.isCorrect) {
       finalizeAnswer(true, nextAttempt, {
@@ -784,7 +793,6 @@ export function AnchorTrainingSession({
 
   const isTypeMode = currentQuestion?.interaction === "type";
   const isCompactTypeMode =
-    currentQuestion?.modeId === "context-prefix-type" ||
     currentQuestion?.modeId === "incipit-type";
   const typeInputReadiness =
     currentQuestion?.interaction === "type"
@@ -894,6 +902,7 @@ export function AnchorTrainingSession({
       inputRef={inputRef}
       onChoiceSelect={handleChoiceSelect}
       onTapSelect={handleTapSelect}
+      matchPercent={typeMatchPercent}
       onTypedAnswerChange={(v: string) => {
         setTypedAnswer(v);
         if (v.trim()) setHasInteracted(true);
@@ -1023,69 +1032,124 @@ export function AnchorTrainingSession({
                 className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
                 tabIndex={-1}
               >
-                    {/* Prompt area */}
-                    <ScrollShadowContainer
-                      className={cn(
-                        "px-4",
-                        shouldLiftTypeCard ? "flex-none max-h-[22vh]" : "flex-1 min-h-0",
-                      )}
-                      scrollClassName="flex items-center justify-center"
-                      shadowSize={24}
-                    >
-                      <div
-                        className={cn(
-                          "w-full max-w-lg",
-                          shouldLiftTypeCard ? "py-1" : "py-3",
-                        )}
+                    {isAnswered ? (
+                      /* ── Full-screen result after answer ── */
+                      <ScrollShadowContainer
+                        className="flex-1 min-h-0 px-4"
+                        scrollClassName="flex justify-center"
+                        shadowSize={24}
                       >
-                        <div className="rounded-2xl border border-border/55 bg-card/40 px-4 py-4 shadow-sm backdrop-blur-sm">
-                          <p
-                            className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
-                            style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
-                          >
-                            {currentQuestion.prompt}
-                          </p>
-                        </div>
-                        {/* Compact result feedback */}
-                        {isAnswered && (
-                          <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-center gap-2">
-                              <div
-                                className={cn(
-                                  "h-1.5 w-1.5 rounded-full shrink-0",
-                                  lastAnswerCorrect ? "bg-emerald-500" : "bg-rose-500",
-                                )}
-                              />
+                        <div className="w-full max-w-lg mx-auto my-auto py-6 space-y-5">
+                          {/* Status badge */}
+                          <div className="flex flex-col items-center gap-3">
+                            <div
+                              className={cn(
+                                "h-14 w-14 rounded-full flex items-center justify-center",
+                                lastAnswerCorrect
+                                  ? "bg-emerald-500/15"
+                                  : lastAnswerSkipped
+                                    ? "bg-muted/40"
+                                    : "bg-rose-500/15",
+                              )}
+                            >
+                              <span className="text-2xl">
+                                {lastAnswerCorrect ? "✓" : lastAnswerSkipped ? "—" : "✗"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
                               <span
                                 className={cn(
-                                  "text-sm font-medium",
+                                  "text-lg font-semibold",
                                   lastAnswerCorrect
                                     ? "text-emerald-700 dark:text-emerald-300"
-                                    : "text-rose-600 dark:text-rose-300",
+                                    : lastAnswerSkipped
+                                      ? "text-muted-foreground"
+                                      : "text-rose-600 dark:text-rose-300",
                                 )}
                               >
                                 {feedbackStatusLabel}
                               </span>
+                              {typeMatchPercent !== null && (
+                                <span
+                                  className={cn(
+                                    "text-sm font-semibold tabular-nums px-2.5 py-0.5 rounded-full",
+                                    typeMatchPercent >= 85
+                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                      : typeMatchPercent >= 60
+                                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                        : "bg-rose-500/15 text-rose-500 dark:text-rose-400",
+                                  )}
+                                >
+                                  {typeMatchPercent}%
+                                </span>
+                              )}
                             </div>
+                          </div>
+
+                          {/* Correct answer */}
+                          <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm space-y-3">
+                            <p
+                              className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                              style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                            >
+                              {currentQuestion.prompt}
+                            </p>
                             {showCorrectAnswer && (
-                              <p className="text-center text-sm text-foreground/70 leading-relaxed">
-                                {currentQuestion.answerLabel}
-                              </p>
+                              <>
+                                <div className="h-px bg-border/30" />
+                                <p className="text-center text-sm font-medium text-foreground/70 leading-relaxed">
+                                  {currentQuestion.answerLabel}
+                                </p>
+                              </>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </ScrollShadowContainer>
+                        </div>
+                      </ScrollShadowContainer>
+                    ) : (
+                      <>
+                        {/* ── Top half: prompt area ── */}
+                        <ScrollShadowContainer
+                          className={cn(
+                            "px-4",
+                            shouldLiftTypeCard
+                              ? "flex-none max-h-[22vh]"
+                              : "min-h-0 flex-1 basis-1/2",
+                          )}
+                          scrollClassName="flex justify-center"
+                          shadowSize={24}
+                        >
+                          <div
+                            className={cn(
+                              "w-full max-w-lg mx-auto my-auto",
+                              shouldLiftTypeCard ? "py-1" : "py-3",
+                            )}
+                          >
+                            <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm">
+                              <p
+                                className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                                style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                              >
+                                {currentQuestion.prompt}
+                              </p>
+                            </div>
+                          </div>
+                        </ScrollShadowContainer>
 
-                    {/* Action area */}
-                    <ScrollShadowContainer
-                      className={cn(
-                        "px-4 pb-2",
-                        shouldLiftTypeCard ? "flex-1" : "flex-1 min-h-0",
-                      )}
-                    >
-                      {modeRenderer}
-                    </ScrollShadowContainer>
+                        {/* ── Bottom half: interaction area ── */}
+                        <ScrollShadowContainer
+                          className={cn(
+                            "px-4 pb-2",
+                            shouldLiftTypeCard
+                              ? "flex-1 min-h-0"
+                              : "min-h-0 flex-1 basis-1/2 border-t border-border/30 pt-2",
+                          )}
+                        >
+                          <div className="w-full max-w-lg mx-auto">
+                            {modeRenderer}
+                          </div>
+                        </ScrollShadowContainer>
+                      </>
+                    )}
               </motion.div>
             </AnimatePresence>
           )}

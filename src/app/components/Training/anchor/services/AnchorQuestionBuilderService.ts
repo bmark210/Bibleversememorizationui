@@ -3,7 +3,6 @@
  * Отделённая логика построения вопросов для тренировки
  */
 
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import { similarityRatio } from "@/shared/utils/levenshtein";
 import type {
   ChoiceQuestion,
@@ -22,7 +21,6 @@ import {
   normalizeIncipitText,
   normalizeBookName,
   softenBookName,
-  parseReferenceChapterAndVerseStart,
 } from "./AnchorValidationService";
 
 export const CONFIG = {
@@ -35,11 +33,6 @@ export const CONFIG = {
   TYPE_PREFIX_READY_RATIO: 0.8,
 };
 
-type ContextTargetRelation = {
-  direction: "forward" | "backward";
-  distance: number;
-};
-
 function shuffle<T>(source: T[], randomInt: (max: number) => number): T[] {
   const next = [...source];
   for (let index = next.length - 1; index > 0; index -= 1) {
@@ -49,76 +42,12 @@ function shuffle<T>(source: T[], randomInt: (max: number) => number): T[] {
   return next;
 }
 
-function resolveContextTargetRelation(verse: ReferenceVerse): ContextTargetRelation | null {
-  const targetReference = parseExternalVerseId(verse.externalVerseId);
-  const promptReference = parseReferenceChapterAndVerseStart(
-    verse.contextPromptReference
-  );
-
-  if (
-    !targetReference ||
-    !promptReference ||
-    targetReference.chapter !== promptReference.chapter
-  ) {
-    return null;
-  }
-
-  const distance = Math.abs(targetReference.verseStart - promptReference.verseStart);
-  if (distance <= 0) return null;
-
-  return {
-    direction:
-      targetReference.verseStart > promptReference.verseStart
-        ? "forward"
-        : "backward",
-    distance,
-  };
-}
-
-function getContextTargetDescriptor(verse: ReferenceVerse): string {
-  const relation = resolveContextTargetRelation(verse);
-  if (!relation) return "нужного стиха";
-
-  if (relation.direction === "forward") {
-    if (relation.distance === 1) return "следующего стиха";
-    return `стиха, который идёт через ${relation.distance - 1} стихов после подсказки`;
-  }
-
-  if (relation.distance === 1) return "предыдущего стиха";
-  return `стиха, который находится через ${relation.distance - 1} стихов до подсказки`;
-}
-
-function buildContextModeHint(
-  verse: ReferenceVerse,
-  mode: "incipit" | "tap" | "prefix"
-): string {
-  const descriptor = getContextTargetDescriptor(verse);
-
-  if (mode === "tap") {
-    return `Соберите начало ${descriptor}.`;
-  }
-  if (mode === "prefix") {
-    return `Введите первые буквы начала ${descriptor}.`;
-  }
-  return `Введите начало ${descriptor}.`;
-}
-
 function getIncipitPrefixTokens(verse: ReferenceVerse): string[] {
   return verse.incipitWords
     .map((word) => normalizeIncipitText(word))
     .filter(Boolean)
     .map((word) => Array.from(word)[0] ?? "")
     .filter(Boolean);
-}
-
-function hasContextPrompt(verse: ReferenceVerse): boolean {
-  return verse.contextPromptText.trim().length > 0;
-}
-
-function buildContextPrompt(verse: ReferenceVerse): string {
-  const promptText = verse.contextPromptText.trim();
-  if (!promptText) return "";
-  return promptText;
 }
 
 export function buildReferenceChoiceQuestion(
@@ -311,44 +240,13 @@ export function buildIncipitTypeQuestion(
     modeHint: "Введите первые буквы начала стиха.",
     verse,
     prompt: verse.reference,
-    answerLabel: compactUppercasePrefix,
+    answerLabel: verse.incipit,
     interaction: "type",
     placeholder: "ИТВБМ",
     maxAttempts: CONFIG.MAX_TYPING_ATTEMPTS,
-    retryHint: `Формат: ${compactUppercasePrefix}`,
+    retryHint: undefined,
     isCorrectInput: (value: string) =>
       matchesCompactPrefixInput(value, prefixTokens),
-  };
-}
-
-export function buildContextIncipitTypeQuestion(
-  verse: ReferenceVerse,
-  order: number
-): TypeQuestion | null {
-  if (!hasContextPrompt(verse)) return null;
-  if (verse.incipitWords.length < 2) return null;
-
-  const prompt = buildContextPrompt(verse);
-  if (!prompt) return null;
-
-  const initials = verse.incipitWords
-    .map((word) => Array.from(normalizeIncipitText(word))[0] ?? "")
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    id: `context-incipit-type-${order}-${verse.externalVerseId}`,
-    modeId: "context-incipit-type",
-
-    modeHint: buildContextModeHint(verse, "incipit"),
-    verse,
-    prompt,
-    answerLabel: verse.incipit,
-    interaction: "type",
-    placeholder: `Введите начало ${getContextTargetDescriptor(verse)}`,
-    maxAttempts: CONFIG.MAX_TYPING_ATTEMPTS,
-    retryHint: initials ? `Первые буквы: ${initials}` : undefined,
-    isCorrectInput: (value: string) => matchesIncipitWithTolerance(value, verse.incipit),
   };
 }
 
@@ -379,5 +277,4 @@ export const QUESTION_BUILDERS = {
   "incipit-choice": buildIncipitChoiceQuestion,
   "incipit-tap": buildIncipitTapQuestion,
   "incipit-type": buildIncipitTypeQuestion,
-  "context-incipit-type": buildContextIncipitTypeQuestion,
 };

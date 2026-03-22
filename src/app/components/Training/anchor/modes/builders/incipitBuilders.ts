@@ -133,11 +133,11 @@ export function buildIncipitTypeQuestion(
     modeHint: "Введите первые буквы начала стиха.",
     verse,
     prompt: verse.reference,
-    answerLabel: compactUppercasePrefix,
+    answerLabel: verse.incipit,
     interaction: "type",
     placeholder: "ИТВБМ",
     maxAttempts: CONFIG.MAX_TYPING_ATTEMPTS,
-    retryHint: `Формат: ${compactUppercasePrefix}`,
+    retryHint: undefined,
     isCorrectInput: (value: string) =>
       matchesCompactPrefixInput(value, prefixTokens),
   };

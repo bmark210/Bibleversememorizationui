@@ -19,7 +19,7 @@ import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
 type Props = {
   verse: Verse;
   isActionPending: boolean;
-  activeTagSlugs?: Iterable<string> | null;
+  activeTagSlugs?: Set<string> | Iterable<string> | null;
   isAnchorEligible?: boolean;
   isFocusMode?: boolean;
   onStartTraining: () => void;
@@ -30,6 +30,15 @@ type Props = {
   onOpenOwners?: (verse: Verse) => void;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
 };
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function VersePreviewCard({
   verse,
@@ -64,15 +73,16 @@ export function VersePreviewCard({
   });
   const isReviewStage = status === "REVIEW" || status === "MASTERED";
   const activeTagSlugSet = useMemo(() => {
-    const next = new Set<string>();
-    if (!activeTagSlugs) return next;
+    if (!activeTagSlugs) return new Set<string>();
+    // Fast path: already a Set (passed from VerseGallery).
+    if (activeTagSlugs instanceof Set) return activeTagSlugs;
 
+    const next = new Set<string>();
     for (const rawSlug of activeTagSlugs) {
       const slug = String(rawSlug ?? "").trim();
       if (!slug) continue;
       next.add(slug);
     }
-
     return next;
   }, [activeTagSlugs]);
   const normalizedTags = useMemo(() => {
@@ -248,14 +258,6 @@ export function VersePreviewCard({
       }
     };
   }, [isFocusMode, verse.text, showFooter]);
-
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("");
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden">

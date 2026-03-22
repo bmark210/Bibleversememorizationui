@@ -112,7 +112,7 @@ export function buildReferenceTypeQuestion(
     interaction: "type",
     placeholder: "Иоанна 3:16",
     maxAttempts: CONFIG.MAX_TYPING_ATTEMPTS,
-    retryHint: `${verse.bookName} ${verse.chapterVerse}`.trim(),
+    retryHint: undefined,
     isCorrectInput: (value: string) =>
       matchesReferenceWithTolerance(value, verse.reference),
   };

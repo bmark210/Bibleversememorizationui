@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { Eye, Plus } from "lucide-react";
@@ -256,6 +256,51 @@ export function VerseList({
     priority: 60,
   });
 
+  const handleNavigateToTrainingFromGallery = useCallback(
+    (launch: DirectLaunchVerse) => {
+      vm.gallery.onClose();
+      onNavigateToTraining?.({
+        ...launch,
+        returnTarget: {
+          kind: "verse-list",
+          statusFilter: vm.filters.statusFilter,
+        },
+      });
+    },
+    [vm.gallery, onNavigateToTraining, vm.filters.statusFilter],
+  );
+
+  const handleVerseOwnersOpenChange = useCallback(
+    (open: boolean) => {
+      setIsVerseOwnersDrawerOpen(open);
+      if (!open) {
+        setVerseOwnersTarget(null);
+      }
+    },
+    [],
+  );
+
+  const handleVerseTagsDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        closeVerseTagsDrawer();
+        return;
+      }
+      setIsVerseTagsDrawerOpen(true);
+    },
+    [closeVerseTagsDrawer],
+  );
+
+  const handleVerseProgressOpenChange = useCallback(
+    (open: boolean) => {
+      setIsVerseProgressDrawerOpen(open);
+      if (!open) {
+        setVerseProgressTarget(null);
+      }
+    },
+    [],
+  );
+
   const handleVerseTagSelect = useCallback(
     (slug: string) => {
       if (!vm.tagFilter.selectedTagSlugs.has(slug)) {
@@ -286,37 +331,69 @@ export function VerseList({
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
-  const filterCardProps = {
-    totalVisible: vm.ui.totalVisible,
-    totalCount: vm.pagination.totalCount,
-    currentFilterLabel: vm.ui.currentFilterLabel,
-    currentFilterTheme: vm.ui.currentFilterTheme,
-    statusFilter: vm.filters.statusFilter,
-    defaultStatusFilter: vm.filters.defaultStatusFilter,
-    filterOptions: vm.filters.filterOptions,
-    hasFriends,
-    onTabClick: vm.filterTabs.onTabClick,
-    selectedBookId: vm.filters.selectedBookId,
-    bookOptions: vm.filters.bookOptions,
-    onBookChange: vm.filterTabs.onBookChange,
-    sortBy: vm.filters.sortBy,
-    sortOptions: vm.filters.sortOptions,
-    onSortChange: vm.filterTabs.onSortChange,
-    onResetFilters: vm.filterTabs.onResetFilters,
-    searchQuery: vm.search.searchQuery,
-    onSearchChange: vm.search.setSearchQuery,
-    allTags: vm.tagFilter.allTags,
-    isLoadingTags: vm.tagFilter.isLoadingTags,
-    selectedTagSlugs: vm.tagFilter.selectedTagSlugs,
-    hasActiveTags: vm.tagFilter.hasActiveTags,
-    onTagClick: vm.tagFilter.onTagClick,
-    onClearTags: vm.tagFilter.onClearTags,
-    onCreateTagDialogOpen: () => {
-      setAddDialogMode("tag");
-      setAddDialogOpen(true);
-    },
-    onDeleteTag: vm.tagFilter.deleteTag,
-  };
+  const handleCreateTagDialogOpen = useCallback(() => {
+    setAddDialogMode("tag");
+    setAddDialogOpen(true);
+  }, []);
+
+  const filterCardProps = useMemo(
+    () => ({
+      totalVisible: vm.ui.totalVisible,
+      totalCount: vm.pagination.totalCount,
+      currentFilterLabel: vm.ui.currentFilterLabel,
+      currentFilterTheme: vm.ui.currentFilterTheme,
+      statusFilter: vm.filters.statusFilter,
+      defaultStatusFilter: vm.filters.defaultStatusFilter,
+      filterOptions: vm.filters.filterOptions,
+      hasFriends,
+      onTabClick: vm.filterTabs.onTabClick,
+      selectedBookId: vm.filters.selectedBookId,
+      bookOptions: vm.filters.bookOptions,
+      onBookChange: vm.filterTabs.onBookChange,
+      sortBy: vm.filters.sortBy,
+      sortOptions: vm.filters.sortOptions,
+      onSortChange: vm.filterTabs.onSortChange,
+      onResetFilters: vm.filterTabs.onResetFilters,
+      searchQuery: vm.search.searchQuery,
+      onSearchChange: vm.search.setSearchQuery,
+      allTags: vm.tagFilter.allTags,
+      isLoadingTags: vm.tagFilter.isLoadingTags,
+      selectedTagSlugs: vm.tagFilter.selectedTagSlugs,
+      hasActiveTags: vm.tagFilter.hasActiveTags,
+      onTagClick: vm.tagFilter.onTagClick,
+      onClearTags: vm.tagFilter.onClearTags,
+      onCreateTagDialogOpen: handleCreateTagDialogOpen,
+      onDeleteTag: vm.tagFilter.deleteTag,
+    }),
+    [
+      vm.ui.totalVisible,
+      vm.pagination.totalCount,
+      vm.ui.currentFilterLabel,
+      vm.ui.currentFilterTheme,
+      vm.filters.statusFilter,
+      vm.filters.defaultStatusFilter,
+      vm.filters.filterOptions,
+      hasFriends,
+      vm.filterTabs.onTabClick,
+      vm.filters.selectedBookId,
+      vm.filters.bookOptions,
+      vm.filterTabs.onBookChange,
+      vm.filters.sortBy,
+      vm.filters.sortOptions,
+      vm.filterTabs.onSortChange,
+      vm.filterTabs.onResetFilters,
+      vm.search.searchQuery,
+      vm.search.setSearchQuery,
+      vm.tagFilter.allTags,
+      vm.tagFilter.isLoadingTags,
+      vm.tagFilter.selectedTagSlugs,
+      vm.tagFilter.hasActiveTags,
+      vm.tagFilter.onTagClick,
+      vm.tagFilter.onClearTags,
+      handleCreateTagDialogOpen,
+      vm.tagFilter.deleteTag,
+    ],
+  );
 
   return (
     <>
@@ -485,16 +562,7 @@ export function VerseList({
               onDelete={vm.gallery.onDelete}
               onSelectTag={handleVerseTagSelect}
               onFriendsChanged={onFriendsChanged}
-              onNavigateToTraining={(launch) => {
-                vm.gallery.onClose();
-                onNavigateToTraining?.({
-                  ...launch,
-                  returnTarget: {
-                    kind: "verse-list",
-                    statusFilter: vm.filters.statusFilter,
-                  },
-                });
-              }}
+              onNavigateToTraining={handleNavigateToTrainingFromGallery}
               previewTotalCount={vm.pagination.totalCount}
               previewHasMore={vm.pagination.hasMoreVerses}
               previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}
@@ -508,12 +576,7 @@ export function VerseList({
           viewerTelegramId={telegramId}
           target={verseOwnersTarget}
           open={isVerseOwnersDrawerOpen}
-          onOpenChange={(open) => {
-            setIsVerseOwnersDrawerOpen(open);
-            if (!open) {
-              setVerseOwnersTarget(null);
-            }
-          }}
+          onOpenChange={handleVerseOwnersOpenChange}
           onOpenPlayerProfile={onOpenPlayerProfile}
         />
 
@@ -521,25 +584,14 @@ export function VerseList({
           target={verseTagsTarget}
           open={isVerseTagsDrawerOpen}
           selectedTagSlugs={vm.tagFilter.selectedTagSlugs}
-          onOpenChange={(open) => {
-            if (!open) {
-              closeVerseTagsDrawer();
-              return;
-            }
-            setIsVerseTagsDrawerOpen(true);
-          }}
+          onOpenChange={handleVerseTagsDrawerOpenChange}
           onSelectTag={handleVerseTagSelect}
         />
 
         <VerseProgressDrawer
           verse={verseProgressTarget}
           open={isVerseProgressDrawerOpen}
-          onOpenChange={(open) => {
-            setIsVerseProgressDrawerOpen(open);
-            if (!open) {
-              setVerseProgressTarget(null);
-            }
-          }}
+          onOpenChange={handleVerseProgressOpenChange}
         />
       </motion.div>
     </>

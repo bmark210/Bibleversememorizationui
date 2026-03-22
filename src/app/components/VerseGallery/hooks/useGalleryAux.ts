@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { Verse } from "@/app/App";
 import { GALLERY_TOASTER_ID } from "@/app/lib/toast";
 import {
@@ -37,6 +37,7 @@ export function useGalleryAux(): UseGalleryAuxReturn {
   const [trainingMilestonePopup, setTrainingMilestonePopup] =
     useState<TrainingCompletionToastCardPayload | null>(null);
   const trainingMilestoneResolveRef = useRef<(() => void) | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -48,8 +49,14 @@ export function useGalleryAux(): UseGalleryAuxReturn {
   }, []);
 
   const showFeedback = useCallback((message: string) => {
+    if (feedbackTimerRef.current !== null) {
+      clearTimeout(feedbackTimerRef.current);
+    }
     setFeedbackMessage(message);
-    setTimeout(() => setFeedbackMessage(""), 2000);
+    feedbackTimerRef.current = setTimeout(() => {
+      feedbackTimerRef.current = null;
+      setFeedbackMessage("");
+    }, 2000);
   }, []);
 
   const showTrainingContactToast = useCallback(
@@ -85,24 +92,45 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       // Resolve pending promise during unmount to prevent hanging awaits.
       trainingMilestoneResolveRef.current?.();
       trainingMilestoneResolveRef.current = null;
+      // Clean up feedback timer on unmount.
+      if (feedbackTimerRef.current !== null) {
+        clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = null;
+      }
     },
     []
   );
 
-  return {
-    isActionPending,
-    setIsActionPending,
-    previewOverrides,
-    setPreviewOverride,
-    isDeleteDialogOpen,
-    setIsDeleteDialogOpen,
-    feedbackMessage,
-    showFeedback,
-    showTrainingContactToast,
-    showTrainingMilestonePopup,
-    trainingMilestonePopup,
-    confirmTrainingMilestonePopup,
-    slideAnnouncement,
-    setSlideAnnouncement,
-  };
+  // Stabilize the return object — only rebuild when values actually change.
+  return useMemo(
+    () => ({
+      isActionPending,
+      setIsActionPending,
+      previewOverrides,
+      setPreviewOverride,
+      isDeleteDialogOpen,
+      setIsDeleteDialogOpen,
+      feedbackMessage,
+      showFeedback,
+      showTrainingContactToast,
+      showTrainingMilestonePopup,
+      trainingMilestonePopup,
+      confirmTrainingMilestonePopup,
+      slideAnnouncement,
+      setSlideAnnouncement,
+    }),
+    [
+      isActionPending,
+      previewOverrides,
+      isDeleteDialogOpen,
+      feedbackMessage,
+      showFeedback,
+      showTrainingContactToast,
+      showTrainingMilestonePopup,
+      trainingMilestonePopup,
+      confirmTrainingMilestonePopup,
+      slideAnnouncement,
+      setPreviewOverride,
+    ]
+  );
 }

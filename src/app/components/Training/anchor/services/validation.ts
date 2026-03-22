@@ -7,6 +7,7 @@ export {
   normalizeReferenceForComparison,
   matchesReferenceWithTolerance,
   matchesIncipitWithTolerance,
+  calculateTextMatchPercent,
   parseReferenceChapterAndVerseStart,
 } from "./AnchorValidationService";
 

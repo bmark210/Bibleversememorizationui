@@ -31,25 +31,26 @@ export function AnchorTapMode({
   return (
     <div className="space-y-3">
       {/* Progress + assembled text */}
-      <div className="rounded-xl border border-border/40 bg-card/40 px-3.5 py-3 backdrop-blur-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex-1 h-1 rounded-full bg-foreground/[0.06] overflow-hidden">
+      <div className="rounded-2xl border border-border/40 bg-card/50 px-4 py-3.5 backdrop-blur-sm">
+        <div className="flex items-center gap-3 mb-2.5">
+          <div className="flex-1 h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
             <div
               className="h-full bg-primary/50 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-[11px] font-medium tabular-nums text-muted-foreground/60 shrink-0">
+          <span className="text-[11px] font-semibold tabular-nums text-muted-foreground/60 shrink-0">
             {current}/{total}
           </span>
         </div>
-        <p className="leading-relaxed min-h-[1.5rem]">
+        <p className="leading-relaxed min-h-[1.75rem]">
           {selectedTapLabels.length > 0 ? (
             <span
               className="text-foreground/85"
               style={{ fontSize: `${fontSizes.sm}px` }}
             >
               {selectedTapLabels.join(" ")}
+              <span className="inline-block w-[2px] h-[1.1em] bg-primary/50 align-text-bottom ml-0.5 animate-pulse" />
             </span>
           ) : (
             <span className="text-sm text-muted-foreground/45 italic">
@@ -60,7 +61,7 @@ export function AnchorTapMode({
       </div>
 
       {/* Word grid */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {question.options.map((option) => {
           const isUsed = tapSequence.includes(option.id);
 
@@ -71,10 +72,10 @@ export function AnchorTapMode({
               disabled={isAnswered || isUsed || controlsLocked}
               onClick={() => onTapSelect(option.id)}
               className={cn(
-                "min-h-[2.6rem] rounded-xl border px-3 py-2 text-left font-medium transition-all duration-150 active:scale-[0.98]",
+                "min-h-[2.75rem] rounded-xl border px-3.5 py-2 font-medium transition-all duration-150 active:scale-[0.97]",
                 isUsed
-                  ? "border-primary/25 bg-primary/[0.06] text-primary/70"
-                  : "border-border/40 bg-card/50 text-foreground/80 hover:bg-card/80 active:bg-card/90"
+                  ? "border-primary/20 bg-primary/[0.06] text-primary/40 opacity-60"
+                  : "border-border/40 bg-card/60 text-foreground/80 shadow-sm hover:bg-card/80 hover:border-border/60 active:bg-card/90",
               )}
               style={{ fontSize: `${optionPx}px` }}
             >
