@@ -23,11 +23,13 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 import {
   fetchAllUserVerses,
 } from "@/api/services/userVersesPagination";
-import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
-import { fetchDashboardFriendsActivity } from "@/api/services/friends";
-import { fetchDashboardLeaderboard } from "@/api/services/leaderboard";
+import { fetchFriendsPage } from "@/api/services/friends";
+import {
+  DASHBOARD_LEADERBOARD_PAGE_SIZE,
+  fetchDashboardLeaderboard,
+} from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
@@ -466,6 +468,10 @@ function toDirectLaunchPayload(
   return { verse: launchOrVerse };
 }
 
+type DashboardLeaderboardQuery =
+  | { mode: "anchor" }
+  | { mode: "page"; page: number };
+
 export default function App({ onInitialContentReady }: AppProps) {
   const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
   const [pageStack, setPageStack] = useState<Page[]>(["dashboard"]);
@@ -483,9 +489,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
   const [dashboardLeaderboard, setDashboardLeaderboard] = useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
-  const [dashboardFriendsActivity, setDashboardFriendsActivity] =
-    useState<domain_DashboardFriendsActivityResponse | null>(null);
-  const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] = useState(false);
+  const [verseListFriendsPresence, setVerseListFriendsPresence] = useState<boolean | null>(null);
+  const [isVerseListFriendsPresenceLoading, setIsVerseListFriendsPresenceLoading] = useState(false);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
@@ -526,10 +531,10 @@ export default function App({ onInitialContentReady }: AppProps) {
     };
   }, []);
   const hasNotifiedInitialContentReadyRef = useRef(false);
-  const previousPageRef = useRef<Page>("dashboard");
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
-  const dashboardFriendsActivityRequestIdRef = useRef(0);
+  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({ mode: "anchor" });
+  const verseListFriendsPresenceRequestIdRef = useRef(0);
   const trainingVersesRequestIdRef = useRef(0);
   const trainingVersesPromiseRef = useRef<Promise<Array<Verse>> | null>(null);
   const trainingVersesPrefetchHandleRef = useRef<IdleTaskHandle | null>(null);
@@ -540,8 +545,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const dashboardFetchFailedRef = useRef({
     stats: false,
     leaderboard: false,
-    friends: false,
   });
+  const verseListFriendsFetchFailedRef = useRef(false);
   const trainingVersesFetchFailedRef = useRef(false);
   const canGoBackInApp = pageStack.length > 1;
 
@@ -549,9 +554,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     dashboardFetchFailedRef.current = {
       stats: false,
       leaderboard: false,
-      friends: false,
     };
+    verseListFriendsFetchFailedRef.current = false;
+    setVerseListFriendsPresence(null);
     trainingVersesFetchFailedRef.current = false;
+    leaderboardQueryRef.current = { mode: "anchor" };
   }, [telegramId]);
 
   useEffect(() => {
@@ -597,9 +604,9 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     try {
-      webApp.enableClosingConfirmation?.();
+      webApp.disableClosingConfirmation?.();
     } catch (error) {
-      console.warn("Telegram enableClosingConfirmation failed:", error);
+      console.warn("Telegram disableClosingConfirmation failed:", error);
     }
 
     try {
@@ -702,61 +709,91 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
   }, []);
 
-  const loadDashboardLeaderboard = useCallback(async (telegramIdValue: string) => {
+  const loadDashboardLeaderboard = useCallback(
+    async (telegramIdValue: string, queryOverride?: DashboardLeaderboardQuery) => {
+      if (!telegramIdValue) return null;
+
+      if (queryOverride) {
+        leaderboardQueryRef.current = queryOverride;
+      }
+
+      const requestId = ++dashboardLeaderboardRequestIdRef.current;
+      setIsDashboardLeaderboardLoading(true);
+
+      const q = leaderboardQueryRef.current;
+
+      try {
+        const nextLeaderboard = await fetchDashboardLeaderboard({
+          telegramId: telegramIdValue,
+          pageSize: DASHBOARD_LEADERBOARD_PAGE_SIZE,
+          ...(q.mode === "page" ? { page: q.page } : {}),
+        });
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          dashboardFetchFailedRef.current.leaderboard = false;
+          setDashboardLeaderboard(nextLeaderboard);
+          const resolvedPage = nextLeaderboard.page;
+          if (typeof resolvedPage === "number" && resolvedPage >= 1) {
+            leaderboardQueryRef.current = { mode: "page", page: resolvedPage };
+          }
+        }
+        return nextLeaderboard;
+      } catch (error) {
+        console.error("Не удалось получить лидерборд:", error);
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          dashboardFetchFailedRef.current.leaderboard = true;
+          setDashboardLeaderboard(null);
+        }
+        return null;
+      } finally {
+        if (dashboardLeaderboardRequestIdRef.current === requestId) {
+          setIsDashboardLeaderboardLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  const handleLeaderboardPageChange = useCallback(
+    (page: number) => {
+      if (!telegramId) return;
+      if (page < 1) return;
+      void loadDashboardLeaderboard(telegramId, { mode: "page", page });
+    },
+    [loadDashboardLeaderboard, telegramId]
+  );
+
+  const handleLeaderboardJumpToMe = useCallback(() => {
+    if (!telegramId) return;
+    void loadDashboardLeaderboard(telegramId, { mode: "anchor" });
+  }, [loadDashboardLeaderboard, telegramId]);
+
+  const loadVerseListFriendsPresence = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
 
-    const requestId = ++dashboardLeaderboardRequestIdRef.current;
-    setIsDashboardLeaderboardLoading(true);
+    const requestId = ++verseListFriendsPresenceRequestIdRef.current;
+    setIsVerseListFriendsPresenceLoading(true);
 
     try {
-      const nextLeaderboard = await fetchDashboardLeaderboard({
-        telegramId: telegramIdValue,
-        limit: 4,
-      });
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.leaderboard = false;
-        setDashboardLeaderboard(nextLeaderboard);
+      const page = await fetchFriendsPage(telegramIdValue, { limit: 1 });
+      if (verseListFriendsPresenceRequestIdRef.current !== requestId) {
+        return null;
       }
-      return nextLeaderboard;
+      verseListFriendsFetchFailedRef.current = false;
+      const total = page.total ?? 0;
+      const hasItems = (page.items?.length ?? 0) > 0;
+      const hasFriends = total > 0 || hasItems;
+      setVerseListFriendsPresence(hasFriends);
+      return hasFriends;
     } catch (error) {
-      console.error("Не удалось получить лидерборд:", error);
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.leaderboard = true;
-        setDashboardLeaderboard(null);
+      console.error("Не удалось проверить список друзей:", error);
+      if (verseListFriendsPresenceRequestIdRef.current === requestId) {
+        verseListFriendsFetchFailedRef.current = true;
+        setVerseListFriendsPresence(null);
       }
       return null;
     } finally {
-      if (dashboardLeaderboardRequestIdRef.current === requestId) {
-        setIsDashboardLeaderboardLoading(false);
-      }
-    }
-  }, []);
-
-  const loadDashboardFriendsActivity = useCallback(async (telegramIdValue: string) => {
-    if (!telegramIdValue) return null;
-
-    const requestId = ++dashboardFriendsActivityRequestIdRef.current;
-    setIsDashboardFriendsActivityLoading(true);
-
-    try {
-      const nextFriendsActivity = await fetchDashboardFriendsActivity(telegramIdValue, {
-        limit: 6,
-      });
-      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.friends = false;
-        setDashboardFriendsActivity(nextFriendsActivity);
-      }
-      return nextFriendsActivity;
-    } catch (error) {
-      console.error("Не удалось получить активность друзей:", error);
-      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
-        dashboardFetchFailedRef.current.friends = true;
-        setDashboardFriendsActivity(null);
-      }
-      return null;
-    } finally {
-      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
-        setIsDashboardFriendsActivityLoading(false);
+      if (verseListFriendsPresenceRequestIdRef.current === requestId) {
+        setIsVerseListFriendsPresenceLoading(false);
       }
     }
   }, []);
@@ -788,21 +825,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
-  const hasVerseListFriends =
-    (dashboardFriendsActivity?.summary.friendsTotal ?? 0) > 0;
-
-  useEffect(() => {
-    const previousPage = previousPageRef.current;
-    previousPageRef.current = currentPage;
-
-    const hasEnteredDashboard =
-      currentPage === "dashboard" && previousPage !== "dashboard";
-    if (!hasEnteredDashboard || !telegramId) {
-      return;
-    }
-
-    void loadDashboardFriendsActivity(telegramId);
-  }, [currentPage, loadDashboardFriendsActivity, telegramId]);
+  const hasVerseListFriends = verseListFriendsPresence === true;
 
   const handleToggleTheme = () => {
     setTheme((prevTheme) => {
@@ -942,7 +965,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       if (!telegramId) {
         setDashboardStats(null);
         setDashboardLeaderboard(null);
-        setDashboardFriendsActivity(null);
+        setVerseListFriendsPresence(null);
         setCurrentUserAvatarUrl(null);
         useCurrentUserStatsStore.getState().clear();
         finishBootstrapping();
@@ -984,7 +1007,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         await Promise.all([
           loadDashboardStats(telegramId),
           loadDashboardLeaderboard(telegramId),
-          loadDashboardFriendsActivity(telegramId),
+          loadVerseListFriendsPresence(telegramId),
         ]);
       } catch (err) {
         console.error("Не удалось получить данные дашборда:", err);
@@ -1002,7 +1025,7 @@ export default function App({ onInitialContentReady }: AppProps) {
       isMounted = false;
     };
   }, [
-    loadDashboardFriendsActivity,
+    loadVerseListFriendsPresence,
     loadDashboardLeaderboard,
     loadDashboardStats,
     scheduleTrainingVersePrefetch,
@@ -1029,11 +1052,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     }
 
     if (
-      dashboardFriendsActivity == null &&
-      !isDashboardFriendsActivityLoading &&
-      !dashboardFetchFailedRef.current.friends
+      verseListFriendsPresence === null &&
+      !isVerseListFriendsPresenceLoading &&
+      !verseListFriendsFetchFailedRef.current
     ) {
-      void loadDashboardFriendsActivity(telegramId);
+      void loadVerseListFriendsPresence(telegramId);
     }
 
     if (
@@ -1044,15 +1067,15 @@ export default function App({ onInitialContentReady }: AppProps) {
       scheduleTrainingVersePrefetch(telegramId);
     }
   }, [
-    dashboardFriendsActivity,
+    verseListFriendsPresence,
     dashboardLeaderboard,
     dashboardStats,
     hasLoadedTrainingVerses,
     isBootstrapping,
-    isDashboardFriendsActivityLoading,
+    isVerseListFriendsPresenceLoading,
     isDashboardLeaderboardLoading,
     isDashboardStatsLoading,
-    loadDashboardFriendsActivity,
+    loadVerseListFriendsPresence,
     loadDashboardLeaderboard,
     loadDashboardStats,
     scheduleTrainingVersePrefetch,
@@ -1169,8 +1192,8 @@ export default function App({ onInitialContentReady }: AppProps) {
     setFriendsRefreshVersion((prev) => prev + 1);
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
-    dashboardFetchFailedRef.current.friends = false;
-    void loadDashboardFriendsActivity(telegramIdValue);
+    verseListFriendsFetchFailedRef.current = false;
+    void loadVerseListFriendsPresence(telegramIdValue);
   };
 
   const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
@@ -1315,13 +1338,12 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardStatsLoading={isDashboardStatsLoading}
                 dashboardLeaderboard={dashboardLeaderboard}
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
-                dashboardFriendsActivity={dashboardFriendsActivity}
-                isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                 currentTelegramId={telegramId}
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}
-                onOpenProfile={() => handleRootNavigate("profile")}
                 onOpenPlayerProfile={handleOpenPlayerProfile}
+                onLeaderboardPageChange={handleLeaderboardPageChange}
+                onLeaderboardJumpToMe={handleLeaderboardJumpToMe}
                 isInitializingData={isBootstrapping}
               />
             </div>

@@ -1,85 +1,89 @@
+import type { bible_memory_db_internal_domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
 import type { domain_UserVersesPageResponse } from "@/api/models/domain_UserVersesPageResponse";
-import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
 import { UserVersesService } from "@/api/services/UserVersesService";
 
-type ListUserVersesArgs = Parameters<typeof UserVersesService.listUserVerses>;
+/** Должен совпадать с VerseListStatusFilter в списке стихов (без импорта из app — избегаем циклов). */
+export type UserVersesListFilter =
+  | "catalog"
+  | "friends"
+  | "learning"
+  | "review"
+  | "mastered"
+  | "stopped"
+  | "my";
 
-export async function fetchUserVersesPage(params: {
-  telegramId: ListUserVersesArgs[0];
-  orderBy?: ListUserVersesArgs[2];
-  order?: ListUserVersesArgs[3];
-  filter?: ListUserVersesArgs[4];
-  bookId?: ListUserVersesArgs[5];
-  search?: ListUserVersesArgs[6];
+const LIST_PAGE_LIMIT = 100;
+
+type FetchUserVersesPageParams = {
+  telegramId: string;
+  orderBy?: "bible" | "popularity" | "updatedAt";
+  order?: "asc" | "desc";
+  filter: UserVersesListFilter;
+  bookId?: number;
+  search?: string;
   tagSlugs?: string[];
-  limit?: ListUserVersesArgs[8];
-  startWith?: ListUserVersesArgs[9];
-}): Promise<domain_UserVersesPageResponse> {
-  const {
-    telegramId,
-    orderBy = "updatedAt",
-    order = "desc",
-    filter,
-    bookId,
-    search,
-    tagSlugs,
-    limit = 20,
-    startWith,
-  } = params;
+  limit: number;
+  startWith?: number;
+};
 
-  const tagSlugsStr =
-    tagSlugs && tagSlugs.length > 0 ? tagSlugs.join(",") : undefined;
+function apiFilter(
+  filter: UserVersesListFilter
+): "friends" | "my" | "learning" | "review" | "mastered" | "stopped" {
+  if (filter === "catalog") {
+    return "my";
+  }
+  return filter;
+}
 
+export async function fetchUserVersesPage(
+  params: FetchUserVersesPageParams
+): Promise<domain_UserVersesPageResponse> {
+  const orderBy = params.orderBy ?? "updatedAt";
+  const order = params.order ?? "desc";
+  const tagSlugs =
+    params.tagSlugs && params.tagSlugs.length > 0
+      ? params.tagSlugs.join(",")
+      : undefined;
   return UserVersesService.listUserVerses(
-    telegramId,
+    params.telegramId,
     undefined,
     orderBy,
     order,
-    filter,
-    bookId,
-    search,
-    tagSlugsStr,
-    limit,
-    startWith
+    apiFilter(params.filter),
+    params.bookId,
+    params.search,
+    tagSlugs,
+    params.limit,
+    params.startWith
   );
 }
 
-function pageTotalCount(page: domain_UserVersesPageResponse): number {
-  const items = page.items ?? [];
-  const t = page.totalCount ?? page.total;
-  if (typeof t === "number" && Number.isFinite(t)) {
-    return Math.max(0, Math.round(t));
-  }
-  return items.length;
-}
-
-const FETCH_ALL_PAGE_SIZE = 100;
-
-/** Все стихи пользователя (без семантического filter) — для дашборда тренировки. */
 export async function fetchAllUserVerses(params: {
   telegramId: string;
-}): Promise<Array<domain_VerseListItem>> {
-  const { telegramId } = params;
-  const all: Array<domain_VerseListItem> = [];
+}): Promise<Array<bible_memory_db_internal_domain_VerseListItem>> {
+  const out: Array<bible_memory_db_internal_domain_VerseListItem> = [];
+  let startWith = 0;
 
-  while (true) {
-    const page = await fetchUserVersesPage({
-      telegramId,
-      orderBy: "updatedAt",
-      order: "desc",
-      limit: FETCH_ALL_PAGE_SIZE,
-      startWith: all.length,
-    });
-
+  for (;;) {
+    const page = await UserVersesService.listUserVerses(
+      params.telegramId,
+      undefined,
+      "updatedAt",
+      "desc",
+      "my",
+      undefined,
+      undefined,
+      undefined,
+      LIST_PAGE_LIMIT,
+      startWith
+    );
     const batch = page.items ?? [];
-    if (batch.length === 0) break;
-
-    all.push(...batch);
-
-    const total = pageTotalCount(page);
-    if (batch.length < FETCH_ALL_PAGE_SIZE) break;
-    if (total > 0 && all.length >= total) break;
+    out.push(...batch);
+    if (batch.length < LIST_PAGE_LIMIT) {
+      break;
+    }
+    startWith += batch.length;
   }
 
-  return all;
+  return out;
 }

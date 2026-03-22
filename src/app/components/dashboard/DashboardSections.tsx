@@ -1,15 +1,26 @@
 "use client";
 
 import React from "react";
-import { Crown, Dumbbell, Medal, Trophy, FlameIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Crown,
+  Dumbbell,
+  Medal,
+  Trophy,
+  FlameIcon,
+} from "lucide-react";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import type { domain_DashboardFriendsActivityResponse } from "@/api/models/domain_DashboardFriendsActivityResponse";
 import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { formatXp } from "@/shared/social/formatXp";
+
+const DASHBOARD_LEADERBOARD_PAGE_SIZE = 5;
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
 
@@ -92,29 +103,6 @@ function pluralizeVerses(count: number) {
     return "стиха";
   }
   return "стихов";
-}
-
-function formatRelativeLastActive(value: string | null): string {
-  if (!value) return "Без активности";
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return "Без активности";
-  const deltaMs = Date.now() - parsed;
-
-  if (deltaMs < 2 * 60 * 1000) return "Только что";
-
-  const minutes = Math.floor(deltaMs / (60 * 1000));
-  if (minutes < 60) return `${minutes} мин назад`;
-
-  const hours = Math.floor(deltaMs / (60 * 60 * 1000));
-  if (hours < 24) return `${hours} ч назад`;
-
-  const days = Math.floor(deltaMs / (24 * 60 * 60 * 1000));
-  if (days < 7) return `${days} дн назад`;
-
-  return new Date(parsed).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-  });
 }
 
 function getRankMarker(rank: number) {
@@ -376,6 +364,8 @@ type DashboardLeaderboardCardProps = {
     name: string;
     avatarUrl: string | null;
   }) => void;
+  onLeaderboardPageChange?: (page: number) => void;
+  onLeaderboardJumpToMe?: () => void;
 };
 
 export function DashboardLeaderboardCard({
@@ -383,6 +373,8 @@ export function DashboardLeaderboardCard({
   isLeaderboardLoading = false,
   onOpenTraining,
   onOpenPlayerProfile,
+  onLeaderboardPageChange,
+  onLeaderboardJumpToMe,
 }: DashboardLeaderboardCardProps) {
   const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
   const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
@@ -391,6 +383,30 @@ export function DashboardLeaderboardCard({
   );
   const entries = leaderboard?.items ?? [];
   const apiCurrentUser = leaderboard?.currentUser ?? null;
+  const pageSize = leaderboard?.pageSize ?? DASHBOARD_LEADERBOARD_PAGE_SIZE;
+  const totalParticipants = leaderboard?.totalParticipants ?? 0;
+  const derivedTotalPages =
+    leaderboard?.totalPages ??
+    (totalParticipants > 0
+      ? Math.max(1, Math.ceil(totalParticipants / pageSize))
+      : 1);
+  const currentPage = Math.min(
+    Math.max(1, leaderboard?.page ?? 1),
+    derivedTotalPages
+  );
+  const showPagination =
+    Boolean(onLeaderboardPageChange) && derivedTotalPages > 1;
+  const currentUserRank = apiCurrentUser?.rank;
+  const isCurrentUserInEntries =
+    currentUserTelegramId != null &&
+    entries.some((e) => String(e.telegramId ?? "") === currentUserTelegramId);
+  const showJumpToMe =
+    Boolean(onLeaderboardJumpToMe) &&
+    Boolean(currentUserTelegramId) &&
+    showPagination &&
+    typeof currentUserRank === "number" &&
+    currentUserRank >= 1 &&
+    !isCurrentUserInEntries;
   const shouldShowCurrentUserSnapshot =
     apiCurrentUser != null &&
     currentUserTelegramId != null &&
@@ -443,7 +459,7 @@ export function DashboardLeaderboardCard({
                 });
 
               return (
-                <div key={entryTelegramId || displayName}>
+                <div key={`${rank}-${entryTelegramId || displayName}`}>
                   <button
                     type="button"
                     onClick={handleOpenProfile}
@@ -529,6 +545,74 @@ export function DashboardLeaderboardCard({
           )}
         </div>
 
+        {showPagination && onLeaderboardPageChange ? (
+          <div className="mt-4 flex flex-col gap-2 border-t border-border/55 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage <= 1}
+                  aria-label="Первая страница"
+                  onClick={() => onLeaderboardPageChange(1)}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage <= 1}
+                  aria-label="Предыдущая страница"
+                  onClick={() => onLeaderboardPageChange(currentPage - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage >= derivedTotalPages}
+                  aria-label="Следующая страница"
+                  onClick={() => onLeaderboardPageChange(currentPage + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-lg border-border/60 bg-background/55"
+                  disabled={isLeaderboardLoading || currentPage >= derivedTotalPages}
+                  aria-label="Последняя страница"
+                  onClick={() => onLeaderboardPageChange(derivedTotalPages)}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <span className="text-xs tabular-nums text-foreground/48">
+                Стр. {currentPage} / {derivedTotalPages}
+              </span>
+            </div>
+            {showJumpToMe ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 w-full rounded-full text-xs sm:w-auto"
+                disabled={isLeaderboardLoading}
+                onClick={() => onLeaderboardJumpToMe?.()}
+              >
+                Показать меня
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
         {shouldShowCurrentUserSnapshot ? (
           <div className="mt-3 border-t border-border/55 pt-3">
             <button
@@ -557,110 +641,6 @@ export function DashboardLeaderboardCard({
             </button>
           </div>
         ) : null}
-      </DashboardSurface>
-    </div>
-  );
-}
-
-type DashboardFriendsActivityCardProps = {
-  friendsActivity?: domain_DashboardFriendsActivityResponse | null;
-  isFriendsActivityLoading?: boolean;
-  onOpenProfile?: () => void;
-  onOpenPlayerProfile?: (player: {
-    telegramId: string;
-    name: string;
-    avatarUrl: string | null;
-  }) => void;
-};
-
-export function DashboardFriendsActivityCard({
-  friendsActivity = null,
-  isFriendsActivityLoading = false,
-  onOpenProfile,
-  onOpenPlayerProfile,
-}: DashboardFriendsActivityCardProps) {
-  const entries = friendsActivity?.entries ?? [];
-  const summary = friendsActivity?.summary ?? {
-    friendsTotal: 0,
-  };
-
-  return (
-    <div>
-      <DashboardSurface>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight text-foreground/80">
-            Друзья
-          </h2>
-          <div className="text-xs text-foreground/45">{summary.friendsTotal}</div>
-        </div>
-
-        <div className="space-y-2.5">
-          {entries.length > 0 ? (
-            entries.map((entry) => (
-              <button
-                key={entry.telegramId}
-                type="button"
-                onClick={() =>
-                  onOpenPlayerProfile?.({
-                    telegramId: entry.telegramId,
-                    name: entry.name,
-                    avatarUrl: entry.avatarUrl,
-                  })
-                }
-                className="w-full rounded-2xl border border-border/60 bg-background/55 px-3 py-2.5 text-left transition-colors hover:bg-background/70"
-                aria-label={`Открыть профиль ${entry.name}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9 border border-border/60 bg-background/70">
-                    {entry.avatarUrl ? (
-                      <AvatarImage src={entry.avatarUrl} alt={entry.name} />
-                    ) : null}
-                    <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
-                      {getInitials(entry.name)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground/78">
-                      {entry.name}
-                    </div>
-                    <div className="mt-1 text-xs text-foreground/48">
-                      {formatRelativeLastActive(entry.lastActiveAt)} · {entry.dailyStreak} дн. подряд
-                    </div>
-                  </div>
-
-                  <div className="text-xs font-medium text-foreground/68">
-                    {formatXp(entry.xp)}
-                  </div>
-                </div>
-              </button>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4">
-              {isFriendsActivityLoading ? (
-                <div className="text-sm text-foreground/56">Обновляем...</div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm leading-relaxed text-foreground/56">
-                    Здесь появится прогресс друзей. Добавьте их в профиле, чтобы
-                    видеть активность без перехода из главного экрана.
-                  </p>
-                  {onOpenProfile ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={onOpenProfile}
-                      className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
-                    >
-                      Открыть профиль
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </DashboardSurface>
     </div>
   );

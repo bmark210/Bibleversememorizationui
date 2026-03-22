@@ -4,14 +4,12 @@ import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
 import { Verse } from '@/app/App'
 import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
-import type { domain_DashboardFriendsActivityResponse } from '@/api/models/domain_DashboardFriendsActivityResponse'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
 import {
-  DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
@@ -23,17 +21,16 @@ interface DashboardProps {
   isDashboardStatsLoading?: boolean
   dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
-  dashboardFriendsActivity?: domain_DashboardFriendsActivityResponse | null
-  isDashboardFriendsActivityLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
-  onOpenProfile?: () => void
   onOpenPlayerProfile?: (player: {
     telegramId: string
     name: string
     avatarUrl: string | null
   }) => void
+  onLeaderboardPageChange?: (page: number) => void
+  onLeaderboardJumpToMe?: () => void
   isInitializingData?: boolean
 }
 
@@ -117,13 +114,12 @@ export function Dashboard({
   isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
-  dashboardFriendsActivity = null,
-  isDashboardFriendsActivityLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
-  onOpenProfile,
   onOpenPlayerProfile,
+  onLeaderboardPageChange,
+  onLeaderboardJumpToMe,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
@@ -211,12 +207,8 @@ export function Dashboard({
             isLeaderboardLoading={isDashboardLeaderboardLoading}
             onOpenTraining={onOpenTraining}
             onOpenPlayerProfile={onOpenPlayerProfile}
-          />
-          <DashboardFriendsActivityCard
-            friendsActivity={dashboardFriendsActivity}
-            isFriendsActivityLoading={isDashboardFriendsActivityLoading}
-            onOpenProfile={onOpenProfile}
-            onOpenPlayerProfile={onOpenPlayerProfile}
+            onLeaderboardPageChange={onLeaderboardPageChange}
+            onLeaderboardJumpToMe={onLeaderboardJumpToMe}
           />
         </div>
       </div>

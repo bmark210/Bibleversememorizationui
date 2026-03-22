@@ -132,7 +132,7 @@ export function Layout({
 
         {/* Main Content */}
         <main
-          className="min-w-0 flex-1 min-h-0 overflow-y-auto [overflow-x:clip]"
+          className="min-w-0 flex-1 min-h-0 overflow-y-auto [overflow-x:clip] overscroll-contain"
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`

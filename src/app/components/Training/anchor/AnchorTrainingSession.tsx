@@ -11,7 +11,6 @@ import { AnimatePresence, motion } from "motion/react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
-import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -259,12 +258,14 @@ async function buildRandomSessionQuestions(
   const targetCount = Math.min(ANCHOR_SESSION_BATCH_SIZE, verseOrder.length);
   const questions: TrainerQuestion[] = [];
   let previousModeId: TrainerModeId | null = null;
-  const aiAvailable = getAIAvailability();
 
   for (const verse of verseOrder) {
     if (questions.length >= targetCount) break;
 
     const order = questions.length;
+
+    // Re-check AI availability before each verse (cooldown may have been triggered)
+    const aiAvailable = getAIAvailability();
 
     // Filter strategies that can build for this verse
     const eligible = filteredStrategies.filter((s) =>
@@ -379,9 +380,6 @@ export function AnchorTrainingSession({
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-  const isTelegramFullscreen = useTelegramUiStore(
-    (state) => state.isTelegramFullscreen,
-  );
   const fontSizes = useTrainingFontSize();
   const initializedTelegramIdRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
@@ -918,23 +916,19 @@ export function AnchorTrainingSession({
   return (
     <>
       <div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20">
-        {isTelegramFullscreen ? (
-          <header
-            id="anchor-session-header"
-            className="sticky top-0 z-10 shrink-0 overflow-hidden border-b border-border bg-card/90 backdrop-blur-xl transition-[opacity,transform] duration-400 ease-out opacity-100 translate-y-0"
-            style={{ paddingTop: `${topInset}px` }}
-          >
-            <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
-              <div className="flex min-h-11 items-center justify-center">
-                <div className="truncate text-sm font-semibold text-primary">
-                  Закрепление
-                </div>
+        <header
+          id="anchor-session-header"
+          className="sticky top-0 z-10 shrink-0 overflow-hidden border-b border-border/40 bg-background/75 backdrop-blur-xl"
+          style={{ paddingTop: `${topInset}px` }}
+        >
+          <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
+            <div className="flex min-h-11 items-center justify-center">
+              <div className="truncate text-sm font-semibold text-primary">
+                Закрепление
               </div>
             </div>
-          </header>
-        ) : (
-          <div className="shrink-0" style={{ height: `${topInset}px` }} />
-        )}
+          </div>
+        </header>
 
         {/* Accuracy bar + mode info */}
         {hasActiveQuestion && currentQuestion && (
@@ -1104,14 +1098,25 @@ export function AnchorTrainingSession({
         >
           <div className="mx-auto w-full max-w-lg">
             {isAnswered ? (
-              /* After answer: full-width "Дальше" */
-              <Button
-                type="button"
-                className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
-                onClick={handleContinueAfterReveal}
-              >
-                Дальше
-              </Button>
+              canContinueAfterReveal ? (
+                /* More questions ahead */
+                <Button
+                  type="button"
+                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  onClick={handleContinueAfterReveal}
+                >
+                  Дальше
+                </Button>
+              ) : (
+                /* Last question — show results */
+                <Button
+                  type="button"
+                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  onClick={showResultModal}
+                >
+                  Завершить
+                </Button>
+              )
             ) : (
               /* Before answer: nav + skip + finish */
               <div className="flex items-center justify-center gap-2">

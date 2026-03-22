@@ -23,7 +23,7 @@ import {
 import type { Verse } from "@/app/App";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
-
+ 
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
 
 /** Pick the training mode that best matches a verse's current status */

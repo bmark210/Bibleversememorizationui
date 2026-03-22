@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Verse } from "@/app/App";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { bible_memory_db_internal_domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
@@ -50,7 +50,7 @@ import { cn } from "../../ui/utils";
 
 interface TrainingHubProps {
   allVerses: Verse[];
-  dashboardStats?: domain_UserDashboardStats | null;
+  dashboardStats?: bible_memory_db_internal_domain_UserDashboardStats | null;
   selectionVerses?: Verse[];
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
@@ -389,7 +389,6 @@ export function TrainingHub({
     <div
         className={cn(
           "mx-auto flex h-full w-full flex-col overflow-y-auto",
-          isTelegramFullscreen ? "" : "pt-3 sm:pt-5 lg:pt-7",
         )}
         style={
           {
@@ -404,14 +403,12 @@ export function TrainingHub({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: "easeOut",
           }}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-0 flex-1 flex-col p-4"
         >
           {/* Fixed top: header + tabs */}
-          <div className="shrink-0 px-4 sm:pt-1 lg:pt-3">
+          <div className="shrink-0">
             <div className="flex flex-col gap-4">
-              {isTelegramFullscreen ? (
-                <div className="shrink-0" style={{ height: `${contentSafeAreaInset.top}px` }} />
-              ) : (
+              {isTelegramFullscreen ? (null) : (
                 <header className="space-y-1.5">
                   <div className="flex items-center gap-2.5">
                     <h1 className="text-2xl font-semibold text-primary">
@@ -457,7 +454,7 @@ export function TrainingHub({
           </div>
 
           {/* Mode list */}
-          <div className="px-4 pb-3 pt-3 my-2 mx-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl">
+          <div className="pb-4 pt-3 my-2 px-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl overflow-y-auto">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div
@@ -502,7 +499,7 @@ export function TrainingHub({
                   transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
                 >
                   <SectionLabel>Режимы закрепления</SectionLabel>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                   {ALL_ANCHOR_MODE_GROUPS.map((group) => {
                     const isChecked = selectedAnchorModes.includes(group);
                     const Icon = ANCHOR_MODE_GROUP_ICONS[group];
@@ -610,7 +607,7 @@ export function TrainingHub({
           {/* Bottom: start card */}
           <div
             className={cn(
-              "mx-2 mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
+              "mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
               anchorLocked
                 ? "border-foreground/10"
                 : currentAccentTheme.summaryClassName,

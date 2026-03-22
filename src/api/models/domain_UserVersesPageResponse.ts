@@ -1,13 +1,1 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-import type { domain_VerseListItem } from './domain_VerseListItem';
-export type domain_UserVersesPageResponse = {
-    items?: Array<domain_VerseListItem>;
-    limit?: number;
-    offset?: number;
-    total?: number;
-    totalCount?: number;
-};
-
+export type { bible_memory_db_internal_domain_UserVersesPageResponse as domain_UserVersesPageResponse } from "./bible_memory_db_internal_domain_UserVersesPageResponse";

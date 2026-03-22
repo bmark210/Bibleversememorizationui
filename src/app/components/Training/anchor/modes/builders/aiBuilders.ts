@@ -33,6 +33,9 @@ export function buildImpostorWordQuestion(
   const data = aiData as ImpostorWordData | undefined;
   if (!data?.changedWord || !data?.correctWord || data.wordIndex == null) return null;
 
+  // Если AI вернул то же слово — отбрасываем (защита от кэшированных невалидных ответов)
+  if (data.changedWord.toLowerCase() === data.correctWord.toLowerCase()) return null;
+
   const modified = buildModifiedText(verse.text, data);
   if (!modified) return null;
 
