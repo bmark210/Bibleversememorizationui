@@ -9,6 +9,7 @@ export type TrainerModeId =
   | "incipit-tap"
   | "incipit-type"
   | "ending-choice"
+  | "context-reference-choice"
   | "context-reference-type"
   | "broken-mirror"
   | "skeleton-verse"

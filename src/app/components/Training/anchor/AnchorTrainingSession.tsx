@@ -157,7 +157,7 @@ function getTypeInputReadiness(
     return { canSubmit: false, remainingChars: 0 };
   }
 
-  if (question.modeId === "reference-type" || question.modeId === "context-reference-type") {
+  if (question.modeId === "reference-type" || question.modeId === "context-reference-type" || question.modeId === "context-reference-choice") {
     return { canSubmit: true, remainingChars: 0 };
   }
 
@@ -950,7 +950,7 @@ export function AnchorTrainingSession({
                 />
               )}
             </div>
-            <p className="text-center text-[13px] text-muted-foreground/80 truncate">
+            <p className="text-center text-[13px] text-muted-foreground/80">
               {getAnchorModeShortLabel(currentQuestion.modeId)} · {currentQuestion.modeHint}
             </p>
           </div>
@@ -1092,7 +1092,9 @@ export function AnchorTrainingSession({
                               className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
                               style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
                             >
-                              {currentQuestion.prompt}
+                              {currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice"
+                                ? currentQuestion.verse.text
+                                : currentQuestion.prompt}
                             </p>
                             {showCorrectAnswer && (
                               <>
@@ -1125,6 +1127,11 @@ export function AnchorTrainingSession({
                             )}
                           >
                             <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm">
+                              {(currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice") && (
+                                <p className="text-center text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50 mb-2">
+                                  Подсказка
+                                </p>
+                              )}
                               <p
                                 className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
                                 style={{ fontSize: `${fontSizes.anchorPrompt}px` }}

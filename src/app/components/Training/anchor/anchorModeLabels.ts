@@ -17,8 +17,10 @@ export function getAnchorModeShortLabel(modeId: TrainerModeId): string {
       return "Начало · буквы";
     case "ending-choice":
       return "Конец";
+    case "context-reference-choice":
+      return "Контекст v1";
     case "context-reference-type":
-      return "Контекст";
+      return "Контекст v2";
     case "broken-mirror":
       return "Зеркало";
     case "skeleton-verse":

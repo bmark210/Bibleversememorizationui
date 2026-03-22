@@ -19,6 +19,7 @@ import {
 } from "./modes/builders/incipitBuilders";
 import { buildEndingChoiceQuestion } from "./modes/builders/endingBuilders";
 import {
+  buildContextReferenceChoiceQuestion,
   buildContextReferenceTypeQuestion,
 } from "./modes/builders/contextBuilders";
 import {
@@ -36,7 +37,7 @@ export const MODE_STRATEGIES: readonly ModeStrategy[] = [
   // --- reference ---
   {
     id: "reference-choice",
-    group: "reference",
+    group: "reference-v1",
     category: "client",
     interaction: "choice",
     hint: "Выберите правильную ссылку",
@@ -49,7 +50,7 @@ export const MODE_STRATEGIES: readonly ModeStrategy[] = [
   },
   {
     id: "book-choice",
-    group: "reference",
+    group: "reference-v1",
     category: "client",
     interaction: "choice",
     hint: "Выберите правильную книгу",
@@ -62,7 +63,7 @@ export const MODE_STRATEGIES: readonly ModeStrategy[] = [
   },
   {
     id: "reference-type",
-    group: "reference",
+    group: "reference-v2",
     category: "client",
     interaction: "type",
     hint: "Введите ссылку вручную",
@@ -131,8 +132,22 @@ export const MODE_STRATEGIES: readonly ModeStrategy[] = [
 
   // --- context ---
   {
+    id: "context-reference-choice",
+    group: "context-v1",
+    category: "client",
+    interaction: "choice",
+    hint: "Выберите ссылку на стих по контексту",
+    weight: 2,
+    requiresAI: false,
+    canBuild: (verse, pool) =>
+      hasContextPrompt(verse) &&
+      buildContextReferenceChoiceQuestion(verse, pool, -1) !== null,
+    buildQuestion: (verse, pool, order) =>
+      buildContextReferenceChoiceQuestion(verse, pool, order),
+  },
+  {
     id: "context-reference-type",
-    group: "context",
+    group: "context-v2",
     category: "client",
     interaction: "type",
     hint: "Введите ссылку на стих по контексту",

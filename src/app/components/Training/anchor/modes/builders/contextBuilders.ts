@@ -4,17 +4,67 @@
  * The user must enter the reference of their memorized verse.
  */
 
-import type { TrainingVerse, TypeQuestion } from "../../types";
-import { matchesReferenceWithTolerance } from "../../services/validation";
+import type { ChoiceQuestion, TrainingVerse, TypeQuestion } from "../../types";
+import { matchesReferenceWithTolerance, normalizeBookName } from "../../services/validation";
 import {
   CONFIG,
   hasContextPrompt,
   buildContextPrompt,
   getContextTargetDescriptor,
+  shuffle,
 } from "./builderUtils";
 
 // ---------------------------------------------------------------------------
-// context-reference-type
+// context-reference-choice  (v1 — easier: pick the reference from options)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a context question where the user sees a nearby verse
+ * and must choose the reference of their memorized verse from 4 options.
+ */
+export function buildContextReferenceChoiceQuestion(
+  verse: TrainingVerse,
+  pool: TrainingVerse[],
+  order: number,
+): ChoiceQuestion | null {
+  if (!hasContextPrompt(verse)) return null;
+
+  const promptText = buildContextPrompt(verse);
+  if (!promptText) return null;
+
+  const descriptor = getContextTargetDescriptor(verse);
+  const normalizedCorrect = normalizeBookName(verse.reference);
+
+  const distractors = shuffle(
+    pool
+      .map((item) => item.reference)
+      .filter((candidate) => candidate.trim().length > 0)
+      .filter(
+        (candidate) => normalizeBookName(candidate) !== normalizedCorrect,
+      ),
+  );
+
+  if (distractors.length < CONFIG.REFERENCE_OPTIONS_COUNT - 1) return null;
+
+  return {
+    id: `context-reference-choice-${order}-${verse.externalVerseId}`,
+    modeId: "context-reference-choice",
+    modeHint: `Выберите ссылку на ${descriptor}.`,
+    verse,
+    prompt: promptText,
+    answerLabel: verse.reference,
+    interaction: "choice",
+    options: shuffle([
+      verse.reference,
+      ...distractors.slice(0, CONFIG.REFERENCE_OPTIONS_COUNT - 1),
+    ]),
+    isCorrectOption: (value: string) =>
+      matchesReferenceWithTolerance(value, verse.reference),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// context-reference-type  (v2 — harder: type the reference manually)
 // ---------------------------------------------------------------------------
 
 /**
