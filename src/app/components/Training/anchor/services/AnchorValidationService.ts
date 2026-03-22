@@ -142,13 +142,48 @@ export function matchesReferenceWithTolerance(
 }
 
 /**
- * Проверяет соответствие инципита с допуском
+ * Проверяет соответствие инципита / полного текста с допуском.
+ * Использует Levenshtein-расстояние для допуска опечаток.
  */
 export function matchesIncipitWithTolerance(
   input: string,
   expected: string
 ): boolean {
-  return normalizeIncipitText(input) === normalizeIncipitText(expected);
+  const normalizedInput = normalizeIncipitText(input);
+  const normalizedExpected = normalizeIncipitText(expected);
+  if (!normalizedInput || !normalizedExpected) return false;
+
+  // Exact match
+  if (normalizedInput === normalizedExpected) return true;
+
+  // Levenshtein tolerance: allow proportional edits based on length
+  const maxLen = Math.max(normalizedInput.length, normalizedExpected.length);
+  if (maxLen === 0) return false;
+
+  const distance = levenshteinDistance(normalizedInput, normalizedExpected);
+  // Allow ~15% errors for long texts (verses), min 1 edit
+  const maxAllowed = Math.max(1, Math.floor(maxLen * 0.15));
+  return distance <= maxAllowed;
+}
+
+/**
+ * Вычисляет процент совпадения между введённым и ожидаемым текстом.
+ * Возвращает 0..100.
+ */
+export function calculateTextMatchPercent(
+  input: string,
+  expected: string
+): number {
+  const normalizedInput = normalizeIncipitText(input);
+  const normalizedExpected = normalizeIncipitText(expected);
+  if (!normalizedInput || !normalizedExpected) return 0;
+  if (normalizedInput === normalizedExpected) return 100;
+
+  const maxLen = Math.max(normalizedInput.length, normalizedExpected.length);
+  if (maxLen === 0) return 0;
+
+  const distance = levenshteinDistance(normalizedInput, normalizedExpected);
+  return Math.max(0, Math.min(100, Math.round((1 - distance / maxLen) * 100)));
 }
 
 /**

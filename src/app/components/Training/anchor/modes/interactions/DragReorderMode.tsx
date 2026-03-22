@@ -26,7 +26,11 @@ export function DragReorderMode({
   );
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
-  const touchStartRef = useRef<{ y: number; index: number } | null>(null);
+  const touchStateRef = useRef<{
+    y: number;
+    index: number;
+    isDragging: boolean;
+  } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const isCorrectOrder = items.every(
@@ -46,6 +50,7 @@ export function DragReorderMode({
     [],
   );
 
+  // ── Desktop drag & drop (HTML5) ──
   const handleDragStart = (index: number) => {
     if (controlsLocked || isAnswered) return;
     setDraggedIndex(index);
@@ -70,21 +75,35 @@ export function DragReorderMode({
     setOverIndex(null);
   };
 
-  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+  // ── Mobile touch drag — initiated ONLY from grip handle ──
+  const handleGripTouchStart = (e: React.TouchEvent, index: number) => {
     if (controlsLocked || isAnswered) return;
     const touch = e.touches[0];
     if (!touch) return;
-    touchStartRef.current = { y: touch.clientY, index };
-    setDraggedIndex(index);
+    // Don't set isDragging yet — wait for movement to distinguish tap from drag
+    touchStateRef.current = { y: touch.clientY, index, isDragging: false };
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || !listRef.current) return;
+  const handleGripTouchMove = (e: React.TouchEvent) => {
+    if (!touchStateRef.current || !listRef.current) return;
     const touch = e.touches[0];
     if (!touch) return;
 
+    const deltaY = Math.abs(touch.clientY - touchStateRef.current.y);
+
+    // Activate drag after 8px of vertical movement
+    if (!touchStateRef.current.isDragging) {
+      if (deltaY < 8) return;
+      touchStateRef.current.isDragging = true;
+      setDraggedIndex(touchStateRef.current.index);
+    }
+
+    // Prevent scroll while dragging
+    e.preventDefault();
+
+    // Find which row the finger is over
     const children = Array.from(listRef.current.children);
-    let targetIndex = touchStartRef.current.index;
+    let targetIndex = touchStateRef.current.index;
 
     for (let i = 0; i < children.length; i++) {
       const child = children[i] as HTMLElement;
@@ -102,15 +121,21 @@ export function DragReorderMode({
     setOverIndex(targetIndex);
   };
 
-  const handleTouchEnd = () => {
-    if (draggedIndex !== null && overIndex !== null && draggedIndex !== overIndex) {
+  const handleGripTouchEnd = () => {
+    if (
+      touchStateRef.current?.isDragging &&
+      draggedIndex !== null &&
+      overIndex !== null &&
+      draggedIndex !== overIndex
+    ) {
       moveItem(draggedIndex, overIndex);
     }
-    touchStartRef.current = null;
+    touchStateRef.current = null;
     setDraggedIndex(null);
     setOverIndex(null);
   };
 
+  // ── Button-based reorder (always available as fallback) ──
   const handleMoveUp = (index: number) => {
     if (index <= 0 || controlsLocked || isAnswered) return;
     moveItem(index, index - 1);
@@ -123,7 +148,7 @@ export function DragReorderMode({
 
   return (
     <div className="space-y-3">
-      <div ref={listRef} className="flex flex-col gap-1.5">
+      <div ref={listRef} className="flex flex-col gap-2">
         {items.map((item, index) => {
           const isDragging = draggedIndex === index;
           const isOver = overIndex === index && draggedIndex !== index;
@@ -133,18 +158,13 @@ export function DragReorderMode({
           return (
             <div
               key={item.id}
-              draggable={!controlsLocked && !isAnswered}
-              onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={() => handleDrop(index)}
               onDragEnd={handleDragEnd}
-              onTouchStart={(e) => handleTouchStart(e, index)}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
               className={cn(
-                "flex items-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all duration-150 select-none",
-                isDragging && "opacity-40 scale-[0.97]",
-                isOver && "border-primary/40 bg-primary/[0.04]",
+                "flex items-center gap-3 rounded-xl border min-h-[3rem] px-3 py-2.5 font-medium transition-all duration-150 select-none",
+                isDragging && "opacity-40 scale-[0.97] shadow-lg",
+                isOver && "border-primary/50 bg-primary/[0.06] shadow-sm",
                 isAnswered && isCorrectPosition &&
                   "border-emerald-500/30 bg-emerald-500/[0.06]",
                 isAnswered && !isCorrectPosition &&
@@ -152,52 +172,73 @@ export function DragReorderMode({
                 !isAnswered &&
                   !isDragging &&
                   !isOver &&
-                  "border-border/40 bg-card/50 cursor-grab active:cursor-grabbing",
+                  "border-border/40 bg-card/60 shadow-sm",
               )}
-              style={{ touchAction: "none" }}
             >
-              {/* Position number */}
-              <span
-                className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums",
-                  isAnswered && isCorrectPosition
-                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    : isAnswered && !isCorrectPosition
-                      ? "bg-rose-500/15 text-rose-500 dark:text-rose-400"
-                      : "bg-foreground/[0.06] text-foreground/40",
-                )}
-              >
-                {index + 1}
-              </span>
-
-              {/* Move buttons */}
-              {!isAnswered && (
-                <span className="flex flex-col gap-0.5 shrink-0 -my-1">
-                  <button
-                    type="button"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0 || controlsLocked || isAnswered}
-                    className="h-4 w-5 rounded text-[10px] text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors"
-                    aria-label="Move up"
+              {/* Grab handle + position */}
+              {!isAnswered ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Grip dots — drag handle for both desktop & mobile */}
+                  <span
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onTouchStart={(e) => handleGripTouchStart(e, index)}
+                    onTouchMove={(e) => handleGripTouchMove(e)}
+                    onTouchEnd={handleGripTouchEnd}
+                    className="flex flex-col gap-[3px] text-foreground/30 cursor-grab active:cursor-grabbing p-1 -m-1"
+                    style={{ touchAction: "none" }}
+                    aria-label="Перетащите для перемещения"
                   >
-                    &#8593;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={
-                      index === items.length - 1 || controlsLocked || isAnswered
-                    }
-                    className="h-4 w-5 rounded text-[10px] text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors"
-                    aria-label="Move down"
-                  >
-                    &#8595;
-                  </button>
+                    <span className="flex gap-[3px]">
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                    </span>
+                    <span className="flex gap-[3px]">
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                    </span>
+                    <span className="flex gap-[3px]">
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                      <span className="h-[3px] w-[3px] rounded-full bg-current" />
+                    </span>
+                  </span>
+                  {/* Up/down buttons */}
+                  <span className="flex flex-col shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index === 0 || controlsLocked}
+                      className="h-5 w-6 rounded text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors flex items-center justify-center"
+                      aria-label="Переместить вверх"
+                    >
+                      <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 8L6 4L10 8" /></svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === items.length - 1 || controlsLocked}
+                      className="h-5 w-6 rounded text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors flex items-center justify-center"
+                      aria-label="Переместить вниз"
+                    >
+                      <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4L6 8L10 4" /></svg>
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                <span
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold tabular-nums",
+                    isCorrectPosition
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      : "bg-rose-500/15 text-rose-500 dark:text-rose-400",
+                  )}
+                >
+                  {index + 1}
                 </span>
               )}
 
               <span
-                className="text-foreground/80 leading-snug"
+                className="text-foreground/80 leading-snug min-w-0"
                 style={{ fontSize: `${fragmentPx}px` }}
               >
                 {item.text}
@@ -212,14 +253,18 @@ export function DragReorderMode({
           type="button"
           onClick={() => onOrderSubmit(items.map((i) => i.id))}
           disabled={controlsLocked}
-          className="w-full rounded-xl border border-primary/30 bg-primary/[0.07] px-4 py-2.5 text-sm font-semibold text-primary transition-all duration-150 hover:bg-primary/[0.12] active:scale-[0.99] disabled:opacity-40"
+          className={cn(
+            "w-full h-11 rounded-xl text-sm font-medium transition-all duration-200",
+            "bg-primary/90 text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99]",
+            "disabled:opacity-40 disabled:bg-muted/50",
+          )}
         >
           Проверить порядок
         </button>
       )}
 
       {isAnswered && !isCorrectOrder && (
-        <p className="text-[11px] text-muted-foreground/60 text-center">
+        <p className="text-xs text-muted-foreground/55 text-center">
           Правильный порядок показан выше
         </p>
       )}

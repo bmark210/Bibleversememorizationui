@@ -24,6 +24,7 @@ type AnchorTrainingModeRendererProps = {
   canSubmitTypeAnswer: boolean;
   isCompactTypeMode: boolean;
   typeInputReadiness: TypeInputReadiness | null;
+  matchPercent: number | null;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   onChoiceSelect: (value: string) => void;
   onTapSelect: (optionId: string) => void;
@@ -45,6 +46,7 @@ export function AnchorTrainingModeRenderer({
   canSubmitTypeAnswer,
   isCompactTypeMode,
   typeInputReadiness,
+  matchPercent,
   inputRef,
   onChoiceSelect,
   onTapSelect,
@@ -101,6 +103,7 @@ export function AnchorTrainingModeRenderer({
       isCompactTypeMode={isCompactTypeMode}
       typeInputReadiness={typeInputReadiness}
       controlsLocked={controlsLocked}
+      matchPercent={matchPercent}
       inputRef={inputRef}
       onTypedAnswerChange={onTypedAnswerChange}
       onTypeSubmit={onTypeSubmit}
