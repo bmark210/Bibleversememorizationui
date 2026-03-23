@@ -16,15 +16,14 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/app/components/ui/drawer";
 import { toast } from "@/app/lib/toast";
 import {
   coerceVerseDifficultyLevel,
@@ -1217,48 +1216,51 @@ export function AnchorTrainingSession({
         </div>
       </div>
 
-      {/* Exit confirmation dialog */}
-      <AlertDialog
+      {/* Exit confirmation drawer */}
+      <Drawer
         open={isExitConfirmOpen}
         onOpenChange={(open) => { if (!open) setIsExitConfirmOpen(false); }}
       >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
+        <DrawerContent>
+          <DrawerHeader className="pb-1">
+            <DrawerTitle className="text-base text-foreground/90">
               Завершить сессию?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
+            </DrawerTitle>
+            <DrawerDescription className="text-sm text-muted-foreground/80">
               Уже отправленные ответы сохранены. Текущая нерешённая карточка будет сброшена.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
-              onClick={() => setIsExitConfirmOpen(false)}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-white rounded-full border border-border/60"
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="flex-row gap-3 pt-2">
+            <DrawerClose asChild>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+              >
+                Остаться
+              </Button>
+            </DrawerClose>
+            <Button
+              className="flex-1 h-12 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
               onClick={showResultModal}
             >
               Выйти
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Result modal */}
-      <AlertDialog
+      {/* Result drawer */}
+      <Drawer
         open={isResultModalOpen}
         onOpenChange={(open) => { if (!open) onClose(); }}
       >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-center text-base text-foreground/90">
+        <DrawerContent>
+          <DrawerHeader className="pb-1">
+            <DrawerTitle className="text-center text-base text-foreground/90">
               Сессия завершена
-            </AlertDialogTitle>
-          </AlertDialogHeader>
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">Результаты сессии</DrawerDescription>
+          </DrawerHeader>
           <div className="space-y-4 py-2 text-center">
             <p className="text-5xl font-semibold tabular-nums text-foreground/90">
               {resultPercent}%
@@ -1280,16 +1282,16 @@ export function AnchorTrainingSession({
               </p>
             )}
           </div>
-          <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction
-              className="rounded-full border border-primary/25 bg-primary/85 px-8 text-primary-foreground hover:bg-primary/90"
+          <DrawerFooter>
+            <Button
+              className="w-full h-12 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground hover:bg-primary/90 text-sm font-medium"
               onClick={onClose}
             >
               Закрыть
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

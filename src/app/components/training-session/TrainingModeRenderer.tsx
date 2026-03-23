@@ -21,14 +21,15 @@ import type { TrainingExerciseResolution } from './modes/exerciseResult';
 import type { HintState } from './modes/useHintState';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../ui/alert-dialog';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '../ui/drawer';
+import { Button } from '../ui/button';
 import { Verse } from '@/app/App';
 import type { TrainingModeId } from '@/shared/training/modeEngine';
 
@@ -230,14 +231,14 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
       />
 
       {tutorial && (
-        <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
-          <AlertDialogContent className="rounded-3xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{tutorial.title}</AlertDialogTitle>
-              <AlertDialogDescription>{tutorial.summary}</AlertDialogDescription>
-            </AlertDialogHeader>
+        <Drawer open={tutorialOpen} onOpenChange={setTutorialOpen}>
+          <DrawerContent>
+            <DrawerHeader className="pb-1">
+              <DrawerTitle className="text-base">{tutorial.title}</DrawerTitle>
+              <DrawerDescription>{tutorial.summary}</DrawerDescription>
+            </DrawerHeader>
 
-            <div className="space-y-2 text-sm text-foreground/90">
+            <div className="space-y-2 px-4 text-sm text-foreground/90">
               {tutorial.bullets.map((bullet, index) => (
                 <div key={index} className="flex gap-2">
                   <span className="mt-0.5 text-foreground/90">•</span>
@@ -246,19 +247,18 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
               ))}
             </div>
 
-            <AlertDialogFooter>
-              <AlertDialogAction
-                className="w-full sm:w-auto rounded-full border border-border/60 bg-muted/35 text-foreground/90"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTutorialOpen(false);
-                }}
-              >
-                Понятно, начать
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button
+                  className="w-full h-12 rounded-2xl border border-border/60 bg-muted/35 text-sm font-medium text-foreground/90"
+                  onClick={() => setTutorialOpen(false)}
+                >
+                  Понятно, начать
+                </Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       )}
     </>
   );

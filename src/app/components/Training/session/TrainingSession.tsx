@@ -4,15 +4,14 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ArrowUp, Lightbulb } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/app/components/ui/drawer";
 import { Button } from "@/app/components/ui/button";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -74,15 +73,6 @@ const slideVariants = {
           transition: { duration: 0.2, ease: "easeIn" as const },
         },
 };
-
-/* ── Dialog style constants ── */
-
-const DIALOG_CONTENT_CLASS =
-  "rounded-3xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-xl";
-const DIALOG_CANCEL_CLASS =
-  "rounded-full border border-border/60 bg-muted/35 text-foreground/70";
-const DIALOG_DESTRUCTIVE_CLASS =
-  "rounded-full border border-border/60 bg-destructive text-background hover:bg-destructive/90 dark:text-destructive-foreground/80";
 
 /* ── Subset / ordering helpers ── */
 
@@ -922,41 +912,44 @@ export function TrainingSession({
         </AnimatePresence>
       </div>
 
-      {/* ── Quick Forget dialog ── */}
-      <AlertDialog
+      {/* ── Quick Forget drawer ── */}
+      <Drawer
         open={session.quickForgetConfirmStage !== null}
         onOpenChange={(open) => {
           if (!open) session.cancelQuickForget();
         }}
       >
-        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
+        <DrawerContent>
+          <DrawerHeader className="pb-1">
+            <DrawerTitle className="text-base text-foreground/90">
               Отметить как «забыл»?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+            </DrawerTitle>
+            <DrawerDescription className="text-sm text-muted-foreground/80">
               Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно
               правилам этапа изучения.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={DIALOG_CANCEL_CLASS}
-              onClick={session.cancelQuickForget}
-            >
-              Отмена
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={DIALOG_DESTRUCTIVE_CLASS}
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="flex-row gap-3 pt-2">
+            <DrawerClose asChild>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+                onClick={session.cancelQuickForget}
+              >
+                Отмена
+              </Button>
+            </DrawerClose>
+            <Button
+              className="flex-1 h-12 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
               onClick={() =>
                 session.confirmQuickForget(hintHelpers.hintState.attempt)
               }
             >
               Подтвердить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       {/* ── Unified pending-action confirm dialog ── */}
       {pendingDialogConfig && (

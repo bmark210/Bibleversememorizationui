@@ -12,15 +12,15 @@ import { createPortal } from "react-dom";
 import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/app/components/ui/drawer";
+import { Button } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toaster";
 import { PlayerProfileDrawer } from "@/app/components/PlayerProfileDrawer";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
@@ -826,32 +826,39 @@ export function VerseGallery({
 
         {!isFocusMode ? <SwipeHint panelMode="preview" /> : null}
 
-        <AlertDialog
+        <Drawer
           open={aux.isDeleteDialogOpen}
           onOpenChange={aux.setIsDeleteDialogOpen}
         >
-          <AlertDialogContent className="rounded-3xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Удалить стих?</AlertDialogTitle>
-              <AlertDialogDescription>
+          <DrawerContent>
+            <DrawerHeader className="pb-1">
+              <DrawerTitle className="text-base text-foreground/90">
+                Удалить стих?
+              </DrawerTitle>
+              <DrawerDescription className="text-sm text-muted-foreground/80">
                 Это действие нельзя отменить. Стих будет удалён из вашей
                 коллекции.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-full border border-border/60 bg-muted/35 text-foreground/80">
-                Отмена
-              </AlertDialogCancel>
-              <AlertDialogAction
+              </DrawerDescription>
+            </DrawerHeader>
+            <DrawerFooter className="flex-row gap-3 pt-2">
+              <DrawerClose asChild>
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+                >
+                  Отмена
+                </Button>
+              </DrawerClose>
+              <Button
                 disabled={aux.isActionPending || !previewActiveVerse}
-                className="rounded-full border border-border/60 bg-destructive hover:bg-destructive/90 text-white"
+                className="flex-1 h-12 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
                 onClick={() => void handleDelete()}
               >
                 Удалить
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       </div>
 
       <VerseTagsDrawer
