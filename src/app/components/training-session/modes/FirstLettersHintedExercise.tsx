@@ -14,12 +14,7 @@ import {
   getWordMaskWidth,
   tokenizeWords,
 } from './wordUtils';
-import { TrainingRatingFooter } from './TrainingRatingFooter';
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
+import type { TrainingExerciseResolution } from './exerciseResult';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
@@ -38,7 +33,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 interface FirstLettersHintedExerciseProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -138,15 +133,14 @@ const LETTER_CHOICE_BUTTON_BASE_CLASS =
 export function ModeFirstLettersHintedExercise({
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   hintState,
   onProgressChange,
-  isLateStageReview = false,
+  isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
 }: FirstLettersHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
-  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
@@ -156,6 +150,7 @@ export function ModeFirstLettersHintedExercise({
   const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -164,6 +159,7 @@ export function ModeFirstLettersHintedExercise({
       text: verse.text,
       difficultyLevel: verse.difficultyLevel,
     });
+    resolvedRef.current = false;
     setSlots(exercise.slots);
     setChoiceOrder(exercise.choiceOrder);
     setSelectedCount(0);
@@ -186,9 +182,14 @@ export function ModeFirstLettersHintedExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
+      resolvedRef.current = true;
       setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'revealed',
+        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
+      });
     }
-  }, [surrendered, isCompleted]);
+  }, [isCompleted, onExerciseResolved, surrendered]);
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -300,24 +301,28 @@ export function ModeFirstLettersHintedExercise({
       }, 260);
 
       if (next === totalHidden) {
+        resolvedRef.current = true;
         setIsCompleted(true);
+        onExerciseResolved?.({
+          kind: 'success',
+          message: 'Первые буквы выбраны верно.',
+        });
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
-    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+    setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      setSelectedCount(0);
-      toast.warning(
-        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
-      );
+      resolvedRef.current = true;
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'failure',
+        reason: 'max-mistakes',
+        message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
+      });
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
@@ -452,28 +457,6 @@ export function ModeFirstLettersHintedExercise({
         </div>
       )}
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="first-letters"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
     </motion.div>
   );
 }

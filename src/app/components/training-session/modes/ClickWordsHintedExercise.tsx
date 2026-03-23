@@ -7,14 +7,9 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
-import { TrainingRatingFooter } from './TrainingRatingFooter';
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { Verse } from '@/app/App';
+import type { TrainingExerciseResolution } from './exerciseResult';
 import {
   tokenizeWords,
   normalizeWord,
@@ -39,7 +34,7 @@ import { useTrainingFontSize } from './useTrainingFontSize';
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -143,15 +138,14 @@ const WORD_CHOICE_BUTTON_BASE_CLASS =
 export function ModeClickWordsHintedExercise({
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   hintState,
   onProgressChange,
-  isLateStageReview = false,
+  isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
 }: ClickWordsHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
-  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [{ slots, uniqueChoices }, setExerciseData] = useState(
     () => buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel })
   );
@@ -162,6 +156,7 @@ export function ModeClickWordsHintedExercise({
   const [successFlashNormalized, setSuccessFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -169,6 +164,7 @@ export function ModeClickWordsHintedExercise({
   useEffect(() => {
     if (prevVerseRef.current === verse) return;
     prevVerseRef.current = verse;
+    resolvedRef.current = false;
     setExerciseData(buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel }));
     setSelectedCount(0);
     setMistakesSinceReset(0);
@@ -190,9 +186,14 @@ export function ModeClickWordsHintedExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
+      resolvedRef.current = true;
       setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'revealed',
+        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
+      });
     }
-  }, [surrendered, isCompleted]);
+  }, [isCompleted, onExerciseResolved, surrendered]);
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -315,21 +316,28 @@ export function ModeClickWordsHintedExercise({
       }, 260);
 
       if (next === totalHiddenWords) {
+        resolvedRef.current = true;
         setIsCompleted(true);
+        onExerciseResolved?.({
+          kind: 'success',
+          message: 'Скрытые слова восстановлены верно.',
+        });
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldReset = nextMistakesSinceReset >= maxMistakes;
-    setMistakesSinceReset(shouldReset ? 0 : nextMistakesSinceReset);
+    setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldReset) {
-      setSelectedCount(0);
-      toast.warning(
-        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
-        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
-      );
+      resolvedRef.current = true;
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'failure',
+        reason: 'max-mistakes',
+        message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
+      });
     } else {
       toast.warning(
         `Неверное слово. До сброса: ${maxMistakes - nextMistakesSinceReset}.`,
@@ -468,28 +476,6 @@ export function ModeClickWordsHintedExercise({
         </div>
       )}
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="default"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
     </motion.div>
   );
 }

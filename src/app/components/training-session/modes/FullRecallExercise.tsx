@@ -12,14 +12,9 @@ import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
-import { TrainingRatingFooter } from './TrainingRatingFooter';
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { FixedBottomPanel } from './FixedBottomPanel';
+import type { TrainingExerciseResolution } from './exerciseResult';
 import type { HintState } from './useHintState';
 import { tokenizeWords } from './wordUtils';
 import {
@@ -32,7 +27,7 @@ import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDif
 interface TypingModeProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -44,10 +39,9 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: TypingModeProps) {
+export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
-  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -58,6 +52,7 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -67,6 +62,7 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
   );
 
   useEffect(() => {
+    resolvedRef.current = false;
     setUserInput('');
     setMatchPercent(null);
     setTotalMistakes(0);
@@ -91,8 +87,15 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
   }, [verse]);
 
   useEffect(() => {
-    if (surrendered && !isCompleted) setIsCompleted(true);
-  }, [surrendered, isCompleted]);
+    if (surrendered && !isCompleted) {
+      resolvedRef.current = true;
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'revealed',
+        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
+      });
+    }
+  }, [isCompleted, onExerciseResolved, surrendered]);
 
   const totalWords = useMemo(() => tokenizeWords(verse.text).length, [verse.text]);
   const completedWords = useMemo(
@@ -170,6 +173,7 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
     setMatchPercent(nextMatchPercent);
 
     if (nextMatchPercent >= RECALL_THRESHOLD) {
+      resolvedRef.current = true;
       setIsCompleted(true);
 
       setSuccessFlash(true);
@@ -181,19 +185,23 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
         clearSuccessFlashTimeoutRef.current = null;
       }, 260);
 
-      toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
-        toasterId: GALLERY_TOASTER_ID,
-        size: 'compact',
+      onExerciseResolved?.({
+        kind: 'success',
+        message: `Совпадение ${nextMatchPercent}%. Проверка пройдена.`,
+        matchPercent: nextMatchPercent,
       });
       return;
     }
 
+    resolvedRef.current = true;
+    setIsCompleted(true);
     setTotalMistakes((prev) => prev + 1);
-    toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
+    onExerciseResolved?.({
+      kind: 'failure',
+      reason: 'check-failed',
+      message: `Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`,
+      matchPercent: nextMatchPercent,
     });
-    triggerInputShake();
   };
 
   return (
@@ -272,28 +280,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onRate, hintStat
         </Button>
       </FixedBottomPanel>
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="full-recall"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
     </motion.div>
   );
 }

@@ -5,16 +5,11 @@ import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
-import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import type { TrainingExerciseResolution } from './exerciseResult';
 import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
@@ -25,7 +20,7 @@ import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficu
 interface FirstLettersKeyboardExerciseProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -68,15 +63,14 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 export function ModeFirstLettersKeyboardExercise({
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   hintState,
   onProgressChange,
-  isLateStageReview = false,
+  isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
-  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
@@ -87,11 +81,13 @@ export function ModeFirstLettersKeyboardExercise({
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
+    resolvedRef.current = false;
     setExpectedLetters(letters);
     setInputValue('');
     setMistakesSinceReset(0);
@@ -116,8 +112,15 @@ export function ModeFirstLettersKeyboardExercise({
   }, [verse]);
 
   useEffect(() => {
-    if (surrendered && !isCompleted) setIsCompleted(true);
-  }, [surrendered, isCompleted]);
+    if (surrendered && !isCompleted) {
+      resolvedRef.current = true;
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'revealed',
+        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
+      });
+    }
+  }, [isCompleted, onExerciseResolved, surrendered]);
 
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
@@ -175,24 +178,28 @@ export function ModeFirstLettersKeyboardExercise({
       }, 260);
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
+        resolvedRef.current = true;
         setIsCompleted(true);
+        onExerciseResolved?.({
+          kind: 'success',
+          message: 'Последовательность букв введена верно.',
+        });
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetInput = nextMistakesSinceReset >= maxMistakes;
-    setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
+    setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetInput) {
-      setInputValue('');
-      toast.warning(
-        `Допущено ${maxMistakes} ошибок. Ввод сброшен.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
-      );
+      resolvedRef.current = true;
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'failure',
+        reason: 'max-mistakes',
+        message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
+      });
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
@@ -279,28 +286,6 @@ export function ModeFirstLettersKeyboardExercise({
         </motion.div>
       </ScrollShadowContainer>
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="first-letters"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
     </motion.div>
   );
 }

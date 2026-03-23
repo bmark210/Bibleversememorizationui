@@ -9,8 +9,6 @@ import {
   MAINTENANCE_REVIEW_DAYS,
   REVIEW_LAPSE_FAIL_REPETITION_PENALTY,
   REVIEW_LAPSE_FAIL_STRIKE,
-  REVIEW_LAPSE_HINT_REPETITION_PENALTY,
-  REVIEW_LAPSE_HINT_STRIKE,
   REVIEW_LAPSE_STREAK_THRESHOLD,
   SPACED_REPETITION_MS_BY_STAGE,
   TRAINING_SCORE_BY_RATING,
@@ -141,6 +139,15 @@ export function computeReviewResult(
     };
   }
 
+  if (rating === 1) {
+    return {
+      repetitions,
+      reviewLapseStreak: 0,
+      nextReviewAt: new Date(now.getTime() + REVIEW_HINT_RETRY_MINUTES * 60 * 1000),
+      reviewWasSuccessful: false,
+    };
+  }
+
   // Late-stage review (reps 4+): no repetition penalty, just 6h retry.
   // User has proven long-term retention — harsh rollback is demoralizing.
   if (repetitions >= REVIEW_LATE_STAGE_THRESHOLD) {
@@ -152,10 +159,8 @@ export function computeReviewResult(
     };
   }
 
-  const nextStreak =
-    reviewLapseStreak + (rating === 1 ? REVIEW_LAPSE_HINT_STRIKE : REVIEW_LAPSE_FAIL_STRIKE);
-  const retryMinutes =
-    rating === 1 ? REVIEW_HINT_RETRY_MINUTES : REVIEW_FAIL_RETRY_MINUTES;
+  const nextStreak = reviewLapseStreak + REVIEW_LAPSE_FAIL_STRIKE;
+  const retryMinutes = REVIEW_FAIL_RETRY_MINUTES;
 
   if (nextStreak < REVIEW_LAPSE_STREAK_THRESHOLD) {
     return {
@@ -166,22 +171,8 @@ export function computeReviewResult(
     };
   }
 
-  const repetitionPenalty =
-    rating === 1
-      ? REVIEW_LAPSE_HINT_REPETITION_PENALTY
-      : REVIEW_LAPSE_FAIL_REPETITION_PENALTY;
-
-  if (rating === 1) {
-    return {
-      repetitions: Math.max(0, repetitions - repetitionPenalty),
-      reviewLapseStreak: 0,
-      nextReviewAt: new Date(now.getTime() + retryMinutes * 60 * 1000),
-      reviewWasSuccessful: false,
-    };
-  }
-
   return {
-    repetitions: Math.max(0, repetitions - repetitionPenalty),
+    repetitions: Math.max(0, repetitions - REVIEW_LAPSE_FAIL_REPETITION_PENALTY),
     reviewLapseStreak: 0,
     nextReviewAt: new Date(now.getTime() + retryMinutes * 60 * 1000),
     reviewWasSuccessful: false,
