@@ -7,11 +7,16 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
-import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import { Verse } from '@/app/App';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import {
   tokenizeWords,
   normalizeWord,
@@ -25,9 +30,8 @@ import { createExerciseProgressSnapshot } from '@/modules/training/hints/exercis
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
-import { ArrowDownIcon } from 'lucide-react';
 
-interface ClickWordsExerciseProps {
+interface ClickWordsExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -36,11 +40,6 @@ interface ClickWordsExerciseProps {
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
   onOpenVerseProgress?: () => void;
-  showInlineAssistButton?: boolean;
-  onRequestInlineAssist?: () => void;
-  showInlineQuickForgetAction?: boolean;
-  onRequestInlineQuickForget?: () => void;
-  inlineActionsDisabled?: boolean;
 }
 
 interface WordToken {
@@ -141,7 +140,6 @@ export function ModeClickWordsExercise({
   const [successFlashNormalized, setSuccessFlashNormalized] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -149,7 +147,6 @@ export function ModeClickWordsExercise({
   useEffect(() => {
     if (prevVerseRef.current === verse) return;
     prevVerseRef.current = verse;
-    resolvedRef.current = false;
     setTokenData(initClickWordsExercise(verse.text));
     setSelectedCount(0);
     setMistakesSinceReset(0);
@@ -171,7 +168,6 @@ export function ModeClickWordsExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -186,6 +182,7 @@ export function ModeClickWordsExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: totalWords,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
   const expectedWordIndex = orderedTokens[selectedCount]?.order ?? null;
 
   useEffect(() => {
@@ -240,13 +237,7 @@ export function ModeClickWordsExercise({
     return counts;
   }, [uniqueChoices, selectedTokens]);
 
-  const visibleChoices = useMemo(
-    () =>
-      uniqueChoices.filter(
-        (choice) => (remainingCountByNormalized.get(choice.normalized) ?? 0) > 0
-      ),
-    [uniqueChoices, remainingCountByNormalized]
-  );
+  const showChoices = !isCompleted && !surrendered && uniqueChoices.length > 0;
 
   const handleWordClick = (choice: UniqueChoice) => {
     if (isCompleted || surrendered) return;
@@ -267,7 +258,6 @@ export function ModeClickWordsExercise({
       }, 260);
 
       if (next === totalWords) {
-        resolvedRef.current = true;
         setIsCompleted(true);
         onExerciseResolved?.({
           kind: 'success',
@@ -282,7 +272,6 @@ export function ModeClickWordsExercise({
     setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldReset) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'failure',
@@ -306,8 +295,6 @@ export function ModeClickWordsExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -320,7 +307,6 @@ export function ModeClickWordsExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {/* ── Top half: verse field ── */}
       <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
@@ -332,63 +318,61 @@ export function ModeClickWordsExercise({
           fontSizes={fontSizes}
         />
       </div>
+      {showChoices && (
+        <TrainingExerciseSection
+          title="Варианты слов"
+          meta={
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
+          }
+          className="mt-2 min-h-0 flex-1 basis-1/2"
+          scrollable
+          contentClassName="flex flex-wrap content-start gap-1.5 px-0.5 pb-2.5 pt-0.5"
+        >
+          {uniqueChoices.map((choice) => {
+            const remainingChoiceCount =
+              remainingCountByNormalized.get(choice.normalized) ?? 0;
+            const isUsed = remainingChoiceCount <= 0;
+
+            return (
+              <div key={choice.normalized} className="min-w-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  title={choice.displayText}
+                  disabled={isUsed}
+                  className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                    errorFlashNormalized === choice.normalized
+                      ? 'border-destructive text-destructive bg-destructive/10'
+                      : successFlashNormalized === choice.normalized
+                        ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                        : isUsed
+                          ? 'border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55'
+                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                  }`}
+                  style={{ fontSize: `${fontSizes.sm}px` }}
+                  onClick={() => handleWordClick(choice)}
+                >
+                  <span className="block min-w-0 truncate">
+                    {choice.displayText}
+                  </span>
+                </Button>
+              </div>
+            );
+          })}
+        </TrainingExerciseSection>
+      )}
 
       <SplitExerciseActionRail
-        remainingMistakes={Math.max(0, maxMistakes - mistakesSinceReset)}
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
         showAssistButton={showInlineAssistButton}
         onRequestAssist={onRequestInlineAssist}
         showQuickForgetAction={showInlineQuickForgetAction}
         onRequestQuickForget={onRequestInlineQuickForget}
         disabled={inlineActionsDisabled}
       />
-
-      {/* ── Bottom half: word choices ── */}
-      {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
-          <ScrollShadowContainer
-            className="min-h-0 h-full"
-            scrollClassName="h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
-            shadowSize={40}
-            bottomCue={
-              <span className="rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/60 shadow-sm backdrop-blur-sm">
-                <ArrowDownIcon className="size-3" />
-              </span>
-            }
-          >
-            <div className="min-h-full">
-              <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-                <span>Варианты слов</span>
-              </div>
-              <div className="min-h-0 flex-1">
-                <div className="flex flex-wrap content-start gap-1.5 px-0.5 pb-2 pt-0.5">
-                  {visibleChoices.map((choice) => (
-                    <div key={choice.normalized} className="min-w-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        title={choice.displayText}
-                        className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                          errorFlashNormalized === choice.normalized
-                            ? 'border-destructive text-destructive bg-destructive/10'
-                            : successFlashNormalized === choice.normalized
-                              ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                              : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                        }`}
-                        style={{ fontSize: `${fontSizes.sm}px` }}
-                        onClick={() => handleWordClick(choice)}
-                      >
-                        <span className="block min-w-0 truncate">
-                          {choice.displayText}
-                        </span>
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </ScrollShadowContainer>
-        </div>
-      )}
 
     </motion.div>
   );

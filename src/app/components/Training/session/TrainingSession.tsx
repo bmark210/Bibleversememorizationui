@@ -39,7 +39,6 @@ import {
 import { TrainingResultScreen } from "./TrainingResultScreen";
 import { TrainingRatingButtons } from "@/app/components/training-session/modes/TrainingRatingButtons";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
-import { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -72,6 +71,15 @@ const slideVariants = {
           transition: { duration: 0.2, ease: "easeIn" as const },
         },
 };
+
+const DIALOG_CONTENT_CLASS =
+  "rounded-3xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-xl";
+const DIALOG_CANCEL_CLASS =
+  "rounded-full border border-border/60 bg-muted/35 text-foreground/70";
+const DIALOG_PRIMARY_CLASS =
+  "rounded-full border border-border/60 bg-primary/80 text-primary-foreground hover:bg-primary/90";
+const DIALOG_DESTRUCTIVE_CLASS =
+  "rounded-full border border-border/60 bg-destructive text-background hover:bg-destructive/90 dark:text-destructive-foreground/80";
 
 function getSubsetCounts(verses: Verse[]) {
   return verses.reduce(
@@ -335,9 +343,7 @@ export function TrainingSession({
   const activeRendererKey = trainingModeId
     ? MODE_PIPELINE[trainingModeId].renderer
     : null;
-  const useInlineExerciseActions =
-    activeRendererKey === TrainingModeRendererKey.Order ||
-    activeRendererKey === TrainingModeRendererKey.OrderHints;
+  const useInlineExerciseActions = activeRendererKey !== null;
 
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
   const [assistDrawerOpen, setAssistDrawerOpen] = useState(false);
@@ -853,15 +859,20 @@ export function TrainingSession({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 px-6 py-8 backdrop-blur-sm"
+              className="absolute inset-0 z-50 flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
             >
-              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 text-center">
+              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80 dark:text-amber-300/80">
                   Полный стих на{" "}
                   {activeVersePeek.durationSeconds ??
                     hintHelpers.hintState.showVerseDurationSeconds}{" "}
                   сек.
                 </p>
+                {activeVerseRaw?.reference ? (
+                  <p className="text-sm font-semibold text-foreground/70">
+                    {activeVerseRaw.reference}
+                  </p>
+                ) : null}
                 <p className="whitespace-pre-line text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
                   {activeVersePeek.text}
                 </p>
@@ -877,7 +888,7 @@ export function TrainingSession({
           if (!open) session.cancelQuickForget();
         }}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
               Отметить как «забыл»?
@@ -889,13 +900,13 @@ export function TrainingSession({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              className={DIALOG_CANCEL_CLASS}
               onClick={session.cancelQuickForget}
             >
               Отмена
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive text-background hover:bg-destructive/90 dark:text-destructive-foreground/80"
+              className={DIALOG_DESTRUCTIVE_CLASS}
               onClick={() =>
                 session.confirmQuickForget(hintHelpers.hintState.attempt)
               }
@@ -912,7 +923,7 @@ export function TrainingSession({
           if (!open) cancelNavigationStep();
         }}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
               Перейти к другому стиху?
@@ -923,13 +934,13 @@ export function TrainingSession({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              className={DIALOG_CANCEL_CLASS}
               onClick={cancelNavigationStep}
             >
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive text-background dark:text-destructive-foreground/80"
+              className={DIALOG_DESTRUCTIVE_CLASS}
               onClick={confirmNavigationStep}
             >
               Перейти без сохранения
@@ -944,7 +955,7 @@ export function TrainingSession({
           if (!open) cancelSubsetChange();
         }}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
               Сменить режим тренировки?
@@ -956,13 +967,13 @@ export function TrainingSession({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              className={DIALOG_CANCEL_CLASS}
               onClick={cancelSubsetChange}
             >
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              className={DIALOG_PRIMARY_CLASS}
               onClick={confirmSubsetChange}
             >
               Переключить
@@ -977,7 +988,7 @@ export function TrainingSession({
           if (!open) cancelOrderChange();
         }}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
               Изменить сортировку?
@@ -989,13 +1000,13 @@ export function TrainingSession({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              className={DIALOG_CANCEL_CLASS}
               onClick={cancelOrderChange}
             >
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-primary/60 text-background"
+              className={DIALOG_PRIMARY_CLASS}
               onClick={confirmOrderChange}
             >
               Изменить
@@ -1010,7 +1021,7 @@ export function TrainingSession({
           if (!open) cancelCloseSession();
         }}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base text-foreground/90">
               Закрыть тренировку?
@@ -1022,13 +1033,13 @@ export function TrainingSession({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
+              className={DIALOG_CANCEL_CLASS}
               onClick={cancelCloseSession}
             >
               Остаться
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-full border border-border/60 bg-destructive text-background dark:text-destructive-foreground/80"
+              className={DIALOG_DESTRUCTIVE_CLASS}
               onClick={() => {
                 void confirmCloseSession();
               }}

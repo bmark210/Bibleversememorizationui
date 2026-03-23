@@ -334,15 +334,6 @@ export function ModeClickWordsHintedExercise({
     return counts;
   }, [uniqueChoices, selectedCount, hiddenSlots]);
 
-  const visibleChoices = useMemo(
-    () =>
-      uniqueChoices.filter(
-        (choice) =>
-          (remainingCountByNormalized.get(choice.normalized) ?? 0) > 0,
-      ),
-    [uniqueChoices, remainingCountByNormalized],
-  );
-
   const handleWordClick = (choice: UniqueChoice) => {
     if (isCompleted || surrendered) return;
     if (!nextHiddenSlot) return;
@@ -400,7 +391,7 @@ export function ModeClickWordsHintedExercise({
     }, 260);
   };
 
-  const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
+  const showChoices = !isCompleted && !surrendered && uniqueChoices.length > 0;
 
   return (
     <motion.div
@@ -444,28 +435,37 @@ export function ModeClickWordsHintedExercise({
               bottomCue={CHOICES_BOTTOM_CUE}
             >
               <div className={CHOICES_LIST_CLASS}>
-                {visibleChoices.map((choice) => (
-                  <div key={choice.normalized} className="min-w-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      title={choice.displayText}
-                      className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                        errorFlashNormalized === choice.normalized
-                          ? "border-destructive text-destructive bg-destructive/10"
-                          : successFlashNormalized === choice.normalized
-                            ? "border-emerald-500 text-emerald-600 bg-emerald-500/10"
-                            : "border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5"
-                      }`}
-                      style={{ fontSize: `${fontSizes.sm}px` }}
-                      onClick={() => handleWordClick(choice)}
-                    >
-                      <span className="block min-w-0 truncate">
-                        {choice.displayText}
-                      </span>
-                    </Button>
-                  </div>
-                ))}
+                {uniqueChoices.map((choice) => {
+                  const remainingChoiceCount =
+                    remainingCountByNormalized.get(choice.normalized) ?? 0;
+                  const isUsed = remainingChoiceCount <= 0;
+
+                  return (
+                    <div key={choice.normalized} className="min-w-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        title={choice.displayText}
+                        disabled={isUsed}
+                        className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                          errorFlashNormalized === choice.normalized
+                            ? "border-destructive text-destructive bg-destructive/10"
+                            : successFlashNormalized === choice.normalized
+                              ? "border-emerald-500 text-emerald-600 bg-emerald-500/10"
+                              : isUsed
+                                ? "border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55"
+                                : "border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5"
+                        }`}
+                        style={{ fontSize: `${fontSizes.sm}px` }}
+                        onClick={() => handleWordClick(choice)}
+                      >
+                        <span className="block min-w-0 truncate">
+                          {choice.displayText}
+                        </span>
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollShadowContainer>
           </div>

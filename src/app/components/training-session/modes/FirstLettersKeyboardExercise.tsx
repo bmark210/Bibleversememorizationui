@@ -9,7 +9,14 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { tokenizeFirstLetters } from './wordUtils';
@@ -17,7 +24,7 @@ import { createExerciseProgressSnapshot } from '@/modules/training/hints/exercis
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 
-interface FirstLettersKeyboardExerciseProps {
+interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -69,6 +76,11 @@ export function ModeFirstLettersKeyboardExercise({
   isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
@@ -81,13 +93,11 @@ export function ModeFirstLettersKeyboardExercise({
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
-    resolvedRef.current = false;
     setExpectedLetters(letters);
     setInputValue('');
     setMistakesSinceReset(0);
@@ -113,7 +123,6 @@ export function ModeFirstLettersKeyboardExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -132,6 +141,7 @@ export function ModeFirstLettersKeyboardExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: expectedLetters.length,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   useEffect(() => {
     onProgressChange?.(
@@ -178,7 +188,6 @@ export function ModeFirstLettersKeyboardExercise({
       }, 260);
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
-        resolvedRef.current = true;
         setIsCompleted(true);
         onExerciseResolved?.({
           kind: 'success',
@@ -193,7 +202,6 @@ export function ModeFirstLettersKeyboardExercise({
     setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetInput) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'failure',
@@ -245,46 +253,73 @@ export function ModeFirstLettersKeyboardExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-
-        <motion.div
-          animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-          transition={{ duration: 0.2 }}
-          className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 transition-colors ${
-            shakeInput
-              ? 'border-destructive/60 bg-destructive/5'
-              : successFlash
-                ? 'border-emerald-500/60 bg-emerald-500/5'
-                : 'border-border/60'
-          }`}
+        <TrainingExerciseSection
+          title="Введите первые буквы"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge
+                tone={
+                  completedUnits === expectedLetters.length && expectedLetters.length > 0
+                    ? 'success'
+                    : 'neutral'
+                }
+              >
+                {completedUnits}/{expectedLetters.length}
+              </TrainingMetricBadge>
+              <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+                До сброса {remainingMistakes}
+              </TrainingMetricBadge>
+            </div>
+          }
+          className="min-h-0"
+          contentClassName="flex h-full flex-col gap-3 pb-1"
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
-          />
-          <Textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={(event) => applyNextInputValue(event.target.value)}
-            onFocus={handleInputFocus}
-            placeholder="Введите первые буквы..."
-            disabled={isCompleted || surrendered}
-            data-swipe-through="true"
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{ fontSize: `${fontSizes.base}px` }}
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            enterKeyHint="done"
-          />
-        </motion.div>
+          <p
+            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
+            style={{ fontSize: `${fontSizes.sm}px` }}
+          >
+          </p>
+
+          <motion.div
+            animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
+            transition={{ duration: 0.2 }}
+            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
+              shakeInput
+                ? 'border-destructive/60 bg-destructive/5'
+                : successFlash
+                  ? 'border-emerald-500/60 bg-emerald-500/5'
+                  : 'border-border/60'
+            }`}
+          >
+            <Textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(event) => applyNextInputValue(event.target.value)}
+              onFocus={handleInputFocus}
+              placeholder="Введите первые буквы..."
+              disabled={isCompleted || surrendered}
+              data-swipe-through="true"
+              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{ fontSize: `${fontSizes.base}px` }}
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="done"
+            />
+          </motion.div>
+        </TrainingExerciseSection>
       </ScrollShadowContainer>
+
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
 
     </motion.div>
   );

@@ -15,7 +15,14 @@ import {
   tokenizeWords,
 } from './wordUtils';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -30,7 +37,7 @@ import {
 } from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
-interface FirstLettersHintedExerciseProps {
+interface FirstLettersHintedExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -139,6 +146,11 @@ export function ModeFirstLettersHintedExercise({
   isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
 }: FirstLettersHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [slots, setSlots] = useState<WordSlot[]>([]);
@@ -150,7 +162,6 @@ export function ModeFirstLettersHintedExercise({
   const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -159,7 +170,6 @@ export function ModeFirstLettersHintedExercise({
       text: verse.text,
       difficultyLevel: verse.difficultyLevel,
     });
-    resolvedRef.current = false;
     setSlots(exercise.slots);
     setChoiceOrder(exercise.choiceOrder);
     setSelectedCount(0);
@@ -182,7 +192,6 @@ export function ModeFirstLettersHintedExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -209,6 +218,7 @@ export function ModeFirstLettersHintedExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: totalHidden,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   useEffect(() => {
     onProgressChange?.(
@@ -301,7 +311,6 @@ export function ModeFirstLettersHintedExercise({
       }, 260);
 
       if (next === totalHidden) {
-        resolvedRef.current = true;
         setIsCompleted(true);
         onExerciseResolved?.({
           kind: 'success',
@@ -316,7 +325,6 @@ export function ModeFirstLettersHintedExercise({
     setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'failure',
@@ -382,13 +390,7 @@ export function ModeFirstLettersHintedExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
+      <div className="min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Стих с пропусками"
@@ -401,11 +403,17 @@ export function ModeFirstLettersHintedExercise({
       </div>
 
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-            <span>Варианты букв</span>
-          </div>
-          <div className="relative flex-1 min-h-0">
+        <TrainingExerciseSection
+          title="Варианты букв"
+          meta={
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
+          }
+          className="mt-2 min-h-0 flex-1 basis-1/2"
+          contentClassName="h-full"
+        >
+          <div className="relative h-full min-h-0">
             <div
               ref={choicesContainerRef}
               className="absolute inset-0 min-h-0 overflow-hidden"
@@ -454,8 +462,18 @@ export function ModeFirstLettersHintedExercise({
               </div>
             </div>
           </div>
-        </div>
+        </TrainingExerciseSection>
       )}
+
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
 
     </motion.div>
   );

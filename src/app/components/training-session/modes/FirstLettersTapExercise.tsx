@@ -9,7 +9,14 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 import { Button } from '@/app/components/ui/button';
 import { Verse } from '@/app/App';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import { tokenizeFirstLetters } from './wordUtils';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -18,7 +25,7 @@ import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficu
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { useMeasuredElementSize } from './useMeasuredElementSize';
 
-interface FirstLettersTapExerciseProps {
+interface FirstLettersTapExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -121,6 +128,11 @@ export function ModeFirstLettersTapExercise({
   isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
 }: FirstLettersTapExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [tokens, setTokens] = useState<LetterToken[]>([]);
@@ -131,13 +143,11 @@ export function ModeFirstLettersTapExercise({
   const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
-    resolvedRef.current = false;
     setTokens(shuffleTokens(letters));
     setSelectedCount(0);
     setMistakesSinceReset(0);
@@ -159,7 +169,6 @@ export function ModeFirstLettersTapExercise({
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -181,6 +190,7 @@ export function ModeFirstLettersTapExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: total,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   useEffect(() => {
     onProgressChange?.(
@@ -354,7 +364,6 @@ export function ModeFirstLettersTapExercise({
       }, 260);
 
       if (next === total) {
-        resolvedRef.current = true;
         setIsCompleted(true);
         onExerciseResolved?.({
           kind: 'success',
@@ -369,7 +378,6 @@ export function ModeFirstLettersTapExercise({
     setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'failure',
@@ -410,67 +418,69 @@ export function ModeFirstLettersTapExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
-      {/* ── Top half: letter sequence ── */}
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
-        <div className="relative flex h-full min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Последовательность букв</span>
-            <span className="tabular-nums">{selectedCount}/{total}</span>
-          </div>
-
-          <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2 pr-1"
-            role="group"
-            aria-label="Последовательность букв"
+      <TrainingExerciseSection
+        title="Последовательность букв"
+        meta={
+          <TrainingMetricBadge
+            tone={selectedCount === total && total > 0 ? 'success' : 'neutral'}
           >
-            <div
-              ref={sequenceGridContainerRef}
-              className="grid content-start"
-              style={{
-                gap: `${LETTER_GRID_GAP}px`,
-                gridTemplateColumns: `repeat(${sequenceColumns}, minmax(0, 1fr))`,
-                gridAutoRows: `${sequenceCellHeight}px`,
-              }}
-            >
-              {expectedTokens.map((token, index) => {
-                const isFilled = index < selectedCount;
-                const isActiveGap = !isCompleted && !surrendered && index === selectedCount;
+            {selectedCount}/{total}
+          </TrainingMetricBadge>
+        }
+        className="mt-3 min-h-0 flex-1 basis-1/2"
+        contentClassName="h-full"
+      >
+        <div
+          className="h-full min-h-0 overflow-y-auto overscroll-contain py-2 pr-1"
+          role="group"
+          aria-label="Последовательность букв"
+        >
+          <div
+            ref={sequenceGridContainerRef}
+            className="grid content-start"
+            style={{
+              gap: `${LETTER_GRID_GAP}px`,
+              gridTemplateColumns: `repeat(${sequenceColumns}, minmax(0, 1fr))`,
+              gridAutoRows: `${sequenceCellHeight}px`,
+            }}
+          >
+            {expectedTokens.map((token, index) => {
+              const isFilled = index < selectedCount;
+              const isActiveGap = !isCompleted && !surrendered && index === selectedCount;
 
-                return (
-                  <span
-                    key={token.id}
-                    ref={setSequenceItemRef(token.id)}
-                    className={`inline-flex h-full w-full items-center justify-center rounded-lg font-mono uppercase transition-colors ${getSequenceCellClassName({
-                      isFilled,
-                      isActiveGap,
-                    })}`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                    aria-current={token.id === focusItemId ? 'step' : undefined}
-                  >
-                    {isFilled ? token.letter.toUpperCase() : '•'}
-                  </span>
-                );
-              })}
-            </div>
+              return (
+                <span
+                  key={token.id}
+                  ref={setSequenceItemRef(token.id)}
+                  className={`inline-flex h-full w-full items-center justify-center rounded-lg font-mono uppercase transition-colors ${getSequenceCellClassName({
+                    isFilled,
+                    isActiveGap,
+                  })}`}
+                  style={{ fontSize: `${fontSizes.letter}px` }}
+                  aria-current={token.id === focusItemId ? 'step' : undefined}
+                >
+                  {isFilled ? token.letter.toUpperCase() : '•'}
+                </span>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </TrainingExerciseSection>
 
-      {/* ── Bottom half: letter choices ── */}
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-            <span>Варианты букв</span>
-          </div>
+        <TrainingExerciseSection
+          title="Варианты букв"
+          meta={
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
+          }
+          className="mt-2 min-h-0 flex-1 basis-1/2"
+          contentClassName="h-full"
+        >
           <div
             ref={choicesGridContainerRef}
-            className="min-h-0 flex-1 overflow-hidden"
+            className="h-full min-h-0 overflow-hidden"
           >
             <div
               className="grid content-start"
@@ -501,8 +511,18 @@ export function ModeFirstLettersTapExercise({
               ))}
             </div>
           </div>
-        </div>
+        </TrainingExerciseSection>
       )}
+
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
 
     </motion.div>
   );

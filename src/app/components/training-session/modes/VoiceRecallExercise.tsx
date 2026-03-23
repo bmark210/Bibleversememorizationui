@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import { Mic, MicOff, RefreshCcw } from 'lucide-react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
@@ -9,7 +10,10 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { FixedBottomPanel } from './FixedBottomPanel';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExerciseSection';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { Verse } from '@/app/App';
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
@@ -22,8 +26,9 @@ import {
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { TrainingModeId } from '@/shared/training/modeEngine';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
-interface VoiceRecallExerciseProps {
+interface VoiceRecallExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -71,11 +76,25 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({
+  verse,
+  trainingModeId,
+  onExerciseResolved,
+  hintState,
+  onProgressChange,
+  isLateStageReview: _isLateStageReview = false,
+  onOpenTutorial,
+  onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
+}: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
+  const fontSizes = useTrainingFontSize();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
-  const resolvedRef = useRef(false);
 
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -95,7 +114,6 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
   );
 
   useEffect(() => {
-    resolvedRef.current = false;
     setTranscript('');
     setIsListening(false);
     setIsChecked(false);
@@ -112,7 +130,6 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
 
   useEffect(() => {
     if (surrendered && !isChecked) {
-      resolvedRef.current = true;
       setIsChecked(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -231,7 +248,6 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
     setMatchPercent(nextMatchPercent);
 
     if (nextMatchPercent >= RECALL_THRESHOLD) {
-      resolvedRef.current = true;
       setIsChecked(true);
       onExerciseResolved?.({
         kind: 'success',
@@ -241,7 +257,6 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
       return;
     }
 
-    resolvedRef.current = true;
     setIsChecked(true);
     setTotalMistakes((prev) => prev + 1);
     onExerciseResolved?.({
@@ -253,22 +268,40 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
   };
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
+    >
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {totalMistakes > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
-        </span>
-      )}
-
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
+        <TrainingExerciseSection
+          title="Управление записью"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge tone={isSpeechSupported ? 'neutral' : 'warning'}>
+                {isSpeechSupported ? 'Web Speech' : 'Ручной ввод'}
+              </TrainingMetricBadge>
+              {isListening ? (
+                <TrainingMetricBadge tone="warning">Слушаю</TrainingMetricBadge>
+              ) : null}
+            </div>
+          }
+          contentClassName="flex flex-col gap-3 pb-1"
+        >
+          <p
+            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
+            style={{ fontSize: `${fontSizes.sm}px` }}
+          >
+            Продиктуйте стих или при необходимости поправьте распознанный текст вручную
+            перед проверкой.
+          </p>
 
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -284,57 +317,88 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onExerciseResol
               Очистить
             </Button>
           </div>
-        </div>
 
-        {!isSpeechSupported ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Браузер не поддерживает Web Speech API. Введите текст вручную.
+          {!isSpeechSupported ? (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+              Браузер не поддерживает Web Speech API. Введите текст вручную.
+            </div>
+          ) : null}
+
+          {recognitionError ? (
+            <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {recognitionError}
+            </div>
+          ) : null}
+        </TrainingExerciseSection>
+
+        <TrainingExerciseSection
+          title="Распознанный текст"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge
+                tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
+              >
+                {completedWords}/{totalWords}
+              </TrainingMetricBadge>
+              <TrainingMetricBadge>{`Порог ${RECALL_THRESHOLD}%`}</TrainingMetricBadge>
+              {totalMistakes > 0 ? (
+                <TrainingMetricBadge tone="warning">
+                  Проверок {totalMistakes}
+                </TrainingMetricBadge>
+              ) : null}
+            </div>
+          }
+          contentClassName="flex flex-col gap-3 pb-1"
+        >
+          <div className="rounded-2xl border border-border/60 bg-background/55 p-2">
+            <Textarea
+              value={transcript}
+              onChange={(event) => {
+                setTranscript(event.target.value);
+                if (matchPercent !== null) setMatchPercent(null);
+              }}
+              className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{ fontSize: `${fontSizes.base}px` }}
+              placeholder="Здесь будет распознанный текст..."
+              disabled={isChecked || surrendered}
+            />
           </div>
-        ) : null}
 
-        {recognitionError ? (
-          <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {recognitionError}
-          </div>
-        ) : null}
-
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-2">
-          <Textarea
-            value={transcript}
-            onChange={(event) => {
-              setTranscript(event.target.value);
-              if (matchPercent !== null) setMatchPercent(null);
-            }}
-            className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
-            placeholder="Здесь будет распознанный текст..."
-            disabled={isChecked || surrendered}
-          />
-        </div>
-
-        {matchPercent !== null && (
-          <div
-            className={`rounded-xl border px-3 py-2 text-sm ${
-              matchPercent === 100
-                ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : matchPercent >= RECALL_THRESHOLD
-                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'border-destructive/45 bg-destructive/10 text-destructive'
-            }`}
-          >
-            <p className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Процент соответствия</span>
-              <span className="font-semibold tabular-nums">{matchPercent}%</span>
-            </p>
-          </div>
-        )}
+          {matchPercent !== null && (
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm ${
+                matchPercent === 100
+                  ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : matchPercent >= RECALL_THRESHOLD
+                    ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    : 'border-destructive/45 bg-destructive/10 text-destructive'
+              }`}
+            >
+              <p className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Процент соответствия</span>
+                <span className="font-semibold tabular-nums">{matchPercent}%</span>
+              </p>
+            </div>
+          )}
+        </TrainingExerciseSection>
       </ScrollShadowContainer>
 
+      <SplitExerciseActionRail
+        remainingMistakes={Math.max(0, totalMistakes)}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
+
       <FixedBottomPanel visible={!isChecked}>
-        <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
+        <Button type="button" className="w-full rounded-2xl border border-primary/20 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90" onClick={handleCheck}>
           Проверить
         </Button>
       </FixedBottomPanel>
 
-    </div>
+    </motion.div>
   );
 }

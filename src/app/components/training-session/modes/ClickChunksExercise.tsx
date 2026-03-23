@@ -7,17 +7,23 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from "@/app/components/ui/button";
-import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import { Verse } from '@/app/App';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
 
-interface ClickChunksExerciseProps {
+interface ClickChunksExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -110,7 +116,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress, showInlineAssistButton = false, onRequestInlineAssist, showInlineQuickForgetAction = false, onRequestInlineQuickForget, inlineActionsDisabled = false }: ClickChunksExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -120,13 +126,11 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
   const [successFlashTokenId, setSuccessFlashTokenId] = useState<string | null>(null);
   const clearFlashTimeoutRef = useRef<number | null>(null);
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
   useEffect(() => {
     const chunks = splitIntoChunks(verse.text);
-    resolvedRef.current = false;
     setTokens(shuffleTokens(chunks));
     setSelectedIds([]);
     setMistakesSinceReset(0);
@@ -161,7 +165,6 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -195,6 +198,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
     difficultyLevel: verse.difficultyLevel,
     totalUnits: totalChunks,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   const remainingTokens = useMemo(
     () => tokens.filter((token) => !selectedIdSet.has(token.id)),
@@ -220,7 +224,6 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
       }, 260);
 
       if (expectedOrder + 1 === totalChunks) {
-        resolvedRef.current = true;
         setIsCompleted(true);
         onExerciseResolved?.({
           kind: 'success',
@@ -235,7 +238,6 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
     setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'failure',
@@ -278,49 +280,50 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
-      {/* ── Top half: assembled sequence ── */}
-      <div className="mt-3 max-h-[38%] min-h-0 shrink overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Последовательность</span>
-            <span className="tabular-nums">{selectedCount}/{totalChunks}</span>
-          </div>
-
-          {selectedTokens.length > 0 ? (
-            <div className="space-y-1.5">
-              {selectedTokens.map((token) => (
-                <div
-                  key={token.id}
-                  className="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 leading-relaxed"
-                  style={{ fontSize: `${fontSizes.sm}px` }}
-                >
-                  {token.text}
-                </div>
-              ))}
+      <TrainingExerciseSection
+        title="Собранная последовательность"
+        meta={
+          <TrainingMetricBadge
+            tone={selectedCount === totalChunks && totalChunks > 0 ? 'success' : 'neutral'}
+          >
+            {selectedCount}/{totalChunks}
+          </TrainingMetricBadge>
+        }
+        className="mt-3 min-h-0 flex-1"
+        scrollable
+        contentClassName="space-y-1.5 pb-1"
+      >
+        {selectedTokens.length > 0 ? (
+          selectedTokens.map((token) => (
+            <div
+              key={token.id}
+              className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 leading-relaxed text-foreground/90"
+              style={{ fontSize: `${fontSizes.sm}px` }}
+            >
+              {token.text}
             </div>
-          ) : (
-            <p className="text-muted-foreground" style={{ fontSize: `${fontSizes.sm}px` }}>Нажимайте фрагменты в правильном порядке.</p>
-          )}
-        </div>
-      </div>
-
-      {/* ── Bottom half: chunk choices ── */}
-      {showChoices && (
-        <ScrollShadowContainer
-          className="min-h-0 shrink mt-8 border-t border-border/60"
-          scrollClassName="h-full py-2 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
-          shadowSize={18}
-        >
-          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-            <span>Варианты фрагментов</span>
+          ))
+        ) : (
+          <div className="flex min-h-full items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/15 px-4 py-6 text-center text-muted-foreground">
+            <p style={{ fontSize: `${fontSizes.sm}px` }}>
+              Нажимайте фрагменты в правильном порядке.
+            </p>
           </div>
-          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2 pb-1">
+        )}
+      </TrainingExerciseSection>
+
+      {showChoices && (
+        <TrainingExerciseSection
+          title="Варианты фрагментов"
+          meta={
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
+          }
+          className="mt-2 min-h-0 flex-[1.1]"
+          scrollable
+          contentClassName="grid grid-cols-1 gap-2 pb-1 min-[520px]:grid-cols-2"
+        >
             {remainingTokens.map((token) => (
               <Button
                 key={token.id}
@@ -339,9 +342,18 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
                 {token.text}
               </Button>
             ))}
-          </div>
-        </ScrollShadowContainer>
+        </TrainingExerciseSection>
       )}
+
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
     </motion.div>
   );
 }

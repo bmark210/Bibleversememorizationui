@@ -186,15 +186,15 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
 
   const modeContent = (() => {
   if (renderer === TrainingModeRendererKey.ChunksOrder) {
-    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersTap) {
-    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersType) {
-    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.OrderHints) {
@@ -206,14 +206,14 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
   }
 
   if (renderer === TrainingModeRendererKey.LettersHints) {
-    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.VoiceTyping) {
-    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
-  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   })();
 
   return (

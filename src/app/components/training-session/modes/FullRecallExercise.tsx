@@ -13,8 +13,10 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
-import { FixedBottomPanel } from './FixedBottomPanel';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExerciseSection';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { tokenizeWords } from './wordUtils';
 import {
@@ -24,7 +26,7 @@ import {
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 
-interface TypingModeProps {
+interface TypingModeProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
   onExerciseResolved?: (result: TrainingExerciseResolution) => void;
@@ -39,7 +41,21 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: TypingModeProps) {
+export function ModeFullRecallExercise({
+  verse,
+  trainingModeId,
+  onExerciseResolved,
+  hintState,
+  onProgressChange,
+  isLateStageReview: _isLateStageReview = false,
+  onOpenTutorial,
+  onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
+}: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const [userInput, setUserInput] = useState('');
@@ -52,7 +68,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
   const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const resolvedRef = useRef(false);
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -62,7 +77,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
   );
 
   useEffect(() => {
-    resolvedRef.current = false;
     setUserInput('');
     setMatchPercent(null);
     setTotalMistakes(0);
@@ -88,7 +102,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
 
   useEffect(() => {
     if (surrendered && !isCompleted) {
-      resolvedRef.current = true;
       setIsCompleted(true);
       onExerciseResolved?.({
         kind: 'revealed',
@@ -173,7 +186,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
     setMatchPercent(nextMatchPercent);
 
     if (nextMatchPercent >= RECALL_THRESHOLD) {
-      resolvedRef.current = true;
       setIsCompleted(true);
 
       setSuccessFlash(true);
@@ -193,7 +205,6 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
       return;
     }
 
-    resolvedRef.current = true;
     setIsCompleted(true);
     setTotalMistakes((prev) => prev + 1);
     onExerciseResolved?.({
@@ -216,69 +227,93 @@ export function ModeFullRecallExercise({ verse, trainingModeId, onExerciseResolv
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {totalMistakes > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
-        </span>
-      )}
-
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-
-        <motion.div
-          animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-          transition={{ duration: 0.2 }}
-          className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 shadow-sm transition-colors focus-within:border-primary/40 ${
-            shakeInput
-              ? 'border-destructive/60 bg-destructive/5'
-              : successFlash
-                ? 'border-emerald-500/60 bg-emerald-500/5'
-                : 'border-border/60'
-          }`}
+        <TrainingExerciseSection
+          title="Введите стих целиком"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge
+                tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
+              >
+                {completedWords}/{totalWords}
+              </TrainingMetricBadge>
+              <TrainingMetricBadge>{`Порог ${RECALL_THRESHOLD}%`}</TrainingMetricBadge>
+              {totalMistakes > 0 ? (
+                <TrainingMetricBadge tone="warning">
+                  Проверок {totalMistakes}
+                </TrainingMetricBadge>
+              ) : null}
+            </div>
+          }
+          className="min-h-0"
+          contentClassName="flex h-full flex-col gap-3 pb-1"
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
-          />
-          <Textarea
-            ref={inputRef}
-            value={userInput}
-            onChange={(event) => handleInputChange(event.target.value)}
-            onFocus={handleInputFocus}
-            placeholder="Введите стих целиком..."
-            rows={5}
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent p-4 leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{ fontSize: `${fontSizes.base}px` }}
-            disabled={isCompleted || surrendered}
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            enterKeyHint="done"
-          />
-        </motion.div>
-
-        {matchPercent !== null && (
-          <div
-            className={`rounded-xl border px-3 py-2 text-sm ${
-              matchPercent === 100
-                ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : matchPercent >= RECALL_THRESHOLD
-                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'border-destructive/45 bg-destructive/10 text-destructive'
+          <motion.div
+            animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
+            transition={{ duration: 0.2 }}
+            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 transition-colors ${
+              shakeInput
+                ? 'border-destructive/60 bg-destructive/5'
+                : successFlash
+                  ? 'border-emerald-500/60 bg-emerald-500/5'
+                  : 'border-border/60'
             }`}
           >
-            <p className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Процент соответствия</span>
-              <span className="font-semibold tabular-nums">{matchPercent}%</span>
-            </p>
-          </div>
-        )}
+            <Textarea
+              ref={inputRef}
+              value={userInput}
+              onChange={(event) => handleInputChange(event.target.value)}
+              onFocus={handleInputFocus}
+              placeholder="Введите стих целиком..."
+              rows={5}
+              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 !bg-transparent p-4 leading-relaxed shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{ fontSize: `${fontSizes.base}px` }}
+              disabled={isCompleted || surrendered}
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="done"
+            />
+          </motion.div>
+
+          {matchPercent !== null && (
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm ${
+                matchPercent === 100
+                  ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : matchPercent >= RECALL_THRESHOLD
+                    ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    : 'border-destructive/45 bg-destructive/10 text-destructive'
+              }`}
+            >
+              <p className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Процент соответствия</span>
+                <span className="font-semibold tabular-nums">{matchPercent}%</span>
+              </p>
+            </div>
+          )}
+
+          {!isCompleted && !surrendered ? (
+            <Button
+              type="button"
+              className="mb-2 w-full rounded-2xl border border-primary/20 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90"
+              onClick={handleCheck}
+            >
+              Проверить
+            </Button>
+          ) : null}
+        </TrainingExerciseSection>
       </ScrollShadowContainer>
 
-      <FixedBottomPanel visible={!isCompleted}>
-        <Button type="button" className="mb-2 w-full rounded-xl border border-border/60 bg-card/60 text-foreground/80" onClick={handleCheck}>
-          Проверить
-        </Button>
-      </FixedBottomPanel>
+      <SplitExerciseActionRail
+        remainingMistakes={Math.max(0, totalMistakes)}
+        showRemainingMistakes={false}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
 
     </motion.div>
   );
