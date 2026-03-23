@@ -180,7 +180,7 @@ export function WordSequenceField({
       {/* Top shadow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-3 z-10 rounded-t-lg transition-opacity duration-200"
+        className="pointer-events-none absolute inset-x-3 z-10 transition-opacity duration-200"
         style={{
           top: 36,
           height: SHADOW_SIZE,
@@ -229,7 +229,7 @@ export function WordSequenceField({
       {/* Bottom shadow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-3 bottom-0 z-10 rounded-b-lg transition-opacity duration-200"
+        className="pointer-events-none absolute inset-x-3 bottom-0 z-10 transition-opacity duration-200"
         style={{
           height: SHADOW_SIZE,
           opacity: showBottomShadow ? 1 : 0,

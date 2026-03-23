@@ -1,5 +1,10 @@
 import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
+import {
+  formatToastXpDelta,
+  resolveVerseActionToastKind,
+  showVerseActionToast,
+} from '@/app/lib/semanticToast';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
 import { Verse } from '@/app/App';
@@ -73,31 +78,6 @@ export function useVerseActions({
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
 
-  const pushToast = useCallback((
-    message: string,
-    type: 'success' | 'error' | 'info',
-    options?: { description?: string }
-  ) => {
-    if (type === 'success') {
-      toast.success(message, {
-        description: options?.description,
-        label: 'Стихи',
-      });
-      return;
-    }
-    if (type === 'error') {
-      toast.error(message, {
-        description: options?.description,
-        label: 'Стихи',
-      });
-      return;
-    }
-    toast.info(message, {
-      description: options?.description,
-      label: 'Стихи',
-    });
-  }, []);
-
   const getVerseKey = useCallback((verse: Pick<Verse, 'id' | 'externalVerseId'>) => {
     return String(verse.externalVerseId ?? verse.id);
   }, []);
@@ -120,30 +100,6 @@ export function useVerseActions({
     },
     [getVerseKey]
   );
-
-  const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
-    const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
-    if (prevStatus === 'CATALOG' && nextStatus === VerseStatus.MY) {
-      return 'Добавлено в мои стихи';
-    }
-    if (prevStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
-      return 'Добавлено в изучение';
-    }
-    if (prevStatus === VerseStatus.STOPPED && nextStatus === VerseStatus.LEARNING) {
-      return 'Возобновлено';
-    }
-    if (
-      (
-        prevStatus === VerseStatus.LEARNING ||
-        prevStatus === 'REVIEW' ||
-        prevStatus === 'MASTERED'
-      ) &&
-      nextStatus === VerseStatus.STOPPED
-    ) {
-      return 'Пауза включена';
-    }
-    return 'Статус обновлён';
-  };
 
   const patchVerseStatusOnServer = useCallback(
     async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
@@ -192,7 +148,9 @@ export function useVerseActions({
     async (verse: Verse, nextStatus: VerseStatus) => {
       if (!telegramId) {
         haptic('error');
-        pushToast('Ошибка — попробуйте ещё раз', 'error');
+        toast.error('Ошибка — попробуйте ещё раз', {
+          label: 'Стихи',
+        });
         return;
       }
 
@@ -212,8 +170,28 @@ export function useVerseActions({
         );
         onVerseMutationCommitted?.();
         haptic('success');
-        const message = getStatusSuccessMessage(prevStatus, nextStatus);
-        pushToast(message, 'success');
+        const toastKind = resolveVerseActionToastKind(prevStatus, nextStatus);
+        const message =
+          toastKind === 'add-to-my'
+            ? 'Добавлено в мои стихи'
+            : toastKind === 'start-learning'
+              ? 'Добавлено в изучение'
+              : toastKind === 'resume'
+                ? 'Возобновлено'
+                : toastKind === 'pause'
+                  ? 'Пауза включена'
+                  : 'Статус обновлён';
+        if (toastKind) {
+          showVerseActionToast({
+            kind: toastKind,
+            reference: verse.reference,
+          });
+        } else {
+          toast.info(message, {
+            description: verse.reference,
+            label: 'Стихи',
+          });
+        }
         setAnnouncement(`${verse.reference}: ${message}`);
       } catch (err) {
         console.error('Не удалось изменить статус стиха:', err);
@@ -221,25 +199,24 @@ export function useVerseActions({
           void resetAndFetchFirstPage(telegramId, statusFilter);
         }
         haptic('error');
-        pushToast('Ошибка — попробуйте ещё раз', 'error');
+        toast.error('Ошибка — попробуйте ещё раз', {
+          label: 'Стихи',
+        });
       } finally {
         markVersePending(verse, false);
       }
     },
     [
       telegramId,
-      pushToast,
       markVersePending,
-      setVerses,
-      isSameVerse,
       matchesListFilter,
       statusFilter,
-      setTotalCount,
       addVerseToCollection,
       patchVerseStatusOnServer,
       setAnnouncement,
       resetAndFetchFirstPage,
       applyVersePatch,
+      onVerseMutationCommitted,
     ]
   );
 
@@ -311,7 +288,9 @@ export function useVerseActions({
     if (!deleteTargetVerse) return;
     if (!telegramId) {
       haptic('error');
-      pushToast('Ошибка — попробуйте ещё раз', 'error');
+      toast.error('Ошибка — попробуйте ещё раз', {
+        label: 'Стихи',
+      });
       return;
     }
 
@@ -321,17 +300,27 @@ export function useVerseActions({
     try {
       const result = await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
+      const xpLoss = result?.xpLoss ?? 0;
       const feedback = buildVerseDeletionXpFeedback({
-        xpLoss: result?.xpLoss ?? 0,
+        xpLoss,
         resetToCatalog: statusFilter === 'catalog',
       });
-      pushToast(feedback.title, 'success', { description: feedback.description });
+      showVerseActionToast({
+        kind: 'delete',
+        reference: deleteTargetVerse.reference,
+        meta:
+          statusFilter === 'catalog'
+            ? formatToastXpDelta(-xpLoss) ?? 'Сброшено в каталог'
+            : formatToastXpDelta(-xpLoss),
+      });
       setAnnouncement(`${deleteTargetVerse.reference}: ${feedback.title}`);
       setDeleteTargetVerse(null);
     } catch (err) {
       console.error('Не удалось удалить стих:', err);
       haptic('error');
-      pushToast('Ошибка — попробуйте ещё раз', 'error');
+      toast.error('Ошибка — попробуйте ещё раз', {
+        label: 'Стихи',
+      });
     } finally {
       markVersePending(deleteTargetVerse, false);
       setIsDeleteSubmitting(false);
@@ -340,7 +329,6 @@ export function useVerseActions({
     deleteTargetVerse,
     telegramId,
     statusFilter,
-    pushToast,
     markVersePending,
     handleDeleteVerse,
     setAnnouncement,

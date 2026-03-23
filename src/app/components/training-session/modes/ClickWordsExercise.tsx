@@ -7,7 +7,9 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
+import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { Verse } from '@/app/App';
 import type { TrainingExerciseResolution } from './exerciseResult';
 import {
@@ -22,11 +24,8 @@ import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import {
-  useMeasuredChoiceBatch,
-  type MeasuredChoiceBatchItem,
-} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import { ArrowDownIcon } from 'lucide-react';
 
 interface ClickWordsExerciseProps {
   verse: Verse;
@@ -37,6 +36,11 @@ interface ClickWordsExerciseProps {
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
   onOpenVerseProgress?: () => void;
+  showInlineAssistButton?: boolean;
+  onRequestInlineAssist?: () => void;
+  showInlineQuickForgetAction?: boolean;
+  onRequestInlineQuickForget?: () => void;
+  inlineActionsDisabled?: boolean;
 }
 
 interface WordToken {
@@ -111,7 +115,21 @@ function initClickWordsExercise(text: string) {
 const WORD_CHOICE_BUTTON_BASE_CLASS =
   'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
 
-export function ModeClickWordsExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: ClickWordsExerciseProps) {
+export function ModeClickWordsExercise({
+  verse,
+  trainingModeId,
+  onExerciseResolved,
+  hintState,
+  onProgressChange,
+  isLateStageReview: _isLateStageReview = false,
+  onOpenTutorial,
+  onOpenVerseProgress,
+  showInlineAssistButton = false,
+  onRequestInlineAssist,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
+}: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
     () => initClickWordsExercise(verse.text)
@@ -289,30 +307,6 @@ export function ModeClickWordsExercise({ verse, trainingModeId, onExerciseResolv
   };
 
   const showChoices = !isCompleted && !surrendered && visibleChoices.length > 0;
-  const visibleChoiceItems = useMemo<MeasuredChoiceBatchItem<UniqueChoice>[]>(
-    () => visibleChoices.map((choice) => ({ key: choice.normalized, value: choice })),
-    [visibleChoices]
-  );
-
-  const expectedNormalized = orderedTokens[selectedCount]?.normalized ?? null;
-  const preferredExpectedIndex = useMemo(
-    () =>
-      Math.min(2 + (selectedCount % 3), Math.max(visibleChoiceItems.length - 1, 0)),
-    [selectedCount, visibleChoiceItems.length]
-  );
-
-  const {
-    containerRef: choicesContainerRef,
-    measureRef: measureChoicesRef,
-    measurementItems: measuredChoiceItems,
-    displayedItems: displayedChoiceItems,
-  } = useMeasuredChoiceBatch({
-    items: visibleChoiceItems,
-    enabled: showChoices,
-    requiredItemKey: expectedNormalized,
-    preferredRequiredIndex: preferredExpectedIndex,
-    dependencies: [fontSizes.level],
-  });
 
   return (
     <motion.div
@@ -326,12 +320,6 @@ export function ModeClickWordsExercise({ verse, trainingModeId, onExerciseResolv
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
       {/* ── Top half: verse field ── */}
       <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
@@ -345,67 +333,60 @@ export function ModeClickWordsExercise({ verse, trainingModeId, onExerciseResolv
         />
       </div>
 
+      <SplitExerciseActionRail
+        remainingMistakes={Math.max(0, maxMistakes - mistakesSinceReset)}
+        showAssistButton={showInlineAssistButton}
+        onRequestAssist={onRequestInlineAssist}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
+
       {/* ── Bottom half: word choices ── */}
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-            <span>Варианты слов</span>
-          </div>
-          <div className="relative flex-1 min-h-0">
-            <div
-              ref={choicesContainerRef}
-              className="absolute inset-0 min-h-0 overflow-hidden"
-            >
-              <div className="flex flex-wrap content-start gap-1.5 py-1">
-                {displayedChoiceItems.map(({ key, value: choice }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    title={choice.displayText}
-                    className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                      errorFlashNormalized === choice.normalized
-                        ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlashNormalized === choice.normalized
-                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                    }`}
-                    style={{ fontSize: `${fontSizes.sm}px` }}
-                    onClick={() => handleWordClick(choice)}
-                  >
-                    <span className="block min-w-0 truncate">
-                      {choice.displayText}
-                    </span>
-                  </Button>
-                ))}
+        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 px-3 pt-3">
+          <ScrollShadowContainer
+            className="min-h-0 h-full"
+            scrollClassName="h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+            shadowSize={40}
+            bottomCue={
+              <span className="rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/60 shadow-sm backdrop-blur-sm">
+                <ArrowDownIcon className="size-3" />
+              </span>
+            }
+          >
+            <div className="min-h-full">
+              <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
+                <span>Варианты слов</span>
+              </div>
+              <div className="min-h-0 flex-1">
+                <div className="flex flex-wrap content-start gap-1.5 px-0.5 pb-2 pt-0.5">
+                  {visibleChoices.map((choice) => (
+                    <div key={choice.normalized} className="min-w-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        title={choice.displayText}
+                        className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
+                          errorFlashNormalized === choice.normalized
+                            ? 'border-destructive text-destructive bg-destructive/10'
+                            : successFlashNormalized === choice.normalized
+                              ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
+                              : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                        }`}
+                        style={{ fontSize: `${fontSizes.sm}px` }}
+                        onClick={() => handleWordClick(choice)}
+                      >
+                        <span className="block min-w-0 truncate">
+                          {choice.displayText}
+                        </span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-
-            <div
-              aria-hidden="true"
-              className="pointer-events-none invisible absolute inset-x-0 top-0"
-            >
-              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1.5 py-1">
-                {measuredChoiceItems.map(({ key, value: choice }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    title={choice.displayText}
-                    haptic={false}
-                    tabIndex={-1}
-                    data-choice-key={key}
-                    className={`${WORD_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
-                    style={{ fontSize: `${fontSizes.sm}px` }}
-                  >
-                    <span className="block min-w-0 truncate">
-                      {choice.displayText}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
+          </ScrollShadowContainer>
         </div>
       )}
 

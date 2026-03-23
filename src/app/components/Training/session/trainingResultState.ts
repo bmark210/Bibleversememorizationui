@@ -7,24 +7,14 @@ import {
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { HintRatingPolicy } from "@/modules/training/hints/types";
 import type { TrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
-import { getTrainingModeShortLabel } from "@/app/components/training-session/modes/trainingModeMeta";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 
 export type TrainingResultTone = "positive" | "negative" | "neutral";
-export type TrainingResultFooterMode =
-  | "rating-with-retry"
-  | "retry-only"
-  | "continue-only";
-
+export type TrainingResultFooterMode = "rating-with-retry" | "retry-only";
 export type TrainingResultKind =
   | "exercise-success"
   | "exercise-failure"
-  | "exercise-revealed"
-  | "mode-regressed"
-  | "mode-advanced"
-  | "review-waiting"
-  | "mastered";
-
+  | "exercise-revealed";
 export type TrainingResultRatingStage = "learning" | "review";
 
 export type TrainingResultState = {
@@ -37,17 +27,27 @@ export type TrainingResultState = {
   reference: string;
   verseText: string | null;
   matchPercent: number | null;
-  targetModeLabel: string | null;
-  nextReviewAt: Date | null;
-  progressPopup: TrainingProgressPopupPayload | null;
-  ratingStage: TrainingResultRatingStage | null;
+  ratingStage: TrainingResultRatingStage;
   ratingPolicy: HintRatingPolicy | null;
   currentTrainingModeId: TrainingModeId | null;
   allowEasySkip: boolean;
 };
 
-export type TrainingCommittedResultState = TrainingResultState & {
-  verseKey: string;
+export type TrainingCommitToastKind =
+  | "progress-updated"
+  | "mode-regressed"
+  | "mode-advanced"
+  | "review-waiting"
+  | "mastered";
+
+export type TrainingCommitToastPayload = {
+  id: string;
+  kind: TrainingCommitToastKind;
+  tone: TrainingResultTone;
+  title: string;
+  reference: string;
+  meta: string | null;
+  xpLabel: string | null;
 };
 
 function resolveRatingStage(
@@ -61,7 +61,11 @@ function resolveTransitionKind(params: {
   nextModeId: TrainingModeId | null;
 }): "mode-regressed" | "mode-advanced" | null {
   const { previousModeId, nextModeId } = params;
-  if (previousModeId == null || nextModeId == null || previousModeId === nextModeId) {
+  if (
+    previousModeId == null ||
+    nextModeId == null ||
+    previousModeId === nextModeId
+  ) {
     return null;
   }
 
@@ -79,6 +83,18 @@ function hasFutureReviewWindow(nextReviewAt: Date | null, nowMs: number): boolea
   return nextReviewAt instanceof Date && Number.isFinite(nextReviewAt.getTime())
     ? nextReviewAt.getTime() > nowMs
     : false;
+}
+
+function formatXpDelta(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value} XP`;
+}
+
+function resolveTrainingToastTitle(params: {
+  xpLabel: string | null;
+  fallback: string;
+}): string {
+  return params.xpLabel ?? params.fallback;
 }
 
 export function formatTrainingResultAvailability(
@@ -135,9 +151,6 @@ export function buildExerciseResultState(params: {
       reference: params.reference,
       verseText: params.verseText,
       matchPercent: params.result.matchPercent ?? null,
-      targetModeLabel: null,
-      nextReviewAt: null,
-      progressPopup: null,
       ratingStage,
       ratingPolicy: params.ratingPolicy ?? null,
       currentTrainingModeId,
@@ -156,9 +169,6 @@ export function buildExerciseResultState(params: {
       reference: params.reference,
       verseText: params.verseText,
       matchPercent: params.result.matchPercent ?? null,
-      targetModeLabel: null,
-      nextReviewAt: null,
-      progressPopup: null,
       ratingStage,
       ratingPolicy: params.ratingPolicy ?? null,
       currentTrainingModeId,
@@ -178,9 +188,6 @@ export function buildExerciseResultState(params: {
     reference: params.reference,
     verseText: null,
     matchPercent: params.result.matchPercent ?? null,
-    targetModeLabel: null,
-    nextReviewAt: null,
-    progressPopup: null,
     ratingStage,
     ratingPolicy: params.ratingPolicy ?? null,
     currentTrainingModeId,
@@ -190,7 +197,7 @@ export function buildExerciseResultState(params: {
   };
 }
 
-export function buildCommittedTrainingResultState(params: {
+export function buildTrainingCommitToastPayload(params: {
   verseKey: string;
   reference: string;
   previousStatus: DisplayVerseStatus;
@@ -201,7 +208,7 @@ export function buildCommittedTrainingResultState(params: {
   reviewWasSuccessful: boolean;
   progressPopup: TrainingProgressPopupPayload | null;
   nowMs?: number;
-}): TrainingCommittedResultState | null {
+}): TrainingCommitToastPayload | null {
   const {
     verseKey,
     reference,
@@ -214,27 +221,23 @@ export function buildCommittedTrainingResultState(params: {
     progressPopup,
     nowMs = Date.now(),
   } = params;
+  const xpLabel =
+    progressPopup && progressPopup.xpDelta !== 0
+      ? formatXpDelta(progressPopup.xpDelta)
+      : null;
 
   if (nextStatus === "MASTERED") {
     return {
-      verseKey,
+      id: `training-commit:${verseKey}:mastered`,
       kind: "mastered",
       tone: "positive",
-      footerMode: "continue-only",
-      title: "Стих выучен",
-      statusLabel: "Выучено",
-      description:
-        "Этот стих завершил текущий цикл тренировки и после продолжения исчезнет из активной очереди.",
+      title: resolveTrainingToastTitle({
+        xpLabel,
+        fallback: "Стих выучен",
+      }),
       reference,
-      verseText: null,
-      matchPercent: null,
-      targetModeLabel: null,
-      nextReviewAt,
-      progressPopup,
-      ratingStage: null,
-      ratingPolicy: null,
-      currentTrainingModeId: nextModeId,
-      allowEasySkip: false,
+      meta: null,
+      xpLabel,
     };
   }
 
@@ -248,72 +251,67 @@ export function buildCommittedTrainingResultState(params: {
     nextStatus === VerseStatus.LEARNING &&
     transitionKind
   ) {
-    const targetModeLabel = nextModeId ? getTrainingModeShortLabel(nextModeId) : null;
     return {
-      verseKey,
+      id: `training-commit:${verseKey}:${transitionKind}`,
       kind: transitionKind,
       tone: transitionKind === "mode-regressed" ? "negative" : "positive",
-      footerMode: "continue-only",
-      title:
-        transitionKind === "mode-regressed"
-          ? "Возврат к предыдущему режиму"
-          : "Переход к следующему режиму",
-      statusLabel: transitionKind === "mode-regressed" ? "Возврат" : "Новый режим",
-      description:
-        transitionKind === "mode-regressed"
-          ? targetModeLabel
-            ? `Следующая попытка начнётся с режима «${targetModeLabel}».`
-            : "Следующая попытка начнётся с предыдущего режима."
-          : targetModeLabel
-            ? `Следующее упражнение откроется в режиме «${targetModeLabel}».`
-            : "Следующее упражнение откроется в следующем режиме.",
+      title: resolveTrainingToastTitle({
+        xpLabel,
+        fallback: "Прогресс обновлён",
+      }),
       reference,
-      verseText: null,
-      matchPercent: null,
-      targetModeLabel,
-      nextReviewAt: null,
-      progressPopup,
-      ratingStage: null,
-      ratingPolicy: null,
-      currentTrainingModeId: nextModeId,
-      allowEasySkip: false,
+      meta: null,
+      xpLabel,
     };
   }
 
   const movedToReview =
-    previousStatus !== "REVIEW" && previousStatus !== "MASTERED" && nextStatus === "REVIEW";
+    previousStatus !== "REVIEW" &&
+    previousStatus !== "MASTERED" &&
+    nextStatus === "REVIEW";
   const isWaitingReview =
     nextStatus === "REVIEW" && hasFutureReviewWindow(nextReviewAt, nowMs);
 
   if (movedToReview || isWaitingReview) {
+    const availabilityText = formatTrainingResultAvailability(nextReviewAt);
     return {
-      verseKey,
+      id: `training-commit:${verseKey}:review-waiting`,
       kind: "review-waiting",
       tone: reviewWasSuccessful || movedToReview ? "positive" : "neutral",
-      footerMode: "continue-only",
-      title: movedToReview
-        ? "Стих перешёл в повторение"
-        : reviewWasSuccessful
-          ? "Повторение засчитано"
-          : "Следующая попытка позже",
-      statusLabel: "Повторение",
-      description: movedToReview
-        ? "Этап изучения завершён. Теперь стих ждёт следующего окна повторения."
-        : reviewWasSuccessful
-          ? "Повторение завершено успешно. Карточка временно уйдёт в ожидание."
-          : "Прогресс сохранён, но перед новой попыткой нужен небольшой интервал ожидания.",
+      title: resolveTrainingToastTitle({
+        xpLabel,
+        fallback: movedToReview
+          ? "Переход в повторение"
+          : "Следующее повторение назначено",
+      }),
       reference,
-      verseText: null,
-      matchPercent: null,
-      targetModeLabel: null,
-      nextReviewAt,
-      progressPopup,
-      ratingStage: null,
-      ratingPolicy: null,
-      currentTrainingModeId: nextModeId,
-      allowEasySkip: false,
+      meta: xpLabel
+        ? null
+        : movedToReview
+          ? availabilityText
+            ? `До ${availabilityText}`
+            : "Ожидает следующего окна"
+          : availabilityText
+            ? `До ${availabilityText}`
+            : "Повтор временно отложен",
+      xpLabel,
     };
   }
 
-  return null;
+  if (!progressPopup) {
+    return null;
+  }
+
+  return {
+    id: `training-commit:${verseKey}:progress`,
+    kind: "progress-updated",
+    tone: progressPopup.tone,
+    title: resolveTrainingToastTitle({
+      xpLabel,
+      fallback: "Прогресс обновлён",
+    }),
+    reference,
+    meta: null,
+    xpLabel,
+  };
 }

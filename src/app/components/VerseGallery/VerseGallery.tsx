@@ -33,8 +33,11 @@ import { VerseTagsDrawer } from "@/app/components/verse-list/components/VerseTag
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { GALLERY_TOASTER_ID, TOAST_TOP_OFFSET_PX, toast } from "@/app/lib/toast";
+import {
+  formatToastXpDelta,
+  showVerseActionToast,
+} from "@/app/lib/semanticToast";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { buildVerseDeletionXpFeedback } from "@/app/utils/verseXp";
 import {
   createVerticalTouchSwipeStart,
   getVerticalTouchSwipeStep,
@@ -172,7 +175,6 @@ function getTrainingLaunchMode(
 
 type PreviewStatusMutation = {
   nextStatus: VerseStatus;
-  successMessage: string;
 };
 
 function getPreviewStatusMutation(
@@ -184,21 +186,18 @@ function getPreviewStatusMutation(
   if (actionId === "add-to-my" && status === "CATALOG") {
     return {
       nextStatus: VerseStatus.MY,
-      successMessage: "Добавлено в мои стихи",
     };
   }
 
   if (actionId === "start-learning" && status === VerseStatus.MY) {
     return {
       nextStatus: VerseStatus.LEARNING,
-      successMessage: "Добавлено в изучение",
     };
   }
 
   if (actionId === "resume" && status === VerseStatus.STOPPED) {
     return {
       nextStatus: VerseStatus.LEARNING,
-      successMessage: "Возобновлено",
     };
   }
 
@@ -210,7 +209,6 @@ function getPreviewStatusMutation(
   ) {
     return {
       nextStatus: VerseStatus.STOPPED,
-      successMessage: "Пауза включена",
     };
   }
 
@@ -431,13 +429,29 @@ export function VerseGallery({
         );
       }
       haptic("success");
-      aux.showFeedback(statusAction.successMessage, "success");
+      const actionToastKind =
+        statusAction.nextStatus === VerseStatus.MY
+          ? "add-to-my"
+          : statusAction.nextStatus === VerseStatus.LEARNING &&
+              normalizeVerseStatus(previewActiveVerse.status) === VerseStatus.STOPPED
+            ? "resume"
+            : statusAction.nextStatus === VerseStatus.LEARNING
+              ? "start-learning"
+              : "pause";
+      showVerseActionToast({
+        kind: actionToastKind,
+        reference: previewActiveVerse.reference,
+        toasterId: GALLERY_TOASTER_ID,
+      });
     } catch {
       haptic("error");
       aux.setPreviewOverride(previewActiveVerse, {
         status: previewActiveVerse.status,
       });
-      aux.showFeedback("Ошибка — попробуйте ещё раз", "error");
+      toast.error("Ошибка — попробуйте ещё раз", {
+        label: "Галерея",
+        toasterId: GALLERY_TOASTER_ID,
+      });
     } finally {
       aux.setIsActionPending(false);
     }
@@ -461,21 +475,13 @@ export function VerseGallery({
         result && typeof result === "object" && "xpLoss" in result
           ? Number(result.xpLoss ?? 0)
           : 0;
-      const feedback = buildVerseDeletionXpFeedback({
-        xpLoss,
-      });
       haptic("success");
-      toast.success(feedback.title, {
-        description: feedback.description,
+      showVerseActionToast({
+        kind: "delete",
+        reference: previewActiveVerse.reference,
+        meta: formatToastXpDelta(-xpLoss),
         toasterId: GALLERY_TOASTER_ID,
-        label: "Галерея",
       });
-      aux.showFeedback(
-        xpLoss > 0
-          ? `${feedback.title}. -${xpLoss} XP`
-          : feedback.title,
-        "success"
-      );
       if (verses.length <= 1) {
         onClose();
       } else {
@@ -485,7 +491,10 @@ export function VerseGallery({
       }
     } catch {
       haptic("error");
-      aux.showFeedback("Ошибка удаления", "error");
+      toast.error("Ошибка удаления", {
+        label: "Галерея",
+        toasterId: GALLERY_TOASTER_ID,
+      });
     } finally {
       aux.setIsActionPending(false);
     }
@@ -745,10 +754,6 @@ export function VerseGallery({
         aria-label="Просмотр стиха"
         className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
       >
-        {/* Accessibility announcements */}
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {aux.feedbackMessage}
-        </div>
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {aux.slideAnnouncement}
         </div>

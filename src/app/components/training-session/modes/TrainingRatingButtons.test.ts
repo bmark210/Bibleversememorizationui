@@ -31,8 +31,8 @@ test("learning success actions are retry and continue", () => {
   });
 
   assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "retry", label: "Повторить ещё раз" },
     { kind: "continue", rating: 2, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
   ]);
 });
 
@@ -49,8 +49,8 @@ test("learning continue falls back to capped non-forget rating", () => {
   });
 
   assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "retry", label: "Повторить ещё раз" },
     { kind: "continue", rating: 1, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
   ]);
 });
 
@@ -60,8 +60,8 @@ test("review success actions are retry and continue", () => {
   });
 
   assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "retry", label: "Повторить ещё раз" },
     { kind: "continue", rating: 2, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
   ]);
 });
 
@@ -78,7 +78,7 @@ test("review continue respects assisted cap", () => {
   });
 
   assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "retry", label: "Повторить ещё раз" },
     { kind: "continue", rating: 1, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
   ]);
 });

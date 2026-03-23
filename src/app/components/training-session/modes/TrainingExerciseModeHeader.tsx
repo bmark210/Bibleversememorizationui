@@ -79,7 +79,7 @@ export function TrainingExerciseModeHeader({
   return (
     <div
       className={cn(
-        "my-2 flex shrink-0 items-center justify-between gap-2 border-b border-border/50 pb-2",
+        "my-2 flex shrink-0 items-center justify-between gap-2",
         className,
       )}
     >

@@ -16,8 +16,6 @@ export type UseGalleryAuxReturn = {
   setPreviewOverride: (verse: Verse, patch: VersePreviewOverride) => void;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: (value: boolean) => void;
-  feedbackMessage: string;
-  showFeedback: (message: string, type?: "success" | "error" | "info") => void;
   showTrainingContactToast: (payload: TrainingContactToastPayload) => void;
   showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => Promise<void>;
   trainingMilestonePopup: TrainingCompletionToastCardPayload | null;
@@ -32,12 +30,10 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     () => new Map()
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
   const [slideAnnouncement, setSlideAnnouncement] = useState("");
   const [trainingMilestonePopup, setTrainingMilestonePopup] =
     useState<TrainingCompletionToastCardPayload | null>(null);
   const trainingMilestoneResolveRef = useRef<(() => void) | null>(null);
-  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -46,17 +42,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       next.set(key, { ...(next.get(key) ?? {}), ...patch });
       return next;
     });
-  }, []);
-
-  const showFeedback = useCallback((message: string) => {
-    if (feedbackTimerRef.current !== null) {
-      clearTimeout(feedbackTimerRef.current);
-    }
-    setFeedbackMessage(message);
-    feedbackTimerRef.current = setTimeout(() => {
-      feedbackTimerRef.current = null;
-      setFeedbackMessage("");
-    }, 2000);
   }, []);
 
   const showTrainingContactToast = useCallback(
@@ -92,11 +77,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       // Resolve pending promise during unmount to prevent hanging awaits.
       trainingMilestoneResolveRef.current?.();
       trainingMilestoneResolveRef.current = null;
-      // Clean up feedback timer on unmount.
-      if (feedbackTimerRef.current !== null) {
-        clearTimeout(feedbackTimerRef.current);
-        feedbackTimerRef.current = null;
-      }
     },
     []
   );
@@ -110,8 +90,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       setPreviewOverride,
       isDeleteDialogOpen,
       setIsDeleteDialogOpen,
-      feedbackMessage,
-      showFeedback,
       showTrainingContactToast,
       showTrainingMilestonePopup,
       trainingMilestonePopup,
@@ -123,8 +101,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       isActionPending,
       previewOverrides,
       isDeleteDialogOpen,
-      feedbackMessage,
-      showFeedback,
       showTrainingContactToast,
       showTrainingMilestonePopup,
       trainingMilestonePopup,

@@ -9,6 +9,7 @@ import {
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
+  type TrainingModeInlineActionsProps,
 } from "@/app/components/training-session/TrainingModeRenderer";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 import type { HintState } from "@/app/components/training-session/modes/useHintState";
@@ -31,6 +32,7 @@ type Props = {
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   exerciseRetryNonce?: number;
+  inlineExerciseActions?: TrainingModeInlineActionsProps;
 };
 
 function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
@@ -65,6 +67,7 @@ export const TrainingCard = memo(function TrainingCard({
   hintState,
   onProgressChange,
   exerciseRetryNonce = 0,
+  inlineExerciseActions,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const [progressDrawerOpen, setProgressDrawerOpen] = useState(false);
@@ -134,6 +137,7 @@ export const TrainingCard = memo(function TrainingCard({
             onProgressChange={onProgressChange}
             onOpenVerseProgress={openVerseProgressDrawer}
             exerciseInstanceKey={exerciseRetryNonce}
+            inlineExerciseActions={inlineExerciseActions}
           />
         </TrainingUiStateProvider>
       </div>

@@ -123,6 +123,14 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
   },
 };
 
+export interface TrainingModeInlineActionsProps {
+  showInlineAssistButton?: boolean;
+  onRequestInlineAssist?: () => void;
+  showInlineQuickForgetAction?: boolean;
+  onRequestInlineQuickForget?: () => void;
+  inlineActionsDisabled?: boolean;
+}
+
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: Verse;
@@ -133,6 +141,7 @@ interface TrainingModeRendererProps {
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   onOpenVerseProgress?: () => void;
   exerciseInstanceKey?: string | number;
+  inlineExerciseActions?: TrainingModeInlineActionsProps;
 }
 
 export interface TrainingModeRendererHandle {
@@ -150,6 +159,7 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
   onProgressChange,
   onOpenVerseProgress,
   exerciseInstanceKey = 0,
+  inlineExerciseActions,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -188,11 +198,11 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
   }
 
   if (renderer === TrainingModeRendererKey.OrderHints) {
-    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.Order) {
-    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
+    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onExerciseResolved={onExerciseResolved} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} {...inlineExerciseActions} />;
   }
 
   if (renderer === TrainingModeRendererKey.LettersHints) {

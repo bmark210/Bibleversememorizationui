@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'motion/react';
+import type { ComponentProps } from 'react';
 
 import { Button } from "@/app/components/ui/button";
 import type { TrainingModeRating } from './types';
@@ -30,6 +31,7 @@ type TrainingRatingButtonsProps = {
 type RetryButtonMeta = {
   kind: 'retry';
   label: string;
+  variant: ComponentProps<typeof Button>["variant"];
   className: string;
 };
 
@@ -37,6 +39,7 @@ type ContinueButtonMeta = {
   kind: 'continue';
   rating: TrainingModeRating;
   label: string;
+  variant: ComponentProps<typeof Button>["variant"];
   className: string;
 };
 
@@ -45,9 +48,9 @@ export type ResolvedTrainingRatingButton =
   | ContinueButtonMeta;
 
 const RETRY_BUTTON_CLASS =
-  'rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-orange-700 hover:bg-orange-500/15 dark:text-orange-300';
+  'h-11 w-full rounded-2xl border border-border/60 bg-muted/25 px-4 text-sm font-medium text-foreground/75 shadow-sm hover:bg-muted/40';
 const CONTINUE_BUTTON_CLASS =
-  'rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300';
+  'h-11 w-full rounded-2xl border border-primary/25 bg-primary/85 px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90';
 
 function resolveAllowedContinueRatings(params: {
   stage: TrainingRatingStage;
@@ -113,24 +116,20 @@ export function resolveTrainingRatingButtonsConfig(params: {
     title: null,
     buttons: [
       {
-        kind: 'retry',
-        label: 'Повторить ещё раз',
-        className: RETRY_BUTTON_CLASS,
-      },
-      {
         kind: 'continue',
         rating: continueRating,
         label: 'Далее',
+        variant: 'default',
         className: CONTINUE_BUTTON_CLASS,
+      },
+      {
+        kind: 'retry',
+        label: 'Повторить ещё раз',
+        variant: 'outline',
+        className: RETRY_BUTTON_CLASS,
       },
     ],
   };
-}
-
-function gridClassName(count: number): string {
-  if (count <= 1) return 'grid grid-cols-1 gap-3';
-  if (count === 2) return 'grid grid-cols-2 gap-3';
-  return 'grid grid-cols-3 gap-3';
 }
 
 export function TrainingRatingButtons({
@@ -157,19 +156,20 @@ export function TrainingRatingButtons({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
+      className="mx-auto w-full max-w-lg space-y-2"
     >
       {title ? (
         <p className="text-sm text-muted-foreground text-center">{title}</p>
       ) : null}
 
-      <div className={gridClassName(buttons.length)}>
+      <div className="flex flex-col gap-2">
         {buttons.map((button) => {
           if (button.kind === 'retry') {
             return (
               <Button
                 key={`${stage}-retry`}
                 onClick={() => onRetryCurrentExercise?.()}
+                variant={button.variant}
                 className={button.className}
                 size="lg"
                 disabled={disabled}
@@ -183,6 +183,7 @@ export function TrainingRatingButtons({
             <Button
               key={`${stage}-${button.rating}`}
               onClick={() => onRate(button.rating)}
+              variant={button.variant}
               className={button.className}
               size="lg"
               disabled={disabled}

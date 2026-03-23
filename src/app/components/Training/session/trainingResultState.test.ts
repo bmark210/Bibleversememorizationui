@@ -3,8 +3,8 @@ import test from "node:test";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { TrainingModeId } from "@/shared/training/modeEngine";
 import {
-  buildCommittedTrainingResultState,
   buildExerciseResultState,
+  buildTrainingCommitToastPayload,
 } from "./trainingResultState";
 
 test("buildExerciseResultState creates success result for local completion", () => {
@@ -63,8 +63,8 @@ test("buildExerciseResultState creates revealed result with rating footer", () =
   assert.equal(result.verseText, "Вот Агнец Божий");
 });
 
-test("buildCommittedTrainingResultState returns regress transition", () => {
-  const result = buildCommittedTrainingResultState({
+test("buildTrainingCommitToastPayload returns regress toast", () => {
+  const result = buildTrainingCommitToastPayload({
     verseKey: "verse-1",
     reference: "От Иоанна 1:29",
     previousStatus: VerseStatus.LEARNING,
@@ -78,13 +78,14 @@ test("buildCommittedTrainingResultState returns regress transition", () => {
 
   assert.ok(result);
   assert.equal(result?.kind, "mode-regressed");
-  assert.equal(result?.footerMode, "continue-only");
-  assert.equal(result?.targetModeLabel != null, true);
+  assert.equal(result?.title, "Прогресс обновлён");
+  assert.equal(result?.meta, null);
+  assert.equal(result?.xpLabel, null);
 });
 
-test("buildCommittedTrainingResultState returns waiting review screen", () => {
+test("buildTrainingCommitToastPayload returns waiting review toast with xp and time", () => {
   const nextReviewAt = new Date("2026-03-24T09:00:00.000Z");
-  const result = buildCommittedTrainingResultState({
+  const result = buildTrainingCommitToastPayload({
     verseKey: "verse-2",
     reference: "От Иоанна 1:29",
     previousStatus: VerseStatus.REVIEW,
@@ -108,12 +109,13 @@ test("buildCommittedTrainingResultState returns waiting review screen", () => {
 
   assert.ok(result);
   assert.equal(result?.kind, "review-waiting");
-  assert.equal(result?.footerMode, "continue-only");
-  assert.equal(result?.nextReviewAt?.toISOString(), nextReviewAt.toISOString());
+  assert.equal(result?.title, "+4 XP");
+  assert.equal(result?.xpLabel, "+4 XP");
+  assert.equal(result?.meta, null);
 });
 
-test("buildCommittedTrainingResultState returns mastered screen", () => {
-  const result = buildCommittedTrainingResultState({
+test("buildTrainingCommitToastPayload returns mastered toast", () => {
+  const result = buildTrainingCommitToastPayload({
     verseKey: "verse-3",
     reference: "От Иоанна 1:29",
     previousStatus: VerseStatus.REVIEW,
@@ -128,4 +130,33 @@ test("buildCommittedTrainingResultState returns mastered screen", () => {
   assert.ok(result);
   assert.equal(result?.kind, "mastered");
   assert.equal(result?.title, "Стих выучен");
+});
+
+test("buildTrainingCommitToastPayload falls back to progress toast when no transition", () => {
+  const result = buildTrainingCommitToastPayload({
+    verseKey: "verse-4",
+    reference: "От Иоанна 1:29",
+    previousStatus: VerseStatus.LEARNING,
+    nextStatus: VerseStatus.LEARNING,
+    previousModeId: TrainingModeId.ClickWordsNoHints,
+    nextModeId: TrainingModeId.ClickWordsNoHints,
+    nextReviewAt: null,
+    reviewWasSuccessful: false,
+    progressPopup: {
+      id: "popup-2",
+      reference: "От Иоанна 1:29",
+      title: "Прогресс стиха",
+      detail: null,
+      xpDelta: 2,
+      tone: "positive",
+      stageStatus: "LEARNING",
+      stageLabel: "Изучение",
+    },
+  });
+
+  assert.ok(result);
+  assert.equal(result?.kind, "progress-updated");
+  assert.equal(result?.title, "+2 XP");
+  assert.equal(result?.meta, null);
+  assert.equal(result?.xpLabel, "+2 XP");
 });

@@ -23,6 +23,7 @@ import {
   getTelegramId,
   postTrainingVerseStep,
 } from "@/app/components/VerseGallery/trainingApi";
+import { toast } from "@/app/lib/toast";
 import {
   normalizePersistedTrainingVerseState,
   useVerseSync,
@@ -35,14 +36,13 @@ import type {
 } from "@/app/components/VerseGallery/types";
 import { buildTrainingProgressPopupPayload } from "@/app/components/Training/trainingProgressFeedback";
 import {
-  buildCommittedTrainingResultState,
-  type TrainingCommittedResultState,
+  buildTrainingCommitToastPayload,
 } from "./trainingResultState";
+import { showTrainingCommitToast } from "./trainingTransitionToast";
 import type { TrainingAttempt } from "@/modules/training/hints/types";
 
 type QuickForgetConfirmStage = "learning" | "review";
 export type TrainingRateCommitOutcome =
-  | "pending-result"
   | "continued"
   | "blocked"
   | "error";
@@ -92,7 +92,6 @@ export type UseTrainingSessionReturn = {
   trainingVerseCount: number;
   isActionPending: boolean;
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
-  pendingResult: TrainingCommittedResultState | null;
 
   handleRate: (
     rating: Rating,
@@ -100,14 +99,11 @@ export type UseTrainingSessionReturn = {
   ) => Promise<TrainingRateCommitOutcome>;
   handleNavigationStep: (delta: -1 | 1) => void;
   handleClose: () => void;
-  acknowledgePendingResult: () => void;
 
   quickForgetConfirmStage: QuickForgetConfirmStage | null;
   requestQuickForget: () => void;
   confirmQuickForget: (attempt?: TrainingAttempt | null) => void;
   cancelQuickForget: () => void;
-
-  feedbackMessage: string;
 };
 
 export function useTrainingSession({
@@ -134,9 +130,6 @@ export function useTrainingSession({
   const [isActionPending, setIsActionPending] = useState(false);
   const [quickForgetConfirmStage, setQuickForgetConfirmStage] =
     useState<QuickForgetConfirmStage | null>(null);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [pendingResult, setPendingResult] =
-    useState<TrainingCommittedResultState | null>(null);
 
   const rendererRef = useRef<TrainingModeRendererHandle | null>(null);
   const hasCommittedMutationRef = useRef(false);
@@ -155,13 +148,22 @@ export function useTrainingSession({
     setTrainingIndex(nextIndex);
     setTrainingModeId(nextActiveVerse ? chooseModeId(nextActiveVerse) : null);
     setQuickForgetConfirmStage(null);
-    setPendingResult(null);
   }, [initialVerseExternalId, verses]);
 
-  const showFeedback = useCallback((message: string) => {
-    setFeedbackMessage(message);
-    setTimeout(() => setFeedbackMessage(""), 2000);
-  }, []);
+  const showTrainingToast = useCallback(
+    (
+      tone: "success" | "error" | "info" | "warning",
+      message: string,
+      description?: string
+    ) => {
+      const method = toast[tone];
+      method(message, {
+        label: "Тренировка",
+        description,
+      });
+    },
+    []
+  );
 
   const handleSessionClose = useCallback(() => {
     if (isSessionClosedRef.current) return;
@@ -239,7 +241,6 @@ export function useTrainingSession({
       if (!nextVerse) return;
       setTrainingIndex(nextIndex);
       setTrainingModeId(chooseModeId(nextVerse));
-      setPendingResult(null);
       haptic("medium");
     },
     [trainingActiveVerse, trainingIndex, trainingVerses]
@@ -255,9 +256,6 @@ export function useTrainingSession({
         setTrainingVerses([]);
         setTrainingIndex(0);
         setTrainingModeId(null);
-        setPendingResult((prev) =>
-          prev?.verseKey === currentKey ? null : prev
-        );
         haptic("light");
         return;
       }
@@ -271,27 +269,10 @@ export function useTrainingSession({
       setTrainingVerses(nextList);
       setTrainingIndex(nextIndex);
       setTrainingModeId(nextVerse ? chooseModeId(nextVerse) : null);
-      setPendingResult((prev) =>
-        prev?.verseKey === currentKey ? null : prev
-      );
       haptic("light");
     },
     [trainingActiveVerse, trainingIndex, trainingVerses]
   );
-
-  const acknowledgePendingResult = useCallback(() => {
-    if (!pendingResult) return;
-
-    if (
-      pendingResult.kind === "review-waiting" ||
-      pendingResult.kind === "mastered"
-    ) {
-      removeCompletedVerseAndNavigate(1, pendingResult.verseKey);
-      return;
-    }
-
-    setPendingResult(null);
-  }, [pendingResult, removeCompletedVerseAndNavigate]);
 
   const handleRate = useCallback(
     async (
@@ -302,7 +283,7 @@ export function useTrainingSession({
       const current = trainingVerses[trainingIndex];
       if (!current || !isTrainingEligibleVerse(current)) {
         haptic("warning");
-        showFeedback("Стих сейчас недоступен для тренировки");
+        showTrainingToast("warning", "Стих сейчас недоступен для тренировки");
         return "blocked";
       }
 
@@ -318,7 +299,7 @@ export function useTrainingSession({
         const telegramId = current.telegramId ?? getTelegramId();
         if (!telegramId) {
           haptic("error");
-          showFeedback("Не удалось определить пользователя");
+          showTrainingToast("error", "Не удалось определить пользователя");
           return "blocked";
         }
 
@@ -369,21 +350,7 @@ export function useTrainingSession({
         applyAuthoritativeVerse(current, persistedUpdated);
         hasCommittedMutationRef.current = true;
 
-        if (persistedUpdated.status === VerseStatus.LEARNING) {
-          setTrainingModeId(nextModeId);
-        }
-
-        if (progressPopupPayload) {
-          const xpDeltaLabel =
-            progressPopupPayload.xpDelta === 0
-              ? progressPopupPayload.stageLabel
-              : `${progressPopupPayload.xpDelta > 0 ? "+" : ""}${progressPopupPayload.xpDelta} XP`;
-          showFeedback(
-            `${progressPopupPayload.title}. ${progressPopupPayload.stageLabel}. ${xpDeltaLabel}`
-          );
-        }
-
-        const nextPendingResult = buildCommittedTrainingResultState({
+        const commitToastPayload = buildTrainingCommitToastPayload({
           verseKey: persistedUpdated.key,
           reference: persistedUpdated.raw.reference,
           previousStatus: current.status,
@@ -395,12 +362,20 @@ export function useTrainingSession({
           progressPopup: progressPopupPayload,
         });
 
-        if (nextPendingResult) {
-          setPendingResult(nextPendingResult);
-          return "pending-result";
+        if (persistedUpdated.status === VerseStatus.LEARNING) {
+          setTrainingModeId(nextModeId);
         }
 
-        setPendingResult(null);
+        if (commitToastPayload?.kind === "review-waiting") {
+          removeCompletedVerseAndNavigate(1, persistedUpdated.key);
+        } else if (commitToastPayload?.kind === "mastered") {
+          removeCompletedVerseAndNavigate(1, persistedUpdated.key);
+        }
+
+        if (commitToastPayload) {
+          showTrainingCommitToast(commitToastPayload);
+        }
+
         return "continued";
       } catch (error) {
         console.error("Failed to apply training step", error);
@@ -416,8 +391,7 @@ export function useTrainingSession({
         }
 
         haptic("error");
-        showFeedback("Ошибка — попробуйте ещё раз");
-        setPendingResult(null);
+        showTrainingToast("error", "Ошибка — попробуйте ещё раз");
         return "error";
       } finally {
         setIsActionPending(false);
@@ -429,7 +403,8 @@ export function useTrainingSession({
       trainingModeId,
       trainingVerses,
       applyAuthoritativeVerse,
-      showFeedback,
+      removeCompletedVerseAndNavigate,
+      showTrainingToast,
       verseSync,
     ]
   );
@@ -460,7 +435,6 @@ export function useTrainingSession({
   const stableRequestQuickForget = useEventCallback(requestQuickForget);
   const stableConfirmQuickForget = useEventCallback(confirmQuickForget);
   const stableCancelQuickForget = useEventCallback(cancelQuickForget);
-  const stableAcknowledgePendingResult = useEventCallback(acknowledgePendingResult);
 
   return {
     trainingActiveVerse,
@@ -469,18 +443,14 @@ export function useTrainingSession({
     trainingVerseCount: trainingVerses.length,
     isActionPending,
     rendererRef,
-    pendingResult,
 
     handleRate: stableHandleRate,
     handleNavigationStep: stableJump,
     handleClose: stableHandleClose,
-    acknowledgePendingResult: stableAcknowledgePendingResult,
 
     quickForgetConfirmStage,
     requestQuickForget: stableRequestQuickForget,
     confirmQuickForget: stableConfirmQuickForget,
     cancelQuickForget: stableCancelQuickForget,
-
-    feedbackMessage,
   };
 }

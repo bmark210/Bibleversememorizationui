@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { toast } from "@/app/lib/toast";
+import { showVerseActionToast } from "@/app/lib/semanticToast";
 import {
   getTelegramWebApp,
   getTelegramWebAppUser,
@@ -1278,9 +1279,9 @@ export default function App({ onInitialContentReady }: AppProps) {
 
       setVerseListExternalSyncVersion((prev) => prev + 1);
 
-      toast.success("Стих добавлен", {
-        description: `${verse.reference} добавлен в ваши стихи.`,
-        label: "Коллекция",
+      showVerseActionToast({
+        kind: "add-to-my",
+        reference: verse.reference,
       });
     } catch (err) {
       const errorMessage = (err as ApiError)?.body?.error as string;
