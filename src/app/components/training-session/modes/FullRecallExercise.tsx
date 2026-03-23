@@ -25,6 +25,8 @@ import {
 } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface TypingModeProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -61,11 +63,9 @@ export function ModeFullRecallExercise({
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [shakeInput, setShakeInput] = useState(false);
-  const [successFlash, setSuccessFlash] = useState(false);
+  const shakeFlash = useFlashTimeout<boolean>(240);
+  const successFlashState = useFlashTimeout<boolean>();
   const [totalMistakes, setTotalMistakes] = useState(0);
-  const clearShakeTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -81,18 +81,12 @@ export function ModeFullRecallExercise({
     setMatchPercent(null);
     setTotalMistakes(0);
     setIsCompleted(false);
-    setShakeInput(false);
-    setSuccessFlash(false);
+    shakeFlash.clear();
+    successFlashState.clear();
 
     return () => {
-      if (clearShakeTimeoutRef.current) {
-        window.clearTimeout(clearShakeTimeoutRef.current);
-        clearShakeTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      shakeFlash.cleanup();
+      successFlashState.cleanup();
       if (mobileFocusTimeoutRef.current) {
         window.clearTimeout(mobileFocusTimeoutRef.current);
         mobileFocusTimeoutRef.current = null;
@@ -100,15 +94,12 @@ export function ModeFullRecallExercise({
     };
   }, [verse]);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const totalWords = useMemo(() => tokenizeWords(verse.text).length, [verse.text]);
   const completedWords = useMemo(
@@ -130,14 +121,7 @@ export function ModeFullRecallExercise({
   }, [completedWords, isCompleted, onProgressChange, surrendered, totalWords]);
 
   const triggerInputShake = () => {
-    setShakeInput(true);
-    if (clearShakeTimeoutRef.current) {
-      window.clearTimeout(clearShakeTimeoutRef.current);
-    }
-    clearShakeTimeoutRef.current = window.setTimeout(() => {
-      setShakeInput(false);
-      clearShakeTimeoutRef.current = null;
-    }, 240);
+    shakeFlash.flash(true);
   };
 
   const handleInputChange = (nextRaw: string) => {
@@ -188,14 +172,7 @@ export function ModeFullRecallExercise({
     if (nextMatchPercent >= RECALL_THRESHOLD) {
       setIsCompleted(true);
 
-      setSuccessFlash(true);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlash(false);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlashState.flash(true);
 
       onExerciseResolved?.({
         kind: 'success',
@@ -249,12 +226,12 @@ export function ModeFullRecallExercise({
           contentClassName="flex h-full flex-col gap-3 pb-1"
         >
           <motion.div
-            animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
+            animate={shakeFlash.value === true ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
             transition={{ duration: 0.2 }}
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 transition-colors ${
-              shakeInput
+              shakeFlash.value === true
                 ? 'border-destructive/60 bg-destructive/5'
-                : successFlash
+                : successFlashState.value === true
                   ? 'border-emerald-500/60 bg-emerald-500/5'
                   : 'border-border/60'
             }`}

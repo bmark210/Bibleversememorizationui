@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
@@ -36,6 +36,8 @@ import {
   type MeasuredChoiceBatchItem,
 } from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface FirstLettersHintedExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -158,10 +160,8 @@ export function ModeFirstLettersHintedExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
-  const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
-  const clearFlashTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const errorFlash = useFlashTimeout<string>();
+  const successFlash = useFlashTimeout<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -175,30 +175,21 @@ export function ModeFirstLettersHintedExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashLetter(null);
-    setSuccessFlashLetter(null);
+    errorFlash.clear();
+    successFlash.clear();
 
     return () => {
-      if (clearFlashTimeoutRef.current) {
-        window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      errorFlash.cleanup();
+      successFlash.cleanup();
     };
   }, [verse]);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -301,14 +292,7 @@ export function ModeFirstLettersHintedExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      setSuccessFlashLetter(letter);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlashLetter(null);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(letter);
 
       if (next === totalHidden) {
         setIsCompleted(true);
@@ -343,14 +327,7 @@ export function ModeFirstLettersHintedExercise({
       );
     }
 
-    setErrorFlashLetter(letter);
-    if (clearFlashTimeoutRef.current) {
-      window.clearTimeout(clearFlashTimeoutRef.current);
-    }
-    clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashLetter(null);
-      clearFlashTimeoutRef.current = null;
-    }, 260);
+    errorFlash.flash(letter);
   };
 
   const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
@@ -425,9 +402,9 @@ export function ModeFirstLettersHintedExercise({
                     type="button"
                     variant="outline"
                     className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                      errorFlashLetter === letter
+                      errorFlash.value === letter
                         ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlashLetter === letter
+                        : successFlash.value === letter
                           ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
                           : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                     }`}

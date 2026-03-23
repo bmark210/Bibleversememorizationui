@@ -14,7 +14,6 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/components/ui/utils";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
@@ -38,7 +37,11 @@ import {
 } from "./trainingResultState";
 import { TrainingResultScreen } from "./TrainingResultScreen";
 import { TrainingRatingButtons } from "@/app/components/training-session/modes/TrainingRatingButtons";
+import { TrainingConfirmDialog } from "./TrainingConfirmDialog";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
+import type { TrainingModeInlineActionsProps } from "@/app/components/training-session/TrainingModeRenderer";
+
+/* ── Animation variants ── */
 
 const slideVariants = {
   enter: (dir: number) =>
@@ -72,14 +75,16 @@ const slideVariants = {
         },
 };
 
+/* ── Dialog style constants ── */
+
 const DIALOG_CONTENT_CLASS =
   "rounded-3xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-xl";
 const DIALOG_CANCEL_CLASS =
   "rounded-full border border-border/60 bg-muted/35 text-foreground/70";
-const DIALOG_PRIMARY_CLASS =
-  "rounded-full border border-border/60 bg-primary/80 text-primary-foreground hover:bg-primary/90";
 const DIALOG_DESTRUCTIVE_CLASS =
   "rounded-full border border-border/60 bg-destructive text-background hover:bg-destructive/90 dark:text-destructive-foreground/80";
+
+/* ── Subset / ordering helpers ── */
 
 function getSubsetCounts(verses: Verse[]) {
   return verses.reduce(
@@ -96,11 +101,9 @@ function getSubsetCounts(verses: Verse[]) {
 function getSubsetOptions(verses: Verse[]): TrainingSubsetSelectValue[] {
   const counts = getSubsetCounts(verses);
   const options: TrainingSubsetSelectValue[] = [];
-
   if (counts.learning > 0 && counts.review > 0) options.push("catalog");
   if (counts.learning > 0) options.push("learning");
   if (counts.review > 0) options.push("review");
-
   return options.length > 0 ? options : ["catalog"];
 }
 
@@ -117,7 +120,6 @@ function filterVersesBySubset(
   subsetFilter: TrainingSubsetSelectValue
 ): Verse[] {
   if (subsetFilter === "catalog") return verses;
-
   return verses.filter((verse) => {
     const status = normalizeDisplayVerseStatus(verse.status);
     return subsetFilter === "learning"
@@ -143,7 +145,6 @@ function getActivityTimestampMs(verse: Verse) {
 function compareCanonically(a: Verse, b: Verse) {
   const parsedA = parseExternalVerseId(a.externalVerseId);
   const parsedB = parseExternalVerseId(b.externalVerseId);
-
   if (parsedA && parsedB) {
     return (
       parsedA.book - parsedB.book ||
@@ -152,7 +153,6 @@ function compareCanonically(a: Verse, b: Verse) {
       parsedA.verseEnd - parsedB.verseEnd
     );
   }
-
   return String(a.externalVerseId).localeCompare(
     String(b.externalVerseId),
     "ru"
@@ -168,20 +168,28 @@ function sortVersesByOrder(verses: Verse[], order: TrainingOrder): Verse[] {
           getActivityTimestampMs(b.verse) - getActivityTimestampMs(a.verse);
         if (activityDelta !== 0) return activityDelta;
       }
-
       if (order === "popularity") {
         const popularityDelta =
           (b.verse.popularityValue ?? 0) - (a.verse.popularityValue ?? 0);
         if (popularityDelta !== 0) return popularityDelta;
       }
-
       const canonicalDelta = compareCanonically(a.verse, b.verse);
       if (canonicalDelta !== 0) return canonicalDelta;
-
       return a.index - b.index;
     })
     .map(({ verse }) => verse);
 }
+
+/* ── Pending action state machine ── */
+
+type PendingAction =
+  | { kind: "navigation"; step: 1 | -1 }
+  | { kind: "subset"; value: TrainingSubsetSelectValue }
+  | { kind: "order"; value: TrainingOrder }
+  | { kind: "close" }
+  | null;
+
+/* ── Component ── */
 
 interface TrainingSessionProps {
   verses: Verse[];
@@ -206,26 +214,23 @@ export function TrainingSession({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
 
+  /* ── UI state ── */
   const [direction, setDirection] = useState(0);
   const [hasInteractionStarted, setHasInteractionStarted] = useState(false);
-  const [pendingNavigationStep, setPendingNavigationStep] = useState<
-    1 | -1 | null
-  >(null);
-  const [pendingSubsetChange, setPendingSubsetChange] =
-    useState<TrainingSubsetSelectValue | null>(null);
-  const [pendingOrderChange, setPendingOrderChange] =
-    useState<TrainingOrder | null>(null);
-  const [pendingCloseConfirm, setPendingCloseConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [exerciseRetryNonce, setExerciseRetryNonce] = useState(0);
   const [localResult, setLocalResult] = useState<TrainingResultState | null>(
     null
   );
   const versePeekTimeoutRef = useRef<number | null>(null);
   const [subsetFilter, setSubsetFilter] = useState<TrainingSubsetSelectValue>(
-    () => resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses))
+    () =>
+      resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses))
   );
   const [activeOrder, setActiveOrder] = useState<TrainingOrder>(initialOrder);
+  const [assistDrawerOpen, setAssistDrawerOpen] = useState(false);
 
+  /* ── Subset / order / session ── */
   const subsetOptions = useMemo(
     () => getSubsetOptions(sourceVerses),
     [sourceVerses]
@@ -260,93 +265,64 @@ export function TrainingSession({
     onSessionComplete: onClose,
   });
 
+  /* ── Reset state on verse/mode/filter change ── */
   useEffect(() => {
     setHasInteractionStarted(false);
-    setPendingNavigationStep(null);
-    setPendingSubsetChange(null);
-    setPendingOrderChange(null);
-    setPendingCloseConfirm(false);
+    setPendingAction(null);
     setExerciseRetryNonce(0);
     setLocalResult(null);
-  }, [session.trainingActiveVerse?.key, session.trainingModeId, resolvedSubsetFilter, activeOrder]);
+  }, [
+    session.trainingActiveVerse?.key,
+    session.trainingModeId,
+    resolvedSubsetFilter,
+    activeOrder,
+  ]);
 
+  /* ── Direction animation reset ── */
   useEffect(() => {
     if (direction === 0 || typeof window === "undefined") return;
-    const timeoutId = window.setTimeout(() => {
-      setDirection(0);
-    }, 260);
+    const timeoutId = window.setTimeout(() => setDirection(0), 260);
     return () => window.clearTimeout(timeoutId);
   }, [direction, session.trainingActiveVerse?.key]);
 
-  const markInteractionStarted = useCallback(() => {
-    setHasInteractionStarted(true);
-  }, []);
-
-  const confirmNavigationStep = useCallback(async () => {
-    if (pendingNavigationStep === null) return;
-    const step = pendingNavigationStep;
-    setPendingNavigationStep(null);
-    await discardCurrentAttempt("navigated-away");
-    setHasInteractionStarted(false);
-    setDirection(step);
-    session.handleNavigationStep(step);
-  }, [pendingNavigationStep, session]);
-
-  const cancelNavigationStep = useCallback(() => {
-    setPendingNavigationStep(null);
-  }, []);
-
-  const confirmSubsetChange = useCallback(async () => {
-    if (pendingSubsetChange === null) return;
-    const nextSubset = pendingSubsetChange;
-    await discardCurrentAttempt("subset-changed");
-    setPendingSubsetChange(null);
-    setHasInteractionStarted(false);
-    setDirection(0);
-    setSubsetFilter(nextSubset);
-  }, [pendingSubsetChange]);
-
-  const cancelSubsetChange = useCallback(() => {
-    setPendingSubsetChange(null);
-  }, []);
-
-  const confirmOrderChange = useCallback(async () => {
-    if (pendingOrderChange === null) return;
-    const nextOrder = pendingOrderChange;
-    await discardCurrentAttempt("order-changed");
-    setPendingOrderChange(null);
-    setHasInteractionStarted(false);
-    setDirection(0);
-    setActiveOrder(nextOrder);
-  }, [pendingOrderChange]);
-
-  const cancelOrderChange = useCallback(() => {
-    setPendingOrderChange(null);
-  }, []);
-
+  /* ── Derived values (memoized) ── */
   const trainingActiveVerse = session.trainingActiveVerse;
   const trainingModeId = session.trainingModeId;
-  const bodyKey = trainingActiveVerse
-    ? getVerseIdentity(trainingActiveVerse.raw)
-    : `empty:${resolvedSubsetFilter}:${activeOrder}`;
+
+  const bodyKey = useMemo(
+    () =>
+      trainingActiveVerse
+        ? getVerseIdentity(trainingActiveVerse.raw)
+        : `empty:${resolvedSubsetFilter}:${activeOrder}`,
+    [trainingActiveVerse, resolvedSubsetFilter, activeOrder]
+  );
+
   const hintAttemptKey = `${bodyKey}:${trainingModeId ?? "none"}:${exerciseRetryNonce}`;
+
   const hintAttemptPhase: "learning" | "review" =
     trainingActiveVerse?.status === "REVIEW" ||
     trainingActiveVerse?.status === "MASTERED"
       ? "review"
       : "learning";
 
-  const isLateStage = isLateStageReview(
-    hintAttemptPhase,
-    trainingActiveVerse?.repetitions ?? 0
+  const isLateStage = useMemo(
+    () =>
+      isLateStageReview(
+        hintAttemptPhase,
+        trainingActiveVerse?.repetitions ?? 0
+      ),
+    [hintAttemptPhase, trainingActiveVerse?.repetitions]
   );
-  const activeRendererKey = trainingModeId
-    ? MODE_PIPELINE[trainingModeId].renderer
-    : null;
-  const useInlineExerciseActions = activeRendererKey !== null;
 
+  const activeRendererKey = useMemo(
+    () => (trainingModeId ? MODE_PIPELINE[trainingModeId].renderer : null),
+    [trainingModeId]
+  );
+
+  const useInlineExerciseActions = activeRendererKey !== null;
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
-  const [assistDrawerOpen, setAssistDrawerOpen] = useState(false);
+
+  /* ── Hint state ── */
   const activeVerseRaw = trainingActiveVerse?.raw;
   const hintHelpers = useHintState({
     attemptKey: hintAttemptKey,
@@ -356,6 +332,7 @@ export function TrainingSession({
     difficultyLevel: activeVerseRaw?.difficultyLevel,
   });
 
+  /* ── Verse peek timeout ── */
   const clearVersePeekTimeout = useCallback(() => {
     if (versePeekTimeoutRef.current !== null) {
       window.clearTimeout(versePeekTimeoutRef.current);
@@ -368,20 +345,59 @@ export function TrainingSession({
       ? hintHelpers.hintState.activeHintContent
       : null;
 
-  const activeResult = localResult;
-  const isShowingResultScreen = activeResult !== null;
+  const isShowingResultScreen = localResult !== null;
 
-  const showQuickForgetAction = Boolean(
-    trainingActiveVerse &&
-      trainingModeId &&
-      trainingModeId > 1 &&
-      hintAttemptPhase === "learning" &&
-      !isShowingResultScreen &&
-      hintHelpers.hintState.flowState === "active"
+  /* ── Derived UI flags (memoized) ── */
+  const showQuickForgetAction = useMemo(
+    () =>
+      Boolean(
+        trainingActiveVerse &&
+          trainingModeId &&
+          trainingModeId > 1 &&
+          hintAttemptPhase === "learning" &&
+          !isShowingResultScreen &&
+          hintHelpers.hintState.flowState === "active"
+      ),
+    [
+      trainingActiveVerse,
+      trainingModeId,
+      hintAttemptPhase,
+      isShowingResultScreen,
+      hintHelpers.hintState.flowState,
+    ]
   );
 
-  const showAssistButton =
-    isHintableMode && !isShowingResultScreen && !isLateStage;
+  const showAssistButton = isHintableMode && !isShowingResultScreen && !isLateStage;
+
+  /* ── Discardable attempt checks (memoized) ── */
+  const hasDiscardableAttempt = useMemo(() => {
+    const { attempt, flowState } = hintHelpers.hintState;
+    if (!canDiscardTrainingAttempt(flowState)) return false;
+    return (
+      flowState === "awaiting_rating" ||
+      attempt.assistHistory.length > 0 ||
+      (attempt.progress?.completedCount ?? 0) > 0 ||
+      (attempt.progress?.mistakeCount ?? 0) > 0
+    );
+  }, [hintHelpers.hintState]);
+
+  const hasCorrectTrainingProgress = useMemo(() => {
+    const { attempt, flowState } = hintHelpers.hintState;
+    return (
+      flowState === "awaiting_rating" ||
+      (attempt.progress?.completedCount ?? 0) > 0
+    );
+  }, [hintHelpers.hintState]);
+
+  const shouldConfirmSessionExit =
+    hasInteractionStarted || hasDiscardableAttempt;
+
+  /* ── Core actions (useCallback to avoid stale closures) ── */
+
+  const discardCurrentAttempt = useCallback(() => {
+    if (!hasDiscardableAttempt) return;
+    hintHelpers.abandonAttempt();
+  }, [hasDiscardableAttempt, hintHelpers]);
 
   const handleProgressChange = useCallback(
     (progress: ExerciseProgressSnapshot) => {
@@ -398,29 +414,20 @@ export function TrainingSession({
     setHasInteractionStarted(false);
     setLocalResult(null);
     setExerciseRetryNonce((prev) => prev + 1);
-  }, [
-    clearVersePeekTimeout,
-    hintHelpers.dismissHintContent,
-    hintHelpers.resetHints,
-  ]);
+  }, [clearVersePeekTimeout, hintHelpers.dismissHintContent, hintHelpers.resetHints]);
 
   const handleRetryCurrentExercise = useCallback(() => {
     if (
       session.isActionPending ||
       session.quickForgetConfirmStage !== null ||
-      pendingCloseConfirm
+      (pendingAction !== null && pendingAction.kind === "close")
     ) {
       return;
     }
-
     resetCurrentExercise();
-  }, [
-    pendingCloseConfirm,
-    resetCurrentExercise,
-    session.isActionPending,
-    session.quickForgetConfirmStage,
-  ]);
+  }, [pendingAction, resetCurrentExercise, session.isActionPending, session.quickForgetConfirmStage]);
 
+  /* ── Hint attempt reset on key change ── */
   useEffect(() => {
     clearVersePeekTimeout();
     setAssistDrawerOpen(false);
@@ -428,11 +435,10 @@ export function TrainingSession({
   }, [clearVersePeekTimeout, hintAttemptKey, hintHelpers.dismissHintContent]);
 
   useEffect(() => {
-    return () => {
-      clearVersePeekTimeout();
-    };
+    return () => clearVersePeekTimeout();
   }, [clearVersePeekTimeout]);
 
+  /* ── Assist / show verse handlers ── */
   const handleRequestAssist = useCallback(() => {
     setHasInteractionStarted(true);
     hintHelpers.requestAssist();
@@ -444,6 +450,7 @@ export function TrainingSession({
     hintHelpers.requestShowVerse();
   }, [hintHelpers.requestShowVerse]);
 
+  /* ── Exercise resolved ── */
   const handleExerciseResolved = useCallback(
     (result: TrainingExerciseResolution) => {
       if (!trainingActiveVerse) return;
@@ -471,11 +478,14 @@ export function TrainingSession({
     ]
   );
 
+  /* ── Rating commit ── */
   const handleResultRating = useCallback(
     async (rating: 0 | 1 | 2 | 3) => {
-      if (!localResult) return;
-      if (rating === 0) return;
-      const outcome = await session.handleRate(rating, hintHelpers.hintState.attempt);
+      if (!localResult || rating === 0) return;
+      const outcome = await session.handleRate(
+        rating,
+        hintHelpers.hintState.attempt
+      );
       if (outcome === "continued") {
         resetCurrentExercise();
         setLocalResult(null);
@@ -484,6 +494,7 @@ export function TrainingSession({
     [hintHelpers.hintState.attempt, localResult, resetCurrentExercise, session]
   );
 
+  /* ── Verse peek auto-dismiss ── */
   useEffect(() => {
     clearVersePeekTimeout();
     if (!activeVersePeek) return;
@@ -497,9 +508,7 @@ export function TrainingSession({
       versePeekTimeoutRef.current = null;
     }, durationSeconds * 1000);
 
-    return () => {
-      clearVersePeekTimeout();
-    };
+    return () => clearVersePeekTimeout();
   }, [
     activeVersePeek,
     clearVersePeekTimeout,
@@ -507,33 +516,14 @@ export function TrainingSession({
     hintHelpers.hintState.showVerseDurationSeconds,
   ]);
 
-  const hasDiscardableAttempt = useMemo(() => {
-    const { attempt, flowState } = hintHelpers.hintState;
-    if (!canDiscardTrainingAttempt(flowState)) return false;
-
-    return (
-      flowState === "awaiting_rating" ||
-      attempt.assistHistory.length > 0 ||
-      (attempt.progress?.completedCount ?? 0) > 0 ||
-      (attempt.progress?.mistakeCount ?? 0) > 0
-    );
-  }, [hintHelpers.hintState]);
-
-  const hasCorrectTrainingProgress = useMemo(() => {
-    const { attempt, flowState } = hintHelpers.hintState;
-    return (
-      flowState === "awaiting_rating" ||
-      (attempt.progress?.completedCount ?? 0) > 0
-    );
-  }, [hintHelpers.hintState]);
-
+  /* ── Navigation request (with progress guard) ── */
   const requestNavigationStep = useCallback(
     (step: 1 | -1) => {
       if (
         session.isActionPending ||
         session.quickForgetConfirmStage !== null ||
         isShowingResultScreen ||
-        pendingCloseConfirm
+        pendingAction !== null
       ) {
         return;
       }
@@ -544,77 +534,76 @@ export function TrainingSession({
         return;
       }
 
-      setPendingNavigationStep(step);
+      setPendingAction({ kind: "navigation", step });
     },
-    [hasCorrectTrainingProgress, isShowingResultScreen, pendingCloseConfirm, session]
+    [
+      hasCorrectTrainingProgress,
+      isShowingResultScreen,
+      pendingAction,
+      session,
+    ]
   );
 
-  const shouldConfirmSessionExit = hasInteractionStarted || hasDiscardableAttempt;
+  /* ── Pending action confirm / cancel ── */
+  const cancelPendingAction = useCallback(() => {
+    setPendingAction(null);
+  }, []);
 
-  function discardCurrentAttempt(_reason?: string) {
-    if (!hasDiscardableAttempt) return;
-    hintHelpers.abandonAttempt();
-  }
+  const confirmPendingAction = useCallback(async () => {
+    if (pendingAction === null) return;
+    const action = pendingAction;
+    setPendingAction(null);
+    discardCurrentAttempt();
+    setHasInteractionStarted(false);
 
-  function requestCloseSession() {
+    switch (action.kind) {
+      case "navigation":
+        setDirection(action.step);
+        session.handleNavigationStep(action.step);
+        break;
+      case "subset":
+        setDirection(0);
+        setSubsetFilter(action.value);
+        break;
+      case "order":
+        setDirection(0);
+        setActiveOrder(action.value);
+        break;
+      case "close":
+        session.handleClose();
+        break;
+    }
+  }, [pendingAction, discardCurrentAttempt, session]);
+
+  /* ── Session close request ── */
+  const requestCloseSession = useCallback(() => {
     if (!shouldConfirmSessionExit) {
       session.handleClose();
       return;
     }
-    setPendingCloseConfirm(true);
-  }
+    setPendingAction({ kind: "close" });
+  }, [shouldConfirmSessionExit, session]);
 
-  async function confirmCloseSession() {
-    setPendingCloseConfirm(false);
-    await discardCurrentAttempt("session-closed");
-    session.handleClose();
-  }
-
-  function cancelCloseSession() {
-    setPendingCloseConfirm(false);
-  }
-
+  /* ── Back button handler ── */
   const handleTrainingBackAction = useCallback(() => {
     if (assistDrawerOpen) {
       setAssistDrawerOpen(false);
       return;
     }
-
     if (session.quickForgetConfirmStage !== null) {
       session.cancelQuickForget();
       return;
     }
-
-    if (pendingNavigationStep !== null) {
-      cancelNavigationStep();
+    if (pendingAction !== null) {
+      cancelPendingAction();
       return;
     }
-
-    if (pendingSubsetChange !== null) {
-      cancelSubsetChange();
-      return;
-    }
-
-    if (pendingOrderChange !== null) {
-      cancelOrderChange();
-      return;
-    }
-
-    if (pendingCloseConfirm) {
-      cancelCloseSession();
-      return;
-    }
-
     requestCloseSession();
   }, [
     assistDrawerOpen,
-    cancelNavigationStep,
-    cancelOrderChange,
-    cancelSubsetChange,
-    pendingCloseConfirm,
-    pendingNavigationStep,
-    pendingOrderChange,
-    pendingSubsetChange,
+    cancelPendingAction,
+    pendingAction,
+    requestCloseSession,
     session,
   ]);
 
@@ -624,42 +613,104 @@ export function TrainingSession({
     priority: 60,
   });
 
+  /* ── Keyboard Escape ── */
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (
         session.quickForgetConfirmStage !== null ||
-        pendingNavigationStep !== null ||
-        pendingSubsetChange !== null ||
-        pendingOrderChange !== null ||
-        pendingCloseConfirm
+        pendingAction !== null
       ) {
         return;
       }
-
       if (e.key === "Escape") {
         e.preventDefault();
         requestCloseSession();
       }
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [
-    session,
-    pendingNavigationStep,
-    pendingSubsetChange,
-    pendingOrderChange,
-    pendingCloseConfirm,
-  ]);
+  }, [session.quickForgetConfirmStage, pendingAction, requestCloseSession]);
 
+  /* ── Navigation flags ── */
   const canNavigatePrev = session.trainingIndex > 0;
-  const canNavigateNext = session.trainingIndex < session.trainingVerseCount - 1;
+  const canNavigateNext =
+    session.trainingIndex < session.trainingVerseCount - 1;
   const isNavigationBlocked =
     session.isActionPending ||
     session.quickForgetConfirmStage !== null ||
     isShowingResultScreen ||
-    pendingCloseConfirm;
+    pendingAction !== null;
 
+  /* ── Stable inline actions object (memoized) ── */
+  const inlineExerciseActions = useMemo<
+    TrainingModeInlineActionsProps | undefined
+  >(
+    () =>
+      useInlineExerciseActions
+        ? {
+            showInlineAssistButton: showAssistButton,
+            onRequestInlineAssist: () => setAssistDrawerOpen(true),
+            showInlineQuickForgetAction: showQuickForgetAction,
+            onRequestInlineQuickForget: () => {
+              setHasInteractionStarted(true);
+              session.requestQuickForget();
+            },
+            inlineActionsDisabled: session.isActionPending,
+          }
+        : undefined,
+    [
+      useInlineExerciseActions,
+      showAssistButton,
+      showQuickForgetAction,
+      session.isActionPending,
+      session.requestQuickForget,
+    ]
+  );
+
+  const markInteractionStarted = useCallback(() => {
+    setHasInteractionStarted(true);
+  }, []);
+
+  /* ── Pending action dialog config ── */
+  const pendingDialogConfig = useMemo(() => {
+    if (!pendingAction) return null;
+    switch (pendingAction.kind) {
+      case "navigation":
+        return {
+          title: "Перейти к другому стиху?",
+          description:
+            "Если перейти сейчас, прогресс текущего упражнения не сохранится.",
+          confirmLabel: "Перейти без сохранения",
+          variant: "destructive" as const,
+        };
+      case "subset":
+        return {
+          title: "Сменить режим тренировки?",
+          description:
+            "Если переключить режим сейчас, прогресс текущего упражнения не сохранится.",
+          confirmLabel: "Переключить",
+          variant: "primary" as const,
+        };
+      case "order":
+        return {
+          title: "Изменить сортировку?",
+          description:
+            "Если сменить порядок сейчас, текущее упражнение перезапустится с новым списком карточек.",
+          confirmLabel: "Изменить",
+          variant: "primary" as const,
+        };
+      case "close":
+        return {
+          title: "Закрыть тренировку?",
+          description:
+            "Текущая попытка будет закрыта без сохранения и не восстановится автоматически при следующем входе.",
+          confirmLabel: "Закрыть без сохранения",
+          variant: "destructive" as const,
+        };
+    }
+  }, [pendingAction]);
+
+  /* ── Render ── */
   return (
     <>
       <div
@@ -669,6 +720,7 @@ export function TrainingSession({
         data-tour="training-session-shell"
         className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
       >
+        {/* ── Header ── */}
         <div
           className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl z-40"
           style={{ paddingTop: `${topInset}px` }}
@@ -680,6 +732,7 @@ export function TrainingSession({
           </div>
         </div>
 
+        {/* ── Body (carousel) ── */}
         <div
           className="relative flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-6"
           role="region"
@@ -697,8 +750,8 @@ export function TrainingSession({
               className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
               tabIndex={-1}
             >
-              {activeResult ? (
-                <TrainingResultScreen result={activeResult} />
+              {localResult ? (
+                <TrainingResultScreen result={localResult} />
               ) : trainingActiveVerse && trainingModeId ? (
                 <TrainingCard
                   dataTour="training-session-card"
@@ -710,22 +763,11 @@ export function TrainingSession({
                   hideRatingFooter
                   isLateStageReview={isLateStage}
                   hintState={isHintableMode ? hintHelpers.hintState : undefined}
-                  onProgressChange={isHintableMode ? handleProgressChange : undefined}
-                  exerciseRetryNonce={exerciseRetryNonce}
-                  inlineExerciseActions={
-                    useInlineExerciseActions
-                      ? {
-                          showInlineAssistButton: showAssistButton,
-                          onRequestInlineAssist: () => setAssistDrawerOpen(true),
-                          showInlineQuickForgetAction: showQuickForgetAction,
-                          onRequestInlineQuickForget: () => {
-                            setHasInteractionStarted(true);
-                            session.requestQuickForget();
-                          },
-                          inlineActionsDisabled: session.isActionPending,
-                        }
-                      : undefined
+                  onProgressChange={
+                    isHintableMode ? handleProgressChange : undefined
                   }
+                  exerciseRetryNonce={exerciseRetryNonce}
+                  inlineExerciseActions={inlineExerciseActions}
                 />
               ) : (
                 <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -739,6 +781,7 @@ export function TrainingSession({
           </AnimatePresence>
         </div>
 
+        {/* ── Footer ── */}
         <div
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
           className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative"
@@ -748,9 +791,7 @@ export function TrainingSession({
               {localResult.footerMode === "rating-with-retry" ? (
                 <TrainingRatingButtons
                   stage={localResult.ratingStage}
-                  onRate={(rating) => {
-                    void handleResultRating(rating);
-                  }}
+                  onRate={(rating) => void handleResultRating(rating)}
                   onRetryCurrentExercise={handleRetryCurrentExercise}
                   ratingPolicy={localResult.ratingPolicy}
                   allowEasySkip={localResult.allowEasySkip}
@@ -791,20 +832,18 @@ export function TrainingSession({
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
                   >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "absolute right-2 top-[-50px] h-9 w-9 z-90 p-2 border border-border/60 bg-background backdrop-blur-xl rounded-xl text-amber-700/90 hover:bg-amber-500/10 dark:text-amber-300",
-                    )}
-                    onClick={() => setAssistDrawerOpen(true)}
-                    disabled={session.isActionPending}
-                    aria-label="Помощь"
-                    title="Помощь"
-                  >
-                    <Lightbulb className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-[-50px] h-9 w-9 z-[60] p-2 border border-border/60 bg-background backdrop-blur-xl rounded-xl text-amber-700/90 hover:bg-amber-500/10 dark:text-amber-300"
+                      onClick={() => setAssistDrawerOpen(true)}
+                      disabled={session.isActionPending}
+                      aria-label="Помощь"
+                      title="Помощь"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                    </Button>
                   </motion.div>
                 )}
               </div>
@@ -852,6 +891,7 @@ export function TrainingSession({
           )}
         </div>
 
+        {/* ── Verse peek overlay (z-[55] to sit above main z-50 container) ── */}
         <AnimatePresence>
           {activeVersePeek && !isShowingResultScreen && (
             <motion.div
@@ -859,7 +899,7 @@ export function TrainingSession({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
+              className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
             >
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80 dark:text-amber-300/80">
@@ -882,6 +922,7 @@ export function TrainingSession({
         </AnimatePresence>
       </div>
 
+      {/* ── Quick Forget dialog ── */}
       <AlertDialog
         open={session.quickForgetConfirmStage !== null}
         onOpenChange={(open) => {
@@ -917,150 +958,30 @@ export function TrainingSession({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={pendingNavigationStep !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelNavigationStep();
-        }}
-      >
-        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
-              Перейти к другому стиху?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если перейти сейчас, прогресс текущего упражнения не сохранится.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={DIALOG_CANCEL_CLASS}
-              onClick={cancelNavigationStep}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={DIALOG_DESTRUCTIVE_CLASS}
-              onClick={confirmNavigationStep}
-            >
-              Перейти без сохранения
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* ── Unified pending-action confirm dialog ── */}
+      {pendingDialogConfig && (
+        <TrainingConfirmDialog
+          open={pendingAction !== null}
+          onOpenChange={(open) => {
+            if (!open) cancelPendingAction();
+          }}
+          title={pendingDialogConfig.title}
+          description={pendingDialogConfig.description}
+          confirmLabel={pendingDialogConfig.confirmLabel}
+          onCancel={cancelPendingAction}
+          onConfirm={() => void confirmPendingAction()}
+          variant={pendingDialogConfig.variant}
+        />
+      )}
 
-      <AlertDialog
-        open={pendingSubsetChange !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelSubsetChange();
-        }}
-      >
-        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
-              Сменить режим тренировки?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если переключить режим сейчас, прогресс текущего упражнения не
-              сохранится.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={DIALOG_CANCEL_CLASS}
-              onClick={cancelSubsetChange}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={DIALOG_PRIMARY_CLASS}
-              onClick={confirmSubsetChange}
-            >
-              Переключить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingOrderChange !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelOrderChange();
-        }}
-      >
-        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
-              Изменить сортировку?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Если сменить порядок сейчас, текущее упражнение перезапустится с
-              новым списком карточек.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={DIALOG_CANCEL_CLASS}
-              onClick={cancelOrderChange}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={DIALOG_PRIMARY_CLASS}
-              onClick={confirmOrderChange}
-            >
-              Изменить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingCloseConfirm}
-        onOpenChange={(open) => {
-          if (!open) cancelCloseSession();
-        }}
-      >
-        <AlertDialogContent className={DIALOG_CONTENT_CLASS}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
-              Закрыть тренировку?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
-              Текущая попытка будет закрыта без сохранения и не восстановится
-              автоматически при следующем входе.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={DIALOG_CANCEL_CLASS}
-              onClick={cancelCloseSession}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className={DIALOG_DESTRUCTIVE_CLASS}
-              onClick={() => {
-                void confirmCloseSession();
-              }}
-            >
-              Закрыть без сохранения
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      {/* ── Assist drawer ── */}
       {isHintableMode && (
         <AssistDrawer
           open={assistDrawerOpen}
           onOpenChange={setAssistDrawerOpen}
           hintState={hintHelpers.hintState}
-          onRequestAssist={() => {
-            handleRequestAssist();
-          }}
-          onRequestShowVerse={() => {
-            handleRequestShowVerse();
-          }}
+          onRequestAssist={handleRequestAssist}
+          onRequestShowVerse={handleRequestShowVerse}
         />
       )}
     </>

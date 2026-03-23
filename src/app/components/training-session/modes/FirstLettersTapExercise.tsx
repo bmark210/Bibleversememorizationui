@@ -24,6 +24,8 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { useMeasuredElementSize } from './useMeasuredElementSize';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface FirstLettersTapExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -139,10 +141,8 @@ export function ModeFirstLettersTapExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
-  const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
-  const clearFlashTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const errorFlash = useFlashTimeout<string>();
+  const successFlash = useFlashTimeout<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -152,30 +152,21 @@ export function ModeFirstLettersTapExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashLetter(null);
-    setSuccessFlashLetter(null);
+    errorFlash.clear();
+    successFlash.clear();
 
     return () => {
-      if (clearFlashTimeoutRef.current) {
-        window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      errorFlash.cleanup();
+      successFlash.cleanup();
     };
   }, [verse]);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const expectedTokens = useMemo(
     () => [...tokens].sort((a, b) => a.order - b.order),
@@ -354,14 +345,7 @@ export function ModeFirstLettersTapExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      setSuccessFlashLetter(letter);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlashLetter(null);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(letter);
 
       if (next === total) {
         setIsCompleted(true);
@@ -396,14 +380,7 @@ export function ModeFirstLettersTapExercise({
       );
     }
 
-    setErrorFlashLetter(letter);
-    if (clearFlashTimeoutRef.current) {
-      window.clearTimeout(clearFlashTimeoutRef.current);
-    }
-    clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashLetter(null);
-      clearFlashTimeoutRef.current = null;
-    }, 260);
+    errorFlash.flash(letter);
   };
 
   return (
@@ -496,9 +473,9 @@ export function ModeFirstLettersTapExercise({
                     type="button"
                     variant="outline"
                     className={`h-full w-full rounded-lg font-mono uppercase transition-colors ${
-                      errorFlashLetter === letter
+                      errorFlash.value === letter
                         ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlashLetter === letter
+                        : successFlash.value === letter
                           ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
                           : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                     }`}

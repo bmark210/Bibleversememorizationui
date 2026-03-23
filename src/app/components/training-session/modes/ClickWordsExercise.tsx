@@ -30,6 +30,8 @@ import { createExerciseProgressSnapshot } from '@/modules/training/hints/exercis
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface ClickWordsExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -136,10 +138,9 @@ export function ModeClickWordsExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashNormalized, setErrorFlashNormalized] = useState<string | null>(null);
-  const [successFlashNormalized, setSuccessFlashNormalized] = useState<string | null>(null);
-  const clearFlashTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+
+  const errorFlash = useFlashTimeout<string>();
+  const successFlash = useFlashTimeout<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -151,30 +152,23 @@ export function ModeClickWordsExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashNormalized(null);
-    setSuccessFlashNormalized(null);
+    errorFlash.clear();
+    successFlash.clear();
   }, [verse]);
 
   useEffect(() => {
     return () => {
-      if (clearFlashTimeoutRef.current) {
-        window.clearTimeout(clearFlashTimeoutRef.current);
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
+      errorFlash.cleanup();
+      successFlash.cleanup();
     };
   }, []);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const totalWords = orderedTokens.length;
   const maxMistakes = getExerciseMaxMistakes({
@@ -247,15 +241,7 @@ export function ModeClickWordsExercise({
     if (choice.normalized === expectedToken.normalized) {
       const next = selectedCount + 1;
       setSelectedCount(next);
-
-      setSuccessFlashNormalized(choice.normalized);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlashNormalized(null);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(choice.normalized);
 
       if (next === totalWords) {
         setIsCompleted(true);
@@ -285,14 +271,7 @@ export function ModeClickWordsExercise({
       );
     }
 
-    setErrorFlashNormalized(choice.normalized);
-    if (clearFlashTimeoutRef.current) {
-      window.clearTimeout(clearFlashTimeoutRef.current);
-    }
-    clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashNormalized(null);
-      clearFlashTimeoutRef.current = null;
-    }, 260);
+    errorFlash.flash(choice.normalized);
   };
 
   return (
@@ -343,9 +322,9 @@ export function ModeClickWordsExercise({
                   title={choice.displayText}
                   disabled={isUsed}
                   className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                    errorFlashNormalized === choice.normalized
+                    errorFlash.value === choice.normalized
                       ? 'border-destructive text-destructive bg-destructive/10'
-                      : successFlashNormalized === choice.normalized
+                      : successFlash.value === choice.normalized
                         ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
                         : isUsed
                           ? 'border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55'

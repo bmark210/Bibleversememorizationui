@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
@@ -22,6 +22,8 @@ import { createExerciseProgressSnapshot } from '@/modules/training/hints/exercis
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface ClickChunksExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -122,10 +124,9 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashTokenId, setErrorFlashTokenId] = useState<string | null>(null);
-  const [successFlashTokenId, setSuccessFlashTokenId] = useState<string | null>(null);
-  const clearFlashTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+
+  const errorFlash = useFlashTimeout<string>();
+  const successFlash = useFlashTimeout<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -135,20 +136,21 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
     setSelectedIds([]);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashTokenId(null);
-    setSuccessFlashTokenId(null);
+    errorFlash.clear();
+    successFlash.clear();
 
     return () => {
-      if (clearFlashTimeoutRef.current) {
-        window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      errorFlash.cleanup();
+      successFlash.cleanup();
     };
   }, [verse]);
+
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   useEffect(() => {
     onProgressChange?.(
@@ -162,16 +164,6 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
       })
     );
   }, [isCompleted, onProgressChange, selectedIds.length, surrendered, tokens.length]);
-
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
 
   const tokenMap = useMemo(
     () => new Map(tokens.map((token) => [token.id, token])),
@@ -213,15 +205,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
     if (token.order === expectedOrder) {
       const next = [...selectedIds, token.id];
       setSelectedIds(next);
-
-      setSuccessFlashTokenId(token.id);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlashTokenId(null);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(token.id);
 
       if (expectedOrder + 1 === totalChunks) {
         setIsCompleted(true);
@@ -246,24 +230,12 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
       });
     } else {
       toast.warning(
-        `Неверный фрагмент. До сброса: ${
-          maxMistakes - nextMistakesSinceReset
-        }.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+        `Неверный фрагмент. До сброса: ${maxMistakes - nextMistakesSinceReset}.`,
+        { toasterId: GALLERY_TOASTER_ID, size: 'compact' }
       );
     }
 
-    setErrorFlashTokenId(token.id);
-    if (clearFlashTimeoutRef.current) {
-      window.clearTimeout(clearFlashTimeoutRef.current);
-    }
-    clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashTokenId(null);
-      clearFlashTimeoutRef.current = null;
-    }, 260);
+    errorFlash.flash(token.id);
   };
 
   const showChoices = !isCompleted && !surrendered && remainingTokens.length > 0;
@@ -330,9 +302,9 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
                 type="button"
                 variant="outline"
                 className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
-                  errorFlashTokenId === token.id
+                  errorFlash.value === token.id
                     ? 'border-destructive text-destructive bg-destructive/10'
-                    : successFlashTokenId === token.id
+                    : successFlash.value === token.id
                       ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
                       : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
                 }`}

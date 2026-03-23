@@ -23,6 +23,8 @@ import { tokenizeFirstLetters } from './wordUtils';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -87,10 +89,8 @@ export function ModeFirstLettersKeyboardExercise({
   const [inputValue, setInputValue] = useState('');
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [shakeInput, setShakeInput] = useState(false);
-  const [successFlash, setSuccessFlash] = useState(false);
-  const clearShakeTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const shakeFlash = useFlashTimeout<boolean>(240);
+  const successFlash = useFlashTimeout<boolean>();
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -102,18 +102,12 @@ export function ModeFirstLettersKeyboardExercise({
     setInputValue('');
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setShakeInput(false);
-    setSuccessFlash(false);
+    shakeFlash.clear();
+    successFlash.clear();
 
     return () => {
-      if (clearShakeTimeoutRef.current) {
-        window.clearTimeout(clearShakeTimeoutRef.current);
-        clearShakeTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      shakeFlash.cleanup();
+      successFlash.cleanup();
       if (mobileFocusTimeoutRef.current) {
         window.clearTimeout(mobileFocusTimeoutRef.current);
         mobileFocusTimeoutRef.current = null;
@@ -121,15 +115,12 @@ export function ModeFirstLettersKeyboardExercise({
     };
   }, [verse]);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-      onExerciseResolved?.({
-        kind: 'revealed',
-        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
-      });
-    }
-  }, [isCompleted, onExerciseResolved, surrendered]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
@@ -157,17 +148,6 @@ export function ModeFirstLettersKeyboardExercise({
     );
   }, [completedUnits, expectedLetters.length, isCompleted, onProgressChange, surrendered]);
 
-  const triggerInputShake = () => {
-    setShakeInput(true);
-    if (clearShakeTimeoutRef.current) {
-      window.clearTimeout(clearShakeTimeoutRef.current);
-    }
-    clearShakeTimeoutRef.current = window.setTimeout(() => {
-      setShakeInput(false);
-      clearShakeTimeoutRef.current = null;
-    }, 240);
-  };
-
   const applyNextInputValue = (nextRaw: string) => {
     if (isCompleted || surrendered) return;
 
@@ -178,14 +158,7 @@ export function ModeFirstLettersKeyboardExercise({
     if (compact === expectedPrefix) {
       setInputValue(sanitized);
 
-      setSuccessFlash(true);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlash(false);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(true);
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
         setIsCompleted(true);
@@ -220,7 +193,7 @@ export function ModeFirstLettersKeyboardExercise({
       );
     }
 
-    triggerInputShake();
+    shakeFlash.flash(true);
   };
 
   const handleInputFocus = () => {
@@ -282,12 +255,12 @@ export function ModeFirstLettersKeyboardExercise({
           </p>
 
           <motion.div
-            animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
+            animate={shakeFlash.value === true ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
             transition={{ duration: 0.2 }}
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
-              shakeInput
+              shakeFlash.value === true
                 ? 'border-destructive/60 bg-destructive/5'
-                : successFlash
+                : successFlash.value === true
                   ? 'border-emerald-500/60 bg-emerald-500/5'
                   : 'border-border/60'
             }`}
