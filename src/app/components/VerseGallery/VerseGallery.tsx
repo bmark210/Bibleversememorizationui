@@ -9,7 +9,6 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { useDrag } from "@use-gesture/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Drawer,
@@ -64,36 +63,35 @@ import type { Verse } from "@/app/App";
 import type { TrainingMode } from "@/app/components/Training/types";
 import type { PlayerProfilePreview, VerseGalleryProps } from "./types";
 
-// Card slide animation — only animation kept intentionally
+// ── Card slide animation ─────────────────────────────────────────────────────
+// Fast GPU-friendly tweens instead of spring physics for smoother mobile perf.
+// Using `translate3d` via y% keeps everything on the compositor thread.
+const TWEEN_ENTER: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const TWEEN_EXIT: [number, number, number, number] = [0.4, 0, 0.2, 1];
+
 const slideVariants = {
   enter: (dir: number) =>
     dir === 0
-      ? { opacity: 0, scale: 1, y: 0 }
-      : { y: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.88 },
-  center: (dir: number) => ({
+      ? { y: 0, opacity: 0, scale: 1 }
+      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.92 },
+  center: (_dir: number) => ({
     y: 0,
     opacity: 1,
     scale: 1,
-    transition:
-      dir === 0
-        ? {
-            duration: 0.22,
-            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-          }
-        : { type: "spring" as const, stiffness: 320, damping: 32 },
+    transition: { duration: 0.28, ease: TWEEN_ENTER },
   }),
   exit: (dir: number) =>
     dir === 0
       ? {
           opacity: 0,
           scale: 1,
-          transition: { duration: 0.15, ease: "easeIn" as const },
+          transition: { duration: 0.15, ease: TWEEN_EXIT },
         }
       : {
-          y: dir > 0 ? "-18%" : "18%",
+          y: dir > 0 ? "-20%" : "20%",
           opacity: 0,
-          scale: 0.86,
-          transition: { duration: 0.2, ease: "easeIn" as const },
+          scale: 0.92,
+          transition: { duration: 0.22, ease: TWEEN_EXIT },
         },
 };
 
@@ -577,18 +575,7 @@ export function VerseGallery({
     );
   }, [nav.activeIndex, previewActiveVerse, previewDisplayTotal, setSlideAnnouncement]);
 
-  // ── Swipe gesture ─────────────────────────────────────────────────────────
-  const previewSwipeBind = useDrag(
-    ({ last, movement: [, my], velocity: [, vy], canceled }) => {
-      if (!last || canceled) return;
-      if (Math.abs(my) > 50 || Math.abs(vy) > 0.3) {
-        void nav.navigatePreviewTo(my < 0 ? "next" : "prev");
-      }
-    },
-    { axis: "y", filterTaps: true, pointer: { touch: false }, threshold: 10 },
-  );
-  const previewSwipeHandlers = useMemo(() => previewSwipeBind(), [previewSwipeBind]);
-
+  // ── Swipe gesture (single touch-based system — no @use-gesture overhead) ──
   const handlePreviewTouchStart = useCallback(
     (e: ReactTouchEvent<HTMLDivElement>) => {
       previewTouchSwipeStartRef.current = createVerticalTouchSwipeStart(e);
@@ -752,7 +739,7 @@ export function VerseGallery({
         role="dialog"
         aria-modal="true"
         aria-label="Просмотр стиха"
-        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {aux.slideAnnouncement}
@@ -764,12 +751,15 @@ export function VerseGallery({
           topInset={topInset}
         />
 
-        {/* Card area */}
+        {/* Card area — GPU-promoted layer for smooth compositing */}
         <div
           className="relative flex-1 min-h-0 grid place-items-center px-4 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки со стихами"
+          style={isFocusMode ? undefined : { touchAction: "none" }}
+          onTouchStart={isFocusMode ? undefined : handlePreviewTouchStart}
+          onTouchEnd={isFocusMode ? undefined : handlePreviewTouchEnd}
         >
           <AnimatePresence initial={false} mode="sync" custom={nav.direction}>
             <motion.div
@@ -780,30 +770,23 @@ export function VerseGallery({
               animate="center"
               exit="exit"
               className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
+              style={{ willChange: "transform, opacity" }}
               tabIndex={-1}
             >
-              <div
-                {...(isFocusMode ? {} : previewSwipeHandlers)}
-                className="w-full min-w-0 overflow-x-hidden"
-                style={isFocusMode ? undefined : { touchAction: "none" }}
-                onTouchStart={isFocusMode ? undefined : handlePreviewTouchStart}
-                onTouchEnd={isFocusMode ? undefined : handlePreviewTouchEnd}
-              >
-                <VersePreviewCard
-                  verse={previewActiveVerse}
-                  isActionPending={aux.isActionPending}
-                  activeTagSlugs={selectedTagSlugs}
-                  isAnchorEligible={isAnchorEligible}
-                  isFocusMode={isFocusMode}
-                  onStartTraining={handleStartTraining}
-                  onStatusAction={handlePrimaryStatusAction}
-                  onUtilityAction={handleUtilityStatusAction}
-                  onOpenProgress={handleOpenProgress}
-                  onOpenTags={handleOpenTagsDrawer}
-                  onOpenOwners={handleOpenOwnersDrawer}
-                  onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
-                />
-              </div>
+              <VersePreviewCard
+                verse={previewActiveVerse}
+                isActionPending={aux.isActionPending}
+                activeTagSlugs={selectedTagSlugs}
+                isAnchorEligible={isAnchorEligible}
+                isFocusMode={isFocusMode}
+                onStartTraining={handleStartTraining}
+                onStatusAction={handlePrimaryStatusAction}
+                onUtilityAction={handleUtilityStatusAction}
+                onOpenProgress={handleOpenProgress}
+                onOpenTags={handleOpenTagsDrawer}
+                onOpenOwners={handleOpenOwnersDrawer}
+                onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
+              />
             </motion.div>
           </AnimatePresence>
         </div>

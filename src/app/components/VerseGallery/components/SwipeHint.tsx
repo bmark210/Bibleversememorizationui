@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { SWIPE_HINT_KEY } from "../constants";
@@ -8,7 +8,7 @@ type Props = {
   panelMode: PanelMode;
 };
 
-export function SwipeHint({ panelMode }: Props) {
+export const SwipeHint = React.memo(function SwipeHint({ panelMode }: Props) {
   const [visible, setVisible] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -59,4 +59,4 @@ export function SwipeHint({ panelMode }: Props) {
       )}
     </AnimatePresence>
   );
-}
+});

@@ -20,6 +20,7 @@ export type UseGalleryAuxReturn = {
   showTrainingMilestonePopup: (payload: TrainingCompletionToastCardPayload) => Promise<void>;
   trainingMilestonePopup: TrainingCompletionToastCardPayload | null;
   confirmTrainingMilestonePopup: () => void;
+  /** Kept outside the memoized core so changes don't trigger re-render cascades */
   slideAnnouncement: string;
   setSlideAnnouncement: (text: string) => void;
 };
@@ -81,8 +82,9 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     []
   );
 
-  // Stabilize the return object — only rebuild when values actually change.
-  return useMemo(
+  // Stabilize the core object — slideAnnouncement is split out so frequent
+  // accessibility updates don't trigger re-render cascades through aux deps.
+  const core = useMemo(
     () => ({
       isActionPending,
       setIsActionPending,
@@ -94,8 +96,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       showTrainingMilestonePopup,
       trainingMilestonePopup,
       confirmTrainingMilestonePopup,
-      slideAnnouncement,
-      setSlideAnnouncement,
     }),
     [
       isActionPending,
@@ -105,8 +105,18 @@ export function useGalleryAux(): UseGalleryAuxReturn {
       showTrainingMilestonePopup,
       trainingMilestonePopup,
       confirmTrainingMilestonePopup,
-      slideAnnouncement,
       setPreviewOverride,
     ]
+  );
+
+  // Merge core + announcement into a single return — the reference changes
+  // only when core OR announcement actually changes.
+  return useMemo(
+    () => ({
+      ...core,
+      slideAnnouncement,
+      setSlideAnnouncement,
+    }),
+    [core, slideAnnouncement]
   );
 }

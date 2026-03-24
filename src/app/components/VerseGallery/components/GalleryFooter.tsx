@@ -1,5 +1,5 @@
-import type { Ref } from "react";
-import { ChevronLeft, ChevronRight, Eye, Trash2, X } from "lucide-react";
+import React, { type Ref } from "react";
+import { ChevronDown, ChevronUp, Eye, Trash2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { haptic } from "@/app/components/VerseGallery/utils";
@@ -19,7 +19,7 @@ type Props = {
   closeButtonRef?: Ref<HTMLButtonElement>;
 };
 
-export function GalleryFooter({
+export const GalleryFooter = React.memo(function GalleryFooter({
   isActionPending,
   isFocusMode = false,
   canGoPrev = false,
@@ -51,7 +51,7 @@ export function GalleryFooter({
           disabled={isActionPending || !canGoPrev}
           aria-label="Предыдущий стих"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronUp className="h-5 w-5" />
         </Button>
 
         <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-center gap-2">
@@ -118,9 +118,9 @@ export function GalleryFooter({
           disabled={isActionPending || !canGoNext}
           aria-label="Следующий стих"
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronDown className="h-5 w-5" />
         </Button>
       </div>
     </div>
   );
-}
+});

@@ -1,10 +1,12 @@
+import React from "react";
+
 type Props = {
   displayActive: number;
   displayTotal: number;
   topInset: number;
 };
 
-export function GalleryHeader({
+export const GalleryHeader = React.memo(function GalleryHeader({
   displayActive,
   displayTotal,
   topInset,
@@ -29,4 +31,4 @@ export function GalleryHeader({
       </div>
     </div>
   );
-}
+});

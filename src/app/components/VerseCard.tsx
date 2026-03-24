@@ -402,7 +402,7 @@ export function VerseCard({
         onTouchStart={onVerticalSwipeStep ? handleTouchStart : undefined}
         onTouchEnd={onVerticalSwipeStep ? handleTouchEnd : undefined}
         className={cn(
-          "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)]",
+          "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)] [contain:layout_style_paint]",
           "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
           "shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]",
           isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border/50",

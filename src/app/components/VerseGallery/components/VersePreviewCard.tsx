@@ -1,5 +1,5 @@
 import React from "react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Users } from "lucide-react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
@@ -40,7 +40,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function VersePreviewCard({
+export const VersePreviewCard = React.memo(function VersePreviewCard({
   verse,
   isActionPending,
   activeTagSlugs = null,
@@ -187,7 +187,7 @@ export function VersePreviewCard({
       ? ctaModel.utilityAction
       : null;
 
-  const handlePrimaryAction = () => {
+  const handlePrimaryAction = useCallback(() => {
     if (!primaryAction) return;
 
     if (primaryAction.id === "train" || primaryAction.id === "anchor") {
@@ -196,9 +196,12 @@ export function VersePreviewCard({
     }
 
     onStatusAction();
-  };
+  }, [primaryAction, onStartTraining, onStatusAction]);
 
-  useLayoutEffect(() => {
+  // ── Line-clamp calculation ──────────────────────────────────────────────────
+  // Deferred to useEffect (not useLayoutEffect) so it doesn't block the first
+  // paint of the card after a swipe. ResizeObserver is debounced via rAF.
+  useEffect(() => {
     if (isFocusMode || typeof window === "undefined") return;
 
     const bodyEl = previewBodyRef.current;
@@ -212,19 +215,17 @@ export function VersePreviewCard({
       const currentTextEl = previewTextRef.current;
       if (!currentBodyEl || !currentTextEl) return;
 
-      const bodyStyle = window.getComputedStyle(currentBodyEl);
-      const textStyle = window.getComputedStyle(currentTextEl);
-      const paddingTop = Number.parseFloat(bodyStyle.paddingTop || "0") || 0;
-      const paddingBottom =
-        Number.parseFloat(bodyStyle.paddingBottom || "0") || 0;
-      const availableHeight = Math.max(
-        0,
-        currentBodyEl.clientHeight - paddingTop - paddingBottom,
-      );
+      const availableHeight = currentBodyEl.clientHeight;
+      if (availableHeight <= 0) return;
 
-      let lineHeight = Number.parseFloat(textStyle.lineHeight || "");
+      let lineHeight = Number.parseFloat(
+        window.getComputedStyle(currentTextEl).lineHeight || "",
+      );
       if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-        const fontSize = Number.parseFloat(textStyle.fontSize || "0") || 16;
+        const fontSize =
+          Number.parseFloat(
+            window.getComputedStyle(currentTextEl).fontSize || "0",
+          ) || 16;
         lineHeight = fontSize * 1.625;
       }
 
@@ -246,7 +247,6 @@ export function VersePreviewCard({
         : null;
 
     resizeObserver?.observe(bodyEl);
-    resizeObserver?.observe(textEl);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
     scheduleUpdate();
 
@@ -470,7 +470,7 @@ export function VersePreviewCard({
       />
     </div>
   );
-}
+});
 
 // ─── Status footer (CSS transitions, no motion.div) ──────────────────────────
 
