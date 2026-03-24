@@ -310,6 +310,7 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
   return (
     <div data-tour="dashboard-stats">
       <DashboardSurface>
+        <h3 className="text-base font-semibold tracking-tight text-foreground/80 mb-3">Моя статистика</h3>
         <div className="grid grid-cols-2 gap-3">
           {statsCards.map((item) => {
             const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
@@ -422,7 +423,7 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
       <DashboardSurface>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground/80">
-            Рейтинг
+            Таблица лидеров
           </h2>
           <div className="text-xs text-foreground/45">
             {leaderboard?.totalParticipants ?? 0}
