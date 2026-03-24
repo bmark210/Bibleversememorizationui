@@ -1,7 +1,5 @@
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Users } from "lucide-react";
-import { VerseStatus } from "@/shared/domain/verseStatus";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -11,16 +9,13 @@ import {
   VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
-import { resolveVerseCardActionModel } from "@/app/components/verseCardActionModel";
 import type { Verse } from "@/app/App";
-import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
-import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
+import type { PreparedVersePreview } from "../previewModel";
 
 type Props = {
-  verse: Verse;
+  preview: PreparedVersePreview;
   isActionPending: boolean;
   activeTagSlugs?: Set<string> | Iterable<string> | null;
-  isAnchorEligible?: boolean;
   isFocusMode?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
@@ -41,10 +36,9 @@ function getInitials(name: string) {
 }
 
 export const VersePreviewCard = React.memo(function VersePreviewCard({
-  verse,
+  preview,
   isActionPending,
   activeTagSlugs = null,
-  isAnchorEligible = false,
   isFocusMode = false,
   onStartTraining,
   onStatusAction,
@@ -57,21 +51,16 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const previewTextRef = useRef<HTMLParagraphElement>(null);
   const [lineClamp, setLineClamp] = useState(8);
-  const status = normalizeVerseStatus(verse.status);
-  const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
-  const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
-  const totalProgressPercent = computeTotalProgressPercent(rawMasteryLevel, repetitionsCount);
-  const nextReviewAt = parseDate(
-    (verse as Record<string, unknown>).nextReviewAt ??
-      (verse as Record<string, unknown>).nextReview
-  );
-  const ctaModel = resolveVerseCardActionModel({
-    status,
-    flow: verse.flow,
-    nextReviewAt,
-    isAnchorEligible,
-  });
-  const isReviewStage = status === "REVIEW" || status === "MASTERED";
+  const {
+    verse,
+    actionModel,
+    tone,
+    totalProgressPercent,
+    normalizedTags,
+    previewUsers,
+    popularityValue,
+    popularityBadge,
+  } = preview;
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -85,92 +74,6 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     }
     return next;
   }, [activeTagSlugs]);
-  const normalizedTags = useMemo(() => {
-    if (!Array.isArray(verse.tags) || verse.tags.length === 0) return [];
-
-    const seen = new Set<string>();
-    return verse.tags.reduce<Array<{ id?: string; slug?: string; title: string }>>(
-      (acc, tag) => {
-        const title = String(tag?.title ?? "").trim();
-        if (!title) return acc;
-
-        const key = String(tag?.id ?? tag?.slug ?? title.toLowerCase());
-        if (seen.has(key)) return acc;
-        seen.add(key);
-
-        acc.push({
-          id: tag?.id,
-          slug: tag?.slug,
-          title,
-        });
-        return acc;
-      },
-      [],
-    );
-  }, [verse.tags]);
-  const previewUsers = useMemo(() => {
-    if (!Array.isArray(verse.popularityPreviewUsers)) return [];
-
-    const seen = new Set<string>();
-    return verse.popularityPreviewUsers
-      .reduce<Array<{ telegramId: string; name: string; avatarUrl: string | null }>>(
-        (acc, user) => {
-          const telegramId = String(user?.telegramId ?? "").trim();
-          const name = String(user?.name ?? "").trim();
-          if (!telegramId || !name || seen.has(telegramId)) return acc;
-          seen.add(telegramId);
-
-          acc.push({
-            telegramId,
-            name,
-            avatarUrl:
-              typeof user?.avatarUrl === "string" && user.avatarUrl.trim()
-                ? user.avatarUrl.trim()
-                : null,
-          });
-          return acc;
-        },
-        [],
-      )
-      .slice(0, 4);
-  }, [verse.popularityPreviewUsers]);
-
-  const tone: VerseCardPreviewTone | undefined =
-    status === "CATALOG"
-      ? "catalog"
-      : status === VerseStatus.MY
-        ? "my"
-        : status === VerseStatus.STOPPED
-          ? "stopped"
-          : status === "MASTERED"
-            ? "mastered"
-            : isReviewStage
-              ? "review"
-              : "learning";
-  const popularityValue =
-    typeof verse.popularityValue === "number"
-      ? Math.max(0, Math.round(verse.popularityValue))
-      : null;
-  const popularityBadge = (() => {
-    if (popularityValue == null) return null;
-    if (verse.popularityScope === "friends") {
-      return {
-        icon: Users,
-        label: `У друзей ${popularityValue}`,
-        className:
-          "border-cyan-500/35 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
-      };
-    }
-    if (verse.popularityScope === "players") {
-      return {
-        icon: Users,
-        label: `У игроков ${popularityValue}`,
-        className:
-          "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",
-      };
-    }
-    return null;
-  })();
   const hasOwnersTrigger =
     Boolean(onOpenOwners) &&
     popularityBadge != null &&
@@ -178,13 +81,14 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     popularityValue > 0 &&
     (verse.popularityScope === "friends" || verse.popularityScope === "players");
 
-  const primaryAction = ctaModel.primaryAction;
-  const waitingActionLabel = ctaModel.waitingLabel;
-  const statusTone = ctaModel.statusTone;
-  const showFooter = !isFocusMode && ctaModel.showProgress && statusTone !== null;
+  const primaryAction = actionModel.primaryAction;
+  const waitingActionLabel = actionModel.waitingLabel;
+  const statusTone = actionModel.statusTone;
+  const showFooter =
+    !isFocusMode && actionModel.showProgress && statusTone !== null;
   const inlineUtilityAction =
-    primaryAction?.id === "train" && ctaModel.utilityAction?.id === "pause"
-      ? ctaModel.utilityAction
+    primaryAction?.id === "train" && actionModel.utilityAction?.id === "pause"
+      ? actionModel.utilityAction
       : null;
 
   const handlePrimaryAction = useCallback(() => {
@@ -257,7 +161,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [isFocusMode, verse.text, showFooter]);
+  }, [isFocusMode, showFooter, verse.text]);
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden">

@@ -34,6 +34,7 @@ export function usePreviewNavigation({
 }: Params): UsePreviewNavigationReturn {
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
+  const backgroundPrefetchLengthRef = useRef<number | null>(null);
 
   // Use refs for values accessed inside navigatePreviewTo to avoid
   // recreating the callback on every index / list change.
@@ -49,6 +50,41 @@ export function usePreviewNavigation({
     previewHasMoreRef.current = previewHasMore;
     previewIsLoadingMoreRef.current = previewIsLoadingMore;
     onRequestMoreRef.current = onRequestMorePreviewVerses;
+  }, [
+    activeIndex,
+    onRequestMorePreviewVerses,
+    previewHasMore,
+    previewIsLoadingMore,
+    verses.length,
+  ]);
+
+  useEffect(() => {
+    const maxIndex = Math.max(0, verses.length - 1);
+    const clampedInitialIndex = Math.min(Math.max(0, initialIndex), maxIndex);
+    if (clampedInitialIndex === activeIndexRef.current) return;
+
+    startTransition(() => {
+      setDirection(0);
+      setActiveIndex(clampedInitialIndex);
+    });
+  }, [initialIndex, verses.length]);
+
+  useEffect(() => {
+    if (!previewHasMore || previewIsLoadingMore || !onRequestMorePreviewVerses) {
+      return;
+    }
+
+    const prefetchTriggerIndex = Math.max(0, verses.length - 2);
+    if (activeIndex < prefetchTriggerIndex) {
+      return;
+    }
+
+    if (backgroundPrefetchLengthRef.current === verses.length) {
+      return;
+    }
+
+    backgroundPrefetchLengthRef.current = verses.length;
+    void onRequestMorePreviewVerses();
   }, [
     activeIndex,
     onRequestMorePreviewVerses,
