@@ -24,7 +24,10 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { useMeasuredElementSize } from './useMeasuredElementSize';
-import { useFlashTimeout } from './useFlashTimeout';
+import {
+  getChoiceButtonFlashClassName,
+  useChoiceFlashFeedback,
+} from './useChoiceFlashFeedback';
 import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface FirstLettersTapExerciseProps extends ExerciseInlineActionsProps {
@@ -77,35 +80,6 @@ function getAutoGridColumns(
   return Math.max(1, Math.floor((width + gap) / (minCellWidth + gap)));
 }
 
-function getVisibleGridItemCount(
-  width: number,
-  height: number,
-  minCellWidth: number,
-  cellHeight: number,
-  gap: number
-) {
-  if (width <= 0 || height <= 0) return 0;
-
-  const columns = getAutoGridColumns(width, minCellWidth, gap, 1);
-  const rows = Math.max(0, Math.floor((height + gap) / (cellHeight + gap)));
-  return columns * rows;
-}
-
-function injectExpectedLetterIntoBatch(
-  letters: string[],
-  expectedLetter: string | null,
-  selectedCount: number
-) {
-  if (!expectedLetter || letters.length === 0 || letters.includes(expectedLetter)) {
-    return letters;
-  }
-
-  const nextLetters = [...letters];
-  const swapIndex = selectedCount % nextLetters.length;
-  nextLetters[swapIndex] = expectedLetter;
-  return nextLetters;
-}
-
 function getSequenceCellClassName(params: {
   isFilled: boolean;
   isActiveGap: boolean;
@@ -139,8 +113,12 @@ export function ModeFirstLettersTapExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const errorFlash = useFlashTimeout<string>();
-  const successFlash = useFlashTimeout<string>();
+  const {
+    clear: clearChoiceFlash,
+    flashError: flashChoiceError,
+    flashSuccess: flashChoiceSuccess,
+    getChoiceFlashKind,
+  } = useChoiceFlashFeedback<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -150,14 +128,8 @@ export function ModeFirstLettersTapExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    errorFlash.clear();
-    successFlash.clear();
-
-    return () => {
-      errorFlash.cleanup();
-      successFlash.cleanup();
-    };
-  }, [verse]);
+    clearChoiceFlash();
+  }, [clearChoiceFlash, verse]);
 
   useSurrenderEffect({
     surrendered,
@@ -219,27 +191,15 @@ export function ModeFirstLettersTapExercise({
     return counts;
   }, [expectedTokens, selectedCount]);
 
-  const availableLetters = useMemo(
-    () =>
-      shuffledUniqueLetters.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
-    [shuffledUniqueLetters, remainingCountByLetter]
-  );
-
-  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
+  const showChoices = !isCompleted && !surrendered && shuffledUniqueLetters.length > 0;
   const sequenceItemRefs = useRef(new Map<string, HTMLSpanElement>());
   const {
     ref: sequenceGridContainerRef,
     size: sequenceGridContainerSize,
   } = useMeasuredElementSize<HTMLDivElement>(true);
-  const {
-    ref: choicesGridContainerRef,
-    size: choicesGridContainerSize,
-  } = useMeasuredElementSize<HTMLDivElement>(showChoices);
 
   const sequenceCellMinWidth = Math.max(38, Math.ceil(fontSizes.letter + 22));
   const sequenceCellHeight = Math.max(40, Math.ceil(fontSizes.letter + 24));
-  const choiceCellMinWidth = Math.max(44, Math.ceil(fontSizes.letter + 26));
-  const choiceCellHeight = Math.max(44, Math.ceil(fontSizes.letter + 26));
 
   const sequenceColumns = useMemo(
     () =>
@@ -256,44 +216,6 @@ export function ModeFirstLettersTapExercise({
         )
       ),
     [sequenceCellMinWidth, sequenceGridContainerSize.width, total]
-  );
-
-  const choiceColumns = useMemo(
-    () =>
-      getAutoGridColumns(
-        choicesGridContainerSize.width,
-        choiceCellMinWidth,
-        LETTER_GRID_GAP,
-        4
-      ),
-    [choiceCellMinWidth, choicesGridContainerSize.width]
-  );
-
-  const visibleChoiceCount = useMemo(
-    () =>
-      getVisibleGridItemCount(
-        choicesGridContainerSize.width,
-        choicesGridContainerSize.height,
-        choiceCellMinWidth,
-        choiceCellHeight,
-        LETTER_GRID_GAP
-      ),
-    [
-      choiceCellHeight,
-      choiceCellMinWidth,
-      choicesGridContainerSize.height,
-      choicesGridContainerSize.width,
-    ]
-  );
-
-  const displayedLetters = useMemo(() => {
-    const batch = availableLetters.slice(0, visibleChoiceCount);
-    return injectExpectedLetterIntoBatch(batch, expectedLetter, selectedCount);
-  }, [availableLetters, expectedLetter, selectedCount, visibleChoiceCount]);
-
-  const renderedChoiceColumns = Math.max(
-    1,
-    Math.min(choiceColumns, displayedLetters.length || 1)
   );
 
   const focusItemId = useMemo(() => {
@@ -343,7 +265,7 @@ export function ModeFirstLettersTapExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      successFlash.flash(letter);
+      flashChoiceSuccess(letter);
 
       if (next === total) {
         setIsCompleted(true);
@@ -378,7 +300,7 @@ export function ModeFirstLettersTapExercise({
       );
     }
 
-    errorFlash.flash(letter);
+    flashChoiceError(letter);
   };
 
   return (
@@ -451,41 +373,34 @@ export function ModeFirstLettersTapExercise({
             </TrainingMetricBadge>
           }
           className="mt-2 min-h-0 flex-1 basis-1/2"
-          contentClassName="h-full"
+          scrollable
+          contentClassName="flex flex-wrap content-start gap-2 px-0.5 pb-2.5 pt-0.5"
         >
-          <div
-            ref={choicesGridContainerRef}
-            className="h-full min-h-0 overflow-hidden"
-          >
-            <div
-              className="grid content-start"
-              style={{
-                gap: `${LETTER_GRID_GAP}px`,
-                gridTemplateColumns: `repeat(${renderedChoiceColumns}, minmax(0, 1fr))`,
-                gridAutoRows: `${choiceCellHeight}px`,
-              }}
-            >
-              {displayedLetters.map((letter) => (
-                <div key={letter} className="min-w-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={`h-full w-full rounded-lg font-mono uppercase transition-colors ${
-                      errorFlash.value === letter
-                        ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlash.value === letter
-                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                    }`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                    onClick={() => handlePick(letter)}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+          {shuffledUniqueLetters.map((letter) => {
+            const remainingLetterCount = remainingCountByLetter.get(letter) ?? 0;
+            const isUsed = remainingLetterCount <= 0;
+
+            return (
+              <div key={letter} className="min-w-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUsed}
+                  className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${getChoiceButtonFlashClassName({
+                    choiceKey: letter,
+                    disabled: isUsed,
+                    idleClassName:
+                      'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5',
+                    getChoiceFlashKind,
+                  })}`}
+                  style={{ fontSize: `${fontSizes.letter}px` }}
+                  onClick={() => handlePick(letter)}
+                >
+                  <span>{letter}</span>
+                </Button>
+              </div>
+            );
+          })}
         </TrainingExerciseSection>
       )}
 

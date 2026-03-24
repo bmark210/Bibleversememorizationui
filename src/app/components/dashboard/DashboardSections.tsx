@@ -217,9 +217,6 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
 
   return (
     <div className="mb-5">
-          <span className="absolute top-2 right-2 z-10 text-xs text-foreground/45">
-            v3.0.1
-          </span>
       <DashboardSurface className="rounded-[32px]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">

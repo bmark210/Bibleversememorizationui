@@ -31,12 +31,11 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import {
-  useMeasuredChoiceBatch,
-  type MeasuredChoiceBatchItem,
-} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
-import { useFlashTimeout } from './useFlashTimeout';
+import {
+  getChoiceButtonFlashClassName,
+  useChoiceFlashFeedback,
+} from './useChoiceFlashFeedback';
 import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface FirstLettersHintedExerciseProps extends ExerciseInlineActionsProps {
@@ -158,8 +157,12 @@ export function ModeFirstLettersHintedExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const errorFlash = useFlashTimeout<string>();
-  const successFlash = useFlashTimeout<string>();
+  const {
+    clear: clearChoiceFlash,
+    flashError: flashChoiceError,
+    flashSuccess: flashChoiceSuccess,
+    getChoiceFlashKind,
+  } = useChoiceFlashFeedback<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -173,14 +176,8 @@ export function ModeFirstLettersHintedExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    errorFlash.clear();
-    successFlash.clear();
-
-    return () => {
-      errorFlash.cleanup();
-      successFlash.cleanup();
-    };
-  }, [verse]);
+    clearChoiceFlash();
+  }, [clearChoiceFlash, verse]);
 
   useSurrenderEffect({
     surrendered,
@@ -234,14 +231,6 @@ export function ModeFirstLettersHintedExercise({
     return counts;
   }, [hiddenSlots, selectedCount]);
 
-  const availableLetters = useMemo(
-    () =>
-      choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
-    [choiceOrder, remainingCountByLetter]
-  );
-
-  const expectedFirstLetter = nextHiddenSlot?.firstLetter ?? null;
-
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
     if (selectedCount <= 0) return hiddenSlots[0]?.id ?? null;
@@ -290,7 +279,7 @@ export function ModeFirstLettersHintedExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      successFlash.flash(letter);
+      flashChoiceSuccess(letter);
 
       if (next === totalHidden) {
         setIsCompleted(true);
@@ -325,33 +314,10 @@ export function ModeFirstLettersHintedExercise({
       );
     }
 
-    errorFlash.flash(letter);
+    flashChoiceError(letter);
   };
 
-  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
-  const availableLetterItems = useMemo<MeasuredChoiceBatchItem<string>[]>(
-    () => availableLetters.map((letter) => ({ key: letter, value: letter })),
-    [availableLetters]
-  );
-
-  const preferredExpectedIndex = useMemo(
-    () =>
-      Math.min(2 + (selectedCount % 3), Math.max(availableLetterItems.length - 1, 0)),
-    [availableLetterItems.length, selectedCount]
-  );
-
-  const {
-    containerRef: choicesContainerRef,
-    measureRef: measureChoicesRef,
-    measurementItems: measuredLetterItems,
-    displayedItems: displayedLetterItems,
-  } = useMeasuredChoiceBatch({
-    items: availableLetterItems,
-    enabled: showChoices,
-    requiredItemKey: expectedFirstLetter,
-    preferredRequiredIndex: preferredExpectedIndex,
-    dependencies: [fontSizes.level],
-  });
+  const showChoices = !isCompleted && !surrendered && choiceOrder.length > 0;
 
   return (
     <motion.div
@@ -386,57 +352,34 @@ export function ModeFirstLettersHintedExercise({
             </TrainingMetricBadge>
           }
           className="mt-2 min-h-0 flex-1 basis-1/2"
-          contentClassName="h-full"
+          scrollable
+          contentClassName="flex flex-wrap content-start gap-1.5 px-0.5 pb-2.5 pt-0.5"
         >
-          <div className="relative h-full min-h-0">
-            <div
-              ref={choicesContainerRef}
-              className="absolute inset-0 min-h-0 overflow-hidden"
-            >
-              <div className="flex flex-wrap content-start gap-1 py-1">
-                {displayedLetterItems.map(({ key, value: letter }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                      errorFlash.value === letter
-                        ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlash.value === letter
-                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                    }`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                    onClick={() => handleLetterClick(letter)}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
+          {choiceOrder.map((letter) => {
+            const remainingLetterCount = remainingCountByLetter.get(letter) ?? 0;
+            const isUsed = remainingLetterCount <= 0;
 
-            <div
-              aria-hidden="true"
-              className="pointer-events-none invisible absolute inset-x-0 top-0"
-            >
-              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1 py-1">
-                {measuredLetterItems.map(({ key, value: letter }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    haptic={false}
-                    tabIndex={-1}
-                    data-choice-key={key}
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                ))}
+            return (
+              <div key={letter} className="min-w-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUsed}
+                  className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${getChoiceButtonFlashClassName({
+                    choiceKey: letter,
+                    disabled: isUsed,
+                    idleClassName:
+                      'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5',
+                    getChoiceFlashKind,
+                  })}`}
+                  style={{ fontSize: `${fontSizes.letter}px` }}
+                  onClick={() => handleLetterClick(letter)}
+                >
+                  <span>{letter}</span>
+                </Button>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </TrainingExerciseSection>
       )}
 

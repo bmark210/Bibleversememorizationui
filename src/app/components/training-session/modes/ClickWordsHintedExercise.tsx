@@ -32,7 +32,10 @@ import {
 } from "@/modules/training/hints/exerciseDifficultyConfig";
 import { useTrainingFontSize } from "./useTrainingFontSize";
 import { ArrowDownIcon } from "lucide-react";
-import { useFlashTimeout } from "./useFlashTimeout";
+import {
+  getChoiceButtonFlashClassName,
+  useChoiceFlashFeedback,
+} from "./useChoiceFlashFeedback";
 import { useSurrenderEffect } from "./useSurrenderEffect";
 
 interface ClickWordsHintedExerciseProps {
@@ -180,8 +183,12 @@ export function ModeClickWordsHintedExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const errorFlash = useFlashTimeout<string>();
-  const successFlash = useFlashTimeout<string>();
+  const {
+    clear: clearChoiceFlash,
+    flashError: flashChoiceError,
+    flashSuccess: flashChoiceSuccess,
+    getChoiceFlashKind,
+  } = useChoiceFlashFeedback<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -206,16 +213,8 @@ export function ModeClickWordsHintedExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    errorFlash.clear();
-    successFlash.clear();
-  }, [verse, errorFlash, successFlash]);
-
-  useEffect(() => {
-    return () => {
-      errorFlash.cleanup();
-      successFlash.cleanup();
-    };
-  }, [errorFlash, successFlash]);
+    clearChoiceFlash();
+  }, [clearChoiceFlash, verse]);
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -324,7 +323,7 @@ export function ModeClickWordsHintedExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      successFlash.flash(choice.normalized);
+      flashChoiceSuccess(choice.normalized);
 
       if (next === totalHiddenWords) {
         resolvedRef.current = true;
@@ -356,7 +355,7 @@ export function ModeClickWordsHintedExercise({
       );
     }
 
-    errorFlash.flash(choice.normalized);
+    flashChoiceError(choice.normalized);
   };
 
   const showChoices = !isCompleted && !surrendered && uniqueChoices.length > 0;
@@ -415,15 +414,13 @@ export function ModeClickWordsHintedExercise({
                         variant="outline"
                         title={choice.displayText}
                         disabled={isUsed}
-                        className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                          errorFlash.value === choice.normalized
-                            ? "border-destructive text-destructive bg-destructive/10"
-                            : successFlash.value === choice.normalized
-                              ? "border-emerald-500 text-emerald-600 bg-emerald-500/10"
-                              : isUsed
-                                ? "border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55"
-                                : "border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5"
-                        }`}
+                        className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${getChoiceButtonFlashClassName({
+                          choiceKey: choice.normalized,
+                          disabled: isUsed,
+                          idleClassName:
+                            "border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5",
+                          getChoiceFlashKind,
+                        })}`}
                         style={{ fontSize: `${fontSizes.sm}px` }}
                         onClick={() => handleWordClick(choice)}
                       >

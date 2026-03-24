@@ -30,7 +30,10 @@ import { createExerciseProgressSnapshot } from '@/modules/training/hints/exercis
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useTrainingFontSize } from './useTrainingFontSize';
-import { useFlashTimeout } from './useFlashTimeout';
+import {
+  getChoiceButtonFlashClassName,
+  useChoiceFlashFeedback,
+} from './useChoiceFlashFeedback';
 import { useSurrenderEffect } from './useSurrenderEffect';
 
 interface ClickWordsExerciseProps extends ExerciseInlineActionsProps {
@@ -136,9 +139,12 @@ export function ModeClickWordsExercise({
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-
-  const errorFlash = useFlashTimeout<string>();
-  const successFlash = useFlashTimeout<string>();
+  const {
+    clear: clearChoiceFlash,
+    flashError: flashChoiceError,
+    flashSuccess: flashChoiceSuccess,
+    getChoiceFlashKind,
+  } = useChoiceFlashFeedback<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -150,16 +156,8 @@ export function ModeClickWordsExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    errorFlash.clear();
-    successFlash.clear();
-  }, [verse]);
-
-  useEffect(() => {
-    return () => {
-      errorFlash.cleanup();
-      successFlash.cleanup();
-    };
-  }, []);
+    clearChoiceFlash();
+  }, [clearChoiceFlash, verse]);
 
   useSurrenderEffect({
     surrendered,
@@ -239,7 +237,7 @@ export function ModeClickWordsExercise({
     if (choice.normalized === expectedToken.normalized) {
       const next = selectedCount + 1;
       setSelectedCount(next);
-      successFlash.flash(choice.normalized);
+      flashChoiceSuccess(choice.normalized);
 
       if (next === totalWords) {
         setIsCompleted(true);
@@ -269,7 +267,7 @@ export function ModeClickWordsExercise({
       );
     }
 
-    errorFlash.flash(choice.normalized);
+    flashChoiceError(choice.normalized);
   };
 
   return (
@@ -319,15 +317,13 @@ export function ModeClickWordsExercise({
                   variant="outline"
                   title={choice.displayText}
                   disabled={isUsed}
-                  className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                    errorFlash.value === choice.normalized
-                      ? 'border-destructive text-destructive bg-destructive/10'
-                      : successFlash.value === choice.normalized
-                        ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                        : isUsed
-                          ? 'border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                  }`}
+                  className={`${WORD_CHOICE_BUTTON_BASE_CLASS} transition-colors ${getChoiceButtonFlashClassName({
+                    choiceKey: choice.normalized,
+                    disabled: isUsed,
+                    idleClassName:
+                      'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5',
+                    getChoiceFlashKind,
+                  })}`}
                   style={{ fontSize: `${fontSizes.sm}px` }}
                   onClick={() => handleWordClick(choice)}
                 >

@@ -25,6 +25,23 @@ const ALLOW_BROWSER_RUNTIME =
   process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ALLOW_BROWSER_RUNTIME === '1'
 
+const APP_VERSION_DISPLAY = '3.1'
+
+function AppVersionCorner() {
+  return (
+    <p
+      className="pointer-events-none fixed z-[100] select-none rounded-md bg-background/35 px-2 py-1 text-[11px] tabular-nums text-foreground/80 backdrop-blur-sm"
+      style={{
+        top: 'max(1rem, env(safe-area-inset-top, 0px))',
+        right: 'max(1rem, env(safe-area-inset-right, 0px))',
+      }}
+      aria-label={`Версия ${APP_VERSION_DISPLAY}`}
+    >
+      v{APP_VERSION_DISPLAY}
+    </p>
+  )
+}
+
 export default function Page() {
   const BOOT_CONTENT_DELAY_MS = 450
   const BOOT_BG_FADE_MS = 650
@@ -74,12 +91,16 @@ export default function Page() {
   }, [showBootOverlay])
 
   if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === null) {
-    return <div className="min-h-screen bg-[#3e3428]" />
+    return (
+      <div className="relative min-h-screen bg-[#3e3428]">
+        <AppVersionCorner />
+      </div>
+    )
   }
 
   if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === false) {
     return (
-      <div className="min-h-screen bg-[#3e3428] text-[#f8f4ec] px-5 py-8 sm:px-6">
+      <div className="relative min-h-screen bg-[#3e3428] px-5 py-8 text-[#f8f4ec] sm:px-6">
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
           <div className="w-full overflow-hidden rounded-3xl border border-[#f8f4ec]/20 bg-black/20 shadow-2xl backdrop-blur-sm">
             <img
@@ -111,11 +132,11 @@ export default function Page() {
     <div className="relative min-h-screen">
       {mounted ? (
         <div
-          className={`transition-opacity duration-300 ease-out ${
-            showAppContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`transition-opacity duration-300 ease-out ${
+          showAppContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           aria-hidden={!showAppContent}
-        >
+          >
           <TelegramProvider>
             <App onInitialContentReady={() => setIsAppReady(true)} />
           </TelegramProvider>
@@ -125,11 +146,12 @@ export default function Page() {
 
       {showBootOverlay && (
         <div
-          className={`absolute inset-0 z-50 transition-opacity duration-300 ease-out ${
-            overlayDismissing ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        className={`absolute inset-0 z-50 transition-opacity duration-300 ease-out ${
+          overlayDismissing ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
           aria-hidden={overlayDismissing}
-        >
+          >
+          <AppVersionCorner />
           <div
             className="absolute inset-0"
             style={{
@@ -143,11 +165,11 @@ export default function Page() {
             }`}
           >
             <div className="w-full max-w-[220px] rounded-2xl border border-border/70 bg-gradient-to-r from-background via-background to-amber-500/5 px-4 py-3 shadow-lg backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
-            </div>
-              <div className="mt-2.5 relative h-2 overflow-hidden rounded-full bg-muted">
+              <div className="flex flex-col items-center gap-3">
+                <BookOpen className="h-10 w-10 stroke-[1.8px] text-primary" />
+                <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
+              </div>
+              <div className="relative mt-2.5 h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   aria-hidden="true"
                   className="boot-progress-indicator absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
