@@ -766,7 +766,6 @@ export function TrainingSession({
 
         {/* ── Footer ── */}
         <div
-          style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
           className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative"
         >
           {localResult ? (
