@@ -118,7 +118,7 @@ function shuffleTokens(chunks: string[]): ChunkToken[] {
   return shuffled;
 }
 
-export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress, showInlineAssistButton = false, onRequestInlineAssist, showInlineQuickForgetAction = false, onRequestInlineQuickForget, inlineActionsDisabled = false }: ClickChunksExerciseProps) {
+export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResolved, hintState, onProgressChange, isLateStageReview: _isLateStageReview = false, onOpenTutorial, onOpenVerseProgress, showInlineQuickForgetAction = false, onRequestInlineQuickForget, inlineActionsDisabled = false }: ClickChunksExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [tokens, setTokens] = useState<ChunkToken[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -320,8 +320,6 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
       <SplitExerciseActionRail
         remainingMistakes={remainingMistakes}
         showRemainingMistakes={false}
-        showAssistButton={showInlineAssistButton}
-        onRequestAssist={onRequestInlineAssist}
         showQuickForgetAction={showInlineQuickForgetAction}
         onRequestQuickForget={onRequestInlineQuickForget}
         disabled={inlineActionsDisabled}

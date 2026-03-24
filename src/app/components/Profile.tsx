@@ -603,6 +603,7 @@ export function Profile({
                       { value: "small", label: "Малый", preview: 14 },
                       { value: "medium", label: "Средний", preview: 17 },
                       { value: "large", label: "Крупный", preview: 20 },
+                      { value: "extra-large", label: "Очень крупный", preview: 24 },
                     ] as const
                   ).map((option) => (
                     <button

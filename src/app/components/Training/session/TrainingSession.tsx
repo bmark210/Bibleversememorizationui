@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, Lightbulb } from "lucide-react";
 import {
   Drawer,
   DrawerClose,
@@ -16,7 +15,6 @@ import { Button } from "@/app/components/ui/button";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
-import { MODE_PIPELINE } from "@/app/components/VerseGallery/constants";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type { Verse } from "@/app/domain/verse";
@@ -37,6 +35,7 @@ import {
 import { TrainingResultScreen } from "./TrainingResultScreen";
 import { TrainingRatingButtons } from "@/app/components/training-session/modes/TrainingRatingButtons";
 import { TrainingConfirmDialog } from "./TrainingConfirmDialog";
+import { TrainingSessionActionFooter } from "./TrainingSessionActionFooter";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 import type { TrainingModeInlineActionsProps } from "@/app/components/training-session/TrainingModeRenderer";
 
@@ -304,12 +303,6 @@ export function TrainingSession({
     [hintAttemptPhase, trainingActiveVerse?.repetitions]
   );
 
-  const activeRendererKey = useMemo(
-    () => (trainingModeId ? MODE_PIPELINE[trainingModeId].renderer : null),
-    [trainingModeId]
-  );
-
-  const useInlineExerciseActions = activeRendererKey !== null;
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
 
   /* ── Hint state ── */
@@ -439,6 +432,10 @@ export function TrainingSession({
     setAssistDrawerOpen(false);
     hintHelpers.requestShowVerse();
   }, [hintHelpers.requestShowVerse]);
+
+  const handleOpenAssistDrawer = useCallback(() => {
+    setAssistDrawerOpen(true);
+  }, []);
 
   /* ── Exercise resolved ── */
   const handleExerciseResolved = useCallback(
@@ -636,11 +633,9 @@ export function TrainingSession({
     TrainingModeInlineActionsProps | undefined
   >(
     () =>
-      useInlineExerciseActions
+      showQuickForgetAction
         ? {
-            showInlineAssistButton: showAssistButton,
-            onRequestInlineAssist: () => setAssistDrawerOpen(true),
-            showInlineQuickForgetAction: showQuickForgetAction,
+            showInlineQuickForgetAction: true,
             onRequestInlineQuickForget: () => {
               setHasInteractionStarted(true);
               session.requestQuickForget();
@@ -649,8 +644,6 @@ export function TrainingSession({
           }
         : undefined,
     [
-      useInlineExerciseActions,
-      showAssistButton,
       showQuickForgetAction,
       session.isActionPending,
       session.requestQuickForget,
@@ -801,83 +794,18 @@ export function TrainingSession({
               )}
             </div>
           ) : (
-            <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
-              <div className="flex flex-1 items-center justify-start gap-1.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 rounded-xl text-foreground/75"
-                  disabled={!canNavigatePrev || isNavigationBlocked}
-                  onClick={() => requestNavigationStep(-1)}
-                  aria-label="Предыдущий стих"
-                >
-                  <ArrowUp className="h-5 w-5" />
-                </Button>
-
-                {showAssistButton && !useInlineExerciseActions && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-[-50px] h-9 w-9 z-[60] p-2 border border-border/60 bg-background backdrop-blur-xl rounded-xl text-amber-700/90 hover:bg-amber-500/10 dark:text-amber-300"
-                      onClick={() => setAssistDrawerOpen(true)}
-                      disabled={session.isActionPending}
-                      aria-label="Помощь"
-                      title="Помощь"
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                )}
-              </div>
-
-              <div className="flex shrink-0 items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-xl border-border/60 bg-background/80 px-3 text-sm text-foreground/80 backdrop-blur-xl"
-                  onClick={requestCloseSession}
-                  disabled={session.isActionPending}
-                >
-                  Завершить
-                </Button>
-              </div>
-
-              <div className="flex flex-1 items-center justify-end gap-1.5">
-                {showQuickForgetAction && !useInlineExerciseActions && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-11 rounded-xl px-2.5 text-xs text-rose-700/90 hover:bg-rose-500/10 dark:text-rose-300"
-                    onClick={() => {
-                      setHasInteractionStarted(true);
-                      session.requestQuickForget();
-                    }}
-                    disabled={session.isActionPending}
-                  >
-                    Забыл
-                  </Button>
-                )}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 rounded-xl text-foreground/75"
-                  disabled={!canNavigateNext || isNavigationBlocked}
-                  onClick={() => requestNavigationStep(1)}
-                  aria-label="Следующий стих"
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <TrainingSessionActionFooter
+              bottomInset={bottomInset}
+              canNavigatePrev={canNavigatePrev}
+              canNavigateNext={canNavigateNext}
+              isNavigationBlocked={isNavigationBlocked}
+              isActionPending={session.isActionPending}
+              showAssistButton={showAssistButton}
+              onNavigatePrev={() => requestNavigationStep(-1)}
+              onNavigateNext={() => requestNavigationStep(1)}
+              onOpenAssistDrawer={handleOpenAssistDrawer}
+              onRequestCloseSession={requestCloseSession}
+            />
           )}
         </div>
 

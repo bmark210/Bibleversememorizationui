@@ -126,8 +126,6 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
 };
 
 export interface TrainingModeInlineActionsProps {
-  showInlineAssistButton?: boolean;
-  onRequestInlineAssist?: () => void;
   showInlineQuickForgetAction?: boolean;
   onRequestInlineQuickForget?: () => void;
   inlineActionsDisabled?: boolean;

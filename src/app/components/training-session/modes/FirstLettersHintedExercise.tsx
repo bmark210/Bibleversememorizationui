@@ -148,8 +148,6 @@ export function ModeFirstLettersHintedExercise({
   isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
-  showInlineAssistButton = false,
-  onRequestInlineAssist,
   showInlineQuickForgetAction = false,
   onRequestInlineQuickForget,
   inlineActionsDisabled = false,
@@ -445,8 +443,6 @@ export function ModeFirstLettersHintedExercise({
       <SplitExerciseActionRail
         remainingMistakes={remainingMistakes}
         showRemainingMistakes={false}
-        showAssistButton={showInlineAssistButton}
-        onRequestAssist={onRequestInlineAssist}
         showQuickForgetAction={showInlineQuickForgetAction}
         onRequestQuickForget={onRequestInlineQuickForget}
         disabled={inlineActionsDisabled}

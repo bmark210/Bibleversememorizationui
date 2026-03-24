@@ -44,8 +44,6 @@ interface ClickWordsHintedExerciseProps {
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
   onOpenVerseProgress?: () => void;
-  showInlineAssistButton?: boolean;
-  onRequestInlineAssist?: () => void;
   showInlineQuickForgetAction?: boolean;
   onRequestInlineQuickForget?: () => void;
   inlineActionsDisabled?: boolean;
@@ -171,8 +169,6 @@ export function ModeClickWordsHintedExercise({
   isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
-  showInlineAssistButton = false,
-  onRequestInlineAssist,
   showInlineQuickForgetAction = false,
   onRequestInlineQuickForget,
   inlineActionsDisabled = false,
@@ -447,8 +443,6 @@ export function ModeClickWordsHintedExercise({
       <SplitExerciseActionRail
         remainingMistakes={Math.max(0, maxMistakes - mistakesSinceReset)}
         showRemainingMistakes={false}
-        showAssistButton={showInlineAssistButton}
-        onRequestAssist={onRequestInlineAssist}
         showQuickForgetAction={showInlineQuickForgetAction}
         onRequestQuickForget={onRequestInlineQuickForget}
         disabled={inlineActionsDisabled}
