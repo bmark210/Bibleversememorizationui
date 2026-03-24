@@ -6,6 +6,7 @@ import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { SwipeableVerseCard } from "@/app/components/verse-list/components/SwipeableVerseCard";
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";
+import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewModel";
 
 function createVerse(
   overrides: Partial<Verse> & Pick<Verse, "status">,
@@ -51,7 +52,7 @@ function renderListCard(verse: Verse) {
 function renderGalleryCard(verse: Verse) {
   return renderToStaticMarkup(
     <VersePreviewCard
-      verse={verse}
+      preview={getPreparedVersePreview(verse)}
       isActionPending={false}
       onStartTraining={() => {}}
       onStatusAction={() => {}}

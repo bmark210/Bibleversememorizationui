@@ -1,28 +1,25 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useDrag } from "@use-gesture/react";
 import {
+  AnimatePresence,
   animate,
   motion,
   useMotionValue,
   useReducedMotion,
-  useTransform,
 } from "motion/react";
-import { clamp } from "../utils";
+import { cn } from "@/app/components/ui/utils";
 
-type Props = {
-  enabled: boolean;
-  onSwipeStep: (step: 1 | -1) => Promise<boolean> | boolean;
-  children: ReactNode;
-};
-
-const RESET_TWEEN: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const SWIPE_MAX_OFFSET_PX = 168;
-const SWIPE_TRIGGER_DISTANCE_PX = 76;
-const SWIPE_TRIGGER_VELOCITY = 0.32;
-const SWIPE_RELEASE_BIAS_PX = 18;
-const SWIPE_ASYNC_RESET_DELAY_MS = 120;
+const ENTER_EXIT_OFFSET_PX = 100;
+const SWIPE_DISTANCE_RATIO = 0.18;
+const SWIPE_DISTANCE_MIN_PX = 72;
+const SWIPE_DISTANCE_MAX_PX = 148;
+const SWIPE_TRIGGER_VELOCITY = 0.52;
 const SWIPE_IGNORE_SELECTOR = [
   "button",
   "a",
@@ -34,177 +31,222 @@ const SWIPE_IGNORE_SELECTOR = [
   "[data-gallery-swipe-ignore='true']",
 ].join(", ");
 
-export const GallerySwipeSlide = memo(function GallerySwipeSlide({
-  enabled,
-  onSwipeStep,
-  children,
-}: Props) {
-  const prefersReducedMotion = useReducedMotion();
-  const dragY = useMotionValue(0);
-  const dragScale = useTransform(
-    dragY,
-    [-SWIPE_MAX_OFFSET_PX, 0, SWIPE_MAX_OFFSET_PX],
-    [0.982, 1, 0.982]
-  );
-  const dragOpacity = useTransform(
-    dragY,
-    [-SWIPE_MAX_OFFSET_PX, 0, SWIPE_MAX_OFFSET_PX],
-    [0.88, 1, 0.88]
-  );
-  const resetAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
-  const fallbackResetTimerRef = useRef<number | null>(null);
+const ENTER_SPRING = {
+  type: "spring" as const,
+  stiffness: 380,
+  damping: 32,
+  mass: 0.85,
+};
 
-  const clearFallbackReset = useCallback(() => {
-    if (fallbackResetTimerRef.current === null || typeof window === "undefined") {
+const EXIT_TRANSITION = {
+  duration: 0.2,
+  ease: [0.32, 0.72, 0, 1] as [number, number, number, number],
+};
+
+const SNAP_BACK_SPRING = {
+  type: "spring" as const,
+  stiffness: 500,
+  damping: 38,
+  mass: 0.85,
+};
+
+type Props = {
+  slideKey: string;
+  direction: number;
+  enabled: boolean;
+  className?: string;
+  onNavigate: (dir: "prev" | "next") => Promise<boolean>;
+  children: ReactNode;
+};
+
+type SlideBodyProps = Omit<Props, "className" | "slideKey">;
+
+function getInitialOffset(direction: number) {
+  if (direction > 0) return ENTER_EXIT_OFFSET_PX;
+  if (direction < 0) return -ENTER_EXIT_OFFSET_PX;
+  return 0;
+}
+
+function getExitOffset(direction: number) {
+  if (direction > 0) return -ENTER_EXIT_OFFSET_PX;
+  if (direction < 0) return ENTER_EXIT_OFFSET_PX;
+  return 0;
+}
+
+function getSwipeThreshold(element: HTMLElement | null) {
+  const height = Math.max(
+    element?.getBoundingClientRect().height ?? 0,
+    typeof window !== "undefined" ? window.innerHeight : 0,
+    1
+  );
+
+  return Math.min(
+    SWIPE_DISTANCE_MAX_PX,
+    Math.max(SWIPE_DISTANCE_MIN_PX, height * SWIPE_DISTANCE_RATIO)
+  );
+}
+
+function shouldIgnoreTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(SWIPE_IGNORE_SELECTOR));
+}
+
+/**
+ * Two-layer architecture:
+ *  - Outer motion.div: handles enter/exit animations (y offset, opacity, scale)
+ *  - Inner motion.div: handles drag gesture via MotionValue (dragY)
+ *
+ * This prevents the drag MotionValue from overriding framer-motion's
+ * initial/animate/exit y values — a bug that broke enter/exit slide transitions.
+ */
+function SwipeSlideBody({
+  direction,
+  enabled,
+  onNavigate,
+  children,
+}: SlideBodyProps) {
+  const dragRef = useRef<HTMLDivElement | null>(null);
+  const isNavigatingRef = useRef(false);
+  const dragY = useMotionValue(0);
+  const prefersReducedMotion = useReducedMotion();
+
+  const animateBack = useCallback(async () => {
+    if (prefersReducedMotion) {
+      dragY.jump(0);
       return;
     }
 
-    window.clearTimeout(fallbackResetTimerRef.current);
-    fallbackResetTimerRef.current = null;
-  }, []);
+    await animate(dragY, 0, SNAP_BACK_SPRING).finished.catch(() => {});
+  }, [prefersReducedMotion, dragY]);
 
-  const stopResetAnimation = useCallback(() => {
-    resetAnimationRef.current?.stop();
-    resetAnimationRef.current = null;
-  }, []);
+  const navigateWithSwipe = useCallback(
+    async (step: 1 | -1) => {
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
 
-  const resetDragOffset = useCallback(
-    (immediate = false) => {
-      clearFallbackReset();
-      stopResetAnimation();
-
-      if (immediate || prefersReducedMotion) {
-        dragY.set(0);
-        return;
+      const didNavigate = await onNavigate(step === 1 ? "next" : "prev");
+      if (!didNavigate) {
+        await animateBack();
       }
 
-      resetAnimationRef.current = animate(dragY, 0, {
-        duration: 0.18,
-        ease: RESET_TWEEN,
-      });
+      isNavigatingRef.current = false;
     },
-    [clearFallbackReset, dragY, prefersReducedMotion, stopResetAnimation]
+    [animateBack, onNavigate]
   );
 
-  useEffect(
-    () => () => {
-      clearFallbackReset();
-      stopResetAnimation();
-    },
-    [clearFallbackReset, stopResetAnimation]
-  );
-
-  useEffect(() => {
-    if (!enabled) {
-      resetDragOffset(true);
-    }
-  }, [enabled, resetDragOffset]);
-
-  const bind = useDrag(
+  useDrag(
     ({
       active,
-      first,
-      movement: [, movementY],
+      movement: [, offsetY],
+      direction: [, directionY],
+      swipe: [, swipeY],
       velocity: [, velocityY],
       event,
       cancel,
-      touches,
     }) => {
-      if (!enabled) return;
-
-      if (touches > 1) {
-        cancel?.();
-        resetDragOffset(true);
+      if (!enabled || isNavigatingRef.current) {
+        cancel();
         return;
       }
 
-      const target = event.target;
-      if (
-        first &&
-        target instanceof HTMLElement &&
-        target.closest(SWIPE_IGNORE_SELECTOR)
-      ) {
-        cancel?.();
+      if (shouldIgnoreTarget(event.target)) {
+        cancel();
         return;
       }
-
-      const nextOffset = clamp(
-        movementY,
-        -SWIPE_MAX_OFFSET_PX,
-        SWIPE_MAX_OFFSET_PX
-      );
 
       if (active) {
-        clearFallbackReset();
-        stopResetAnimation();
-        dragY.set(nextOffset);
+        dragY.set(offsetY);
         return;
       }
 
-      const shouldCommit =
-        Math.abs(movementY) >= SWIPE_TRIGGER_DISTANCE_PX ||
-        Math.abs(velocityY) >= SWIPE_TRIGGER_VELOCITY;
-
-      if (!shouldCommit) {
-        resetDragOffset();
+      const swipeStep = swipeY === -1 ? 1 : swipeY === 1 ? -1 : 0;
+      if (swipeStep !== 0) {
+        void navigateWithSwipe(swipeStep as 1 | -1);
         return;
       }
 
-      const step = movementY < 0 ? 1 : -1;
-      dragY.set(
-        clamp(
-          nextOffset + (step === 1 ? -SWIPE_RELEASE_BIAS_PX : SWIPE_RELEASE_BIAS_PX),
-          -SWIPE_MAX_OFFSET_PX,
-          SWIPE_MAX_OFFSET_PX
-        )
-      );
+      const threshold = getSwipeThreshold(dragRef.current);
+      const movementDirection = offsetY !== 0 ? Math.sign(offsetY) : directionY;
+      const didPassDistance = Math.abs(offsetY) >= threshold;
+      const didPassVelocity =
+        Math.abs(velocityY) >= SWIPE_TRIGGER_VELOCITY && movementDirection !== 0;
 
-      if (typeof window !== "undefined") {
-        fallbackResetTimerRef.current = window.setTimeout(() => {
-          fallbackResetTimerRef.current = null;
-          resetDragOffset();
-        }, SWIPE_ASYNC_RESET_DELAY_MS);
+      if (didPassDistance || didPassVelocity) {
+        void navigateWithSwipe(movementDirection < 0 ? 1 : -1);
+        return;
       }
 
-      void Promise.resolve(onSwipeStep(step))
-        .then((didNavigate) => {
-          clearFallbackReset();
-          if (!didNavigate) {
-            resetDragOffset();
-          }
-        })
-        .catch(() => {
-          clearFallbackReset();
-          resetDragOffset();
-        });
+      void animateBack();
     },
     {
+      target: dragRef,
       axis: "y",
-      axisThreshold: { touch: 8 },
       filterTaps: true,
       pointer: { touch: true },
-      rubberband: 0.16,
-      threshold: 10,
+      eventOptions: { passive: false },
+      rubberband: 0.14,
+      swipe: {
+        velocity: [0, SWIPE_TRIGGER_VELOCITY],
+        distance: [0, 56],
+        duration: 260,
+      },
     }
   );
 
   return (
-    <div
-      {...(enabled ? bind() : {})}
-      className="w-full"
-      style={{ touchAction: enabled ? "none" : undefined }}
+    <motion.div
+      initial={{
+        y: getInitialOffset(direction),
+        opacity: direction === 0 ? 1 : 0,
+        scale: direction === 0 ? 1 : 0.97,
+      }}
+      animate={{
+        y: 0,
+        opacity: 1,
+        scale: 1,
+        transition: ENTER_SPRING,
+      }}
+      exit={{
+        y: getExitOffset(direction),
+        opacity: 0,
+        scale: 0.97,
+        transition: EXIT_TRANSITION,
+      }}
+      className="absolute inset-0 will-change-transform"
     >
       <motion.div
-        className="w-full"
+        ref={dragRef}
         style={{
           y: dragY,
-          scale: dragScale,
-          opacity: dragOpacity,
-          willChange: enabled ? "transform, opacity" : undefined,
+          touchAction: enabled ? "pan-x" : "auto",
         }}
+        className="h-full w-full"
       >
         {children}
       </motion.div>
+    </motion.div>
+  );
+}
+
+export function GallerySwipeSlide({
+  slideKey,
+  direction,
+  enabled,
+  className,
+  onNavigate,
+  children,
+}: Props) {
+  return (
+    <div className={cn("relative h-full min-h-0 w-full overflow-hidden", className)}>
+      <AnimatePresence initial={false} mode="popLayout">
+        <SwipeSlideBody
+          key={slideKey}
+          direction={direction}
+          enabled={enabled}
+          onNavigate={onNavigate}
+        >
+          {children}
+        </SwipeSlideBody>
+      </AnimatePresence>
     </div>
   );
-});
+}

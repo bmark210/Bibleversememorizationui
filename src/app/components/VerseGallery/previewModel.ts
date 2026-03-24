@@ -7,9 +7,11 @@ import {
 import type { VerseCardPreviewTone, VerseCardTag } from "@/app/components/VerseCard";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import type { VersePreviewOverride } from "./types";
 import {
   computeTotalProgressPercent,
   getVerseIdentity,
+  mergePreviewOverrides,
   normalizeVerseStatus,
   parseDate,
 } from "./utils";
@@ -195,6 +197,20 @@ function getPopularityBadge(
   }
 
   return null;
+}
+
+export function getPreparedVersePreviewAtIndex(
+  verses: Verse[],
+  index: number,
+  previewOverrides: Map<string, VersePreviewOverride>,
+  isAnchorEligible: boolean
+): PreparedVersePreview | null {
+  const verse = verses[index];
+  if (!verse) return null;
+  return getPreparedVersePreview(
+    mergePreviewOverrides(verse, previewOverrides),
+    isAnchorEligible
+  );
 }
 
 export function getPreparedVersePreview(

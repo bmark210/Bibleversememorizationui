@@ -6,10 +6,8 @@ import {
   useCallback,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
 import {
   Drawer,
   DrawerClose,
@@ -56,38 +54,6 @@ import {
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
 import type { TrainingMode } from "@/app/components/Training/types";
 import type { VerseGalleryProps } from "./types";
-
-// ── Card slide animation ─────────────────────────────────────────────────────
-// Fast GPU-friendly tweens instead of spring physics for smoother mobile perf.
-// Using `translate3d` via y% keeps everything on the compositor thread.
-const TWEEN_ENTER: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const TWEEN_EXIT: [number, number, number, number] = [0.4, 0, 0.2, 1];
-
-const slideVariants = {
-  enter: (dir: number) =>
-    dir === 0
-      ? { y: 0, opacity: 0, scale: 1 }
-      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.92 },
-  center: (_dir: number) => ({
-    y: 0,
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.28, ease: TWEEN_ENTER },
-  }),
-  exit: (dir: number) =>
-    dir === 0
-      ? {
-          opacity: 0,
-          scale: 1,
-          transition: { duration: 0.15, ease: TWEEN_EXIT },
-        }
-      : {
-          y: dir > 0 ? "-20%" : "20%",
-          opacity: 0,
-          scale: 0.92,
-          transition: { duration: 0.22, ease: TWEEN_EXIT },
-        },
-};
 
 function getTrainingLaunchMode(
   status: ReturnType<typeof normalizeVerseStatus>
@@ -162,11 +128,6 @@ export function VerseGallery({
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useGalleryScrollLock();
 
@@ -389,17 +350,12 @@ export function VerseGallery({
     return closeActiveOverlay();
   }, [closeActiveOverlay, isDeleteDialogOpen, setIsDeleteDialogOpen]);
 
-  const handlePreviewSwipeStep = useCallback(
-    (step: 1 | -1) => navigatePreviewTo(step === 1 ? "next" : "prev"),
-    [navigatePreviewTo]
-  );
-
   const handleFocusModeVerticalSwipe = useCallback(
     (step: 1 | -1) => {
       if (isActionPending || isBlockingOverlayOpen) return;
-      void handlePreviewSwipeStep(step);
+      void navigatePreviewTo(step === 1 ? "next" : "prev");
     },
-    [handlePreviewSwipeStep, isActionPending, isBlockingOverlayOpen]
+    [isActionPending, isBlockingOverlayOpen, navigatePreviewTo]
   );
 
   useEffect(() => {
@@ -487,7 +443,6 @@ export function VerseGallery({
 
   const displayTotal = previewDisplayTotal;
   const displayActive = Math.max(0, activeIndex);
-  const galleryBodyKey = preview.key;
   const canGoPrev = activeIndex > 0;
   const canGoNext =
     activeIndex < verses.length - 1 ||
@@ -496,9 +451,10 @@ export function VerseGallery({
       typeof onRequestMorePreviewVerses === "function");
   const isPreviewSwipeEnabled =
     !isFocusMode && !isActionPending && !isBlockingOverlayOpen;
+
   return (
     <>
-      {isMounted &&
+      {typeof document !== "undefined" &&
         createPortal(
           <Toaster
             id={GALLERY_TOASTER_ID}
@@ -524,29 +480,21 @@ export function VerseGallery({
           topInset={topInset}
         />
 
-        {/* Card area — GPU-promoted layer for smooth compositing */}
         <div
-          className="relative flex-1 min-h-0 grid place-items-center px-4 sm:px-6"
+          className="relative flex min-h-0 flex-1 flex-col px-4 sm:px-6"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки со стихами"
         >
-          <AnimatePresence initial={false} mode="sync" custom={direction}>
-            <motion.div
-              key={galleryBodyKey}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="col-start-1 row-start-1 w-full max-w-4xl min-w-0 focus-visible:outline-none"
-              style={{ willChange: "transform, opacity" }}
-              tabIndex={-1}
-            >
-              <GallerySwipeSlide
-                enabled={isPreviewSwipeEnabled}
-                onSwipeStep={handlePreviewSwipeStep}
-              >
+          <GallerySwipeSlide
+            slideKey={preview.key}
+            direction={direction}
+            enabled={isPreviewSwipeEnabled}
+            onNavigate={navigatePreviewTo}
+            className="h-full min-h-0 w-full"
+          >
+            <div className="mx-auto flex h-full w-full max-w-4xl items-center justify-center py-1">
+              <div className="w-full min-w-0">
                 <VersePreviewCard
                   preview={preview}
                   isActionPending={isActionPending}
@@ -564,9 +512,9 @@ export function VerseGallery({
                       : undefined
                   }
                 />
-              </GallerySwipeSlide>
-            </motion.div>
-          </AnimatePresence>
+              </div>
+            </div>
+          </GallerySwipeSlide>
         </div>
 
         {/* Footer buttons */}

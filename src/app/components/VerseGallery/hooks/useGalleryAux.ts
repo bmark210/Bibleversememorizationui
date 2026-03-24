@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Verse } from "@/app/domain/verse";
 import { getVerseIdentity } from "../utils";
 import type { VersePreviewOverride } from "../types";
@@ -50,31 +50,15 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     });
   }, []);
 
-  const core = useMemo(
-    () => ({
-      isActionPending,
-      setIsActionPending,
-      previewOverrides,
-      setPreviewOverride,
-      prunePreviewOverrides,
-      isDeleteDialogOpen,
-      setIsDeleteDialogOpen,
-    }),
-    [
-      isActionPending,
-      isDeleteDialogOpen,
-      previewOverrides,
-      prunePreviewOverrides,
-      setPreviewOverride,
-    ]
-  );
-
-  return useMemo(
-    () => ({
-      ...core,
-      slideAnnouncement,
-      setSlideAnnouncement,
-    }),
-    [core, slideAnnouncement]
-  );
+  return {
+    isActionPending,
+    setIsActionPending,
+    previewOverrides,
+    setPreviewOverride,
+    prunePreviewOverrides,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    slideAnnouncement,
+    setSlideAnnouncement,
+  };
 }

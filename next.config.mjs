@@ -64,10 +64,10 @@ const nextConfig = {
   },
 };
 
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === "true",
-});
+const isAnalyzeEnabled = process.env.ANALYZE === "true";
 
-export default withBundleAnalyzer(nextConfig);
+export default isAnalyzeEnabled
+  ? bundleAnalyzer({ enabled: true })(nextConfig)
+  : nextConfig;
 
 

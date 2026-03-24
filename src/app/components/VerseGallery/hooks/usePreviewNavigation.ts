@@ -36,27 +36,20 @@ export function usePreviewNavigation({
   const [direction, setDirection] = useState(0);
   const backgroundPrefetchLengthRef = useRef<number | null>(null);
 
-  // Use refs for values accessed inside navigatePreviewTo to avoid
-  // recreating the callback on every index / list change.
+  // Refs for values accessed inside navigatePreviewTo to keep the
+  // callback identity stable.  Assigned directly in render (not via
+  // useEffect) so they are never stale when navigatePreviewTo fires.
   const versesLengthRef = useRef(verses.length);
   const activeIndexRef = useRef(activeIndex);
   const previewHasMoreRef = useRef(previewHasMore);
   const previewIsLoadingMoreRef = useRef(previewIsLoadingMore);
   const onRequestMoreRef = useRef(onRequestMorePreviewVerses);
 
-  useEffect(() => {
-    versesLengthRef.current = verses.length;
-    activeIndexRef.current = activeIndex;
-    previewHasMoreRef.current = previewHasMore;
-    previewIsLoadingMoreRef.current = previewIsLoadingMore;
-    onRequestMoreRef.current = onRequestMorePreviewVerses;
-  }, [
-    activeIndex,
-    onRequestMorePreviewVerses,
-    previewHasMore,
-    previewIsLoadingMore,
-    verses.length,
-  ]);
+  versesLengthRef.current = verses.length;
+  activeIndexRef.current = activeIndex;
+  previewHasMoreRef.current = previewHasMore;
+  previewIsLoadingMoreRef.current = previewIsLoadingMore;
+  onRequestMoreRef.current = onRequestMorePreviewVerses;
 
   useEffect(() => {
     const maxIndex = Math.max(0, verses.length - 1);
