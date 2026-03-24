@@ -2,7 +2,7 @@
  * Локальная отладка UI «как в Telegram fullscreen» в браузере без WebApp.
  *
  * Включение (любой вариант):
- * - `.env.local`: `NEXT_PUBLIC_DEV_EMULATE_TELEGRAM_FULLSCREEN=true` (пересборка dev-сервера)
+ * - `.env.development`: `NEXT_PUBLIC_DEV_EMULATE_TELEGRAM_FULLSCREEN=true` (пересборка dev-сервера)
  * - консоль: `localStorage.setItem('bible-memory.devTelegramFullscreen','1'); location.reload()`
  *
  * Выключить: удалить ключ или `= '0'`, перезагрузить страницу.

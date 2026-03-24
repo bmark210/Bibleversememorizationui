@@ -60,7 +60,7 @@ export const TRAINING_MODE_LABELS: Record<TrainingMode, string> = {
 
 export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
   core: "Практика",
-  anchor: "Закрепление",
+  anchor: "Игры",
 };
 
 /** Anchor mode groups — user-facing categories that map to TrainerModeId sets */

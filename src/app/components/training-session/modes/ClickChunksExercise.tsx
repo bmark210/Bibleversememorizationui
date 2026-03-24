@@ -292,7 +292,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className="mt-2 min-h-0 flex-[1.1]"
+          className="mt-2 min-h-0 flex-[1.1] my-2"
           scrollable
           contentClassName="grid grid-cols-1 gap-2 pb-1 min-[520px]:grid-cols-2"
         >
