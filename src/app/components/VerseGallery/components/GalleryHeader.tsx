@@ -6,6 +6,8 @@ type Props = {
   topInset: number;
 };
 
+const HEADER_VEIL_HEIGHT_PX = 48;
+
 export const GalleryHeader = React.memo(function GalleryHeader({
   displayActive,
   displayTotal,
@@ -13,9 +15,15 @@ export const GalleryHeader = React.memo(function GalleryHeader({
 }: Props) {
   return (
     <div
-      className="shrink-0 backdrop-blur-xl bg-background/80 border-b border-border/50 z-40"
+      className="relative shrink-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-xl"
       style={{ paddingTop: `${topInset}px` }}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-full bg-gradient-to-b from-background/72 to-transparent"
+        style={{ height: HEADER_VEIL_HEIGHT_PX }}
+      />
+
       <div className="max-w-4xl mx-auto px-4 py-2">
         <div className="flex min-h-9 items-center justify-center">
           <div

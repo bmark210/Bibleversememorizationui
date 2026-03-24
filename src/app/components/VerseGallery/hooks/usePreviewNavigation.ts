@@ -2,6 +2,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -37,19 +38,27 @@ export function usePreviewNavigation({
   const backgroundPrefetchLengthRef = useRef<number | null>(null);
 
   // Refs for values accessed inside navigatePreviewTo to keep the
-  // callback identity stable.  Assigned directly in render (not via
-  // useEffect) so they are never stale when navigatePreviewTo fires.
+  // callback identity stable without forcing navigatePreviewTo to
+  // re-create on every render.
   const versesLengthRef = useRef(verses.length);
   const activeIndexRef = useRef(activeIndex);
   const previewHasMoreRef = useRef(previewHasMore);
   const previewIsLoadingMoreRef = useRef(previewIsLoadingMore);
   const onRequestMoreRef = useRef(onRequestMorePreviewVerses);
 
-  versesLengthRef.current = verses.length;
-  activeIndexRef.current = activeIndex;
-  previewHasMoreRef.current = previewHasMore;
-  previewIsLoadingMoreRef.current = previewIsLoadingMore;
-  onRequestMoreRef.current = onRequestMorePreviewVerses;
+  useLayoutEffect(() => {
+    versesLengthRef.current = verses.length;
+    activeIndexRef.current = activeIndex;
+    previewHasMoreRef.current = previewHasMore;
+    previewIsLoadingMoreRef.current = previewIsLoadingMore;
+    onRequestMoreRef.current = onRequestMorePreviewVerses;
+  }, [
+    activeIndex,
+    onRequestMorePreviewVerses,
+    previewHasMore,
+    previewIsLoadingMore,
+    verses.length,
+  ]);
 
   useEffect(() => {
     const maxIndex = Math.max(0, verses.length - 1);
@@ -60,7 +69,7 @@ export function usePreviewNavigation({
       setDirection(0);
       setActiveIndex(clampedInitialIndex);
     });
-  }, [initialIndex, verses.length]);
+  }, [initialIndex]);
 
   useEffect(() => {
     if (!previewHasMore || previewIsLoadingMore || !onRequestMorePreviewVerses) {
@@ -122,7 +131,7 @@ export function usePreviewNavigation({
         if (!didLoadMore) return false;
         haptic("light");
         commitNavigation(newDir, (prev) =>
-          Math.min(prev + 1, Math.max(0, versesLengthRef.current))
+          Math.min(prev + 1, Math.max(0, versesLengthRef.current - 1))
         );
         return true;
       }

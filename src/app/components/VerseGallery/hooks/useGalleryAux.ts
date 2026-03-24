@@ -11,8 +11,6 @@ export type UseGalleryAuxReturn = {
   prunePreviewOverrides: (verses: Verse[]) => void;
   isDeleteDialogOpen: boolean;
   setIsDeleteDialogOpen: (value: boolean) => void;
-  slideAnnouncement: string;
-  setSlideAnnouncement: (text: string) => void;
 };
 
 export function useGalleryAux(): UseGalleryAuxReturn {
@@ -21,7 +19,6 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     () => new Map()
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [slideAnnouncement, setSlideAnnouncement] = useState("");
 
   const setPreviewOverride = useCallback((verse: Verse, patch: VersePreviewOverride) => {
     const key = getVerseIdentity(verse);
@@ -58,7 +55,5 @@ export function useGalleryAux(): UseGalleryAuxReturn {
     prunePreviewOverrides,
     isDeleteDialogOpen,
     setIsDeleteDialogOpen,
-    slideAnnouncement,
-    setSlideAnnouncement,
   };
 }

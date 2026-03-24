@@ -12,6 +12,7 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
+  useTransform,
 } from "motion/react";
 import { cn } from "@/app/components/ui/utils";
 
@@ -20,6 +21,7 @@ const SWIPE_DISTANCE_RATIO = 0.18;
 const SWIPE_DISTANCE_MIN_PX = 72;
 const SWIPE_DISTANCE_MAX_PX = 148;
 const SWIPE_TRIGGER_VELOCITY = 0.52;
+const DRAG_VISUAL_RANGE_PX = 240;
 const SWIPE_IGNORE_SELECTOR = [
   "button",
   "a",
@@ -107,6 +109,16 @@ function SwipeSlideBody({
   const dragRef = useRef<HTMLDivElement | null>(null);
   const isNavigatingRef = useRef(false);
   const dragY = useMotionValue(0);
+  const dragScale = useTransform(
+    dragY,
+    [-DRAG_VISUAL_RANGE_PX, 0, DRAG_VISUAL_RANGE_PX],
+    [0.985, 1, 0.985]
+  );
+  const dragOpacity = useTransform(
+    dragY,
+    [-DRAG_VISUAL_RANGE_PX, 0, DRAG_VISUAL_RANGE_PX],
+    [0.9, 1, 0.9]
+  );
   const prefersReducedMotion = useReducedMotion();
 
   const animateBack = useCallback(async () => {
@@ -211,15 +223,17 @@ function SwipeSlideBody({
         scale: 0.97,
         transition: EXIT_TRANSITION,
       }}
-      className="absolute inset-0 will-change-transform"
+      className="col-start-1 row-start-1 w-full overflow-visible will-change-transform"
     >
       <motion.div
         ref={dragRef}
         style={{
           y: dragY,
+          scale: dragScale,
+          opacity: dragOpacity,
           touchAction: enabled ? "pan-x" : "auto",
         }}
-        className="h-full w-full"
+        className="h-full w-full will-change-transform"
       >
         {children}
       </motion.div>
@@ -236,8 +250,10 @@ export function GallerySwipeSlide({
   children,
 }: Props) {
   return (
-    <div className={cn("relative h-full min-h-0 w-full overflow-hidden", className)}>
-      <AnimatePresence initial={false} mode="popLayout">
+    <div
+      className={cn("relative isolate grid w-full place-items-center overflow-visible", className)}
+    >
+      <AnimatePresence initial={false} mode="sync">
         <SwipeSlideBody
           key={slideKey}
           direction={direction}
