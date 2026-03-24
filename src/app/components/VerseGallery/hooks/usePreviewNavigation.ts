@@ -1,4 +1,10 @@
-import { useState, useCallback, useRef } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { Verse } from "@/app/App";
 import { haptic, getVerseIdentity } from "../utils";
 
@@ -15,7 +21,7 @@ export type UsePreviewNavigationReturn = {
   direction: number;
   setActiveIndex: (index: number) => void;
   setDirection: (dir: number) => void;
-  navigatePreviewTo: (dir: "prev" | "next") => Promise<void>;
+  navigatePreviewTo: (dir: "prev" | "next") => Promise<boolean>;
   syncIndexToVerseKey: (key: string) => void;
 };
 
@@ -32,15 +38,37 @@ export function usePreviewNavigation({
   // Use refs for values accessed inside navigatePreviewTo to avoid
   // recreating the callback on every index / list change.
   const versesLengthRef = useRef(verses.length);
-  versesLengthRef.current = verses.length;
   const activeIndexRef = useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
   const previewHasMoreRef = useRef(previewHasMore);
-  previewHasMoreRef.current = previewHasMore;
   const previewIsLoadingMoreRef = useRef(previewIsLoadingMore);
-  previewIsLoadingMoreRef.current = previewIsLoadingMore;
   const onRequestMoreRef = useRef(onRequestMorePreviewVerses);
-  onRequestMoreRef.current = onRequestMorePreviewVerses;
+
+  useEffect(() => {
+    versesLengthRef.current = verses.length;
+    activeIndexRef.current = activeIndex;
+    previewHasMoreRef.current = previewHasMore;
+    previewIsLoadingMoreRef.current = previewIsLoadingMore;
+    onRequestMoreRef.current = onRequestMorePreviewVerses;
+  }, [
+    activeIndex,
+    onRequestMorePreviewVerses,
+    previewHasMore,
+    previewIsLoadingMore,
+    verses.length,
+  ]);
+  const commitNavigation = useCallback(
+    (nextDirection: number, nextIndex: number | ((prev: number) => number)) => {
+      startTransition(() => {
+        setDirection(nextDirection);
+        if (typeof nextIndex === "function") {
+          setActiveIndex(nextIndex as (prev: number) => number);
+          return;
+        }
+        setActiveIndex(nextIndex);
+      });
+    },
+    []
+  );
 
   const navigatePreviewTo = useCallback(
     async (dir: "prev" | "next") => {
@@ -51,34 +79,34 @@ export function usePreviewNavigation({
       if (dir === "next") {
         if (idx < len - 1) {
           haptic("light");
-          setDirection(newDir);
-          setActiveIndex(Math.min(idx + 1, Math.max(0, len - 1)));
-          return;
+          commitNavigation(newDir, Math.min(idx + 1, Math.max(0, len - 1)));
+          return true;
         }
         const hasMore = previewHasMoreRef.current;
         const isLoading = previewIsLoadingMoreRef.current;
         const requestMore = onRequestMoreRef.current;
         if (!hasMore || isLoading || !requestMore) {
           if (!isLoading) haptic("warning");
-          return;
+          return false;
         }
         const didLoadMore = await requestMore();
-        if (!didLoadMore) return;
+        if (!didLoadMore) return false;
         haptic("light");
-        setDirection(newDir);
-        setActiveIndex((prev) => Math.min(prev + 1, Math.max(0, versesLengthRef.current)));
-        return;
+        commitNavigation(newDir, (prev) =>
+          Math.min(prev + 1, Math.max(0, versesLengthRef.current))
+        );
+        return true;
       }
 
       if (idx === 0) {
         haptic("warning");
-        return;
+        return false;
       }
       haptic("light");
-      setDirection(newDir);
-      setActiveIndex((prev) => Math.max(0, prev - 1));
+      commitNavigation(newDir, (prev) => Math.max(0, prev - 1));
+      return true;
     },
-    [] // stable — all mutable state accessed via refs
+    [commitNavigation] // stable — all mutable state accessed via refs
   );
 
   const syncIndexToVerseKey = useCallback(

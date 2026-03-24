@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  startTransition,
   useEffect,
-  useRef,
   useCallback,
   useMemo,
+  useRef,
   useState,
-  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -37,14 +37,10 @@ import {
   showVerseActionToast,
 } from "@/app/lib/semanticToast";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import {
-  createVerticalTouchSwipeStart,
-  getVerticalTouchSwipeStep,
-  type VerticalTouchSwipeStart,
-} from "@/shared/ui/verticalTouchSwipe";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryFooter } from "./components/GalleryFooter";
+import { GallerySwipeSlide } from "./components/GallerySwipeSlide";
 import { SwipeHint } from "./components/SwipeHint";
 import { VersePreviewCard } from "./components/VersePreviewCard";
 import { useGalleryAux } from "./hooks/useGalleryAux";
@@ -236,10 +232,6 @@ export function VerseGallery({
   const topInset = contentSafeAreaInset.top;
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const previewTouchSwipeStartRef = useRef<VerticalTouchSwipeStart | null>(
-    null,
-  );
 
   const [isMounted, setIsMounted] = useState(false);
   const [isVerseTagsDrawerOpen, setIsVerseTagsDrawerOpen] = useState(false);
@@ -283,10 +275,25 @@ export function VerseGallery({
   }, []);
 
   // ── Aux state (pending, overrides, feedback) ──────────────────────────────
-  const aux = useGalleryAux();
+  const {
+    isActionPending,
+    setIsActionPending,
+    previewOverrides,
+    setPreviewOverride,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    slideAnnouncement,
+    setSlideAnnouncement,
+  } = useGalleryAux();
 
   // ── Preview navigation ───────────────────────────────────────────────────────
-  const nav = usePreviewNavigation({
+  const {
+    activeIndex,
+    direction,
+    setActiveIndex,
+    setDirection,
+    navigatePreviewTo,
+  } = usePreviewNavigation({
     verses,
     initialIndex,
     previewHasMore,
@@ -297,14 +304,14 @@ export function VerseGallery({
   // Keep activeIndex clamped when verse list shrinks
   useEffect(() => {
     if (verses.length === 0) return;
-    const clamped = clamp(nav.activeIndex, 0, Math.max(0, verses.length - 1));
-    if (clamped !== nav.activeIndex) nav.setActiveIndex(clamped);
-  }, [verses.length]);
+    const clamped = clamp(activeIndex, 0, Math.max(0, verses.length - 1));
+    if (clamped !== activeIndex) setActiveIndex(clamped);
+  }, [activeIndex, setActiveIndex, verses.length]);
 
   // ── Derived preview state ────────────────────────────────────────────────────
-  const activePreviewVerse = verses[nav.activeIndex];
+  const activePreviewVerse = verses[activeIndex];
   const previewActiveVerse = activePreviewVerse
-    ? mergePreviewOverrides(activePreviewVerse, aux.previewOverrides)
+    ? mergePreviewOverrides(activePreviewVerse, previewOverrides)
     : null;
   const previewActionModel = useMemo(() => {
     if (!previewActiveVerse) return null;
@@ -400,60 +407,70 @@ export function VerseGallery({
   );
 
   // ── Preview status action ────────────────────────────────────────────────────
-  const handlePreviewStatusMutation = useCallback(async (actionId: VerseCardActionId | null | undefined) => {
-    if (!previewActiveVerse || aux.isActionPending) return;
-    const statusAction = getPreviewStatusMutation(
-      normalizeVerseStatus(previewActiveVerse.status),
-      actionId,
-    );
-    if (!statusAction) return;
-    try {
-      aux.setIsActionPending(true);
-      const optimisticStatus =
-        statusAction.nextStatus === VerseStatus.LEARNING &&
-        Number(previewActiveVerse.masteryLevel ?? 0) >=
-          TRAINING_STAGE_MASTERY_MAX
-          ? "REVIEW"
-          : statusAction.nextStatus;
-      aux.setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
-      const patch = await onStatusChange(
-        previewActiveVerse,
-        statusAction.nextStatus,
+  const handlePreviewStatusMutation = useCallback(
+    async (actionId: VerseCardActionId | null | undefined) => {
+      if (!previewActiveVerse || isActionPending) return;
+      const statusAction = getPreviewStatusMutation(
+        normalizeVerseStatus(previewActiveVerse.status),
+        actionId,
       );
-      if (patch) {
-        aux.setPreviewOverride(
+      if (!statusAction) return;
+      try {
+        setIsActionPending(true);
+        const optimisticStatus =
+          statusAction.nextStatus === VerseStatus.LEARNING &&
+          Number(previewActiveVerse.masteryLevel ?? 0) >=
+            TRAINING_STAGE_MASTERY_MAX
+            ? "REVIEW"
+            : statusAction.nextStatus;
+        setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
+        const patch = await onStatusChange(
           previewActiveVerse,
-          toPreviewOverrideFromVersePatch(patch),
+          statusAction.nextStatus,
         );
+        if (patch) {
+          setPreviewOverride(
+            previewActiveVerse,
+            toPreviewOverrideFromVersePatch(patch),
+          );
+        }
+        haptic("success");
+        const actionToastKind =
+          statusAction.nextStatus === VerseStatus.MY
+            ? "add-to-my"
+            : statusAction.nextStatus === VerseStatus.LEARNING &&
+                normalizeVerseStatus(previewActiveVerse.status) ===
+                  VerseStatus.STOPPED
+              ? "resume"
+              : statusAction.nextStatus === VerseStatus.LEARNING
+                ? "start-learning"
+                : "pause";
+        showVerseActionToast({
+          kind: actionToastKind,
+          reference: previewActiveVerse.reference,
+          toasterId: GALLERY_TOASTER_ID,
+        });
+      } catch {
+        haptic("error");
+        setPreviewOverride(previewActiveVerse, {
+          status: previewActiveVerse.status,
+        });
+        toast.error("Ошибка — попробуйте ещё раз", {
+          label: "Галерея",
+          toasterId: GALLERY_TOASTER_ID,
+        });
+      } finally {
+        setIsActionPending(false);
       }
-      haptic("success");
-      const actionToastKind =
-        statusAction.nextStatus === VerseStatus.MY
-          ? "add-to-my"
-          : statusAction.nextStatus === VerseStatus.LEARNING &&
-              normalizeVerseStatus(previewActiveVerse.status) === VerseStatus.STOPPED
-            ? "resume"
-            : statusAction.nextStatus === VerseStatus.LEARNING
-              ? "start-learning"
-              : "pause";
-      showVerseActionToast({
-        kind: actionToastKind,
-        reference: previewActiveVerse.reference,
-        toasterId: GALLERY_TOASTER_ID,
-      });
-    } catch {
-      haptic("error");
-      aux.setPreviewOverride(previewActiveVerse, {
-        status: previewActiveVerse.status,
-      });
-      toast.error("Ошибка — попробуйте ещё раз", {
-        label: "Галерея",
-        toasterId: GALLERY_TOASTER_ID,
-      });
-    } finally {
-      aux.setIsActionPending(false);
-    }
-  }, [previewActiveVerse, aux, onStatusChange]);
+    },
+    [
+      isActionPending,
+      onStatusChange,
+      previewActiveVerse,
+      setIsActionPending,
+      setPreviewOverride,
+    ],
+  );
 
   const handlePrimaryStatusAction = useCallback(() => {
     void handlePreviewStatusMutation(previewActionModel?.primaryAction?.id);
@@ -467,7 +484,7 @@ export function VerseGallery({
   const handleDelete = useCallback(async () => {
     if (!previewActiveVerse) return;
     try {
-      aux.setIsActionPending(true);
+      setIsActionPending(true);
       const result = await onDelete(previewActiveVerse);
       const xpLoss =
         result && typeof result === "object" && "xpLoss" in result
@@ -483,9 +500,11 @@ export function VerseGallery({
       if (verses.length <= 1) {
         onClose();
       } else {
-        const newDir = nav.activeIndex > 0 ? -1 : 1;
-        nav.setDirection(newDir);
-        nav.setActiveIndex(nav.activeIndex > 0 ? nav.activeIndex - 1 : 0);
+        const newDir = activeIndex > 0 ? -1 : 1;
+        startTransition(() => {
+          setDirection(newDir);
+          setActiveIndex(activeIndex > 0 ? activeIndex - 1 : 0);
+        });
       }
     } catch {
       haptic("error");
@@ -494,70 +513,103 @@ export function VerseGallery({
         toasterId: GALLERY_TOASTER_ID,
       });
     } finally {
-      aux.setIsActionPending(false);
+      setIsActionPending(false);
     }
-    aux.setIsDeleteDialogOpen(false);
-  }, [previewActiveVerse, aux, onDelete, verses.length, nav, onClose]);
+    setIsDeleteDialogOpen(false);
+  }, [
+    activeIndex,
+    onClose,
+    onDelete,
+    previewActiveVerse,
+    setActiveIndex,
+    setDirection,
+    setIsActionPending,
+    setIsDeleteDialogOpen,
+    verses.length,
+  ]);
+
+  const isOverlayOpen =
+    isDeleteDialogOpen ||
+    isPlayerProfileDrawerOpen ||
+    isVerseOwnersDrawerOpen ||
+    isVerseTagsDrawerOpen ||
+    isVerseProgressDrawerOpen;
+
+  const closeActiveOverlay = useCallback(() => {
+    if (isDeleteDialogOpen) {
+      setIsDeleteDialogOpen(false);
+      return true;
+    }
+    if (isPlayerProfileDrawerOpen) {
+      closePlayerProfileDrawer();
+      return true;
+    }
+    if (isVerseOwnersDrawerOpen) {
+      closeVerseOwnersDrawer();
+      return true;
+    }
+    if (isVerseTagsDrawerOpen) {
+      closeVerseTagsDrawer();
+      return true;
+    }
+    if (isVerseProgressDrawerOpen) {
+      setIsVerseProgressDrawerOpen(false);
+      return true;
+    }
+    return false;
+  }, [
+    closePlayerProfileDrawer,
+    closeVerseOwnersDrawer,
+    closeVerseTagsDrawer,
+    isDeleteDialogOpen,
+    isPlayerProfileDrawerOpen,
+    isVerseOwnersDrawerOpen,
+    isVerseProgressDrawerOpen,
+    isVerseTagsDrawerOpen,
+    setIsDeleteDialogOpen,
+  ]);
+
+  const handlePreviewSwipeStep = useCallback(
+    (step: 1 | -1) => navigatePreviewTo(step === 1 ? "next" : "prev"),
+    [navigatePreviewTo],
+  );
+
+  const handleFocusModeVerticalSwipe = useCallback(
+    (step: 1 | -1) => {
+      if (isActionPending || isOverlayOpen) return;
+      void handlePreviewSwipeStep(step);
+    },
+    [handlePreviewSwipeStep, isActionPending, isOverlayOpen],
+  );
 
   // ── Keyboard navigation ──────────────────────────────────────────────────────
   useEffect(() => {
     const handleWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        if (aux.isDeleteDialogOpen) {
-          aux.setIsDeleteDialogOpen(false);
-          return;
-        }
-        if (isPlayerProfileDrawerOpen) {
-          closePlayerProfileDrawer();
-          return;
-        }
-        if (isVerseOwnersDrawerOpen) {
-          closeVerseOwnersDrawer();
-          return;
-        }
-        if (isVerseTagsDrawerOpen) {
-          closeVerseTagsDrawer();
-          return;
-        }
-        if (isVerseProgressDrawerOpen) {
-          setIsVerseProgressDrawerOpen(false);
-          return;
-        }
+        if (closeActiveOverlay()) return;
         onClose();
         return;
       }
-      if (
-        aux.isDeleteDialogOpen ||
-        isPlayerProfileDrawerOpen ||
-        isVerseOwnersDrawerOpen ||
-        isVerseTagsDrawerOpen ||
-        isVerseProgressDrawerOpen
-      ) {
+      if (isOverlayOpen) {
         return;
       }
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
-        void nav.navigatePreviewTo("next");
+        void navigatePreviewTo("next");
         return;
       }
       if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
-        void nav.navigatePreviewTo("prev");
+        void navigatePreviewTo("prev");
       }
     };
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
   }, [
-    aux,
-    closePlayerProfileDrawer,
-    closeVerseOwnersDrawer,
-    closeVerseTagsDrawer,
-    isPlayerProfileDrawerOpen,
-    isVerseProgressDrawerOpen,
-    isVerseOwnersDrawerOpen,
-    isVerseTagsDrawerOpen,
-    nav,
+    closeActiveOverlay,
+    isOverlayOpen,
+    navigatePreviewTo,
     onClose,
   ]);
 
@@ -567,72 +619,19 @@ export function VerseGallery({
   }, []);
 
   // ── Slide announcement (accessibility) ──────────────────────────────────────
-  const setSlideAnnouncement = aux.setSlideAnnouncement;
   useEffect(() => {
     if (!previewActiveVerse) return;
     setSlideAnnouncement(
-      `Стих ${nav.activeIndex + 1} из ${Math.max(previewDisplayTotal, 1)}: ${previewActiveVerse.reference}`,
+      `Стих ${activeIndex + 1} из ${Math.max(previewDisplayTotal, 1)}: ${previewActiveVerse.reference}`,
     );
-  }, [nav.activeIndex, previewActiveVerse, previewDisplayTotal, setSlideAnnouncement]);
-
-  // ── Swipe gesture (single touch-based system — no @use-gesture overhead) ──
-  const handlePreviewTouchStart = useCallback(
-    (e: ReactTouchEvent<HTMLDivElement>) => {
-      previewTouchSwipeStartRef.current = createVerticalTouchSwipeStart(e);
-    },
-    [],
-  );
-
-  const handlePreviewTouchEnd = useCallback(
-    (e: ReactTouchEvent<HTMLDivElement>) => {
-      const step = getVerticalTouchSwipeStep(
-        previewTouchSwipeStartRef.current,
-        e,
-        { minVerticalDistance: 48, verticalDominanceRatio: 1.05 },
-      );
-      previewTouchSwipeStartRef.current = null;
-      if (!step) return;
-      void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
-    },
-    [nav],
-  );
+  }, [activeIndex, previewActiveVerse, previewDisplayTotal, setSlideAnnouncement]);
 
   const handleTelegramBack = useCallback(() => {
-    if (aux.isActionPending) return;
-
-    if (aux.isDeleteDialogOpen) {
-      aux.setIsDeleteDialogOpen(false);
-      return;
-    }
-    if (isPlayerProfileDrawerOpen) {
-      closePlayerProfileDrawer();
-      return;
-    }
-    if (isVerseOwnersDrawerOpen) {
-      closeVerseOwnersDrawer();
-      return;
-    }
-    if (isVerseTagsDrawerOpen) {
-      closeVerseTagsDrawer();
-      return;
-    }
-    if (isVerseProgressDrawerOpen) {
-      setIsVerseProgressDrawerOpen(false);
-      return;
-    }
+    if (isActionPending) return;
+    if (closeActiveOverlay()) return;
 
     onClose();
-  }, [
-    aux,
-    closePlayerProfileDrawer,
-    closeVerseOwnersDrawer,
-    closeVerseTagsDrawer,
-    isPlayerProfileDrawerOpen,
-    isVerseProgressDrawerOpen,
-    isVerseOwnersDrawerOpen,
-    isVerseTagsDrawerOpen,
-    onClose,
-  ]);
+  }, [closeActiveOverlay, isActionPending, onClose]);
 
   useTelegramBackButton({
     enabled: true,
@@ -692,36 +691,30 @@ export function VerseGallery({
   }, [onNavigateToTraining, previewActiveVerse]);
 
   const handleDeleteDialogOpen = useCallback(() => {
-    aux.setIsDeleteDialogOpen(true);
-  }, [aux]);
+    setIsDeleteDialogOpen(true);
+  }, [setIsDeleteDialogOpen]);
 
   const handleGoPrev = useCallback(() => {
-    void nav.navigatePreviewTo("prev");
-  }, [nav]);
+    void navigatePreviewTo("prev");
+  }, [navigatePreviewTo]);
 
   const handleGoNext = useCallback(() => {
-    void nav.navigatePreviewTo("next");
-  }, [nav]);
-
-  const handleVerticalSwipeStep = useCallback(
-    (step: 1 | -1) => {
-      void nav.navigatePreviewTo(step === 1 ? "next" : "prev");
-    },
-    [nav],
-  );
+    void navigatePreviewTo("next");
+  }, [navigatePreviewTo]);
 
   // ── Display values ───────────────────────────────────────────────────────────
   if (!previewActiveVerse || !previewActionModel) return null;
 
   const displayTotal = previewDisplayTotal;
-  const displayActive = Math.max(0, nav.activeIndex);
+  const displayActive = Math.max(0, activeIndex);
   const galleryBodyKey = getVerseIdentity(previewActiveVerse);
-  const canGoPrev = nav.activeIndex > 0;
+  const canGoPrev = activeIndex > 0;
   const canGoNext =
-    nav.activeIndex < verses.length - 1 ||
+    activeIndex < verses.length - 1 ||
     (previewHasMore &&
       !previewIsLoadingMore &&
       typeof onRequestMorePreviewVerses === "function");
+  const isPreviewSwipeEnabled = !isFocusMode && !isActionPending && !isOverlayOpen;
   return (
     <>
       {isMounted &&
@@ -735,14 +728,13 @@ export function VerseGallery({
 
       <div
         data-tour="verse-gallery-root"
-        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Просмотр стиха"
         className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-sm"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {aux.slideAnnouncement}
+          {slideAnnouncement}
         </div>
 
         <GalleryHeader
@@ -757,14 +749,11 @@ export function VerseGallery({
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки со стихами"
-          style={isFocusMode ? undefined : { touchAction: "none" }}
-          onTouchStart={isFocusMode ? undefined : handlePreviewTouchStart}
-          onTouchEnd={isFocusMode ? undefined : handlePreviewTouchEnd}
         >
-          <AnimatePresence initial={false} mode="sync" custom={nav.direction}>
+          <AnimatePresence initial={false} mode="sync" custom={direction}>
             <motion.div
               key={galleryBodyKey}
-              custom={nav.direction}
+              custom={direction}
               variants={slideVariants}
               initial="enter"
               animate="center"
@@ -773,27 +762,36 @@ export function VerseGallery({
               style={{ willChange: "transform, opacity" }}
               tabIndex={-1}
             >
-              <VersePreviewCard
-                verse={previewActiveVerse}
-                isActionPending={aux.isActionPending}
-                activeTagSlugs={selectedTagSlugs}
-                isAnchorEligible={isAnchorEligible}
-                isFocusMode={isFocusMode}
-                onStartTraining={handleStartTraining}
-                onStatusAction={handlePrimaryStatusAction}
-                onUtilityAction={handleUtilityStatusAction}
-                onOpenProgress={handleOpenProgress}
-                onOpenTags={handleOpenTagsDrawer}
-                onOpenOwners={handleOpenOwnersDrawer}
-                onVerticalSwipeStep={isFocusMode ? handleVerticalSwipeStep : undefined}
-              />
+              <GallerySwipeSlide
+                enabled={isPreviewSwipeEnabled}
+                onSwipeStep={handlePreviewSwipeStep}
+              >
+                <VersePreviewCard
+                  verse={previewActiveVerse}
+                  isActionPending={isActionPending}
+                  activeTagSlugs={selectedTagSlugs}
+                  isAnchorEligible={isAnchorEligible}
+                  isFocusMode={isFocusMode}
+                  onStartTraining={handleStartTraining}
+                  onStatusAction={handlePrimaryStatusAction}
+                  onUtilityAction={handleUtilityStatusAction}
+                  onOpenProgress={handleOpenProgress}
+                  onOpenTags={handleOpenTagsDrawer}
+                  onOpenOwners={handleOpenOwnersDrawer}
+                  onVerticalSwipeStep={
+                    isFocusMode && !isActionPending && !isOverlayOpen
+                      ? handleFocusModeVerticalSwipe
+                      : undefined
+                  }
+                />
+              </GallerySwipeSlide>
             </motion.div>
           </AnimatePresence>
         </div>
 
         {/* Footer buttons */}
         <GalleryFooter
-          isActionPending={aux.isActionPending}
+          isActionPending={isActionPending}
           isFocusMode={isFocusMode}
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
@@ -810,8 +808,8 @@ export function VerseGallery({
         {!isFocusMode ? <SwipeHint panelMode="preview" /> : null}
 
         <Drawer
-          open={aux.isDeleteDialogOpen}
-          onOpenChange={aux.setIsDeleteDialogOpen}
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
         >
           <DrawerContent>
             <DrawerHeader className="pb-1">
@@ -833,7 +831,7 @@ export function VerseGallery({
                 </Button>
               </DrawerClose>
               <Button
-                disabled={aux.isActionPending || !previewActiveVerse}
+                disabled={isActionPending || !previewActiveVerse}
                 className="flex-1 h-12 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
                 onClick={() => void handleDelete()}
               >
