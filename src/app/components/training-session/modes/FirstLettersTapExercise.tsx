@@ -69,6 +69,8 @@ function shuffleTokens(letters: string[]): LetterToken[] {
 }
 
 const LETTER_GRID_GAP = 8;
+const LETTER_CHOICE_BUTTON_BASE_CLASS =
+  'h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4';
 
 function getAutoGridColumns(
   width: number,
