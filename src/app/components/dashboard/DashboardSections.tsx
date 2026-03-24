@@ -178,7 +178,7 @@ type DashboardWelcomeSectionProps = {
   onOpenCurrentUserProfile?: () => void;
 };
 
-export function DashboardWelcomeSection({
+export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSection({
   user,
   currentUserAvatarUrl,
   learningVersesCount,
@@ -301,13 +301,13 @@ export function DashboardWelcomeSection({
       </DashboardSurface>
     </div>
   );
-}
+});
 
 type DashboardTrainingStatsCardProps = {
   statsCards: ReadonlyArray<StatsCardItem>;
 };
 
-export function DashboardTrainingStatsCard({
+export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingStatsCard({
   statsCards,
 }: DashboardTrainingStatsCardProps) {
   return (
@@ -353,7 +353,7 @@ export function DashboardTrainingStatsCard({
       </DashboardSurface>
     </div>
   );
-}
+});
 
 type DashboardLeaderboardCardProps = {
   leaderboard?: domain_UserLeaderboardResponse | null;
@@ -368,7 +368,7 @@ type DashboardLeaderboardCardProps = {
   onLeaderboardJumpToMe?: () => void;
 };
 
-export function DashboardLeaderboardCard({
+export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboardCard({
   leaderboard = null,
   isLeaderboardLoading = false,
   onOpenTraining,
@@ -644,4 +644,4 @@ export function DashboardLeaderboardCard({
       </DashboardSurface>
     </div>
   );
-}
+});

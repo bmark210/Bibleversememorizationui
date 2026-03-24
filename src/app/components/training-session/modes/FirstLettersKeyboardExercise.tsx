@@ -18,7 +18,7 @@ import {
 import type { TrainingExerciseResolution } from './exerciseResult';
 import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { tokenizeFirstLetters } from './wordUtils';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';

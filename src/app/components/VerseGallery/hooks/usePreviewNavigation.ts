@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { haptic, getVerseIdentity } from "../utils";
 
 type Params = {

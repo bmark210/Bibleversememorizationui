@@ -36,7 +36,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 
 interface VerseListProps {

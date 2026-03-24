@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Check, Hash } from 'lucide-react';
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import { Badge } from '@/app/components/ui/badge';
 import { cn } from '@/app/components/ui/utils';
 import {

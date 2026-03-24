@@ -17,7 +17,7 @@ import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
 import { MODE_PIPELINE } from "../constants";
 import type { TrainingVerseState, ModeId } from "../types";
-import { Verse } from "@/app/App";
+import { Verse } from "@/app/domain/verse";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 
 type Props = {

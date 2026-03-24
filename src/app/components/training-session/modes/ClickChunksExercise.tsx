@@ -14,7 +14,7 @@ import {
   TrainingExerciseSection,
   TrainingMetricBadge,
 } from './TrainingExerciseSection';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { TrainingExerciseResolution } from './exerciseResult';
 import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';

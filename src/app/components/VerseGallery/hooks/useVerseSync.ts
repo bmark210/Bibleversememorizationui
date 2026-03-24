@@ -6,7 +6,7 @@ import {
   getDisplayStatusFromFlow,
   normalizeVerseFlow,
 } from "@/shared/domain/verseFlow";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import {
   normalizeRawMasteryLevel,
   normalizeVerseStatus,

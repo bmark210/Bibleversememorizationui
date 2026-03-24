@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
@@ -11,7 +11,7 @@ import {
   VerseStatusPill,
 } from '@/app/components/VerseStatusSummary';
 import { resolveVerseCardActionModel } from '@/app/components/verseCardActionModel';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress';
 import {
@@ -36,7 +36,7 @@ export type SwipeCardProps = {
   isAnchorEligible?: boolean;
 };
 
-export const SwipeableVerseCard = ({
+const SwipeableVerseCardComponent = ({
   verse,
   onOpen,
   onOpenProgress,
@@ -50,6 +50,7 @@ export const SwipeableVerseCard = ({
   isFocusMode = false,
   isAnchorEligible = false,
 }: SwipeCardProps) => {
+  const reduceMotion = useReducedMotion();
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
   const stageVisual = getVerseStageVisual(verse);
   const stageVisualTheme = FILTER_VISUAL_THEME[stageVisual.key];
@@ -383,10 +384,18 @@ export const SwipeableVerseCard = ({
         {!isFocusMode && (statusMetaContent || waitingMetaContent) ? (
           <motion.div
             key={layoutSignature}
-            initial={{ height: 0, opacity: 0, y: -4 }}
-            animate={{ height: 'auto', opacity: 1, y: 0 }}
-            exit={{ height: 0, opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            initial={reduceMotion ? false : { height: 0, opacity: 0, y: -4 }}
+            animate={
+              reduceMotion
+                ? { opacity: 1 }
+                : { height: 'auto', opacity: 1, y: 0 }
+            }
+            exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0, y: -4 }}
+            transition={
+              reduceMotion
+                ? { duration: 0.12 }
+                : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
+            }
             className="overflow-hidden"
           >
             <div className="flex items-end justify-between gap-3 pt-2">
@@ -409,3 +418,6 @@ export const SwipeableVerseCard = ({
     </div>
   );
 };
+
+export const SwipeableVerseCard = React.memo(SwipeableVerseCardComponent);
+SwipeableVerseCard.displayName = 'SwipeableVerseCard';

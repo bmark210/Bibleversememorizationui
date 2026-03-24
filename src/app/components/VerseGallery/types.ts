@@ -4,7 +4,7 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
 

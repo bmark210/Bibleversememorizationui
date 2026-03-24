@@ -30,7 +30,7 @@ import {
   DrawerTitle,
 } from '../ui/drawer';
 import { Button } from '../ui/button';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { TrainingModeId } from '@/shared/training/modeEngine';
 
 export enum TrainingModeRendererKey {

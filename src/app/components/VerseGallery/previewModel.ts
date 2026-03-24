@@ -1,5 +1,5 @@
 import { Users, type LucideIcon } from "lucide-react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import {
   resolveVerseCardActionModel,
   type VerseCardActionModel,

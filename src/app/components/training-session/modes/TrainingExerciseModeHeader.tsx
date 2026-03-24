@@ -1,7 +1,7 @@
 "use client";
 
 import { HelpCircle } from "lucide-react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { computeVerseProgressBreakdown } from "@/shared/training/verseTotalProgress";

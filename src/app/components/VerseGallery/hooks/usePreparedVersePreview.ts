@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VersePreviewOverride } from "../types";
 import { getPreparedVersePreview, type PreparedVersePreview } from "../previewModel";
 import { mergePreviewOverrides } from "../utils";

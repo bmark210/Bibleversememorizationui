@@ -2,7 +2,7 @@ import React from "react";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { SwipeableVerseCard } from "@/app/components/verse-list/components/SwipeableVerseCard";
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";

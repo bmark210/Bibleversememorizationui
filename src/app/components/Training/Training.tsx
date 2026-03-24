@@ -20,7 +20,7 @@ import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
  

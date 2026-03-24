@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import type { VerseStatus } from '@/shared/domain/verseStatus';
 import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';

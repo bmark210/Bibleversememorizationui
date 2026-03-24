@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 import { similarityRatio } from '@/shared/utils/levenshtein';

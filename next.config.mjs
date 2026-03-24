@@ -1,3 +1,5 @@
+import bundleAnalyzer from "@next/bundle-analyzer";
+
 /** @type {import('next').NextConfig} */
 const PRODUCTION_GO_API_DEFAULT =
   "https://bible-memory-db-production.up.railway.app";
@@ -62,6 +64,10 @@ const nextConfig = {
   },
 };
 
-export default nextConfig
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
+export default withBundleAnalyzer(nextConfig);
 
 

@@ -19,7 +19,7 @@ import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingC
 import { MODE_PIPELINE } from "@/app/components/VerseGallery/constants";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";

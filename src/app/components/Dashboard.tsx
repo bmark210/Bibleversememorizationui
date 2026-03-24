@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
-import { Verse } from '@/app/App'
+import type { Verse } from '@/app/domain/verse'
 import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'

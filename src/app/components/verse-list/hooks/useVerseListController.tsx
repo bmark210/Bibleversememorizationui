@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { DirectLaunchVerse } from '@/app/components/Training/types';
 import { VerseStatus } from '@/shared/domain/verseStatus';

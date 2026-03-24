@@ -1,4 +1,4 @@
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';

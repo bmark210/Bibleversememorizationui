@@ -4,9 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3001",
-    "dev:clean": "node scripts/clean-next.mjs && next dev",
+    "dev": "next dev --turbo --port 3001",
+    "dev:clean": "node scripts/clean-next.mjs && next dev --turbo --port 3001",
     "build": "node scripts/clean-next.mjs && next build",
+    "build:analyze": "node scripts/analyze-build.mjs",
     "start": "next start",
     "lint": "eslint src/ --max-warnings 0",
     "generate-api": "tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios && npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
@@ -52,6 +53,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.1.0",
     "@types/node": "22.10.5",
     "@types/pg": "^8.10.2",
     "@types/react": "18.3.18",

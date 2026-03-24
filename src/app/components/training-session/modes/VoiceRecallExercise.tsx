@@ -15,7 +15,7 @@ import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExercise
 import type { TrainingExerciseResolution } from './exerciseResult';
 import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { similarityRatio } from '@/shared/utils/levenshtein';
 import { tokenizeWords } from './wordUtils';

@@ -9,7 +9,7 @@ import {
   VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { PreparedVersePreview } from "../previewModel";
 
 type Props = {

@@ -1,4 +1,4 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 
 export type VerseIdentityRef = {
   id?: string | number | null;

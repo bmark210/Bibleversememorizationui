@@ -1,4 +1,4 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VerseIdentityRef, VerseMutablePatch } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 

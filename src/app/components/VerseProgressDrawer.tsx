@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { Brain, Repeat } from "lucide-react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { getStoppedVerseStageKind } from "@/app/components/verse-list/constants";
 import { VerseStatus } from "@/shared/domain/verseStatus";

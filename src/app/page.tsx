@@ -1,5 +1,6 @@
 'use client'
 
+import '@/app/lib/apiClientInit'
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import App from './App'

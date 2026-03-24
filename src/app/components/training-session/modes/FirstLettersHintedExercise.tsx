@@ -7,7 +7,7 @@ import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import {
   getComparableFirstLetter,
   getWordMask,

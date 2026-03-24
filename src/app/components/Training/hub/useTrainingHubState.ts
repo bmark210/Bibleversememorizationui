@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { CoreTrainingMode, TrainingMode } from "../types";
 import {

@@ -7,7 +7,7 @@ import {
 } from '@/app/lib/semanticToast';
 import { UserVersesService } from '@/api/services/UserVersesService';
 import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';

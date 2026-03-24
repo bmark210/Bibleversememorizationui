@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { PlayerProfilePreview } from "../types";
 
 type VerseTagsTarget = Pick<Verse, "reference" | "tags"> | null;

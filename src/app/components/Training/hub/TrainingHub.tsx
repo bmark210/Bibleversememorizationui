@@ -21,7 +21,7 @@ import {
   VenetianMask,
   type LucideIcon,
 } from "lucide-react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { bible_memory_db_internal_domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";

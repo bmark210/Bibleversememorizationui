@@ -3,7 +3,7 @@ import { TagsService } from '@/api/services/TagsService';
 import { postTag } from '@/api/services/tagExtensions';
 import { publicApiUrl } from '@/lib/publicApiBase';
 import type { domain_Tag } from '@/api/models/domain_Tag';
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import { getTelegramUserId } from '@/app/lib/telegramWebApp';
 import { isAdminTelegramId } from '@/lib/admins';
 import { parseStoredTagSlugs, VERSE_LIST_STORAGE_KEYS } from '../storage';

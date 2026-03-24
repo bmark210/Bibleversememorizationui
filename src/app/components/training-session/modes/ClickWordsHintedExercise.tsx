@@ -10,7 +10,7 @@ import { Button } from "@/app/components/ui/button";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from "./TrainingExerciseModeHeader";
 import { SplitExerciseActionRail } from "./SplitExerciseActionRail";
-import { Verse } from "@/app/App";
+import { Verse } from "@/app/domain/verse";
 import type { TrainingExerciseResolution } from "./exerciseResult";
 import {
   tokenizeWords,

@@ -1,4 +1,4 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { normalizeVerseFlow } from "@/shared/domain/verseFlow";
 import type { CoreTrainingMode } from "./types";

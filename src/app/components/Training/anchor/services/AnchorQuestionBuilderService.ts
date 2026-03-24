@@ -6,21 +6,15 @@
 import { similarityRatio } from "@/shared/utils/levenshtein";
 import type {
   ChoiceQuestion,
-  ModeStrategy,
   ReferenceVerse,
   TapQuestion,
   TapQuestionOption,
-  TrainerModeId,
-  TrainerQuestion,
   TypeQuestion,
 } from "../anchorTrainingTypes";
 import {
-  extractWordTokens,
   matchesReferenceWithTolerance,
-  matchesIncipitWithTolerance,
   normalizeIncipitText,
   normalizeBookName,
-  softenBookName,
 } from "./AnchorValidationService";
 
 export const CONFIG = {
@@ -231,7 +225,6 @@ export function buildIncipitTypeQuestion(
   if (verse.incipitWords.length < 2) return null;
   const prefixTokens = getIncipitPrefixTokens(verse);
   if (prefixTokens.length === 0) return null;
-  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
 
   return {
     id: `incipit-type-${order}-${verse.externalVerseId}`,

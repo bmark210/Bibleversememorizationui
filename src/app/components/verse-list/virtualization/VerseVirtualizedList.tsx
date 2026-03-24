@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Virtuoso, type ListRange } from 'react-virtuoso';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { VerseListStatusFilter } from '../constants';
 import type { AppendRevealRange } from '../hooks/useVersePagination';
 import type { VerseListLoadRange } from '../types';

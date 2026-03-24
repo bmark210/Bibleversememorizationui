@@ -14,7 +14,7 @@ import {
 } from "@/shared/training/modeEngine";
 import { chooseTrainingMode } from "@/modules/training/application/chooseTrainingMode";
 import { triggerHaptic } from "@/app/lib/haptics";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type {
   TrainingContactToastPayload,

@@ -3,7 +3,7 @@ import type { domain_CatalogVersesPageResponse } from '@/api/models/domain_Catal
 import type { domain_UserVersesPageResponse } from '@/api/models/domain_UserVersesPageResponse';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { VerseListSortBy, VerseListStatusFilter } from '../constants';
 import type { VersePatchEvent } from '@/app/types/verseSync';
 import { isSameVerseByRef, mergeVersePatch } from '@/app/utils/versePatch';

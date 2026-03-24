@@ -6,7 +6,7 @@ import {
   type RefObject,
 } from "react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import {
   type TrainingModeRendererHandle,
