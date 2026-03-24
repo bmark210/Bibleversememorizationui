@@ -739,7 +739,7 @@ export function VerseGallery({
         role="dialog"
         aria-modal="true"
         aria-label="Просмотр стиха"
-        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20"
+        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-sm"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {aux.slideAnnouncement}
