@@ -49,7 +49,7 @@ export function AssistDrawer({
           <DrawerTitle className="text-base">Помощь</DrawerTitle>
         </DrawerHeader>
 
-        <div className="space-y-3 px-4 pb-6">
+        <div className="space-y-3 px-4 pb-0">
           {/* Active hint content */}
           {showInlineHint && activeHintContent && (
             <div

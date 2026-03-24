@@ -2,6 +2,11 @@
 @import "../styles/tailwind.css";
 @import "../styles/theme.css";
 
+/* Совпадает с запасом под мобильный таббар в Layout.tsx (paddingBottom main). */
+:root {
+  --app-bottom-nav-clearance: 74px;
+}
+
 html,
 body {
   height: 100%;

@@ -199,7 +199,7 @@ export function VerseProgressDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
       <DrawerContent className="rounded-t-[32px] border-border/70 bg-card px-4 shadow-2xl backdrop-blur-xl sm:px-6">
-        <div className="mx-auto w-full max-w-2xl pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3">
+        <div className="mx-auto w-full max-w-2xl pt-3">
           <DrawerHeader className="px-0 pb-0 pt-3">
             <DrawerTitle className="font-serif text-primary [overflow-wrap:anywhere] text-2xl tracking-tight">
               {verse?.reference ?? "Прогресс стиха"}

@@ -136,7 +136,9 @@ export function Layout({
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`
-              : isKeyboardOpen ? `${bottomInset}px` : `calc(74px + ${bottomInset}px)`
+              : isKeyboardOpen
+                ? `${bottomInset}px`
+                : `calc(var(--app-bottom-nav-clearance, 74px) + ${bottomInset}px)`
           }}
         >
           {children}

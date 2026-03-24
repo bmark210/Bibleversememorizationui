@@ -425,7 +425,7 @@ export function VerseList({
                   "fixed z-50 flex shrink-0 flex-col gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
                 )}
                 style={{
-                  bottom: `calc(74px + ${contentSafeAreaInset.bottom}px + 12px)`,
+                  bottom: `calc(var(--app-bottom-nav-clearance, 74px) + ${contentSafeAreaInset.bottom}px + 12px)`,
                   right: `calc(1rem + ${contentSafeAreaInset.right}px)`,
                 }}
               >

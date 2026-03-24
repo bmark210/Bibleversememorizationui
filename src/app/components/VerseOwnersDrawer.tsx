@@ -237,7 +237,7 @@ export function VerseOwnersDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6">
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start gap-3">
             <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-background/60 text-foreground/70">

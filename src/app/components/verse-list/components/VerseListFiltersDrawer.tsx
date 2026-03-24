@@ -215,7 +215,7 @@ export function VerseListFiltersDrawer({
     <Drawer open={open} onOpenChange={handleDrawerOpenChange} direction="bottom">
       <DrawerContent
         data-tour="verse-list-filters-drawer"
-        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6"
+        className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
         style={{ maxHeight: '90svh' }}
       >
         <DrawerHeader className="px-0 pb-0 pt-4">
