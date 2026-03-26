@@ -2,33 +2,20 @@
 
 import React from "react";
 import {
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Crown,
   Dumbbell,
   Medal,
   Trophy,
-  X,
 } from "lucide-react";
+import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import { Card } from "../ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
 import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import { DASHBOARD_LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
 import { formatXp } from "@/shared/social/formatXp";
-import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "../ui/utils";
 
@@ -41,11 +28,11 @@ import { cn } from "../ui/utils";
 
 /** Padding inside every DashboardSurface card */
 const SURFACE_PAD =
-  "p-3.5 narrow:p-3 compact:p-3 compact-md:p-2.75 compact-sm:p-2.5 compact-xs:p-2.5 sm:p-4 lg:p-5";
+  "p-3 narrow:p-3 compact:p-2.75 compact-md:p-2.5 compact-sm:p-2.5 compact-xs:p-2.25 sm:p-3.5 lg:p-4";
 
 /** Vertical gap between elements inside a section */
 const SECTION_GAP =
-  "gap-3.5 narrow:gap-3 compact:gap-3 compact-sm:gap-2.5 compact-xs:gap-2.5";
+  "gap-3 narrow:gap-2.5 compact:gap-2.5 compact-sm:gap-2 compact-xs:gap-2";
 
 /** Gap inside 2×2 stats grid */
 const GRID_GAP =
@@ -53,19 +40,19 @@ const GRID_GAP =
 
 /** Section heading (e.g. "Моя статистика", "Таблица лидеров") */
 const HEADING_TEXT =
-  "px-1 text-base narrow:text-[15px] compact:text-[15px] compact-sm:text-sm compact-xs:text-sm sm:text-lg";
+  "px-1 text-[15px] narrow:text-[14px] compact:text-[14px] compact-sm:text-[13px] compact-xs:text-[13px] sm:text-base";
 
 /** Bottom margin below a section heading */
 const HEADING_MB =
-  "px-1 mb-2.5 narrow:mb-2 compact:mb-2 compact-sm:mb-2 compact-xs:mb-1.5 sm:mb-3";
+  "px-1 mb-2 narrow:mb-2 compact:mb-1.5 compact-sm:mb-1.5 compact-xs:mb-1.5 sm:mb-2.5";
 
 /** Large hero heading */
 const HERO_TEXT =
-  "px-1 text-[clamp(1.8rem,5.8vw,2.65rem)] narrow:text-[clamp(1.55rem,7vw,2rem)] compact:text-[clamp(1.62rem,5.2vw,2.2rem)] compact-sm:text-[clamp(1.45rem,4.8vw,1.9rem)] compact-xs:text-[clamp(1.38rem,4.5vw,1.78rem)]";
+  "px-1 text-[clamp(1.6rem,5vw,2.25rem)] narrow:text-[clamp(1.42rem,6.4vw,1.86rem)] compact:text-[clamp(1.48rem,4.8vw,1.95rem)] compact-sm:text-[clamp(1.32rem,4.3vw,1.72rem)] compact-xs:text-[clamp(1.26rem,4.1vw,1.58rem)]";
 
 /** Hero subtitle text */
 const HERO_SUBTITLE =
-  "px-1 text-[13px] leading-6 narrow:text-[12px] narrow:leading-5 compact:text-[12px] compact:leading-5 compact-md:line-clamp-1 compact-sm:mt-1.5 compact-sm:text-[11px] compact-sm:leading-[1.15rem] compact-xs:mt-1.5 compact-xs:text-[11px] compact-xs:leading-[1.1rem] sm:text-sm sm:leading-relaxed";
+  "px-1 text-[12px] leading-5 narrow:text-[11px] narrow:leading-[1.125rem] compact:text-[11px] compact:leading-[1.125rem] compact-md:line-clamp-1 compact-sm:mt-1 compact-sm:text-[10px] compact-sm:leading-4 compact-xs:mt-1 compact-xs:text-[10px] compact-xs:leading-4 sm:text-[13px] sm:leading-5";
 
 /** User avatar in the welcome section */
 const AVATAR_SIZE =
@@ -73,11 +60,11 @@ const AVATAR_SIZE =
 
 /** CTA button sizing */
 const CTA_BUTTON =
-  "h-11 w-full rounded-[1.2rem] px-5 narrow:h-10 narrow:px-4 compact:h-10 compact-sm:h-9 compact-sm:px-4 compact-sm:text-sm compact-xs:h-9 compact-xs:px-4 compact-xs:text-sm sm:w-auto sm:min-w-[184px]";
+  "h-10 w-full rounded-[1.1rem] px-4 narrow:h-10 narrow:px-4 compact:h-9 compact-sm:h-9 compact-sm:px-3.5 compact-sm:text-sm compact-xs:h-[2.125rem] compact-xs:px-3 compact-xs:text-sm sm:w-auto sm:min-w-[168px]";
 
 /** Individual stat card padding */
 const STAT_PAD =
-  "px-3.5 py-3 narrow:px-3 narrow:py-2.5 compact:px-3 compact:py-2.5 compact-sm:rounded-[1rem] compact-sm:px-2.75 compact-sm:py-2.25 compact-xs:px-2.75 compact-xs:py-2.25 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5";
+  "px-3 py-2.75 narrow:px-2.75 narrow:py-2.25 compact:px-2.75 compact:py-2.25 compact-sm:rounded-[0.95rem] compact-sm:px-2.5 compact-sm:py-2 compact-xs:px-2.5 compact-xs:py-2 sm:rounded-[1.25rem] sm:px-3.5 sm:py-3";
 
 /** Stat label text */
 const STAT_LABEL =
@@ -85,11 +72,11 @@ const STAT_LABEL =
 
 /** Stat value text */
 const STAT_VALUE =
-  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-1 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)] compact:mt-1 compact:text-[clamp(1.2rem,4.2vw,1.72rem)] compact-sm:text-[clamp(1.08rem,3.9vw,1.42rem)] compact-xs:text-[clamp(1.04rem,3.8vw,1.36rem)]";
+  "mt-1 text-[clamp(1.18rem,4.2vw,1.72rem)] narrow:text-[clamp(1.05rem,4vw,1.38rem)] compact:text-[clamp(1.1rem,3.9vw,1.5rem)] compact-sm:text-[clamp(1rem,3.6vw,1.28rem)] compact-xs:text-[clamp(0.96rem,3.5vw,1.2rem)]";
 
 /** Compact leaderboard row padding */
 const ROW_PAD =
-  "rounded-[1.2rem] px-3 py-2 narrow:gap-2.5 narrow:px-2.5 narrow:py-1.75 compact:gap-2.5 compact:px-2.5 compact:py-1.75 compact-sm:gap-2.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-1.75 compact-xs:px-2.5 compact-xs:py-1.75";
+  "rounded-[1.05rem] px-2.75 py-1.75 narrow:gap-2.5 narrow:px-2.5 narrow:py-1.5 compact:gap-2.25 compact:px-2.5 compact:py-1.5 compact-sm:gap-2 compact-sm:rounded-[0.95rem] compact-sm:px-2.25 compact-sm:py-1.5 compact-xs:px-2.25 compact-xs:py-1.5";
 
 /** Compact rank badge */
 const RANK_BADGE =
@@ -101,31 +88,21 @@ const ROW_AVATAR =
 
 /** Compact row name text */
 const ROW_NAME =
-  "text-[13px] narrow:text-[12px] compact:text-[12px] compact-sm:text-[11px] compact-xs:text-[11px]";
+  "text-[12px] narrow:text-[11px] compact:text-[11px] compact-sm:text-[10px] compact-xs:text-[10px]";
 
 /** Compact row detail text */
 const ROW_DETAIL =
-  "text-[11px] narrow:text-[10px] compact:text-[10px] compact-sm:text-[9px] compact-xs:text-[9px]";
+  "text-[10px] narrow:text-[9px] compact:text-[9px] compact-sm:text-[8px] compact-xs:text-[8px]";
 
-/** "Весь рейтинг" button sizing */
-const FULL_RATING_BTN =
-  "h-8 shrink-0 rounded-full px-3 text-[11px] narrow:h-7.5 narrow:px-2.5 narrow:text-[10px] compact:h-7.5 compact:px-2.5 compact:text-[10px] compact-sm:h-7 compact-sm:px-2.5 compact-sm:text-[9px] compact-xs:h-7 compact-xs:px-2.5";
+/** "Показать меня" button sizing */
+const SHOW_ME_BTN =
+  "h-7.5 shrink-0 rounded-full px-3 text-[10px] narrow:h-7 narrow:px-2.5 narrow:text-[9px] compact:h-7 compact:px-2.5 compact:text-[9px] compact-sm:h-6.5 compact-sm:px-2.25 compact-sm:text-[9px] compact-xs:h-6.5 compact-xs:px-2.25";
 
 /** Spacing between leaderboard rows */
 const ROW_GAP =
   "space-y-2 narrow:space-y-1.5 compact:space-y-1.5 compact-sm:space-y-1.5 compact-xs:space-y-1.5";
 
-const PREVIEW_ROW_VISIBILITY = [
-  "",
-  "",
-  "",
-  "compact-sm:hidden",
-  "compact:hidden",
-] as const;
-
 /* ═══════════════════════════════════════════════════════════════════ */
-
-const DASHBOARD_LEADERBOARD_PAGE_SIZE = 5;
 
 const STAT_TONE_STYLES = {
   neutral: {
@@ -231,10 +208,6 @@ function getRankMarker(rank: number) {
   };
 }
 
-function getPreviewRowVisibility(index: number) {
-  return PREVIEW_ROW_VISIBILITY[index] ?? "hidden";
-}
-
 /* ── DashboardSurface ─────────────────────────────────────────────── */
 
 function DashboardSurface({
@@ -244,7 +217,7 @@ function DashboardSurface({
   return (
     <Card
       className={cn(
-        "gap-0 h-fit rounded-[1.75rem] border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:rounded-[2rem]",
+        "gap-0 min-h-0 rounded-[1.55rem] border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:rounded-[1.8rem]",
         SURFACE_PAD,
         className,
       )}
@@ -332,15 +305,15 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
 
   const heroMessage =
     dueReviewVerses > 0 && learningVersesCount > 0
-      ? `Сегодня ${dueReviewVerses} ждут повторения, ещё ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в изучении.`
+      ? `Сегодня: ${dueReviewVerses} к повторению • ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в изучении.`
       : dueReviewVerses > 0
-        ? `Сегодня ${dueReviewVerses} ${pluralizeVerses(dueReviewVerses)} ждут повторения.`
+        ? `Сегодня к повторению: ${dueReviewVerses} ${pluralizeVerses(dueReviewVerses)}.`
         : learningVersesCount > 0
-          ? `Сейчас ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в активной практике.`
+          ? `В активной практике: ${learningVersesCount} ${pluralizeVerses(learningVersesCount)}.`
           : "Откройте тренировку и выберите следующую сессию.";
 
   return (
-    <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
+    <DashboardSurface className="shrink-0 rounded-[1.7rem] sm:rounded-[1.9rem]">
       <div className={cn("flex flex-col lg:flex-row lg:items-center lg:justify-between", SECTION_GAP)}>
         <div className="min-w-0">
           {user ? (
@@ -383,7 +356,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
             </h1>
           )}
 
-          <p className={cn("mt-2 line-clamp-2 max-w-2xl text-text-secondary", HERO_SUBTITLE)}>
+          <p className={cn("mt-1.5 line-clamp-2 max-w-2xl text-text-secondary", HERO_SUBTITLE)}>
             {heroMessage}
           </p>
         </div>
@@ -457,7 +430,7 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
                 ) : item.value != null ? (
                   item.value
                 ) : (
-                  <span className="text-sm font-medium text-text-muted">Нет данных</span>
+                  <span className="text-xs font-medium text-text-muted compact-sm:text-[11px]">Нет данных</span>
                 )}
               </div>
             </div>
@@ -520,7 +493,7 @@ function DashboardLeaderboardRow({
         })
       }
       className={cn(
-        "flex w-full items-center gap-3 border text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color]",
+        "flex w-full items-center gap-2.5 border text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color]",
         compact ? ROW_PAD : "rounded-[1.35rem] px-3.5 py-3 sm:px-4",
         isCurrentUser
           ? "border-brand-primary/20 bg-status-mastered-soft"
@@ -573,7 +546,7 @@ function DashboardLeaderboardRow({
         </div>
         <div
           className={cn(
-            "mt-0.5 text-text-muted",
+            "mt-0.5 line-clamp-1 text-text-muted",
             compact ? ROW_DETAIL : "text-xs",
           )}
         >
@@ -594,86 +567,82 @@ function DashboardLeaderboardRow({
   );
 }
 
-/* ── Leaderboard Pagination ───────────────────────────────────────── */
+/* ── Leaderboard Card ─────────────────────────────────────────────── */
 
-type DashboardLeaderboardPaginationProps = {
-  currentPage: number;
-  derivedTotalPages: number;
-  isLeaderboardLoading: boolean;
-  showJumpToMe: boolean;
-  onLeaderboardPageChange?: (page: number) => void;
-  onLeaderboardJumpToMe?: () => void;
-};
+type LeaderboardCurrentUser = NonNullable<
+  domain_UserLeaderboardResponse["currentUser"]
+>;
 
-function DashboardLeaderboardPagination({
-  currentPage,
-  derivedTotalPages,
-  isLeaderboardLoading,
-  showJumpToMe,
-  onLeaderboardPageChange,
-  onLeaderboardJumpToMe,
-}: DashboardLeaderboardPaginationProps) {
-  if (!onLeaderboardPageChange || derivedTotalPages <= 1) {
-    return showJumpToMe ? (
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        className="h-9 w-full rounded-full text-xs sm:w-auto"
-        disabled={isLeaderboardLoading}
-        onClick={() => onLeaderboardJumpToMe?.()}
-      >
-        Показать меня
-      </Button>
-    ) : null;
+const LEADERBOARD_OVERSCAN = 160;
+
+function createLeaderboardCache(
+  totalParticipants: number,
+  previous: Array<domain_UserLeaderboardEntry | null> = [],
+) {
+  if (totalParticipants <= 0) {
+    return [] as Array<domain_UserLeaderboardEntry | null>;
   }
 
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-0.5 sm:gap-1">
-          {[
-            { label: "Первая страница", icon: ChevronsLeft, page: 1, disabled: currentPage <= 1 },
-            { label: "Предыдущая страница", icon: ChevronLeft, page: currentPage - 1, disabled: currentPage <= 1 },
-            { label: "Следующая страница", icon: ChevronRight, page: currentPage + 1, disabled: currentPage >= derivedTotalPages },
-            { label: "Последняя страница", icon: ChevronsRight, page: derivedTotalPages, disabled: currentPage >= derivedTotalPages },
-          ].map(({ label, icon: Icon, page, disabled }) => (
-            <Button
-              key={label}
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-xl"
-              disabled={isLeaderboardLoading || disabled}
-              aria-label={label}
-              onClick={() => onLeaderboardPageChange(page)}
-            >
-              <Icon className="h-4 w-4" />
-            </Button>
-          ))}
-        </div>
-        <span className="text-xs tabular-nums text-text-muted">
-          Стр. {currentPage} / {derivedTotalPages}
-        </span>
-      </div>
+  return Array.from({ length: totalParticipants }, (_, index) => previous[index] ?? null);
+}
 
-      {showJumpToMe ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-9 w-full rounded-full text-xs sm:w-auto"
-          disabled={isLeaderboardLoading}
-          onClick={() => onLeaderboardJumpToMe?.()}
-        >
-          Показать меня
-        </Button>
-      ) : null}
-    </div>
+function mergeLeaderboardWindow(
+  previous: Array<domain_UserLeaderboardEntry | null>,
+  leaderboard: domain_UserLeaderboardResponse,
+) {
+  const totalParticipants = Math.max(0, leaderboard.totalParticipants ?? previous.length);
+  const next = createLeaderboardCache(totalParticipants, previous);
+  const offset = Math.max(0, leaderboard.offset ?? 0);
+
+  (leaderboard.items ?? []).forEach((entry, index) => {
+    const targetIndex = offset + index;
+    if (targetIndex >= 0 && targetIndex < next.length) {
+      next[targetIndex] = entry;
+    }
+  });
+
+  return next;
+}
+
+function clampLeaderboardOffset(offset: number, totalParticipants: number, windowSize: number) {
+  const maxOffset = Math.max(0, totalParticipants - windowSize);
+  return Math.min(Math.max(0, offset), maxOffset);
+}
+
+function getLeaderboardWindowOffsetForIndex(
+  index: number,
+  totalParticipants: number,
+  windowSize: number,
+) {
+  return clampLeaderboardOffset(
+    Math.floor(Math.max(0, index) / windowSize) * windowSize,
+    totalParticipants,
+    windowSize,
   );
 }
 
-/* ── Leaderboard Card ─────────────────────────────────────────────── */
+const LeaderboardVirtuosoList = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(function LeaderboardVirtuosoList({ className, ...props }, ref) {
+  return <div ref={ref} className={cn("pb-2", className)} {...props} />;
+});
+
+function DashboardLeaderboardRowSkeleton({ isLast = false }: { isLast?: boolean }) {
+  return (
+    <div className={cn("px-0", isLast ? "pb-0" : "pb-2")}>
+      <div
+        className={cn(
+          "rounded-[1.2rem] border border-border-subtle bg-bg-surface/80 shadow-[var(--shadow-soft)]",
+          ROW_PAD,
+        )}
+        aria-hidden="true"
+      >
+        <Skeleton className="h-10 w-full rounded-[1rem] border-0 compact-sm:h-8" />
+      </div>
+    </div>
+  );
+}
 
 type DashboardLeaderboardCardProps = {
   leaderboard?: domain_UserLeaderboardResponse | null;
@@ -684,8 +653,10 @@ type DashboardLeaderboardCardProps = {
     name: string;
     avatarUrl: string | null;
   }) => void;
-  onLeaderboardPageChange?: (page: number) => void;
-  onLeaderboardJumpToMe?: () => void;
+  onLeaderboardWindowRequest?: (query: {
+    offset?: number;
+    limit?: number;
+  }) => Promise<domain_UserLeaderboardResponse | null>;
 };
 
 export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboardCard({
@@ -693,103 +664,143 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
   isLeaderboardLoading = false,
   onOpenTraining,
   onOpenPlayerProfile,
-  onLeaderboardPageChange,
-  onLeaderboardJumpToMe,
+  onLeaderboardWindowRequest,
 }: DashboardLeaderboardCardProps) {
-  const [isFullscreenOpen, setIsFullscreenOpen] = React.useState(false);
-  const { contentSafeAreaInset } = useTelegramSafeArea();
   const currentUserTelegramId = useCurrentUserStatsStore((s) => s.telegramId);
   const currentUserXp = useCurrentUserStatsStore((s) => s.xp);
   const currentUserDailyStreak = useCurrentUserStatsStore((s) => s.dailyStreak);
+  const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+  const loadedOffsetsRef = React.useRef<Set<number>>(new Set());
+  const pendingOffsetsRef = React.useRef<Set<number>>(new Set());
+  const [cachedEntries, setCachedEntries] = React.useState<
+    Array<domain_UserLeaderboardEntry | null>
+  >(() => (leaderboard ? mergeLeaderboardWindow([], leaderboard) : []));
+  const [totalParticipants, setTotalParticipants] = React.useState(
+    Math.max(0, leaderboard?.totalParticipants ?? 0),
+  );
+  const [currentUserSnapshot, setCurrentUserSnapshot] =
+    React.useState<LeaderboardCurrentUser | null>(leaderboard?.currentUser ?? null);
+  const [isShowMePending, setIsShowMePending] = React.useState(false);
+  const windowSize = Math.max(1, leaderboard?.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE);
 
-  const entries = leaderboard?.items ?? [];
-  const apiCurrentUser = leaderboard?.currentUser ?? null;
-  const pageSize = leaderboard?.pageSize ?? DASHBOARD_LEADERBOARD_PAGE_SIZE;
-  const totalParticipants = leaderboard?.totalParticipants ?? 0;
+  const mergeWindowIntoState = React.useCallback(
+    (nextWindow: domain_UserLeaderboardResponse) => {
+      const resolvedTotalParticipants = Math.max(0, nextWindow.totalParticipants ?? 0);
+      const resolvedOffset = Math.max(0, nextWindow.offset ?? 0);
 
-  const derivedTotalPages =
-    leaderboard?.totalPages ??
-    (totalParticipants > 0
-      ? Math.max(1, Math.ceil(totalParticipants / pageSize))
-      : 1);
-
-  const currentPage = Math.min(Math.max(1, leaderboard?.page ?? 1), derivedTotalPages);
-  const showPagination = Boolean(onLeaderboardPageChange) && derivedTotalPages > 1;
-
-  const isCurrentUserInEntries =
-    currentUserTelegramId != null &&
-    entries.some((e) => String(e.telegramId ?? "") === currentUserTelegramId);
-
-  const currentUserRank = apiCurrentUser?.rank;
-  const showJumpToMe =
-    Boolean(onLeaderboardJumpToMe) &&
-    Boolean(currentUserTelegramId) &&
-    showPagination &&
-    typeof currentUserRank === "number" &&
-    currentUserRank >= 1 &&
-    !isCurrentUserInEntries;
-
-  const shouldShowCurrentUserSnapshot =
-    apiCurrentUser != null &&
-    currentUserTelegramId != null &&
-    !isCurrentUserInEntries;
-
-  const currentUserSnapshotDisplayXp =
-    currentUserXp ?? Math.max(0, Math.round(apiCurrentUser?.xp ?? 0));
-  const currentUserSnapshotDisplayStreakDays = currentUserDailyStreak ?? 0;
-
-  // Safe-area-aware styles for the fullscreen dialog
-  const fullscreenHeaderStyle = React.useMemo(
-    () => ({
-      paddingTop: contentSafeAreaInset.top > 0
-        ? `calc(${contentSafeAreaInset.top}px + 1.25rem)`
-        : undefined,
-      paddingLeft: contentSafeAreaInset.left > 0
-        ? `calc(${contentSafeAreaInset.left}px + 1rem)`
-        : undefined,
-      paddingRight: contentSafeAreaInset.right > 0
-        ? `calc(${contentSafeAreaInset.right}px + 1rem)`
-        : undefined,
-    }),
-    [contentSafeAreaInset.left, contentSafeAreaInset.right, contentSafeAreaInset.top],
+      loadedOffsetsRef.current.add(resolvedOffset);
+      setTotalParticipants(resolvedTotalParticipants);
+      setCurrentUserSnapshot(nextWindow.currentUser ?? null);
+      setCachedEntries((previous) => mergeLeaderboardWindow(previous, nextWindow));
+    },
+    [],
   );
 
-  const fullscreenSideStyle = React.useMemo(
-    () => ({
-      paddingLeft: contentSafeAreaInset.left > 0
-        ? `calc(${contentSafeAreaInset.left}px + 1rem)`
-        : undefined,
-      paddingRight: contentSafeAreaInset.right > 0
-        ? `calc(${contentSafeAreaInset.right}px + 1rem)`
-        : undefined,
-    }),
-    [contentSafeAreaInset.left, contentSafeAreaInset.right],
-  );
+  React.useEffect(() => {
+    if (!leaderboard) {
+      loadedOffsetsRef.current.clear();
+      pendingOffsetsRef.current.clear();
+      setCachedEntries([]);
+      setTotalParticipants(0);
+      setCurrentUserSnapshot(null);
+      return;
+    }
 
-  const fullscreenFooterStyle = React.useMemo(
-    () => ({
-      ...fullscreenSideStyle,
-      paddingBottom: contentSafeAreaInset.bottom > 0
-        ? `calc(${contentSafeAreaInset.bottom}px + 1rem)`
-        : undefined,
-    }),
-    [contentSafeAreaInset.bottom, fullscreenSideStyle],
-  );
+    mergeWindowIntoState(leaderboard);
+  }, [leaderboard, mergeWindowIntoState]);
 
-  const handleFullscreenOpen = React.useCallback(() => {
-    if (onLeaderboardPageChange && currentPage !== 1) onLeaderboardPageChange(1);
-    setIsFullscreenOpen(true);
-  }, [currentPage, onLeaderboardPageChange]);
+  const requestLeaderboardWindow = React.useCallback(
+    async (requestedOffset: number) => {
+      if (!onLeaderboardWindowRequest) return null;
 
-  const handleFullscreenOpenChange = React.useCallback(
-    (open: boolean) => {
-      setIsFullscreenOpen(open);
-      if (!open && onLeaderboardPageChange && currentPage !== 1) {
-        onLeaderboardPageChange(1);
+      const resolvedOffset = clampLeaderboardOffset(
+        requestedOffset,
+        totalParticipants,
+        windowSize,
+      );
+
+      if (
+        loadedOffsetsRef.current.has(resolvedOffset) ||
+        pendingOffsetsRef.current.has(resolvedOffset)
+      ) {
+        return null;
+      }
+
+      pendingOffsetsRef.current.add(resolvedOffset);
+
+      try {
+        const nextWindow = await onLeaderboardWindowRequest({
+          offset: resolvedOffset,
+          limit: windowSize,
+        });
+
+        if (nextWindow) {
+          mergeWindowIntoState(nextWindow);
+        }
+
+        return nextWindow;
+      } finally {
+        pendingOffsetsRef.current.delete(resolvedOffset);
       }
     },
-    [currentPage, onLeaderboardPageChange],
+    [mergeWindowIntoState, onLeaderboardWindowRequest, totalParticipants, windowSize],
   );
+
+  const handleRangeChanged = React.useCallback(
+    ({ startIndex, endIndex }: ListRange) => {
+      if (!onLeaderboardWindowRequest || totalParticipants <= 0) return;
+
+      const clampedStartIndex = Math.max(0, startIndex);
+      const clampedEndIndex = Math.max(
+        clampedStartIndex,
+        Math.min(totalParticipants - 1, endIndex),
+      );
+
+      const firstOffset = getLeaderboardWindowOffsetForIndex(
+        clampedStartIndex,
+        totalParticipants,
+        windowSize,
+      );
+      const lastOffset = getLeaderboardWindowOffsetForIndex(
+        clampedEndIndex,
+        totalParticipants,
+        windowSize,
+      );
+
+      for (let offset = firstOffset; offset <= lastOffset; offset += windowSize) {
+        void requestLeaderboardWindow(offset);
+      }
+
+      const nextOffset = lastOffset + windowSize;
+      if (nextOffset < totalParticipants) {
+        void requestLeaderboardWindow(nextOffset);
+      }
+    },
+    [onLeaderboardWindowRequest, requestLeaderboardWindow, totalParticipants, windowSize],
+  );
+
+  const handleShowMe = React.useCallback(async () => {
+    if (!currentUserSnapshot?.rank) return;
+
+    const targetIndex = Math.max(0, currentUserSnapshot.rank - 1);
+    const targetOffset = getLeaderboardWindowOffsetForIndex(
+      targetIndex,
+      totalParticipants,
+      windowSize,
+    );
+
+    setIsShowMePending(true);
+    try {
+      await requestLeaderboardWindow(targetOffset);
+      virtuosoRef.current?.scrollToIndex({
+        index: targetIndex,
+        align: "center",
+        behavior: "smooth",
+      });
+    } finally {
+      setIsShowMePending(false);
+    }
+  }, [currentUserSnapshot?.rank, requestLeaderboardWindow, totalParticipants, windowSize]);
 
   const sharedRowProps = {
     currentUserTelegramId,
@@ -798,202 +809,115 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
     onOpenPlayerProfile,
   };
 
+  const leaderboardSubtitle =
+    totalParticipants > 0
+      ? currentUserSnapshot?.rank
+        ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
+        : `${totalParticipants} участников`
+      : "Рейтинг появится, когда у участников появится прогресс.";
+
+  const canShowMe = Boolean(currentUserSnapshot?.rank);
+
+  const renderLeaderboardRow = React.useCallback(
+    (index: number) => {
+      const entry = cachedEntries[index];
+
+      if (!entry) {
+        return <DashboardLeaderboardRowSkeleton isLast={index === totalParticipants - 1} />;
+      }
+
+      return (
+        <div className={cn("px-0", index === totalParticipants - 1 ? "pb-0" : "pb-2")}>
+          <DashboardLeaderboardRow
+            key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
+            entry={entry}
+            compact
+            {...sharedRowProps}
+          />
+        </div>
+      );
+    },
+    [
+      cachedEntries,
+      sharedRowProps,
+      totalParticipants,
+    ],
+  );
+
   return (
-    <>
-      {/* Inline card */}
-      <DashboardSurface className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className={cn("flex items-start justify-between gap-3", HEADING_MB)}>
-          <div className="min-w-0">
-            <h2
-              className={cn(
-                "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
-                HEADING_TEXT,
-              )}
-            >
-              Таблица лидеров
-            </h2>
-          </div>
+    <DashboardSurface className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className={cn("flex items-start justify-between gap-3", HEADING_MB)}>
+        <div className="min-w-0">
+          <h2
+            className={cn(
+              "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
+              HEADING_TEXT,
+            )}
+          >
+            Таблица лидеров
+          </h2>
+          <p className="mt-1 px-1 text-[11px] text-text-muted narrow:text-[10px] compact:text-[10px] compact-sm:text-[9px] compact-xs:hidden">
+            {leaderboardSubtitle}
+          </p>
+        </div>
+
+        {canShowMe ? (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className={FULL_RATING_BTN}
-            onClick={handleFullscreenOpen}
+            className={SHOW_ME_BTN}
+            disabled={isLeaderboardLoading || isShowMePending}
+            onClick={handleShowMe}
           >
-            Весь рейтинг
-            <ArrowUpRight className="h-3.5 w-3.5" />
+            Показать меня
           </Button>
-        </div>
+        ) : null}
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-2">
-          <div className={ROW_GAP}>
-            {entries.length > 0
-              ? entries.map((entry, index) => (
-                  <DashboardLeaderboardRow
-                    key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                    entry={entry}
-                    compact
-                    className={getPreviewRowVisibility(index)}
-                    {...sharedRowProps}
-                  />
-                ))
-              : isLeaderboardLoading
-                ? Array.from({ length: 5 }, (_, i) => (
-                    <div
-                      key={`skeleton-${i}`}
-                      className={cn(
-                        "rounded-[1.2rem] border border-border-subtle bg-bg-elevated px-3 py-2 narrow:px-2.5 narrow:py-1.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-1.5",
-                        getPreviewRowVisibility(i),
-                      )}
-                    >
-                      <Skeleton className="h-10 w-full rounded-[1rem] border-0 compact-sm:h-8" />
-                    </div>
-                  ))
-                : (
-                    <div className="rounded-[1.35rem] border border-dashed border-border-subtle bg-bg-elevated p-4 compact-sm:rounded-[1rem] compact-sm:p-3">
-                      <div className="space-y-3 compact-sm:space-y-2">
-                        <p className="text-sm leading-relaxed text-text-secondary compact-sm:text-[12px] compact-sm:leading-5">
-                          Рейтинг появится, когда у вас и других участников появится
-                          прогресс по стихам.
-                        </p>
-                        {onOpenTraining ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={onOpenTraining}
-                            className="h-9 rounded-full px-4 text-xs compact-sm:h-8 compact-sm:px-3"
-                          >
-                            Открыть тренировку
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-          </div>
-        </div>
-      </DashboardSurface>
-
-      {/* Fullscreen leaderboard dialog */}
-      <Dialog open={isFullscreenOpen} onOpenChange={handleFullscreenOpenChange}>
-        <DialogContent className="gap-0 p-0 sm:inset-4 sm:left-4 sm:top-4 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-h-none sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-[2rem] sm:border sm:border-border-subtle sm:p-0">
-          <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <DialogHeader
-              className="border-b border-border-subtle px-4 pb-4 pt-5 sm:px-6"
-              style={fullscreenHeaderStyle}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 text-left">
-                  <DialogTitle className="text-left">Таблица лидеров</DialogTitle>
-                  <DialogDescription className="mt-2 text-left">
-                    Полный рейтинг с пагинацией. Всего участников: {totalParticipants}.
-                  </DialogDescription>
-                </div>
-                <DialogClose asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-full"
-                    aria-label="Закрыть рейтинг"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </DialogClose>
-              </div>
-            </DialogHeader>
-
-            <div
-              className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6"
-              style={fullscreenSideStyle}
-            >
-              <div className="space-y-3">
-                {entries.length > 0
-                  ? entries.map((entry) => (
-                      <DashboardLeaderboardRow
-                        key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                        entry={entry}
-                        {...sharedRowProps}
-                      />
-                    ))
-                  : isLeaderboardLoading
-                    ? Array.from({ length: pageSize }, (_, i) => (
-                        <div
-                          key={`dialog-skeleton-${i}`}
-                          className="rounded-[1.35rem] border border-border-subtle bg-bg-elevated p-3"
-                        >
-                          <Skeleton className="h-12 w-full rounded-[1rem] border-0" />
-                        </div>
-                      ))
-                    : (
-                        <div className="rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-elevated p-4">
-                          <div className="space-y-3">
-                            <p className="text-sm leading-relaxed text-text-secondary">
-                              Рейтинг появится, когда у вас и других участников появится
-                              прогресс по стихам.
-                            </p>
-                            {onOpenTraining ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={onOpenTraining}
-                                className="h-9 rounded-full px-4 text-xs"
-                              >
-                                Открыть тренировку
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
-              </div>
-            </div>
-
-            <div
-              className="border-t border-border-subtle px-4 py-4 sm:px-6"
-              style={fullscreenFooterStyle}
-            >
-              <DashboardLeaderboardPagination
-                currentPage={currentPage}
-                derivedTotalPages={derivedTotalPages}
-                isLeaderboardLoading={isLeaderboardLoading}
-                showJumpToMe={showJumpToMe}
-                onLeaderboardPageChange={onLeaderboardPageChange}
-                onLeaderboardJumpToMe={onLeaderboardJumpToMe}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-[1.2rem] border border-border-subtle bg-bg-elevated/60 px-2 py-1.75 shadow-[var(--shadow-soft)] compact-sm:rounded-[0.95rem] compact-sm:px-1.75 compact-sm:py-1.5">
+        {totalParticipants > 0 ? (
+          <Virtuoso
+            ref={virtuosoRef}
+            className="h-full min-h-0 [scrollbar-gutter:stable]"
+            totalCount={totalParticipants}
+            increaseViewportBy={LEADERBOARD_OVERSCAN}
+            overscan={LEADERBOARD_OVERSCAN}
+            components={{ List: LeaderboardVirtuosoList }}
+            rangeChanged={handleRangeChanged}
+            itemContent={renderLeaderboardRow}
+          />
+        ) : isLeaderboardLoading ? (
+          <div className={cn("h-full overflow-hidden", ROW_GAP)}>
+            {Array.from({ length: 5 }, (_, index) => (
+              <DashboardLeaderboardRowSkeleton
+                key={`leaderboard-skeleton-${index}`}
+                isLast={index === 4}
               />
-
-              {shouldShowCurrentUserSnapshot ? (
-                <div className="mt-3 border-t border-border-subtle pt-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onOpenPlayerProfile?.({
-                        telegramId: currentUserTelegramId ?? "",
-                        name: "Вы",
-                        avatarUrl: null,
-                      })
-                    }
-                    className="flex w-full items-center justify-between gap-3 text-left text-sm"
-                    aria-label="Открыть ваш профиль"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-brand-primary">Вы</div>
-                      <div className="mt-1 text-xs text-text-muted">
-                        {apiCurrentUser?.rank ? `#${apiCurrentUser.rank}` : "Вне топа"} ·{" "}
-                        {apiCurrentUser?.versesCount ?? 0} ·{" "}
-                        {currentUserSnapshotDisplayStreakDays} дн. подряд
-                      </div>
-                    </div>
-                    <div className="font-semibold text-text-primary">
-                      {formatXp(currentUserSnapshotDisplayXp)}
-                    </div>
-                  </button>
-                </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[180px] flex-col justify-center rounded-[1.1rem] border border-dashed border-border-subtle bg-bg-surface/60 p-4 text-left compact-sm:min-h-[160px] compact-sm:p-3">
+            <div className="space-y-3 compact-sm:space-y-2">
+              <p className="text-sm leading-relaxed text-text-secondary compact-sm:text-[12px] compact-sm:leading-5">
+                Рейтинг появится, когда у вас и других участников появится прогресс по
+                стихам.
+              </p>
+              {onOpenTraining ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onOpenTraining}
+                  className="h-9 w-fit rounded-full px-4 text-xs compact-sm:h-8 compact-sm:px-3"
+                >
+                  Открыть тренировку
+                </Button>
               ) : null}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </div>
+    </DashboardSurface>
   );
 });
