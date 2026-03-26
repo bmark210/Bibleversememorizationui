@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { BookOpen, Dumbbell, LayoutDashboard, User } from 'lucide-react';
-import { getTelegramWebApp } from '@/app/lib/telegramWebApp';
-import { useTelegramSafeArea } from '../hooks/useTelegramSafeArea';
-import { triggerHaptic } from '../lib/haptics';
-import { useTelegramUiStore } from '../stores/telegramUiStore';
-import { cn } from './ui/utils';
+import React, { useEffect, useState } from "react";
+import { BookOpen, Dumbbell, LayoutDashboard, User } from "lucide-react";
+import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
+import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
+import { triggerHaptic } from "../lib/haptics";
+import { useTelegramUiStore } from "../stores/telegramUiStore";
+import { cn } from "./ui/utils";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,14 +14,14 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
-  contentMode?: 'scroll' | 'fit';
+  contentMode?: "scroll" | "fit";
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  dashboard: 'Главная',
-  verses: 'Стихи',
-  training: 'Тренировка',
-  profile: 'Профиль',
+  dashboard: "Главная",
+  verses: "Стихи",
+  training: "Тренировка",
+  profile: "Профиль",
 };
 
 export function Layout({
@@ -30,20 +30,20 @@ export function Layout({
   onNavigate,
   isContentReady = false,
   hideChrome = false,
-  contentMode = 'scroll',
+  contentMode = "scroll",
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
-    (state) => state.isTelegramFullscreen
+    (state) => state.isTelegramFullscreen,
   );
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [bottomNavClearance, setBottomNavClearance] = useState(0);
   const mobileNavShellRef = React.useRef<HTMLDivElement | null>(null);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-  const pageTitle = PAGE_TITLES[currentPage] ?? 'Bible Memory';
+  const pageTitle = PAGE_TITLES[currentPage] ?? "Bible Memory";
   const hideAppChrome = hideChrome;
-  const isFitContent = contentMode === 'fit';
+  const isFitContent = contentMode === "fit";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -88,12 +88,9 @@ export function Layout({
         : 0;
 
       setBottomNavClearance((prev) =>
-        prev === nextClearance ? prev : nextClearance
+        prev === nextClearance ? prev : nextClearance,
       );
-      rootStyle.setProperty(
-        "--app-bottom-nav-clearance",
-        `${nextClearance}px`,
-      );
+      rootStyle.setProperty("--app-bottom-nav-clearance", `${nextClearance}px`);
     };
 
     updateClearance();
@@ -129,19 +126,19 @@ export function Layout({
   }, [bottomInset, hideAppChrome, isKeyboardOpen]);
 
   const navItems = [
-    { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
-    { id: 'verses', label: 'Стихи', icon: BookOpen },
-    { id: 'training', label: 'Тренировка', icon: Dumbbell },
-    { id: 'profile', label: 'Профиль', icon: User },
+    { id: "dashboard", label: "Главная", icon: LayoutDashboard },
+    { id: "verses", label: "Стихи", icon: BookOpen },
+    { id: "training", label: "Тренировка", icon: Dumbbell },
+    { id: "profile", label: "Профиль", icon: User },
   ];
 
   const handleNavigateClick = (page: string) => {
     if (page === currentPage) {
-      triggerHaptic('light');
+      triggerHaptic("light");
       return;
     }
 
-    triggerHaptic('medium');
+    triggerHaptic("medium");
     onNavigate(page);
   };
 
@@ -157,7 +154,7 @@ export function Layout({
         <header
           id="app-layout-header"
           className={`sticky top-0 z-10 overflow-hidden border-b border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl transition-[opacity,transform] duration-400 ease-out ${
-            isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
+            isContentReady ? "opacity-100 translate-y-0" : "opacity-0"
           }`}
           style={{ paddingTop: `${topInset}px` }}
         >
@@ -181,20 +178,26 @@ export function Layout({
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
-              
+
               return (
                 <button
                   type="button"
                   key={item.id}
-                  aria-current={isActive ? 'page' : undefined}
+                  aria-current={isActive ? "page" : undefined}
                   onClick={() => handleNavigateClick(item.id)}
                   className={cn(
-                  'flex min-h-12 w-full items-center gap-3 rounded-[1.25rem] border px-4 py-3 text-sm transition-[background-color,border-color,color,box-shadow]',
-                  isActive
-                    ? 'border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                    : 'border-transparent text-text-secondary hover:border-border-subtle hover:bg-bg-elevated hover:text-text-primary'
-                )}>
-                  <Icon className={cn("w-5 h-5", isActive ? "text-brand-primary" : "text-text-muted")} />
+                    "flex min-h-12 w-full items-center gap-3 rounded-[1.25rem] border px-4 py-3 text-sm transition-[background-color,border-color,color,box-shadow]",
+                    isActive
+                      ? "border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]"
+                      : "border-transparent text-text-secondary hover:border-border-subtle hover:bg-bg-elevated hover:text-text-primary",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "w-5 h-5",
+                      isActive ? "text-brand-primary" : "text-text-muted",
+                    )}
+                  />
                   <span>{item.label}</span>
                 </button>
               );
@@ -206,7 +209,9 @@ export function Layout({
         <main
           className={cn(
             "min-w-0 flex-1 min-h-0 [overflow-x:clip]",
-            isFitContent ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
+            isFitContent
+              ? "overflow-hidden"
+              : "overflow-y-auto overscroll-contain",
           )}
           style={{
             paddingBottom: `${mainBottomPadding}px`,
@@ -229,14 +234,16 @@ export function Layout({
         data-tour="app-nav"
         className={`md:hidden fixed bottom-0 left-0 right-0 transition-[opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady
-            ? 'opacity-0 translate-y-3 pointer-events-none'
+            ? "opacity-0 translate-y-3 pointer-events-none"
             : isKeyboardOpen
-              ? 'opacity-0 translate-y-full pointer-events-none'
-              : 'opacity-100 translate-y-0'
+              ? "opacity-0 translate-y-full pointer-events-none"
+              : "opacity-100 translate-y-0"
         }`}
-        style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
       >
-        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-[1.6rem] narrow:py-1.5 compact-sm:py-1.5">
+        <nav
+          style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
+          className="flex justify-around border border-border-subtle bg-bg-overlay px-2 py-2 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-t-lg narrow:py-1.5 compact-sm:py-1.5"
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -245,17 +252,19 @@ export function Layout({
               <button
                 type="button"
                 key={item.id}
-                aria-current={isActive ? 'page' : undefined}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => handleNavigateClick(item.id)}
                 className={cn(
-                  'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-1.5 transition-[background-color,color,box-shadow] narrow:gap-0.5 narrow:rounded-[1rem] narrow:py-1 compact-sm:py-1',
+                  "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-1.5 transition-[background-color,color,box-shadow] narrow:gap-0.5 narrow:rounded-[1rem] narrow:py-1 compact-sm:py-1",
                   isActive
-                    ? 'bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                    : 'text-text-muted',
+                    ? "bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]"
+                    : "text-text-muted",
                 )}
               >
                 <Icon className="h-5 w-5 narrow:h-4 narrow:w-4" />
-                <span className="text-[11px] font-medium narrow:text-[10px]">{item.label}</span>
+                <span className="text-[11px] font-medium narrow:text-[10px]">
+                  {item.label}
+                </span>
               </button>
             );
           })}

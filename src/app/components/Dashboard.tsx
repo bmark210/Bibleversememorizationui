@@ -148,10 +148,10 @@ export function Dashboard({
   const statsCards = useMemo(
     () =>
       [
-        { key: 'learning', label: 'Изучение', value: `${learningVerses}`, tone: 'learning' as const },
-        { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
+        { key: 'active', label: 'Активность', value: `${learningVerses + dueReviewVerses} стиха`, tone: 'learning' as const },
+        // { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
         { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
-        { key: 'mastered', label: 'Выучено', value: masteredVerses != null ? `${masteredVerses}` : null, isLoading: isStatsPending, tone: 'mastered' as const },
+        { key: 'steak', label: 'Серия', value: '5 дней', tone: 'mastered' as const },
       ] as const,
     [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
   )

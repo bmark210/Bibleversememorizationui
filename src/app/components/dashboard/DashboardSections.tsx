@@ -397,7 +397,7 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
         Моя статистика
       </h3>
 
-      <div className={cn("grid grid-cols-2", GRID_GAP)}>
+      <div className={cn("grid grid-cols-3", GRID_GAP)}>
         {statsCards.map((item) => {
           const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
           return (
