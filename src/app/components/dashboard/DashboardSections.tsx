@@ -687,9 +687,6 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
               <h2 className="[font-family:var(--font-heading)] text-base font-semibold tracking-tight text-text-primary [@media(max-height:880px)]:text-[15px] sm:text-lg">
                 Таблица лидеров
               </h2>
-              <p className="mt-1 text-[11px] text-text-muted [@media(max-height:880px)]:text-[10px]">
-                Первые 3 позиции из {leaderboard?.totalParticipants ?? 0}
-              </p>
             </div>
             <Button
               type="button"
