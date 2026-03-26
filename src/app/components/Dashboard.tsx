@@ -6,11 +6,13 @@ import type { Verse } from '@/app/domain/verse'
 import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
+import type { DashboardCompactFriendsActivityResponse } from '@/api/services/friendsActivity'
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
 import { cn } from './ui/utils'
 import {
+  DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
@@ -24,6 +26,8 @@ interface DashboardProps {
   isDashboardStatsLoading?: boolean
   dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
+  dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null
+  isDashboardFriendsActivityLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
@@ -51,6 +55,14 @@ type TodayVersesSummary = {
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
+}
+
+function pluralizeDays(count: number) {
+  if (count % 10 === 1 && count % 100 !== 11) return 'день'
+  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
+    return 'дня'
+  }
+  return 'дней'
 }
 
 export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
@@ -123,6 +135,8 @@ export function Dashboard({
   isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
+  dashboardFriendsActivity = null,
+  isDashboardFriendsActivityLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
@@ -134,15 +148,12 @@ export function Dashboard({
   const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
   const currentUserXp = useCurrentUserStatsStore((s) => s.xp)
-  const currentUserMasteredVerses = useCurrentUserStatsStore((s) => s.masteredVerses)
   const currentUserDailyStreak = useCurrentUserStatsStore((s) => s.dailyStreak)
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null
-  const masteredVerses =
-    currentUserMasteredVerses ?? dashboardStats?.masteredCount ?? null
   const dailyStreak = currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null
 
   const statsCards = useMemo(
@@ -151,9 +162,18 @@ export function Dashboard({
         { key: 'active', label: 'Активность', value: `${learningVerses + dueReviewVerses} стиха`, tone: 'learning' as const },
         // { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
         { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
-        { key: 'steak', label: 'Серия', value: '5 дней', tone: 'mastered' as const },
+        {
+          key: 'streak',
+          label: 'Серия',
+          value:
+            dailyStreak != null
+              ? `${dailyStreak} ${pluralizeDays(dailyStreak)}`
+              : null,
+          isLoading: isStatsPending,
+          tone: 'mastered' as const,
+        },
       ] as const,
-    [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
+    [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, userXp],
   )
 
   if (isInitializingData) {
@@ -164,12 +184,8 @@ export function Dashboard({
     <section
       className={cn(
         'mx-auto grid h-full min-h-0 w-full max-w-5xl grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
-        'gap-2.5 px-3 py-3',
-        'narrow:gap-2.5 narrow:px-3 narrow:py-3',
-        'compact:gap-2.5 compact:py-2.5',
-        'compact-md:gap-2 compact-md:px-2.5 compact-md:py-2.5',
-        'compact-sm:gap-2 compact-sm:px-2.5 compact-sm:py-2.5',
-        'compact-xs:gap-2 compact-xs:px-2.5 compact-xs:py-2.5',
+        'gap-3 px-3 py-3',
+        'narrow:gap-3 narrow:px-3 narrow:py-3',
         'lg:grid-cols-[minmax(0,1.05fr)_minmax(19rem,0.95fr)] lg:grid-rows-[auto_minmax(0,1fr)]',
         'sm:px-4 lg:px-5',
       )}
@@ -199,13 +215,19 @@ export function Dashboard({
         <DashboardTrainingStatsCard statsCards={statsCards} />
       </div>
 
-      <div className="min-h-0 flex lg:col-span-2 lg:row-start-2">
+      <div className="grid min-h-0 grid-cols-1 grid-rows-2 gap-3 lg:col-span-2 lg:row-start-2 lg:grid-cols-2 lg:grid-rows-1">
         <DashboardLeaderboardCard
           leaderboard={dashboardLeaderboard}
           isLeaderboardLoading={isDashboardLeaderboardLoading}
           onOpenTraining={onOpenTraining}
           onOpenPlayerProfile={onOpenPlayerProfile}
           onLeaderboardWindowRequest={onLeaderboardWindowRequest}
+        />
+        <DashboardFriendsActivityCard
+          friendsActivity={dashboardFriendsActivity}
+          isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+          currentTelegramId={currentTelegramId}
+          onOpenPlayerProfile={onOpenPlayerProfile}
         />
       </div>
     </section>

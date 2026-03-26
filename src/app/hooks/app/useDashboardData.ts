@@ -5,6 +5,10 @@ import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboar
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { fetchFriendsPage } from "@/api/services/friends";
 import {
+  fetchDashboardFriendsActivity,
+  type DashboardCompactFriendsActivityResponse,
+} from "@/api/services/friendsActivity";
+import {
   DASHBOARD_LEADERBOARD_WINDOW_SIZE,
   fetchDashboardLeaderboard,
 } from "@/api/services/leaderboard";
@@ -22,12 +26,17 @@ export function useDashboardData(telegramId: string | null) {
   const [dashboardLeaderboard, setDashboardLeaderboard] =
     useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
+  const [dashboardFriendsActivity, setDashboardFriendsActivity] =
+    useState<DashboardCompactFriendsActivityResponse | null>(null);
+  const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] =
+    useState(false);
   const [verseListFriendsPresence, setVerseListFriendsPresence] = useState<boolean | null>(null);
   const [isVerseListFriendsPresenceLoading, setIsVerseListFriendsPresenceLoading] =
     useState(false);
 
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
+  const dashboardFriendsActivityRequestIdRef = useRef(0);
   const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({
     offset: 0,
     limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
@@ -37,6 +46,7 @@ export function useDashboardData(telegramId: string | null) {
   const dashboardFetchFailedRef = useRef({
     stats: false,
     leaderboard: false,
+    friendsActivity: false,
   });
   const verseListFriendsFetchFailedRef = useRef(false);
 
@@ -44,7 +54,9 @@ export function useDashboardData(telegramId: string | null) {
     dashboardFetchFailedRef.current = {
       stats: false,
       leaderboard: false,
+      friendsActivity: false,
     };
+    setDashboardFriendsActivity(null);
     verseListFriendsFetchFailedRef.current = false;
     setVerseListFriendsPresence(null);
     leaderboardQueryRef.current = {
@@ -130,6 +142,35 @@ export function useDashboardData(telegramId: string | null) {
     []
   );
 
+  const loadDashboardFriendsActivity = useCallback(async (telegramIdValue: string) => {
+    if (!telegramIdValue) return null;
+
+    const requestId = ++dashboardFriendsActivityRequestIdRef.current;
+    setIsDashboardFriendsActivityLoading(true);
+
+    try {
+      const nextFriendsActivity = await fetchDashboardFriendsActivity({
+        telegramId: telegramIdValue,
+      });
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.friendsActivity = false;
+        setDashboardFriendsActivity(nextFriendsActivity);
+      }
+      return nextFriendsActivity;
+    } catch (error) {
+      console.error("Не удалось получить активность друзей:", error);
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        dashboardFetchFailedRef.current.friendsActivity = true;
+        setDashboardFriendsActivity(null);
+      }
+      return null;
+    } finally {
+      if (dashboardFriendsActivityRequestIdRef.current === requestId) {
+        setIsDashboardFriendsActivityLoading(false);
+      }
+    }
+  }, []);
+
   const handleLeaderboardWindowRequest = useCallback(
     (query: DashboardLeaderboardQuery) => {
       if (!telegramId) return Promise.resolve(null);
@@ -176,11 +217,15 @@ export function useDashboardData(telegramId: string | null) {
     dashboardLeaderboard,
     setDashboardLeaderboard,
     isDashboardLeaderboardLoading,
+    dashboardFriendsActivity,
+    setDashboardFriendsActivity,
+    isDashboardFriendsActivityLoading,
     verseListFriendsPresence,
     setVerseListFriendsPresence,
     isVerseListFriendsPresenceLoading,
     loadDashboardStats,
     loadDashboardLeaderboard,
+    loadDashboardFriendsActivity,
     loadVerseListFriendsPresence,
     handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,

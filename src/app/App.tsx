@@ -92,15 +92,19 @@ export default function App({ onInitialContentReady }: AppProps) {
   const {
     dashboardStats,
     setDashboardStats,
+    dashboardFriendsActivity,
+    setDashboardFriendsActivity,
     setDashboardLeaderboard,
     setVerseListFriendsPresence,
     isDashboardStatsLoading,
     dashboardLeaderboard,
     isDashboardLeaderboardLoading,
+    isDashboardFriendsActivityLoading,
     verseListFriendsPresence,
     isVerseListFriendsPresenceLoading,
     loadDashboardStats,
     loadDashboardLeaderboard,
+    loadDashboardFriendsActivity,
     loadVerseListFriendsPresence,
     handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
@@ -127,9 +131,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     setIsBootstrapping,
     setDashboardStats,
     setDashboardLeaderboard,
+    setDashboardFriendsActivity,
     setVerseListFriendsPresence,
     loadDashboardStats,
     loadDashboardLeaderboard,
+    loadDashboardFriendsActivity,
     loadVerseListFriendsPresence,
     scheduleTrainingVersePrefetch,
   });
@@ -139,9 +145,11 @@ export default function App({ onInitialContentReady }: AppProps) {
     isBootstrapping,
     dashboardStats,
     dashboardLeaderboard,
+    dashboardFriendsActivity,
     verseListFriendsPresence,
     isDashboardStatsLoading,
     isDashboardLeaderboardLoading,
+    isDashboardFriendsActivityLoading,
     isVerseListFriendsPresenceLoading,
     hasLoadedTrainingVerses,
     trainingVersesPromiseRef,
@@ -150,6 +158,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     trainingVersesFetchFailedRef,
     loadDashboardStats,
     loadDashboardLeaderboard,
+    loadDashboardFriendsActivity,
     loadVerseListFriendsPresence,
     scheduleTrainingVersePrefetch,
   });
@@ -196,13 +205,16 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     dashboardFetchFailedRef.current.stats = false;
     dashboardFetchFailedRef.current.leaderboard = false;
+    dashboardFetchFailedRef.current.friendsActivity = false;
     trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
     void loadDashboardLeaderboard(telegramId);
+    void loadDashboardFriendsActivity(telegramId);
   }, [
     dashboardFetchFailedRef,
     isTrainingSessionFullscreen,
+    loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
     loadTrainingVersesForDashboard,
@@ -214,9 +226,17 @@ export default function App({ onInitialContentReady }: AppProps) {
     setFriendsRefreshVersion((prev) => prev + 1);
     const telegramIdValue = telegramId ?? localStorage.getItem("telegramId") ?? "";
     if (!telegramIdValue) return;
+    dashboardFetchFailedRef.current.friendsActivity = false;
+    void loadDashboardFriendsActivity(telegramIdValue);
     verseListFriendsFetchFailedRef.current = false;
     void loadVerseListFriendsPresence(telegramIdValue);
-  }, [loadVerseListFriendsPresence, telegramId, verseListFriendsFetchFailedRef]);
+  }, [
+    dashboardFetchFailedRef,
+    loadDashboardFriendsActivity,
+    loadVerseListFriendsPresence,
+    telegramId,
+    verseListFriendsFetchFailedRef,
+  ]);
 
   const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
     if (!player.telegramId) return;
@@ -296,6 +316,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         await Promise.all([
           loadDashboardStats(tid),
           loadDashboardLeaderboard(tid),
+          loadDashboardFriendsActivity(tid),
         ]);
 
         setVerseListExternalSyncVersion((prev) => prev + 1);
@@ -313,7 +334,12 @@ export default function App({ onInitialContentReady }: AppProps) {
         throw err;
       }
     },
-    [loadDashboardLeaderboard, loadDashboardStats, loadTrainingVersesForDashboard]
+    [
+      loadDashboardFriendsActivity,
+      loadDashboardLeaderboard,
+      loadDashboardStats,
+      loadTrainingVersesForDashboard,
+    ]
   );
 
   useEffect(() => {
@@ -333,14 +359,17 @@ export default function App({ onInitialContentReady }: AppProps) {
       pendingMutationRefetchRef.current = false;
       dashboardFetchFailedRef.current.stats = false;
       dashboardFetchFailedRef.current.leaderboard = false;
+      dashboardFetchFailedRef.current.friendsActivity = false;
       trainingVersesFetchFailedRef.current = false;
       void loadTrainingVersesForDashboard(telegramId);
       void loadDashboardStats(telegramId);
       void loadDashboardLeaderboard(telegramId);
+      void loadDashboardFriendsActivity(telegramId);
     }
   }, [
     dashboardFetchFailedRef,
     isTrainingSessionFullscreen,
+    loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
     loadTrainingVersesForDashboard,
@@ -369,6 +398,8 @@ export default function App({ onInitialContentReady }: AppProps) {
                 isDashboardStatsLoading={isDashboardStatsLoading}
                 dashboardLeaderboard={dashboardLeaderboard}
                 isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
+                dashboardFriendsActivity={dashboardFriendsActivity}
+                isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                 currentTelegramId={telegramId}
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}

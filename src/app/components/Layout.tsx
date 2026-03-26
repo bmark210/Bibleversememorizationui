@@ -242,7 +242,7 @@ export function Layout({
       >
         <nav
           style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
-          className="flex justify-around border border-border-subtle bg-bg-overlay px-2 py-2 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-t-lg narrow:py-1.5 compact-sm:py-1.5"
+          className="flex justify-around rounded-t-[1.75rem] border border-border-subtle bg-bg-overlay px-2.5 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-t-[1.5rem] narrow:px-2 narrow:py-2"
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -255,14 +255,14 @@ export function Layout({
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => handleNavigateClick(item.id)}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-1.5 transition-[background-color,color,box-shadow] narrow:gap-0.5 narrow:rounded-[1rem] narrow:py-1 compact-sm:py-1",
+                  "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] px-2.5 py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:px-2 narrow:py-1.5",
                   isActive
                     ? "bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]"
                     : "text-text-muted",
                 )}
               >
-                <Icon className="h-5 w-5 narrow:h-4 narrow:w-4" />
-                <span className="text-[11px] font-medium narrow:text-[10px]">
+                <Icon className="h-5 w-5 narrow:h-[1.1rem] narrow:w-[1.1rem]" />
+                <span className="text-xs font-medium narrow:text-[11px]">
                   {item.label}
                 </span>
               </button>

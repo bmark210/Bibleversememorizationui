@@ -17,9 +17,11 @@ type UseAppBootstrapParams = {
   setIsBootstrapping: (v: boolean) => void;
   setDashboardStats: (v: null) => void;
   setDashboardLeaderboard: (v: null) => void;
+  setDashboardFriendsActivity: (v: null) => void;
   setVerseListFriendsPresence: (v: null) => void;
   loadDashboardStats: (telegramId: string) => Promise<unknown>;
   loadDashboardLeaderboard: (telegramId: string) => Promise<unknown>;
+  loadDashboardFriendsActivity: (telegramId: string) => Promise<unknown>;
   loadVerseListFriendsPresence: (telegramId: string) => Promise<unknown>;
   scheduleTrainingVersePrefetch: (telegramId: string) => void;
 };
@@ -30,9 +32,11 @@ export function useAppBootstrap({
   setIsBootstrapping,
   setDashboardStats,
   setDashboardLeaderboard,
+  setDashboardFriendsActivity,
   setVerseListFriendsPresence,
   loadDashboardStats,
   loadDashboardLeaderboard,
+  loadDashboardFriendsActivity,
   loadVerseListFriendsPresence,
   scheduleTrainingVersePrefetch,
 }: UseAppBootstrapParams) {
@@ -63,6 +67,7 @@ export function useAppBootstrap({
       if (!resolvedTelegramId) {
         setDashboardStats(null);
         setDashboardLeaderboard(null);
+        setDashboardFriendsActivity(null);
         setVerseListFriendsPresence(null);
         setCurrentUserAvatarUrl(null);
         useCurrentUserStatsStore.getState().clear();
@@ -104,6 +109,7 @@ export function useAppBootstrap({
         await Promise.all([
           loadDashboardStats(resolvedTelegramId),
           loadDashboardLeaderboard(resolvedTelegramId),
+          loadDashboardFriendsActivity(resolvedTelegramId),
           loadVerseListFriendsPresence(resolvedTelegramId),
         ]);
       } catch (err) {
@@ -123,10 +129,12 @@ export function useAppBootstrap({
     };
   }, [
     loadVerseListFriendsPresence,
+    loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
     scheduleTrainingVersePrefetch,
     setCurrentUserAvatarUrl,
+    setDashboardFriendsActivity,
     setDashboardLeaderboard,
     setDashboardStats,
     setIsBootstrapping,
