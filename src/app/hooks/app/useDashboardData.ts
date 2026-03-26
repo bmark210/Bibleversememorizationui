@@ -5,15 +5,16 @@ import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboar
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { fetchFriendsPage } from "@/api/services/friends";
 import {
-  DASHBOARD_LEADERBOARD_PAGE_SIZE,
+  DASHBOARD_LEADERBOARD_WINDOW_SIZE,
   fetchDashboardLeaderboard,
 } from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 
-type DashboardLeaderboardQuery =
-  | { mode: "anchor" }
-  | { mode: "page"; page: number };
+type DashboardLeaderboardQuery = {
+  offset?: number;
+  limit?: number;
+};
 
 export function useDashboardData(telegramId: string | null) {
   const [dashboardStats, setDashboardStats] = useState<domain_UserDashboardStats | null>(null);
@@ -27,7 +28,10 @@ export function useDashboardData(telegramId: string | null) {
 
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
-  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({ mode: "page", page: 1 });
+  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({
+    offset: 0,
+    limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+  });
   const verseListFriendsPresenceRequestIdRef = useRef(0);
 
   const dashboardFetchFailedRef = useRef({
@@ -43,7 +47,10 @@ export function useDashboardData(telegramId: string | null) {
     };
     verseListFriendsFetchFailedRef.current = false;
     setVerseListFriendsPresence(null);
-    leaderboardQueryRef.current = { mode: "page", page: 1 };
+    leaderboardQueryRef.current = {
+      offset: 0,
+      limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+    };
   }, [telegramId]);
 
   const loadDashboardStats = useCallback(async (telegramIdValue: string) => {
@@ -95,16 +102,16 @@ export function useDashboardData(telegramId: string | null) {
       try {
         const nextLeaderboard = await fetchDashboardLeaderboard({
           telegramId: telegramIdValue,
-          pageSize: DASHBOARD_LEADERBOARD_PAGE_SIZE,
-          ...(q.mode === "page" ? { page: q.page } : {}),
+          limit: q.limit,
+          offset: q.offset,
         });
         if (dashboardLeaderboardRequestIdRef.current === requestId) {
           dashboardFetchFailedRef.current.leaderboard = false;
           setDashboardLeaderboard(nextLeaderboard);
-          const resolvedPage = nextLeaderboard.page;
-          if (typeof resolvedPage === "number" && resolvedPage >= 1) {
-            leaderboardQueryRef.current = { mode: "page", page: resolvedPage };
-          }
+          leaderboardQueryRef.current = {
+            offset: nextLeaderboard.offset ?? q.offset ?? 0,
+            limit: nextLeaderboard.limit ?? q.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+          };
         }
         return nextLeaderboard;
       } catch (error) {
@@ -123,19 +130,13 @@ export function useDashboardData(telegramId: string | null) {
     []
   );
 
-  const handleLeaderboardPageChange = useCallback(
-    (page: number) => {
-      if (!telegramId) return;
-      if (page < 1) return;
-      void loadDashboardLeaderboard(telegramId, { mode: "page", page });
+  const handleLeaderboardWindowRequest = useCallback(
+    (query: DashboardLeaderboardQuery) => {
+      if (!telegramId) return Promise.resolve(null);
+      return loadDashboardLeaderboard(telegramId, query);
     },
     [loadDashboardLeaderboard, telegramId]
   );
-
-  const handleLeaderboardJumpToMe = useCallback(() => {
-    if (!telegramId) return;
-    void loadDashboardLeaderboard(telegramId, { mode: "anchor" });
-  }, [loadDashboardLeaderboard, telegramId]);
 
   const loadVerseListFriendsPresence = useCallback(async (telegramIdValue: string) => {
     if (!telegramIdValue) return null;
@@ -181,8 +182,7 @@ export function useDashboardData(telegramId: string | null) {
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadVerseListFriendsPresence,
-    handleLeaderboardPageChange,
-    handleLeaderboardJumpToMe,
+    handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
     verseListFriendsFetchFailedRef,
   };

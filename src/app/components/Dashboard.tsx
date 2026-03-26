@@ -32,8 +32,10 @@ interface DashboardProps {
     name: string
     avatarUrl: string | null
   }) => void
-  onLeaderboardPageChange?: (page: number) => void
-  onLeaderboardJumpToMe?: () => void
+  onLeaderboardWindowRequest?: (query: {
+    offset?: number
+    limit?: number
+  }) => Promise<domain_UserLeaderboardResponse | null>
   isInitializingData?: boolean
 }
 
@@ -125,8 +127,7 @@ export function Dashboard({
   currentUserAvatarUrl = null,
   onOpenTraining,
   onOpenPlayerProfile,
-  onLeaderboardPageChange,
-  onLeaderboardJumpToMe,
+  onLeaderboardWindowRequest,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
@@ -160,47 +161,53 @@ export function Dashboard({
   }
 
   return (
-    <div
+    <section
       className={cn(
-        'mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden',
-        'gap-3 px-3 py-3',
-        'narrow:gap-3 narrow:px-3 narrow:py-3',
+        'mx-auto grid h-full min-h-0 w-full max-w-5xl grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
+        'gap-2.5 px-3 py-3',
+        'narrow:gap-2.5 narrow:px-3 narrow:py-3',
         'compact:gap-2.5 compact:py-2.5',
-        'compact-md:gap-2.5 compact-md:px-2.5 compact-md:py-2.5',
-        'compact-sm:gap-2.5 compact-sm:px-2.5 compact-sm:py-2.5',
-        'compact-xs:gap-2.5 compact-xs:px-2.5 compact-xs:py-2.5',
+        'compact-md:gap-2 compact-md:px-2.5 compact-md:py-2.5',
+        'compact-sm:gap-2 compact-sm:px-2.5 compact-sm:py-2.5',
+        'compact-xs:gap-2 compact-xs:px-2.5 compact-xs:py-2.5',
+        'lg:grid-cols-[minmax(0,1.05fr)_minmax(19rem,0.95fr)] lg:grid-rows-[auto_minmax(0,1fr)]',
         'sm:px-4 lg:px-5',
       )}
     >
-      <DashboardWelcomeSection
-        user={user}
-        currentUserAvatarUrl={currentUserAvatarUrl}
-        learningVersesCount={learningVerses}
-        dueReviewVerses={dueReviewVerses}
-        dailyStreak={dailyStreak}
-        onOpenTraining={onOpenTraining}
-        onOpenCurrentUserProfile={
-          currentTelegramId && onOpenPlayerProfile
-            ? () =>
-                onOpenPlayerProfile({
-                  telegramId: currentTelegramId,
-                  name: user?.firstName?.trim() || 'Вы',
-                  avatarUrl: currentUserAvatarUrl,
-                })
-            : undefined
-        }
-      />
+      <div className="min-h-0 lg:col-start-1 lg:row-start-1">
+        <DashboardWelcomeSection
+          user={user}
+          currentUserAvatarUrl={currentUserAvatarUrl}
+          learningVersesCount={learningVerses}
+          dueReviewVerses={dueReviewVerses}
+          dailyStreak={dailyStreak}
+          onOpenTraining={onOpenTraining}
+          onOpenCurrentUserProfile={
+            currentTelegramId && onOpenPlayerProfile
+              ? () =>
+                  onOpenPlayerProfile({
+                    telegramId: currentTelegramId,
+                    name: user?.firstName?.trim() || 'Вы',
+                    avatarUrl: currentUserAvatarUrl,
+                  })
+              : undefined
+          }
+        />
+      </div>
 
-      <DashboardTrainingStatsCard statsCards={statsCards} />
+      <div className="min-h-0 lg:col-start-2 lg:row-start-1">
+        <DashboardTrainingStatsCard statsCards={statsCards} />
+      </div>
 
-      <DashboardLeaderboardCard
-        leaderboard={dashboardLeaderboard}
-        isLeaderboardLoading={isDashboardLeaderboardLoading}
-        onOpenTraining={onOpenTraining}
-        onOpenPlayerProfile={onOpenPlayerProfile}
-        onLeaderboardPageChange={onLeaderboardPageChange}
-        onLeaderboardJumpToMe={onLeaderboardJumpToMe}
-      />
-    </div>
+      <div className="min-h-0 flex lg:col-span-2 lg:row-start-2">
+        <DashboardLeaderboardCard
+          leaderboard={dashboardLeaderboard}
+          isLeaderboardLoading={isDashboardLeaderboardLoading}
+          onOpenTraining={onOpenTraining}
+          onOpenPlayerProfile={onOpenPlayerProfile}
+          onLeaderboardWindowRequest={onLeaderboardWindowRequest}
+        />
+      </div>
+    </section>
   )
 }

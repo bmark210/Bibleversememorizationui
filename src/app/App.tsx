@@ -102,8 +102,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadVerseListFriendsPresence,
-    handleLeaderboardPageChange,
-    handleLeaderboardJumpToMe,
+    handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
     verseListFriendsFetchFailedRef,
   } = useDashboardData(telegramId);
@@ -374,8 +373,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                 currentUserAvatarUrl={currentUserAvatarUrl}
                 onOpenTraining={handleOpenTraining}
                 onOpenPlayerProfile={handleOpenPlayerProfile}
-                onLeaderboardPageChange={handleLeaderboardPageChange}
-                onLeaderboardJumpToMe={handleLeaderboardJumpToMe}
+                onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
                 isInitializingData={isBootstrapping}
               />
             </div>
