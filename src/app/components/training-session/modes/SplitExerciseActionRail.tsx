@@ -13,14 +13,14 @@ interface SplitExerciseActionRailProps {
 
 function getMistakeToneClassName(remainingMistakes: number) {
   if (remainingMistakes <= 1) {
-    return "border-rose-500/35 bg-rose-500/[0.08] text-rose-700 dark:text-rose-200";
+    return "border-status-paused/30 bg-status-paused-soft text-status-paused";
   }
 
   if (remainingMistakes <= 3) {
-    return "border-amber-500/35 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300";
+    return "border-state-warning/30 bg-state-warning/12 text-state-warning";
   }
 
-  return "border-border/60 bg-background/45 text-foreground/80";
+  return "border-border-subtle bg-bg-elevated text-text-secondary";
 }
 
 export function SplitExerciseActionRail({
@@ -41,7 +41,7 @@ export function SplitExerciseActionRail({
           <Button
             type="button"
             variant="ghost"
-            className="h-8 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
+            className="h-8 rounded-xl border border-status-paused/25 bg-status-paused-soft px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
             onClick={onRequestQuickForget}
             disabled={disabled}
           >
@@ -53,7 +53,7 @@ export function SplitExerciseActionRail({
   }
 
   return (
-    <div className="relative my-2 flex w-full max-w-xl items-center gap-2.5 rounded-xl border border-border/60 bg-background/88 p-2 text-[11px]">
+    <div className="relative my-2 flex w-full max-w-xl items-center gap-2.5 rounded-xl border border-border-subtle bg-bg-elevated p-2 text-[11px] shadow-[var(--shadow-soft)]">
       <div
         className={cn(
           "min-w-0 rounded-xl border h-8 px-3 py-2",
@@ -70,7 +70,7 @@ export function SplitExerciseActionRail({
           <Button
             type="button"
             variant="ghost"
-            className="h-8 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
+            className="h-8 rounded-xl border border-status-paused/25 bg-status-paused-soft px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
             onClick={onRequestQuickForget}
             disabled={disabled}
           >

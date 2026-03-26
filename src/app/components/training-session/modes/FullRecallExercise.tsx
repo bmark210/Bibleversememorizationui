@@ -226,12 +226,12 @@ export function ModeFullRecallExercise({
           <motion.div
             animate={shakeFlash.value === true ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
             transition={{ duration: 0.2 }}
-            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 transition-colors ${
+            className={`relative flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)] transition-colors ${
               shakeFlash.value === true
-                ? 'border-destructive/60 bg-destructive/5'
+                ? 'border-state-error/50 bg-state-error/8'
                 : successFlashState.value === true
-                  ? 'border-emerald-500/60 bg-emerald-500/5'
-                  : 'border-border/60'
+                  ? 'border-status-learning/25 bg-status-learning-soft'
+                  : 'border-border-subtle'
             }`}
           >
             <Textarea
@@ -255,14 +255,14 @@ export function ModeFullRecallExercise({
             <div
               className={`rounded-xl border px-3 py-2 text-sm ${
                 matchPercent === 100
-                  ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  ? 'border-status-learning/25 bg-status-learning-soft text-status-learning'
                   : matchPercent >= RECALL_THRESHOLD
-                    ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                    : 'border-destructive/45 bg-destructive/10 text-destructive'
+                    ? 'border-state-warning/30 bg-state-warning/12 text-state-warning'
+                    : 'border-state-error/30 bg-state-error/10 text-state-error'
               }`}
             >
               <p className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">Процент соответствия</span>
+                <span className="text-text-muted">Процент соответствия</span>
                 <span className="font-semibold tabular-nums">{matchPercent}%</span>
               </p>
             </div>
@@ -271,7 +271,7 @@ export function ModeFullRecallExercise({
           {!isCompleted && !surrendered ? (
             <Button
               type="button"
-              className="mb-2 w-full rounded-2xl border border-primary/20 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90"
+              className="mb-2 w-full rounded-2xl"
               onClick={handleCheck}
             >
               Проверить

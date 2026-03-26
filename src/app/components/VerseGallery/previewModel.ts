@@ -183,7 +183,7 @@ function getPopularityBadge(
       icon: Users,
       label: `У друзей ${popularityValue}`,
       className:
-        "border-cyan-500/35 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
+        "border-status-community/25 bg-status-community-soft text-status-community",
     };
   }
 
@@ -192,7 +192,7 @@ function getPopularityBadge(
       icon: Users,
       label: `У игроков ${popularityValue}`,
       className:
-        "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",
+        "border-status-collection/25 bg-status-collection-soft text-status-collection",
     };
   }
 

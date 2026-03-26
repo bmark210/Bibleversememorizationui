@@ -48,12 +48,12 @@ export function getChoiceStateClass(params: {
 }) {
   if (!params.isAnswered) {
     return "border-border/50 bg-card/60 text-foreground/88 hover:bg-card/80 active:bg-card/90";
-  }
-  if (params.optionIsCorrect) {
-    return "border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/20";
-  }
-  if (params.optionIsSelected) {
-    return "border-rose-500/30 bg-rose-500/[0.08] text-rose-600 dark:text-rose-300 ring-1 ring-rose-500/20";
-  }
-  return "border-border/40 bg-muted/20 text-foreground/50";
+    }
+    if (params.optionIsCorrect) {
+      return "border-status-learning/25 bg-status-learning-soft text-status-learning ring-1 ring-status-learning/20";
+    }
+    if (params.optionIsSelected) {
+      return "border-status-paused/25 bg-status-paused-soft text-status-paused ring-1 ring-status-paused/20";
+    }
+    return "border-border-subtle bg-bg-subtle text-text-muted";
 }

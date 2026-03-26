@@ -31,7 +31,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Нажимайте куски стиха в правильной последовательности.",
     renderer: TrainingModeRendererKey.ChunksOrder,
     icon: Layers,
-    badgeClass: "border-lime-500/30 bg-lime-500/10 text-lime-700",
+    badgeClass:
+      "border-brand-secondary/25 bg-brand-secondary/12 text-brand-secondary",
   },
   [TrainingModeId.ClickWordsHinted]: {
     label: "Выбор слов",
@@ -39,7 +40,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Часть слов уже открыта: нажимайте скрытые слова по порядку.",
     renderer: TrainingModeRendererKey.OrderHints,
     icon: MousePointerClick,
-    badgeClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+    badgeClass:
+      "border-status-learning/25 bg-status-learning-soft text-status-learning",
   },
   [TrainingModeId.ClickWordsNoHints]: {
     label: "Выбор слов (без подсказок)",
@@ -47,7 +49,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Нажимайте слова стиха по порядку без подсказок.",
     renderer: TrainingModeRendererKey.Order,
     icon: MousePointerClick,
-    badgeClass: "border-cyan-500/30 bg-cyan-500/10 text-cyan-700",
+    badgeClass:
+      "border-status-review/25 bg-status-review-soft text-status-review",
   },
   [TrainingModeId.FirstLettersWithWordHints]: {
     label: "Выбор букв",
@@ -55,7 +58,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Часть слов открыта: нажимайте первые буквы скрытых слов.",
     renderer: TrainingModeRendererKey.LettersHints,
     icon: ALargeSmall,
-    badgeClass: "border-amber-500/30 bg-amber-500/10 text-amber-700",
+    badgeClass:
+      "border-state-warning/25 bg-state-warning/12 text-state-warning",
   },
   [TrainingModeId.FirstLettersTapNoHints]: {
     label: "Выбор букв (без подсказок)",
@@ -63,7 +67,7 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Нажимайте первые буквы слов по порядку без подсказок.",
     renderer: TrainingModeRendererKey.LettersTap,
     icon: ALargeSmall,
-    badgeClass: "border-blue-500/30 bg-blue-500/10 text-blue-700",
+    badgeClass: "border-brand-primary/20 bg-brand-primary/10 text-brand-primary",
   },
   [TrainingModeId.FirstLettersTyping]: {
     label: "Ввод букв",
@@ -71,7 +75,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Введите первые буквы слов по порядку.",
     renderer: TrainingModeRendererKey.LettersType,
     icon: Keyboard,
-    badgeClass: "border-violet-500/30 bg-violet-500/10 text-violet-700",
+    badgeClass:
+      "border-accent-incense/25 bg-accent-incense/12 text-accent-incense",
   },
   [TrainingModeId.FullRecall]: {
     label: "Полный ввод",
@@ -79,7 +84,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Полный ввод стиха по памяти.",
     renderer: TrainingModeRendererKey.Typing,
     icon: PenLine,
-    badgeClass: "border-rose-500/30 bg-rose-500/10 text-rose-700",
+    badgeClass:
+      "border-status-paused/25 bg-status-paused-soft text-status-paused",
   },
   [TrainingModeId.VoiceRecall]: {
     label: "Голосовой ввод",
@@ -87,7 +93,8 @@ export const MODE_PIPELINE: Record<ModeId, TrainingModeMeta> = {
     description: "Проговорите стих и проверьте распознавание.",
     renderer: TrainingModeRendererKey.VoiceTyping,
     icon: Mic,
-    badgeClass: "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700",
+    badgeClass:
+      "border-status-community/25 bg-status-community-soft text-status-community",
   },
 };
 

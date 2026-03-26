@@ -7,7 +7,7 @@ import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer
 import { cn } from '@/app/components/ui/utils';
 
 export const TRAINING_SCROLL_BOTTOM_CUE = (
-  <span className="rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/60 shadow-sm backdrop-blur-sm">
+  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted shadow-[var(--shadow-soft)] backdrop-blur-sm">
     <ArrowDownIcon className="size-3" />
   </span>
 );
@@ -42,13 +42,13 @@ export function TrainingExerciseSection({
   return (
     <div
       className={cn(
-        'min-h-0 flex flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 px-3 pt-3',
+        'min-h-0 flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated px-3 pt-3 shadow-[var(--shadow-soft)]',
         className
       )}
     >
       <div
         className={cn(
-          'mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground',
+          'mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-text-muted',
           headerClassName
         )}
       >
@@ -92,10 +92,10 @@ export function getRemainingMistakesTone(
 }
 
 const METRIC_TONE_CLASSNAME: Record<NonNullable<TrainingMetricBadgeProps['tone']>, string> = {
-  neutral: 'border-border/60 bg-background/55 text-foreground/65',
-  warning: 'border-amber-500/35 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300',
-  danger: 'border-rose-500/35 bg-rose-500/[0.08] text-rose-700 dark:text-rose-200',
-  success: 'border-emerald-500/35 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-300',
+  neutral: 'border-border-subtle bg-bg-subtle text-text-secondary',
+  warning: 'border-state-warning/30 bg-state-warning/12 text-state-warning',
+  danger: 'border-status-paused/25 bg-status-paused-soft text-status-paused',
+  success: 'border-status-learning/25 bg-status-learning-soft text-status-learning',
 };
 
 export function TrainingMetricBadge({

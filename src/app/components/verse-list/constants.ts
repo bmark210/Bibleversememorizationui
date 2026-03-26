@@ -36,69 +36,68 @@ export const DEFAULT_VERSE_LIST_SORT_BY: VerseListSortBy = "bible";
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
   catalog: {
-    dotClassName: 'bg-gray-400',
-    activeTabClassName: 'border-gray-500/30 bg-gray-500/14 text-gray-700 dark:text-gray-300',
-    currentBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
-    statusBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
-    cardClassName: 'bg-gradient-to-br from-gray-500/7 via-card to-card',
+    dotClassName: 'bg-text-muted',
+    activeTabClassName: 'border-border-default bg-bg-elevated text-text-secondary shadow-[var(--shadow-soft)]',
+    currentBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
+    statusBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
+    cardClassName: 'bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated',
   },
   friends: {
-    dotClassName: 'bg-cyan-400',
-    activeTabClassName: 'border-cyan-500/30 bg-cyan-500/14 text-cyan-700 dark:text-cyan-300',
+    dotClassName: 'bg-status-community',
+    activeTabClassName: 'border-status-community/30 bg-status-community-soft text-status-community shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+      'border-status-community/25 bg-status-community-soft text-status-community',
     statusBadgeClassName:
-      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-    cardClassName: 'bg-gradient-to-br from-cyan-500/7 via-card to-card',
+      'border-status-community/25 bg-status-community-soft text-status-community',
+    cardClassName: 'bg-gradient-to-br from-status-community-soft via-bg-surface to-bg-elevated',
   },
   learning: {
-    dotClassName: 'bg-emerald-400',
+    dotClassName: 'bg-status-learning',
     activeTabClassName:
-      'border-emerald-500/30 bg-emerald-500/14 text-emerald-700 dark:text-emerald-300',
+      'border-status-learning/30 bg-status-learning-soft text-status-learning shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      'border-status-learning/25 bg-status-learning-soft text-status-learning',
     statusBadgeClassName:
-      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    cardClassName: 'bg-gradient-to-br from-emerald-500/7 via-card to-card',
+      'border-status-learning/25 bg-status-learning-soft text-status-learning',
+    cardClassName: 'bg-gradient-to-br from-status-learning-soft via-bg-surface to-bg-elevated',
   },
   review: {
-    dotClassName: 'bg-violet-400',
+    dotClassName: 'bg-status-review',
     activeTabClassName:
-      'border-violet-500/30 bg-violet-500/14 text-violet-700 dark:text-violet-300',
+      'border-status-review/30 bg-status-review-soft text-status-review shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+      'border-status-review/25 bg-status-review-soft text-status-review',
     statusBadgeClassName:
-      'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
-    cardClassName: 'bg-gradient-to-br from-violet-500/9 via-card to-card',
+      'border-status-review/25 bg-status-review-soft text-status-review',
+    cardClassName: 'bg-gradient-to-br from-status-review-soft via-bg-surface to-bg-elevated',
   },
   mastered: {
-    dotClassName: 'bg-amber-400',
+    dotClassName: 'bg-status-mastered',
     activeTabClassName:
-      'border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300',
+      'border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+      'border-status-mastered/25 bg-status-mastered-soft text-status-mastered',
     statusBadgeClassName:
-      'border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300',
-    cardClassName:
-      'bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6',
+      'border-status-mastered/25 bg-status-mastered-soft text-status-mastered',
+    cardClassName: 'bg-gradient-to-br from-status-mastered-soft via-bg-surface to-bg-elevated',
   },
   stopped: {
-    dotClassName: 'bg-rose-400',
-    activeTabClassName: 'border-rose-500/30 bg-rose-500/14 text-rose-700 dark:text-rose-300',
+    dotClassName: 'bg-status-paused',
+    activeTabClassName: 'border-status-paused/30 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+      'border-status-paused/25 bg-status-paused-soft text-status-paused',
     statusBadgeClassName:
-      'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    cardClassName: 'bg-gradient-to-br from-rose-500/6 via-card to-card',
+      'border-status-paused/25 bg-status-paused-soft text-status-paused',
+    cardClassName: 'bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated',
   },
   my: {
-    dotClassName: 'bg-sky-400',
-    activeTabClassName: 'border-sky-500/30 bg-sky-500/14 text-sky-700 dark:text-sky-300',
+    dotClassName: 'bg-status-collection',
+    activeTabClassName: 'border-status-collection/30 bg-status-collection-soft text-status-collection shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+      'border-status-collection/25 bg-status-collection-soft text-status-collection',
     statusBadgeClassName:
-      'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    cardClassName: 'bg-gradient-to-br from-sky-500/13 via-card to-card',
+      'border-status-collection/25 bg-status-collection-soft text-status-collection',
+    cardClassName: 'bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated',
   },
 };
 

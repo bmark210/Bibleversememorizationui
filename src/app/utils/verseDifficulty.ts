@@ -9,13 +9,13 @@ export const VERSE_DIFFICULTY_BADGE_CLASSNAMES: Record<
   string
 > = {
   EASY:
-    "border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+    "border-border-default bg-bg-elevated text-text-secondary",
   MEDIUM:
-    "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    "border-status-review/25 bg-status-review-soft text-status-review",
   HARD:
-    "border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300",
+    "border-status-mastered/25 bg-status-mastered-soft text-status-mastered",
   EXPERT:
-    "border-rose-500/30 bg-rose-500/12 text-rose-700 dark:text-rose-300",
+    "border-status-paused/25 bg-status-paused-soft text-status-paused",
 };
 
 export function normalizeVerseDifficultyLevel(

@@ -14,6 +14,7 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
+  contentMode?: 'scroll' | 'fit';
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -29,6 +30,7 @@ export function Layout({
   onNavigate,
   isContentReady = false,
   hideChrome = false,
+  contentMode = 'scroll',
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
@@ -81,20 +83,21 @@ export function Layout({
   };
 
   const hideAppChrome = hideChrome;
+  const isFitContent = contentMode === 'fit';
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
       {isTelegramFullscreen && !hideAppChrome ? (
         <header
           id="app-layout-header"
-          className={`bg-card/90 backdrop-blur-xl border-b border-border sticky top-0 z-10 overflow-hidden transition-[opacity,transform] duration-400 ease-out ${
+          className={`sticky top-0 z-10 overflow-hidden border-b border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl transition-[opacity,transform] duration-400 ease-out ${
             isContentReady ? 'opacity-100 translate-y-0' : 'opacity-0'
           }`}
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-            <div className="flex min-h-11 items-center justify-center">
-              <div className="truncate text-sm font-semibold text-primary">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
+            <div className="flex min-h-12 items-center justify-center">
+              <div className="truncate [font-family:var(--font-heading)] text-sm font-semibold tracking-[0.08em] uppercase text-brand-primary">
                 {pageTitle}
               </div>
             </div>
@@ -104,8 +107,11 @@ export function Layout({
 
       <div className="flex min-h-0 w-full max-w-7xl flex-1 min-w-0 mx-auto">
         {/* Sidebar Navigation */}
-        <aside data-tour="app-nav" className="hidden md:block w-64 my-4 ml-4 border-r rounded-lg border-border bg-card">
-          <nav className="p-4 space-y-1">
+        <aside
+          data-tour="app-nav"
+          className="hidden md:block w-72 my-4 ml-4 rounded-[2rem] border border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl"
+        >
+          <nav className="p-4 space-y-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -117,12 +123,12 @@ export function Layout({
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => handleNavigateClick(item.id)}
                   className={cn(
-                  'flex min-h-8 w-full items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
+                  'flex min-h-12 w-full items-center gap-3 rounded-[1.25rem] border px-4 py-3 text-sm transition-[background-color,border-color,color,box-shadow]',
                   isActive
-                    ? 'bg-primary/12 text-primary border-primary/30 border'
-                    : 'text-primary/75'
+                    ? 'border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                    : 'border-transparent text-text-secondary hover:border-border-subtle hover:bg-bg-elevated hover:text-text-primary'
                 )}>
-                  <Icon className="w-5 h-5 text-primary/75" />
+                  <Icon className={cn("w-5 h-5", isActive ? "text-brand-primary" : "text-text-muted")} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -132,7 +138,10 @@ export function Layout({
 
         {/* Main Content */}
         <main
-          className="min-w-0 flex-1 min-h-0 overflow-y-auto [overflow-x:clip] overscroll-contain"
+          className={cn(
+            "min-w-0 flex-1 min-h-0 [overflow-x:clip]",
+            isFitContent ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
+          )}
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`
@@ -141,23 +150,30 @@ export function Layout({
                 : `calc(var(--app-bottom-nav-clearance, 74px) + ${bottomInset}px)`
           }}
         >
-          {children}
+          <div
+            className={cn(
+              "min-h-0",
+              isFitContent && "flex h-full flex-col overflow-hidden",
+            )}
+          >
+            {children}
+          </div>
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
       <div
         data-tour="app-nav"
-        className={`md:hidden fixed bottom-0 left-0 right-0 border-t border-border backdrop-blur-xl bg-card/90 transition-[opacity,transform] duration-300 ease-out ${
+        className={`md:hidden fixed bottom-0 left-0 right-0 transition-[opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady
             ? 'opacity-0 translate-y-3 pointer-events-none'
             : isKeyboardOpen
               ? 'opacity-0 translate-y-full pointer-events-none'
               : 'opacity-100 translate-y-0'
         }`}
-        style={{ paddingBottom: `${bottomInset}px` }}
+        style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
       >
-        <nav className="flex justify-around p-2 pt-2.5">
+        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -168,14 +184,14 @@ export function Layout({
                 key={item.id}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
+                className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition-[background-color,color,box-shadow] ${
                   isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
+                    ? 'bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                    : 'text-text-muted'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-xs">{item.label}</span>
+                <span className="text-[11px] font-medium">{item.label}</span>
               </button>
             );
           })}

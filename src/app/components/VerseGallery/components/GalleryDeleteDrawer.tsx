@@ -43,10 +43,10 @@ export const GalleryDeleteDrawer = React.memo(function GalleryDeleteDrawer({
               Отмена
             </Button>
           </DrawerClose>
-          <Button
-            className="h-12 flex-1 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
-            disabled={isActionPending}
-            onClick={onConfirm}
+            <Button
+              className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
+              disabled={isActionPending}
+              onClick={onConfirm}
           >
             Удалить
           </Button>

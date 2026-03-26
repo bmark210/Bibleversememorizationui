@@ -103,38 +103,38 @@ function getTone(phase: PhaseKey, isPaused: boolean): StatusTone {
   if (isPaused) {
     return {
       pillClassName:
-        "border-rose-500/20 bg-rose-500/[0.08] text-rose-700 dark:text-rose-300",
-      progressClassName: "bg-rose-500",
+        "border-status-paused/25 bg-status-paused-soft text-status-paused",
+      progressClassName: "bg-status-paused",
     };
   }
 
   if (phase === "mastered") {
     return {
       pillClassName:
-        "border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-300",
-      progressClassName: "bg-amber-500",
+        "border-status-mastered/25 bg-status-mastered-soft text-status-mastered",
+      progressClassName: "bg-status-mastered",
     };
   }
 
   if (phase === "review") {
     return {
       pillClassName:
-        "border-violet-500/20 bg-violet-500/[0.08] text-violet-700 dark:text-violet-300",
-      progressClassName: "bg-violet-500",
+        "border-status-review/25 bg-status-review-soft text-status-review",
+      progressClassName: "bg-status-review",
     };
   }
 
   if (phase === "learning") {
     return {
       pillClassName:
-        "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-300",
-      progressClassName: "bg-emerald-500",
+        "border-status-learning/25 bg-status-learning-soft text-status-learning",
+      progressClassName: "bg-status-learning",
     };
   }
 
   return {
-    pillClassName: "border-border/60 bg-background/55 text-foreground/62",
-    progressClassName: "bg-foreground/35",
+    pillClassName: "border-border-default bg-bg-elevated text-text-secondary",
+    progressClassName: "bg-brand-primary",
   };
 }
 
@@ -153,9 +153,9 @@ function MetricRow({
     <div className="flex items-center justify-between gap-3 px-4 py-4">
       <div className="flex min-w-0 items-center gap-3">
         <Icon className={cn("h-4 w-4 shrink-0", iconClassName)} />
-        <div className="text-sm text-foreground/78">{label}</div>
+        <div className="text-sm text-text-secondary">{label}</div>
       </div>
-      <div className="text-2xl font-semibold tracking-tight text-primary">
+      <div className="text-2xl font-semibold tracking-tight text-brand-primary">
         {value}
       </div>
     </div>
@@ -198,19 +198,19 @@ export function VerseProgressDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card px-4 shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent className="rounded-t-[32px] border-border-subtle bg-bg-elevated px-4 shadow-[var(--shadow-floating)] backdrop-blur-xl sm:px-6">
         <div className="mx-auto w-full max-w-2xl pt-3">
           <DrawerHeader className="px-0 pb-0 pt-3">
-            <DrawerTitle className="font-serif text-primary [overflow-wrap:anywhere] text-2xl tracking-tight">
+            <DrawerTitle className="[font-family:var(--font-heading)] text-brand-primary [overflow-wrap:anywhere] text-2xl tracking-tight">
               {verse?.reference ?? "Прогресс стиха"}
             </DrawerTitle>
           </DrawerHeader>
 
           {progressModel ? (
             <div className="mt-5 space-y-4">
-              <section className="rounded-3xl border border-border/60 bg-background/60 p-4">
+              <section className="rounded-3xl border border-border-subtle bg-bg-surface p-4 shadow-[var(--shadow-soft)]">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-foreground/56">
+                  <div className="text-sm text-text-secondary">
                     Текущий статус
                   </div>
                   <span
@@ -224,17 +224,18 @@ export function VerseProgressDrawer({
                 </div>
 
                 <div className="mt-4">
-                  <div className="flex items-center justify-between gap-3 text-xs text-foreground/52">
+                  <div className="flex items-center justify-between gap-3 text-xs text-text-muted">
                     <span>
                       Пройдено {progressModel.totalCompleted} из{" "}
                       {TOTAL_REPEATS_AND_STAGE_MASTERY_MAX}
                     </span>
                     <span>{progressModel.progressPercent}%</span>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-primary/8">
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-subtle">
                     <div
                       className={cn(
-                        "h-full rounded-full transition-[width] duration-500 ease-out bg-primary/80",
+                        "h-full rounded-full transition-[width] duration-500 ease-out",
+                        progressModel.tone.progressClassName,
                       )}
                       style={{ width: `${progressModel.progressPercent}%` }}
                     />
@@ -242,24 +243,24 @@ export function VerseProgressDrawer({
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-3xl border border-border/60 bg-background/55">
+              <section className="overflow-hidden rounded-3xl border border-border-subtle bg-bg-surface shadow-[var(--shadow-soft)]">
                 <MetricRow
                   icon={Brain}
                   value={progressModel.remainingLearnings}
                   label="Изучений осталось"
-                  iconClassName="text-emerald-700 dark:text-emerald-300"
+                  iconClassName="text-status-learning"
                 />
-                <div className="h-px bg-border/60" />
+                <div className="h-px bg-border-subtle" />
                 <MetricRow
                   icon={Repeat}
                   value={progressModel.remainingRepeats}
                   label="Повторов осталось"
-                  iconClassName="text-violet-700 dark:text-violet-300"
+                  iconClassName="text-status-review"
                 />
               </section>
             </div>
           ) : (
-            <div className="mt-5 rounded-[28px] border border-border/60 bg-background/70 p-5 text-sm text-foreground/68">
+            <div className="mt-5 rounded-[28px] border border-border-subtle bg-bg-surface p-5 text-sm text-text-secondary shadow-[var(--shadow-soft)]">
               Выберите стих, чтобы увидеть, сколько шагов осталось до
               выученного.
             </div>

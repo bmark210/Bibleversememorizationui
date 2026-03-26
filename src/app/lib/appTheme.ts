@@ -1,22 +1,10 @@
 import type { TelegramWebApp } from "@/app/lib/telegramWebApp";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import type { AppThemeId } from "@/app/domain/appPages";
+import { getThemePalette } from "@/app/lib/themePalette";
 
 const THEME_STORAGE_KEY = "theme";
 export const DEFAULT_THEME: AppThemeId = "light";
-
-const TELEGRAM_THEME_COLORS: Record<AppThemeId, { background: string; header: string; bottomBar: string }> = {
-  light: {
-    background: "#ede3d2",
-    header: "#f2e8d8",
-    bottomBar: "#f2e8d8",
-  },
-  dark: {
-    background: "#1a1410",
-    header: "#24201a",
-    bottomBar: "#24201a",
-  },
-};
 
 function readStoredTheme(): AppThemeId | null {
   if (typeof window === "undefined") return null;
@@ -39,6 +27,7 @@ export function writeStoredTheme(theme: AppThemeId) {
 
 export function applyThemeToDocument(theme: AppThemeId) {
   if (typeof document === "undefined") return;
+  const palette = getThemePalette(theme);
 
   const targets = [document.documentElement, document.body].filter(Boolean);
   for (const target of targets) {
@@ -47,19 +36,19 @@ export function applyThemeToDocument(theme: AppThemeId) {
     target.setAttribute("data-theme", theme);
   }
 
-  const foregroundColor = theme === "dark" ? "#f5ead5" : "#2b2015";
-
   document.documentElement.style.colorScheme = theme;
   document.body.style.colorScheme = theme;
-  document.documentElement.style.color = foregroundColor;
-  document.body.style.color = foregroundColor;
+  document.documentElement.style.color = palette.chrome.foreground;
+  document.body.style.color = palette.chrome.foreground;
+  document.documentElement.style.backgroundColor = palette.chrome.background;
+  document.body.style.backgroundColor = palette.chrome.background;
 }
 
 export function syncTelegramChromeTheme(theme: AppThemeId) {
   const webApp = getTelegramWebApp();
   if (!webApp) return;
 
-  const palette = TELEGRAM_THEME_COLORS[theme];
+  const palette = getThemePalette(theme).chrome;
 
   try {
     if (typeof webApp.setBackgroundColor === "function") {

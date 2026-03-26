@@ -34,7 +34,7 @@ function resolvePhaseChip(verse: Verse): {
     return {
       label: "Выучен",
       pillClass:
-        "border-amber-500/35 bg-amber-500/[0.12] text-amber-900 dark:text-amber-200",
+        "border-status-mastered/30 bg-status-mastered-soft text-status-mastered",
       progressPercent,
     };
   }
@@ -42,7 +42,7 @@ function resolvePhaseChip(verse: Verse): {
     return {
       label: "Пауза",
       pillClass:
-        "border-rose-500/30 bg-rose-500/[0.1] text-rose-800 dark:text-rose-200",
+        "border-status-paused/25 bg-status-paused-soft text-status-paused",
       progressPercent,
     };
   }
@@ -50,14 +50,14 @@ function resolvePhaseChip(verse: Verse): {
     return {
       label: "Повторение",
       pillClass:
-        "border-violet-500/35 bg-violet-500/[0.12] text-violet-900 dark:text-violet-200",
+        "border-status-review/25 bg-status-review-soft text-status-review",
       progressPercent,
     };
   }
   return {
     label: "Изучение",
     pillClass:
-      "border-emerald-500/35 bg-emerald-500/[0.12] text-emerald-900 dark:text-emerald-200",
+      "border-status-learning/25 bg-status-learning-soft text-status-learning",
     progressPercent,
   };
 }
@@ -84,14 +84,14 @@ export function TrainingExerciseModeHeader({
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        <span onClick={onOpenHelp} className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/80">
+        <span onClick={onOpenHelp} className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
           {label}
         </span>
         {onOpenHelp ? (
           <button
             type="button"
             onClick={onOpenHelp}
-            className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 text-muted-foreground/55 transition-colors hover:bg-muted/60 hover:text-foreground/85"
+            className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-primary"
             aria-label="Как проходить этот режим"
           >
             <HelpCircle className="h-3.5 w-3.5" strokeWidth={2} />
@@ -104,7 +104,7 @@ export function TrainingExerciseModeHeader({
             type="button"
             onClick={onOpenVerseProgress}
             className={cn(
-              "flex flex-row items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-[opacity,transform] hover:opacity-92 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "flex flex-row items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-[opacity,transform] hover:opacity-92 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
               pillClass,
             )}
             aria-label="Подробный прогресс стиха"

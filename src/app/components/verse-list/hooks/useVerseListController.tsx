@@ -709,9 +709,9 @@ export function useVerseListController({
         headingId: 'my-verses-heading',
         title: 'Каталог',
         subtitle: 'Глобальный каталог стихов',
-        dotClassName: 'bg-gray-400',
-        borderClassName: 'bg-gradient-to-b from-gray-500/5 to-background',
-        tintClassName: 'bg-gray-500/5',
+        dotClassName: 'bg-status-collection',
+        borderClassName: 'bg-gradient-to-b from-status-collection-soft to-bg-app',
+        tintClassName: 'bg-status-collection-soft',
       },
     };
     if (statusFilter === 'friends') {
@@ -721,9 +721,9 @@ export function useVerseListController({
           headingId: 'friends-verses-heading',
           title: 'Стихи друзей',
           subtitle: 'Что изучают и повторяют ваши друзья',
-          dotClassName: 'bg-cyan-500',
-          borderClassName: 'bg-gradient-to-b from-cyan-500/8 to-background',
-          tintClassName: 'bg-cyan-500/8',
+          dotClassName: 'bg-status-community',
+          borderClassName: 'bg-gradient-to-b from-status-community-soft to-bg-app',
+          tintClassName: 'bg-status-community-soft',
         },
       };
     }
@@ -734,9 +734,9 @@ export function useVerseListController({
           headingId: 'learning-verses-heading',
           title: 'Изучение',
           subtitle: 'Стихи, которые вы изучаете',
-          dotClassName: 'bg-emerald-500',
-          borderClassName: 'bg-gradient-to-b from-emerald-500/5 to-background',
-          tintClassName: 'bg-emerald-500/5',
+          dotClassName: 'bg-status-learning',
+          borderClassName: 'bg-gradient-to-b from-status-learning-soft to-bg-app',
+          tintClassName: 'bg-status-learning-soft',
         },
       };
     }
@@ -747,9 +747,9 @@ export function useVerseListController({
           headingId: 'review-verses-heading',
           title: 'Повторение',
           subtitle: 'Ваши стихи для повторения',
-          dotClassName: 'bg-violet-500',
-          borderClassName: 'bg-gradient-to-b from-violet-500/5 to-background',
-          tintClassName: 'bg-violet-500/5',
+          dotClassName: 'bg-status-review',
+          borderClassName: 'bg-gradient-to-b from-status-review-soft to-bg-app',
+          tintClassName: 'bg-status-review-soft',
         },
       };
     }
@@ -760,9 +760,9 @@ export function useVerseListController({
           headingId: 'mastered-verses-heading',
           title: 'Выученные',
           subtitle: 'Ваши выученные стихи',
-          dotClassName: 'bg-amber-500',
-          borderClassName: 'bg-gradient-to-b from-amber-500/8 to-background',
-          tintClassName: 'bg-amber-500/8',
+          dotClassName: 'bg-status-mastered',
+          borderClassName: 'bg-gradient-to-b from-status-mastered-soft to-bg-app',
+          tintClassName: 'bg-status-mastered-soft',
         },
       };
     }
@@ -773,9 +773,9 @@ export function useVerseListController({
           headingId: 'stopped-verses-heading',
           title: 'На паузе',
           subtitle: 'Ваши стихи на паузе',
-          dotClassName: 'bg-rose-500',
-          borderClassName: 'bg-gradient-to-b from-rose-500/5 to-background',
-          tintClassName: 'bg-rose-500/5',
+          dotClassName: 'bg-status-paused',
+          borderClassName: 'bg-gradient-to-b from-status-paused-soft to-bg-app',
+          tintClassName: 'bg-status-paused-soft',
         },
       };
     }
@@ -785,9 +785,9 @@ export function useVerseListController({
         headingId: 'my-verses-heading',
         title: 'Мои стихи',
         subtitle: 'Стихи, добавленные в мой список',
-        dotClassName: 'bg-sky-500',
-        borderClassName: 'bg-gradient-to-b from-sky-500/5 to-background',
-        tintClassName: 'bg-sky-500/5',
+        dotClassName: 'bg-brand-primary',
+        borderClassName: 'bg-gradient-to-b from-brand-primary/12 to-bg-app',
+        tintClassName: 'bg-brand-primary/10',
       },
     };
   }, [statusFilter, learningVerses, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);

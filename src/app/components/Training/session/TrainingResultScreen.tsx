@@ -18,29 +18,27 @@ const RESULT_ICON_BY_KIND = {
 function resolveToneClasses(result: TrainingResultState) {
   if (result.tone === "positive") {
     return {
-      iconWrap: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-      status: "text-emerald-700 dark:text-emerald-300",
-      chip:
-        "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-      box: "border-emerald-500/25 bg-emerald-500/10",
+      iconWrap: "bg-status-learning-soft text-status-learning",
+      status: "text-status-learning",
+      chip: "border-status-learning/25 bg-status-learning-soft text-status-learning",
+      box: "border-status-learning/25 bg-status-learning-soft",
     };
   }
 
   if (result.tone === "negative") {
     return {
-      iconWrap: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-      status: "text-rose-700 dark:text-rose-300",
-      chip:
-        "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-      box: "border-rose-500/25 bg-rose-500/10",
+      iconWrap: "bg-status-paused-soft text-status-paused",
+      status: "text-status-paused",
+      chip: "border-status-paused/25 bg-status-paused-soft text-status-paused",
+      box: "border-status-paused/25 bg-status-paused-soft",
     };
   }
 
   return {
-    iconWrap: "bg-muted/40 text-foreground/75",
-    status: "text-foreground/75",
-    chip: "border-border/50 bg-background/60 text-foreground/70",
-    box: "border-border/50 bg-card/60",
+    iconWrap: "bg-bg-subtle text-text-secondary",
+    status: "text-text-secondary",
+    chip: "border-border-subtle bg-bg-subtle text-text-secondary",
+    box: "border-border-subtle bg-bg-subtle",
   };
 }
 
@@ -68,17 +66,17 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
             <p className={cn("text-base font-semibold", toneClasses.status)}>
               {result.statusLabel}
             </p>
-            <h3 className="text-2xl font-semibold tracking-tight text-foreground/90">
+            <h3 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-text-primary">
               {result.title}
             </h3>
           </div>
-          <p className="max-w-lg text-sm leading-relaxed text-foreground/70">
+          <p className="max-w-lg text-sm leading-relaxed text-text-secondary">
             {result.description}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm">
-          <p className="text-center font-serif text-2xl italic leading-relaxed text-primary/90 sm:text-3xl">
+        <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
+          <p className="text-center [font-family:var(--font-heading)] text-2xl italic leading-relaxed text-brand-primary sm:text-3xl">
             {result.reference}
           </p>
         </div>
@@ -86,14 +84,14 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
         {result.verseText ? (
           <div
             className={cn(
-              "rounded-2xl border px-5 py-4 shadow-sm",
+              "rounded-[1.55rem] border px-5 py-4 shadow-[var(--shadow-soft)]",
               toneClasses.box
             )}
           >
-            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/55">
+            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
               Правильный текст
             </p>
-            <p className="mt-3 whitespace-pre-line text-center text-sm leading-relaxed text-foreground/85 sm:text-base">
+            <p className="mt-3 whitespace-pre-line text-center text-sm leading-relaxed text-text-primary sm:text-base">
               {result.verseText}
             </p>
           </div>

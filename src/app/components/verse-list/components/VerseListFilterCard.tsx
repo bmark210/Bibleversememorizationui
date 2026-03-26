@@ -69,7 +69,7 @@ function SectionActionButton({
       aria-expanded={expanded}
       aria-controls={controls}
       onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:bg-background"
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-surface hover:text-text-primary"
     >
       <span>{expanded ? 'Свернуть' : 'Развернуть'}</span>
       {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -202,8 +202,8 @@ function VerseListFilterSections({
             ? 'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors'
             : 'inline-flex min-h-9 items-center justify-center rounded-xl border px-1.5 py-2 text-[10px] font-medium leading-none transition-colors',
           isActive
-            ? 'border-primary/30 bg-primary/12 text-primary'
-            : 'border-border/55 bg-background/25 text-foreground/75 hover:bg-background/60',
+            ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+            : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
         )}
       >
         {layout === 'row' ? (
@@ -213,11 +213,11 @@ function VerseListFilterSections({
                 'h-1.5 w-1.5 rounded-full',
                 option.testament === 'old'
                   ? isActive
-                    ? 'bg-amber-500'
-                    : 'bg-amber-400/55'
+                    ? 'bg-status-mastered'
+                    : 'bg-status-mastered/55'
                   : isActive
-                    ? 'bg-sky-500'
-                    : 'bg-sky-400/55',
+                    ? 'bg-status-review'
+                    : 'bg-status-review/55',
               )}
             />
             <span>{option.shortLabel}</span>
@@ -261,15 +261,15 @@ function VerseListFilterSections({
           className={cn(
             'inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors',
             isActive
-              ? 'border-primary/40 bg-primary/12 text-primary'
-              : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
+              ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+              : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
             !canToggle && 'pointer-events-none opacity-40',
           )}
         >
           <span
             className={cn(
               'text-[10px]',
-              isActive ? 'text-primary/55' : 'text-muted-foreground/45',
+              isActive ? 'text-brand-primary/55' : 'text-text-muted',
             )}
           >
             #
@@ -283,7 +283,7 @@ function VerseListFilterSections({
   return (
     <div className="overflow-hidden pb-2">
       <div data-tour="verse-list-filters-root-tabs" className="mt-2 px-3">
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
           Основной фильтр:{' '}
           {activeRootTab === 'my'
             ? 'Мои стихи'
@@ -294,7 +294,7 @@ function VerseListFilterSections({
         <div
           role="tablist"
           aria-label="Основной фильтр списка стихов"
-          className="grid gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
+          className="grid gap-1 rounded-2xl border border-border-subtle bg-bg-subtle p-1"
           style={{
             gridTemplateColumns: `repeat(${visibleRootTabs.length}, minmax(0, 1fr))`,
           }}
@@ -317,8 +317,8 @@ function VerseListFilterSections({
                 className={cn(
                   'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
                   isActive
-                    ? 'border border-primary/30 bg-primary/12 text-primary'
-                    : 'text-muted-foreground',
+                    ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                    : 'text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
                 )}
               >
                 <span>{label}</span>
@@ -377,7 +377,7 @@ function VerseListFilterSections({
       <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
               Книга: {selectedBook?.label ?? ALL_BOOKS_LABEL}
             </div>
           </div>
@@ -386,7 +386,7 @@ function VerseListFilterSections({
               <button
                 type="button"
                 onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
-                className="text-[11px] text-destructive transition-colors"
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
               >
                 Сбросить
               </button>
@@ -398,7 +398,7 @@ function VerseListFilterSections({
             />
           </div>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5 p-1">
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-subtle p-1">
           <ExpandableSectionBody
             expanded={areBooksExpanded}
             controls={booksPanelId}
@@ -410,16 +410,16 @@ function VerseListFilterSections({
                   className={cn(
                     'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
                     selectedBookId == null
-                      ? 'border-primary/30 bg-primary/12 text-primary'
-                      : 'border-border/55 bg-background/25 text-muted-foreground hover:bg-background/60',
+                      ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border-border-subtle bg-bg-elevated text-text-muted hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-secondary',
                   )}
                 >
                   <span
                     className={cn(
                       'h-1.5 w-1.5 rounded-full',
                       selectedBookId == null
-                        ? 'bg-primary/70'
-                        : 'bg-muted-foreground/35',
+                        ? 'bg-brand-primary/70'
+                        : 'bg-text-muted/45',
                     )}
                   />
                   Все
@@ -431,7 +431,7 @@ function VerseListFilterSections({
               <div className="space-y-3 px-2 py-2.5">
                 {bookGroups.map((group) => (
                   <div key={group.key} className="space-y-2">
-                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
                       {group.label}
                     </div>
                     <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
@@ -447,7 +447,7 @@ function VerseListFilterSections({
 
 
       <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
           Сортировка:{' '}
           {sortBy === 'bible'
             ? 'По канону библии'
@@ -455,7 +455,7 @@ function VerseListFilterSections({
               ? 'По популярности'
               : 'По активности'}
         </div>
-        <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
+        <div className="rounded-xl border border-border-subtle bg-bg-subtle p-1.5">
           <div
             role="radiogroup"
             aria-label="Сортировка стихов"
@@ -479,8 +479,8 @@ function VerseListFilterSections({
                   className={cn(
                     'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
                     isActive
-                      ? 'border border-primary/30 bg-primary/12 text-primary'
-                      : 'border border-transparent text-muted-foreground hover:bg-background/65',
+                      ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border border-transparent text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -494,7 +494,7 @@ function VerseListFilterSections({
 
       <div data-tour="verse-list-filters-tags" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
             {hasActiveTags
               ? `Темы: ${selectedTagSlugs.size}`
               : `Темы: все${allTags.length > 0 ? ` • ${allTags.length}` : ''}`}
@@ -504,7 +504,7 @@ function VerseListFilterSections({
               <button
                 type="button"
                 onClick={onClearTags}
-                className="text-[11px] text-destructive transition-colors"
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
               >
                 Сбросить
               </button>
@@ -513,7 +513,7 @@ function VerseListFilterSections({
               <button
                 type="button"
                 onClick={onCreateTagDialogOpen}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary"
               >
                 <Pencil className="h-3 w-3" />
                 <span className="hidden sm:inline">Редактировать</span>
@@ -529,7 +529,7 @@ function VerseListFilterSections({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5">
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-subtle">
           {isLoadingTags ? (
             <div className="my-2.5 flex gap-2 px-3.5">
               {[56, 72, 48, 64].map((w) => (
@@ -558,7 +558,7 @@ function VerseListFilterSections({
               }
             />
           ) : (
-            <p className="px-3.5 py-2.5 text-xs italic text-muted-foreground/50 sm:px-4">
+            <p className="px-3.5 py-2.5 text-xs italic text-text-muted sm:px-4">
               Нет тегов - создайте первый
             </p>
           )}
@@ -656,7 +656,7 @@ export function VerseListFilterCard({
     return (
       <div
         data-tour="verse-list-filters-panel"
-        className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45"
+        className="overflow-hidden rounded-[28px] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]"
       >
         <VerseListFilterSections {...sharedProps} />
       </div>
@@ -665,12 +665,12 @@ export function VerseListFilterCard({
 
   return (
     <div data-tour="verse-list-filters-panel" className="mb-3">
-      <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
+      <Card className="gap-0 rounded-3xl border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
-            className="inline-flex items-center gap-2 text-[13px] text-muted-foreground"
+            className="inline-flex items-center gap-2 text-[13px] text-text-muted"
           >
             <span className="font-medium uppercase">Фильтры</span>
           </button>
@@ -684,8 +684,8 @@ export function VerseListFilterCard({
                 className={cn(
                   'rounded-lg px-2 py-1 text-[11px] font-medium transition-colors',
                   hasFiltersApplied
-                    ? 'bg-destructive/60 text-background dark:text-foreground/75'
-                    : 'text-muted-foreground hover:bg-background/60',
+                    ? 'bg-status-paused-soft text-status-paused'
+                    : 'text-text-muted hover:bg-bg-surface hover:text-text-secondary',
                 )}
               >
                 Сбросить
@@ -695,7 +695,7 @@ export function VerseListFilterCard({
               type="button"
               aria-expanded={!isCollapsed}
               onClick={() => setIsCollapsed((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/60"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-text-muted transition-colors hover:bg-bg-surface hover:text-text-secondary"
             >
               {isCollapsed ? (
                 <ChevronDown className="h-5 w-5" />

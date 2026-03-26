@@ -293,7 +293,7 @@ export function ModeVoiceRecallExercise({
           contentClassName="flex flex-col gap-3 pb-1"
         >
           <p
-            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
+            className="max-w-2xl text-sm leading-relaxed text-text-secondary"
             style={{ fontSize: `${fontSizes.sm}px` }}
           >
             Продиктуйте стих или при необходимости поправьте распознанный текст вручную
@@ -317,13 +317,13 @@ export function ModeVoiceRecallExercise({
           </div>
 
           {!isSpeechSupported ? (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-xl border border-state-warning/30 bg-state-warning/12 px-3 py-2 text-sm text-state-warning">
               Браузер не поддерживает Web Speech API. Введите текст вручную.
             </div>
           ) : null}
 
           {recognitionError ? (
-            <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-xl border border-state-error/30 bg-state-error/10 px-3 py-2 text-sm text-state-error">
               {recognitionError}
             </div>
           ) : null}
@@ -348,7 +348,7 @@ export function ModeVoiceRecallExercise({
           }
           contentClassName="flex flex-col gap-3 pb-1"
         >
-          <div className="rounded-2xl border border-border/60 bg-background/55 p-2">
+          <div className="rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)]">
             <Textarea
               value={transcript}
               onChange={(event) => {
@@ -366,14 +366,14 @@ export function ModeVoiceRecallExercise({
             <div
               className={`rounded-xl border px-3 py-2 text-sm ${
                 matchPercent === 100
-                  ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  ? 'border-status-learning/25 bg-status-learning-soft text-status-learning'
                   : matchPercent >= RECALL_THRESHOLD
-                    ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                    : 'border-destructive/45 bg-destructive/10 text-destructive'
+                    ? 'border-state-warning/30 bg-state-warning/12 text-state-warning'
+                    : 'border-state-error/30 bg-state-error/10 text-state-error'
               }`}
             >
               <p className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">Процент соответствия</span>
+                <span className="text-text-muted">Процент соответствия</span>
                 <span className="font-semibold tabular-nums">{matchPercent}%</span>
               </p>
             </div>
@@ -390,7 +390,7 @@ export function ModeVoiceRecallExercise({
       />
 
       <FixedBottomPanel visible={!isChecked}>
-        <Button type="button" className="w-full rounded-2xl border border-primary/20 bg-primary/85 text-primary-foreground shadow-sm hover:bg-primary/90" onClick={handleCheck}>
+        <Button type="button" className="w-full rounded-2xl" onClick={handleCheck}>
           Проверить
         </Button>
       </FixedBottomPanel>
