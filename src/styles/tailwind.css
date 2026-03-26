@@ -3,6 +3,16 @@
 
 @import 'tw-animate-css';
 
+/* ── Viewport-adaptive variants ─────────────────────────────────────
+   Shorthand for the verbose [@media(max-…)] arbitrary variants used
+   throughout the dashboard and layout components.
+   Usage: `narrow:p-2  compact:text-sm  compact-sm:gap-1.5` etc.       */
+@custom-variant narrow   (@media (max-width:  420px));
+@custom-variant compact  (@media (max-height: 880px));
+@custom-variant compact-md (@media (max-height: 820px));
+@custom-variant compact-sm (@media (max-height: 760px));
+@custom-variant compact-xs (@media (max-height: 720px));
+
 /* Override used Tailwind colors to sRGB hex so generated utilities stop depending on oklch tokens. */
 @theme {
   --color-amber-100: #fef3c6;

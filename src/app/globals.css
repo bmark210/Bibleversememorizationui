@@ -2,9 +2,9 @@
 @import "../styles/tailwind.css";
 @import "../styles/theme.css";
 
-/* Совпадает с запасом под мобильный таббар в Layout.tsx (paddingBottom main). */
+/* Runtime-calculated in Layout.tsx after measuring the mobile bottom nav. */
 :root {
-  --app-bottom-nav-clearance: 74px;
+  --app-bottom-nav-clearance: 0px;
 }
 
 html,

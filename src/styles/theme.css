@@ -373,6 +373,7 @@ body[data-theme='dark'] {
     right: 0;
     bottom: 0;
     z-index: -1;
+    background: transparent;
     background-image:
       radial-gradient(circle at 14% 18%, var(--hero-glow-secondary), transparent 34%),
       radial-gradient(circle at 84% 0%, var(--hero-glow-primary), transparent 38%),
@@ -381,7 +382,7 @@ body[data-theme='dark'] {
     pointer-events: none;
   }
 
-  body::after {
+  /* body::after {
     content: '';
     position: fixed;
     inset: 0;
@@ -391,7 +392,7 @@ body[data-theme='dark'] {
       linear-gradient(180deg, transparent 0%, rgba(var(--brand-primary-rgb), 0.03) 100%);
     mix-blend-mode: soft-light;
     pointer-events: none;
-  }
+  } */
 
   h1 {
     font-size: var(--text-2xl);

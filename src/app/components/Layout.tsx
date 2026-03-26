@@ -37,9 +37,13 @@ export function Layout({
     (state) => state.isTelegramFullscreen
   );
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [bottomNavClearance, setBottomNavClearance] = useState(0);
+  const mobileNavShellRef = React.useRef<HTMLDivElement | null>(null);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const pageTitle = PAGE_TITLES[currentPage] ?? 'Bible Memory';
+  const hideAppChrome = hideChrome;
+  const isFitContent = contentMode === 'fit';
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -65,6 +69,65 @@ export function Layout({
     };
   }, []);
 
+  React.useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const rootStyle = document.documentElement.style;
+    const shell = mobileNavShellRef.current;
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const extraGap = 0;
+
+    const updateClearance = () => {
+      const measuredShellHeight = shell
+        ? Math.ceil(shell.getBoundingClientRect().height)
+        : 0;
+      const shouldReserveNavSpace =
+        !mediaQuery.matches && !hideAppChrome && !isKeyboardOpen;
+      const nextClearance = shouldReserveNavSpace
+        ? measuredShellHeight + extraGap
+        : 0;
+
+      setBottomNavClearance((prev) =>
+        prev === nextClearance ? prev : nextClearance
+      );
+      rootStyle.setProperty(
+        "--app-bottom-nav-clearance",
+        `${nextClearance}px`,
+      );
+    };
+
+    updateClearance();
+
+    const resizeObserver =
+      shell && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateClearance)
+        : null;
+
+    if (resizeObserver && shell) {
+      resizeObserver.observe(shell);
+    }
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateClearance);
+    } else {
+      mediaQuery.addListener(updateClearance);
+    }
+    window.addEventListener("resize", updateClearance);
+    window.visualViewport?.addEventListener("resize", updateClearance);
+
+    return () => {
+      resizeObserver?.disconnect();
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", updateClearance);
+      } else {
+        mediaQuery.removeListener(updateClearance);
+      }
+      window.removeEventListener("resize", updateClearance);
+      window.visualViewport?.removeEventListener("resize", updateClearance);
+      rootStyle.setProperty("--app-bottom-nav-clearance", "0px");
+    };
+  }, [bottomInset, hideAppChrome, isKeyboardOpen]);
+
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
@@ -82,8 +145,11 @@ export function Layout({
     onNavigate(page);
   };
 
-  const hideAppChrome = hideChrome;
-  const isFitContent = contentMode === 'fit';
+  const mainBottomPadding = hideAppChrome
+    ? bottomInset
+    : isKeyboardOpen
+      ? bottomInset
+      : bottomNavClearance;
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
@@ -95,8 +161,8 @@ export function Layout({
           }`}
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-            <div className="flex min-h-12 items-center justify-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="flex min-h-10 items-center justify-center">
               <div className="truncate [font-family:var(--font-heading)] text-sm font-semibold tracking-[0.08em] uppercase text-brand-primary">
                 {pageTitle}
               </div>
@@ -143,11 +209,7 @@ export function Layout({
             isFitContent ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
           )}
           style={{
-            paddingBottom: hideAppChrome
-              ? `${bottomInset}px`
-              : isKeyboardOpen
-                ? `${bottomInset}px`
-                : `calc(var(--app-bottom-nav-clearance, 74px) + ${bottomInset}px)`
+            paddingBottom: `${mainBottomPadding}px`,
           }}
         >
           <div
@@ -163,6 +225,7 @@ export function Layout({
 
       {/* Mobile Bottom Navigation */}
       <div
+        ref={mobileNavShellRef}
         data-tour="app-nav"
         className={`md:hidden fixed bottom-0 left-0 right-0 transition-[opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady
@@ -173,7 +236,7 @@ export function Layout({
         }`}
         style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
       >
-        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl">
+        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-[1.6rem] narrow:py-1.5 compact-sm:py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -184,14 +247,15 @@ export function Layout({
                 key={item.id}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition-[background-color,color,box-shadow] ${
+                className={cn(
+                  'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-1.5 transition-[background-color,color,box-shadow] narrow:gap-0.5 narrow:rounded-[1rem] narrow:py-1 compact-sm:py-1',
                   isActive
                     ? 'bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                    : 'text-text-muted'
-                }`}
+                    : 'text-text-muted',
+                )}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[11px] font-medium">{item.label}</span>
+                <Icon className="h-5 w-5 narrow:h-4 narrow:w-4" />
+                <span className="text-[11px] font-medium narrow:text-[10px]">{item.label}</span>
               </button>
             );
           })}
