@@ -37,9 +37,13 @@ export function Layout({
     (state) => state.isTelegramFullscreen
   );
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [bottomNavClearance, setBottomNavClearance] = useState(0);
+  const mobileNavShellRef = React.useRef<HTMLDivElement | null>(null);
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const pageTitle = PAGE_TITLES[currentPage] ?? 'Bible Memory';
+  const hideAppChrome = hideChrome;
+  const isFitContent = contentMode === 'fit';
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -65,6 +69,65 @@ export function Layout({
     };
   }, []);
 
+  React.useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const rootStyle = document.documentElement.style;
+    const shell = mobileNavShellRef.current;
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const extraGap = 0;
+
+    const updateClearance = () => {
+      const measuredShellHeight = shell
+        ? Math.ceil(shell.getBoundingClientRect().height)
+        : 0;
+      const shouldReserveNavSpace =
+        !mediaQuery.matches && !hideAppChrome && !isKeyboardOpen;
+      const nextClearance = shouldReserveNavSpace
+        ? measuredShellHeight + extraGap
+        : 0;
+
+      setBottomNavClearance((prev) =>
+        prev === nextClearance ? prev : nextClearance
+      );
+      rootStyle.setProperty(
+        "--app-bottom-nav-clearance",
+        `${nextClearance}px`,
+      );
+    };
+
+    updateClearance();
+
+    const resizeObserver =
+      shell && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateClearance)
+        : null;
+
+    if (resizeObserver && shell) {
+      resizeObserver.observe(shell);
+    }
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateClearance);
+    } else {
+      mediaQuery.addListener(updateClearance);
+    }
+    window.addEventListener("resize", updateClearance);
+    window.visualViewport?.addEventListener("resize", updateClearance);
+
+    return () => {
+      resizeObserver?.disconnect();
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", updateClearance);
+      } else {
+        mediaQuery.removeListener(updateClearance);
+      }
+      window.removeEventListener("resize", updateClearance);
+      window.visualViewport?.removeEventListener("resize", updateClearance);
+      rootStyle.setProperty("--app-bottom-nav-clearance", "0px");
+    };
+  }, [bottomInset, hideAppChrome, isKeyboardOpen]);
+
   const navItems = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'verses', label: 'Стихи', icon: BookOpen },
@@ -82,8 +145,11 @@ export function Layout({
     onNavigate(page);
   };
 
-  const hideAppChrome = hideChrome;
-  const isFitContent = contentMode === 'fit';
+  const mainBottomPadding = hideAppChrome
+    ? bottomInset
+    : isKeyboardOpen
+      ? bottomInset
+      : bottomNavClearance;
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
@@ -140,22 +206,16 @@ export function Layout({
         <main
           className={cn(
             "min-w-0 flex-1 min-h-0 [overflow-x:clip]",
-            isFitContent
-              ? "overflow-hidden compact-xs:overflow-y-auto compact-xs:overscroll-contain"
-              : "overflow-y-auto overscroll-contain",
+            isFitContent ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
           )}
           style={{
-            paddingBottom: hideAppChrome
-              ? `${bottomInset}px`
-              : isKeyboardOpen
-                ? `${bottomInset}px`
-                : `calc(var(--app-bottom-nav-clearance, 68px) + ${bottomInset}px)`
+            paddingBottom: `${mainBottomPadding}px`,
           }}
         >
           <div
             className={cn(
               "min-h-0",
-              isFitContent && "flex h-full flex-col overflow-hidden compact-xs:overflow-y-auto",
+              isFitContent && "flex h-full flex-col overflow-hidden",
             )}
           >
             {children}
@@ -165,6 +225,7 @@ export function Layout({
 
       {/* Mobile Bottom Navigation */}
       <div
+        ref={mobileNavShellRef}
         data-tour="app-nav"
         className={`md:hidden fixed bottom-0 left-0 right-0 transition-[opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady

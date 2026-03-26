@@ -41,79 +41,87 @@ import { cn } from "../ui/utils";
 
 /** Padding inside every DashboardSurface card */
 const SURFACE_PAD =
-  "p-3.5 narrow:p-3 compact:p-3 compact-md:p-2.5 compact-sm:p-2 compact-xs:p-1.5 sm:p-4 lg:p-5";
+  "p-3.5 narrow:p-3 compact:p-3 compact-md:p-2.75 compact-sm:p-2.5 compact-xs:p-2.5 sm:p-4 lg:p-5";
 
 /** Vertical gap between elements inside a section */
 const SECTION_GAP =
-  "gap-3.5 narrow:gap-3 compact:gap-3 compact-sm:gap-2.5 compact-xs:gap-2";
+  "gap-3.5 narrow:gap-3 compact:gap-3 compact-sm:gap-2.5 compact-xs:gap-2.5";
 
 /** Gap inside 2×2 stats grid */
 const GRID_GAP =
-  "gap-2.5 narrow:gap-2 compact:gap-2 compact-sm:gap-1.5 compact-xs:gap-1 sm:gap-3";
+  "gap-2.5 narrow:gap-2 compact:gap-2 compact-sm:gap-2 compact-xs:gap-2 sm:gap-3";
 
 /** Section heading (e.g. "Моя статистика", "Таблица лидеров") */
 const HEADING_TEXT =
-  "text-base narrow:text-[15px] compact:text-[15px] compact-sm:text-sm compact-xs:text-[13px] sm:text-lg";
+  "px-1 text-base narrow:text-[15px] compact:text-[15px] compact-sm:text-sm compact-xs:text-sm sm:text-lg";
 
 /** Bottom margin below a section heading */
 const HEADING_MB =
-  "mb-2.5 narrow:mb-2 compact:mb-2 compact-sm:mb-1.5 compact-xs:mb-1 sm:mb-3";
+  "px-1 mb-2.5 narrow:mb-2 compact:mb-2 compact-sm:mb-2 compact-xs:mb-1.5 sm:mb-3";
 
 /** Large hero heading */
 const HERO_TEXT =
-  "text-[clamp(1.8rem,5.8vw,2.65rem)] narrow:text-[clamp(1.55rem,7vw,2rem)] compact:text-[clamp(1.62rem,5.2vw,2.2rem)] compact-sm:text-[clamp(1.45rem,4.8vw,1.9rem)] compact-xs:text-[clamp(1.3rem,4.4vw,1.7rem)]";
+  "px-1 text-[clamp(1.8rem,5.8vw,2.65rem)] narrow:text-[clamp(1.55rem,7vw,2rem)] compact:text-[clamp(1.62rem,5.2vw,2.2rem)] compact-sm:text-[clamp(1.45rem,4.8vw,1.9rem)] compact-xs:text-[clamp(1.38rem,4.5vw,1.78rem)]";
 
 /** Hero subtitle text */
 const HERO_SUBTITLE =
-  "text-[13px] leading-6 narrow:text-[12px] narrow:leading-5 compact:text-[12px] compact:leading-5 compact-md:line-clamp-1 compact-sm:mt-1.5 compact-sm:text-[11px] compact-sm:leading-[1.125rem] compact-xs:mt-1 compact-xs:text-[10px] compact-xs:leading-4 sm:text-sm sm:leading-relaxed";
+  "px-1 text-[13px] leading-6 narrow:text-[12px] narrow:leading-5 compact:text-[12px] compact:leading-5 compact-md:line-clamp-1 compact-sm:mt-1.5 compact-sm:text-[11px] compact-sm:leading-[1.15rem] compact-xs:mt-1.5 compact-xs:text-[11px] compact-xs:leading-[1.1rem] sm:text-sm sm:leading-relaxed";
 
 /** User avatar in the welcome section */
 const AVATAR_SIZE =
-  "h-10 w-10 narrow:h-9 narrow:w-9 compact-sm:h-9 compact-sm:w-9 compact-xs:h-8 compact-xs:w-8 sm:h-11 sm:w-11";
+  "h-10 w-10 narrow:h-9 narrow:w-9 compact-sm:h-9 compact-sm:w-9 compact-xs:h-9 compact-xs:w-9 sm:h-11 sm:w-11";
 
 /** CTA button sizing */
 const CTA_BUTTON =
-  "h-11 w-full rounded-[1.2rem] px-5 narrow:h-10 narrow:px-4 compact:h-10 compact-sm:h-9 compact-sm:px-4 compact-sm:text-sm compact-xs:h-8 compact-xs:text-[13px] sm:w-auto sm:min-w-[184px]";
+  "h-11 w-full rounded-[1.2rem] px-5 narrow:h-10 narrow:px-4 compact:h-10 compact-sm:h-9 compact-sm:px-4 compact-sm:text-sm compact-xs:h-9 compact-xs:px-4 compact-xs:text-sm sm:w-auto sm:min-w-[184px]";
 
 /** Individual stat card padding */
 const STAT_PAD =
-  "px-3.5 py-3 narrow:px-3 narrow:py-2.5 compact:px-3 compact:py-2.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-2 compact-xs:px-2 compact-xs:py-1.5 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5";
+  "px-3.5 py-3 narrow:px-3 narrow:py-2.5 compact:px-3 compact:py-2.5 compact-sm:rounded-[1rem] compact-sm:px-2.75 compact-sm:py-2.25 compact-xs:px-2.75 compact-xs:py-2.25 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5";
 
 /** Stat label text */
 const STAT_LABEL =
-  "text-[10px] narrow:text-[9px] compact:text-[9px] compact-sm:text-[8px]";
+  "text-[10px] narrow:text-[9px] compact:text-[9px] compact-sm:text-[8px] compact-xs:text-[8px]";
 
 /** Stat value text */
 const STAT_VALUE =
-  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-1 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)] compact:mt-1 compact:text-[clamp(1.2rem,4.2vw,1.72rem)] compact-sm:text-[clamp(1.05rem,3.8vw,1.45rem)] compact-xs:text-[clamp(0.98rem,3.5vw,1.3rem)]";
+  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-1 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)] compact:mt-1 compact:text-[clamp(1.2rem,4.2vw,1.72rem)] compact-sm:text-[clamp(1.08rem,3.9vw,1.42rem)] compact-xs:text-[clamp(1.04rem,3.8vw,1.36rem)]";
 
 /** Compact leaderboard row padding */
 const ROW_PAD =
-  "rounded-[1.2rem] px-3 py-2 narrow:gap-2.5 narrow:px-2.5 narrow:py-1.5 compact:gap-2.5 compact:px-2.5 compact:py-1.5 compact-sm:gap-2 compact-sm:rounded-[1rem] compact-sm:px-2 compact-sm:py-1.5";
+  "rounded-[1.2rem] px-3 py-2 narrow:gap-2.5 narrow:px-2.5 narrow:py-1.75 compact:gap-2.5 compact:px-2.5 compact:py-1.75 compact-sm:gap-2.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-1.75 compact-xs:px-2.5 compact-xs:py-1.75";
 
 /** Compact rank badge */
 const RANK_BADGE =
-  "h-7 w-7 text-[11px] narrow:h-6 narrow:w-6 narrow:text-[10px] compact:h-6.5 compact:w-6.5 compact:text-[10px] compact-sm:h-6 compact-sm:w-6 compact-sm:text-[9px]";
+  "h-7 w-7 text-[11px] narrow:h-6.5 narrow:w-6.5 narrow:text-[10px] compact:h-6.5 compact:w-6.5 compact:text-[10px] compact-sm:h-6.5 compact-sm:w-6.5 compact-sm:text-[9px] compact-xs:h-6.5 compact-xs:w-6.5";
 
 /** Compact leaderboard avatar */
 const ROW_AVATAR =
-  "h-8 w-8 narrow:h-7 narrow:w-7 compact:h-7 compact:w-7 compact-sm:h-6.5 compact-sm:w-6.5";
+  "h-8 w-8 narrow:h-7 narrow:w-7 compact:h-7 compact:w-7 compact-sm:h-7 compact-sm:w-7 compact-xs:h-7 compact-xs:w-7";
 
 /** Compact row name text */
 const ROW_NAME =
-  "text-[13px] narrow:text-[12px] compact:text-[12px] compact-sm:text-[11px]";
+  "text-[13px] narrow:text-[12px] compact:text-[12px] compact-sm:text-[11px] compact-xs:text-[11px]";
 
 /** Compact row detail text */
 const ROW_DETAIL =
-  "text-[11px] narrow:text-[10px] compact:text-[10px] compact-sm:text-[9px]";
+  "text-[11px] narrow:text-[10px] compact:text-[10px] compact-sm:text-[9px] compact-xs:text-[9px]";
 
 /** "Весь рейтинг" button sizing */
 const FULL_RATING_BTN =
-  "h-8 shrink-0 rounded-full px-3 text-[11px] narrow:h-7.5 narrow:px-2.5 narrow:text-[10px] compact:h-7.5 compact:px-2.5 compact:text-[10px] compact-sm:h-7 compact-sm:px-2 compact-sm:text-[9px] compact-xs:h-6.5";
+  "h-8 shrink-0 rounded-full px-3 text-[11px] narrow:h-7.5 narrow:px-2.5 narrow:text-[10px] compact:h-7.5 compact:px-2.5 compact:text-[10px] compact-sm:h-7 compact-sm:px-2.5 compact-sm:text-[9px] compact-xs:h-7 compact-xs:px-2.5";
 
 /** Spacing between leaderboard rows */
 const ROW_GAP =
-  "space-y-2 narrow:space-y-1.5 compact:space-y-1.5 compact-sm:space-y-1";
+  "space-y-2 narrow:space-y-1.5 compact:space-y-1.5 compact-sm:space-y-1.5 compact-xs:space-y-1.5";
+
+const PREVIEW_ROW_VISIBILITY = [
+  "",
+  "",
+  "",
+  "compact-sm:hidden",
+  "compact:hidden",
+] as const;
 
 /* ═══════════════════════════════════════════════════════════════════ */
 
@@ -221,6 +229,10 @@ function getRankMarker(rank: number) {
     icon: null,
     className: "border-border-subtle bg-bg-elevated text-text-muted",
   };
+}
+
+function getPreviewRowVisibility(index: number) {
+  return PREVIEW_ROW_VISIBILITY[index] ?? "hidden";
 }
 
 /* ── DashboardSurface ─────────────────────────────────────────────── */
@@ -469,6 +481,7 @@ type DashboardLeaderboardRowProps = {
     avatarUrl: string | null;
   }) => void;
   compact?: boolean;
+  className?: string;
 };
 
 function DashboardLeaderboardRow({
@@ -478,6 +491,7 @@ function DashboardLeaderboardRow({
   currentUserDailyStreak,
   onOpenPlayerProfile,
   compact = false,
+  className,
 }: DashboardLeaderboardRowProps) {
   const rank = entry.rank ?? 0;
   const rankMarker = getRankMarker(rank);
@@ -511,6 +525,7 @@ function DashboardLeaderboardRow({
         isCurrentUser
           ? "border-brand-primary/20 bg-status-mastered-soft"
           : "border-border-subtle bg-bg-elevated hover:border-brand-primary/20 hover:bg-bg-surface",
+        className,
       )}
       aria-label={`Открыть профиль ${displayName}`}
     >
@@ -786,16 +801,18 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
   return (
     <>
       {/* Inline card */}
-      <DashboardSurface className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <DashboardSurface className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className={cn("flex items-start justify-between gap-3", HEADING_MB)}>
-          <h2
-            className={cn(
-              "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
-              HEADING_TEXT,
-            )}
-          >
-            Таблица лидеров
-          </h2>
+          <div className="min-w-0">
+            <h2
+              className={cn(
+                "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
+                HEADING_TEXT,
+              )}
+            >
+              Таблица лидеров
+            </h2>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -811,29 +828,46 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
         <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-2">
           <div className={ROW_GAP}>
             {entries.length > 0
-              ? entries.map((entry) => (
+              ? entries.map((entry, index) => (
                   <DashboardLeaderboardRow
                     key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
                     entry={entry}
                     compact
+                    className={getPreviewRowVisibility(index)}
                     {...sharedRowProps}
                   />
                 ))
               : isLeaderboardLoading
-                ? Array.from({ length: 3 }, (_, i) => (
+                ? Array.from({ length: 5 }, (_, i) => (
                     <div
                       key={`skeleton-${i}`}
-                      className="rounded-[1.2rem] border border-border-subtle bg-bg-elevated px-3 py-2 narrow:px-2.5 narrow:py-1.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-1.5"
+                      className={cn(
+                        "rounded-[1.2rem] border border-border-subtle bg-bg-elevated px-3 py-2 narrow:px-2.5 narrow:py-1.5 compact-sm:rounded-[1rem] compact-sm:px-2.5 compact-sm:py-1.5",
+                        getPreviewRowVisibility(i),
+                      )}
                     >
                       <Skeleton className="h-10 w-full rounded-[1rem] border-0 compact-sm:h-8" />
                     </div>
                   ))
                 : (
                     <div className="rounded-[1.35rem] border border-dashed border-border-subtle bg-bg-elevated p-4 compact-sm:rounded-[1rem] compact-sm:p-3">
-                      <p className="text-sm leading-relaxed text-text-secondary compact-sm:text-[12px] compact-sm:leading-5">
-                        Рейтинг появится, когда у вас и других участников появится
-                        прогресс по стихам.
-                      </p>
+                      <div className="space-y-3 compact-sm:space-y-2">
+                        <p className="text-sm leading-relaxed text-text-secondary compact-sm:text-[12px] compact-sm:leading-5">
+                          Рейтинг появится, когда у вас и других участников появится
+                          прогресс по стихам.
+                        </p>
+                        {onOpenTraining ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onOpenTraining}
+                            className="h-9 rounded-full px-4 text-xs compact-sm:h-8 compact-sm:px-3"
+                          >
+                            Открыть тренировку
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   )}
           </div>

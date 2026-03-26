@@ -162,12 +162,14 @@ export function Dashboard({
   return (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-5xl flex-col px-3 py-3',
-        'narrow:px-2 narrow:py-2 sm:px-4 lg:px-5',
-        // Tall screens: fill space between header & navbar, equal distribution
-        'h-full justify-between overflow-hidden',
-        // Tiny screens (≤720px): allow scroll with fixed gaps
-        'compact-xs:h-auto compact-xs:min-h-full compact-xs:justify-start compact-xs:gap-2 compact-xs:overflow-y-auto compact-xs:overscroll-contain',
+        'mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden',
+        'gap-3 px-3 py-3',
+        'narrow:gap-3 narrow:px-3 narrow:py-3',
+        'compact:gap-2.5 compact:py-2.5',
+        'compact-md:gap-2.5 compact-md:px-2.5 compact-md:py-2.5',
+        'compact-sm:gap-2.5 compact-sm:px-2.5 compact-sm:py-2.5',
+        'compact-xs:gap-2.5 compact-xs:px-2.5 compact-xs:py-2.5',
+        'sm:px-4 lg:px-5',
       )}
     >
       <DashboardWelcomeSection
