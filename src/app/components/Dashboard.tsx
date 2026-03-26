@@ -9,11 +9,14 @@ import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLea
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
+import { cn } from './ui/utils'
 import {
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from './dashboard/DashboardSections'
+
+/* ── Types ─────────────────────────────────────────────────────────── */
 
 interface DashboardProps {
   todayVerses: Array<Verse>
@@ -41,6 +44,8 @@ type TodayVersesSummary = {
   masteredVerses: number
   averageTrainingProgressPercent: number
 }
+
+/* ── Helpers ────────────────────────────────────────────────────────── */
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
@@ -93,7 +98,7 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
       dueReviewCount: 0,
       masteredVerses: 0,
       progressTotal: 0,
-    }
+    },
   )
 
   return {
@@ -107,6 +112,8 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
         : 0,
   }
 }
+
+/* ── Dashboard ─────────────────────────────────────────────────────── */
 
 export function Dashboard({
   todayVerses,
@@ -125,13 +132,9 @@ export function Dashboard({
   const { user } = useTelegram()
   const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
-  const currentUserXp = useCurrentUserStatsStore((state) => state.xp)
-  const currentUserMasteredVerses = useCurrentUserStatsStore(
-    (state) => state.masteredVerses,
-  )
-  const currentUserDailyStreak = useCurrentUserStatsStore(
-    (state) => state.dailyStreak,
-  )
+  const currentUserXp = useCurrentUserStatsStore((s) => s.xp)
+  const currentUserMasteredVerses = useCurrentUserStatsStore((s) => s.masteredVerses)
+  const currentUserDailyStreak = useCurrentUserStatsStore((s) => s.dailyStreak)
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
@@ -144,34 +147,12 @@ export function Dashboard({
   const statsCards = useMemo(
     () =>
       [
-        {
-          key: 'learning',
-          label: 'Изучение',
-          value: `${learningVerses}`,
-          tone: 'learning' as const,
-        },
-        {
-          key: 'review',
-          label: 'Повторение',
-          value: `${dueReviewVerses}`,
-          tone: 'review' as const,
-        },
-        {
-          key: 'xp',
-          label: 'XP',
-          value: userXp != null ? formatXp(userXp) : null,
-          isLoading: isStatsPending,
-          tone: 'neutral' as const,
-        },
-        {
-          key: 'mastered',
-          label: 'Выучено',
-          value: masteredVerses != null ? `${masteredVerses}` : null,
-          isLoading: isStatsPending,
-          tone: 'mastered' as const,
-        },
+        { key: 'learning', label: 'Изучение', value: `${learningVerses}`, tone: 'learning' as const },
+        { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
+        { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
+        { key: 'mastered', label: 'Выучено', value: masteredVerses != null ? `${masteredVerses}` : null, isLoading: isStatsPending, tone: 'mastered' as const },
       ] as const,
-    [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp]
+    [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
   )
 
   if (isInitializingData) {
@@ -179,7 +160,16 @@ export function Dashboard({
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-3 overflow-hidden p-3 [@media(max-width:420px)]:gap-2 [@media(max-width:420px)]:p-2 [@media(max-height:880px)]:gap-2.5 [@media(max-height:880px)]:p-2.5 [@media(max-height:820px)]:gap-2 [@media(max-height:820px)]:p-2 [@media(max-height:760px)]:gap-1.5 [@media(max-height:760px)]:p-1.5 [@media(max-height:720px)]:gap-1 [@media(max-height:720px)]:p-1 sm:p-4 lg:gap-4 lg:p-5">
+    <div
+      className={cn(
+        'mx-auto flex w-full max-w-5xl flex-col px-3 py-3',
+        'narrow:px-2 narrow:py-2 sm:px-4 lg:px-5',
+        // Tall screens: fill space between header & navbar, equal distribution
+        'h-full justify-between overflow-hidden',
+        // Tiny screens (≤720px): allow scroll with fixed gaps
+        'compact-xs:h-auto compact-xs:min-h-full compact-xs:justify-start compact-xs:gap-2 compact-xs:overflow-y-auto compact-xs:overscroll-contain',
+      )}
+    >
       <DashboardWelcomeSection
         user={user}
         currentUserAvatarUrl={currentUserAvatarUrl}
@@ -199,17 +189,16 @@ export function Dashboard({
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 [@media(max-width:420px)]:gap-2 [@media(max-height:880px)]:gap-2.5 [@media(max-height:820px)]:gap-2 [@media(max-height:760px)]:gap-1.5 [@media(max-height:720px)]:gap-1 xl:grid xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:items-stretch">
-        <DashboardTrainingStatsCard statsCards={statsCards} />
-        <DashboardLeaderboardCard
-          leaderboard={dashboardLeaderboard}
-          isLeaderboardLoading={isDashboardLeaderboardLoading}
-          onOpenTraining={onOpenTraining}
-          onOpenPlayerProfile={onOpenPlayerProfile}
-          onLeaderboardPageChange={onLeaderboardPageChange}
-          onLeaderboardJumpToMe={onLeaderboardJumpToMe}
-        />
-      </div>
+      <DashboardTrainingStatsCard statsCards={statsCards} />
+
+      <DashboardLeaderboardCard
+        leaderboard={dashboardLeaderboard}
+        isLeaderboardLoading={isDashboardLeaderboardLoading}
+        onOpenTraining={onOpenTraining}
+        onOpenPlayerProfile={onOpenPlayerProfile}
+        onLeaderboardPageChange={onLeaderboardPageChange}
+        onLeaderboardJumpToMe={onLeaderboardJumpToMe}
+      />
     </div>
   )
 }

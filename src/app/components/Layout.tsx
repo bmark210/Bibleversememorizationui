@@ -95,8 +95,8 @@ export function Layout({
           }`}
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-            <div className="flex min-h-12 items-center justify-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="flex min-h-10 items-center justify-center">
               <div className="truncate [font-family:var(--font-heading)] text-sm font-semibold tracking-[0.08em] uppercase text-brand-primary">
                 {pageTitle}
               </div>
@@ -140,20 +140,22 @@ export function Layout({
         <main
           className={cn(
             "min-w-0 flex-1 min-h-0 [overflow-x:clip]",
-            isFitContent ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
+            isFitContent
+              ? "overflow-hidden compact-xs:overflow-y-auto compact-xs:overscroll-contain"
+              : "overflow-y-auto overscroll-contain",
           )}
           style={{
             paddingBottom: hideAppChrome
               ? `${bottomInset}px`
               : isKeyboardOpen
                 ? `${bottomInset}px`
-                : `calc(var(--app-bottom-nav-clearance, 74px) + ${bottomInset}px)`
+                : `calc(var(--app-bottom-nav-clearance, 68px) + ${bottomInset}px)`
           }}
         >
           <div
             className={cn(
               "min-h-0",
-              isFitContent && "flex h-full flex-col overflow-hidden",
+              isFitContent && "flex h-full flex-col overflow-hidden compact-xs:overflow-y-auto",
             )}
           >
             {children}
@@ -173,7 +175,7 @@ export function Layout({
         }`}
         style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
       >
-        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl [@media(max-width:420px)]:rounded-[1.6rem] [@media(max-width:420px)]:py-2 [@media(max-height:760px)]:py-1.5">
+        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-[1.6rem] narrow:py-1.5 compact-sm:py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -184,14 +186,15 @@ export function Layout({
                 key={item.id}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition-[background-color,color,box-shadow] [@media(max-width:420px)]:gap-0.5 [@media(max-width:420px)]:rounded-[1rem] [@media(max-width:420px)]:py-1.5 [@media(max-height:760px)]:py-1.5 ${
+                className={cn(
+                  'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-1.5 transition-[background-color,color,box-shadow] narrow:gap-0.5 narrow:rounded-[1rem] narrow:py-1 compact-sm:py-1',
                   isActive
                     ? 'bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                    : 'text-text-muted'
-                }`}
+                    : 'text-text-muted',
+                )}
               >
-                <Icon className="h-5 w-5 [@media(max-width:420px)]:h-4 [@media(max-width:420px)]:w-4" />
-                <span className="text-[11px] font-medium [@media(max-width:420px)]:text-[10px]">{item.label}</span>
+                <Icon className="h-5 w-5 narrow:h-4 narrow:w-4" />
+                <span className="text-[11px] font-medium narrow:text-[10px]">{item.label}</span>
               </button>
             );
           })}
