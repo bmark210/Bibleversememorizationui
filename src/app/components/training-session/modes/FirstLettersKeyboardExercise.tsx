@@ -257,11 +257,11 @@ export function ModeFirstLettersKeyboardExercise({
             transition={{ duration: 0.2 }}
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
               shakeFlash.value === true
-                ? 'border-destructive/60 bg-destructive/5'
-                : successFlash.value === true
-                  ? 'border-emerald-500/60 bg-emerald-500/5'
-                  : 'border-border/60'
-            }`}
+                  ? 'border-destructive/60 bg-destructive/5'
+                  : successFlash.value === true
+                    ? 'border-status-learning/25 bg-status-learning-soft'
+                    : 'border-border/60'
+              }`}
           >
             <Textarea
               ref={inputRef}

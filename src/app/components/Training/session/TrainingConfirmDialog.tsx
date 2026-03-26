@@ -45,10 +45,10 @@ export function TrainingConfirmDialog({
     >
       <DrawerContent>
         <DrawerHeader className="pb-1">
-          <DrawerTitle className="text-base text-foreground/90">
+          <DrawerTitle className="text-base text-text-primary">
             {title}
           </DrawerTitle>
-          <DrawerDescription className="text-sm text-muted-foreground/80">
+          <DrawerDescription className="text-sm text-text-secondary">
             {description}
           </DrawerDescription>
         </DrawerHeader>
@@ -57,7 +57,7 @@ export function TrainingConfirmDialog({
           <DrawerClose asChild>
             <Button
               variant="outline"
-              className="flex-1 h-12 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+              className="h-12 flex-1 rounded-2xl border-border-subtle bg-bg-subtle text-sm font-medium text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated hover:text-brand-primary"
               onClick={onCancel}
             >
               {cancelLabel}
@@ -67,8 +67,8 @@ export function TrainingConfirmDialog({
             className={cn(
               "flex-1 h-12 rounded-2xl border text-sm font-medium",
               variant === "destructive"
-                ? "border-rose-500/25 bg-rose-500/[0.06] text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
-                : "border-primary/30 bg-primary/85 text-primary-foreground hover:bg-primary/90",
+                ? "border-status-paused/25 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
+                : "border-brand-primary bg-brand-primary text-brand-primary-foreground hover:border-brand-primary-hover hover:bg-brand-primary-hover",
             )}
             onClick={onConfirm}
           >

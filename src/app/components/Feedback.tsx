@@ -352,11 +352,11 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
 
           <div className="flex items-center justify-between gap-3">
             <div
-              className={`text-xs ${
-                remainingChars < 150
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-foreground/42"
-              }`}
+                className={`text-xs ${
+                  remainingChars < 150
+                    ? "text-state-warning"
+                    : "text-foreground/42"
+                }`}
             >
               {remainingChars} симв.
             </div>

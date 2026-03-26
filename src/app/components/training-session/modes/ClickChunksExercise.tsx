@@ -303,11 +303,11 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
                 variant="outline"
                 className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
                   errorFlash.value === token.id
-                    ? 'border-destructive text-destructive bg-destructive/10'
-                    : successFlash.value === token.id
-                      ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                      : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                }`}
+                      ? 'border-destructive text-destructive bg-destructive/10'
+                      : successFlash.value === token.id
+                        ? 'border-status-learning text-status-learning bg-status-learning-soft'
+                        : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
+                  }`}
                 style={{ fontSize: `${fontSizes.sm}px` }}
                 onClick={() => handleChunkClick(token)}
               >

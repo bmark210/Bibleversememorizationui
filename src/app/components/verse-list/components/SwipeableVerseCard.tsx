@@ -68,18 +68,18 @@ const SwipeableVerseCardComponent = ({
     if (verse.popularityScope === 'friends') {
       return popularityValue > 0 ? {
         icon: Users,
-        label: `${popularityValue}`,
-        className:
-          'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-      } : null;
+          label: `${popularityValue}`,
+          className:
+            'border-status-community/25 bg-status-community-soft text-status-community',
+        } : null;
     }
     if (verse.popularityScope === 'players') {
       return popularityValue > 0 ? {
         icon: Users,
-        label: `${popularityValue}`,
-        className:
-          'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
-      } : null;
+          label: `${popularityValue}`,
+          className:
+            'border-status-collection/25 bg-status-collection-soft text-status-collection',
+        } : null;
     }
     return null;
   })();

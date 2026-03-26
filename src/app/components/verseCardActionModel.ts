@@ -193,9 +193,9 @@ function getStatusTone(params: {
     return {
       icon: Pause,
       title: "На паузе",
-      pillClassName: "border-rose-500/20 bg-rose-500/[0.08]",
-      iconClassName: "text-rose-700 dark:text-rose-300",
-      titleClassName: "text-rose-700/80 dark:text-rose-300/80",
+      pillClassName: "border-status-paused/25 bg-status-paused-soft",
+      iconClassName: "text-status-paused",
+      titleClassName: "text-status-paused/85",
     };
   }
 
@@ -203,9 +203,9 @@ function getStatusTone(params: {
     return {
       icon: Trophy,
       title: "Выучен",
-      pillClassName: "border-amber-500/25 bg-amber-500/[0.08]",
-      iconClassName: "text-amber-800 dark:text-amber-300",
-      titleClassName: "text-amber-800/80 dark:text-amber-300/80",
+      pillClassName: "border-status-mastered/25 bg-status-mastered-soft",
+      iconClassName: "text-status-mastered",
+      titleClassName: "text-status-mastered/85",
     };
   }
 
@@ -213,17 +213,17 @@ function getStatusTone(params: {
     return {
       icon: Brain,
       title: "В изучении",
-      pillClassName: "border-emerald-500/20 bg-emerald-500/[0.08]",
-      iconClassName: "text-emerald-700 dark:text-emerald-300",
-      titleClassName: "text-emerald-700/80 dark:text-emerald-300/80",
+      pillClassName: "border-status-learning/25 bg-status-learning-soft",
+      iconClassName: "text-status-learning",
+      titleClassName: "text-status-learning/85",
     };
   }
 
   if (status === "REVIEW") {
     const reviewTone = {
-      pillClassName: "border-violet-500/20 bg-violet-500/[0.08]",
-      iconClassName: "text-violet-700 dark:text-violet-300",
-      titleClassName: "text-violet-700/80 dark:text-violet-300/80",
+      pillClassName: "border-status-review/25 bg-status-review-soft",
+      iconClassName: "text-status-review",
+      titleClassName: "text-status-review/85",
     } as const;
 
     if (isNotYetDue) {

@@ -45,9 +45,9 @@ export type ResolvedTrainingRatingButton =
   | ContinueButtonMeta;
 
 const RETRY_BUTTON_CLASS =
-  'rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-orange-700 hover:bg-orange-500/15 dark:text-orange-300';
+  'rounded-[1.15rem] border border-status-paused/25 bg-status-paused-soft p-3 text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft';
 const CONTINUE_BUTTON_CLASS =
-  'rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300';
+  'rounded-[1.15rem] border border-status-mastered/25 bg-status-mastered-soft p-3 text-status-mastered shadow-[var(--shadow-soft)] hover:bg-status-mastered-soft';
 
 function resolveAllowedContinueRatings(params: {
   stage: TrainingRatingStage;

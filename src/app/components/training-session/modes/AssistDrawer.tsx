@@ -54,16 +54,16 @@ export function AssistDrawer({
           {showInlineHint && activeHintContent && (
             <div
               className={cn(
-                'rounded-2xl border px-4 py-3 text-sm whitespace-pre-line',
+                'whitespace-pre-line rounded-[1.35rem] border px-4 py-3 text-sm shadow-[var(--shadow-soft)]',
                 activeHintContent.kind === 'full_reveal'
-                  ? 'border-amber-500/30 bg-amber-500/8'
-                  : 'border-emerald-500/30 bg-emerald-500/8',
+                  ? 'border-status-mastered/25 bg-status-mastered-soft text-status-mastered'
+                  : 'border-status-learning/25 bg-status-learning-soft text-status-learning',
               )}
             >
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/50">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
                 {activeHintContent.title}
               </p>
-              <p className="text-foreground/90">{activeHintContent.text}</p>
+              <p className="text-text-primary">{activeHintContent.text}</p>
             </div>
           )}
 
@@ -72,8 +72,8 @@ export function AssistDrawer({
             <p className={cn(
               'text-center text-xs font-medium',
               budgetExhausted
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-foreground/50',
+                ? 'text-status-paused'
+                : 'text-text-muted',
             )}>
               {budgetExhausted
                 ? 'Все подсказки на сегодня использованы.'
@@ -90,10 +90,10 @@ export function AssistDrawer({
                 onClick={onRequestAssist}
                 disabled={budgetExhausted}
                 className={cn(
-                  'flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors',
+                  'flex w-full items-center justify-center gap-2 rounded-[1.35rem] border px-4 py-3 text-sm font-medium shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow]',
                   budgetExhausted
-                    ? 'cursor-not-allowed border-emerald-500/20 bg-emerald-500/5 text-emerald-400/50'
-                    : 'border-emerald-500/30 bg-emerald-500/8 text-emerald-700 active:bg-emerald-500/18 dark:text-emerald-300',
+                    ? 'cursor-not-allowed border-border-subtle bg-bg-subtle text-text-muted'
+                    : 'border-status-learning/25 bg-status-learning-soft text-status-learning hover:border-status-learning/35 hover:bg-status-learning-soft active:bg-status-learning-soft',
                 )}
               >
                 <Lightbulb className="h-4 w-4" />
@@ -111,10 +111,10 @@ export function AssistDrawer({
                 onClick={onRequestShowVerse}
                 disabled={budgetExhausted || !canShowVerse}
                 className={cn(
-                  'flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors',
+                  'flex w-full items-center justify-center gap-2 rounded-[1.35rem] border px-4 py-3 text-sm font-medium shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow]',
                   budgetExhausted || !canShowVerse
-                    ? 'cursor-not-allowed border-amber-500/20 bg-amber-500/5 text-amber-400/50'
-                    : 'border-amber-500/30 bg-amber-500/8 text-amber-700 active:bg-amber-500/18 dark:text-amber-300',
+                    ? 'cursor-not-allowed border-border-subtle bg-bg-subtle text-text-muted'
+                    : 'border-status-mastered/25 bg-status-mastered-soft text-status-mastered hover:border-status-mastered/35 hover:bg-status-mastered-soft active:bg-status-mastered-soft',
                 )}
               >
                 <Flag className="h-4 w-4" />

@@ -37,7 +37,7 @@ const DialogOverlay = React.forwardRef<
       ref={ref}
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-[80] bg-transparent backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-[80] bg-overlay-scrim backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
       {...props}
@@ -57,7 +57,7 @@ const DialogContent = React.forwardRef<
         ref={ref}
         data-slot="dialog-content"
         className={cn(
-          "fixed inset-0 z-[90] grid h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-4 overflow-hidden bg-background p-4 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-border/70 sm:p-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
+          "fixed inset-0 z-[90] grid h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-4 overflow-hidden bg-bg-elevated p-4 text-text-primary shadow-[var(--shadow-floating)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.9rem] sm:border sm:border-border-subtle sm:p-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
           className
         )}
         {...props}
@@ -76,7 +76,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
         <div className="pointer-events-none absolute -bottom-6 left-0 w-full h-6 z-10 bg-gradient-to-b from-background/95 to-transparent" />
         <div
           className={cn(
-            "flex flex-col gap-2 bg-background py-4 pr-12 text-center sm:text-left",
+            "flex flex-col gap-2 bg-bg-elevated py-4 pr-12 text-center sm:text-left",
             className
           )}
           {...props}
@@ -93,7 +93,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
         <div className="pointer-events-none absolute -top-10 left-0 w-full h-10 z-10 bg-gradient-to-t from-background/95 to-transparent" />
         <div
           className={cn(
-            "flex flex-col-reverse gap-2 bg-background pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:flex-row sm:justify-end sm:pb-6",
+            "flex flex-col-reverse gap-2 bg-bg-elevated pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:flex-row sm:justify-end sm:pb-6",
             className
           )}
           {...props}
@@ -111,7 +111,7 @@ const DialogTitle = React.forwardRef<
     <DialogPrimitive.Title
       ref={ref}
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("[font-family:var(--font-heading)] text-xl leading-none font-semibold tracking-tight text-text-primary", className)}
       {...props}
     />
   );
@@ -126,7 +126,7 @@ const DialogDescription = React.forwardRef<
     <DialogPrimitive.Description
       ref={ref}
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-sm leading-relaxed text-text-secondary", className)}
       {...props}
     />
   );

@@ -74,39 +74,39 @@ const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
 };
 
 const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-gradient-to-br from-sky-500/8 via-card to-card",
-  catalog: "bg-gradient-to-br from-slate-500/6 via-card to-card",
-  learning: "bg-gradient-to-br from-emerald-500/8 via-card to-card",
-  review: "bg-gradient-to-br from-violet-500/10 via-card to-card",
-  mastered: "bg-gradient-to-br from-amber-400/14 via-card to-card",
-  stopped: "bg-gradient-to-br from-rose-500/8 via-card to-card",
+  my: "bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated",
+  catalog: "bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated",
+  learning: "bg-gradient-to-br from-status-learning-soft via-bg-surface to-bg-elevated",
+  review: "bg-gradient-to-br from-status-review-soft via-bg-surface to-bg-elevated",
+  mastered: "bg-gradient-to-br from-status-mastered-soft via-bg-surface to-bg-elevated",
+  stopped: "bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated",
 };
 
 const PREVIEW_TONE_FRAME_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-sky-500/28",
-  catalog: "bg-slate-500/24",
-  learning: "bg-emerald-500/26",
-  review: "bg-violet-500/30",
-  mastered: "bg-amber-500/34",
-  stopped: "bg-rose-500/26",
+  my: "bg-status-collection",
+  catalog: "bg-border-default",
+  learning: "bg-status-learning",
+  review: "bg-status-review",
+  mastered: "bg-status-mastered",
+  stopped: "bg-status-paused",
 };
 
 const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-sky-500/18",
-  catalog: "bg-slate-500/12",
-  learning: "bg-emerald-500/16",
-  review: "bg-violet-500/18",
-  mastered: "bg-amber-400/22",
-  stopped: "bg-rose-500/16",
+  my: "bg-status-collection-soft",
+  catalog: "bg-bg-subtle",
+  learning: "bg-status-learning-soft",
+  review: "bg-status-review-soft",
+  mastered: "bg-status-mastered-soft",
+  stopped: "bg-status-paused-soft",
 };
 
 const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "from-sky-500/0 via-sky-500/35 to-sky-500/0",
-  catalog: "from-slate-500/0 via-slate-500/25 to-slate-500/0",
-  learning: "from-emerald-500/0 via-emerald-500/35 to-emerald-500/0",
-  review: "from-violet-500/0 via-violet-500/35 to-violet-500/0",
-  mastered: "from-amber-500/0 via-amber-500/45 to-amber-500/0",
-  stopped: "from-rose-500/0 via-rose-500/35 to-rose-500/0",
+  my: "from-transparent via-status-collection to-transparent",
+  catalog: "from-transparent via-border-default to-transparent",
+  learning: "from-transparent via-status-learning to-transparent",
+  review: "from-transparent via-status-review to-transparent",
+  mastered: "from-transparent via-status-mastered to-transparent",
+  stopped: "from-transparent via-status-paused to-transparent",
 };
 
 export function VerseCard({
@@ -404,8 +404,8 @@ export function VerseCard({
         className={cn(
           "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)] [contain:layout_style_paint]",
           "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
-          "shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]",
-          isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border/50",
+          "shadow-[var(--shadow-elevated)]",
+          isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border-default",
           onVerticalSwipeStep && "overscroll-none",
           "transition-[opacity,transform] duration-300",
           MIN_HEIGHT_CLASS_BY_KIND[minHeight],
@@ -414,7 +414,7 @@ export function VerseCard({
       >
         <div
           className={cn(
-            "relative h-full min-w-0 rounded-[calc(3rem-1px)] bg-card overflow-hidden overflow-x-hidden",
+            "relative h-full min-w-0 rounded-[calc(3rem-1px)] bg-bg-elevated overflow-hidden overflow-x-hidden shadow-[var(--shadow-inset)]",
             "p-6 sm:p-10 flex flex-col",
             "transition-[opacity,transform] duration-300",
             isPreviewToneActive && PREVIEW_TONE_CARD_CLASS[tone],
@@ -458,7 +458,7 @@ export function VerseCard({
                     title={tag.title}
                     className={cn(
                       "inline-flex min-w-0 max-w-[min(44vw,11rem)] shrink items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide overflow-hidden",
-                      "border-border/60 bg-muted/35 text-muted-foreground"
+                      "border-border-subtle bg-bg-subtle text-text-muted"
                     )}
                   >
                     <span className="block w-full truncate overflow-hidden">#{tag.title}</span>
@@ -469,7 +469,7 @@ export function VerseCard({
                     aria-label={`еще ${hiddenTagsCount} тегов`}
                     className={cn(
                       "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
-                      "border-border/60 bg-muted/35 text-muted-foreground"
+                      "border-border-subtle bg-bg-subtle text-text-muted"
                     )}
                   >
                     +{hiddenTagsCount}

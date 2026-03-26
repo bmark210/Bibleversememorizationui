@@ -141,15 +141,15 @@ export function AnchorTypeMode({
             animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 shadow-sm transition-colors focus-within:border-primary/40",
+              "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-bg-elevated to-bg-subtle shadow-[var(--shadow-soft)] transition-colors focus-within:border-brand-primary/35",
               shakeInput
-                ? "border-destructive/60 bg-destructive/5"
-                : "border-border/50",
+                ? "border-state-error/50 bg-state-error/8"
+                : "border-border-subtle",
             )}
           >
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-primary/[0.03] to-transparent"
+              className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-brand-primary/8 to-transparent"
             />
             <Textarea
               ref={inputRef as RefObject<HTMLTextAreaElement>}
@@ -180,14 +180,14 @@ export function AnchorTypeMode({
               className={cn(
                 "mt-2 rounded-xl border px-3 py-2 text-sm",
                 matchPercent >= 85
-                  ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  ? "border-status-learning/25 bg-status-learning-soft text-status-learning"
                   : matchPercent >= 60
-                    ? "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                    : "border-destructive/45 bg-destructive/10 text-destructive",
+                    ? "border-state-warning/30 bg-state-warning/12 text-state-warning"
+                    : "border-state-error/30 bg-state-error/10 text-state-error",
               )}
             >
               <p className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">Совпадение</span>
+                <span className="text-text-muted">Совпадение</span>
                 <span className="font-semibold tabular-nums">{matchPercent}%</span>
               </p>
             </div>
@@ -197,12 +197,7 @@ export function AnchorTypeMode({
           <div className="mt-2.5">
             <Button
               type="submit"
-              className={cn(
-                "w-full h-11 rounded-xl text-sm font-medium transition-all duration-200",
-                canSubmitTypeAnswer
-                  ? "bg-primary/90 text-primary-foreground shadow-sm hover:bg-primary/95"
-                  : "bg-muted/50 text-muted-foreground/60 border border-border/30",
-              )}
+              className="h-11 w-full rounded-xl text-sm font-medium"
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Проверить ещё раз"}
@@ -219,14 +214,14 @@ export function AnchorTypeMode({
                 className={cn(
                   "h-1 w-4 rounded-full transition-colors duration-200",
                   i < typingAttempts
-                    ? "bg-rose-400/50"
+                    ? "bg-status-paused/55"
                     : i === typingAttempts
-                      ? "bg-primary/40"
-                      : "bg-foreground/[0.08]",
+                      ? "bg-brand-primary/45"
+                      : "bg-border-subtle",
                 )}
               />
             ))}
-            <span className="ml-1 text-[11px] text-muted-foreground/60 tabular-nums">
+            <span className="ml-1 text-[11px] tabular-nums text-text-muted">
               {attemptsLeft > 0
                 ? `${attemptsLeft} ${attemptsLeft === 1 ? "попытка" : "попытки"}`
                 : ""}
@@ -276,8 +271,7 @@ export function AnchorTypeMode({
             }}
             placeholder={question.placeholder}
             className={cn(
-              "h-12 rounded-xl border-border/40 bg-card/50 pr-[6.5rem] shadow-sm backdrop-blur-sm transition-all duration-200",
-              "focus-visible:border-primary/30 focus-visible:ring-1 focus-visible:ring-primary/15 focus-visible:bg-card/70",
+              "h-12 rounded-xl border-border-subtle bg-bg-elevated pr-[6.5rem] shadow-[var(--shadow-soft)] backdrop-blur-sm transition-all duration-200",
               isCompactTypeMode &&
                 "font-mono uppercase tracking-[0.18em] text-center pr-[6.5rem]",
             )}
@@ -293,12 +287,7 @@ export function AnchorTypeMode({
             <Button
               type="submit"
               size="sm"
-              className={cn(
-                "rounded-lg px-3.5 text-xs font-medium transition-all duration-200",
-                canSubmitTypeAnswer
-                  ? "bg-primary/90 text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground/60 border border-border/30",
-              )}
+              className="rounded-lg px-3.5 text-xs font-medium transition-all duration-200"
               disabled={!canSubmitTypeAnswer || controlsLocked}
             >
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
@@ -316,14 +305,14 @@ export function AnchorTypeMode({
               className={cn(
                 "h-1 w-4 rounded-full transition-colors duration-200",
                 i < typingAttempts
-                  ? "bg-rose-400/50"
+                  ? "bg-status-paused/55"
                   : i === typingAttempts
-                    ? "bg-primary/40"
-                    : "bg-foreground/[0.08]",
+                    ? "bg-brand-primary/45"
+                    : "bg-border-subtle",
               )}
             />
           ))}
-          <span className="ml-1 text-[11px] text-muted-foreground/60 tabular-nums">
+          <span className="ml-1 text-[11px] tabular-nums text-text-muted">
             {attemptsLeft > 0
               ? `${attemptsLeft} ${attemptsLeft === 1 ? "попытка" : "попытки"}`
               : ""}
@@ -335,13 +324,13 @@ export function AnchorTypeMode({
           typeInputReadiness.remainingChars > 0 &&
           typedAnswer.trim().length > 0 && (
             <div className="flex items-center gap-1.5">
-              <div className="h-1 w-8 rounded-full bg-foreground/[0.06] overflow-hidden">
+              <div className="h-1 w-8 overflow-hidden rounded-full bg-border-subtle">
                 <div
-                  className="h-full bg-primary/30 rounded-full transition-all duration-300"
+                  className="h-full rounded-full bg-brand-primary/35 transition-all duration-300"
                   style={{ width: `${readinessPercent}%` }}
                 />
               </div>
-              <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+              <span className="text-[10px] tabular-nums text-text-muted">
                 ещё {typeInputReadiness.remainingChars}
               </span>
             </div>

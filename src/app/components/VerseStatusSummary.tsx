@@ -66,7 +66,7 @@ export function VerseStatusPill({
   return (
     <div
       className={cn(
-        "inline-flex min-w-0 items-center rounded-full border shadow-sm backdrop-blur-sm",
+        "inline-flex min-w-0 items-center rounded-full border shadow-[var(--shadow-soft)] backdrop-blur-sm",
         config.pill,
         tone.pillClassName,
         className,
@@ -98,14 +98,14 @@ export function VerseStatusMetaPill({
   return (
     <div
       className={cn(
-        "inline-flex min-w-0 items-center rounded-full border border-border/55 bg-background/45 px-3 py-2 shadow-sm backdrop-blur-sm",
+        "inline-flex min-w-0 items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-2 shadow-[var(--shadow-soft)] backdrop-blur-sm",
         className,
       )}
     >
       <span
         className={cn(
           size === "sm" ? "text-[10px]" : "text-[11px]",
-          "min-w-0 truncate font-medium leading-none text-foreground/58 tabular-nums",
+          "min-w-0 truncate font-medium leading-none text-text-secondary tabular-nums",
         )}
       >
         {label}
@@ -129,7 +129,7 @@ export function VerseProgressValue({
   return (
     <div
       className={cn(
-        "inline-flex shrink-0 items-start leading-none text-primary/85 drop-shadow-[0_1px_0_rgba(0,0,0,0.28)]",
+        "inline-flex shrink-0 items-start leading-none text-brand-primary",
         config.progressWrap,
         className,
       )}

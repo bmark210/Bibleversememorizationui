@@ -270,9 +270,9 @@ export function PlayerProfileDrawer({
                     Ваш профиль
                   </span>
                 ) : profile?.isFriend ? (
-                  <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:text-emerald-300">
-                    В друзьях
-                  </span>
+                  <span className="inline-flex items-center rounded-full border border-status-learning/25 bg-status-learning-soft px-3 py-1 text-status-learning">
+                      В друзьях
+                    </span>
                 ) : profile ? (
                   <span className="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-foreground/62">
                     Можно добавить в друзья

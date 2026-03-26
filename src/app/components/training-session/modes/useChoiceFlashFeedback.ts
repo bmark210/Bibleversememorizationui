@@ -9,9 +9,9 @@ export type ChoiceFlashKind = 'idle' | 'error' | 'success';
 const CHOICE_ERROR_CLASS_NAME =
   'border-destructive text-destructive bg-destructive/10';
 const CHOICE_SUCCESS_CLASS_NAME =
-  'border-emerald-500 text-emerald-600 bg-emerald-500/10';
+  'border-status-learning text-status-learning bg-status-learning-soft';
 const CHOICE_DISABLED_CLASS_NAME =
-  'border-border/45 bg-muted/20 text-muted-foreground/55 opacity-55';
+  'border-border-subtle bg-bg-subtle text-text-muted opacity-55';
 
 interface GetChoiceButtonFlashClassNameOptions<T> {
   choiceKey: T;

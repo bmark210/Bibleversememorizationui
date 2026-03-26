@@ -34,10 +34,10 @@ function isMaskedState(state: WordSequenceFieldItemState) {
   return state === 'active-gap' || state === 'future-gap';
 }
 
-function getItemClassName(state: WordSequenceFieldItemState) {
-  if (state === 'revealed') {
-    return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  }
+  function getItemClassName(state: WordSequenceFieldItemState) {
+    if (state === 'revealed') {
+      return 'border border-status-learning/25 bg-status-learning-soft text-status-learning';
+    }
 
   if (state === 'filled') {
     return 'border border-primary/20 bg-primary/10 text-foreground';

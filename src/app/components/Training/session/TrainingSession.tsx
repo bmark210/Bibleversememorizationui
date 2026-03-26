@@ -819,7 +819,7 @@ export function TrainingSession({
               className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
             >
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80 dark:text-amber-300/80">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-state-warning/85">
                   Полный стих на{" "}
                   {activeVersePeek.durationSeconds ??
                     hintHelpers.hintState.showVerseDurationSeconds}{" "}
@@ -866,10 +866,10 @@ export function TrainingSession({
                 Отмена
               </Button>
             </DrawerClose>
-            <Button
-              className="flex-1 h-12 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-500/[0.12] dark:text-rose-200"
-              onClick={() =>
-                session.confirmQuickForget(hintHelpers.hintState.attempt)
+              <Button
+                className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft"
+                onClick={() =>
+                  session.confirmQuickForget(hintHelpers.hintState.attempt)
               }
             >
               Подтвердить

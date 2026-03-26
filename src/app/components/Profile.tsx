@@ -466,7 +466,7 @@ export function Profile({
         >
           {isTelegramFullscreen ? null : (
             <motion.div variants={sectionVariants}>
-              <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
+              <h1 className="[font-family:var(--font-heading)] text-3xl font-semibold tracking-tight text-brand-primary sm:text-4xl">
                 Профиль
               </h1>
             </motion.div>
@@ -488,23 +488,23 @@ export function Profile({
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                      <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
+                      <Avatar className="h-14 w-14 border border-border-subtle bg-bg-surface shadow-[var(--shadow-soft)]">
                         {effectiveAvatarUrl ? (
                           <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
                         ) : null}
-                        <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
                           {getInitials(profileName || "TG")}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="min-w-0">
-                        <div className="truncate text-base font-semibold text-foreground/80">
+                        <div className="truncate text-base font-semibold text-text-primary">
                           {profileName}
                         </div>
-                        <div className="mt-1 truncate text-sm text-foreground/56">
+                        <div className="mt-1 truncate text-sm text-text-secondary">
                           {usernameLabel}
                         </div>
-                        <div className="mt-2 inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                        <div className="mt-2 inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary">
                           {telegramStatusLabel}
                         </div>
                       </div>
@@ -512,7 +512,7 @@ export function Profile({
 
                     <div className="flex flex-wrap gap-2">
                       {user?.isPremium ? (
-                        <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                        <div className="inline-flex items-center rounded-full border border-status-mastered/25 bg-status-mastered-soft px-3 py-1 text-xs text-status-mastered">
                           Telegram Premium
                         </div>
                       ) : null}
@@ -522,23 +522,23 @@ export function Profile({
               ) : (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="h-14 w-14 border border-border/60 bg-background/70">
+                    <Avatar className="h-14 w-14 border border-border-subtle bg-bg-surface shadow-[var(--shadow-soft)]">
                       {effectiveAvatarUrl ? (
                         <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
                       ) : null}
-                      <AvatarFallback className="bg-secondary text-secondary-foreground">
+                      <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
                         {getInitials(profileName || "TG")}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-foreground/80">
+                      <div className="truncate text-base font-semibold text-text-primary">
                         {profileName}
                       </div>
-                      <div className="mt-1 truncate text-sm text-foreground/56">
+                      <div className="mt-1 truncate text-sm text-text-secondary">
                         {usernameLabel}
                       </div>
-                      <div className="mt-2 inline-flex items-center rounded-full border border-border/60 bg-background/45 px-3 py-1 text-xs text-foreground/62">
+                      <div className="mt-2 inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary">
                         {telegramStatusLabel}
                       </div>
                     </div>
@@ -546,7 +546,7 @@ export function Profile({
 
                   <div className="flex flex-wrap gap-2">
                     {user?.isPremium ? (
-                      <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+                      <div className="inline-flex items-center rounded-full border border-status-mastered/25 bg-status-mastered-soft px-3 py-1 text-xs text-status-mastered">
                         Telegram Premium
                       </div>
                     ) : null}
@@ -560,21 +560,23 @@ export function Profile({
             <ProfileSurface>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground/82">
+                  <div className="text-sm font-medium text-text-primary">
                     Оформление
                   </div>
-                  <div className="mt-1 text-sm text-foreground/56">
+                  <div className="mt-1 text-sm text-text-secondary">
                     Переключение между светлой и тёмной темой интерфейса.
                   </div>
                 </div>
 
-                <div className="w-fit flex items-center gap-3 rounded-full border border-border/60 bg-background/55 px-4 py-2 text-sm text-foreground/78">
-                  {theme === "dark" ? (
-                    <Moon className="h-4 w-4" />
-                  ) : (
-                    <Sun className="h-4 w-4" />
-                  )}
-                  <span>Тёмная тема</span>
+                <div className="w-fit flex items-center gap-3 rounded-full border border-border-subtle bg-bg-elevated px-4 py-2 text-sm text-text-primary shadow-[var(--shadow-soft)]">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border-subtle bg-bg-subtle">
+                    {theme === "dark" ? (
+                      <Moon className="h-4 w-4 text-status-mastered" />
+                    ) : (
+                      <Sun className="h-4 w-4 text-status-mastered" />
+                    )}
+                  </span>
+                  <span>{theme === "dark" ? "Biblical Night" : "Biblical Light"}</span>
                   <Switch
                     checked={theme === "dark"}
                     onCheckedChange={onToggleTheme}
@@ -589,15 +591,15 @@ export function Profile({
             <ProfileSurface>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground/82">
+                  <div className="text-sm font-medium text-text-primary">
                     Размер шрифта
                   </div>
-                  <div className="mt-1 text-sm text-foreground/56">
+                  <div className="mt-1 text-sm text-text-secondary">
                     Размер текста в тренировочных упражнениях.
                   </div>
                 </div>
 
-                <div className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-background/55 p-1">
+                <div className="flex w-fit items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated p-1 shadow-[var(--shadow-soft)]">
                   {(
                     [
                       { value: "small", label: "Малый", preview: 14 },
@@ -611,10 +613,10 @@ export function Profile({
                       type="button"
                       onClick={() => trainingFontStore.setTrainingFontSize(option.value)}
                       className={cn(
-                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow]",
                         trainingFontSize === option.value
-                          ? "bg-primary/15 text-foreground border border-primary/30 shadow-sm"
-                          : "text-foreground/60 border border-transparent hover:text-foreground/80"
+                          ? "border border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-soft)]"
+                          : "border border-transparent text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
                       )}
                     >
                       <span style={{ fontSize: option.preview }} className="font-serif leading-none">
@@ -632,7 +634,7 @@ export function Profile({
             <ProfileSurface>
               <div className="flex w-fit flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground/82">
+                  <div className="text-sm font-medium text-text-primary">
                     Полный экран Telegram
                   </div>
                 </div>
@@ -647,7 +649,7 @@ export function Profile({
                   onClick={() =>
                     applyTelegramFullscreenPreference(!prefersTelegramFullscreen)
                   }
-                  className="h-10 rounded-full border-border/60 bg-background/55 px-4 text-sm text-foreground/78 shadow-none"
+                  className="h-10 rounded-full px-4 text-sm"
                 >
                   {prefersTelegramFullscreen ? (
                     <Minimize2 className="h-4 w-4" />
@@ -663,16 +665,16 @@ export function Profile({
           <motion.div variants={sectionVariants}>
             <ProfileSurface data-tour="profile-friends">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground/80">
+                <h2 className="[font-family:var(--font-heading)] text-xl font-semibold tracking-tight text-text-primary">
                   Друзья
                 </h2>
                 {canManageFriends ? (
-                  <div className="text-sm text-foreground/45">{activeCountLabel}</div>
+                  <div className="text-sm text-text-muted">{activeCountLabel}</div>
                 ) : null}
               </div>
 
               {!canManageFriends ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56">
+                <div className="mt-4 rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-elevated p-4 text-sm text-text-secondary">
                   Раздел станет доступен после инициализации профиля в Telegram.
                 </div>
               ) : (
@@ -681,17 +683,17 @@ export function Profile({
                     value={activeTab}
                     onValueChange={(value) => setActiveTab(value as FriendsTab)}
                   >
-                    <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-border/60 bg-background/45 p-1">
+                    <TabsList className="grid h-auto w-full grid-cols-2 rounded-[1.35rem]">
                       <TabsTrigger
                         data-tour="profile-players-tab"
                         value="players"
-                        className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
+                        className="h-10 rounded-[1rem]"
                       >
                         Игроки
                       </TabsTrigger>
                       <TabsTrigger
                         value="friends"
-                        className="h-9 rounded-xl text-sm text-foreground/66 data-[state=active]:bg-background data-[state=active]:text-foreground/80 data-[state=active]:shadow-none"
+                        className="h-10 rounded-[1rem]"
                       >
                         Друзья
                       </TabsTrigger>
@@ -699,18 +701,18 @@ export function Profile({
                   </Tabs>
 
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/38" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                     <Input
                       value={activeSearchInput}
                       onChange={(event) => handleSearchInputChange(event.target.value)}
                       placeholder={
                         activeTab === "players" ? "Поиск игроков" : "Поиск друзей"
                       }
-                      className="h-11 rounded-2xl border-border/60 bg-background/45 pl-9 shadow-none"
+                      className="pl-10"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-foreground/42">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
                     <span>{activeCountLabel}</span>
                     <span>
                       {currentPage}/{totalPages}
@@ -722,11 +724,11 @@ export function Profile({
                       Array.from({ length: 3 }).map((_, index) => (
                         <div
                           key={`friends-skeleton-${index}`}
-                          className="h-16 animate-pulse rounded-2xl border border-border/60 bg-background/45"
+                          className="h-16 animate-pulse rounded-[1.5rem] border border-border-subtle bg-bg-elevated"
                         />
                       ))
                     ) : listError ? (
-                      <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                      <div className="rounded-[1.5rem] border border-state-error/25 bg-state-error/12 p-4 text-sm text-state-error">
                         <div>{listError}</div>
                         <div className="mt-3">
                           <Button
@@ -748,7 +750,7 @@ export function Profile({
                         </div>
                       </div>
                     ) : currentPageData.items.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-border/60 bg-background/45 p-4 text-sm text-foreground/56">
+                      <div className="rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-elevated p-4 text-sm text-text-secondary">
                         <div>
                           {activeSearchQuery
                             ? "Ничего не найдено."
@@ -763,7 +765,7 @@ export function Profile({
                               variant="outline"
                               size="sm"
                               onClick={() => setActiveTab("players")}
-                              className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                              className="h-9 rounded-full px-4 text-xs"
                             >
                               Открыть игроков
                             </Button>
@@ -782,7 +784,7 @@ export function Profile({
                         return (
                           <div
                             key={`${activeTab}-${rowId}`}
-                            className="flex items-center gap-3 rounded-2xl border border-border/60 bg-background/45 px-3 py-3"
+                            className="flex items-center gap-3 rounded-[1.35rem] border border-border-subtle bg-bg-elevated px-3 py-3 shadow-[var(--shadow-soft)]"
                           >
                             {onOpenPlayerProfile ? (
                               <button
@@ -796,23 +798,23 @@ export function Profile({
                                       : null,
                                   })
                                 }
-                                className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:bg-background/20"
+                                className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] px-1 py-1 text-left transition-colors hover:bg-bg-surface"
                                 aria-label={`Открыть профиль ${displayName}`}
                               >
-                                <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
+                                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-surface">
                                   {item.avatarUrl ? (
                                     <AvatarImage src={item.avatarUrl} alt={displayName} />
                                   ) : null}
-                                  <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
+                                  <AvatarFallback className="text-xs bg-bg-subtle text-text-secondary">
                                     {getInitials(displayName)}
                                   </AvatarFallback>
                                 </Avatar>
 
                                 <div className="min-w-0 flex-1">
-                                  <div className="truncate text-sm font-medium text-foreground/82">
+                                  <div className="truncate text-sm font-medium text-text-primary">
                                     {displayName}
                                   </div>
-                                  <div className="mt-1 truncate text-xs text-foreground/48">
+                                  <div className="mt-1 truncate text-xs text-text-muted">
                                     {friendPlayerSubtitle(item)} ·{" "}
                                     {formatXp(getDisplayXp(item))} ·{" "}
                                     {getDisplayDailyStreak(item)} дн. подряд
@@ -821,20 +823,20 @@ export function Profile({
                               </button>
                             ) : (
                               <>
-                                <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
+                                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-surface">
                                   {item.avatarUrl ? (
                                     <AvatarImage src={item.avatarUrl} alt={displayName} />
                                   ) : null}
-                                  <AvatarFallback className="text-xs bg-secondary text-secondary-foreground">
+                                  <AvatarFallback className="text-xs bg-bg-subtle text-text-secondary">
                                     {getInitials(displayName)}
                                   </AvatarFallback>
                                 </Avatar>
 
                                 <div className="min-w-0 flex-1">
-                                  <div className="truncate text-sm font-medium text-foreground/82">
+                                  <div className="truncate text-sm font-medium text-text-primary">
                                     {displayName}
                                   </div>
-                                  <div className="mt-1 truncate text-xs text-foreground/48">
+                                  <div className="mt-1 truncate text-xs text-text-muted">
                                     {friendPlayerSubtitle(item)} ·{" "}
                                     {formatXp(getDisplayXp(item))} ·{" "}
                                     {getDisplayDailyStreak(item)} дн. подряд
@@ -853,7 +855,7 @@ export function Profile({
                                 event.stopPropagation();
                                 void handleToggleFriend(item);
                               }}
-                              className="h-9 rounded-full border-border/60 bg-background/55 px-3 text-xs text-foreground/78 shadow-none"
+                              className="h-9 rounded-full px-3 text-xs"
                             >
                               {showRemoveAction ? (
                                 <>
@@ -873,19 +875,19 @@ export function Profile({
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-border/55 pt-3">
+                  <div className="flex items-center justify-between border-t border-border-subtle pt-3">
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       disabled={!canGoPrev || isListLoading}
                       onClick={() => updatePage(Math.max(1, currentPage - 1))}
-                      className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                      className="h-9 rounded-full px-4 text-xs"
                     >
                       Назад
                     </Button>
 
-                    <div className="text-xs text-foreground/42">
+                    <div className="text-xs text-text-muted">
                       {currentPage}/{totalPages}
                     </div>
 
@@ -897,7 +899,7 @@ export function Profile({
                       onClick={() =>
                         updatePage(Math.min(totalPages, currentPage + 1))
                       }
-                      className="h-9 rounded-full border-border/60 bg-background/55 px-4 text-xs text-foreground/78 shadow-none"
+                      className="h-9 rounded-full px-4 text-xs"
                     >
                       Вперёд
                     </Button>
@@ -925,7 +927,7 @@ function ProfileSurface({
   return (
     <Card
       className={cn(
-        "gap-0 rounded-[28px] border-border/65 bg-card/55 p-5 shadow-none backdrop-blur-xl sm:p-6",
+        "gap-0 rounded-[2rem] border-border-subtle bg-bg-overlay p-5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-6",
         className,
       )}
       {...props}

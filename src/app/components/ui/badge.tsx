@@ -7,18 +7,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap [&>svg]:size-3 [&>svg]:pointer-events-none focus-visible:ring-[3px] focus-visible:ring-focus-ring aria-invalid:border-state-error aria-invalid:ring-[3px] aria-invalid:ring-state-error/20 transition-[background-color,border-color,color,box-shadow]",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground ",
+          "border-brand-primary/15 bg-brand-primary text-brand-primary-foreground shadow-[var(--shadow-soft)]",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground ",
+          "border-border-subtle bg-bg-subtle text-text-secondary",
         destructive:
-          "border-transparent bg-destructive text-white  focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "border-state-error/20 bg-state-error text-text-inverse",
         outline:
-          "text-foreground/90 ",
+          "border-border-default bg-bg-elevated text-text-primary",
       },
     },
     defaultVariants: {

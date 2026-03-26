@@ -27,7 +27,7 @@ export function useDashboardData(telegramId: string | null) {
 
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
-  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({ mode: "anchor" });
+  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({ mode: "page", page: 1 });
   const verseListFriendsPresenceRequestIdRef = useRef(0);
 
   const dashboardFetchFailedRef = useRef({
@@ -43,7 +43,7 @@ export function useDashboardData(telegramId: string | null) {
     };
     verseListFriendsFetchFailedRef.current = false;
     setVerseListFriendsPresence(null);
-    leaderboardQueryRef.current = { mode: "anchor" };
+    leaderboardQueryRef.current = { mode: "page", page: 1 };
   }, [telegramId]);
 
   const loadDashboardStats = useCallback(async (telegramIdValue: string) => {

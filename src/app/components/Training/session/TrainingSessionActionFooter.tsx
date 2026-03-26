@@ -51,12 +51,12 @@ export function TrainingSessionActionFooter({
 
         <div className="flex shrink-0 items-center justify-center gap-2">
           {showAssistButton ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 rounded-xl border-amber-500/25 bg-amber-500/[0.06] px-3 text-sm text-amber-800/90 backdrop-blur-xl hover:bg-amber-500/[0.12] dark:text-amber-200"
-              onClick={onOpenAssistDrawer}
-              disabled={isActionPending}
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-xl border-state-warning/25 bg-state-warning/12 px-3 text-sm text-state-warning backdrop-blur-xl hover:border-state-warning/35 hover:bg-state-warning/16"
+                onClick={onOpenAssistDrawer}
+                disabled={isActionPending}
               aria-label="Открыть подсказки"
             >
               <Lightbulb className="mr-2 h-4 w-4" />

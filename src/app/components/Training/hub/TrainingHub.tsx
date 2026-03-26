@@ -117,65 +117,65 @@ const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
 const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
   core: {
     triggerClassName:
-      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-foreground/65 data-[state=active]:border-emerald-500/25 data-[state=active]:bg-emerald-500/[0.08] data-[state=active]:text-emerald-900 dark:data-[state=active]:text-emerald-200",
+      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-status-learning/25 data-[state=active]:bg-status-learning-soft data-[state=active]:text-status-learning",
     countClassName:
-      "group-data-[state=active]/tab:text-emerald-700 dark:group-data-[state=active]/tab:text-emerald-300",
+      "group-data-[state=active]/tab:text-status-learning",
   },
   anchor: {
     triggerClassName:
-      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-foreground/65 data-[state=active]:border-amber-500/25 data-[state=active]:bg-amber-500/[0.08] data-[state=active]:text-amber-900 dark:data-[state=active]:text-amber-200",
+      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-status-mastered/25 data-[state=active]:bg-status-mastered-soft data-[state=active]:text-status-mastered",
     countClassName:
-      "group-data-[state=active]/tab:text-amber-700 dark:group-data-[state=active]/tab:text-amber-300",
+      "group-data-[state=active]/tab:text-status-mastered",
   },
 };
 
 const EMERALD_ACCENT: AccentTheme = {
   checkedItemClassName:
-    "data-[state=checked]:border-emerald-500/30 data-[state=checked]:bg-emerald-500/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(16,185,129,0.85)]",
+    "data-[state=checked]:border-status-learning/30 data-[state=checked]:bg-status-learning-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
   checkedIconClassName:
-    "group-data-[state=checked]/radio:border-emerald-500/20 group-data-[state=checked]/radio:bg-emerald-500/14 group-data-[state=checked]/radio:text-emerald-700 dark:group-data-[state=checked]/radio:text-emerald-300",
+    "group-data-[state=checked]/radio:border-status-learning/20 group-data-[state=checked]/radio:bg-status-learning-soft group-data-[state=checked]/radio:text-status-learning",
   checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-emerald-800 dark:group-data-[state=checked]/radio:text-emerald-300",
+    "group-data-[state=checked]/radio:text-status-learning",
   checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-emerald-700 dark:group-data-[state=checked]/radio:text-emerald-300",
+    "group-data-[state=checked]/radio:text-status-learning/85",
   checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-emerald-500/30",
-  checkedDotClassName: "bg-emerald-600 dark:bg-emerald-300",
-  summaryClassName: "text-emerald-800 dark:text-emerald-300",
+    "group-data-[state=checked]/radio:border-status-learning/30",
+  checkedDotClassName: "bg-status-learning",
+  summaryClassName: "text-status-learning",
   ctaClassName:
-    "border-emerald-500/30 bg-emerald-500/[0.10] text-emerald-900 shadow-[0_18px_36px_-24px_rgba(16,185,129,0.75)] dark:text-emerald-100",
+    "border-status-learning bg-status-learning text-text-inverse hover:bg-status-learning",
 };
 
 const VIOLET_ACCENT: AccentTheme = {
   checkedItemClassName:
-    "data-[state=checked]:border-violet-500/30 data-[state=checked]:bg-violet-500/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(139,92,246,0.82)]",
+    "data-[state=checked]:border-status-review/30 data-[state=checked]:bg-status-review-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
   checkedIconClassName:
-    "group-data-[state=checked]/radio:border-violet-500/20 group-data-[state=checked]/radio:bg-violet-500/14 group-data-[state=checked]/radio:text-violet-700 dark:group-data-[state=checked]/radio:text-violet-300",
+    "group-data-[state=checked]/radio:border-status-review/20 group-data-[state=checked]/radio:bg-status-review-soft group-data-[state=checked]/radio:text-status-review",
   checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-violet-800 dark:group-data-[state=checked]/radio:text-violet-300",
+    "group-data-[state=checked]/radio:text-status-review",
   checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-violet-700 dark:group-data-[state=checked]/radio:text-violet-300",
+    "group-data-[state=checked]/radio:text-status-review/85",
   checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-violet-500/30",
-  checkedDotClassName: "bg-violet-600 dark:bg-violet-300",
-  summaryClassName: "text-violet-800 dark:text-violet-300",
+    "group-data-[state=checked]/radio:border-status-review/30",
+  checkedDotClassName: "bg-status-review",
+  summaryClassName: "text-status-review",
   ctaClassName:
-    "border-violet-500/30 bg-violet-500/[0.10] text-violet-900 shadow-[0_18px_36px_-24px_rgba(139,92,246,0.7)] dark:text-violet-100",
+    "border-status-review bg-status-review text-text-inverse hover:bg-status-review",
 };
 
 const PRIMARY_ACCENT: AccentTheme = {
   checkedItemClassName:
-    "data-[state=checked]:border-primary/25 data-[state=checked]:bg-primary/[0.10] data-[state=checked]:shadow-[0_12px_26px_-20px_rgba(217,169,102,0.9)]",
+    "data-[state=checked]:border-brand-primary/25 data-[state=checked]:bg-status-mastered-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
   checkedIconClassName:
-    "group-data-[state=checked]/radio:border-primary/15 group-data-[state=checked]/radio:bg-primary/12 group-data-[state=checked]/radio:text-primary",
-  checkedTitleClassName: "group-data-[state=checked]/radio:text-primary",
-  checkedSubtitleClassName: "group-data-[state=checked]/radio:text-primary/80",
+    "group-data-[state=checked]/radio:border-brand-primary/15 group-data-[state=checked]/radio:bg-status-mastered-soft group-data-[state=checked]/radio:text-brand-primary",
+  checkedTitleClassName: "group-data-[state=checked]/radio:text-brand-primary",
+  checkedSubtitleClassName: "group-data-[state=checked]/radio:text-brand-primary/80",
   checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-primary/25",
-  checkedDotClassName: "bg-primary",
-  summaryClassName: "text-primary",
+    "group-data-[state=checked]/radio:border-brand-primary/25",
+  checkedDotClassName: "bg-brand-primary",
+  summaryClassName: "text-brand-primary",
   ctaClassName:
-    "border-primary/30 bg-primary/12 text-foreground/90 shadow-[0_18px_36px_-24px_rgba(217,169,102,0.95)] dark:bg-primary/50",
+    "border-brand-primary bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary-hover hover:border-brand-primary-hover",
 };
 
 
@@ -416,20 +416,20 @@ export function TrainingHub({
               {isTelegramFullscreen ? (null) : (
                 <header className="space-y-1.5">
                   <div className="flex items-center gap-2.5">
-                    <h1 className="text-2xl font-semibold text-primary">
+                    <h1 className="[font-family:var(--font-heading)] text-3xl font-semibold tracking-tight text-brand-primary">
                       Тренировка
                     </h1>
                   </div>
                 </header>
               )}
 
-              <section data-tour="training-scenarios" className="rounded-[28px] border border-border/60 bg-card/55 p-3 backdrop-blur-xl sm:p-4">
+              <section data-tour="training-scenarios" className="rounded-[2rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-4">
                 <Tabs
                   value={selectedScenario}
                   onValueChange={handleScenarioChange}
                   className="gap-4"
                 >
-                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] border border-border/60 bg-background/45 p-1">
+                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] p-1">
                     <TabsTrigger
                       data-tour="training-scenario-core"
                       value="core"
@@ -459,7 +459,7 @@ export function TrainingHub({
           </div>
 
           {/* Mode list */}
-          <div className="pb-4 pt-3 my-2 px-4 rounded-[24px] border border-border/60 bg-background/45 backdrop-blur-xl overflow-y-auto">
+          <div className="my-2 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-4 pb-4 pt-4 shadow-[var(--shadow-soft)] backdrop-blur-2xl">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div
@@ -524,18 +524,18 @@ export function TrainingHub({
                         }}
                         className={cn(
                           "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
-                          "outline-none focus-visible:border-amber-500/40 focus-visible:ring-[3px] focus-visible:ring-amber-500/25",
+                          "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
                           isChecked
-                            ? "border-amber-500/35 bg-amber-500/[0.11] text-amber-950 shadow-[0_10px_28px_-14px_rgba(245,158,11,0.55)] dark:border-amber-500/28 dark:bg-amber-500/10 dark:text-amber-50 dark:shadow-[0_10px_28px_-14px_rgba(245,158,11,0.35)]"
-                            : "border-border/60 bg-background/55 text-foreground/70 hover:border-border hover:bg-background/80 dark:text-foreground/60",
+                            ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]"
+                            : "border-border-subtle bg-bg-surface text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated",
                         )}
                       >
                         <span
                           className={cn(
                             "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
                             isChecked
-                              ? "border-amber-500/30 bg-amber-500/18 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/20 dark:text-amber-200"
-                              : "border-border/55 bg-background/70 text-foreground/45 group-hover:border-border group-hover:text-foreground/55",
+                              ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered"
+                              : "border-border-subtle bg-bg-subtle text-text-muted group-hover:border-brand-primary/20 group-hover:text-text-secondary",
                           )}
                         >
                           <Icon
@@ -549,8 +549,8 @@ export function TrainingHub({
                             className={cn(
                               "block text-[13px] font-semibold leading-tight tracking-tight",
                               isChecked
-                                ? "text-amber-950 dark:text-amber-50"
-                                : "text-foreground/82",
+                                ? "text-status-mastered"
+                                : "text-text-primary",
                             )}
                           >
                             {ANCHOR_MODE_GROUP_LABELS[group]}
@@ -560,8 +560,8 @@ export function TrainingHub({
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                             isChecked
-                              ? "border-amber-600/50 bg-amber-500 text-white dark:border-amber-400/60 dark:bg-amber-400/60 dark:text-amber-950"
-                              : "border-border/55 bg-background/50 opacity-70",
+                              ? "border-status-mastered/40 bg-brand-primary text-brand-primary-foreground"
+                              : "border-border-subtle bg-bg-subtle opacity-70",
                           )}
                           aria-hidden
                         >
@@ -578,12 +578,12 @@ export function TrainingHub({
             </AnimatePresence>
 
             {hasSelection && selectionVerses ? (
-              <section className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/45 px-4 py-3 backdrop-blur-xl">
+              <section className="mt-3 flex items-center justify-between gap-3 rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-xl">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground/78">
+                  <p className="text-sm font-medium text-text-primary">
                     Подборка
                   </p>
-                  <p className="text-xs text-foreground/50">
+                  <p className="text-xs text-text-secondary">
                     {getSelectionSummaryText({
                       totalCount: selectionVerses.length,
                       availableCount: selectionAvailableCount,
@@ -599,7 +599,7 @@ export function TrainingHub({
                   haptic="medium"
                   disabled={selectionStartLocked}
                   onClick={onStartSelection}
-                  className="rounded-xl border-border/60 bg-background/70 text-foreground/78 hover:bg-background"
+                  className="rounded-xl"
                 >
                   Начать
                 </Button>
@@ -612,9 +612,9 @@ export function TrainingHub({
           {/* Bottom: start card */}
           <div
             className={cn(
-              "mb-2 rounded-[26px] border bg-background/88 p-3 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-2xl",
+              "mb-2 rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] backdrop-blur-2xl",
               anchorLocked
-                ? "border-foreground/10"
+                ? "text-text-muted"
                 : currentAccentTheme.summaryClassName,
             )}
           >
@@ -622,7 +622,7 @@ export function TrainingHub({
               className={cn(
                 "mb-3 px-1 text-sm font-medium",
                 anchorLocked
-                  ? "text-foreground/50"
+                  ? "text-text-muted"
                   : currentAccentTheme.summaryClassName,
               )}
             >
@@ -635,12 +635,12 @@ export function TrainingHub({
                   type="button"
                   size="lg"
                   disabled
-                  className="h-14 w-full gap-2 rounded-2xl border border-primary/20 !bg-card px-5 text-sm font-medium text-foreground shadow-none"
+                  className="h-14 w-full gap-2 rounded-2xl border border-border-subtle !bg-bg-surface px-5 text-sm font-medium text-text-muted shadow-none"
                 >
                   <Lock className="h-4 w-4" />
                   {lockedStartLabel}
                 </Button>
-                <p className="px-1 text-xs leading-relaxed text-foreground/55">
+                <p className="px-1 text-xs leading-relaxed text-text-secondary">
                   {lockedSummaryText}
                 </p>
               </div>
@@ -681,7 +681,7 @@ function ScenarioTabLabel({
     <span className="flex w-full items-center justify-between gap-3">
       <span className="truncate text-sm font-medium">{title}</span>
       <span
-        className={cn("text-xs font-medium text-foreground/45", countClassName)}
+        className={cn("text-xs font-medium text-text-muted", countClassName)}
       >
         {count}
       </span>
@@ -711,11 +711,11 @@ function RadioCardOption({
       value={value}
       disabled={disabled}
       className={cn(
-        "group/radio w-full rounded-[22px] border border-border/60 bg-background/55 p-4 text-left transition-all duration-150 outline-none focus-visible:border-ring focus-visible:ring-ring/40 focus-visible:ring-[3px] disabled:cursor-not-allowed",
-        !disabled && "hover:bg-background/80",
+        "group/radio w-full rounded-[22px] border border-border-subtle bg-bg-surface p-4 text-left transition-all duration-150 outline-none focus-visible:border-brand-primary focus-visible:ring-[3px] focus-visible:ring-focus-ring disabled:cursor-not-allowed",
+        !disabled && "hover:border-brand-primary/20 hover:bg-bg-elevated",
         theme.checkedItemClassName,
         disabled &&
-          "border-border/45 bg-background/35 text-foreground/40 shadow-none",
+          "border-border-subtle bg-bg-subtle text-text-muted shadow-none",
         compact && "px-3 py-3",
       )}
     >
@@ -724,10 +724,10 @@ function RadioCardOption({
           <span
             data-slot="radio-card-icon"
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/75 text-foreground/50 transition-colors",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border-subtle bg-bg-subtle text-text-muted transition-colors",
               theme.checkedIconClassName,
               disabled &&
-                "border-border/40 bg-background/55 text-foreground/35",
+                "border-border-subtle bg-bg-subtle text-text-muted",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -735,9 +735,9 @@ function RadioCardOption({
           <span className="min-w-0">
             <span
               className={cn(
-                "block truncate text-sm font-medium text-foreground/82",
+                "block truncate text-sm font-medium text-text-primary",
                 theme.checkedTitleClassName,
-                disabled && "text-foreground/42",
+                disabled && "text-text-muted",
               )}
             >
               {title}
@@ -745,9 +745,9 @@ function RadioCardOption({
             {subtitle ? (
               <span
                 className={cn(
-                  "mt-1 block text-xs leading-relaxed text-foreground/50",
+                  "mt-1 block text-xs leading-relaxed text-text-secondary",
                   theme.checkedSubtitleClassName,
-                  disabled && "text-foreground/35",
+                  disabled && "text-text-muted",
                 )}
               >
                 {subtitle}
@@ -758,9 +758,9 @@ function RadioCardOption({
 
         <span
           className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80",
+            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-elevated",
             theme.checkedIndicatorClassName,
-            disabled && "border-border/45 bg-background/60 opacity-60",
+            disabled && "border-border-subtle bg-bg-subtle opacity-60",
           )}
         >
           <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
@@ -776,7 +776,7 @@ function RadioCardOption({
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <div className="px-1 text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/42">
+    <div className="px-1 text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
       {children}
     </div>
   );

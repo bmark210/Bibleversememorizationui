@@ -21,28 +21,28 @@ const TRAINING_SUBSET_THEME: Record<
   }
 > = {
   catalog: {
-    dotClassName: "bg-foreground/45",
+    dotClassName: "bg-text-muted",
     triggerClassName:
-      "border-border/60 bg-background/80 text-foreground/90 shadow-sm",
-    contentClassName: "border-border/60 bg-background/95 backdrop-blur-xl",
+      "border-border-subtle bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]",
+    contentClassName: "border-border-subtle bg-bg-elevated backdrop-blur-2xl",
     itemClassName:
-      "data-[state=checked]:bg-muted/60 data-[state=checked]:text-foreground/90 focus:bg-muted/40",
+      "data-[state=checked]:bg-bg-subtle data-[state=checked]:text-text-primary focus:bg-bg-subtle",
   },
   learning: {
-    dotClassName: "bg-emerald-400",
+    dotClassName: "bg-status-learning",
     triggerClassName:
-      "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 shadow-[0_6px_18px_-12px_rgba(16,185,129,0.55)]",
-    contentClassName: "border-emerald-500/20 bg-background/95 backdrop-blur-xl",
+      "border-status-learning/25 bg-status-learning-soft text-status-learning shadow-[var(--shadow-soft)]",
+    contentClassName: "border-status-learning/25 bg-bg-elevated backdrop-blur-2xl",
     itemClassName:
-      "focus:bg-emerald-500/8 focus:text-emerald-700 dark:focus:text-emerald-300 data-[state=checked]:bg-emerald-500/10 data-[state=checked]:text-emerald-700 dark:data-[state=checked]:text-emerald-300",
+      "focus:bg-status-learning-soft focus:text-status-learning data-[state=checked]:bg-status-learning-soft data-[state=checked]:text-status-learning",
   },
   review: {
-    dotClassName: "bg-violet-400",
+    dotClassName: "bg-status-review",
     triggerClassName:
-      "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300 shadow-[0_6px_18px_-12px_rgba(139,92,246,0.55)]",
-    contentClassName: "border-violet-500/20 bg-background/95 backdrop-blur-xl",
+      "border-status-review/25 bg-status-review-soft text-status-review shadow-[var(--shadow-soft)]",
+    contentClassName: "border-status-review/25 bg-bg-elevated backdrop-blur-2xl",
     itemClassName:
-      "focus:bg-violet-500/8 focus:text-violet-700 dark:focus:text-violet-300 data-[state=checked]:bg-violet-500/10 data-[state=checked]:text-violet-700 dark:data-[state=checked]:text-violet-300",
+      "focus:bg-status-review-soft focus:text-status-review data-[state=checked]:bg-status-review-soft data-[state=checked]:text-status-review",
   },
 };
 

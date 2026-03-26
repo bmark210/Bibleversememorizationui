@@ -85,10 +85,10 @@ function getAutoGridColumns(
 function getSequenceCellClassName(params: {
   isFilled: boolean;
   isActiveGap: boolean;
-}) {
-  if (params.isFilled) {
-    return 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  }
+  }) {
+    if (params.isFilled) {
+      return 'border border-status-learning/25 bg-status-learning-soft text-status-learning';
+    }
 
   if (params.isActiveGap) {
     return 'border-2 border-primary/40 bg-primary/5 text-primary/70';

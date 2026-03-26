@@ -164,15 +164,15 @@ export function DragReorderMode({
               className={cn(
                 "flex items-center gap-3 rounded-xl border min-h-[3rem] px-3 py-2.5 font-medium transition-all duration-150 select-none",
                 isDragging && "opacity-40 scale-[0.97] shadow-lg",
-                isOver && "border-primary/50 bg-primary/[0.06] shadow-sm",
+                isOver && "border-brand-primary/30 bg-brand-primary/10 shadow-[var(--shadow-soft)]",
                 isAnswered && isCorrectPosition &&
-                  "border-emerald-500/30 bg-emerald-500/[0.06]",
+                  "border-status-learning/25 bg-status-learning-soft",
                 isAnswered && !isCorrectPosition &&
-                  "border-rose-500/30 bg-rose-500/[0.06]",
+                  "border-status-paused/25 bg-status-paused-soft",
                 !isAnswered &&
                   !isDragging &&
                   !isOver &&
-                  "border-border/40 bg-card/60 shadow-sm",
+                  "border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
               )}
             >
               {/* Grab handle + position */}
@@ -185,7 +185,7 @@ export function DragReorderMode({
                     onTouchStart={(e) => handleGripTouchStart(e, index)}
                     onTouchMove={(e) => handleGripTouchMove(e)}
                     onTouchEnd={handleGripTouchEnd}
-                    className="flex flex-col gap-[3px] text-foreground/30 cursor-grab active:cursor-grabbing p-1 -m-1"
+                    className="flex -m-1 cursor-grab flex-col gap-[3px] p-1 text-text-muted active:cursor-grabbing"
                     style={{ touchAction: "none" }}
                     aria-label="Перетащите для перемещения"
                   >
@@ -208,7 +208,7 @@ export function DragReorderMode({
                       type="button"
                       onClick={() => handleMoveUp(index)}
                       disabled={index === 0 || controlsLocked}
-                      className="h-5 w-6 rounded text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors flex items-center justify-center"
+                      className="flex h-5 w-6 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-secondary disabled:opacity-20"
                       aria-label="Переместить вверх"
                     >
                       <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 8L6 4L10 8" /></svg>
@@ -217,7 +217,7 @@ export function DragReorderMode({
                       type="button"
                       onClick={() => handleMoveDown(index)}
                       disabled={index === items.length - 1 || controlsLocked}
-                      className="h-5 w-6 rounded text-foreground/35 hover:text-foreground/60 hover:bg-muted/40 disabled:opacity-20 transition-colors flex items-center justify-center"
+                      className="flex h-5 w-6 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-secondary disabled:opacity-20"
                       aria-label="Переместить вниз"
                     >
                       <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4L6 8L10 4" /></svg>
@@ -229,8 +229,8 @@ export function DragReorderMode({
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold tabular-nums",
                     isCorrectPosition
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : "bg-rose-500/15 text-rose-500 dark:text-rose-400",
+                      ? "bg-status-learning-soft text-status-learning"
+                      : "bg-status-paused-soft text-status-paused",
                   )}
                 >
                   {index + 1}
@@ -238,7 +238,7 @@ export function DragReorderMode({
               )}
 
               <span
-                className="text-foreground/80 leading-snug min-w-0"
+                className="min-w-0 leading-snug text-text-primary"
                 style={{ fontSize: `${fragmentPx}px` }}
               >
                 {item.text}
@@ -254,9 +254,7 @@ export function DragReorderMode({
           onClick={() => onOrderSubmit(items.map((i) => i.id))}
           disabled={controlsLocked}
           className={cn(
-            "w-full h-11 rounded-xl text-sm font-medium transition-all duration-200",
-            "bg-primary/90 text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99]",
-            "disabled:opacity-40 disabled:bg-muted/50",
+            "h-11 w-full rounded-xl border border-brand-primary bg-brand-primary text-sm font-medium text-brand-primary-foreground shadow-[var(--shadow-soft)] transition-all duration-200 hover:border-brand-primary-hover hover:bg-brand-primary-hover active:scale-[0.99] disabled:border-border-subtle disabled:bg-bg-subtle disabled:text-text-muted",
           )}
         >
           Проверить порядок
@@ -264,7 +262,7 @@ export function DragReorderMode({
       )}
 
       {isAnswered && !isCorrectOrder && (
-        <p className="text-xs text-muted-foreground/55 text-center">
+        <p className="text-center text-xs text-text-muted">
           Правильный порядок показан выше
         </p>
       )}

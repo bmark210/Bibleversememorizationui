@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbo --port 3001",
+    "dev:prod": "node scripts/next-dev-with-env.mjs --env-file=.env.production --turbo --port 3001",
+    "build:prod": "node scripts/clean-next.mjs && next build",
+    "start:prod": "next start --port 3001",
+    "prod": "npm run build:prod && npm run start:prod",
     "dev:clean": "node scripts/clean-next.mjs && next dev --turbo --port 3001",
     "build": "node scripts/clean-next.mjs && next build",
     "build:analyze": "node scripts/analyze-build.mjs",

@@ -1,3 +1,5 @@
+import { THEME_PALETTES } from "@/app/lib/themePalette";
+
 export type TelegramColorScheme = "light" | "dark";
 
 export type TelegramPopupButton = {
@@ -101,40 +103,8 @@ type TelegramEventCallback = (...args: unknown[]) => void;
 type TelegramWebAppWithDevFlag = TelegramWebApp & { __isDevMock?: boolean };
 
 const DEV_TELEGRAM_THEME_PARAMS: Record<TelegramColorScheme, TelegramThemeParams> = {
-  light: {
-    bg_color: "#ede3d2",
-    secondary_bg_color: "#efe0c8",
-    section_bg_color: "#efe0c8",
-    header_bg_color: "#f2e8d8",
-    bottom_bar_bg_color: "#f2e8d8",
-    text_color: "#241a11",
-    hint_color: "#6b5a45",
-    subtitle_text_color: "#524331",
-    link_color: "#7a6136",
-    button_color: "#5f4f2d",
-    button_text_color: "#fbf7ef",
-    accent_text_color: "#7a6136",
-    destructive_text_color: "#b84a3a",
-    section_header_text_color: "#5f4f2d",
-    section_separator_color: "#b79f7e",
-  },
-  dark: {
-    bg_color: "#1a1410",
-    secondary_bg_color: "#24201a",
-    section_bg_color: "#24201a",
-    header_bg_color: "#24201a",
-    bottom_bar_bg_color: "#24201a",
-    text_color: "#f5ead5",
-    hint_color: "#b5a490",
-    subtitle_text_color: "#b5a490",
-    link_color: "#d4a574",
-    button_color: "#d4a574",
-    button_text_color: "#1a1410",
-    accent_text_color: "#d4a574",
-    destructive_text_color: "#e05b4d",
-    section_header_text_color: "#f5ead5",
-    section_separator_color: "#3d362d",
-  },
+  light: { ...THEME_PALETTES.light.telegramThemeParams },
+  dark: { ...THEME_PALETTES.dark.telegramThemeParams },
 };
 
 const DEV_TELEGRAM_SAFE_AREA: TelegramSafeAreaInsets = {
