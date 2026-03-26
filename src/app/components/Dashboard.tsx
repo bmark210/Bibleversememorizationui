@@ -179,7 +179,7 @@ export function Dashboard({
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden p-3 [@media(max-height:880px)]:p-2.5 [@media(max-height:820px)]:p-2 sm:p-4 lg:p-5">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-3 overflow-hidden p-3 [@media(max-width:420px)]:gap-2 [@media(max-width:420px)]:p-2 [@media(max-height:880px)]:gap-2.5 [@media(max-height:880px)]:p-2.5 [@media(max-height:820px)]:gap-2 [@media(max-height:820px)]:p-2 [@media(max-height:760px)]:gap-1.5 [@media(max-height:760px)]:p-1.5 [@media(max-height:720px)]:gap-1 [@media(max-height:720px)]:p-1 sm:p-4 lg:gap-4 lg:p-5">
       <DashboardWelcomeSection
         user={user}
         currentUserAvatarUrl={currentUserAvatarUrl}
@@ -199,7 +199,7 @@ export function Dashboard({
         }
       />
 
-      <div className="mt-3 grid min-h-0 grid-cols-1 gap-3 [@media(max-height:880px)]:mt-2.5 [@media(max-height:880px)]:gap-2.5 [@media(max-height:820px)]:mt-2 [@media(max-height:820px)]:gap-2 xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:items-start">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 [@media(max-width:420px)]:gap-2 [@media(max-height:880px)]:gap-2.5 [@media(max-height:820px)]:gap-2 [@media(max-height:760px)]:gap-1.5 [@media(max-height:720px)]:gap-1 xl:grid xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:items-stretch">
         <DashboardTrainingStatsCard statsCards={statsCards} />
         <DashboardLeaderboardCard
           leaderboard={dashboardLeaderboard}

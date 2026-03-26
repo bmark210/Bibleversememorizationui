@@ -173,7 +173,7 @@ export function Layout({
         }`}
         style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
       >
-        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl">
+        <nav className="mx-3 flex justify-around rounded-[1.75rem] border border-border-subtle bg-bg-overlay px-2 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl [@media(max-width:420px)]:rounded-[1.6rem] [@media(max-width:420px)]:py-2 [@media(max-height:760px)]:py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -184,14 +184,14 @@ export function Layout({
                 key={item.id}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavigateClick(item.id)}
-                className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition-[background-color,color,box-shadow] ${
+                className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[1.1rem] px-2 py-2 transition-[background-color,color,box-shadow] [@media(max-width:420px)]:gap-0.5 [@media(max-width:420px)]:rounded-[1rem] [@media(max-width:420px)]:py-1.5 [@media(max-height:760px)]:py-1.5 ${
                   isActive
                     ? 'bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
                     : 'text-text-muted'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[11px] font-medium">{item.label}</span>
+                <Icon className="h-5 w-5 [@media(max-width:420px)]:h-4 [@media(max-width:420px)]:w-4" />
+                <span className="text-[11px] font-medium [@media(max-width:420px)]:text-[10px]">{item.label}</span>
               </button>
             );
           })}

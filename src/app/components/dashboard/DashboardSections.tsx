@@ -145,7 +145,7 @@ function DashboardSurface({
   return (
     <Card
       className={cn(
-        "gap-0 h-fit rounded-[1.75rem] border-border-subtle bg-bg-overlay p-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl [@media(max-height:880px)]:p-3 [@media(max-height:820px)]:p-2.5 sm:rounded-[2rem] sm:p-4 lg:p-5",
+        "gap-0 h-fit rounded-[1.75rem] border-border-subtle bg-bg-overlay p-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl [@media(max-width:420px)]:p-3 [@media(max-height:880px)]:p-3 [@media(max-height:820px)]:p-2.5 [@media(max-height:760px)]:p-2 [@media(max-height:720px)]:p-1.5 sm:rounded-[2rem] sm:p-4 lg:p-5",
         className,
       )}
       {...props}
@@ -200,8 +200,8 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
         : "Тренировка";
 
   return (
-    <DashboardSurface className="rounded-[1.9rem] sm:rounded-[2rem]">
-      <div className="flex flex-col gap-3.5 [@media(max-height:880px)]:gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
+      <div className="flex flex-col gap-3.5 [@media(max-width:420px)]:gap-3 [@media(max-height:880px)]:gap-3 [@media(max-height:760px)]:gap-2.5 [@media(max-height:720px)]:gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           {user ? (
             onOpenCurrentUserProfile ? (
@@ -211,7 +211,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
                 className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px]"
                 aria-label={`Открыть профиль ${user.firstName}`}
               >
-                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] sm:h-11 sm:w-11">
+                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] [@media(max-width:420px)]:h-9 [@media(max-width:420px)]:w-9 [@media(max-height:760px)]:h-9 [@media(max-height:760px)]:w-9 [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8 sm:h-11 sm:w-11">
                   {currentUserAvatarUrl ? (
                     <AvatarImage src={currentUserAvatarUrl} alt={user.firstName} />
                   ) : (
@@ -221,7 +221,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
                   )}
                 </Avatar>
 
-                <h1 className="line-clamp-2 overflow-hidden text-ellipsis whitespace-normal break-words [font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)]">
+                <h1 className="line-clamp-2 overflow-hidden text-ellipsis whitespace-normal break-words [font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-width:420px)]:text-[clamp(1.55rem,7vw,2rem)] [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)] [@media(max-height:760px)]:text-[clamp(1.45rem,4.8vw,1.9rem)] [@media(max-height:720px)]:text-[clamp(1.3rem,4.4vw,1.7rem)]">
                   {isFirstAppVisit
                     ? `Привет, ${user.firstName}`
                     : `С возвращением, ${user.firstName}`}
@@ -229,7 +229,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
               </button>
             ) : (
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] sm:h-11 sm:w-11">
+                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] [@media(max-width:420px)]:h-9 [@media(max-width:420px)]:w-9 [@media(max-height:760px)]:h-9 [@media(max-height:760px)]:w-9 [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8 sm:h-11 sm:w-11">
                   {currentUserAvatarUrl ? (
                     <AvatarImage src={currentUserAvatarUrl} alt={user.firstName} />
                   ) : (
@@ -239,7 +239,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
                   )}
                 </Avatar>
 
-                <h1 className="[font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)]">
+                <h1 className="[font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-width:420px)]:text-[clamp(1.55rem,7vw,2rem)] [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)] [@media(max-height:760px)]:text-[clamp(1.45rem,4.8vw,1.9rem)] [@media(max-height:720px)]:text-[clamp(1.3rem,4.4vw,1.7rem)]">
                   {isFirstAppVisit
                     ? `Привет, ${user.firstName}.`
                     : `С возвращением, ${user.firstName}.`}
@@ -247,12 +247,12 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
               </div>
             )
           ) : (
-            <h1 className="[font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)]">
+            <h1 className="[font-family:var(--font-heading)] text-[clamp(1.8rem,5.8vw,2.65rem)] font-semibold tracking-tight text-brand-primary [@media(max-width:420px)]:text-[clamp(1.55rem,7vw,2rem)] [@media(max-height:880px)]:text-[clamp(1.62rem,5.2vw,2.2rem)] [@media(max-height:760px)]:text-[clamp(1.45rem,4.8vw,1.9rem)] [@media(max-height:720px)]:text-[clamp(1.3rem,4.4vw,1.7rem)]">
               С возвращением
             </h1>
           )}
 
-          <p className="mt-2 line-clamp-2 max-w-2xl text-[13px] leading-6 text-text-secondary [@media(max-height:820px)]:line-clamp-1 [@media(max-height:880px)]:text-[12px] [@media(max-height:880px)]:leading-5 sm:text-sm sm:leading-relaxed">
+          <p className="mt-2 line-clamp-2 max-w-2xl text-[13px] leading-6 text-text-secondary [@media(max-width:420px)]:text-[12px] [@media(max-width:420px)]:leading-5 [@media(max-height:820px)]:line-clamp-1 [@media(max-height:880px)]:text-[12px] [@media(max-height:880px)]:leading-5 [@media(max-height:760px)]:mt-1.5 [@media(max-height:760px)]:text-[11px] [@media(max-height:760px)]:leading-[1.125rem] [@media(max-height:720px)]:mt-1 [@media(max-height:720px)]:text-[10px] [@media(max-height:720px)]:leading-4 sm:text-sm sm:leading-relaxed">
             {heroMessage}
           </p>
         </div>
@@ -262,7 +262,7 @@ export const DashboardWelcomeSection = React.memo(function DashboardWelcomeSecti
           size="lg"
           haptic="medium"
           onClick={onOpenTraining}
-          className="h-11 w-full rounded-[1.2rem] px-5 shadow-[var(--shadow-floating)] [@media(max-height:880px)]:h-10 sm:w-auto sm:min-w-[190px]"
+          className="h-11 w-full rounded-[1.2rem] px-5 shadow-[var(--shadow-floating)] [@media(max-width:420px)]:h-10 [@media(max-width:420px)]:px-4 [@media(max-height:880px)]:h-10 [@media(max-height:760px)]:h-9 [@media(max-height:760px)]:px-4 [@media(max-height:760px)]:text-sm [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:text-[13px] sm:w-auto sm:min-w-[184px]"
         >
           <Dumbbell className="h-4 w-4" />
           {trainingCtaLabel}
@@ -280,11 +280,11 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
   statsCards,
 }: DashboardTrainingStatsCardProps) {
   return (
-      <DashboardSurface>
-        <h3 className="[font-family:var(--font-heading)] mb-2.5 text-base font-semibold tracking-tight text-text-primary [@media(max-height:880px)]:mb-2 [@media(max-height:880px)]:text-[15px] sm:mb-3 sm:text-lg">
+      <DashboardSurface className="shrink-0">
+        <h3 className="[font-family:var(--font-heading)] mb-2.5 text-base font-semibold tracking-tight text-text-primary [@media(max-width:420px)]:mb-2 [@media(max-width:420px)]:text-[15px] [@media(max-height:880px)]:mb-2 [@media(max-height:880px)]:text-[15px] [@media(max-height:760px)]:mb-1.5 [@media(max-height:760px)]:text-sm [@media(max-height:720px)]:mb-1 [@media(max-height:720px)]:text-[13px] sm:mb-3 sm:text-lg">
           Моя статистика
         </h3>
-        <div className="grid grid-cols-2 gap-2.5 [@media(max-height:880px)]:gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2.5 [@media(max-width:420px)]:gap-2 [@media(max-height:880px)]:gap-2 [@media(max-height:760px)]:gap-1.5 [@media(max-height:720px)]:gap-1 sm:gap-3">
           {statsCards.map((item) => {
             const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
 
@@ -292,13 +292,13 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
               <div
                 key={item.key}
                 className={cn(
-                  "rounded-[1.2rem] border px-3.5 py-3 shadow-[var(--shadow-soft)] [@media(max-height:880px)]:px-3 [@media(max-height:880px)]:py-2.5 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5",
+                  "rounded-[1.2rem] border px-3.5 py-3 shadow-[var(--shadow-soft)] [@media(max-width:420px)]:px-3 [@media(max-width:420px)]:py-2.5 [@media(max-height:880px)]:px-3 [@media(max-height:880px)]:py-2.5 [@media(max-height:760px)]:rounded-[1rem] [@media(max-height:760px)]:px-2.5 [@media(max-height:760px)]:py-2 [@media(max-height:720px)]:px-2 [@media(max-height:720px)]:py-1.5 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5",
                   tone.panelClassName,
                 )}
               >
                 <div
                   className={cn(
-                    "text-[10px] font-medium uppercase tracking-[0.15em] [@media(max-height:880px)]:text-[9px]",
+                    "text-[10px] font-medium uppercase tracking-[0.15em] [@media(max-width:420px)]:text-[9px] [@media(max-height:880px)]:text-[9px] [@media(max-height:760px)]:text-[8px]",
                     tone.labelClassName,
                   )}
                 >
@@ -306,7 +306,7 @@ export const DashboardTrainingStatsCard = React.memo(function DashboardTrainingS
                 </div>
                 <div
                   className={cn(
-                    "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] font-semibold leading-tight tracking-tight [@media(max-height:880px)]:mt-1 [@media(max-height:880px)]:text-[clamp(1.2rem,4.2vw,1.72rem)]",
+                    "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] font-semibold leading-tight tracking-tight [@media(max-width:420px)]:mt-1 [@media(max-width:420px)]:text-[clamp(1.12rem,4.4vw,1.5rem)] [@media(max-height:880px)]:mt-1 [@media(max-height:880px)]:text-[clamp(1.2rem,4.2vw,1.72rem)] [@media(max-height:760px)]:text-[clamp(1.05rem,3.8vw,1.45rem)] [@media(max-height:720px)]:text-[clamp(0.98rem,3.5vw,1.3rem)]",
                     tone.valueClassName,
                   )}
                 >
@@ -391,7 +391,7 @@ function DashboardLeaderboardRow({
       className={cn(
         "flex w-full items-center gap-3 border text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color]",
         compact
-          ? "rounded-[1.2rem] px-3 py-2 [@media(max-height:880px)]:gap-2.5 [@media(max-height:880px)]:px-2.5 [@media(max-height:880px)]:py-1.5"
+          ? "rounded-[1.2rem] px-3 py-2 [@media(max-width:420px)]:gap-2.5 [@media(max-width:420px)]:px-2.5 [@media(max-width:420px)]:py-1.5 [@media(max-height:880px)]:gap-2.5 [@media(max-height:880px)]:px-2.5 [@media(max-height:880px)]:py-1.5 [@media(max-height:760px)]:gap-2 [@media(max-height:760px)]:rounded-[1rem] [@media(max-height:760px)]:px-2 [@media(max-height:760px)]:py-1.5"
           : "rounded-[1.35rem] px-3.5 py-3 sm:px-4",
         isCurrentUserEntry
           ? "border-brand-primary/20 bg-status-mastered-soft"
@@ -403,7 +403,7 @@ function DashboardLeaderboardRow({
         className={cn(
           "flex shrink-0 items-center justify-center rounded-full border font-semibold",
           compact
-            ? "h-7 w-7 text-[11px] [@media(max-height:880px)]:h-6.5 [@media(max-height:880px)]:w-6.5 [@media(max-height:880px)]:text-[10px]"
+            ? "h-7 w-7 text-[11px] [@media(max-width:420px)]:h-6 [@media(max-width:420px)]:w-6 [@media(max-width:420px)]:text-[10px] [@media(max-height:880px)]:h-6.5 [@media(max-height:880px)]:w-6.5 [@media(max-height:880px)]:text-[10px] [@media(max-height:760px)]:h-6 [@media(max-height:760px)]:w-6 [@media(max-height:760px)]:text-[9px]"
             : "h-8 w-8 text-xs",
           rankMarker.className,
         )}
@@ -419,7 +419,7 @@ function DashboardLeaderboardRow({
       <Avatar
         className={cn(
           "shrink-0 border border-border-subtle bg-bg-surface",
-          compact ? "h-8 w-8 [@media(max-height:880px)]:h-7 [@media(max-height:880px)]:w-7" : "h-9 w-9",
+          compact ? "h-8 w-8 [@media(max-width:420px)]:h-7 [@media(max-width:420px)]:w-7 [@media(max-height:880px)]:h-7 [@media(max-height:880px)]:w-7 [@media(max-height:760px)]:h-6.5 [@media(max-height:760px)]:w-6.5" : "h-9 w-9",
         )}
       >
         {entry.avatarUrl ? (
@@ -434,13 +434,13 @@ function DashboardLeaderboardRow({
         <div
           className={cn(
             "truncate font-medium",
-            compact ? "text-[13px] [@media(max-height:880px)]:text-[12px]" : "text-sm",
+            compact ? "text-[13px] [@media(max-width:420px)]:text-[12px] [@media(max-height:880px)]:text-[12px] [@media(max-height:760px)]:text-[11px]" : "text-sm",
             isCurrentUserEntry ? "text-brand-primary" : "text-text-primary",
           )}
         >
           {displayName}
         </div>
-        <div className={cn("mt-0.5 text-text-muted", compact ? "text-[11px] [@media(max-height:880px)]:text-[10px]" : "text-xs")}>
+        <div className={cn("mt-0.5 text-text-muted", compact ? "text-[11px] [@media(max-width:420px)]:text-[10px] [@media(max-height:880px)]:text-[10px] [@media(max-height:760px)]:text-[9px]" : "text-xs")}>
           {leaderboardEntryWeeklyReps(entry)} · {displayStreakDays} дн. подряд
         </div>
       </div>
@@ -448,7 +448,7 @@ function DashboardLeaderboardRow({
       <div
         className={cn(
           "shrink-0 font-semibold text-text-primary",
-          compact ? "text-[13px] [@media(max-height:880px)]:text-[12px]" : "text-sm",
+          compact ? "text-[13px] [@media(max-width:420px)]:text-[12px] [@media(max-height:880px)]:text-[12px] [@media(max-height:760px)]:text-[11px]" : "text-sm",
         )}
       >
         {formatXp(displayXp)}
@@ -574,7 +574,6 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
     (state) => state.dailyStreak
   );
   const entries = leaderboard?.items ?? [];
-  const previewEntries = entries.slice(0, 3);
   const apiCurrentUser = leaderboard?.currentUser ?? null;
   const pageSize = leaderboard?.pageSize ?? DASHBOARD_LEADERBOARD_PAGE_SIZE;
   const totalParticipants = leaderboard?.totalParticipants ?? 0;
@@ -681,10 +680,10 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
 
   return (
     <>
-        <DashboardSurface className="flex h-full min-h-0 flex-col">
-          <div className="mb-3 flex items-start justify-between gap-3 [@media(max-height:880px)]:mb-2">
+        <DashboardSurface className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mb-3 flex items-start justify-between gap-3 [@media(max-width:420px)]:mb-2 [@media(max-height:880px)]:mb-2 [@media(max-height:760px)]:mb-1.5 [@media(max-height:720px)]:mb-1">
             <div className="min-w-0">
-              <h2 className="[font-family:var(--font-heading)] text-base font-semibold tracking-tight text-text-primary [@media(max-height:880px)]:text-[15px] sm:text-lg">
+              <h2 className="[font-family:var(--font-heading)] text-base font-semibold tracking-tight text-text-primary [@media(max-width:420px)]:text-[15px] [@media(max-height:880px)]:text-[15px] [@media(max-height:760px)]:text-sm [@media(max-height:720px)]:text-[13px] sm:text-lg">
                 Таблица лидеров
               </h2>
             </div>
@@ -692,7 +691,7 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 shrink-0 rounded-full px-3 text-[11px] [@media(max-height:880px)]:h-7.5 [@media(max-height:880px)]:px-2.5 [@media(max-height:880px)]:text-[10px]"
+              className="h-8 shrink-0 rounded-full px-3 text-[11px] [@media(max-width:420px)]:h-7.5 [@media(max-width:420px)]:px-2.5 [@media(max-width:420px)]:text-[10px] [@media(max-height:880px)]:h-7.5 [@media(max-height:880px)]:px-2.5 [@media(max-height:880px)]:text-[10px] [@media(max-height:760px)]:h-7 [@media(max-height:760px)]:px-2 [@media(max-height:760px)]:text-[9px] [@media(max-height:720px)]:h-6.5"
               onClick={handleFullscreenOpen}
             >
               Весь рейтинг
@@ -700,49 +699,51 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
             </Button>
           </div>
 
-          <div className="space-y-2 [@media(max-height:880px)]:space-y-1.5">
-            {previewEntries.length > 0 ? (
-              previewEntries.map((entry) => (
-                <DashboardLeaderboardRow
-                  key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                  entry={entry}
-                  compact
-                  currentUserTelegramId={currentUserTelegramId}
-                  currentUserXp={currentUserXp}
-                  currentUserDailyStreak={currentUserDailyStreak}
-                  onOpenPlayerProfile={onOpenPlayerProfile}
-                />
-              ))
-            ) : isLeaderboardLoading ? (
-              Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={`leaderboard-skeleton-${index}`}
-                  className="rounded-[1.2rem] border border-border-subtle bg-bg-elevated px-3 py-2"
-                >
-                  <Skeleton className="h-10 w-full rounded-[1rem] border-0" />
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-2">
+            <div className="space-y-2 [@media(max-width:420px)]:space-y-1.5 [@media(max-height:880px)]:space-y-1.5 [@media(max-height:760px)]:space-y-1">
+              {entries.length > 0 ? (
+                entries.map((entry) => (
+                  <DashboardLeaderboardRow
+                    key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
+                    entry={entry}
+                    compact
+                    currentUserTelegramId={currentUserTelegramId}
+                    currentUserXp={currentUserXp}
+                    currentUserDailyStreak={currentUserDailyStreak}
+                    onOpenPlayerProfile={onOpenPlayerProfile}
+                  />
+                ))
+              ) : isLeaderboardLoading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={`leaderboard-skeleton-${index}`}
+                    className="rounded-[1.2rem] border border-border-subtle bg-bg-elevated px-3 py-2 [@media(max-width:420px)]:px-2.5 [@media(max-width:420px)]:py-1.5 [@media(max-height:760px)]:rounded-[1rem] [@media(max-height:760px)]:px-2.5 [@media(max-height:760px)]:py-1.5"
+                  >
+                    <Skeleton className="h-10 w-full rounded-[1rem] border-0 [@media(max-height:760px)]:h-8" />
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[1.35rem] border border-dashed border-border-subtle bg-bg-elevated p-4 [@media(max-height:760px)]:rounded-[1rem] [@media(max-height:760px)]:p-3">
+                  <div className="space-y-3 [@media(max-height:760px)]:space-y-2">
+                    <p className="text-sm leading-relaxed text-text-secondary [@media(max-height:760px)]:text-[12px] [@media(max-height:760px)]:leading-5">
+                      Рейтинг появится, когда у вас и других участников появится
+                      прогресс по стихам.
+                    </p>
+                    {/* {onOpenTraining ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onOpenTraining}
+                        className="h-9 rounded-full px-4 text-xs [@media(max-height:760px)]:h-8 [@media(max-height:760px)]:px-3"
+                      >
+                        Открыть тренировку
+                      </Button>
+                    ) : null} */}
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="rounded-[1.35rem] border border-dashed border-border-subtle bg-bg-elevated p-4">
-                <div className="space-y-3">
-                  <p className="text-sm leading-relaxed text-text-secondary">
-                    Рейтинг появится, когда у вас и других участников появится
-                    прогресс по стихам.
-                  </p>
-                  {onOpenTraining ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={onOpenTraining}
-                      className="h-9 rounded-full px-4 text-xs"
-                    >
-                      Открыть тренировку
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </DashboardSurface>
 
