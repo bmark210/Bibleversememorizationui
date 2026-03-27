@@ -525,7 +525,6 @@ export function Profile({
                       <div className={SUMMARY_TILE_LABEL}>Мои друзья</div>
                       <div className={SUMMARY_TILE_VALUE}>{friendsTotal}</div>
                     </div>
-                    {/* <div className="text-xs text-text-muted">список</div> */}
                   </button>
 
                   <button
@@ -541,7 +540,6 @@ export function Profile({
                       <div className={SUMMARY_TILE_LABEL}>Игроки</div>
                       <div className={SUMMARY_TILE_VALUE}>{playersTotal}</div>
                     </div>
-                    {/* <div className="text-xs text-text-muted">поиск</div> */}
                   </button>
                 </div>
 
