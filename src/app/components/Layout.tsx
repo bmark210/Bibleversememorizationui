@@ -258,11 +258,11 @@ export function Layout({
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] px-2.5 py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:px-2 narrow:py-1.5",
                   isActive
-                    ? "bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]"
+                    ? "bg-bg-elevated border border-border text-brand-primary shadow-[var(--shadow-soft)]"
                     : "text-text-muted",
                 )}
               >
-                <Icon className="h-5 w-5 narrow:h-[1.1rem] narrow:w-[1.1rem]" />
+                <Icon className="h-6 w-6 narrow:h-[1.1rem] narrow:w-[1.1rem]" />
                 <span className="text-xs font-medium narrow:text-[11px]">
                   {item.label}
                 </span>

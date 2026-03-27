@@ -1733,7 +1733,7 @@ export const DashboardFriendsActivityCard = React.memo(
                     className="flex w-full items-center gap-2.5 rounded-[1rem] border border-border-subtle bg-bg-elevated/70 px-3 py-2 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:px-2.5 narrow:py-1.5"
                   >
                     <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-text-muted shrink-0 narrow:text-[9px]">
-                      Сигнал
+                      Последний
                     </div>
                     <Avatar className="h-5 w-5 shrink-0 border border-border-subtle">
                       {summaryEntries[0].avatarUrl ? (
