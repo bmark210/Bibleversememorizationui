@@ -681,9 +681,9 @@ function LeaderShowcase({
           name: displayName,
           avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
         });
-      }}
+      }} 
       className={cn(
-        "flex w-full items-center gap-3 rounded-[1.3rem] border px-3.5 py-2.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-2.5 narrow:px-3 narrow:py-2",
+        "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-1",
         isCurrentUser
           ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
           : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
@@ -691,7 +691,7 @@ function LeaderShowcase({
       aria-label={`Открыть профиль ${displayName}`}
     >
       <div className="relative shrink-0">
-        <Avatar className="h-11 w-11 border-2 border-status-mastered/40 narrow:h-9 narrow:w-9">
+        <Avatar className="h-12 w-12 border-2 border-status-mastered/40 narrow:h-10 narrow:w-10">
           {entry.avatarUrl ? (
             <AvatarImage src={entry.avatarUrl} alt={displayName} />
           ) : null}
@@ -708,12 +708,12 @@ function LeaderShowcase({
         <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-status-mastered/70 narrow:text-[9px]">
           {isCurrentUser ? "Вы — лидер" : "Лидер"}
         </div>
-        <div className="truncate text-[13px] font-semibold leading-tight text-status-mastered narrow:text-[12px]">
+        <div className="truncate text-[14px] font-semibold leading-tight text-status-mastered narrow:text-[13px]">
           {displayName}
         </div>
       </div>
 
-      <div className="shrink-0 text-sm font-bold text-status-mastered narrow:text-[13px]">
+      <div className="shrink-0 text-[15px] font-bold text-status-mastered narrow:text-[13px]">
         {formatXp(xp)}
       </div>
     </button>
@@ -754,7 +754,7 @@ function CompactNeighborhoodRow({
         });
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-[1rem] border px-2.5 py-1.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-1.5 narrow:px-2 narrow:py-1",
+        "flex w-full items-center gap-2.5 rounded-[1.05rem] border px-3 py-2.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-2 narrow:px-2.5 narrow:py-2",
         isCurrentUser
           ? "border-brand-primary/20 bg-status-mastered-soft/50"
           : "border-border-subtle bg-bg-elevated/60 hover:border-border-default hover:bg-bg-surface",
@@ -763,25 +763,25 @@ function CompactNeighborhoodRow({
     >
       <div
         className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold narrow:h-[18px] narrow:w-[18px] narrow:text-[9px]",
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold narrow:h-6 narrow:w-6 narrow:text-[9px]",
           rankMarker.className,
         )}
       >
-        {RankIcon ? <RankIcon className="h-2.5 w-2.5" /> : <span>#{rank}</span>}
+        {RankIcon ? <RankIcon className="h-3 w-3" /> : <span>#{rank}</span>}
       </div>
 
-      <Avatar className="h-6 w-6 shrink-0 border border-border-subtle narrow:h-5 narrow:w-5">
+      <Avatar className="h-8 w-8 shrink-0 border border-border-subtle narrow:h-7 narrow:w-7">
         {entry.avatarUrl ? (
           <AvatarImage src={entry.avatarUrl} alt={displayName} />
         ) : null}
-        <AvatarFallback className="bg-bg-subtle text-[9px] text-text-secondary">
+        <AvatarFallback className="bg-bg-subtle text-[10px] text-text-secondary">
           {getInitials(displayName)}
         </AvatarFallback>
       </Avatar>
 
       <div
         className={cn(
-          "min-w-0 flex-1 truncate text-[12px] font-medium leading-tight narrow:text-[11px]",
+          "min-w-0 flex-1 truncate text-[13px] font-medium leading-tight narrow:text-[12px]",
           isCurrentUser ? "text-brand-primary" : "text-text-primary",
         )}
       >
@@ -795,7 +795,7 @@ function CompactNeighborhoodRow({
 
       <div
         className={cn(
-          "shrink-0 text-[11px] font-semibold narrow:text-[10px]",
+          "shrink-0 text-[13px] font-semibold narrow:text-[11px]",
           isCurrentUser ? "text-brand-primary" : "text-text-muted",
         )}
       >
@@ -825,9 +825,9 @@ function FriendsAvatarStack({
         return (
           <Avatar
             key={String(entry.telegramId ?? index)}
-            className="h-9 w-9 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
+            className="h-11 w-11 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-10 narrow:w-10"
             style={{
-              marginLeft: index === 0 ? 0 : -8,
+              marginLeft: index === 0 ? 0 : -10,
               zIndex: MAX_SHOWN - index,
             }}
           >
@@ -842,8 +842,8 @@ function FriendsAvatarStack({
       })}
       {extraCount > 0 && (
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-bg-overlay bg-bg-elevated text-[11px] font-semibold text-text-muted shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
-          style={{ marginLeft: -8, zIndex: 0 }}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-bg-overlay bg-bg-elevated text-[11px] font-semibold text-text-muted shadow-[var(--shadow-soft)] narrow:h-10 narrow:w-10"
+          style={{ marginLeft: -10, zIndex: 0 }}
         >
           +{extraCount}
         </div>
@@ -1321,6 +1321,9 @@ export const DashboardLeaderboardCard = React.memo(
                 ) : neighborEntries ? (
                   /* Show current user surrounded by neighbors */
                   <div className="mt-auto flex flex-col gap-1.5">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted narrow:text-[9px]">
+                      Рядом с вами
+                    </div>
                     {neighborEntries.prev && (
                       <CompactNeighborhoodRow
                         entry={
@@ -1626,7 +1629,7 @@ export const DashboardFriendsActivityCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col justify-between">
+          <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
               <Skeleton className="flex-1 rounded-[1.2rem] border-0 min-h-[60px]" />
             ) : summaryEntries.length > 0 ? (
@@ -1634,17 +1637,57 @@ export const DashboardFriendsActivityCard = React.memo(
                 <div className="flex items-center justify-between gap-3">
                   <FriendsAvatarStack entries={summaryEntries} />
                   <div className="min-w-0 text-right">
-                    <div className="text-[13px] font-semibold text-text-primary narrow:text-[12px]">
+                    <div className="text-[16px] font-semibold text-text-primary narrow:text-[14px]">
                       {summaryFriendsTotal}{" "}
                       {pluralizeFriends(summaryFriendsTotal)}
                     </div>
                     {(friendsActivity?.activeLast7Days ?? 0) > 0 && (
-                      <div className="text-[10px] text-text-muted narrow:text-[9px]">
+                      <div className="mt-0.5 text-[12px] text-text-muted narrow:text-[10px]">
                         {friendsActivity!.activeLast7Days} активных за неделю
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Most recently active friend as a signal row */}
+                {(() => {
+                  const recentFriend = summaryEntries.find((e) => e.lastActiveAt);
+                  if (!recentFriend) return null;
+                  const friendName = recentFriend.name?.trim() || "Друг";
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenPlayerProfile?.({
+                          telegramId: String(recentFriend.telegramId ?? ""),
+                          name: friendName,
+                          avatarUrl: recentFriend.avatarUrl?.trim() ? recentFriend.avatarUrl.trim() : null,
+                        });
+                      }}
+                      className="mt-auto flex w-full items-center gap-2.5 rounded-[1.1rem] border border-border-subtle bg-bg-elevated/60 px-3 py-2 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:gap-2 narrow:px-2.5 narrow:py-1.5"
+                      aria-label={`Открыть профиль ${friendName}`}
+                    >
+                      <div className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-muted narrow:text-[8px]">
+                        Сигнал
+                      </div>
+                      <Avatar className="h-7 w-7 shrink-0 border border-border-subtle narrow:h-6 narrow:w-6">
+                        {recentFriend.avatarUrl ? (
+                          <AvatarImage src={recentFriend.avatarUrl} alt={friendName} />
+                        ) : null}
+                        <AvatarFallback className="bg-bg-subtle text-[9px] text-text-secondary">
+                          {getInitials(friendName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight text-text-primary narrow:text-[12px]">
+                        {friendName}
+                      </div>
+                      <div className="shrink-0 text-[11px] text-text-muted narrow:text-[10px]">
+                        {formatFriendLastActive(recentFriend.lastActiveAt)}
+                      </div>
+                    </button>
+                  );
+                })()}
               </>
             ) : (
               <DashboardInfoTile
