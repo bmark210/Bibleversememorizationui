@@ -388,7 +388,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           onNavigate={nav.handleRootNavigate}
           isContentReady={!isBootstrapping}
           hideChrome={nav.currentPage === "training" && isTrainingSessionFullscreen}
-          contentMode={nav.currentPage === "dashboard" ? "fit" : "scroll"}
+          contentMode={nav.currentPage === "dashboard" ? "fit" : nav.currentPage === "training" ? "fit-strict" : "scroll"}
         >
           {nav.currentPage === "dashboard" && (
             <div aria-busy={isBootstrapping} className="h-full">

@@ -14,7 +14,7 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
-  contentMode?: "scroll" | "fit";
+  contentMode?: "scroll" | "fit" | "fit-strict";
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -43,7 +43,8 @@ export function Layout({
   const bottomInset = contentSafeAreaInset.bottom;
   const pageTitle = PAGE_TITLES[currentPage] ?? "Bible Memory";
   const hideAppChrome = hideChrome;
-  const isFitContent = contentMode === "fit";
+  const isFitContent = contentMode === "fit" || contentMode === "fit-strict";
+  const isFitStrict = contentMode === "fit-strict";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -220,8 +221,10 @@ export function Layout({
           <div
             className={cn(
               "min-h-0",
-              isFitContent &&
+              isFitContent && !isFitStrict &&
                 "flex h-full flex-col overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible",
+              isFitStrict &&
+                "flex h-full flex-col overflow-hidden",
             )}
           >
             {children}

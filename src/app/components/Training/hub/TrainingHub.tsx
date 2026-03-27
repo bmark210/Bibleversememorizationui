@@ -393,7 +393,7 @@ export function TrainingHub({
   return (
     <div
         className={cn(
-          "mx-auto flex h-full w-full flex-col overflow-y-auto",
+          "mx-auto flex h-full w-full flex-col overflow-hidden",
         )}
         style={
           {
@@ -408,22 +408,22 @@ export function TrainingHub({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: "easeOut",
           }}
-          className="flex min-h-0 flex-1 flex-col p-4"
+          className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-4 pb-2"
         >
           {/* Fixed top: header + tabs */}
           <div className="shrink-0">
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {isTelegramFullscreen ? (null) : (
-                <header className="space-y-1.5">
+                <header>
                   <div className="flex items-center gap-2.5">
-                    <h1 className="[font-family:var(--font-heading)] text-3xl font-semibold tracking-tight text-brand-primary">
+                    <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary sm:text-3xl">
                       Тренировка
                     </h1>
                   </div>
                 </header>
               )}
 
-              <section data-tour="training-scenarios" className="rounded-[2rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-4">
+              <section data-tour="training-scenarios" className="rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-2.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-3">
                 <Tabs
                   value={selectedScenario}
                   onValueChange={handleScenarioChange}
@@ -458,8 +458,8 @@ export function TrainingHub({
             </div>
           </div>
 
-          {/* Mode list */}
-          <div className="my-2 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-4 pb-4 pt-4 shadow-[var(--shadow-soft)] backdrop-blur-2xl">
+          {/* Mode list — scrollable middle section */}
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-3.5 pb-3.5 pt-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:px-4 sm:pb-4 sm:pt-4">
             <AnimatePresence mode="wait" initial={false}>
               {selectedScenario === "core" ? (
                 <motion.div
@@ -606,64 +606,60 @@ export function TrainingHub({
               </section>
             ) : null}
           </div>
+        </motion.div>
 
-<div className="flex-1 content-end">
-
-          {/* Bottom: start card */}
-          <div
+        {/* Bottom: start card — always pinned above navbar */}
+        <div
+          className={cn(
+            "shrink-0 mx-4 mb-2 rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] backdrop-blur-2xl",
+            anchorLocked
+              ? "text-text-muted"
+              : currentAccentTheme.summaryClassName,
+          )}
+        >
+          <p
             className={cn(
-              "mb-2 rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] backdrop-blur-2xl",
+              "mb-2.5 px-1 text-[13px] font-medium",
               anchorLocked
                 ? "text-text-muted"
                 : currentAccentTheme.summaryClassName,
             )}
           >
-            <p
-              className={cn(
-                "mb-3 px-1 text-sm font-medium",
-                anchorLocked
-                  ? "text-text-muted"
-                  : currentAccentTheme.summaryClassName,
-              )}
-            >
-              {sessionSummary}
-            </p>
+            {sessionSummary}
+          </p>
 
-            {startLocked ? (
-              <div className="space-y-3">
-                <Button
-                  type="button"
-                  size="lg"
-                  disabled
-                  className="h-14 w-full gap-2 rounded-2xl border border-border-subtle !bg-bg-surface px-5 text-sm font-medium text-text-muted shadow-none"
-                >
-                  <Lock className="h-4 w-4" />
-                  {lockedStartLabel}
-                </Button>
-                <p className="px-1 text-xs leading-relaxed text-text-secondary">
-                  {lockedSummaryText}
-                </p>
-              </div>
-            ) : (
+          {startLocked ? (
+            <div className="space-y-2.5">
               <Button
                 type="button"
                 size="lg"
-                haptic="medium"
-                data-tour="training-start-button"
-                onClick={onStart}
-                className={cn(
-                  "h-14 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
-                  currentAccentTheme.ctaClassName,
-                )}
+                disabled
+                className="h-12 w-full gap-2 rounded-2xl border border-border-subtle !bg-bg-surface px-5 text-sm font-medium text-text-muted shadow-none"
               >
-                <Play className="h-4 w-4" />
-                {startLabel}
+                <Lock className="h-4 w-4" />
+                {lockedStartLabel}
               </Button>
-            )}
-          </div>
-  
-</div>
-        </motion.div>
+              <p className="px-1 text-xs leading-relaxed text-text-secondary">
+                {lockedSummaryText}
+              </p>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              haptic="medium"
+              data-tour="training-start-button"
+              onClick={onStart}
+              className={cn(
+                "h-12 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
+                currentAccentTheme.ctaClassName,
+              )}
+            >
+              <Play className="h-4 w-4" />
+              {startLabel}
+            </Button>
+          )}
+        </div>
       </div>
   );
 }
