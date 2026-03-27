@@ -210,7 +210,7 @@ export function Layout({
           className={cn(
             "min-w-0 flex-1 min-h-0 [overflow-x:clip]",
             isFitContent
-              ? "overflow-hidden"
+              ? "overflow-hidden short-phone:overflow-y-auto short-phone:overscroll-contain"
               : "overflow-y-auto overscroll-contain",
           )}
           style={{
@@ -220,7 +220,8 @@ export function Layout({
           <div
             className={cn(
               "min-h-0",
-              isFitContent && "flex h-full flex-col overflow-hidden",
+              isFitContent &&
+                "flex h-full flex-col overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible",
             )}
           >
             {children}
@@ -243,7 +244,7 @@ export function Layout({
         <nav
           style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
           className="flex justify-around rounded-t-[1.75rem] border border-border-subtle bg-bg-overlay px-2.5 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-t-[1.5rem] narrow:px-2 narrow:py-2"
-        >
+>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;

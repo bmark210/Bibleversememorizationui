@@ -18,7 +18,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogTitle,
 } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
@@ -197,6 +196,18 @@ function pluralizeDays(count: number) {
   return "дней";
 }
 
+function pluralizeFriends(count: number) {
+  if (count % 10 === 1 && count % 100 !== 11) return "друг";
+  if (
+    count % 10 >= 2 &&
+    count % 10 <= 4 &&
+    (count % 100 < 10 || count % 100 >= 20)
+  ) {
+    return "друга";
+  }
+  return "друзей";
+}
+
 function startOfLocalDay(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
@@ -326,14 +337,12 @@ function DashboardFullscreenDialog({
   open,
   onOpenChange,
   title,
-  description,
   actions,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -344,12 +353,9 @@ function DashboardFullscreenDialog({
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="border-b border-border-subtle bg-bg-overlay/80 backdrop-blur-2xl">
-            <div className="mx-auto flex max-w-5xl items-start justify-between gap-3 px-4 py-4 sm:px-5 lg:px-6">
+            <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-5 lg:px-6">
               <div className="min-w-0">
                 <DialogTitle>{title}</DialogTitle>
-                <DialogDescription className="mt-1 max-w-2xl">
-                  {description}
-                </DialogDescription>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
@@ -713,6 +719,202 @@ function DashboardLeaderboardRow({
   );
 }
 
+/* ── Leader Showcase (compact hero row for rank-1) ───────────────── */
+
+function LeaderShowcase({
+  entry,
+  isCurrentUser,
+  onOpenPlayerProfile,
+}: {
+  entry: domain_UserLeaderboardEntry;
+  isCurrentUser: boolean;
+  onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
+}) {
+  const displayName = leaderboardEntryDisplayName(entry);
+  const xp = leaderboardEntryXp(entry);
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenPlayerProfile?.({
+          telegramId: String(entry.telegramId ?? ""),
+          name: displayName,
+          avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
+        });
+      }}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-[1.3rem] border px-3.5 py-2.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-2.5 narrow:px-3 narrow:py-2",
+        isCurrentUser
+          ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
+          : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
+      )}
+      aria-label={`Открыть профиль ${displayName}`}
+    >
+      <div className="relative shrink-0">
+        <Avatar className="h-11 w-11 border-2 border-status-mastered/40 narrow:h-9 narrow:w-9">
+          {entry.avatarUrl ? (
+            <AvatarImage src={entry.avatarUrl} alt={displayName} />
+          ) : null}
+          <AvatarFallback className="bg-status-mastered-soft text-base font-bold text-status-mastered narrow:text-sm">
+            {getInitials(displayName)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-status-mastered/30 bg-bg-overlay">
+          <Crown className="h-2.5 w-2.5 text-status-mastered" />
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-status-mastered/70 narrow:text-[9px]">
+          {isCurrentUser ? "Вы — лидер" : "Лидер"}
+        </div>
+        <div className="truncate text-[13px] font-semibold leading-tight text-status-mastered narrow:text-[12px]">
+          {displayName}
+        </div>
+      </div>
+
+      <div className="shrink-0 text-sm font-bold text-status-mastered narrow:text-[13px]">
+        {formatXp(xp)}
+      </div>
+    </button>
+  );
+}
+
+/* ── Compact Neighborhood Row (mini row around current user) ──────── */
+
+function CompactNeighborhoodRow({
+  entry,
+  isCurrentUser,
+  currentUserXp,
+  onOpenPlayerProfile,
+}: {
+  entry: domain_UserLeaderboardEntry;
+  isCurrentUser: boolean;
+  currentUserXp: number | null;
+  onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
+}) {
+  const displayName = leaderboardEntryDisplayName(entry);
+  const rank = entry.rank ?? 0;
+  const xp =
+    isCurrentUser && currentUserXp != null
+      ? currentUserXp
+      : leaderboardEntryXp(entry);
+  const rankMarker = getRankMarker(rank);
+  const RankIcon = rankMarker.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenPlayerProfile?.({
+          telegramId: String(entry.telegramId ?? ""),
+          name: displayName,
+          avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
+        });
+      }}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-[1rem] border px-2.5 py-1.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-1.5 narrow:px-2 narrow:py-1",
+        isCurrentUser
+          ? "border-brand-primary/20 bg-status-mastered-soft/50"
+          : "border-border-subtle bg-bg-elevated/60 hover:border-border-default hover:bg-bg-surface",
+      )}
+      aria-label={`Открыть профиль ${displayName}`}
+    >
+      <div
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold narrow:h-[18px] narrow:w-[18px] narrow:text-[9px]",
+          rankMarker.className,
+        )}
+      >
+        {RankIcon ? (
+          <RankIcon className="h-2.5 w-2.5" />
+        ) : (
+          <span>#{rank}</span>
+        )}
+      </div>
+
+      <Avatar className="h-6 w-6 shrink-0 border border-border-subtle narrow:h-5 narrow:w-5">
+        {entry.avatarUrl ? (
+          <AvatarImage src={entry.avatarUrl} alt={displayName} />
+        ) : null}
+        <AvatarFallback className="bg-bg-subtle text-[9px] text-text-secondary">
+          {getInitials(displayName)}
+        </AvatarFallback>
+      </Avatar>
+
+      <div
+        className={cn(
+          "min-w-0 flex-1 truncate text-[12px] font-medium leading-tight narrow:text-[11px]",
+          isCurrentUser ? "text-brand-primary" : "text-text-primary",
+        )}
+      >
+        {displayName}
+        {isCurrentUser && (
+          <span className="ml-1 text-[10px] font-normal text-brand-primary/60 narrow:text-[9px]">
+            · вы
+          </span>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "shrink-0 text-[11px] font-semibold narrow:text-[10px]",
+          isCurrentUser ? "text-brand-primary" : "text-text-muted",
+        )}
+      >
+        {formatXp(xp)}
+      </div>
+    </button>
+  );
+}
+
+/* ── Friends Avatar Stack (overlapping avatars preview) ──────────── */
+
+function FriendsAvatarStack({
+  entries,
+}: {
+  entries: DashboardCompactFriendActivityEntry[];
+}) {
+  const MAX_SHOWN = 5;
+  const visibleEntries = entries.slice(0, MAX_SHOWN);
+  const extraCount = Math.max(0, entries.length - MAX_SHOWN);
+
+  if (visibleEntries.length === 0) return null;
+
+  return (
+    <div className="flex items-center">
+      {visibleEntries.map((entry, index) => {
+        const name = entry.name?.trim() || "Друг";
+        return (
+          <Avatar
+            key={String(entry.telegramId ?? index)}
+            className="h-9 w-9 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
+            style={{ marginLeft: index === 0 ? 0 : -8, zIndex: MAX_SHOWN - index }}
+          >
+            {entry.avatarUrl ? (
+              <AvatarImage src={entry.avatarUrl} alt={name} />
+            ) : null}
+            <AvatarFallback className="bg-bg-elevated text-xs font-medium text-text-secondary">
+              {getInitials(name)}
+            </AvatarFallback>
+          </Avatar>
+        );
+      })}
+      {extraCount > 0 && (
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-bg-overlay bg-bg-elevated text-[11px] font-semibold text-text-muted shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
+          style={{ marginLeft: -8, zIndex: 0 }}
+        >
+          +{extraCount}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Leaderboard Card ─────────────────────────────────────────────── */
 
 type LeaderboardCurrentUser = NonNullable<
@@ -957,20 +1159,74 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
     [cachedEntries, leaderboard],
   );
 
+  const isLeaderCurrentUser = React.useMemo(
+    () =>
+      leaderEntry != null &&
+      currentUserTelegramId != null &&
+      String(leaderEntry.telegramId ?? "") === currentUserTelegramId,
+    [leaderEntry, currentUserTelegramId],
+  );
+
+  const currentUserEntryIndex = React.useMemo(() => {
+    if (!currentUserTelegramId) return -1;
+    return cachedEntries.findIndex(
+      (e): e is domain_UserLeaderboardEntry =>
+        e != null && String(e.telegramId ?? "") === currentUserTelegramId,
+    );
+  }, [cachedEntries, currentUserTelegramId]);
+
+  const neighborEntries = React.useMemo(() => {
+    if (currentUserEntryIndex < 0) return null;
+    return {
+      prev:
+        currentUserEntryIndex > 0
+          ? (cachedEntries[currentUserEntryIndex - 1] ?? null)
+          : null,
+      self: cachedEntries[currentUserEntryIndex] as domain_UserLeaderboardEntry,
+      next:
+        currentUserEntryIndex < cachedEntries.length - 1
+          ? (cachedEntries[currentUserEntryIndex + 1] ?? null)
+          : null,
+    };
+  }, [cachedEntries, currentUserEntryIndex]);
+
+  // Prefetch current user's window for compact neighborhood preview
+  React.useEffect(() => {
+    if (
+      !currentUserSnapshot?.rank ||
+      currentUserEntryIndex >= 0 ||
+      totalParticipants <= 0
+    )
+      return;
+    void requestLeaderboardWindow(
+      getLeaderboardWindowOffsetForIndex(
+        Math.max(0, currentUserSnapshot.rank - 1),
+        totalParticipants,
+        windowSize,
+      ),
+    );
+  }, [
+    currentUserEntryIndex,
+    currentUserSnapshot?.rank,
+    requestLeaderboardWindow,
+    totalParticipants,
+    windowSize,
+  ]);
+
   const canShowMe = Boolean(currentUserSnapshot?.rank);
   const leaderboardSummary = totalParticipants > 0
     ? currentUserSnapshot?.rank
       ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
       : `${totalParticipants} участников в общем рейтинге`
     : "XP и серия формируют общий рейтинг участников.";
-  const leaderSummary = leaderEntry
-    ? `${leaderboardEntryDisplayName(leaderEntry)} · ${formatXp(leaderboardEntryXp(leaderEntry))}`
-    : "Лидер появится после первых результатов";
-  const placementSummary = currentUserSnapshot?.rank
-    ? `#${currentUserSnapshot.rank} из ${totalParticipants}`
-    : totalParticipants > 0
-      ? `${totalParticipants} участников`
-      : "Пока без участников";
+  // const leaderSummary = leaderEntry
+  //   ? `${leaderboardEntryDisplayName(leaderEntry)} · ${formatXp(leaderboardEntryXp(leaderEntry))}`
+  //   : "Лидер появится после первых результатов";
+  // const placementSummary = currentUserSnapshot?.rank
+  //   ? `#${currentUserSnapshot.rank} из ${totalParticipants}`
+  //   : totalParticipants > 0
+  //     ? `${totalParticipants} участников`
+  //     : "Пока без участников";
 
   const renderLeaderboardRow = React.useCallback(
     (index: number) => {
@@ -999,7 +1255,10 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
 
   return (
     <>
-      <DashboardSurface className="flex min-h-0 flex-1 flex-col justify-between">
+      <DashboardSurface
+        className="flex min-h-0 flex-1 cursor-pointer flex-col justify-between transition-colors hover:border-border-default"
+        onClick={() => setIsDialogOpen(true)}
+      >
         <div className={cn("flex items-start justify-between gap-3", HEADING_MB)}>
           <div className="min-w-0">
             <h2
@@ -1020,31 +1279,91 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
             variant="outline"
             size="sm"
             className="h-8 shrink-0 rounded-full px-4 text-xs"
-            onClick={() => setIsDialogOpen(true)}
+            onClick={(e) => { e.stopPropagation(); setIsDialogOpen(true); }}
           >
             Открыть
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
           {isLeaderboardLoading && totalParticipants === 0 ? (
             <>
+              <Skeleton className="h-[60px] rounded-[1.2rem] border-0" />
               <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
-              <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
+            </>
+          ) : leaderEntry ? (
+            <>
+              <LeaderShowcase
+                entry={leaderEntry}
+                isCurrentUser={isLeaderCurrentUser}
+                onOpenPlayerProfile={onOpenPlayerProfile}
+              />
+
+              {isLeaderCurrentUser ? (
+                /* Current user IS the leader — show who's chasing them */
+                <div className="flex flex-col gap-1.5">
+                  <p className="font-serif ">Следуют</p>
+                  {cachedEntries[1] && (
+                    <CompactNeighborhoodRow
+                      entry={cachedEntries[1] as domain_UserLeaderboardEntry}
+                      isCurrentUser={false}
+                      currentUserXp={currentUserXp}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
+                    />
+                  )}
+                  {cachedEntries[2] && (
+                    <CompactNeighborhoodRow
+                      entry={cachedEntries[2] as domain_UserLeaderboardEntry}
+                      isCurrentUser={false}
+                      currentUserXp={currentUserXp}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
+                    />
+                  )}
+                </div>
+              ) : neighborEntries ? (
+                /* Show current user surrounded by neighbors */
+                <div className="flex flex-col gap-1.5">
+                  {neighborEntries.prev && (
+                    <CompactNeighborhoodRow
+                      entry={neighborEntries.prev as domain_UserLeaderboardEntry}
+                      isCurrentUser={false}
+                      currentUserXp={currentUserXp}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
+                    />
+                  )}
+                  <CompactNeighborhoodRow
+                    entry={neighborEntries.self}
+                    isCurrentUser={true}
+                    currentUserXp={currentUserXp}
+                    onOpenPlayerProfile={onOpenPlayerProfile}
+                  />
+                  {neighborEntries.next && (
+                    <CompactNeighborhoodRow
+                      entry={neighborEntries.next as domain_UserLeaderboardEntry}
+                      isCurrentUser={false}
+                      currentUserXp={currentUserXp}
+                      onOpenPlayerProfile={onOpenPlayerProfile}
+                    />
+                  )}
+                </div>
+              ) : currentUserSnapshot?.rank ? (
+                /* Neighborhood not loaded yet — show rank tile */
+                <DashboardInfoTile
+                  label="Ваше место"
+                  value={`#${currentUserSnapshot.rank} из ${totalParticipants}`}
+                />
+              ) : null}
             </>
           ) : (
-            <>
-              <DashboardInfoTile
-                label="Лидер"
-                value={leaderSummary}
-                className="border-status-mastered/20 bg-status-mastered-soft/65"
-              />
-              <DashboardInfoTile
-                label={currentUserSnapshot?.rank ? "Ваше место" : "Рейтинг"}
-                value={placementSummary}
-              />
-            </>
+            <DashboardInfoTile
+              label="Рейтинг"
+              value={
+                totalParticipants > 0
+                  ? `${totalParticipants} участников`
+                  : "Пока без участников"
+              }
+            />
           )}
         </div>
       </DashboardSurface>
@@ -1053,7 +1372,6 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title="Таблица лидеров"
-        description="Полный рейтинг участников. Здесь можно открыть профиль игрока и быстро перейти к своему месту."
         actions={
           canShowMe ? (
             <Button
@@ -1239,13 +1557,9 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
   ]);
 
   const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
-  const summaryActiveLast7Days = Math.max(0, friendsActivity?.activeLast7Days ?? 0);
   const summaryEntries = friendsActivity?.entries ?? [];
   const latestActiveEntry =
     summaryEntries.find((entry) => Boolean(entry.lastActiveAt)) ?? summaryEntries[0] ?? null;
-  // const summarySubtitle = summaryFriendsTotal > 0
-  //   ? `Активны ${summaryActiveLast7Days} из ${summaryFriendsTotal}`
-  //   : "Добавьте друзей, чтобы видеть их активность.";
 
   const modalFriendsActivity = dialogFriendsActivity ?? friendsActivity;
   const modalFriendsTotal = Math.max(0, modalFriendsActivity?.friendsTotal ?? 0);
@@ -1261,7 +1575,10 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
 
   return (
     <>
-      <DashboardSurface className="flex min-h-0 flex-1 flex-col justify-between">
+      <DashboardSurface
+        className="flex min-h-0 flex-1 cursor-pointer flex-col justify-between transition-colors hover:border-border-default"
+        onClick={() => setIsDialogOpen(true)}
+      >
         <div className={cn("flex items-start justify-between gap-3", HEADING_MB)}>
           <div className="min-w-0">
             <h2
@@ -1272,9 +1589,6 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
             >
               Активность друзей
             </h2>
-            {/* <p className="mt-1 px-1 text-[11px] text-text-muted narrow:text-[10px]">
-              {summarySubtitle}
-            </p> */}
           </div>
 
           <Button
@@ -1282,39 +1596,52 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
             variant="outline"
             size="sm"
             className="h-8 shrink-0 rounded-full px-4 text-xs"
-            onClick={() => setIsDialogOpen(true)}
+            onClick={(e) => { e.stopPropagation(); setIsDialogOpen(true); }}
           >
             Открыть
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
           {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
+            <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
+          ) : summaryEntries.length > 0 ? (
             <>
-              <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
-              <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
+              <div className="flex items-center justify-between gap-3">
+                <FriendsAvatarStack entries={summaryEntries} />
+                <div className="min-w-0 text-right">
+                  <div className="text-[13px] font-semibold text-text-primary narrow:text-[12px]">
+                    {summaryFriendsTotal} {pluralizeFriends(summaryFriendsTotal)}
+                  </div>
+                  {(friendsActivity?.activeLast7Days ?? 0) > 0 && (
+                    <div className="text-[10px] text-text-muted narrow:text-[9px]">
+                      {friendsActivity!.activeLast7Days} активных за неделю
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {latestActiveEntry && (
+                <div className="rounded-[1rem] border border-border-subtle/70 bg-bg-elevated/70 px-3 py-2 shadow-[var(--shadow-soft)]">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-text-muted narrow:text-[9px]">
+                    Последний сигнал
+                  </div>
+                  <div className="mt-0.5 truncate text-[13px] font-medium text-text-primary narrow:text-[12px]">
+                    {latestActiveEntry.name}
+                    <span className="ml-1.5 text-[11px] font-normal text-text-muted narrow:text-[10px]">
+                      · {formatFriendLastActive(latestActiveEntry.lastActiveAt)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
-            <>
-              <DashboardInfoTile
-                label="Активны"
-                value={
-                  summaryFriendsTotal > 0
-                    ? `${summaryActiveLast7Days} из ${summaryFriendsTotal}`
-                    : "Нет друзей"
-                }
-                className="border-status-learning/20 bg-status-learning-soft/65"
-              />
-              <DashboardInfoTile
-                label="Последний сигнал"
-                value={
-                  latestActiveEntry
-                    ? `${latestActiveEntry.name} · ${formatFriendLastActive(latestActiveEntry.lastActiveAt)}`
-                    : "Пока без недавней активности"
-                }
-              />
-            </>
+            <DashboardInfoTile
+              label="Последний сигнал"
+              value="Нет друзей"
+              className="border-status-learning/20 bg-status-learning-soft/45"
+            />
           )}
         </div>
       </DashboardSurface>
@@ -1323,7 +1650,6 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title="Активность друзей"
-        description="Полный список друзей с последней активностью и серией. Нажмите на строку, чтобы открыть профиль."
       >
         <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-4 sm:px-5 lg:px-6">
           <div className="min-h-0 flex-1 overflow-hidden rounded-[1.6rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] sm:p-4">

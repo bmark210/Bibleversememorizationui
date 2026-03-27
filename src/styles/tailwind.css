@@ -8,6 +8,7 @@
    throughout the dashboard and layout components.
    Usage: `narrow:p-2  compact:text-sm  compact-sm:gap-1.5` etc.       */
 @custom-variant narrow   (@media (max-width:  420px));
+@custom-variant short-phone (@media (max-width: 767px) and (max-height: 814px));
 @custom-variant compact  (@media (max-height: 880px));
 @custom-variant compact-md (@media (max-height: 820px));
 @custom-variant compact-sm (@media (max-height: 760px));
