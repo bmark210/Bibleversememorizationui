@@ -1716,44 +1716,6 @@ export const DashboardFriendsActivityCard = React.memo(
                     )}
                   </div>
                 </div>
-                {summaryEntries[0] && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const entry = summaryEntries[0];
-                      onOpenPlayerProfile?.({
-                        telegramId: String(entry.telegramId ?? ""),
-                        name: entry.name?.trim() || "Друг",
-                        avatarUrl: entry.avatarUrl?.trim()
-                          ? entry.avatarUrl.trim()
-                          : null,
-                      });
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-[1rem] border border-border-subtle bg-bg-elevated/70 px-3 py-2 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:px-2.5 narrow:py-1.5"
-                  >
-                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-text-muted shrink-0 narrow:text-[9px]">
-                      Последний
-                    </div>
-                    <Avatar className="h-5 w-5 shrink-0 border border-border-subtle">
-                      {summaryEntries[0].avatarUrl ? (
-                        <AvatarImage
-                          src={summaryEntries[0].avatarUrl}
-                          alt={summaryEntries[0].name?.trim() || "Друг"}
-                        />
-                      ) : null}
-                      <AvatarFallback className="bg-bg-subtle text-[8px] text-text-secondary">
-                        {getInitials(summaryEntries[0].name?.trim() || "Друг")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1 truncate text-[12px] font-medium text-text-primary narrow:text-[11px]">
-                      {summaryEntries[0].name?.trim() || "Друг"}
-                    </div>
-                    <div className="shrink-0 text-[11px] text-text-muted narrow:text-[10px]">
-                      {formatFriendLastActive(summaryEntries[0].lastActiveAt)}
-                    </div>
-                  </button>
-                )}
               </>
             ) : (
               <DashboardInfoTile

@@ -215,7 +215,7 @@ export function Dashboard({
         <DashboardTrainingStatsCard statsCards={statsCards} />
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-3 short-phone:min-h-fit short-phone:grid-rows-[auto_auto] lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
+      <div className="grid min-h-0 grid-cols-1 grid-rows-[minmax(0,1.4fr)_minmax(0,0.6fr)] gap-3 short-phone:min-h-fit short-phone:grid-rows-[auto_auto] lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
         <DashboardLeaderboardCard
           leaderboard={dashboardLeaderboard}
           isLeaderboardLoading={isDashboardLeaderboardLoading}
