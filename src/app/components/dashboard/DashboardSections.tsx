@@ -32,7 +32,7 @@ import { cn } from "../ui/utils";
    for Dashboard; only width-driven adjustments remain.               */
 
 /** Padding inside every DashboardSurface card */
-const SURFACE_PAD = "p-3.5 narrow:p-3 sm:p-4 lg:p-5";
+const SURFACE_PAD = "p-3.5 narrow:px-3 narrow:py-2 sm:p-4 lg:p-5";
 
 /** Vertical gap between elements inside a section */
 const SECTION_GAP = "gap-2 narrow:gap-1.5";
