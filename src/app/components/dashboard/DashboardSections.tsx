@@ -1558,9 +1558,6 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
 
   const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
   const summaryEntries = friendsActivity?.entries ?? [];
-  const latestActiveEntry =
-    summaryEntries.find((entry) => Boolean(entry.lastActiveAt)) ?? summaryEntries[0] ?? null;
-
   const modalFriendsActivity = dialogFriendsActivity ?? friendsActivity;
   const modalFriendsTotal = Math.max(0, modalFriendsActivity?.friendsTotal ?? 0);
   const modalEntries = modalFriendsActivity?.entries ?? [];
@@ -1621,20 +1618,6 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
                   )}
                 </div>
               </div>
-
-              {latestActiveEntry && (
-                <div className="rounded-[1rem] border border-border-subtle/70 bg-bg-elevated/70 px-3 py-2 shadow-[var(--shadow-soft)]">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-text-muted narrow:text-[9px]">
-                    Последний сигнал
-                  </div>
-                  <div className="mt-0.5 truncate text-[13px] font-medium text-text-primary narrow:text-[12px]">
-                    {latestActiveEntry.name}
-                    <span className="ml-1.5 text-[11px] font-normal text-text-muted narrow:text-[10px]">
-                      · {formatFriendLastActive(latestActiveEntry.lastActiveAt)}
-                    </span>
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <DashboardInfoTile
