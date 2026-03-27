@@ -35,7 +35,7 @@ import { cn } from "../ui/utils";
 const SURFACE_PAD = "p-3.5 narrow:p-3 sm:p-4 lg:p-5";
 
 /** Vertical gap between elements inside a section */
-const SECTION_GAP = "gap-3.5 narrow:gap-3";
+const SECTION_GAP = "gap-2 narrow:gap-1.5";
 
 /** Gap inside 2×2 stats grid */
 const GRID_GAP = "gap-2.5 narrow:gap-2 sm:gap-3";
@@ -63,14 +63,14 @@ const CTA_BUTTON =
 
 /** Individual stat card padding */
 const STAT_PAD =
-  "px-3.5 py-3 narrow:px-3 narrow:py-2.5 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5";
+  "px-3.5 py-3 narrow:px-3 narrow:py-2 sm:rounded-[1.35rem] sm:px-4 sm:py-3.5";
 
 /** Stat label text */
 const STAT_LABEL = "text-[10px] narrow:text-[9px]";
 
 /** Stat value text */
 const STAT_VALUE =
-  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-1 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)]";
+  "mt-1.5 text-[clamp(1.35rem,5vw,2rem)] narrow:mt-0 narrow:text-[clamp(1.12rem,4.4vw,1.5rem)]";
 
 /** Compact leaderboard row padding */
 const ROW_PAD =
