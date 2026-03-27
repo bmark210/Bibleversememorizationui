@@ -18,7 +18,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogTitle,
 } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
@@ -326,14 +325,12 @@ function DashboardFullscreenDialog({
   open,
   onOpenChange,
   title,
-  description,
   actions,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -344,12 +341,9 @@ function DashboardFullscreenDialog({
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="border-b border-border-subtle bg-bg-overlay/80 backdrop-blur-2xl">
-            <div className="mx-auto flex max-w-5xl items-start justify-between gap-3 px-4 py-4 sm:px-5 lg:px-6">
+            <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-5 lg:px-6">
               <div className="min-w-0">
                 <DialogTitle>{title}</DialogTitle>
-                <DialogDescription className="mt-1 max-w-2xl">
-                  {description}
-                </DialogDescription>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
@@ -1027,7 +1021,7 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2 overflow-y-auto">
+        <div className="flex flex-col gap-2.5 flex-1">
           {isLeaderboardLoading && totalParticipants === 0 ? (
             <>
               <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
@@ -1038,9 +1032,10 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
               <DashboardInfoTile
                 label="Лидер"
                 value={leaderSummary}
-                className="border-status-mastered/20 bg-status-mastered-soft/65"
+                className="border-status-mastered/20 bg-status-mastered-soft/65 flex-1"
               />
               <DashboardInfoTile
+                className="flex-1"
                 label={currentUserSnapshot?.rank ? "Ваше место" : "Рейтинг"}
                 value={placementSummary}
               />
@@ -1053,7 +1048,6 @@ export const DashboardLeaderboardCard = React.memo(function DashboardLeaderboard
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title="Таблица лидеров"
-        description="Полный рейтинг участников. Здесь можно открыть профиль игрока и быстро перейти к своему месту."
         actions={
           canShowMe ? (
             <Button
@@ -1239,13 +1233,9 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
   ]);
 
   const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
-  const summaryActiveLast7Days = Math.max(0, friendsActivity?.activeLast7Days ?? 0);
   const summaryEntries = friendsActivity?.entries ?? [];
   const latestActiveEntry =
     summaryEntries.find((entry) => Boolean(entry.lastActiveAt)) ?? summaryEntries[0] ?? null;
-  // const summarySubtitle = summaryFriendsTotal > 0
-  //   ? `Активны ${summaryActiveLast7Days} из ${summaryFriendsTotal}`
-  //   : "Добавьте друзей, чтобы видеть их активность.";
 
   const modalFriendsActivity = dialogFriendsActivity ?? friendsActivity;
   const modalFriendsTotal = Math.max(0, modalFriendsActivity?.friendsTotal ?? 0);
@@ -1289,32 +1279,21 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <div>
           {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
-            <>
-              <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
-              <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
-            </>
+            <Skeleton className="h-[84px] rounded-[1.2rem] border-0" />
           ) : (
-            <>
-              <DashboardInfoTile
-                label="Активны"
-                value={
-                  summaryFriendsTotal > 0
-                    ? `${summaryActiveLast7Days} из ${summaryFriendsTotal}`
+            <DashboardInfoTile
+              label="Последний сигнал"
+              value={
+                latestActiveEntry
+                  ? `${latestActiveEntry.name} · ${formatFriendLastActive(latestActiveEntry.lastActiveAt)}`
+                  : summaryFriendsTotal > 0
+                    ? "Пока без недавней активности"
                     : "Нет друзей"
-                }
-                className="border-status-learning/20 bg-status-learning-soft/65"
-              />
-              <DashboardInfoTile
-                label="Последний сигнал"
-                value={
-                  latestActiveEntry
-                    ? `${latestActiveEntry.name} · ${formatFriendLastActive(latestActiveEntry.lastActiveAt)}`
-                    : "Пока без недавней активности"
-                }
-              />
-            </>
+              }
+              className="border-status-learning/20 bg-status-learning-soft/45"
+            />
           )}
         </div>
       </DashboardSurface>
@@ -1323,7 +1302,6 @@ export const DashboardFriendsActivityCard = React.memo(function DashboardFriends
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         title="Активность друзей"
-        description="Полный список друзей с последней активностью и серией. Нажмите на строку, чтобы открыть профиль."
       >
         <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-4 sm:px-5 lg:px-6">
           <div className="min-h-0 flex-1 overflow-hidden rounded-[1.6rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] sm:p-4">
