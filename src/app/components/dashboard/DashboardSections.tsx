@@ -1201,12 +1201,12 @@ export const DashboardLeaderboardCard = React.memo(
     ]);
 
     const canShowMe = Boolean(currentUserSnapshot?.rank);
-    const leaderboardSummary =
-      totalParticipants > 0
-        ? currentUserSnapshot?.rank
-          ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
-          : `${totalParticipants} участников в общем рейтинге`
-        : "XP и серия формируют общий рейтинг участников.";
+    // const leaderboardSummary =
+    //   totalParticipants > 0
+    //     ? currentUserSnapshot?.rank
+    //       ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
+    //       : `${totalParticipants} участников в общем рейтинге`
+    //     : "XP и серия формируют общий рейтинг участников.";
     // const leaderSummary = leaderEntry
     //   ? `${leaderboardEntryDisplayName(leaderEntry)} · ${formatXp(leaderboardEntryXp(leaderEntry))}`
     //   : "Лидер появится после первых результатов";
@@ -1264,9 +1264,9 @@ export const DashboardLeaderboardCard = React.memo(
               >
                 Таблица лидеров
               </h2>
-              <p className="mt-1 px-1 text-[11px] text-text-muted narrow:text-[10px]">
+              {/* <p className="mt-1 px-1 text-[11px] text-text-muted narrow:text-[10px]">
                 {leaderboardSummary}
-              </p>
+              </p> */}
             </div>
 
             <Button
@@ -1665,11 +1665,11 @@ export const DashboardFriendsActivityCard = React.memo(
                           avatarUrl: recentFriend.avatarUrl?.trim() ? recentFriend.avatarUrl.trim() : null,
                         });
                       }}
-                      className="mt-auto flex w-full items-center gap-2.5 rounded-[1.1rem] border border-border-subtle bg-bg-elevated/60 px-3 py-2 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:gap-2 narrow:px-2.5 narrow:py-1.5"
+                      className="mt-auto flex w-full items-center gap-2.5 rounded-[1.1rem] border border-border-subtle bg-bg-elevated/60 px-3 py-1 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:gap-2 narrow:px-2.5 narrow:py-1.5"
                       aria-label={`Открыть профиль ${friendName}`}
                     >
                       <div className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-muted narrow:text-[8px]">
-                        Сигнал
+                        Последний
                       </div>
                       <Avatar className="h-7 w-7 shrink-0 border border-border-subtle narrow:h-6 narrow:w-6">
                         {recentFriend.avatarUrl ? (

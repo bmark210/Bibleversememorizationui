@@ -12,7 +12,7 @@ export const GRID_GAP = "gap-2.5 narrow:gap-2 sm:gap-3";
 
 export const HEADING_TEXT = "px-1 text-base narrow:text-[15px] sm:text-lg";
 
-export const HEADING_MB = "px-1 mb-2.5 narrow:mb-2 sm:mb-3";
+export const HEADING_MB = "px-1 mb-2.5 narrow:mb-1.5 sm:mb-3";
 
 export const HERO_TEXT =
   "px-1 text-[clamp(1.8rem,5.8vw,2.65rem)] narrow:text-[clamp(1.55rem,7vw,2rem)]";
