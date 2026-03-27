@@ -242,7 +242,7 @@ export function Layout({
         }`}
       >
         <nav
-          style={{ paddingBottom: `${Math.max(bottomInset, 8)}px` }}
+          style={{ paddingBottom: `${Math.max(bottomInset, 20)}px` }}
           className="flex justify-around rounded-t-[1.75rem] border border-border-subtle bg-bg-overlay px-2.5 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:rounded-t-[1.5rem] narrow:px-2 narrow:py-2"
 >
           {navItems.map((item) => {

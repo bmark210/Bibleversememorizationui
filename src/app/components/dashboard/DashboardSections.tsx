@@ -1369,9 +1369,6 @@ export const DashboardLeaderboardCard = React.memo(
                 {isLeaderCurrentUser ? (
                   /* Current user IS the leader — show who's chasing them */
                   <div className="mt-auto flex flex-col gap-1.5">
-                    <p className="px-1 text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted narrow:text-[10px]">
-                      Следуют
-                    </p>
                     {cachedEntries[1] && (
                       <CompactNeighborhoodRow
                         entry={cachedEntries[1] as domain_UserLeaderboardEntry}
@@ -1697,7 +1694,7 @@ export const DashboardFriendsActivityCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+          <div className="flex min-h-0 flex-1 flex-col justify-between">
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
               <Skeleton className="flex-1 rounded-[1.2rem] border-0 min-h-[60px]" />
             ) : summaryEntries.length > 0 ? (
