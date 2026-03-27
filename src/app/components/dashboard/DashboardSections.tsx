@@ -683,7 +683,7 @@ function LeaderShowcase({
         });
       }} 
       className={cn(
-        "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-1",
+        "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-2",
         isCurrentUser
           ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
           : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
@@ -754,7 +754,7 @@ function CompactNeighborhoodRow({
         });
       }}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-[1.05rem] border px-3 py-2.5 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-2 narrow:px-2.5 narrow:py-2",
+        "flex w-full items-center gap-2.5 rounded-[1.05rem] border px-3 py-2 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-2 narrow:px-2.5 narrow:py-1.5",
         isCurrentUser
           ? "border-brand-primary/20 bg-status-mastered-soft/50"
           : "border-border-subtle bg-bg-elevated/60 hover:border-border-default hover:bg-bg-surface",
@@ -763,18 +763,18 @@ function CompactNeighborhoodRow({
     >
       <div
         className={cn(
-          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold narrow:h-6 narrow:w-6 narrow:text-[9px]",
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold narrow:h-5 narrow:w-5 narrow:text-[9px]",
           rankMarker.className,
         )}
       >
-        {RankIcon ? <RankIcon className="h-3 w-3" /> : <span>#{rank}</span>}
+        {RankIcon ? <RankIcon className="h-2.5 w-2.5" /> : <span>#{rank}</span>}
       </div>
 
-      <Avatar className="h-8 w-8 shrink-0 border border-border-subtle narrow:h-7 narrow:w-7">
+      <Avatar className="h-7 w-7 shrink-0 border border-border-subtle narrow:h-6 narrow:w-6">
         {entry.avatarUrl ? (
           <AvatarImage src={entry.avatarUrl} alt={displayName} />
         ) : null}
-        <AvatarFallback className="bg-bg-subtle text-[10px] text-text-secondary">
+        <AvatarFallback className="bg-bg-subtle text-[9px] text-text-secondary">
           {getInitials(displayName)}
         </AvatarFallback>
       </Avatar>
@@ -1201,12 +1201,12 @@ export const DashboardLeaderboardCard = React.memo(
     ]);
 
     const canShowMe = Boolean(currentUserSnapshot?.rank);
-    // const leaderboardSummary =
-    //   totalParticipants > 0
-    //     ? currentUserSnapshot?.rank
-    //       ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
-    //       : `${totalParticipants} участников в общем рейтинге`
-    //     : "XP и серия формируют общий рейтинг участников.";
+    const leaderboardSummary =
+      totalParticipants > 0
+        ? currentUserSnapshot?.rank
+          ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
+          : `${totalParticipants} участников`
+        : "Общий рейтинг участников";
     // const leaderSummary = leaderEntry
     //   ? `${leaderboardEntryDisplayName(leaderEntry)} · ${formatXp(leaderboardEntryXp(leaderEntry))}`
     //   : "Лидер появится после первых результатов";
@@ -1264,9 +1264,9 @@ export const DashboardLeaderboardCard = React.memo(
               >
                 Таблица лидеров
               </h2>
-              {/* <p className="mt-1 px-1 text-[11px] text-text-muted narrow:text-[10px]">
+              <p className="mt-0.5 px-1 text-[11px] text-text-muted narrow:text-[10px]">
                 {leaderboardSummary}
-              </p> */}
+              </p>
             </div>
 
             <Button
@@ -1284,7 +1284,7 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+          <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5">
             {isLeaderboardLoading && totalParticipants === 0 ? (
               <>
                 <Skeleton className="h-[60px] rounded-[1.2rem] border-0" />
@@ -1300,7 +1300,7 @@ export const DashboardLeaderboardCard = React.memo(
 
                 {isLeaderCurrentUser ? (
                   /* Current user IS the leader — show who's chasing them */
-                  <div className="mt-auto flex flex-col gap-1.5">
+                  <div className="mt-auto flex flex-col gap-1">
                     {cachedEntries[1] && (
                       <CompactNeighborhoodRow
                         entry={cachedEntries[1] as domain_UserLeaderboardEntry}
@@ -1320,10 +1320,7 @@ export const DashboardLeaderboardCard = React.memo(
                   </div>
                 ) : neighborEntries ? (
                   /* Show current user surrounded by neighbors */
-                  <div className="mt-auto flex flex-col gap-1.5">
-                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted narrow:text-[9px]">
-                      Рядом с вами
-                    </div>
+                  <div className="mt-auto flex flex-col gap-1">
                     {neighborEntries.prev && (
                       <CompactNeighborhoodRow
                         entry={
