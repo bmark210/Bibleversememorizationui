@@ -309,7 +309,7 @@ const SwipeableVerseCardComponent = ({
         `}
       >
         <div className="min-h-full space-y-2.5">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 mb-0">
             <div className="min-w-0 flex-1">
               <h3 className="font-serif text-primary break-words [overflow-wrap:anywhere]">
                 {verse.reference}

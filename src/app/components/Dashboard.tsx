@@ -160,7 +160,7 @@ export function Dashboard({
     () =>
       [
         { key: 'active', label: 'Активность', value: `${learningVerses + dueReviewVerses} стиха`, tone: 'learning' as const },
-        { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
+        // { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
         { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
         {
           key: 'streak',
