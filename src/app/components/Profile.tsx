@@ -1,21 +1,7 @@
 "use client";
 
 import React from "react";
-import { motion, useReducedMotion } from "motion/react";
-import {
-  Expand,
-  Minimize2,
-  Moon,
-  Search,
-  Sun,
-  UserMinus,
-  UserPlus,
-} from "lucide-react";
-import {
-  applyTelegramFullscreenPreference,
-  useTelegramUiStore,
-} from "@/app/stores/telegramUiStore";
-import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
+import { LogOut, Search, UserMinus, UserPlus } from "lucide-react";
 import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
 import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
 import {
@@ -26,22 +12,68 @@ import {
   removeFriend,
 } from "@/api/services/friends";
 import { toast } from "@/app/lib/toast";
-import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
-import { formatXp } from "@/shared/social/formatXp";
+import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
+import {
+  getTelegramWebApp,
+  isTelegramDevMock,
+} from "@/app/lib/telegramWebApp";
 import { useTelegram } from "../contexts/TelegramContext";
+import { Feedback } from "./Feedback";
+import { AppSurface } from "./ui/AppSurface";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
-import { Feedback } from "./Feedback";
 import { Input } from "./ui/input";
+import {
+  AVATAR_SIZE,
+  PAGE_COMPACT_PADDING,
+  ROW_AVATAR,
+  ROW_DETAIL,
+  ROW_NAME,
+  ROW_PAD,
+  SEGMENTED_TABS_TRIGGER,
+  SHOW_ME_BTN,
+} from "./ui/responsiveTokens";
 import { Switch } from "./ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { cn } from "./ui/utils";
+
 type Theme = "light" | "dark";
 type FriendsTab = "players" | "friends";
+type ProfileTab = "community" | "settings" | "feedback";
 
-const FRIENDS_PAGE_SIZE = 8;
+const FRIENDS_PAGE_SIZE = 4;
 const SEARCH_DEBOUNCE_MS = 280;
+
+const PAGE_SHELL =
+  "mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-[auto_auto] short-phone:overflow-visible";
+
+const SETTINGS_CARD_ROW =
+  "flex items-center justify-between gap-3 rounded-[1.15rem] border border-border-subtle bg-bg-elevated px-3.5 py-2.5 shadow-[var(--shadow-soft)]";
+
+const FONT_BUTTON =
+  "flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow]";
+
+const ROW_ACTION_BUTTON =
+  "h-8 w-8 shrink-0 rounded-full p-0 narrow:h-7.5 narrow:w-7.5";
+
+const SUMMARY_TILE =
+  "flex items-center justify-between gap-3 rounded-[1.15rem] border border-border-subtle bg-bg-elevated px-3.5 py-3 text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow] hover:border-brand-primary/25";
+
+const SUMMARY_TILE_LABEL =
+  "text-[11px] uppercase tracking-[0.14em] text-text-muted";
+
+const SUMMARY_TILE_VALUE =
+  "mt-1 text-lg font-semibold leading-none text-text-primary";
+
+const SETTINGS_INFO_CARD =
+  "flex h-full flex-col justify-between rounded-[1.15rem] border border-border-subtle bg-bg-elevated px-3.5 py-3 shadow-[var(--shadow-soft)]";
+
+const TRAINING_FONT_OPTIONS = [
+  { value: "small", label: "Малый", preview: 14 },
+  { value: "medium", label: "Средний", preview: 17 },
+  { value: "large", label: "Крупный", preview: 20 },
+  { value: "extra-large", label: "Очень крупный", preview: 24 },
+] as const;
 
 function friendPlayerDisplayName(item: domain_FriendPlayerListItem): string {
   const n = item.name?.trim();
@@ -54,9 +86,9 @@ function friendPlayerDisplayName(item: domain_FriendPlayerListItem): string {
 function friendPlayerSubtitle(item: domain_FriendPlayerListItem): string {
   const c = item.versesCount;
   if (c != null && Number.isFinite(c)) {
-    return `${Math.max(0, Math.round(c))} стихов в учёте`;
+    return `${Math.max(0, Math.round(c))} стихов`;
   }
-  return "Нет данных по стихам";
+  return "Нет данных";
 }
 
 interface ProfileProps {
@@ -82,14 +114,6 @@ function getInitials(name: string) {
     .join("");
 }
 
-function pluralizePeople(count: number, one: string, few: string, many: string) {
-  if (count % 10 === 1 && count % 100 !== 11) return one;
-  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
-    return few;
-  }
-  return many;
-}
-
 export function Profile({
   theme,
   onToggleTheme,
@@ -101,29 +125,13 @@ export function Profile({
 }: ProfileProps) {
   const { user } = useTelegram();
   const effectiveAvatarUrl = currentUserAvatarUrl ?? user?.photoUrl ?? null;
-  const isTelegramMiniApp = useTelegramUiStore(
-    (state) => state.isTelegramMiniApp
-  );
-  const isTelegramFullscreen = useTelegramUiStore(
-    (state) => state.isTelegramFullscreen
-  );
-  const canToggleTelegramFullscreen = useTelegramUiStore(
-    (state) => state.canToggleTelegramFullscreen
-  );
-  const prefersTelegramFullscreen = useTelegramUiStore(
-    (state) => state.prefersTelegramFullscreen
-  );
-  const isNextJsDev = process.env.NODE_ENV === "development";
-  const currentUserTelegramId = useCurrentUserStatsStore((state) => state.telegramId);
-  const currentUserXp = useCurrentUserStatsStore((state) => state.xp);
-  const currentUserDailyStreak = useCurrentUserStatsStore(
-    (state) => state.dailyStreak
-  );
+
   const trainingFontStore = useTrainingFontStore();
   const trainingFontSize = trainingFontStore.trainingFontSize;
-  const prefersReducedMotion = useReducedMotion();
-  const shouldReduceMotion = Boolean(prefersReducedMotion ?? false);
-  const [activeTab, setActiveTab] = React.useState<FriendsTab>("friends");
+
+  const [activeTab, setActiveTab] = React.useState<ProfileTab>("community");
+  const [activeFriendsTab, setActiveFriendsTab] =
+    React.useState<FriendsTab>("friends");
   const [playersSearchInput, setPlayersSearchInput] = React.useState("");
   const [friendsSearchInput, setFriendsSearchInput] = React.useState("");
   const [playersSearchQuery, setPlayersSearchQuery] = React.useState("");
@@ -142,59 +150,18 @@ export function Profile({
   const friendsRequestIdRef = React.useRef(0);
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
 
-  const getDisplayXp = React.useCallback(
-    (item: domain_FriendPlayerListItem) =>
-      telegramId &&
-      currentUserTelegramId === telegramId &&
-      item.telegramId === telegramId &&
-      currentUserXp != null
-        ? currentUserXp
-        : 0,
-    [currentUserTelegramId, currentUserXp, telegramId]
-  );
-
-  const getDisplayDailyStreak = React.useCallback(
-    (item: domain_FriendPlayerListItem) =>
-      telegramId &&
-      currentUserTelegramId === telegramId &&
-      item.telegramId === telegramId &&
-      currentUserDailyStreak != null
-        ? currentUserDailyStreak
-        : 0,
-    [currentUserDailyStreak, currentUserTelegramId, telegramId]
-  );
-
-  const sectionVariants = {
-    hidden: {
-      opacity: shouldReduceMotion ? 1 : 0,
-      y: shouldReduceMotion ? 0 : 12,
-    },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: shouldReduceMotion ? 0 : 0.24,
-        ease: "easeOut" as const,
-      },
-    },
-  };
-
   React.useEffect(() => {
     const timeout = window.setTimeout(() => {
       setPlayersSearchQuery(playersSearchInput.trim());
     }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(timeout);
-    };
+    return () => window.clearTimeout(timeout);
   }, [playersSearchInput]);
 
   React.useEffect(() => {
     const timeout = window.setTimeout(() => {
       setFriendsSearchQuery(friendsSearchInput.trim());
     }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(timeout);
-    };
+    return () => window.clearTimeout(timeout);
   }, [friendsSearchInput]);
 
   React.useEffect(() => {
@@ -256,10 +223,7 @@ export function Profile({
         if (isStale) return;
 
         const total = nextPage.total ?? 0;
-        const totalPages = Math.max(
-          1,
-          Math.ceil(total / FRIENDS_PAGE_SIZE),
-        );
+        const totalPages = Math.max(1, Math.ceil(total / FRIENDS_PAGE_SIZE));
         if (pageIndex > totalPages) {
           if (tab === "players") {
             setPlayersPageIndex(totalPages);
@@ -295,9 +259,25 @@ export function Profile({
 
   React.useEffect(() => {
     const pageIndex =
-      activeTab === "players" ? playersPageIndex : friendsPageIndex;
-    void fetchTabPage(activeTab, pageIndex, { withLoader: true });
-  }, [activeTab, fetchTabPage, friendsPageIndex, playersPageIndex]);
+      activeFriendsTab === "players" ? playersPageIndex : friendsPageIndex;
+    void fetchTabPage(activeFriendsTab, pageIndex, { withLoader: true });
+  }, [activeFriendsTab, fetchTabPage, friendsPageIndex, playersPageIndex]);
+
+  React.useEffect(() => {
+    if (!telegramId) return;
+
+    const secondaryTab = activeFriendsTab === "players" ? "friends" : "players";
+    const secondaryPageIndex =
+      secondaryTab === "players" ? playersPageIndex : friendsPageIndex;
+
+    void fetchTabPage(secondaryTab, secondaryPageIndex, { withLoader: false });
+  }, [
+    activeFriendsTab,
+    fetchTabPage,
+    friendsPageIndex,
+    playersPageIndex,
+    telegramId,
+  ]);
 
   const refreshFriendsLists = React.useCallback(async () => {
     await Promise.all([
@@ -338,9 +318,9 @@ export function Profile({
       });
       return;
     }
+
     const targetId = item.telegramId?.trim() ?? "";
-    if (!targetId) return;
-    if (pendingMutationByTelegramId[targetId]) {
+    if (!targetId || pendingMutationByTelegramId[targetId]) {
       return;
     }
 
@@ -349,24 +329,12 @@ export function Profile({
       if (item.isFriend) {
         const response = await removeFriend(telegramId, targetId);
         if (response.status === "removed") {
-          toast.success("Друг удалён", {
-            label: "Друзья",
-          });
-        } else {
-          toast.info("Пользователь уже не был у вас в друзьях", {
-            label: "Друзья",
-          });
+          toast.success("Друг удалён", { label: "Друзья" });
         }
       } else {
         const response = await addFriend(telegramId, targetId);
         if (response.status === "added") {
-          toast.success("Друг добавлен", {
-            label: "Друзья",
-          });
-        } else {
-          toast.info("Пользователь уже добавлен в друзья", {
-            label: "Друзья",
-          });
+          toast.success("Друг добавлен", { label: "Друзья" });
         }
       }
 
@@ -377,17 +345,16 @@ export function Profile({
         error instanceof Error
           ? error.message
           : "Не удалось изменить список друзей";
-      toast.error(message, {
-        label: "Друзья",
-      });
+      toast.error(message, { label: "Друзья" });
     } finally {
       setMutationPending(targetId, false);
     }
   };
 
   const currentPage =
-    activeTab === "players" ? playersPageIndex : friendsPageIndex;
-  const currentPageData = activeTab === "players" ? playersPage : friendsPage;
+    activeFriendsTab === "players" ? playersPageIndex : friendsPageIndex;
+  const currentPageData =
+    activeFriendsTab === "players" ? playersPage : friendsPage;
   const totalPages = Math.max(
     1,
     Math.ceil((currentPageData.total ?? 0) / FRIENDS_PAGE_SIZE),
@@ -395,30 +362,30 @@ export function Profile({
   const canGoPrev = currentPage > 1;
   const canGoNext = currentPage < totalPages;
   const canManageFriends = Boolean(telegramId);
-  const fullscreenButtonLabel = "Полный экран";
 
-  const activeCount =
-    activeTab === "players"
-      ? (playersPage.total ?? 0)
-      : (friendsPage.total ?? 0);
   const activeSearchInput =
-    activeTab === "players" ? playersSearchInput : friendsSearchInput;
+    activeFriendsTab === "players" ? playersSearchInput : friendsSearchInput;
   const activeSearchQuery =
-    activeTab === "players" ? playersSearchQuery : friendsSearchQuery;
+    activeFriendsTab === "players" ? playersSearchQuery : friendsSearchQuery;
+
   const profileName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     "Пользователь Telegram";
-  const usernameLabel = user?.username ? `@${user.username}` : "Без username";
-  const telegramStatusLabel = canManageFriends
-    ? "Telegram синхронизирован"
-    : "Ожидаем инициализацию Telegram";
-  const activeCountLabel =
-    activeTab === "players"
-      ? `${activeCount} ${pluralizePeople(activeCount, "игрок", "игрока", "игроков")}`
-      : `${activeCount} ${pluralizePeople(activeCount, "друг", "друга", "друзей")}`;
+  const usernameLabel = user?.username
+    ? `@${user.username}`
+    : telegramId
+      ? `ID ${telegramId}`
+      : "Telegram";
+  const themeLabel = theme === "dark" ? "Тёмная" : "Светлая";
+  const fontOption =
+    TRAINING_FONT_OPTIONS.find((option) => option.value === trainingFontSize) ??
+    TRAINING_FONT_OPTIONS[1];
+  const playersTotal = playersPage.total ?? 0;
+  const friendsTotal = friendsPage.total ?? 0;
+  const canOpenCurrentProfile = Boolean(telegramId && onOpenPlayerProfile);
 
   const updatePage = (nextPage: number) => {
-    if (activeTab === "players") {
+    if (activeFriendsTab === "players") {
       setPlayersPageIndex(nextPage);
     } else {
       setFriendsPageIndex(nextPage);
@@ -426,511 +393,445 @@ export function Profile({
   };
 
   const handleSearchInputChange = (value: string) => {
-    if (activeTab === "players") {
+    if (activeFriendsTab === "players") {
       setPlayersSearchInput(value);
       return;
     }
-
     setFriendsSearchInput(value);
   };
 
+  const handleExitApplication = React.useCallback(() => {
+    const webApp = getTelegramWebApp();
+
+    if (webApp && !isTelegramDevMock(webApp) && typeof webApp.close === "function") {
+      webApp.close();
+      return;
+    }
+
+    window.close();
+  }, []);
+
+  const handleOpenCurrentProfile = React.useCallback(() => {
+    if (!telegramId || !onOpenPlayerProfile) return;
+    onOpenPlayerProfile({
+      telegramId,
+      name: profileName,
+      avatarUrl: effectiveAvatarUrl,
+    });
+  }, [effectiveAvatarUrl, onOpenPlayerProfile, profileName, telegramId]);
+
   return (
-    <div
-      className={cn(
-        "mx-auto w-full min-w-0 max-w-5xl p-4 sm:p-6 lg:p-8",
-        isTelegramFullscreen ? "pt-3 sm:pt-5 lg:pt-7" : "",
-      )}
-    >
-      <motion.div
-        {...(shouldReduceMotion
-          ? {}
-          : {
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              transition: { duration: 0.2, ease: "easeOut" as const },
-            })}
-      >
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: {},
-            show: {
-              transition: {
-                staggerChildren: shouldReduceMotion ? 0 : 0.06,
-                delayChildren: shouldReduceMotion ? 0 : 0.02,
-              },
-            },
-          }}
-          className="space-y-5"
-        >
-          {isTelegramFullscreen ? null : (
-            <motion.div variants={sectionVariants}>
-              <h1 className="[font-family:var(--font-heading)] text-3xl font-semibold tracking-tight text-brand-primary sm:text-4xl">
-                Профиль
-              </h1>
-            </motion.div>
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
+      <AppSurface className="shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          {telegramId && onOpenPlayerProfile ? (
+            <button
+              type="button"
+              onClick={handleOpenCurrentProfile}
+              className="flex min-w-0 items-center gap-3 text-left"
+              aria-label="Открыть ваш профиль"
+            >
+              <Avatar
+                className={cn(
+                  AVATAR_SIZE,
+                  "border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
+                )}
+              >
+                {effectiveAvatarUrl ? (
+                  <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
+                ) : null}
+                <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
+                  {getInitials(profileName || "TG")}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-text-primary sm:text-lg">
+                  {profileName}
+                </div>
+                <div className="truncate text-sm text-text-muted">
+                  {usernameLabel}
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar
+                className={cn(
+                  AVATAR_SIZE,
+                  "border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
+                )}
+              >
+                {effectiveAvatarUrl ? (
+                  <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
+                ) : null}
+                <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
+                  {getInitials(profileName || "TG")}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-text-primary sm:text-lg">
+                  {profileName}
+                </div>
+                <div className="truncate text-sm text-text-muted">
+                  {usernameLabel}
+                </div>
+              </div>
+            </div>
           )}
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface>
-              {telegramId && onOpenPlayerProfile ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenPlayerProfile({
-                      telegramId,
-                      name: profileName,
-                      avatarUrl: effectiveAvatarUrl,
-                    })
-                  }
-                  className="w-full text-left transition-opacity hover:opacity-90"
-                  aria-label="Открыть ваш профиль"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar className="h-14 w-14 border border-border-subtle bg-bg-surface shadow-[var(--shadow-soft)]">
-                        {effectiveAvatarUrl ? (
-                          <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
-                        ) : null}
-                        <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
-                          {getInitials(profileName || "TG")}
-                        </AvatarFallback>
-                      </Avatar>
+        </div>
+      </AppSurface>
 
-                      <div className="min-w-0">
-                        <div className="truncate text-base font-semibold text-text-primary">
-                          {profileName}
-                        </div>
-                        <div className="mt-1 truncate text-sm text-text-secondary">
-                          {usernameLabel}
-                        </div>
-                        <div className="mt-2 inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary">
-                          {telegramStatusLabel}
-                        </div>
-                      </div>
-                    </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as ProfileTab)}
+        className="min-h-0 flex-1 gap-3"
+      >
+        <TabsList className="grid h-auto w-full grid-cols-3 rounded-[1.35rem]">
+          <TabsTrigger value="community" className={SEGMENTED_TABS_TRIGGER}>
+            Друзья
+          </TabsTrigger>
+          <TabsTrigger value="settings" className={SEGMENTED_TABS_TRIGGER}>
+            Настройки
+          </TabsTrigger>
+          <TabsTrigger value="feedback" className={SEGMENTED_TABS_TRIGGER}>
+            Отзыв
+          </TabsTrigger>
+        </TabsList>
 
-                    <div className="flex flex-wrap gap-2">
-                      {user?.isPremium ? (
-                        <div className="inline-flex items-center rounded-full border border-status-mastered/25 bg-status-mastered-soft px-3 py-1 text-xs text-status-mastered">
-                          Telegram Premium
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
-              ) : (
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="h-14 w-14 border border-border-subtle bg-bg-surface shadow-[var(--shadow-soft)]">
-                      {effectiveAvatarUrl ? (
-                        <AvatarImage src={effectiveAvatarUrl} alt={profileName} />
-                      ) : null}
-                      <AvatarFallback className="bg-status-mastered-soft text-brand-primary">
-                        {getInitials(profileName || "TG")}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-text-primary">
-                        {profileName}
-                      </div>
-                      <div className="mt-1 truncate text-sm text-text-secondary">
-                        {usernameLabel}
-                      </div>
-                      <div className="mt-2 inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary">
-                        {telegramStatusLabel}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {user?.isPremium ? (
-                      <div className="inline-flex items-center rounded-full border border-status-mastered/25 bg-status-mastered-soft px-3 py-1 text-xs text-status-mastered">
-                        Telegram Premium
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </ProfileSurface>
-          </motion.div>
-
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">
-                    Оформление
-                  </div>
-                  <div className="mt-1 text-sm text-text-secondary">
-                    Переключение между светлой и тёмной темой интерфейса.
-                  </div>
-                </div>
-
-                <div className="w-fit flex items-center gap-3 rounded-full border border-border-subtle bg-bg-elevated px-4 py-2 text-sm text-text-primary shadow-[var(--shadow-soft)]">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border-subtle bg-bg-subtle">
-                    {theme === "dark" ? (
-                      <Moon className="h-4 w-4 text-status-mastered" />
-                    ) : (
-                      <Sun className="h-4 w-4 text-status-mastered" />
+        <TabsContent value="community" className="min-h-0">
+          <AppSurface
+            data-tour="profile-friends"
+            className="grid h-full min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] gap-3 short-phone:h-auto short-phone:grid-rows-none"
+          >
+            {!canManageFriends ? (
+              <div className="flex flex-1 items-center justify-center rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-sm text-text-secondary">
+                Telegram не инициализирован
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveFriendsTab("friends")}
+                    className={cn(
+                      SUMMARY_TILE,
+                      activeFriendsTab === "friends" &&
+                        "border-brand-primary/20 bg-status-mastered-soft text-brand-primary",
                     )}
-                  </span>
-                  <span>{theme === "dark" ? "Biblical Night" : "Biblical Light"}</span>
-                  <Switch
-                    checked={theme === "dark"}
-                    onCheckedChange={onToggleTheme}
-                    aria-label="Тёмная тема"
+                  >
+                    <div>
+                      <div className={SUMMARY_TILE_LABEL}>Мои друзья</div>
+                      <div className={SUMMARY_TILE_VALUE}>{friendsTotal}</div>
+                    </div>
+                    {/* <div className="text-xs text-text-muted">список</div> */}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveFriendsTab("players")}
+                    className={cn(
+                      SUMMARY_TILE,
+                      activeFriendsTab === "players" &&
+                        "border-brand-primary/20 bg-status-mastered-soft text-brand-primary",
+                    )}
+                  >
+                    <div>
+                      <div className={SUMMARY_TILE_LABEL}>Игроки</div>
+                      <div className={SUMMARY_TILE_VALUE}>{playersTotal}</div>
+                    </div>
+                    {/* <div className="text-xs text-text-muted">поиск</div> */}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                  <Input
+                    value={activeSearchInput}
+                    onChange={(event) => handleSearchInputChange(event.target.value)}
+                    placeholder={
+                      activeFriendsTab === "players" ? "Поиск игроков" : "Поиск друзей"
+                    }
+                    className="h-10 rounded-[1.2rem] border-border-subtle bg-bg-elevated/80 pl-10 shadow-none"
                   />
                 </div>
-              </div>
-            </ProfileSurface>
-          </motion.div>
 
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">
-                    Размер шрифта
-                  </div>
-                  <div className="mt-1 text-sm text-text-secondary">
-                    Размер текста в тренировочных упражнениях.
-                  </div>
-                </div>
-
-                <div className="flex w-fit items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated p-1 shadow-[var(--shadow-soft)]">
-                  {(
-                    [
-                      { value: "small", label: "Малый", preview: 14 },
-                      { value: "medium", label: "Средний", preview: 17 },
-                      { value: "large", label: "Крупный", preview: 20 },
-                      { value: "extra-large", label: "Очень крупный", preview: 24 },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => trainingFontStore.setTrainingFontSize(option.value)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow]",
-                        trainingFontSize === option.value
-                          ? "border border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-soft)]"
-                          : "border border-transparent text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-                      )}
-                    >
-                      <span style={{ fontSize: option.preview }} className="font-serif leading-none">
-                        Аа
-                      </span>
-                      <span className="hidden min-[400px]:inline">{option.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </ProfileSurface>
-          </motion.div>
-
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface>
-              <div className="flex w-fit flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">
-                    Полный экран Telegram
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={
-                    !(isTelegramMiniApp || isNextJsDev) ||
-                    (!canToggleTelegramFullscreen && !isNextJsDev)
-                  }
-                  onClick={() =>
-                    applyTelegramFullscreenPreference(!prefersTelegramFullscreen)
-                  }
-                  className="h-10 rounded-full px-4 text-sm"
-                >
-                  {prefersTelegramFullscreen ? (
-                    <Minimize2 className="h-4 w-4" />
+                <div className="grid min-h-0 content-start gap-2">
+                  {isListLoading ? (
+                    Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
+                      <div
+                        key={`friends-skeleton-${index}`}
+                        className="h-[58px] animate-pulse rounded-[1.2rem] border border-border-subtle bg-bg-elevated"
+                      />
+                    ))
+                  ) : listError ? (
+                    <div className="rounded-[1.2rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
+                      {listError}
+                    </div>
+                  ) : currentPageData.items.length === 0 ? (
+                    <div className="rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-center text-sm text-text-secondary">
+                      {activeSearchQuery ? "Ничего не найдено" : "Список пуст"}
+                    </div>
                   ) : (
-                    <Expand className="h-4 w-4" />
-                  )}
-                  {fullscreenButtonLabel}
-                </Button>
-              </div>
-            </ProfileSurface>
-          </motion.div>
+                    currentPageData.items.map((item) => {
+                      const rowId = String(item.telegramId ?? "");
+                      const displayName = friendPlayerDisplayName(item);
+                      const isMutationPending =
+                        pendingMutationByTelegramId[rowId] === true;
+                      const showRemoveAction =
+                        activeFriendsTab === "friends" || item.isFriend;
 
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface data-tour="profile-friends">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="[font-family:var(--font-heading)] text-xl font-semibold tracking-tight text-text-primary">
-                  Друзья
-                </h2>
-                {canManageFriends ? (
-                  <div className="text-sm text-text-muted">{activeCountLabel}</div>
-                ) : null}
-              </div>
-
-              {!canManageFriends ? (
-                <div className="mt-4 rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-elevated p-4 text-sm text-text-secondary">
-                  Раздел станет доступен после инициализации профиля в Telegram.
-                </div>
-              ) : (
-                <div className="mt-4 space-y-4">
-                  <Tabs
-                    value={activeTab}
-                    onValueChange={(value) => setActiveTab(value as FriendsTab)}
-                  >
-                    <TabsList className="grid h-auto w-full grid-cols-2 rounded-[1.35rem]">
-                      <TabsTrigger
-                        data-tour="profile-players-tab"
-                        value="players"
-                        className="h-10 rounded-[1rem]"
-                      >
-                        Игроки
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="friends"
-                        className="h-10 rounded-[1rem]"
-                      >
-                        Друзья
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                    <Input
-                      value={activeSearchInput}
-                      onChange={(event) => handleSearchInputChange(event.target.value)}
-                      placeholder={
-                        activeTab === "players" ? "Поиск игроков" : "Поиск друзей"
-                      }
-                      className="pl-10"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-text-muted">
-                    <span>{activeCountLabel}</span>
-                    <span>
-                      {currentPage}/{totalPages}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {isListLoading ? (
-                      Array.from({ length: 3 }).map((_, index) => (
+                      return (
                         <div
-                          key={`friends-skeleton-${index}`}
-                          className="h-16 animate-pulse rounded-[1.5rem] border border-border-subtle bg-bg-elevated"
-                        />
-                      ))
-                    ) : listError ? (
-                      <div className="rounded-[1.5rem] border border-state-error/25 bg-state-error/12 p-4 text-sm text-state-error">
-                        <div>{listError}</div>
-                        <div className="mt-3">
+                          key={`${activeFriendsTab}-${rowId}`}
+                          className={cn(
+                            "flex items-center gap-3 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
+                            ROW_PAD,
+                          )}
+                        >
+                          {onOpenPlayerProfile ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onOpenPlayerProfile({
+                                  telegramId: rowId,
+                                  name: displayName,
+                                  avatarUrl: item.avatarUrl?.trim()
+                                    ? item.avatarUrl.trim()
+                                    : null,
+                                })
+                              }
+                              className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] text-left"
+                              aria-label={`Открыть профиль ${displayName}`}
+                            >
+                              <Avatar
+                                className={cn(
+                                  ROW_AVATAR,
+                                  "border border-border-subtle bg-bg-surface",
+                                )}
+                              >
+                                {item.avatarUrl ? (
+                                  <AvatarImage src={item.avatarUrl} alt={displayName} />
+                                ) : null}
+                                <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
+                                  {getInitials(displayName)}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 flex-1">
+                                <div className={cn("truncate font-medium text-text-primary", ROW_NAME)}>
+                                  {displayName}
+                                </div>
+                                <div className={cn("mt-0.5 truncate text-text-muted", ROW_DETAIL)}>
+                                  {friendPlayerSubtitle(item)}
+                                </div>
+                              </div>
+                            </button>
+                          ) : (
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <Avatar
+                                className={cn(
+                                  ROW_AVATAR,
+                                  "border border-border-subtle bg-bg-surface",
+                                )}
+                              >
+                                {item.avatarUrl ? (
+                                  <AvatarImage src={item.avatarUrl} alt={displayName} />
+                                ) : null}
+                                <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
+                                  {getInitials(displayName)}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 flex-1">
+                                <div className={cn("truncate font-medium text-text-primary", ROW_NAME)}>
+                                  {displayName}
+                                </div>
+                                <div className={cn("mt-0.5 truncate text-text-muted", ROW_DETAIL)}>
+                                  {friendPlayerSubtitle(item)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <Button
                             type="button"
-                            variant="outline"
                             size="sm"
-                            onClick={() =>
-                              void fetchTabPage(
-                                activeTab,
-                                activeTab === "players"
-                                  ? playersPageIndex
-                                  : friendsPageIndex,
-                                { withLoader: true },
-                              )
+                            variant="outline"
+                            disabled={isMutationPending}
+                            data-tour={showRemoveAction ? undefined : "profile-add-friend-button"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleToggleFriend(item);
+                            }}
+                            aria-label={
+                              showRemoveAction
+                                ? `Удалить ${displayName}`
+                                : `Добавить ${displayName}`
                             }
+                            className={ROW_ACTION_BUTTON}
                           >
-                            Повторить
+                            {showRemoveAction ? (
+                              <UserMinus className="h-3.5 w-3.5" />
+                            ) : (
+                              <UserPlus className="h-3.5 w-3.5" />
+                            )}
                           </Button>
                         </div>
-                      </div>
-                    ) : currentPageData.items.length === 0 ? (
-                      <div className="rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-elevated p-4 text-sm text-text-secondary">
-                        <div>
-                          {activeSearchQuery
-                            ? "Ничего не найдено."
-                            : activeTab === "players"
-                              ? "Сейчас список игроков пуст."
-                              : "Пока нет друзей. Перейдите во вкладку игроков, чтобы добавить их."}
-                        </div>
-                        {!activeSearchQuery && activeTab === "friends" ? (
-                          <div className="mt-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setActiveTab("players")}
-                              className="h-9 rounded-full px-4 text-xs"
-                            >
-                              Открыть игроков
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      currentPageData.items.map((item) => {
-                        const rowId = String(item.telegramId ?? "");
-                        const displayName = friendPlayerDisplayName(item);
-                        const isMutationPending =
-                          pendingMutationByTelegramId[rowId] === true;
-                        const showRemoveAction =
-                          activeTab === "friends" || item.isFriend;
+                      );
+                    })
+                  )}
+                </div>
 
-                        return (
-                          <div
-                            key={`${activeTab}-${rowId}`}
-                            className="flex items-center gap-3 rounded-[1.35rem] border border-border-subtle bg-bg-elevated px-3 py-3 shadow-[var(--shadow-soft)]"
-                          >
-                            {onOpenPlayerProfile ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onOpenPlayerProfile({
-                                    telegramId: rowId,
-                                    name: displayName,
-                                    avatarUrl: item.avatarUrl?.trim()
-                                      ? item.avatarUrl.trim()
-                                      : null,
-                                  })
-                                }
-                                className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] px-1 py-1 text-left transition-colors hover:bg-bg-surface"
-                                aria-label={`Открыть профиль ${displayName}`}
-                              >
-                                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-surface">
-                                  {item.avatarUrl ? (
-                                    <AvatarImage src={item.avatarUrl} alt={displayName} />
-                                  ) : null}
-                                  <AvatarFallback className="text-xs bg-bg-subtle text-text-secondary">
-                                    {getInitials(displayName)}
-                                  </AvatarFallback>
-                                </Avatar>
+                <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!canGoPrev || isListLoading}
+                    onClick={() => updatePage(Math.max(1, currentPage - 1))}
+                    className={SHOW_ME_BTN}
+                  >
+                    Назад
+                  </Button>
 
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate text-sm font-medium text-text-primary">
-                                    {displayName}
-                                  </div>
-                                  <div className="mt-1 truncate text-xs text-text-muted">
-                                    {friendPlayerSubtitle(item)} ·{" "}
-                                    {formatXp(getDisplayXp(item))} ·{" "}
-                                    {getDisplayDailyStreak(item)} дн. подряд
-                                  </div>
-                                </div>
-                              </button>
-                            ) : (
-                              <>
-                                <Avatar className="h-10 w-10 border border-border-subtle bg-bg-surface">
-                                  {item.avatarUrl ? (
-                                    <AvatarImage src={item.avatarUrl} alt={displayName} />
-                                  ) : null}
-                                  <AvatarFallback className="text-xs bg-bg-subtle text-text-secondary">
-                                    {getInitials(displayName)}
-                                  </AvatarFallback>
-                                </Avatar>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate text-sm font-medium text-text-primary">
-                                    {displayName}
-                                  </div>
-                                  <div className="mt-1 truncate text-xs text-text-muted">
-                                    {friendPlayerSubtitle(item)} ·{" "}
-                                    {formatXp(getDisplayXp(item))} ·{" "}
-                                    {getDisplayDailyStreak(item)} дн. подряд
-                                  </div>
-                                </div>
-                              </>
-                            )}
-
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={isMutationPending}
-                              data-tour={showRemoveAction ? undefined : "profile-add-friend-button"}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleToggleFriend(item);
-                              }}
-                              className="h-9 rounded-full px-3 text-xs"
-                            >
-                              {showRemoveAction ? (
-                                <>
-                                  <UserMinus className="h-3.5 w-3.5" />
-                                  Удалить
-                                </>
-                              ) : (
-                                <>
-                                  <UserPlus className="h-3.5 w-3.5" />
-                                  Добавить
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        );
-                      })
-                    )}
+                  <div className="text-xs text-text-muted">
+                    {currentPage}/{totalPages}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-border-subtle pt-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canGoPrev || isListLoading}
-                      onClick={() => updatePage(Math.max(1, currentPage - 1))}
-                      className="h-9 rounded-full px-4 text-xs"
-                    >
-                      Назад
-                    </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!canGoNext || isListLoading}
+                    onClick={() =>
+                      updatePage(Math.min(totalPages, currentPage + 1))
+                    }
+                    className={SHOW_ME_BTN}
+                  >
+                    Вперёд
+                  </Button>
+                </div>
+              </>
+            )}
+          </AppSurface>
+        </TabsContent>
 
-                    <div className="text-xs text-text-muted">
-                      {currentPage}/{totalPages}
-                    </div>
+        <TabsContent value="settings" className="min-h-0">
+          <AppSurface className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 short-phone:h-auto short-phone:grid-rows-none">
+            <div className={SETTINGS_CARD_ROW}>
+              <div className="text-sm font-medium text-text-primary">Тема</div>
+              <Switch
+                checked={theme === "dark"}
+                onCheckedChange={onToggleTheme}
+                aria-label="Тёмная тема"
+              />
+            </div>
 
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canGoNext || isListLoading}
-                      onClick={() =>
-                        updatePage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className="h-9 rounded-full px-4 text-xs"
-                    >
-                      Вперёд
-                    </Button>
+            <div className={SETTINGS_CARD_ROW}>
+              <div className="text-sm font-medium text-text-primary">Шрифт</div>
+
+              <div className="flex flex-wrap justify-end gap-1">
+                {TRAINING_FONT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => trainingFontStore.setTrainingFontSize(option.value)}
+                    className={cn(
+                      FONT_BUTTON,
+                      trainingFontSize === option.value
+                        ? "border border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-soft)]"
+                        : "border border-transparent bg-bg-subtle text-text-secondary hover:text-text-primary"
+                    )}
+                  >
+                    <span style={{ fontSize: option.preview }} className="font-serif leading-none">
+                      Аа
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid min-h-0 grid-cols-2 gap-2 short-phone:grid-cols-1">
+              <div className={SETTINGS_INFO_CARD}>
+                <div>
+                  <div className={SUMMARY_TILE_LABEL}>Профиль</div>
+                  <div className="mt-2 truncate text-sm font-medium text-text-primary">
+                    {profileName}
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-xs leading-5 text-text-muted">
+                    {usernameLabel}
                   </div>
                 </div>
-              )}
-            </ProfileSurface>
-          </motion.div>
 
-          <motion.div variants={sectionVariants}>
-            <ProfileSurface>
-              <Feedback telegramId={telegramId} />
-            </ProfileSurface>
-          </motion.div>
-        </motion.div>
-      </motion.div>
-    </div>
-  );
-}
+                {canOpenCurrentProfile ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleOpenCurrentProfile}
+                    className="mt-3 h-9 rounded-full px-3 text-xs"
+                  >
+                    Открыть профиль
+                  </Button>
+                ) : (
+                  <div className="mt-3 text-xs text-text-muted">
+                    Профиль доступен после инициализации Telegram.
+                  </div>
+                )}
+              </div>
 
-function ProfileSurface({
-  className,
-  ...props
-}: React.ComponentProps<typeof Card>) {
-  return (
-    <Card
-      className={cn(
-        "gap-0 rounded-[2rem] border-border-subtle bg-bg-overlay p-5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-6",
-        className,
-      )}
-      {...props}
-    />
+              <div className={SETTINGS_INFO_CARD}>
+                <div>
+                  <div className={SUMMARY_TILE_LABEL}>Сеанс</div>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-text-secondary">Режим</span>
+                      <span className="font-medium text-text-primary">
+                        Fullscreen
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-text-secondary">Тема</span>
+                      <span className="font-medium text-text-primary">
+                        {themeLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-text-secondary">Шрифт</span>
+                      <span className="font-medium text-text-primary">
+                        {fontOption.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-text-muted">
+                  Настройки применяются сразу.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto">
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleExitApplication}
+                className="h-10 w-full rounded-full px-4 text-sm sm:w-auto"
+              >
+                <LogOut className="h-4 w-4" />
+                Выйти
+              </Button>
+            </div>
+          </AppSurface>
+        </TabsContent>
+
+        <TabsContent value="feedback" className="min-h-0">
+          <AppSurface className="h-full min-h-0 short-phone:h-auto">
+            <Feedback telegramId={telegramId} />
+          </AppSurface>
+        </TabsContent>
+      </Tabs>
+    </section>
   );
 }

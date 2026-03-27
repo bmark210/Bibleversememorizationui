@@ -16,23 +16,15 @@ export function useTelegramWebAppSetup() {
     useTrainingFontStore.getState().hydrateTrainingFontSize();
 
     const telegramUiStore = useTelegramUiStore.getState();
-    const storedFullscreenPreference =
-      telegramUiStore.hydrateTelegramFullscreenPreference();
     const webApp = getTelegramWebApp();
     if (!webApp) {
       telegramUiStore.resetTelegramRuntime();
-      if (process.env.NODE_ENV === "development") {
-        telegramUiStore.setTelegramRuntime({
-          canToggleTelegramFullscreen: true,
-        });
-      }
       syncTelegramFullscreenFromWebApp();
       return;
     }
 
     telegramUiStore.setTelegramRuntime({
       isTelegramMiniApp: true,
-      canToggleTelegramFullscreen: true,
     });
 
     const syncTelegramViewportState = () => {
@@ -43,6 +35,12 @@ export function useTelegramWebAppSetup() {
       webApp.ready?.();
     } catch (error) {
       console.warn("Telegram ready failed:", error);
+    }
+
+    try {
+      webApp.expand?.();
+    } catch (error) {
+      console.warn("Telegram expand failed:", error);
     }
 
     try {
@@ -60,13 +58,9 @@ export function useTelegramWebAppSetup() {
     lockTelegramPortraitOrientation(webApp);
 
     try {
-      if (storedFullscreenPreference) {
-        webApp.requestFullscreen?.();
-      } else if (webApp.isFullscreen) {
-        webApp.exitFullscreen?.();
-      }
+      webApp.requestFullscreen?.();
     } catch (error) {
-      console.warn("Telegram fullscreen preference apply failed:", error);
+      console.warn("Telegram fullscreen request failed:", error);
     }
 
     syncTelegramViewportState();
