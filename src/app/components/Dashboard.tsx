@@ -183,9 +183,8 @@ export function Dashboard({
   return (
     <section
       className={cn(
-        'mx-auto grid h-full min-h-0 w-full max-w-5xl grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-[auto_auto_auto] short-phone:overflow-visible',
-        'gap-3 px-3 py-3',
-        'narrow:gap-3 narrow:px-3 narrow:py-3',
+        'mx-auto grid h-full min-h-0 w-full max-w-5xl grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
+        'gap-2 px-3 py-2 sm:gap-3 sm:py-3',
         'lg:grid-cols-[minmax(0,1.05fr)_minmax(19rem,0.95fr)] lg:grid-rows-[auto_minmax(0,1fr)]',
         'sm:px-4 lg:px-5',
       )}
@@ -215,7 +214,7 @@ export function Dashboard({
         <DashboardTrainingStatsCard statsCards={statsCards} />
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-3 short-phone:min-h-fit short-phone:grid-rows-[auto_auto] lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
+      <div className="grid min-h-0 grid-cols-1 grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-2 sm:gap-3 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
         <DashboardLeaderboardCard
           leaderboard={dashboardLeaderboard}
           isLeaderboardLoading={isDashboardLeaderboardLoading}

@@ -1249,7 +1249,7 @@ export const DashboardLeaderboardCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="flex min-h-0 flex-1 cursor-pointer flex-col justify-between transition-colors hover:border-border-default"
+          className="flex min-h-0 flex-1 cursor-pointer flex-col gap-2 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div
@@ -1284,7 +1284,7 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
             {isLeaderboardLoading && totalParticipants === 0 ? (
               <>
                 <Skeleton className="h-[60px] rounded-[1.2rem] border-0" />
@@ -1298,64 +1298,72 @@ export const DashboardLeaderboardCard = React.memo(
                   onOpenPlayerProfile={onOpenPlayerProfile}
                 />
 
-                {isLeaderCurrentUser ? (
-                  /* Current user IS the leader — show who's chasing them */
-                  <div className="mt-auto flex flex-col gap-1">
-                    {cachedEntries[1] && (
+                {/* Compact list — fills remaining space, overflow clipped */}
+                <div className="flex flex-col gap-1 overflow-hidden">
+                  {isLeaderCurrentUser ? (
+                    /* Current user IS the leader — show who's chasing them */
+                    (cachedEntries.slice(1) as domain_UserLeaderboardEntry[])
+                      .filter(Boolean)
+                      .map((entry) => (
+                        <CompactNeighborhoodRow
+                          key={String(entry.telegramId ?? entry.rank)}
+                          entry={entry}
+                          isCurrentUser={false}
+                          currentUserXp={currentUserXp}
+                          onOpenPlayerProfile={onOpenPlayerProfile}
+                        />
+                      ))
+                  ) : neighborEntries ? (
+                    /* Show current user surrounded by neighbors */
+                    <>
+                      {neighborEntries.prev && (
+                        <CompactNeighborhoodRow
+                          entry={neighborEntries.prev as domain_UserLeaderboardEntry}
+                          isCurrentUser={false}
+                          currentUserXp={currentUserXp}
+                          onOpenPlayerProfile={onOpenPlayerProfile}
+                        />
+                      )}
                       <CompactNeighborhoodRow
-                        entry={cachedEntries[1] as domain_UserLeaderboardEntry}
-                        isCurrentUser={false}
+                        entry={neighborEntries.self}
+                        isCurrentUser={true}
                         currentUserXp={currentUserXp}
                         onOpenPlayerProfile={onOpenPlayerProfile}
                       />
-                    )}
-                    {cachedEntries[2] && (
-                      <CompactNeighborhoodRow
-                        entry={cachedEntries[2] as domain_UserLeaderboardEntry}
-                        isCurrentUser={false}
-                        currentUserXp={currentUserXp}
-                        onOpenPlayerProfile={onOpenPlayerProfile}
-                      />
-                    )}
-                  </div>
-                ) : neighborEntries ? (
-                  /* Show current user surrounded by neighbors */
-                  <div className="mt-auto flex flex-col gap-1">
-                    {neighborEntries.prev && (
-                      <CompactNeighborhoodRow
-                        entry={
-                          neighborEntries.prev as domain_UserLeaderboardEntry
-                        }
-                        isCurrentUser={false}
-                        currentUserXp={currentUserXp}
-                        onOpenPlayerProfile={onOpenPlayerProfile}
-                      />
-                    )}
-                    <CompactNeighborhoodRow
-                      entry={neighborEntries.self}
-                      isCurrentUser={true}
-                      currentUserXp={currentUserXp}
-                      onOpenPlayerProfile={onOpenPlayerProfile}
+                      {neighborEntries.next && (
+                        <CompactNeighborhoodRow
+                          entry={neighborEntries.next as domain_UserLeaderboardEntry}
+                          isCurrentUser={false}
+                          currentUserXp={currentUserXp}
+                          onOpenPlayerProfile={onOpenPlayerProfile}
+                        />
+                      )}
+                      {/* Fill remaining space with more entries */}
+                      {(cachedEntries.slice(
+                        Math.min(
+                          cachedEntries.indexOf(neighborEntries.next) + 1,
+                          cachedEntries.length,
+                        ),
+                      ) as domain_UserLeaderboardEntry[])
+                        .filter(Boolean)
+                        .map((entry) => (
+                          <CompactNeighborhoodRow
+                            key={String(entry.telegramId ?? entry.rank)}
+                            entry={entry}
+                            isCurrentUser={false}
+                            currentUserXp={currentUserXp}
+                            onOpenPlayerProfile={onOpenPlayerProfile}
+                          />
+                        ))}
+                    </>
+                  ) : currentUserSnapshot?.rank ? (
+                    /* Neighborhood not loaded yet — show rank tile */
+                    <DashboardInfoTile
+                      label="Ваше место"
+                      value={`#${currentUserSnapshot.rank} из ${totalParticipants}`}
                     />
-                    {neighborEntries.next && (
-                      <CompactNeighborhoodRow
-                        entry={
-                          neighborEntries.next as domain_UserLeaderboardEntry
-                        }
-                        isCurrentUser={false}
-                        currentUserXp={currentUserXp}
-                        onOpenPlayerProfile={onOpenPlayerProfile}
-                      />
-                    )}
-                  </div>
-                ) : currentUserSnapshot?.rank ? (
-                  /* Neighborhood not loaded yet — show rank tile */
-                  <DashboardInfoTile
-                    label="Ваше место"
-                    value={`#${currentUserSnapshot.rank} из ${totalParticipants}`}
-                    className="mt-auto"
-                  />
-                ) : null}
+                  ) : null}
+                </div>
               </>
             ) : (
               <DashboardInfoTile
@@ -1594,7 +1602,7 @@ export const DashboardFriendsActivityCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="flex min-h-0 flex-1 cursor-pointer flex-col justify-between transition-colors hover:border-border-default"
+          className="flex min-h-0 flex-1 cursor-pointer flex-col gap-2 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div
@@ -1626,7 +1634,7 @@ export const DashboardFriendsActivityCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
               <Skeleton className="flex-1 rounded-[1.2rem] border-0 min-h-[60px]" />
             ) : summaryEntries.length > 0 ? (
