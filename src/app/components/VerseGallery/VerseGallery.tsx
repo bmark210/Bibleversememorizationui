@@ -18,6 +18,7 @@ import {
   formatToastXpDelta,
   showVerseActionToast,
 } from "@/app/lib/semanticToast";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 
 import { GalleryHeader } from "./components/GalleryHeader";
@@ -481,6 +482,7 @@ export function VerseGallery({
                   ? handleFocusModeVerticalSwipe
                   : undefined
               }
+              colorConfig={VERSE_CARD_COLOR_CONFIG}
             />
           </GallerySwipeSlide>
         </div>

@@ -9,6 +9,10 @@ import {
   VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
+import {
+  VERSE_CARD_COLOR_CONFIG,
+  type VerseCardColorConfig,
+} from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import type { PreparedVersePreview } from "../previewModel";
 
@@ -24,6 +28,7 @@ type Props = {
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
+  colorConfig?: VerseCardColorConfig;
 };
 
 function getInitials(name: string) {
@@ -47,6 +52,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   onOpenTags,
   onOpenOwners,
   onVerticalSwipeStep,
+  colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const previewTextRef = useRef<HTMLParagraphElement>(null);
@@ -61,6 +67,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     popularityValue,
     popularityBadge,
   } = preview;
+  const tonePalette = colorConfig.tones[tone ?? "learning"];
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -74,6 +81,22 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     }
     return next;
   }, [activeTagSlugs]);
+  const visibleTags = useMemo(() => {
+    if (normalizedTags.length <= 3 || activeTagSlugSet.size === 0) {
+      return normalizedTags.slice(0, 3);
+    }
+
+    return [...normalizedTags]
+      .sort((left, right) => {
+        const leftSlug = String(left.slug ?? "").trim();
+        const rightSlug = String(right.slug ?? "").trim();
+        const leftActive = Boolean(leftSlug) && activeTagSlugSet.has(leftSlug);
+        const rightActive = Boolean(rightSlug) && activeTagSlugSet.has(rightSlug);
+        if (leftActive === rightActive) return 0;
+        return leftActive ? -1 : 1;
+      })
+      .slice(0, 3);
+  }, [activeTagSlugSet, normalizedTags]);
   const hasOwnersTrigger =
     Boolean(onOpenOwners) &&
     popularityBadge != null &&
@@ -171,15 +194,17 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
         bodyScrollable={isFocusMode}
         onVerticalSwipeStep={isFocusMode ? onVerticalSwipeStep : undefined}
         previewTone={tone}
+        colorConfig={colorConfig}
         metaBadge={
           isFocusMode ? null : hasOwnersTrigger ? (
             <button
               type="button"
               onClick={() => onOpenOwners?.(verse)}
               className={cn(
-                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] shadow-sm transition-colors hover:bg-muted/45",
-                "border-border/40 bg-muted/25 text-muted-foreground/70",
-                popularityBadge?.className,
+                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] shadow-sm transition-colors",
+                colorConfig.metaPanelClassName,
+                colorConfig.actionButtonHoverClassName,
+                popularityBadge?.accentClassName,
               )}
               aria-label={popularityBadge?.label ?? "Открыть список пользователей"}
             >
@@ -188,12 +213,14 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                   {previewUsers.map((user) => (
                     <Avatar
                       key={user.telegramId}
-                      className="h-4 w-4 border border-background shadow-sm"
+                      className={cn("h-4 w-4 border shadow-sm", colorConfig.avatarRingClassName)}
                     >
                       {user.avatarUrl ? (
                         <AvatarImage src={user.avatarUrl} alt={user.name} />
                       ) : null}
-                      <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
+                      <AvatarFallback
+                        className={cn("text-[8px]", colorConfig.avatarFallbackClassName)}
+                      >
                         {getInitials(user.name)}
                       </AvatarFallback>
                     </Avatar>
@@ -212,7 +239,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                popularityBadge.className
+                colorConfig.metaPanelClassName,
+                popularityBadge.accentClassName
               )}
             >
               <popularityBadge.icon className="h-3.5 w-3.5" />
@@ -227,17 +255,19 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               isFocusMode ? "space-y-3" : "space-y-4",
             )}
           >
-            <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic break-words [overflow-wrap:anywhere]">
+            <h2 className="text-3xl sm:text-4xl font-serif text-text-primary italic break-words [overflow-wrap:anywhere]">
               {verse.reference}
             </h2>
-            <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+            <div
+              className={cn(
+                "mx-auto h-px w-16 bg-gradient-to-r",
+                tonePalette.lineClassName,
+              )}
+            />
             {!isFocusMode ? (
               normalizedTags.length > 0 ? (
                 <div className="flex flex-wrap items-center justify-center gap-1">
-                  {normalizedTags.slice(0, 3).map((tag, index) => {
-                    const slug = String(tag.slug ?? "").trim();
-                    const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
-
+                  {visibleTags.map((tag, index) => {
                     return onOpenTags ? (
                       <button
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
@@ -245,9 +275,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         onClick={() => onOpenTags(verse)}
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                          isActive
-                            ? "border-primary/30 bg-primary/12 text-primary"
-                            : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
+                          colorConfig.tagClassName,
+                          colorConfig.tagInteractiveClassName,
                         )}
                         aria-label={`Открыть теги стиха ${verse.reference}`}
                       >
@@ -258,9 +287,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          isActive
-                            ? "border-primary/30 bg-primary/12 text-primary"
-                            : "border-border/60 bg-muted/35 text-muted-foreground",
+                          colorConfig.tagClassName,
                         )}
                       >
                         #{tag.title}
@@ -273,13 +300,22 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                       <button
                         type="button"
                         onClick={() => onOpenTags(verse)}
-                        className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
+                        className={cn(
+                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
+                          colorConfig.tagClassName,
+                          colorConfig.tagInteractiveClassName,
+                        )}
                         aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                       >
                         +{normalizedTags.length - 3}
                       </button>
                     ) : (
-                      <span className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground">
+                      <span
+                        className={cn(
+                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
+                          colorConfig.tagClassName,
+                        )}
+                      >
                         +{normalizedTags.length - 3}
                       </span>
                     )
@@ -303,10 +339,10 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               ref={previewTextRef}
               style={isFocusMode ? undefined : { WebkitLineClamp: lineClamp }}
               className={cn(
-                "font-verse w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
+              "font-verse w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
                 isFocusMode
-                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground/70"
-                  : "max-h-full text-[1.45rem] sm:text-[1.95rem] leading-[1.8] text-foreground/90 font-normal [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
+                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-text-secondary"
+                  : "max-h-full text-[1.45rem] sm:text-[1.95rem] leading-[1.8] text-text-primary/92 font-normal [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
               )}
             >
               «{verse.text}»
@@ -320,7 +356,11 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                 data-tour="verse-gallery-primary-cta"
                 variant="secondary"
                 className={cn(
-                  "gap-2 max-w-full rounded-2xl border border-border/60 bg-background/78 text-foreground/88 shadow-lg backdrop-blur-sm hover:bg-muted/48",
+                  "gap-2 max-w-full rounded-2xl border shadow-lg backdrop-blur-sm",
+                  colorConfig.actionButtonClassName,
+                  colorConfig.actionButtonHoverClassName,
+                  tonePalette.accentBorderClassName,
+                  tonePalette.accentTextClassName,
                   inlineUtilityAction ? "min-w-[184px]" : "min-w-[200px]",
                 )}
                 onClick={handlePrimaryAction}
@@ -337,7 +377,13 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                   data-tour="verse-gallery-inline-utility"
                   variant="secondary"
                   size="icon"
-                  className="h-10 w-10 shrink-0 rounded-2xl border border-border/60 bg-background/78 text-foreground/72 shadow-lg backdrop-blur-sm hover:bg-muted/48"
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-2xl border shadow-lg backdrop-blur-sm",
+                    colorConfig.actionButtonClassName,
+                    colorConfig.actionButtonHoverClassName,
+                    tonePalette.accentBorderClassName,
+                    tonePalette.accentTextClassName,
+                  )}
                   onClick={onUtilityAction}
                   disabled={isActionPending}
                   aria-label={inlineUtilityAction.ariaLabel}
@@ -351,7 +397,11 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             <div className="flex justify-center">
               <VerseStatusMetaPill
                 label={waitingActionLabel}
-                className="gap-2 rounded-2xl border-border/60 bg-background/72 px-4 py-3"
+                className={cn(
+                  "gap-2 rounded-2xl px-4 py-3",
+                  colorConfig.waitingPillClassName,
+                  tonePalette.accentBorderClassName,
+                )}
               />
             </div>
           ) : null
@@ -367,6 +417,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               <StatusFooter
                 statusTone={statusTone}
                 totalProgressPercent={totalProgressPercent}
+                colorConfig={colorConfig}
+                progressClassName={tonePalette.progressClassName}
               />
             </button>
           ) : null
@@ -383,15 +435,20 @@ type StatusTone = VerseStatusSummaryTone;
 function StatusFooter({
   statusTone,
   totalProgressPercent,
+  colorConfig,
+  progressClassName,
 }: {
   statusTone: StatusTone;
   totalProgressPercent: number;
+  colorConfig: VerseCardColorConfig;
+  progressClassName: string;
 }) {
   return (
     <VerseStatusSummary
       tone={statusTone}
       progressPercent={totalProgressPercent}
-      className="w-full justify-between"
+      className={colorConfig.summaryPanelClassName}
+      progressClassName={progressClassName}
     />
   );
 }

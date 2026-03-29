@@ -7,6 +7,7 @@ import { VerseStatus } from "@/shared/domain/verseStatus";
 import { SwipeableVerseCard } from "@/app/components/verse-list/components/SwipeableVerseCard";
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";
 import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewModel";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 
 function createVerse(
   overrides: Partial<Verse> & Pick<Verse, "status">,
@@ -58,6 +59,12 @@ function renderGalleryCard(verse: Verse) {
       onStatusAction={() => {}}
     />,
   );
+}
+
+function assertIncludesClassTokens(html: string, className: string) {
+  for (const token of className.split(" ").filter(Boolean)) {
+    assert.ok(html.includes(token), `Missing class token ${token}`);
+  }
 }
 
 test("list cards do not render progress pill for catalog and my states", () => {
@@ -169,4 +176,20 @@ test("stopped and mastered keep their own distinct pills", () => {
 
   assert.ok(stoppedHtml.includes("На паузе"));
   assert.ok(masteredHtml.includes("Выучен"));
+});
+
+test("list and gallery tags share one neutral color treatment", () => {
+  const verseWithTags = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [
+      { id: "1", slug: "hope", title: "Надежда" },
+      { id: "2", slug: "faith", title: "Вера" },
+    ],
+  });
+
+  const listHtml = renderListCard(verseWithTags);
+  const galleryHtml = renderGalleryCard(verseWithTags);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
 });

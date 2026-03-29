@@ -15,6 +15,7 @@ type VerseStatusSummaryProps = {
   progressPercent: number;
   size?: "sm" | "md";
   className?: string;
+  progressClassName?: string;
 };
 
 const SIZE_CONFIG = {
@@ -43,11 +44,16 @@ export function VerseStatusSummary({
   progressPercent,
   size = "md",
   className,
+  progressClassName,
 }: VerseStatusSummaryProps) {
   return (
     <div className={cn("flex min-w-0 items-center", SIZE_CONFIG[size].containerGap, className)}>
       <VerseStatusPill tone={tone} size={size} />
-      <VerseProgressValue progressPercent={progressPercent} size={size} />
+      <VerseProgressValue
+        progressPercent={progressPercent}
+        size={size}
+        className={progressClassName}
+      />
     </div>
   );
 }

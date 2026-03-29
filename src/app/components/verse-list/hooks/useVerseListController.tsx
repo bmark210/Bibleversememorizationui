@@ -40,6 +40,7 @@ import type {
 import type { VersePatchEvent } from '@/app/types/verseSync';
 import { parseExternalVerseId } from '@/shared/bible/externalVerseId';
 import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
+import type { VerseCardColorConfig } from '@/app/components/verseCardColorConfig';
 
 type UseVerseListControllerParams = {
   disabled?: boolean;
@@ -57,6 +58,7 @@ type UseVerseListControllerParams = {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
+  cardColorConfig?: VerseCardColorConfig;
 };
 
 function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
@@ -101,6 +103,7 @@ export function useVerseListController({
   onReopenGalleryHandled,
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
+  cardColorConfig,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
   const canUseFriendsFilter = hasFriends;
@@ -599,10 +602,12 @@ export function useVerseListController({
         onResumeLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.LEARNING)}
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
         isAnchorEligible={isAnchorEligible}
+        colorConfig={cardColorConfig}
       />
     ),
     [
       actions,
+      cardColorConfig,
       isAnchorEligible,
       isFocusMode,
       onNavigateToTraining,

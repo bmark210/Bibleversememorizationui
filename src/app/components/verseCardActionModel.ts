@@ -15,6 +15,7 @@ import { VerseStatus } from "@/shared/domain/verseStatus";
 import { normalizeVerseFlow, type VerseFlow } from "@/shared/domain/verseFlow";
 import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { VerseStatusSummaryTone } from "@/app/components/VerseStatusSummary";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 
 export type VerseCardActionId =
   | "add-to-my"
@@ -190,54 +191,45 @@ function getStatusTone(params: {
   }
 
   if (status === VerseStatus.STOPPED) {
+    const stoppedTone = VERSE_CARD_COLOR_CONFIG.statusPills.stopped;
     return {
       icon: Pause,
       title: "На паузе",
-      pillClassName: "border-status-paused/25 bg-status-paused-soft",
-      iconClassName: "text-status-paused",
-      titleClassName: "text-status-paused/85",
+      ...stoppedTone,
     };
   }
 
   if (status === "MASTERED") {
+    const masteredTone = VERSE_CARD_COLOR_CONFIG.statusPills.mastered;
     return {
       icon: Trophy,
       title: "Выучен",
-      pillClassName: "border-status-mastered/25 bg-status-mastered-soft",
-      iconClassName: "text-status-mastered",
-      titleClassName: "text-status-mastered/85",
+      ...masteredTone,
     };
   }
 
   if (status === VerseStatus.LEARNING) {
+    const learningTone = VERSE_CARD_COLOR_CONFIG.statusPills.learning;
     return {
       icon: Brain,
       title: "В изучении",
-      pillClassName: "border-status-learning/25 bg-status-learning-soft",
-      iconClassName: "text-status-learning",
-      titleClassName: "text-status-learning/85",
+      ...learningTone,
     };
   }
 
   if (status === "REVIEW") {
-    const reviewTone = {
-      pillClassName: "border-status-review/25 bg-status-review-soft",
-      iconClassName: "text-status-review",
-      titleClassName: "text-status-review/85",
-    } as const;
-
     if (isNotYetDue) {
       return {
         icon: CalendarClock,
         title: "В ожидании",
-        ...reviewTone,
+        ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
       };
     }
 
     return {
       icon: RefreshCw,
       title: "Повторение",
-      ...reviewTone,
+      ...VERSE_CARD_COLOR_CONFIG.statusPills.review,
     };
   }
 

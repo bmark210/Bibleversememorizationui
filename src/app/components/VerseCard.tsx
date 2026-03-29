@@ -8,17 +8,16 @@ import {
   getVerticalTouchSwipeStep,
   type VerticalTouchSwipeStart,
 } from "@/shared/ui/verticalTouchSwipe";
+import {
+  VERSE_CARD_COLOR_CONFIG,
+  type VerseCardColorConfig,
+  type VerseCardTone,
+} from "./verseCardColorConfig";
 
 import { cn } from "./ui/utils";
 
 type VerseCardMinHeight = "auto" | "preview" | "training";
-export type VerseCardPreviewTone =
-  | "my"
-  | "catalog"
-  | "learning"
-  | "review"
-  | "mastered"
-  | "stopped";
+export type VerseCardPreviewTone = VerseCardTone;
 
 export type VerseCardTag = {
   id?: string;
@@ -41,6 +40,7 @@ export interface VerseCardProps {
   tags?: VerseCardTag[];
   activeTagSlugs?: Iterable<string> | null;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
+  colorConfig?: VerseCardColorConfig;
 }
 
 type CardTouchGestureContext = {
@@ -73,42 +73,6 @@ const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   training: "h-[clamp(25rem,calc(100dvh-16rem),42rem)]",
 };
 
-const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated",
-  catalog: "bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated",
-  learning: "bg-gradient-to-br from-status-learning-soft via-bg-surface to-bg-elevated",
-  review: "bg-gradient-to-br from-status-review-soft via-bg-surface to-bg-elevated",
-  mastered: "bg-gradient-to-br from-status-mastered-soft via-bg-surface to-bg-elevated",
-  stopped: "bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated",
-};
-
-const PREVIEW_TONE_FRAME_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-status-collection",
-  catalog: "bg-border-default",
-  learning: "bg-status-learning",
-  review: "bg-status-review",
-  mastered: "bg-status-mastered",
-  stopped: "bg-status-paused",
-};
-
-const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-status-collection-soft",
-  catalog: "bg-bg-subtle",
-  learning: "bg-status-learning-soft",
-  review: "bg-status-review-soft",
-  mastered: "bg-status-mastered-soft",
-  stopped: "bg-status-paused-soft",
-};
-
-const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "from-transparent via-status-collection to-transparent",
-  catalog: "from-transparent via-border-default to-transparent",
-  learning: "from-transparent via-status-learning to-transparent",
-  review: "from-transparent via-status-review to-transparent",
-  mastered: "from-transparent via-status-mastered to-transparent",
-  stopped: "from-transparent via-status-paused to-transparent",
-};
-
 export function VerseCard({
   isActive = true,
   header,
@@ -124,10 +88,12 @@ export function VerseCard({
   tags,
   activeTagSlugs = null,
   onVerticalSwipeStep,
+  colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: VerseCardProps) {
   const enableTapScale = !bodyScrollable;
   const isPreviewToneActive = Boolean(previewTone);
   const tone = previewTone ?? "learning";
+  const tonePalette = colorConfig.tones[tone];
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const touchGestureRef = useRef<CardTouchGestureContext | null>(null);
   const activeTagSlugSet = useMemo(() => {
@@ -405,7 +371,7 @@ export function VerseCard({
           "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)] [contain:layout_style_paint]",
           "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
           "shadow-[var(--shadow-elevated)]",
-          isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border-default",
+          isPreviewToneActive ? tonePalette.frameClassName : "bg-border-default",
           onVerticalSwipeStep && "overscroll-none",
           "transition-[opacity,transform] duration-300",
           MIN_HEIGHT_CLASS_BY_KIND[minHeight],
@@ -414,10 +380,11 @@ export function VerseCard({
       >
         <div
           className={cn(
-            "relative h-full min-w-0 rounded-[calc(3rem-1px)] bg-bg-elevated overflow-hidden overflow-x-hidden shadow-[var(--shadow-inset)]",
+            "relative h-full min-w-0 rounded-[calc(3rem-1px)] border bg-bg-elevated overflow-hidden overflow-x-hidden shadow-[var(--shadow-inset)]",
             "p-6 sm:p-10 flex flex-col",
             "transition-[opacity,transform] duration-300",
-            isPreviewToneActive && PREVIEW_TONE_CARD_CLASS[tone],
+            colorConfig.surfaceBorderClassName,
+            isPreviewToneActive && tonePalette.surfaceClassName,
             "[background-clip:padding-box]"
           )}
         >
@@ -427,14 +394,14 @@ export function VerseCard({
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute left-10 right-10 top-0 h-px bg-gradient-to-r",
-                PREVIEW_TONE_LINE_CLASS[tone]
+                tonePalette.lineClassName
               )}
             />
             <div
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute -top-10 left-1/2 h-24 w-[70%] -translate-x-1/2 rounded-full blur-3xl",
-                PREVIEW_TONE_GLOW_CLASS[tone]
+                tonePalette.glowClassName
               )}
             />
           </>
@@ -458,7 +425,7 @@ export function VerseCard({
                     title={tag.title}
                     className={cn(
                       "inline-flex min-w-0 max-w-[min(44vw,11rem)] shrink items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide overflow-hidden",
-                      "border-border-subtle bg-bg-subtle text-text-muted"
+                      colorConfig.tagClassName
                     )}
                   >
                     <span className="block w-full truncate overflow-hidden">#{tag.title}</span>
@@ -469,7 +436,7 @@ export function VerseCard({
                     aria-label={`еще ${hiddenTagsCount} тегов`}
                     className={cn(
                       "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
-                      "border-border-subtle bg-bg-subtle text-text-muted"
+                      colorConfig.tagClassName
                     )}
                   >
                     +{hiddenTagsCount}

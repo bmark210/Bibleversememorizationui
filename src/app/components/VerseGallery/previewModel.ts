@@ -15,6 +15,7 @@ import {
   normalizeVerseStatus,
   parseDate,
 } from "./utils";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 
 export type PreparedPreviewUser = {
   telegramId: string;
@@ -25,7 +26,7 @@ export type PreparedPreviewUser = {
 export type PreparedPopularityBadge = {
   icon: LucideIcon;
   label: string;
-  className: string;
+  accentClassName: string;
 };
 
 export type PreparedVersePreview = {
@@ -182,8 +183,8 @@ function getPopularityBadge(
     return {
       icon: Users,
       label: `У друзей ${popularityValue}`,
-      className:
-        "border-status-community/25 bg-status-community-soft text-status-community",
+      accentClassName:
+        VERSE_CARD_COLOR_CONFIG.popularity.friends.accentClassName,
     };
   }
 
@@ -191,8 +192,8 @@ function getPopularityBadge(
     return {
       icon: Users,
       label: `У игроков ${popularityValue}`,
-      className:
-        "border-status-collection/25 bg-status-collection-soft text-status-collection",
+      accentClassName:
+        VERSE_CARD_COLOR_CONFIG.popularity.players.accentClassName,
     };
   }
 

@@ -36,6 +36,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 
@@ -181,6 +182,7 @@ export function VerseList({
     onReopenGalleryHandled,
     verseListExternalSyncVersion,
     onVerseMutationCommitted,
+    cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
   const reveal = useCallback(
