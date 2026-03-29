@@ -388,6 +388,15 @@ export function VerseCard({
             "[background-clip:padding-box]"
           )}
         >
+        {isPreviewToneActive ? (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-0",
+              tonePalette.surfaceTintClassName
+            )}
+          />
+        ) : null}
         {isPreviewToneActive && (
           <>
             <div

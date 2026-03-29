@@ -12,6 +12,7 @@ export type VerseCardPopularityScope = "friends" | "players";
 export type VerseCardTonePalette = {
   frameClassName: string;
   surfaceClassName: string;
+  surfaceTintClassName: string;
   glowClassName: string;
   lineClassName: string;
   accentBorderClassName: string;
@@ -70,6 +71,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     catalog: {
       frameClassName: "bg-border-default",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-bg-subtle/55",
       glowClassName: "bg-bg-subtle",
       lineClassName: "from-transparent via-border-default to-transparent",
       accentBorderClassName: "border-border-default/70",
@@ -79,6 +81,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     my: {
       frameClassName: "bg-status-collection",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-status-collection-tint",
       glowClassName: "bg-status-collection-soft",
       lineClassName: "from-transparent via-status-collection to-transparent",
       accentBorderClassName: "border-status-collection/28",
@@ -88,6 +91,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     learning: {
       frameClassName: "bg-status-learning",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-status-learning-tint",
       glowClassName: "bg-status-learning-soft",
       lineClassName: "from-transparent via-status-learning to-transparent",
       accentBorderClassName: "border-status-learning/30",
@@ -97,6 +101,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     review: {
       frameClassName: "bg-status-review",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-status-review-tint",
       glowClassName: "bg-status-review-soft",
       lineClassName: "from-transparent via-status-review to-transparent",
       accentBorderClassName: "border-status-review/30",
@@ -106,6 +111,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     mastered: {
       frameClassName: "bg-status-mastered",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-status-mastered-tint",
       glowClassName: "bg-status-mastered-soft",
       lineClassName: "from-transparent via-status-mastered to-transparent",
       accentBorderClassName: "border-status-mastered/30",
@@ -115,6 +121,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     stopped: {
       frameClassName: "bg-status-paused",
       surfaceClassName: "",
+      surfaceTintClassName: "bg-status-paused-tint",
       glowClassName: "bg-status-paused-soft",
       lineClassName: "from-transparent via-status-paused to-transparent",
       accentBorderClassName: "border-status-paused/30",

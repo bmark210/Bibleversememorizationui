@@ -337,6 +337,13 @@ const SwipeableVerseCardComponent = ({
           <div
             aria-hidden="true"
             className={cn(
+              "pointer-events-none absolute inset-0",
+              tonePalette.surfaceTintClassName
+            )}
+          />
+          <div
+            aria-hidden="true"
+            className={cn(
               "pointer-events-none absolute left-8 right-8 top-0 h-[3px] bg-gradient-to-r",
               tonePalette.lineClassName
             )}
@@ -351,7 +358,7 @@ const SwipeableVerseCardComponent = ({
           <div className="relative min-h-full space-y-2.5">
             <div className="mb-0 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="font-serif text-text-primary break-words [overflow-wrap:anywhere]">
+                <h3 className="font-serif text-brand-primary break-words [overflow-wrap:anywhere]">
                 {verse.reference}
                 </h3>
               </div>

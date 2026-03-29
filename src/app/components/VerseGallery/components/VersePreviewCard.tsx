@@ -255,7 +255,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               isFocusMode ? "space-y-3" : "space-y-4",
             )}
           >
-            <h2 className="text-3xl sm:text-4xl font-serif text-text-primary italic break-words [overflow-wrap:anywhere]">
+            <h2 className="text-3xl sm:text-4xl font-serif text-brand-primary italic break-words [overflow-wrap:anywhere]">
               {verse.reference}
             </h2>
             <div
