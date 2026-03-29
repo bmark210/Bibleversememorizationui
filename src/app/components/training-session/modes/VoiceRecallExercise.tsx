@@ -292,14 +292,6 @@ export function ModeVoiceRecallExercise({
           }
           contentClassName="flex flex-col gap-3 pb-1"
         >
-          <p
-            className="max-w-2xl text-sm leading-relaxed text-text-secondary"
-            style={{ fontSize: `${fontSizes.sm}px` }}
-          >
-            Продиктуйте стих или при необходимости поправьте распознанный текст вручную
-            перед проверкой.
-          </p>
-
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"

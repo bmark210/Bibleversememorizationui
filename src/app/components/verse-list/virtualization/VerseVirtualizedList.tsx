@@ -21,6 +21,7 @@ const NOOP_DEBUG_INFINITE_SCROLL: DebugInfiniteScroll = () => {};
 type VerseVirtualizedListProps = {
   items: Array<Verse>;
   enableInfiniteLoader: boolean;
+  preferInternalScroll?: boolean;
   hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
@@ -117,6 +118,7 @@ function ScrollSeekItemPlaceholder({ height }: { height: number; index: number }
 export function VerseVirtualizedList({
   items,
   enableInfiniteLoader,
+  preferInternalScroll = false,
   hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
@@ -140,9 +142,14 @@ export function VerseVirtualizedList({
     null
   );
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
-  const usesExternalScrollParent = customScrollParent !== null;
+  const usesExternalScrollParent = !preferInternalScroll && customScrollParent !== null;
 
   useLayoutEffect(() => {
+    if (preferInternalScroll) {
+      setCustomScrollParent(null);
+      return;
+    }
+
     const resolveScrollParent = () => {
       setCustomScrollParent(findNearestScrollParent(containerRef.current));
     };
@@ -152,7 +159,7 @@ export function VerseVirtualizedList({
     return () => {
       window.removeEventListener('resize', resolveScrollParent);
     };
-  }, []);
+  }, [preferInternalScroll]);
 
   const maybeTriggerAutoLoadMore = useCallback(
     (range: RangeLike, source: AutoLoadSource) => {
@@ -378,7 +385,9 @@ export function VerseVirtualizedList({
         data-tour="verse-list-virtualized"
         className={usesExternalScrollParent ? 'w-full' : 'h-full w-full'}
         style={usesExternalScrollParent ? undefined : { height: '100%' }}
-        customScrollParent={customScrollParent ?? undefined}
+        customScrollParent={
+          preferInternalScroll ? undefined : (customScrollParent ?? undefined)
+        }
         components={virtuosoComponents}
         computeItemKey={(_, verse) => getItemKey(verse)}
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}

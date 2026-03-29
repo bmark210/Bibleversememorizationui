@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { Eye, Plus } from "lucide-react";
@@ -112,6 +119,8 @@ export function VerseList({
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
+  const listViewportHostRef = useRef<HTMLDivElement | null>(null);
+  const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
   const toggleFocusMode = useCallback(() => {
@@ -130,6 +139,62 @@ export function VerseList({
     if (canAddVerse || addDialogMode !== "verse" || !addDialogOpen) return;
     setAddDialogOpen(false);
   }, [addDialogMode, addDialogOpen, canAddVerse]);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const host = listViewportHostRef.current;
+    if (!host) return;
+
+    let frameId = 0;
+
+    const updateViewportHeight = () => {
+      const currentHost = listViewportHostRef.current;
+      if (!currentHost) return;
+
+      const styles = window.getComputedStyle(currentHost);
+      const paddingTop = Number.parseFloat(styles.paddingTop || "0") || 0;
+      const paddingBottom = Number.parseFloat(styles.paddingBottom || "0") || 0;
+      const nextHeight = Math.max(
+        260,
+        Math.floor(currentHost.clientHeight - paddingTop - paddingBottom),
+      );
+
+      setListViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    const scheduleViewportHeightUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        updateViewportHeight();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleViewportHeightUpdate())
+        : null;
+
+    resizeObserver?.observe(host);
+    window.addEventListener("resize", scheduleViewportHeightUpdate, {
+      passive: true,
+    });
+    window.visualViewport?.addEventListener("resize", scheduleViewportHeightUpdate);
+    scheduleViewportHeightUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleViewportHeightUpdate);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        scheduleViewportHeightUpdate,
+      );
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, []);
 
   const closeVerseTagsDrawer = useCallback(() => {
     setIsVerseTagsDrawerOpen(false);
@@ -318,6 +383,7 @@ export function VerseList({
       <VerseVirtualizedList
         items={visibleListItems}
         enableInfiniteLoader={vm.list.enableInfiniteLoader}
+        preferInternalScroll
         hasMoreItems={vm.pagination.hasMoreVerses}
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
@@ -397,10 +463,17 @@ export function VerseList({
     ],
   );
 
+  const listViewportShellClassName =
+    "relative flex min-h-0 flex-1 flex-col rounded-[2.15rem] border border-border-subtle/80 bg-bg-overlay/58 shadow-[var(--shadow-soft)] backdrop-blur-2xl";
+  const listViewportContentClassName =
+    "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[calc(2.15rem-1px)]";
+  const listViewportGlowClassName =
+    "pointer-events-none absolute inset-x-0 z-10 h-16 shrink-0";
+
   return (
     <>
       <motion.div
-        className="mx-auto flex min-h-full w-full max-w-6xl flex-col pb-4"
+        className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col pb-4"
         {...(shouldReduceMotion
           ? {}
           : {
@@ -424,10 +497,10 @@ export function VerseList({
 
               <div
                 className={cn(
-                  "fixed z-50 flex shrink-0 flex-row gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
+                  "absolute z-50 flex shrink-0 flex-row gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
                 )}
                 style={{
-                  bottom: `calc(var(--app-bottom-nav-clearance, 74px) + ${contentSafeAreaInset.bottom}px + 12px)`,
+                  bottom: `calc(var(--app-bottom-nav-clearance, 54px) + ${contentSafeAreaInset.bottom}px + 12px)`,
                   right: `calc(1rem + ${contentSafeAreaInset.right}px)`,
                 }}
               >
@@ -442,11 +515,12 @@ export function VerseList({
                   }
                   onClick={toggleFocusMode}
                   className={cn(
-                    "h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card",
+                    "h-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card",
                     isFocusMode &&
                       "border-primary/35 bg-primary/10 text-primary",
                   )}
                 >
+                  Режим чтения
                   <Eye className="h-4 w-4" />
                 </Button>
 
@@ -456,8 +530,9 @@ export function VerseList({
                     variant="outline"
                     onClick={vm.header.onAddVerseClick}
                     title="Добавить стих"
-                    className="h-10 w-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card"
+                    className="h-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card"
                   >
+                    Создать
                     <Plus className="h-4 w-4" />
                   </Button>
                 ) : null}
@@ -482,56 +557,89 @@ export function VerseList({
           </motion.div>
         </div>
 
-        <AnimatePresence mode="sync">
-          {vm.ui.isListLoading ? (
-            <motion.div
-              key="verse-list-loading"
-              data-tour="verse-list-content"
-              data-tour-filter={vm.filters.statusFilter}
-              data-tour-state="loading"
-              className="px-4 sm:px-6 lg:px-8"
-              initial={false}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={listCrossfadeExit}
-            >
-              <VerseListSkeletonCards count={5} />
-            </motion.div>
-          ) : null}
-          {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
-            <motion.div
-              key="verse-list-empty"
-              data-tour="verse-list-content"
-              data-tour-filter={vm.filters.statusFilter}
-              data-tour-state="empty"
-              className="px-4 sm:px-6 lg:px-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={listCrossfadeSlow}
-            >
-              <VerseListEmptyState
-                currentFilterLabel={vm.ui.currentFilterLabel}
-                isAllFilter={vm.filters.statusFilter === "catalog"}
+        <div
+          ref={listViewportHostRef}
+          className="flex min-h-0 flex-1 flex-col px-2 pt-3 pb-2 sm:px-6 lg:px-8"
+        >
+          <div
+            className={listViewportShellClassName}
+            style={
+              listViewportHeight
+                ? { height: `${listViewportHeight}px` }
+                : undefined
+            }
+          >
+            <div className={listViewportContentClassName}>
+              <div
+                aria-hidden="true"
+                className={cn(
+                  listViewportGlowClassName,
+                  "top-0 bg-gradient-to-b from-bg-elevated/92 via-bg-overlay/58 to-transparent",
+                )}
               />
-            </motion.div>
-          ) : null}
-          {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
-            <motion.div
-              key="verse-list-ready"
-              data-tour="verse-list-content"
-              data-tour-filter={vm.filters.statusFilter}
-              data-tour-state="ready"
-              className="px-4 sm:px-6 lg:px-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={listCrossfadeSlow}
-            >
-              {listContent}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+              <div
+                aria-hidden="true"
+                className={cn(
+                  listViewportGlowClassName,
+                  "bottom-0 h-20 bg-gradient-to-t from-bg-elevated/94 via-bg-overlay/62 to-transparent",
+                )}
+              />
+
+              <AnimatePresence mode="sync">
+                {vm.ui.isListLoading ? (
+                <motion.div
+                  key="verse-list-loading"
+                  data-tour="verse-list-content"
+                  data-tour-filter={vm.filters.statusFilter}
+                  data-tour-state="loading"
+                  className="relative flex h-full min-h-0 flex-col overflow-y-auto px-3 py-3 sm:px-4"
+                  initial={false}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                    transition={listCrossfadeExit}
+                  >
+                    <VerseListSkeletonCards count={5} />
+                  </motion.div>
+                ) : null}
+                {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
+                <motion.div
+                  key="verse-list-empty"
+                  data-tour="verse-list-content"
+                  data-tour-filter={vm.filters.statusFilter}
+                  data-tour-state="empty"
+                  className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                    transition={listCrossfadeSlow}
+                  >
+                    <div className="w-full max-w-md">
+                      <VerseListEmptyState
+                        currentFilterLabel={vm.ui.currentFilterLabel}
+                        isAllFilter={vm.filters.statusFilter === "catalog"}
+                      />
+                    </div>
+                  </motion.div>
+                ) : null}
+                {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+                <motion.div
+                  key="verse-list-ready"
+                  data-tour="verse-list-content"
+                  data-tour-filter={vm.filters.statusFilter}
+                  data-tour-state="ready"
+                  className="relative flex h-full min-h-0 flex-col px-2 py-2 sm:px-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={listCrossfadeSlow}
+                >
+                  <div className="min-h-0 flex-1">{listContent}</div>
+                </motion.div>
+              ) : null}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
 
         <AddVerseDialog
           open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}
