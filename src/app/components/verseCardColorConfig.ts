@@ -69,8 +69,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
   tones: {
     catalog: {
       frameClassName: "bg-border-default",
-      surfaceClassName:
-        "bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-bg-subtle",
       lineClassName: "from-transparent via-border-default to-transparent",
       accentBorderClassName: "border-border-default/70",
@@ -79,8 +78,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     },
     my: {
       frameClassName: "bg-status-collection",
-      surfaceClassName:
-        "bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-status-collection-soft",
       lineClassName: "from-transparent via-status-collection to-transparent",
       accentBorderClassName: "border-status-collection/28",
@@ -89,8 +87,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     },
     learning: {
       frameClassName: "bg-status-learning",
-      surfaceClassName:
-        "bg-gradient-to-br from-status-learning-soft via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-status-learning-soft",
       lineClassName: "from-transparent via-status-learning to-transparent",
       accentBorderClassName: "border-status-learning/30",
@@ -99,8 +96,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     },
     review: {
       frameClassName: "bg-status-review",
-      surfaceClassName:
-        "bg-gradient-to-br from-status-review-soft via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-status-review-soft",
       lineClassName: "from-transparent via-status-review to-transparent",
       accentBorderClassName: "border-status-review/30",
@@ -109,8 +105,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     },
     mastered: {
       frameClassName: "bg-status-mastered",
-      surfaceClassName:
-        "bg-gradient-to-br from-status-mastered-soft via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-status-mastered-soft",
       lineClassName: "from-transparent via-status-mastered to-transparent",
       accentBorderClassName: "border-status-mastered/30",
@@ -119,8 +114,7 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     },
     stopped: {
       frameClassName: "bg-status-paused",
-      surfaceClassName:
-        "bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated",
+      surfaceClassName: "",
       glowClassName: "bg-status-paused-soft",
       lineClassName: "from-transparent via-status-paused to-transparent",
       accentBorderClassName: "border-status-paused/30",

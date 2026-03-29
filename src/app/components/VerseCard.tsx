@@ -393,7 +393,7 @@ export function VerseCard({
             <div
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute left-10 right-10 top-0 h-px bg-gradient-to-r",
+                "pointer-events-none absolute left-10 right-10 top-0 h-[3px] bg-gradient-to-r",
                 tonePalette.lineClassName
               )}
             />

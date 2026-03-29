@@ -329,7 +329,7 @@ const SwipeableVerseCardComponent = ({
       >
         <div
           className={cn(
-            "relative min-h-full overflow-hidden rounded-[calc(1.9rem-1px)] border p-4",
+            "relative min-h-full overflow-hidden rounded-[calc(1.9rem-1px)] border p-4 bg-bg-elevated",
             colorConfig.surfaceBorderClassName,
             tonePalette.surfaceClassName
           )}
@@ -337,7 +337,7 @@ const SwipeableVerseCardComponent = ({
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute left-8 right-8 top-0 h-px bg-gradient-to-r",
+              "pointer-events-none absolute left-8 right-8 top-0 h-[3px] bg-gradient-to-r",
               tonePalette.lineClassName
             )}
           />
