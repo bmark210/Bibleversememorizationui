@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import {
   Drawer,
   DrawerClose,
@@ -38,40 +37,6 @@ import { TrainingConfirmDialog } from "./TrainingConfirmDialog";
 import { TrainingSessionActionFooter } from "./TrainingSessionActionFooter";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 import type { TrainingModeInlineActionsProps } from "@/app/components/training-session/TrainingModeRenderer";
-
-/* ── Animation variants ── */
-
-const slideVariants = {
-  enter: (dir: number) =>
-    dir === 0
-      ? { opacity: 0, scale: 1, y: 0 }
-      : { y: dir > 0 ? "60%" : "-60%", opacity: 0, scale: 0.95 },
-  center: (dir: number) => ({
-    y: 0,
-    opacity: 1,
-    scale: 1,
-    transition:
-      dir === 0
-        ? {
-            duration: 0.22,
-            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-          }
-        : { type: "spring" as const, stiffness: 320, damping: 32 },
-  }),
-  exit: (dir: number) =>
-    dir === 0
-      ? {
-          opacity: 0,
-          scale: 1,
-          transition: { duration: 0.15, ease: "easeIn" as const },
-        }
-      : {
-          y: dir > 0 ? "-18%" : "18%",
-          opacity: 0,
-          scale: 0.92,
-          transition: { duration: 0.2, ease: "easeIn" as const },
-        },
-};
 
 /* ── Subset / ordering helpers ── */
 
@@ -722,17 +687,11 @@ export function TrainingSession({
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
         >
-          <AnimatePresence initial={false} mode="sync" custom={direction}>
-            <motion.div
-              key={`${resolvedSubsetFilter}:${activeOrder}:${bodyKey}`}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
-              tabIndex={-1}
-            >
+          <div
+            key={`${resolvedSubsetFilter}:${activeOrder}:${bodyKey}`}
+            className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
+            tabIndex={-1}
+          >
               {localResult ? (
                 <TrainingResultScreen result={localResult} />
               ) : trainingActiveVerse && trainingModeId ? (
@@ -760,8 +719,7 @@ export function TrainingSession({
                   </p>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </div>
         </div>
 
         {/* ── Footer ── */}
@@ -809,13 +767,9 @@ export function TrainingSession({
         </div>
 
         {/* ── Verse peek overlay (z-[55] to sit above main z-50 container) ── */}
-        <AnimatePresence>
-          {activeVersePeek && !isShowingResultScreen && (
-            <motion.div
+        {activeVersePeek && !isShowingResultScreen ? (
+            <div
               key={`${hintAttemptKey}:verse-peek`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
             >
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
@@ -834,9 +788,8 @@ export function TrainingSession({
                   {activeVersePeek.text}
                 </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          ) : null}
       </div>
 
       {/* ── Quick Forget drawer ── */}

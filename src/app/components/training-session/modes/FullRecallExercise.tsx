@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
@@ -191,11 +190,7 @@ export function ModeFullRecallExercise({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
@@ -223,9 +218,7 @@ export function ModeFullRecallExercise({
           className="min-h-0"
           contentClassName="flex h-full flex-col gap-3 pb-1"
         >
-          <motion.div
-            animate={shakeFlash.value === true ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)] transition-colors ${
               shakeFlash.value === true
                 ? 'border-state-error/50 bg-state-error/8'
@@ -249,7 +242,7 @@ export function ModeFullRecallExercise({
               spellCheck={false}
               enterKeyHint="done"
             />
-          </motion.div>
+          </div>
 
           {matchPercent !== null && (
             <div
@@ -288,6 +281,6 @@ export function ModeFullRecallExercise({
         disabled={inlineActionsDisabled}
       />
 
-    </motion.div>
+    </div>
   );
 }

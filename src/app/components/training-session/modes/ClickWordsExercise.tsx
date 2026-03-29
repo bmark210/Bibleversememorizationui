@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
@@ -271,11 +270,7 @@ export function ModeClickWordsExercise({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
@@ -345,6 +340,6 @@ export function ModeClickWordsExercise({
         disabled={inlineActionsDisabled}
       />
 
-    </motion.div>
+    </div>
   );
 }

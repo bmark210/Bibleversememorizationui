@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { Verse } from "@/app/domain/verse";
 import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { DirectLaunchVerse } from '@/app/components/Training/types';
@@ -530,7 +529,6 @@ export function useVerseListController({
     []
   );
 
-  const shouldReduceMotion = Boolean(useReducedMotion());
   const isListLoading =
     (!disabled && shouldDelayListFetch && !pagination.hasFetchedVersesOnce) ||
     pagination.isFetchingVerses && !pagination.hasFetchedVersesOnce && pagination.verses.length === 0;
@@ -550,18 +548,6 @@ export function useVerseListController({
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
   const bookOptions = VERSE_LIST_BOOK_OPTIONS;
-
-  const getRevealProps = useCallback(
-    (delay = 0) => {
-      if (shouldReduceMotion) return {};
-      return {
-        initial: { opacity: 0, y: 10 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.24, ease: 'easeOut', delay },
-      } as const;
-    },
-    [shouldReduceMotion]
-  );
 
   const openVerseInGallery = useCallback(
     (verse: Verse) => {
@@ -808,7 +794,6 @@ export function useVerseListController({
     ui: {
       announcement,
       isListLoading,
-      shouldReduceMotion,
       totalVisible,
       currentFilterLabel,
       currentFilterTheme,
@@ -886,9 +871,6 @@ export function useVerseListController({
       onVersePatched: (event: VersePatchEvent) => actions.applyVersePatchedFromGallery(event),
       onDelete: actions.handleDeleteVerse,
       onRequestMorePreviewVerses: () => pagination.fetchNextPage({ source: 'gallery' }),
-    },
-    view: {
-      getRevealProps,
     },
   };
 }

@@ -1,7 +1,5 @@
 'use client'
 
-import { motion } from 'motion/react';
-
 import { Button } from "@/app/components/ui/button";
 import type { TrainingModeRating } from './types';
 import type { HintRatingPolicy } from '@/modules/training/hints/types';
@@ -154,11 +152,7 @@ export function TrainingRatingButtons({
   });
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-3"
-    >
+    <div className="space-y-3">
       {title ? (
         <p className="text-sm text-muted-foreground text-center">{title}</p>
       ) : null}
@@ -192,6 +186,6 @@ export function TrainingRatingButtons({
           );
         })}
       </div>
-    </motion.div>
+    </div>
   );
 }

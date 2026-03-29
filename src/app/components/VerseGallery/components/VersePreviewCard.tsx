@@ -240,7 +240,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
                 colorConfig.metaPanelClassName,
-                popularityBadge.accentClassName
+                popularityBadge.accentClassName,
               )}
             >
               <popularityBadge.icon className="h-3.5 w-3.5" />
@@ -287,7 +287,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName,
+                          colorConfig.tagClassName
                         )}
                       >
                         #{tag.title}
@@ -313,7 +313,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                       <span
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName,
+                          colorConfig.tagClassName
                         )}
                       >
                         +{normalizedTags.length - 3}

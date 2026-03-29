@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { motion } from "motion/react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -137,9 +136,7 @@ export function AnchorTypeMode({
             onTypeSubmit();
           }}
         >
-          <motion.div
-            animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className={cn(
               "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-bg-elevated to-bg-subtle shadow-[var(--shadow-soft)] transition-colors focus-within:border-brand-primary/35",
               shakeInput
@@ -172,7 +169,7 @@ export function AnchorTypeMode({
                 }
               }}
             />
-          </motion.div>
+          </div>
 
           {/* Match percent display */}
           {matchPercent !== null && (
@@ -242,11 +239,7 @@ export function AnchorTypeMode({
           onTypeSubmit();
         }}
       >
-        <motion.div
-          animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-          transition={{ duration: 0.2 }}
-          className="relative"
-        >
+        <div className="relative">
           <Input
             ref={inputRef as RefObject<HTMLInputElement>}
             value={typedAnswer}
@@ -293,7 +286,7 @@ export function AnchorTypeMode({
               {typingAttempts === 0 ? "Проверить" : "Ещё раз"}
             </Button>
           </div>
-        </motion.div>
+        </div>
       </form>
 
       {/* Attempts and readiness indicators */}

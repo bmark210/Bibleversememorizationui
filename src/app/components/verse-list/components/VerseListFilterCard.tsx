@@ -9,7 +9,6 @@ import {
   Pencil,
   TrendingUp,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { Card } from '@/app/components/ui/card';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
@@ -43,11 +42,6 @@ function ScrollRow({
     </div>
   );
 }
-
-const PANEL_TRANSITION = {
-  duration: 0.22,
-  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-};
 
 const TESTAMENT_GROUPS = [
   { key: 'old', label: 'Ветхий Завет' },
@@ -89,19 +83,13 @@ function ExpandableSectionBody({
   expandedContent: React.ReactNode;
 }) {
   return (
-    <AnimatePresence initial={false} mode="wait">
-      <motion.div
+    <div
         key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
         id={controls}
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: 'auto', opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        transition={PANEL_TRANSITION}
         className="overflow-hidden"
       >
         {expanded ? expandedContent : collapsedContent}
-      </motion.div>
-    </AnimatePresence>
+      </div>
   );
 }
 
@@ -237,15 +225,8 @@ function VerseListFilterSections({
     const tagKey = tag.id ?? (slug || `tag-${index}`);
 
     return (
-      <motion.div
+      <div
         key={tagKey}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{
-          delay: Math.min(index * 0.045, 0.32),
-          duration: 0.18,
-          ease: [0.22, 1, 0.36, 1],
-        }}
         className={cn(
           'group/tag',
           layout === 'row' ? 'relative first:ml-3 last:mr-3 shrink-0' : 'relative',
@@ -276,7 +257,7 @@ function VerseListFilterSections({
           </span>
           {tag.title}
         </button>
-      </motion.div>
+      </div>
     );
   };
 
@@ -706,20 +687,11 @@ export function VerseListFilterCard({
           </div>
         </div>
 
-        <AnimatePresence initial={false}>
-          {!isCollapsed ? (
-            <motion.div
-              key="filters-content"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={PANEL_TRANSITION}
-              className="overflow-hidden"
-            >
-              <VerseListFilterSections {...sharedProps} />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {!isCollapsed ? (
+          <div className="overflow-hidden">
+            <VerseListFilterSections {...sharedProps} />
+          </div>
+        ) : null}
       </Card>
     </div>
   );

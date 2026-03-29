@@ -42,7 +42,6 @@ export type VerseListController = {
   ui: {
     announcement: string;
     isListLoading: boolean;
-    shouldReduceMotion: boolean;
     totalVisible: number;
     currentFilterLabel: string;
     currentFilterTheme: FilterVisualTheme;
@@ -120,8 +119,5 @@ export type VerseListController = {
     onVersePatched: (event: VersePatchEvent) => void;
     onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
     onRequestMorePreviewVerses: () => Promise<boolean>;
-  };
-  view: {
-    getRevealProps: (delay?: number) => Record<string, unknown>;
   };
 };

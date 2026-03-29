@@ -6,11 +6,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
 import { Virtuoso, type ListRange } from 'react-virtuoso';
 import { Verse } from "@/app/domain/verse";
 import type { VerseListStatusFilter } from '../constants';
-import type { AppendRevealRange } from '../hooks/useVersePagination';
 import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
@@ -25,7 +23,6 @@ type VerseVirtualizedListProps = {
   hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
-  appendRevealRange: AppendRevealRange;
   onLoadMore: (range: VerseListLoadRange) => Promise<void> | void;
   renderRow: (verse: Verse) => React.ReactNode;
   getItemKey: (verse: Verse) => string;
@@ -76,12 +73,7 @@ function InlineLoadMoreSkeleton({
 
   return (
     <div className="w-full pt-1" aria-hidden="true">
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.16, ease: 'easeOut' }}
-        className="space-y-3 pointer-events-none"
-      >
+      <div className="space-y-3 pointer-events-none">
         {Array.from({ length: count }, (_, idx) => (
           <div
             key={`inline-load-skeleton-${idx}`}
@@ -98,7 +90,7 @@ function InlineLoadMoreSkeleton({
             </div>
           </div>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -122,7 +114,6 @@ export function VerseVirtualizedList({
   hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
-  appendRevealRange,
   onLoadMore,
   renderRow,
   getItemKey,
@@ -134,7 +125,6 @@ export function VerseVirtualizedList({
   skeletonCount = DEFAULT_INLINE_SKELETON_COUNT,
   debugInfiniteScroll,
 }: VerseVirtualizedListProps) {
-  const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
   const lastVisibleRangeRef = useRef<RangeLike | null>(null);
@@ -411,13 +401,6 @@ export function VerseVirtualizedList({
         }}
         itemContent={(index, verse) => {
           const layoutSignature = getItemLayoutSignature(verse);
-          const itemKey = getItemKey(verse);
-          const shouldAnimateAppend =
-            !shouldReduceMotion &&
-            !!appendRevealRange &&
-            index >= appendRevealRange.start &&
-            index <= appendRevealRange.end;
-
           const content = (
             <div style={{ marginTop: index === 0 ? '1rem' : '0' }} data-layout-signature={layoutSignature} className="h-full">
               {renderRow(verse)}
@@ -431,18 +414,7 @@ export function VerseVirtualizedList({
               data-tour-index={index}
               data-tour-verse-id={verse.externalVerseId}
             >
-              {shouldAnimateAppend ? (
-                <motion.div
-                  key={`${itemKey}:${layoutSignature}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                >
-                  {content}
-                </motion.div>
-              ) : (
-                content
-              )}
+              {content}
             </div>
           );
         }}

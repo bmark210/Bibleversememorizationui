@@ -3,25 +3,16 @@
 import {
   useCallback,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { useDrag } from "@use-gesture/react";
-import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useTransform,
-} from "motion/react";
 import { cn } from "@/app/components/ui/utils";
 
-const ENTER_EXIT_OFFSET_PX = 100;
 const SWIPE_DISTANCE_RATIO = 0.18;
 const SWIPE_DISTANCE_MIN_PX = 72;
 const SWIPE_DISTANCE_MAX_PX = 148;
 const SWIPE_TRIGGER_VELOCITY = 0.52;
-const DRAG_VISUAL_RANGE_PX = 240;
 const SWIPE_IGNORE_SELECTOR = [
   "button",
   "a",
@@ -33,25 +24,6 @@ const SWIPE_IGNORE_SELECTOR = [
   "[data-gallery-swipe-ignore='true']",
 ].join(", ");
 
-const ENTER_SPRING = {
-  type: "spring" as const,
-  stiffness: 380,
-  damping: 32,
-  mass: 0.85,
-};
-
-const EXIT_TRANSITION = {
-  duration: 0.2,
-  ease: [0.32, 0.72, 0, 1] as [number, number, number, number],
-};
-
-const SNAP_BACK_SPRING = {
-  type: "spring" as const,
-  stiffness: 500,
-  damping: 38,
-  mass: 0.85,
-};
-
 type Props = {
   slideKey: string;
   direction: number;
@@ -60,20 +32,6 @@ type Props = {
   onNavigate: (dir: "prev" | "next") => Promise<boolean>;
   children: ReactNode;
 };
-
-type SlideBodyProps = Omit<Props, "className" | "slideKey">;
-
-function getInitialOffset(direction: number) {
-  if (direction > 0) return ENTER_EXIT_OFFSET_PX;
-  if (direction < 0) return -ENTER_EXIT_OFFSET_PX;
-  return 0;
-}
-
-function getExitOffset(direction: number) {
-  if (direction > 0) return -ENTER_EXIT_OFFSET_PX;
-  if (direction < 0) return ENTER_EXIT_OFFSET_PX;
-  return 0;
-}
 
 function getSwipeThreshold(element: HTMLElement | null) {
   const height = Math.max(
@@ -92,43 +50,14 @@ function shouldIgnoreTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest(SWIPE_IGNORE_SELECTOR));
 }
 
-/**
- * Two-layer architecture:
- *  - Outer motion.div: handles enter/exit animations (y offset, opacity, scale)
- *  - Inner motion.div: handles drag gesture via MotionValue (dragY)
- *
- * This prevents the drag MotionValue from overriding framer-motion's
- * initial/animate/exit y values — a bug that broke enter/exit slide transitions.
- */
 function SwipeSlideBody({
-  direction,
   enabled,
   onNavigate,
   children,
-}: SlideBodyProps) {
+}: Omit<Props, "className" | "slideKey" | "direction">) {
   const dragRef = useRef<HTMLDivElement | null>(null);
   const isNavigatingRef = useRef(false);
-  const dragY = useMotionValue(0);
-  const dragScale = useTransform(
-    dragY,
-    [-DRAG_VISUAL_RANGE_PX, 0, DRAG_VISUAL_RANGE_PX],
-    [0.985, 1, 0.985]
-  );
-  const dragOpacity = useTransform(
-    dragY,
-    [-DRAG_VISUAL_RANGE_PX, 0, DRAG_VISUAL_RANGE_PX],
-    [0.9, 1, 0.9]
-  );
-  const prefersReducedMotion = useReducedMotion();
-
-  const animateBack = useCallback(async () => {
-    if (prefersReducedMotion) {
-      dragY.jump(0);
-      return;
-    }
-
-    await animate(dragY, 0, SNAP_BACK_SPRING).finished.catch(() => {});
-  }, [prefersReducedMotion, dragY]);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
 
   const navigateWithSwipe = useCallback(
     async (step: 1 | -1) => {
@@ -137,12 +66,12 @@ function SwipeSlideBody({
 
       const didNavigate = await onNavigate(step === 1 ? "next" : "prev");
       if (!didNavigate) {
-        await animateBack();
+        setDragOffsetY(0);
       }
 
       isNavigatingRef.current = false;
     },
-    [animateBack, onNavigate]
+    [onNavigate]
   );
 
   useDrag(
@@ -166,7 +95,7 @@ function SwipeSlideBody({
       }
 
       if (active) {
-        dragY.set(offsetY);
+        setDragOffsetY(offsetY);
         return;
       }
 
@@ -187,7 +116,7 @@ function SwipeSlideBody({
         return;
       }
 
-      void animateBack();
+      setDragOffsetY(0);
     },
     {
       target: dragRef,
@@ -205,45 +134,24 @@ function SwipeSlideBody({
   );
 
   return (
-    <motion.div
-      initial={{
-        y: getInitialOffset(direction),
-        opacity: direction === 0 ? 1 : 0,
-        scale: direction === 0 ? 1 : 0.97,
-      }}
-      animate={{
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        transition: ENTER_SPRING,
-      }}
-      exit={{
-        y: getExitOffset(direction),
-        opacity: 0,
-        scale: 0.97,
-        transition: EXIT_TRANSITION,
-      }}
-      className="col-start-1 row-start-1 w-full overflow-visible will-change-transform"
-    >
-      <motion.div
+    <div className="col-start-1 row-start-1 w-full overflow-visible">
+      <div
         ref={dragRef}
         style={{
-          y: dragY,
-          scale: dragScale,
-          opacity: dragOpacity,
+          transform: dragOffsetY === 0 ? undefined : `translateY(${dragOffsetY}px)`,
           touchAction: enabled ? "pan-x" : "auto",
         }}
-        className="h-full w-full will-change-transform"
+        className="h-full w-full"
       >
         {children}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
 export function GallerySwipeSlide({
   slideKey,
-  direction,
+  direction: _direction,
   enabled,
   className,
   onNavigate,
@@ -253,16 +161,13 @@ export function GallerySwipeSlide({
     <div
       className={cn("relative isolate grid w-full place-items-center overflow-visible", className)}
     >
-      <AnimatePresence initial={false} mode="sync">
-        <SwipeSlideBody
-          key={slideKey}
-          direction={direction}
-          enabled={enabled}
-          onNavigate={onNavigate}
-        >
-          {children}
-        </SwipeSlideBody>
-      </AnimatePresence>
+      <SwipeSlideBody
+        key={slideKey}
+        enabled={enabled}
+        onNavigate={onNavigate}
+      >
+        {children}
+      </SwipeSlideBody>
     </div>
   );
 }

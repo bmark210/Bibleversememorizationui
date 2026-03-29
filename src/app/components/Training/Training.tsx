@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
 import { AnchorSession } from "./anchor/AnchorSession";
@@ -197,16 +196,8 @@ export function Training({
 
   return (
     <div className="h-full">
-      <AnimatePresence mode="wait">
-        {view.mode === "hub" && (
-          <motion.div
-            key="hub"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="h-full overflow-hidden"
-          >
+      {view.mode === "hub" && (
+        <div className="h-full overflow-hidden">
             <TrainingHub
               allVerses={allVerses}
               dashboardStats={dashboardStats}
@@ -220,34 +211,22 @@ export function Training({
               onStart={handleStart}
               onStartSelection={handleStartSelection}
             />
-          </motion.div>
-        )}
+        </div>
+      )}
 
-        {view.mode === "anchor" && (
-          <motion.div
-            key="anchor"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
+      {view.mode === "anchor" && (
+        <div>
             <AnchorSession
               telegramId={telegramId}
               anchorModes={view.anchorModes}
               onSessionCommitted={onVerseMutationCommitted}
               onClose={handleExitSession}
             />
-          </motion.div>
-        )}
+        </div>
+      )}
 
-        {view.mode === "verse-session" && (
-          <motion.div
-            key="verse-session"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
+      {view.mode === "verse-session" && (
+        <div>
             <TrainingSession
               verses={view.verses}
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
@@ -257,9 +236,8 @@ export function Training({
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

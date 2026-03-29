@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -74,20 +73,6 @@ const ANCHOR_SESSION_BATCH_SIZE = 10;
 const REFERENCE_TRAINER_POOL_LIMIT = 24;
 const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
-
-const slideVariants = {
-  enter: { opacity: 0, scale: 0.97 },
-  center: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.97,
-    transition: { duration: 0.15, ease: "easeIn" as const },
-  },
-};
 
 // ---------------------------------------------------------------------------
 // mapToTrainingVerse
@@ -1021,16 +1006,11 @@ export function AnchorTrainingSession({
 
           {/* Active question */}
           {hasActiveQuestion && currentQuestion && (
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                key={currentQuestion.id}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
-                tabIndex={-1}
-              >
+            <div
+              key={currentQuestion.id}
+              className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
+              tabIndex={-1}
+            >
                     {isAnswered ? (
                       /* ── Full-screen result after answer ── */
                       <ScrollShadowContainer
@@ -1156,8 +1136,7 @@ export function AnchorTrainingSession({
                         </ScrollShadowContainer>
                       </>
                     )}
-              </motion.div>
-            </AnimatePresence>
+            </div>
           )}
         </div>
 

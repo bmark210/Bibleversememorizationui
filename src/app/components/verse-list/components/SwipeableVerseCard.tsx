@@ -1,6 +1,5 @@
 import React from 'react';
 import { Users } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
@@ -55,7 +54,6 @@ const SwipeableVerseCardComponent = ({
   isAnchorEligible = false,
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: SwipeCardProps) => {
-  const reduceMotion = useReducedMotion();
   const displayStatus = normalizeDisplayVerseStatus(verse.status);
   const stageVisual = getVerseStageVisual(verse);
   const tonePalette = colorConfig.tones[stageVisual.key];
@@ -311,7 +309,6 @@ const SwipeableVerseCardComponent = ({
 
   return (
     <div className="relative isolate verse-card-appear">
-      <AnimatePresence initial={false}>
       <div
         role="button"
         tabIndex={0}
@@ -445,20 +442,8 @@ const SwipeableVerseCardComponent = ({
             ) : null}
           </div>
           {!isFocusMode && (statusMetaContent || waitingMetaContent) ? (
-            <motion.div
+            <div
               key={layoutSignature}
-              initial={reduceMotion ? false : { height: 0, opacity: 0, y: -4 }}
-              animate={
-                reduceMotion
-                  ? { opacity: 1 }
-                  : { height: 'auto', opacity: 1, y: 0 }
-              }
-              exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0, y: -4 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0.12 }
-                  : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
-              }
               className="relative overflow-hidden"
             >
               <div className="flex items-end justify-between gap-3 pt-3">
@@ -482,11 +467,10 @@ const SwipeableVerseCardComponent = ({
                   />
                 </button>
               </div>
-            </motion.div>
+            </div>
           ) : null}
         </div>
       </div>
-        </AnimatePresence>
     </div>
   );
 };

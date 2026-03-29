@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
@@ -213,11 +212,7 @@ export function ModeFirstLettersKeyboardExercise({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
@@ -252,9 +247,7 @@ export function ModeFirstLettersKeyboardExercise({
           >
           </p>
 
-          <motion.div
-            animate={shakeFlash.value === true ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
               shakeFlash.value === true
                   ? 'border-destructive/60 bg-destructive/5'
@@ -278,7 +271,7 @@ export function ModeFirstLettersKeyboardExercise({
               spellCheck={false}
               enterKeyHint="done"
             />
-          </motion.div>
+          </div>
         </TrainingExerciseSection>
       </ScrollShadowContainer>
 
@@ -290,6 +283,6 @@ export function ModeFirstLettersKeyboardExercise({
         disabled={inlineActionsDisabled}
       />
 
-    </motion.div>
+    </div>
   );
 }

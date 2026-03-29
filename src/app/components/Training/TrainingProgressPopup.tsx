@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/app/components/ui/utils";
 import type { TrainingProgressPopupPayload } from "./trainingProgressFeedback";
 
@@ -29,24 +28,16 @@ export function TrainingProgressPopup({
       aria-live="polite"
       aria-atomic="true"
     >
-      <AnimatePresence initial={false}>
-        {popup ? (
-          <motion.div
-            key={popup.id}
-            initial={{ opacity: 0, y: -18, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16, scale: 0.97 }}
-            transition={{
-              duration: 0.18,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className={cn(
-              "w-full max-w-md overflow-hidden rounded-[28px] border shadow-[var(--shadow-floating)] backdrop-blur-2xl",
-              popup.tone === "positive"
-                ? "border-status-learning/25 bg-gradient-to-br from-status-learning-soft via-bg-elevated to-status-mastered-soft"
-                : "border-status-paused/25 bg-gradient-to-br from-status-paused-soft via-bg-elevated to-bg-elevated"
-            )}
-          >
+      {popup ? (
+        <div
+          key={popup.id}
+          className={cn(
+            "w-full max-w-md overflow-hidden rounded-[28px] border shadow-[var(--shadow-floating)] backdrop-blur-2xl",
+            popup.tone === "positive"
+              ? "border-status-learning/25 bg-gradient-to-br from-status-learning-soft via-bg-elevated to-status-mastered-soft"
+              : "border-status-paused/25 bg-gradient-to-br from-status-paused-soft via-bg-elevated to-bg-elevated"
+          )}
+        >
             <div
               aria-hidden="true"
               className={cn(
@@ -103,9 +94,8 @@ export function TrainingProgressPopup({
                 </div>
               ) : null}
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        </div>
+      ) : null}
     </div>
   );
 }

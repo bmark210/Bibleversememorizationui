@@ -11,7 +11,6 @@ import React, {
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { Eye, Plus } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 
 const AddVerseDialog = dynamic(
   () => import("./AddVerseDialog").then((m) => m.AddVerseDialog),
@@ -250,22 +249,11 @@ export function VerseList({
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
-  const reveal = useCallback(
-    (delay: number) => vm.view.getRevealProps(delay),
-    [vm.view.getRevealProps],
-  );
   const getListItemLayoutSignature = useCallback(
     (verse: Verse) =>
       `${getVerseCardLayoutSignature(verse)}:${isFocusMode ? "focus" : "default"}`,
     [isFocusMode],
   );
-  const shouldReduceMotion = vm.ui.shouldReduceMotion;
-  const listCrossfadeSlow = shouldReduceMotion
-    ? { duration: 0 }
-    : { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
-  const listCrossfadeExit = shouldReduceMotion
-    ? { duration: 0 }
-    : { duration: 0.15, ease: [0.4, 0, 0.2, 1] as const };
   const isAllMode = vm.filters.statusFilter === "catalog";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
@@ -387,7 +375,6 @@ export function VerseList({
         hasMoreItems={vm.pagination.hasMoreVerses}
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
-        appendRevealRange={vm.pagination.appendRevealRange}
         onLoadMore={vm.list.onLoadMoreRows}
         renderRow={vm.list.renderVerseRow}
         getItemKey={vm.list.getItemKey}
@@ -472,28 +459,16 @@ export function VerseList({
 
   return (
     <>
-      <motion.div
-        className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col pb-4"
-        {...(shouldReduceMotion
-          ? {}
-          : {
-              initial: { opacity: 0 },
-              animate: { opacity: 1 },
-              transition: { duration: 0.2, ease: "easeOut" as const },
-            })}
-      >
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col pb-4">
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {vm.ui.announcement}
         </div>
 
-        <motion.div
-          className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}
-          {...reveal(0.02)}
-        >
+        <div className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}>
           <VerseListHeader
             isFullscreen={isTelegramFullscreen}
           />
-        </motion.div>
+        </div>
 
               <div
                 className={cn(
@@ -540,10 +515,7 @@ export function VerseList({
         <div
           className="sticky top-0 z-40 shrink-0"
         >
-          <motion.div
-            className="px-2 pt-2 pb-0 sm:px-6 lg:px-8"
-            {...reveal(0.04)}
-          >
+          <div className="px-2 pt-2 pb-0 sm:px-6 lg:px-8">
             <div className="flex items-stretch gap-1">
               <div className="min-w-0 flex-1">
                 <VerseListFiltersTrigger
@@ -554,7 +526,7 @@ export function VerseList({
               </div>
 
             </div>
-          </motion.div>
+          </div>
         </div>
 
         <div
@@ -585,58 +557,41 @@ export function VerseList({
                 )}
               />
 
-              <AnimatePresence mode="sync">
-                {vm.ui.isListLoading ? (
-                <motion.div
-                  key="verse-list-loading"
+              {vm.ui.isListLoading ? (
+                <div
                   data-tour="verse-list-content"
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="loading"
                   className="relative flex h-full min-h-0 flex-col overflow-y-auto px-3 py-3 sm:px-4"
-                  initial={false}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                    transition={listCrossfadeExit}
-                  >
-                    <VerseListSkeletonCards count={5} />
-                  </motion.div>
-                ) : null}
-                {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
-                <motion.div
-                  key="verse-list-empty"
+                >
+                  <VerseListSkeletonCards count={5} />
+                </div>
+              ) : null}
+              {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
+                <div
                   data-tour="verse-list-content"
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="empty"
                   className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                    transition={listCrossfadeSlow}
-                  >
-                    <div className="w-full max-w-md">
-                      <VerseListEmptyState
-                        currentFilterLabel={vm.ui.currentFilterLabel}
-                        isAllFilter={vm.filters.statusFilter === "catalog"}
-                      />
-                    </div>
-                  </motion.div>
-                ) : null}
-                {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
-                <motion.div
-                  key="verse-list-ready"
+                >
+                  <div className="w-full max-w-md">
+                    <VerseListEmptyState
+                      currentFilterLabel={vm.ui.currentFilterLabel}
+                      isAllFilter={vm.filters.statusFilter === "catalog"}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+                <div
                   data-tour="verse-list-content"
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="ready"
                   className="relative flex h-full min-h-0 flex-col px-2 py-2 sm:px-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={listCrossfadeSlow}
                 >
                   <div className="min-h-0 flex-1">{listContent}</div>
-                </motion.div>
+                </div>
               ) : null}
-              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -703,7 +658,7 @@ export function VerseList({
           open={isVerseProgressDrawerOpen}
           onOpenChange={handleVerseProgressOpenChange}
         />
-      </motion.div>
+      </div>
     </>
   );
 }

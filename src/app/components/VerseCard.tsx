@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
-import { motion } from "motion/react";
 import {
   createVerticalTouchSwipeStart,
   getVerticalTouchSwipeStep,
@@ -90,7 +89,6 @@ export function VerseCard({
   onVerticalSwipeStep,
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: VerseCardProps) {
-  const enableTapScale = !bodyScrollable;
   const isPreviewToneActive = Boolean(previewTone);
   const tone = previewTone ?? "learning";
   const tonePalette = colorConfig.tones[tone];
@@ -363,8 +361,7 @@ export function VerseCard({
 
   return (
     <div className={cn("relative mx-auto w-full min-w-0 max-w-2xl select-none overflow-x-hidden", shellClassName)}>
-      <motion.div
-        whileTap={enableTapScale ? { scale: 0.985 } : undefined}
+      <div
         onTouchStart={onVerticalSwipeStep ? handleTouchStart : undefined}
         onTouchEnd={onVerticalSwipeStep ? handleTouchEnd : undefined}
         className={cn(
@@ -486,7 +483,7 @@ export function VerseCard({
 
         {footer ? <div className="mt-6 min-w-0 flex-shrink-0">{footer}</div> : null}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

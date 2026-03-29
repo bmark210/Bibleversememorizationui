@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { Mic, MicOff, RefreshCcw } from 'lucide-react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 
@@ -266,11 +265,7 @@ export function ModeVoiceRecallExercise({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
@@ -387,6 +382,6 @@ export function ModeVoiceRecallExercise({
         </Button>
       </FixedBottomPanel>
 
-    </motion.div>
+    </div>
   );
 }

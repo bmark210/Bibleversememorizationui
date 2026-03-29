@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, type CSSProperties } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
   Bone,
@@ -232,7 +231,6 @@ export function TrainingHub({
   onStart,
   onStartSelection,
 }: TrainingHubProps) {
-  const shouldReduceMotion = useReducedMotion();
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
@@ -401,15 +399,7 @@ export function TrainingHub({
           } as CSSProperties
         }
       >
-        <motion.div
-          initial={shouldReduceMotion ? undefined : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.18,
-            ease: "easeOut",
-          }}
-          className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-4 pb-2"
-        >
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-4 pb-2">
           {/* Fixed top: header + tabs */}
           <div className="shrink-0">
             <div className="flex flex-col gap-3">
@@ -460,18 +450,8 @@ export function TrainingHub({
 
           {/* Mode list — scrollable middle section */}
           <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-3.5 pb-3.5 pt-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:px-4 sm:pb-4 sm:pt-4">
-            <AnimatePresence mode="wait" initial={false}>
-              {selectedScenario === "core" ? (
-                <motion.div
-                  data-tour="training-core-presets"
-                  key="core"
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={
-                    shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
-                  }
-                  transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                >
+            {selectedScenario === "core" ? (
+                <div data-tour="training-core-presets">
                   <SectionLabel>Режим практики</SectionLabel>
                   <RadioGroupPrimitive.Root
                     value={activeCorePreset.id}
@@ -491,18 +471,9 @@ export function TrainingHub({
                       />
                     ))}
                   </RadioGroupPrimitive.Root>
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  data-tour="training-anchor-presets"
-                  key="anchor"
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={
-                    shouldReduceMotion ? undefined : { opacity: 0, y: -4 }
-                  }
-                  transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                >
+                <div data-tour="training-anchor-presets">
                   <SectionLabel>Режимы игр</SectionLabel>
                   <div className="mt-2 flex flex-wrap gap-2">
                   {ALL_ANCHOR_MODE_GROUPS.map((group) => {
@@ -573,9 +544,8 @@ export function TrainingHub({
                     );
                   })}
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
 
             {hasSelection && selectionVerses ? (
               <section className="mt-3 flex items-center justify-between gap-3 rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-xl">
@@ -606,7 +576,7 @@ export function TrainingHub({
               </section>
             ) : null}
           </div>
-        </motion.div>
+        </div>
 
         {/* Bottom: start card — always pinned above navbar */}
         <div
