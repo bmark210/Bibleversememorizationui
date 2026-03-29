@@ -659,66 +659,66 @@ function DashboardLeaderboardRow({
 
 /* ── Leader Showcase (compact hero row for rank-1) ───────────────── */
 
-function LeaderShowcase({
-  entry,
-  isCurrentUser,
-  onOpenPlayerProfile,
-}: {
-  entry: domain_UserLeaderboardEntry;
-  isCurrentUser: boolean;
-  onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
-}) {
-  const displayName = leaderboardEntryDisplayName(entry);
-  const xp = leaderboardEntryXp(entry);
+// function LeaderShowcase({
+//   entry,
+//   isCurrentUser,
+//   onOpenPlayerProfile,
+// }: {
+//   entry: domain_UserLeaderboardEntry;
+//   isCurrentUser: boolean;
+//   onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
+// }) {
+//   const displayName = leaderboardEntryDisplayName(entry);
+//   const xp = leaderboardEntryXp(entry);
 
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpenPlayerProfile?.({
-          telegramId: String(entry.telegramId ?? ""),
-          name: displayName,
-          avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
-        });
-      }} 
-      className={cn(
-        "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-2",
-        isCurrentUser
-          ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
-          : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
-      )}
-      aria-label={`Открыть профиль ${displayName}`}
-    >
-      <div className="relative shrink-0">
-        <Avatar className="h-12 w-12 border-2 border-status-mastered/40 narrow:h-10 narrow:w-10">
-          {entry.avatarUrl ? (
-            <AvatarImage src={entry.avatarUrl} alt={displayName} />
-          ) : null}
-          <AvatarFallback className="bg-status-mastered-soft text-base font-bold text-status-mastered narrow:text-sm">
-            {getInitials(displayName)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-status-mastered/30 bg-bg-overlay">
-          <Crown className="h-2.5 w-2.5 text-status-mastered" />
-        </span>
-      </div>
+//   return (
+//     <button
+//       type="button"
+//       onClick={(e) => {
+//         e.stopPropagation();
+//         onOpenPlayerProfile?.({
+//           telegramId: String(entry.telegramId ?? ""),
+//           name: displayName,
+//           avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
+//         });
+//       }} 
+//       className={cn(
+//         "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-2",
+//         isCurrentUser
+//           ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
+//           : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
+//       )}
+//       aria-label={`Открыть профиль ${displayName}`}
+//     >
+//       <div className="relative shrink-0">
+//         <Avatar className="h-12 w-12 border-2 border-status-mastered/40 narrow:h-10 narrow:w-10">
+//           {entry.avatarUrl ? (
+//             <AvatarImage src={entry.avatarUrl} alt={displayName} />
+//           ) : null}
+//           <AvatarFallback className="bg-status-mastered-soft text-base font-bold text-status-mastered narrow:text-sm">
+//             {getInitials(displayName)}
+//           </AvatarFallback>
+//         </Avatar>
+//         <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-status-mastered/30 bg-bg-overlay">
+//           <Crown className="h-2.5 w-2.5 text-status-mastered" />
+//         </span>
+//       </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-status-mastered/70 narrow:text-[9px]">
-          {isCurrentUser ? "Вы — лидер" : "Лидер"}
-        </div>
-        <div className="truncate text-[14px] font-semibold leading-tight text-status-mastered narrow:text-[13px]">
-          {displayName}
-        </div>
-      </div>
+//       <div className="min-w-0 flex-1">
+//         <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-status-mastered/70 narrow:text-[9px]">
+//           {isCurrentUser ? "Вы — лидер" : "Лидер"}
+//         </div>
+//         <div className="truncate text-[14px] font-semibold leading-tight text-status-mastered narrow:text-[13px]">
+//           {displayName}
+//         </div>
+//       </div>
 
-      <div className="shrink-0 text-[15px] font-bold text-status-mastered narrow:text-[13px]">
-        {formatXp(xp)}
-      </div>
-    </button>
-  );
-}
+//       <div className="shrink-0 text-[15px] font-bold text-status-mastered narrow:text-[13px]">
+//         {formatXp(xp)}
+//       </div>
+//     </button>
+//   );
+// }
 
 /* ── Compact Neighborhood Row (mini row around current user) ──────── */
 
@@ -1134,23 +1134,23 @@ export const DashboardLeaderboardCard = React.memo(
       onOpenPlayerProfile,
     };
 
-    const leaderEntry = React.useMemo(
-      () =>
-        cachedEntries.find(
-          (entry): entry is domain_UserLeaderboardEntry => entry != null,
-        ) ??
-        leaderboard?.items?.[0] ??
-        null,
-      [cachedEntries, leaderboard],
-    );
+    // const leaderEntry = React.useMemo(
+    //   () =>
+    //     cachedEntries.find(
+    //       (entry): entry is domain_UserLeaderboardEntry => entry != null,
+    //     ) ??
+    //     leaderboard?.items?.[0] ??
+    //     null,
+    //   [cachedEntries, leaderboard],
+    // );
 
-    const isLeaderCurrentUser = React.useMemo(
-      () =>
-        leaderEntry != null &&
-        currentUserTelegramId != null &&
-        String(leaderEntry.telegramId ?? "") === currentUserTelegramId,
-      [leaderEntry, currentUserTelegramId],
-    );
+    // const isLeaderCurrentUser = React.useMemo(
+    //   () =>
+    //     leaderEntry != null &&
+    //     currentUserTelegramId != null &&
+    //     String(leaderEntry.telegramId ?? "") === currentUserTelegramId,
+    //   [leaderEntry, currentUserTelegramId],
+    // );
 
     const currentUserEntryIndex = React.useMemo(() => {
       if (!currentUserTelegramId) return -1;
@@ -1160,21 +1160,27 @@ export const DashboardLeaderboardCard = React.memo(
       );
     }, [cachedEntries, currentUserTelegramId]);
 
-    const neighborEntries = React.useMemo(() => {
-      if (currentUserEntryIndex < 0) return null;
-      return {
-        prev:
-          currentUserEntryIndex > 0
-            ? (cachedEntries[currentUserEntryIndex - 1] ?? null)
-            : null,
-        self: cachedEntries[
-          currentUserEntryIndex
-        ] as domain_UserLeaderboardEntry,
-        next:
-          currentUserEntryIndex < cachedEntries.length - 1
-            ? (cachedEntries[currentUserEntryIndex + 1] ?? null)
-            : null,
-      };
+    // Always exactly 3 rows: self + 2 neighbours (or top-3 if user not found)
+    const compactRows = React.useMemo(() => {
+      if (cachedEntries.length === 0) return null;
+
+      let start: number;
+      if (currentUserEntryIndex >= 0) {
+        const last = cachedEntries.length - 1;
+        if (currentUserEntryIndex === 0) {
+          start = 0; // leader — show [0,1,2]
+        } else if (currentUserEntryIndex >= last) {
+          start = Math.max(0, currentUserEntryIndex - 2); // last — show [n-2,n-1,n]
+        } else {
+          start = currentUserEntryIndex - 1; // middle — show [i-1,i,i+1]
+        }
+      } else {
+        start = 0; // user not in cache yet — show top 3
+      }
+
+      return cachedEntries
+        .slice(start, start + 3)
+        .filter((e): e is domain_UserLeaderboardEntry => e != null);
     }, [cachedEntries, currentUserEntryIndex]);
 
     // Prefetch current user's window for compact neighborhood preview
@@ -1284,86 +1290,34 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
             {isLeaderboardLoading && totalParticipants === 0 ? (
+              /* Loading — 3 skeleton rows */
               <>
-                <Skeleton className="h-[60px] rounded-[1.2rem] border-0" />
-                <Skeleton className="flex-1 rounded-[1.2rem] border-0 min-h-[60px]" />
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
               </>
-            ) : leaderEntry ? (
-              <>
-                <LeaderShowcase
-                  entry={leaderEntry}
-                  isCurrentUser={isLeaderCurrentUser}
+            ) : compactRows && compactRows.length > 0 ? (
+              /* Always exactly 3 rows (or fewer if total participants < 3) */
+              compactRows.map((entry) => (
+                <CompactNeighborhoodRow
+                  key={String(entry.telegramId ?? entry.rank)}
+                  entry={entry}
+                  isCurrentUser={
+                    currentUserTelegramId != null &&
+                    String(entry.telegramId ?? '') === currentUserTelegramId
+                  }
+                  currentUserXp={currentUserXp}
                   onOpenPlayerProfile={onOpenPlayerProfile}
                 />
-
-                {/* Compact list — fills remaining space, overflow clipped */}
-                <div className="flex flex-col gap-1 overflow-hidden">
-                  {isLeaderCurrentUser ? (
-                    /* Current user IS the leader — show who's chasing them */
-                    (cachedEntries.slice(1) as domain_UserLeaderboardEntry[])
-                      .filter(Boolean)
-                      .map((entry) => (
-                        <CompactNeighborhoodRow
-                          key={String(entry.telegramId ?? entry.rank)}
-                          entry={entry}
-                          isCurrentUser={false}
-                          currentUserXp={currentUserXp}
-                          onOpenPlayerProfile={onOpenPlayerProfile}
-                        />
-                      ))
-                  ) : neighborEntries ? (
-                    /* Show current user surrounded by neighbors */
-                    <>
-                      {neighborEntries.prev && (
-                        <CompactNeighborhoodRow
-                          entry={neighborEntries.prev as domain_UserLeaderboardEntry}
-                          isCurrentUser={false}
-                          currentUserXp={currentUserXp}
-                          onOpenPlayerProfile={onOpenPlayerProfile}
-                        />
-                      )}
-                      <CompactNeighborhoodRow
-                        entry={neighborEntries.self}
-                        isCurrentUser={true}
-                        currentUserXp={currentUserXp}
-                        onOpenPlayerProfile={onOpenPlayerProfile}
-                      />
-                      {neighborEntries.next && (
-                        <CompactNeighborhoodRow
-                          entry={neighborEntries.next as domain_UserLeaderboardEntry}
-                          isCurrentUser={false}
-                          currentUserXp={currentUserXp}
-                          onOpenPlayerProfile={onOpenPlayerProfile}
-                        />
-                      )}
-                      {/* Fill remaining space with more entries */}
-                      {(cachedEntries.slice(
-                        Math.min(
-                          cachedEntries.indexOf(neighborEntries.next) + 1,
-                          cachedEntries.length,
-                        ),
-                      ) as domain_UserLeaderboardEntry[])
-                        .filter(Boolean)
-                        .map((entry) => (
-                          <CompactNeighborhoodRow
-                            key={String(entry.telegramId ?? entry.rank)}
-                            entry={entry}
-                            isCurrentUser={false}
-                            currentUserXp={currentUserXp}
-                            onOpenPlayerProfile={onOpenPlayerProfile}
-                          />
-                        ))}
-                    </>
-                  ) : currentUserSnapshot?.rank ? (
-                    /* Neighborhood not loaded yet — show rank tile */
-                    <DashboardInfoTile
-                      label="Ваше место"
-                      value={`#${currentUserSnapshot.rank} из ${totalParticipants}`}
-                    />
-                  ) : null}
-                </div>
+              ))
+            ) : currentUserSnapshot?.rank ? (
+              /* User rank known but neighborhood not cached yet — skeleton */
+              <>
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
+                <Skeleton className="h-10 rounded-[1.2rem] border-0" />
               </>
             ) : (
               <DashboardInfoTile
