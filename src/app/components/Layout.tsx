@@ -12,6 +12,7 @@ interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
   onNavigate: (page: string) => void;
+  onNavigateIntent?: (page: string) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
   contentMode?: "scroll" | "fit" | "fit-strict";
@@ -28,6 +29,7 @@ export function Layout({
   children,
   currentPage,
   onNavigate,
+  onNavigateIntent,
   isContentReady = false,
   hideChrome = false,
   contentMode = "scroll",
@@ -143,6 +145,14 @@ export function Layout({
     onNavigate(page);
   };
 
+  const handleNavigateIntent = (page: string) => {
+    if (page === currentPage) {
+      return;
+    }
+
+    onNavigateIntent?.(page);
+  };
+
   const mainBottomPadding = hideAppChrome
     ? bottomInset
     : isKeyboardOpen
@@ -185,6 +195,9 @@ export function Layout({
                   type="button"
                   key={item.id}
                   aria-current={isActive ? "page" : undefined}
+                  onPointerEnter={() => handleNavigateIntent(item.id)}
+                  onFocus={() => handleNavigateIntent(item.id)}
+                  onTouchStart={() => handleNavigateIntent(item.id)}
                   onClick={() => handleNavigateClick(item.id)}
                   className={cn(
                     "flex min-h-12 w-full items-center gap-3 rounded-[1.25rem] border px-4 py-3 text-sm transition-[background-color,border-color,color,box-shadow]",
@@ -257,6 +270,9 @@ export function Layout({
                 type="button"
                 key={item.id}
                 aria-current={isActive ? "page" : undefined}
+                onPointerEnter={() => handleNavigateIntent(item.id)}
+                onFocus={() => handleNavigateIntent(item.id)}
+                onTouchStart={() => handleNavigateIntent(item.id)}
                 onClick={() => handleNavigateClick(item.id)}
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] px-2.5 py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:px-2 narrow:py-1.5",

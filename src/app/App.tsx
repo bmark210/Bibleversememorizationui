@@ -16,7 +16,7 @@ import {
   getVerseSyncKey,
   mergeVersePatch,
 } from "@/app/utils/versePatch";
-import type { PlayerProfilePreview } from "@/app/domain/appPages";
+import type { AppRootPage, PlayerProfilePreview } from "@/app/domain/appPages";
 import { useAppBootstrap } from "@/app/hooks/app/useAppBootstrap";
 import { useAppDataRefetchEffects } from "@/app/hooks/app/useAppDataRefetchEffects";
 import { useAppNavigation } from "@/app/hooks/app/useAppNavigation";
@@ -24,44 +24,53 @@ import { useAppTheme } from "@/app/hooks/app/useAppTheme";
 import { useDashboardData } from "@/app/hooks/app/useDashboardData";
 import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
+import { cancelIdleTask, scheduleIdleTask } from "@/app/lib/idleTask";
+import { cn } from "@/app/components/ui/utils";
 
-const VerseList = dynamic(
-  () => import("./components/VerseList").then((m) => m.VerseList),
-  {
-    loading: () => <div className="min-h-[60vh]" />,
-  }
-);
+const loadVerseListModule = () => import("./components/VerseList");
+const loadProfileModule = () => import("./components/Profile");
+const loadAddVerseDialogModule = () => import("./components/AddVerseDialog");
+const loadTrainingModule = () => import("./components/Training");
+const loadDashboardModule = () => import("./components/Dashboard");
+const loadPlayerProfileDrawerModule = () => import("./components/PlayerProfileDrawer");
 
-const Profile = dynamic(
-  () => import("./components/Profile").then((m) => m.Profile),
-  {
-    loading: () => <div className="min-h-[60vh]" />,
-  }
-);
+const ROOT_PAGE_MODULE_LOADERS: Record<AppRootPage, () => Promise<unknown>> = {
+  dashboard: loadDashboardModule,
+  verses: loadVerseListModule,
+  training: loadTrainingModule,
+  profile: loadProfileModule,
+};
+
+const AUXILIARY_MODULE_LOADERS = [
+  loadAddVerseDialogModule,
+  loadPlayerProfileDrawerModule,
+] as const;
+
+const VerseList = dynamic(() => loadVerseListModule().then((m) => m.VerseList), {
+  loading: () => <div className="min-h-[60vh]" />,
+});
+
+const Profile = dynamic(() => loadProfileModule().then((m) => m.Profile), {
+  loading: () => <div className="min-h-[60vh]" />,
+});
 
 const AddVerseDialog = dynamic(
-  () => import("./components/AddVerseDialog").then((m) => m.AddVerseDialog),
+  () => loadAddVerseDialogModule().then((m) => m.AddVerseDialog),
   {
     loading: () => null,
   }
 );
 
-const Training = dynamic(
-  () => import("./components/Training").then((m) => m.Training),
-  {
-    loading: () => <div className="min-h-[60vh]" />,
-  }
-);
+const Training = dynamic(() => loadTrainingModule().then((m) => m.Training), {
+  loading: () => <div className="min-h-[60vh]" />,
+});
 
-const Dashboard = dynamic(
-  () => import("./components/Dashboard").then((m) => m.Dashboard),
-  {
-    loading: () => <div className="min-h-[50vh]" />,
-  }
-);
+const Dashboard = dynamic(() => loadDashboardModule().then((m) => m.Dashboard), {
+  loading: () => <div className="min-h-[50vh]" />,
+});
 
 const PlayerProfileDrawer = dynamic(
-  () => import("./components/PlayerProfileDrawer").then((m) => m.PlayerProfileDrawer),
+  () => loadPlayerProfileDrawerModule().then((m) => m.PlayerProfileDrawer),
   {
     loading: () => null,
   }
@@ -165,8 +174,10 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const hasNotifiedInitialContentReadyRef = useRef(false);
   const pendingMutationRefetchRef = useRef(false);
+  const prefetchedPagesRef = useRef<Set<AppRootPage>>(new Set(["dashboard"]));
 
   const hasVerseListFriends = verseListFriendsPresence === true;
+  const shouldKeepRootPagesAlive = !isBootstrapping;
 
   const handleNavigateBackInApp = nav.handleNavigateBackInApp;
 
@@ -262,6 +273,31 @@ export default function App({ onInitialContentReady }: AppProps) {
     nav.pushPage("training");
   }, [ensureTrainingVersesLoaded, nav, telegramId]);
 
+  const prefetchRootPage = useCallback(async (page: AppRootPage) => {
+    if (prefetchedPagesRef.current.has(page)) {
+      return;
+    }
+
+    prefetchedPagesRef.current.add(page);
+
+    try {
+      await ROOT_PAGE_MODULE_LOADERS[page]();
+    } catch (error) {
+      prefetchedPagesRef.current.delete(page);
+      console.error(`Не удалось предзагрузить страницу ${page}`, error);
+    }
+  }, []);
+
+  const handleRootPagePrefetchIntent = useCallback((page: string) => {
+    const nextPage = page as AppRootPage;
+
+    if (!(nextPage in ROOT_PAGE_MODULE_LOADERS)) {
+      return;
+    }
+
+    void prefetchRootPage(nextPage);
+  }, [prefetchRootPage]);
+
   const handleVerseAdded = useCallback(
     async (verse: {
       externalVerseId: string;
@@ -349,6 +385,28 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, [isBootstrapping, onInitialContentReady]);
 
   useEffect(() => {
+    prefetchedPagesRef.current.add(nav.currentPage);
+  }, [nav.currentPage]);
+
+  useEffect(() => {
+    if (isBootstrapping) {
+      return;
+    }
+
+    const idleHandle = scheduleIdleTask(() => {
+      const pagesToPrefetch = (Object.keys(ROOT_PAGE_MODULE_LOADERS) as AppRootPage[])
+        .filter((page) => page !== nav.currentPage);
+
+      void Promise.allSettled(pagesToPrefetch.map((page) => prefetchRootPage(page)));
+      void Promise.allSettled(AUXILIARY_MODULE_LOADERS.map((loader) => loader()));
+    });
+
+    return () => {
+      cancelIdleTask(idleHandle);
+    };
+  }, [isBootstrapping, nav.currentPage, prefetchRootPage]);
+
+  useEffect(() => {
     if (nav.currentPage !== "training" && isTrainingSessionFullscreen) {
       setIsTrainingSessionFullscreen(false);
     }
@@ -386,6 +444,7 @@ export default function App({ onInitialContentReady }: AppProps) {
         <Layout
           currentPage={nav.currentPage}
           onNavigate={nav.handleRootNavigate}
+          onNavigateIntent={handleRootPagePrefetchIntent}
           isContentReady={!isBootstrapping}
           hideChrome={nav.currentPage === "training" && isTrainingSessionFullscreen}
           contentMode={
@@ -396,74 +455,107 @@ export default function App({ onInitialContentReady }: AppProps) {
                 : "scroll"
           }
         >
-          {nav.currentPage === "dashboard" && (
-            <div aria-busy={isBootstrapping} className="h-full">
-              <Dashboard
-                todayVerses={verses}
-                dashboardStats={dashboardStats}
-                isDashboardStatsLoading={isDashboardStatsLoading}
-                dashboardLeaderboard={dashboardLeaderboard}
-                isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
-                dashboardFriendsActivity={dashboardFriendsActivity}
-                isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                currentTelegramId={telegramId}
-                currentUserAvatarUrl={currentUserAvatarUrl}
-                onOpenTraining={handleOpenTraining}
-                onOpenPlayerProfile={handleOpenPlayerProfile}
-                onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
-                isInitializingData={isBootstrapping}
-              />
-            </div>
-          )}
+          <div className="relative h-full min-h-0">
+            {(shouldKeepRootPagesAlive || nav.currentPage === "dashboard") && (
+              <section
+                aria-busy={isBootstrapping}
+                aria-hidden={nav.currentPage !== "dashboard"}
+                className={cn(
+                  "h-full min-h-0",
+                  nav.currentPage === "dashboard"
+                    ? "relative"
+                    : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
+                )}
+              >
+                <Dashboard
+                  todayVerses={verses}
+                  dashboardStats={dashboardStats}
+                  isDashboardStatsLoading={isDashboardStatsLoading}
+                  dashboardLeaderboard={dashboardLeaderboard}
+                  isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
+                  dashboardFriendsActivity={dashboardFriendsActivity}
+                  isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
+                  currentTelegramId={telegramId}
+                  currentUserAvatarUrl={currentUserAvatarUrl}
+                  onOpenTraining={handleOpenTraining}
+                  onOpenPlayerProfile={handleOpenPlayerProfile}
+                  onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
+                  isInitializingData={isBootstrapping}
+                />
+              </section>
+            )}
 
-          {nav.currentPage === "verses" && (
-            <VerseList
-              onVerseAdded={handleVerseAdded}
-              reopenGalleryVerseId={null}
-              reopenGalleryStatusFilter={
-                nav.pendingVerseListReturn?.statusFilter ?? null
-              }
-              onReopenGalleryHandled={nav.handleVerseListReturnHandled}
-              verseListExternalSyncVersion={verseListExternalSyncVersion}
-              onVerseMutationCommitted={handleVerseListMutationCommitted}
-              onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
-              telegramId={telegramId}
-              hasFriends={hasVerseListFriends}
-              onFriendsChanged={handleFriendsChanged}
-              onOpenPlayerProfile={handleOpenPlayerProfile}
-              isAnchorEligible={
-                (dashboardStats?.reviewVerses ?? 0) >= 10 ||
-                (dashboardStats?.masteredCount ?? 0) >= 10
-              }
-            />
-          )}
+            {(shouldKeepRootPagesAlive || nav.currentPage === "verses") && (
+              <section
+                aria-hidden={nav.currentPage !== "verses"}
+                className={cn(
+                  "h-full min-h-0",
+                  nav.currentPage === "verses"
+                    ? "relative"
+                    : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
+                )}
+              >
+                <VerseList
+                  onVerseAdded={handleVerseAdded}
+                  reopenGalleryVerseId={null}
+                  reopenGalleryStatusFilter={
+                    nav.pendingVerseListReturn?.statusFilter ?? null
+                  }
+                  onReopenGalleryHandled={nav.handleVerseListReturnHandled}
+                  verseListExternalSyncVersion={verseListExternalSyncVersion}
+                  onVerseMutationCommitted={handleVerseListMutationCommitted}
+                  onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
+                  telegramId={telegramId}
+                  hasFriends={hasVerseListFriends}
+                  onFriendsChanged={handleFriendsChanged}
+                  onOpenPlayerProfile={handleOpenPlayerProfile}
+                  isAnchorEligible={
+                    (dashboardStats?.reviewVerses ?? 0) >= 10 ||
+                    (dashboardStats?.masteredCount ?? 0) >= 10
+                  }
+                />
+              </section>
+            )}
 
-          {nav.currentPage === "training" && (
-            <Training
-              allVerses={verses}
-              isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
-              dashboardStats={dashboardStats}
-              telegramId={telegramId}
-              directLaunch={nav.trainingDirectLaunch}
-              onDirectLaunchExit={nav.handleDirectLaunchExit}
-              onVersePatched={handleTrainingVersePatched}
-              onRequestVerseSelection={() => nav.pushPage("verses")}
-              onVerseMutationCommitted={handleVerseListMutationCommitted}
-              onSessionFullscreenChange={setIsTrainingSessionFullscreen}
-            />
-          )}
+            {nav.currentPage === "training" && (
+              <section className="relative h-full min-h-0">
+                <Training
+                  allVerses={verses}
+                  isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
+                  dashboardStats={dashboardStats}
+                  telegramId={telegramId}
+                  directLaunch={nav.trainingDirectLaunch}
+                  onDirectLaunchExit={nav.handleDirectLaunchExit}
+                  onVersePatched={handleTrainingVersePatched}
+                  onRequestVerseSelection={() => nav.pushPage("verses")}
+                  onVerseMutationCommitted={handleVerseListMutationCommitted}
+                  onSessionFullscreenChange={setIsTrainingSessionFullscreen}
+                />
+              </section>
+            )}
 
-          {nav.currentPage === "profile" && (
-            <Profile
-              theme={theme}
-              onToggleTheme={handleToggleTheme}
-              telegramId={telegramId}
-              currentUserAvatarUrl={currentUserAvatarUrl}
-              onFriendsChanged={handleFriendsChanged}
-              onOpenPlayerProfile={handleOpenPlayerProfile}
-              friendsRefreshVersion={friendsRefreshVersion}
-            />
-          )}
+            {(shouldKeepRootPagesAlive || nav.currentPage === "profile") && (
+              <section
+                aria-hidden={nav.currentPage !== "profile"}
+                className={cn(
+                  "h-full min-h-0",
+                  nav.currentPage === "profile"
+                    ? "relative"
+                    : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
+                )}
+              >
+                <Profile
+                  theme={theme}
+                  onToggleTheme={handleToggleTheme}
+                  telegramId={telegramId}
+                  currentUserAvatarUrl={currentUserAvatarUrl}
+                  onFriendsChanged={handleFriendsChanged}
+                  onOpenPlayerProfile={handleOpenPlayerProfile}
+                  friendsRefreshVersion={friendsRefreshVersion}
+                />
+              </section>
+            )}
+          </div>
         </Layout>
       </div>
 
