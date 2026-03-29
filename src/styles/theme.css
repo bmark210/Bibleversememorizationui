@@ -162,9 +162,9 @@ body[data-theme='dark'] {
   --status-learning: var(--accent-olive);
   --status-learning-soft: rgba(119, 123, 89, 0.18);
   --status-learning-tint: rgba(119, 123, 89, 0.12);
-  --status-review: var(--state-info);
-  --status-review-soft: rgba(154, 124, 110, 0.2);
-  --status-review-tint: rgba(154, 124, 110, 0.13);
+  --status-review: #8ea4bd;
+  --status-review-soft: rgba(142, 164, 189, 0.2);
+  --status-review-tint: rgba(142, 164, 189, 0.13);
   --status-mastered: var(--accent-gold);
   --status-mastered-soft: rgba(200, 169, 107, 0.2);
   --status-mastered-tint: rgba(200, 169, 107, 0.13);
