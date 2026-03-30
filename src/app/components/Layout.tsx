@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { BookOpen, Dumbbell, LayoutDashboard, User } from "lucide-react";
+import {
+  BookOpen,
+  Dumbbell,
+  LayoutDashboard,
+  Shield,
+  User,
+} from "lucide-react";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { triggerHaptic } from "../lib/haptics";
@@ -16,14 +22,37 @@ interface LayoutProps {
   isContentReady?: boolean;
   hideChrome?: boolean;
   contentMode?: "scroll" | "fit" | "fit-strict";
+  showAdminPage?: boolean;
 }
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Главная",
   verses: "Стихи",
   training: "Тренировка",
+  admin: "Админка",
   profile: "Профиль",
 };
+
+const DEFAULT_NAV_ITEMS = [
+  { id: "dashboard", label: "Главная", icon: LayoutDashboard },
+  { id: "verses", label: "Стихи", icon: BookOpen },
+  { id: "training", label: "Тренировка", icon: Dumbbell },
+  { id: "profile", label: "Профиль", icon: User },
+] as const;
+
+const ADMIN_NAV_ITEM = {
+  id: "admin",
+  label: "Админка",
+  icon: Shield,
+} as const;
+
+const ADMIN_NAV_ITEMS = [
+  DEFAULT_NAV_ITEMS[0],
+  DEFAULT_NAV_ITEMS[1],
+  DEFAULT_NAV_ITEMS[2],
+  ADMIN_NAV_ITEM,
+  DEFAULT_NAV_ITEMS[3],
+] as const;
 
 export function Layout({
   children,
@@ -33,6 +62,7 @@ export function Layout({
   isContentReady = false,
   hideChrome = false,
   contentMode = "scroll",
+  showAdminPage = false,
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
@@ -47,6 +77,7 @@ export function Layout({
   const hideAppChrome = hideChrome;
   const isFitContent = contentMode === "fit" || contentMode === "fit-strict";
   const isFitStrict = contentMode === "fit-strict";
+  const navItems = showAdminPage ? ADMIN_NAV_ITEMS : DEFAULT_NAV_ITEMS;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -127,13 +158,6 @@ export function Layout({
       rootStyle.setProperty("--app-bottom-nav-clearance", "0px");
     };
   }, [bottomInset, hideAppChrome, isKeyboardOpen]);
-
-  const navItems = [
-    { id: "dashboard", label: "Главная", icon: LayoutDashboard },
-    { id: "verses", label: "Стихи", icon: BookOpen },
-    { id: "training", label: "Тренировка", icon: Dumbbell },
-    { id: "profile", label: "Профиль", icon: User },
-  ];
 
   const handleNavigateClick = (page: string) => {
     if (page === currentPage) {

@@ -46,7 +46,6 @@ type UseVerseListControllerParams = {
   initialTags?: domain_Tag[];
   hasFriends?: boolean;
   isFocusMode?: boolean;
-  onAddVerse: () => void;
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
   onOpenVerseProgress?: (verse: Verse) => void;
@@ -91,7 +90,6 @@ export function useVerseListController({
   initialTags = [],
   hasFriends = false,
   isFocusMode = false,
-  onAddVerse,
   onOpenVerseOwners,
   onOpenVerseTags,
   onOpenVerseProgress,
@@ -116,6 +114,7 @@ export function useVerseListController({
   const tagFilter = useTagFilter({
     disabled,
     initialTags,
+    reloadVersion: verseListExternalSyncVersion,
   });
   const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(() => {
     if (reopenGalleryStatusFilter) return null;
@@ -631,11 +630,6 @@ export function useVerseListController({
     await pagination.fetchNextPage({ source: 'manual' });
   }, [pagination.fetchNextPage]);
 
-  const handleAddVerseClick = useCallback(() => {
-    haptic('medium');
-    onAddVerse();
-  }, [onAddVerse]);
-
   const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
     if (nextFilter === 'friends' && !canUseFriendsFilter) return;
     if (statusFilter === nextFilter) return;
@@ -819,8 +813,6 @@ export function useVerseListController({
       isLoadingTags: tagFilter.isLoadingTags,
       onTagClick: tagFilter.toggleTag,
       onClearTags: tagFilter.clearTags,
-      createTag: tagFilter.createTag,
-      deleteTag: tagFilter.deleteTag,
     },
     pagination: {
       verses: pagination.verses,
@@ -845,9 +837,6 @@ export function useVerseListController({
       getItemLayoutSignature: getVerseCardLayoutSignature,
       onLoadMoreRows: handleLoadMoreRows,
       debugInfiniteScroll,
-    },
-    header: {
-      onAddVerseClick: handleAddVerseClick,
     },
     filterTabs: {
       onTabClick: handleTabClick,

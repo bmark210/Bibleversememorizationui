@@ -129,6 +129,7 @@ interface AddVerseDialogProps {
     replaceTags?: boolean;
   }) => Promise<void>;
   onCreateTag?: (title: string, slug: string) => Promise<void>;
+  onCatalogMutated?: () => void;
 }
 
 type SelectedVerse = {
@@ -157,6 +158,7 @@ export function AddVerseDialog({
   viewerTelegramId: viewerTelegramIdProp = null,
   onAdd,
   onCreateTag,
+  onCatalogMutated,
 }: AddVerseDialogProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -462,6 +464,7 @@ export function AddVerseDialog({
 
       setEditingTagId(null);
       setEditingTagTitle("");
+      onCatalogMutated?.();
       toast.success("Название тега обновлено", {
         label: "Теги",
       });
@@ -472,7 +475,7 @@ export function AddVerseDialog({
     } finally {
       setSavingTagId(null);
     }
-  }, [editingTagId, editingTagTitle, isAdmin, viewerTelegramId]);
+  }, [editingTagId, editingTagTitle, isAdmin, onCatalogMutated, viewerTelegramId]);
 
   const handleDeleteVerseFromCatalog = useCallback(async () => {
     if (!selectedVerse || !isAdmin || !viewerTelegramId) return;
@@ -516,6 +519,7 @@ export function AddVerseDialog({
 
       setAdminVerseSummary(null);
       setSelectedTagSlugs(new Set());
+      onCatalogMutated?.();
       toast.success("Стих удалён из общей базы", {
         label: "База стихов",
       });
@@ -527,7 +531,7 @@ export function AddVerseDialog({
     } finally {
       setIsDeletingVerseFromCatalog(false);
     }
-  }, [isAdmin, selectedVerse, viewerTelegramId]);
+  }, [isAdmin, onCatalogMutated, selectedVerse, viewerTelegramId]);
 
   const handleCreateTag = async () => {
     if (!newTagTitle.trim() || !newTagSlug || creatingTag) return;
@@ -548,6 +552,7 @@ export function AddVerseDialog({
       }
       setNewTagTitle("");
       setCreateTagMode(false);
+      onCatalogMutated?.();
     } catch {
       toast.error("Не удалось создать тег", {
         label: "Теги",
@@ -619,6 +624,7 @@ export function AddVerseDialog({
           return next;
         });
       }
+      onCatalogMutated?.();
       toast.success(`Тег «${tag.title}» удалён`, {
         label: "Теги",
       });

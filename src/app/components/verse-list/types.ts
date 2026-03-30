@@ -67,8 +67,6 @@ export type VerseListController = {
     isLoadingTags: boolean;
     onTagClick: (slug: string) => void;
     onClearTags: () => void;
-    createTag: (title: string, slug: string) => Promise<void>;
-    deleteTag: (id: string, slug: string) => Promise<void>;
   };
   pagination: {
     verses: Verse[];
@@ -93,9 +91,6 @@ export type VerseListController = {
     getItemLayoutSignature: (verse: Verse) => VerseCardLayoutSignature;
     onLoadMoreRows: (range: VerseListLoadRange) => Promise<void>;
     debugInfiniteScroll: DebugInfiniteScroll;
-  };
-  header: {
-    onAddVerseClick: () => void;
   };
   filterTabs: {
     onTabClick: (filter: VerseListStatusFilter, label: string) => void;

@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronUp,
   History,
-  Pencil,
   TrendingUp,
 } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
@@ -118,8 +117,6 @@ export type VerseListFilterCardProps = {
   hasActiveTags?: boolean;
   onTagClick?: (slug: string) => void;
   onClearTags?: () => void;
-  onCreateTagDialogOpen?: () => void;
-  onDeleteTag?: (id: string, slug: string) => Promise<void>;
   presentation?: 'card' | 'drawer';
 };
 
@@ -148,7 +145,6 @@ function VerseListFilterSections({
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-  onCreateTagDialogOpen,
 }: Omit<VerseListFilterCardProps, 'presentation'>) {
   const deletingTagId = null;
   const [areBooksExpanded, setAreBooksExpanded] = useState(false);
@@ -490,16 +486,6 @@ function VerseListFilterSections({
                 Сбросить
               </button>
             ) : null}
-            {onCreateTagDialogOpen ? (
-              <button
-                type="button"
-                onClick={onCreateTagDialogOpen}
-                className="inline-flex items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary"
-              >
-                <Pencil className="h-3 w-3" />
-                <span className="hidden sm:inline">Редактировать</span>
-              </button>
-            ) : null}
             {allTags.length > 0 ? (
               <SectionActionButton
                 expanded={areTagsExpanded}
@@ -540,7 +526,7 @@ function VerseListFilterSections({
             />
           ) : (
             <p className="px-3.5 py-2.5 text-xs italic text-text-muted sm:px-4">
-              Нет тегов - создайте первый
+              Теги пока не созданы
             </p>
           )}
         </div>
@@ -574,8 +560,6 @@ export function VerseListFilterCard({
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-  onCreateTagDialogOpen,
-  onDeleteTag,
   presentation = 'card',
 }: VerseListFilterCardProps) {
   const isDrawerPresentation = presentation === 'drawer';
@@ -629,8 +613,6 @@ export function VerseListFilterCard({
     hasActiveTags,
     onTagClick,
     onClearTags,
-    onCreateTagDialogOpen,
-    onDeleteTag,
   };
 
   if (isDrawerPresentation) {

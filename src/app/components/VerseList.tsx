@@ -8,14 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import { Eye, Plus } from "lucide-react";
-
-const AddVerseDialog = dynamic(
-  () => import("./AddVerseDialog").then((m) => m.AddVerseDialog),
-  { ssr: false },
-);
 
 import { VerseGallery } from "./VerseGallery";
 import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState";
@@ -34,11 +27,8 @@ import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
 } from "./verse-list/storage";
-import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
-import { isAdminTelegramId } from "@/lib/admins";
-import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
@@ -47,12 +37,6 @@ import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 
 interface VerseListProps {
-  onVerseAdded: (verse: {
-    externalVerseId: string;
-    reference: string;
-    tags: string[];
-    replaceTags?: boolean;
-  }) => Promise<void>;
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
   onReopenGalleryHandled?: () => void;
@@ -71,7 +55,6 @@ interface VerseListProps {
 }
 
 export function VerseList({
-  onVerseAdded,
   reopenGalleryVerseId = null,
   reopenGalleryStatusFilter = null,
   onReopenGalleryHandled,
@@ -87,14 +70,9 @@ export function VerseList({
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
   );
-  const { contentSafeAreaInset } = useTelegramSafeArea();
   // const stickyControlsTop = isTelegramFullscreen
   //   ? Math.max(0, contentSafeAreaInset.top)
   //   : 0;
-  const canAddVerse = isAdminTelegramId(telegramId);
-
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addDialogMode, setAddDialogMode] = useState<"verse" | "tag">("verse");
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -134,11 +112,6 @@ export function VerseList({
     );
   }, [isFocusMode]);
 
-  useEffect(() => {
-    if (canAddVerse || addDialogMode !== "verse" || !addDialogOpen) return;
-    setAddDialogOpen(false);
-  }, [addDialogMode, addDialogOpen, canAddVerse]);
-
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -152,11 +125,21 @@ export function VerseList({
       if (!currentHost) return;
 
       const styles = window.getComputedStyle(currentHost);
+      const rootStyles = window.getComputedStyle(document.documentElement);
       const paddingTop = Number.parseFloat(styles.paddingTop || "0") || 0;
       const paddingBottom = Number.parseFloat(styles.paddingBottom || "0") || 0;
+      const bottomNavClearance =
+        Number.parseFloat(
+          rootStyles.getPropertyValue("--app-bottom-nav-clearance") || "0",
+        ) || 0;
       const nextHeight = Math.max(
         260,
-        Math.floor(currentHost.clientHeight - paddingTop - paddingBottom),
+        Math.floor(
+          currentHost.clientHeight -
+            paddingTop -
+            paddingBottom +
+            bottomNavClearance,
+        ),
       );
 
       setListViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
@@ -205,11 +188,6 @@ export function VerseList({
     initialTags: [],
     hasFriends,
     isFocusMode,
-    onAddVerse: () => {
-      if (!canAddVerse) return;
-      setAddDialogMode("verse");
-      setAddDialogOpen(true);
-    },
     onOpenVerseTags: (verse: Verse) => {
       if (!verse.tags || verse.tags.length === 0) return;
       setVerseTagsTarget({
@@ -259,11 +237,6 @@ export function VerseList({
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
 
   const handleTelegramBack = useCallback(() => {
-    if (addDialogOpen) {
-      setAddDialogOpen(false);
-      return;
-    }
-
     if (isGalleryOpen) {
       vm.gallery.onClose();
       return;
@@ -289,7 +262,6 @@ export function VerseList({
       setVerseProgressTarget(null);
     }
   }, [
-    addDialogOpen,
     closeVerseTagsDrawer,
     isFiltersDrawerOpen,
     isGalleryOpen,
@@ -301,7 +273,6 @@ export function VerseList({
 
   useTelegramBackButton({
     enabled:
-      addDialogOpen ||
       isGalleryOpen ||
       isVerseTagsDrawerOpen ||
       isFiltersDrawerOpen ||
@@ -386,10 +357,6 @@ export function VerseList({
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
-  const handleCreateTagDialogOpen = useCallback(() => {
-    setAddDialogMode("tag");
-    setAddDialogOpen(true);
-  }, []);
 
   const filterCardProps = useMemo(
     () => ({
@@ -417,8 +384,6 @@ export function VerseList({
       hasActiveTags: vm.tagFilter.hasActiveTags,
       onTagClick: vm.tagFilter.onTagClick,
       onClearTags: vm.tagFilter.onClearTags,
-      onCreateTagDialogOpen: handleCreateTagDialogOpen,
-      onDeleteTag: vm.tagFilter.deleteTag,
     }),
     [
       vm.ui.totalVisible,
@@ -445,21 +410,15 @@ export function VerseList({
       vm.tagFilter.hasActiveTags,
       vm.tagFilter.onTagClick,
       vm.tagFilter.onClearTags,
-      handleCreateTagDialogOpen,
-      vm.tagFilter.deleteTag,
     ],
   );
 
-  const listViewportShellClassName =
-    "relative flex min-h-0 flex-1 flex-col rounded-[2.15rem] border border-border-subtle/80 bg-bg-overlay/58 shadow-[var(--shadow-soft)] backdrop-blur-2xl";
-  const listViewportContentClassName =
-    "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[calc(2.15rem-1px)]";
-  const listViewportGlowClassName =
-    "pointer-events-none absolute inset-x-0 z-10 h-16 shrink-0";
+  const listViewportClassName =
+    "relative flex min-h-0 flex-1 flex-col overflow-hidden";
 
   return (
     <>
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col pb-4">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {vm.ui.announcement}
         </div>
@@ -470,140 +429,70 @@ export function VerseList({
           />
         </div>
 
-              <div
-                className={cn(
-                  "absolute z-50 flex shrink-0 flex-row gap-1.5 p-0.5 border border-border/60 bg-background/45 backdrop-blur-xl rounded-[24px]",
-                )}
-                style={{
-                  bottom: `calc(var(--app-bottom-nav-clearance, 54px) + ${contentSafeAreaInset.bottom}px + 12px)`,
-                  right: `calc(1rem + ${contentSafeAreaInset.right}px)`,
-                }}
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-pressed={isFocusMode}
-                  title={
-                    isFocusMode
-                      ? "Выключить режим чтения"
-                      : "Включить режим чтения"
-                  }
-                  onClick={toggleFocusMode}
-                  className={cn(
-                    "h-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card",
-                    isFocusMode &&
-                      "border-primary/35 bg-primary/10 text-primary",
-                  )}
-                >
-                  Режим чтения
-                  <Eye className="h-4 w-4" />
-                </Button>
-
-                {canAddVerse ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={vm.header.onAddVerseClick}
-                    title="Добавить стих"
-                    className="h-10 shrink-0 rounded-full border-border/70 bg-card/88 p-0 shadow-md backdrop-blur-2xl hover:bg-card"
-                  >
-                    Создать
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
         <div
-          className="sticky top-0 z-40 shrink-0"
+          className="z-40 shrink-0"
         >
           <div className="px-2 pt-2 pb-0 sm:px-6 lg:px-8">
-            <div className="flex items-stretch gap-1">
-              <div className="min-w-0 flex-1">
-                <VerseListFiltersTrigger
-                  open={isFiltersDrawerOpen}
-                  onOpen={() => setIsLocalFiltersDrawerOpen(true)}
-                  {...filterCardProps}
-                />
-              </div>
-
-            </div>
+            <VerseListFiltersTrigger
+              open={isFiltersDrawerOpen}
+              onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+              isFocusMode={isFocusMode}
+              onToggleFocusMode={toggleFocusMode}
+              {...filterCardProps}
+            />
           </div>
         </div>
 
         <div
           ref={listViewportHostRef}
-          className="flex min-h-0 flex-1 flex-col px-2 pt-3 pb-2 sm:px-6 lg:px-8"
+          className="flex min-h-0 flex-1 flex-col px-2 pt-0 pb-0 sm:px-6 lg:px-8"
         >
           <div
-            className={listViewportShellClassName}
+            className={listViewportClassName}
             style={
               listViewportHeight
                 ? { height: `${listViewportHeight}px` }
                 : undefined
             }
           >
-            <div className={listViewportContentClassName}>
+            {vm.ui.isListLoading ? (
               <div
-                aria-hidden="true"
-                className={cn(
-                  listViewportGlowClassName,
-                  "top-0 bg-gradient-to-b from-bg-elevated/92 via-bg-overlay/58 to-transparent",
-                )}
-              />
+                data-tour-filter={vm.filters.statusFilter}
+                data-tour-state="loading"
+                className="relative flex h-full min-h-0 flex-col overflow-y-auto py-2"
+                style={{
+                  paddingBottom:
+                    "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
+                }}
+              >
+                <VerseListSkeletonCards count={5} />
+              </div>
+            ) : null}
+            {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
               <div
-                aria-hidden="true"
-                className={cn(
-                  listViewportGlowClassName,
-                  "bottom-0 h-20 bg-gradient-to-t from-bg-elevated/94 via-bg-overlay/62 to-transparent",
-                )}
-              />
-
-              {vm.ui.isListLoading ? (
-                <div
-                  data-tour="verse-list-content"
-                  data-tour-filter={vm.filters.statusFilter}
-                  data-tour-state="loading"
-                  className="relative flex h-full min-h-0 flex-col overflow-y-auto px-3 py-3 sm:px-4"
-                >
-                  <VerseListSkeletonCards count={5} />
+                data-tour-filter={vm.filters.statusFilter}
+                data-tour-state="empty"
+                className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
+                style={{
+                  paddingBottom:
+                    "calc(var(--app-bottom-nav-clearance, 0px) + 2rem)",
+                }}
+              >
+                <div className="w-full max-w-md">
+                  <VerseListEmptyState
+                    currentFilterLabel={vm.ui.currentFilterLabel}
+                    isAllFilter={vm.filters.statusFilter === "catalog"}
+                  />
                 </div>
-              ) : null}
-              {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
-                <div
-                  data-tour="verse-list-content"
-                  data-tour-filter={vm.filters.statusFilter}
-                  data-tour-state="empty"
-                  className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
-                >
-                  <div className="w-full max-w-md">
-                    <VerseListEmptyState
-                      currentFilterLabel={vm.ui.currentFilterLabel}
-                      isAllFilter={vm.filters.statusFilter === "catalog"}
-                    />
-                  </div>
-                </div>
-              ) : null}
-              {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
-                <div
-                  data-tour="verse-list-content"
-                  data-tour-filter={vm.filters.statusFilter}
-                  data-tour-state="ready"
-                  className="relative flex h-full min-h-0 flex-col px-2 py-2 sm:px-3"
-                >
-                  <div className="min-h-0 flex-1">{listContent}</div>
-                </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+            {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+              <div className="relative flex h-full min-h-0 flex-col">
+                <div className="min-h-0 flex-1">{listContent}</div>
+              </div>
+            ) : null}
           </div>
         </div>
-
-        <AddVerseDialog
-          open={addDialogOpen && (addDialogMode === "tag" || canAddVerse)}
-          mode={addDialogMode}
-          viewerTelegramId={telegramId}
-          onClose={() => setAddDialogOpen(false)}
-          onAdd={canAddVerse ? onVerseAdded : undefined}
-          onCreateTag={vm.tagFilter.createTag}
-        />
 
         <VerseListFiltersDrawer
           open={isFiltersDrawerOpen}

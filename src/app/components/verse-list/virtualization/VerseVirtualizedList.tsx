@@ -345,12 +345,19 @@ export function VerseVirtualizedList({
   const shouldEnableScrollSeek = items.length > Math.max(80, pageSize * 3);
 
   const FooterComponent = useMemo(() => {
-    const VerseListVirtuosoFooter = () => (
-      <InlineLoadMoreSkeleton
-        count={inlineLoadSkeletonCount}
-        pulse={showDelayedLoadMoreSkeleton}
-      />
-    );
+    const VerseListVirtuosoFooter = () => {
+      const footerPaddingBottom =
+        'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)';
+
+      return (
+        <div aria-hidden="true" style={{ paddingBottom: footerPaddingBottom }}>
+          <InlineLoadMoreSkeleton
+            count={inlineLoadSkeletonCount}
+            pulse={showDelayedLoadMoreSkeleton}
+          />
+        </div>
+      );
+    };
     return VerseListVirtuosoFooter;
   }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
 

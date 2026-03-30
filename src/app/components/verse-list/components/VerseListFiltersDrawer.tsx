@@ -57,8 +57,6 @@ export function VerseListFiltersDrawer({
   hasActiveTags: _hasActiveTags = false,
   onTagClick,
   onClearTags,
-  onCreateTagDialogOpen,
-  onDeleteTag,
 }: VerseListFiltersDrawerProps) {
   const [draftStatusFilter, setDraftStatusFilter] = useState(statusFilter);
   const [draftSelectedBookId, setDraftSelectedBookId] = useState(selectedBookId);
@@ -206,8 +204,6 @@ export function VerseListFiltersDrawer({
     onClearTags: () => {
       setDraftSelectedTagSlugs(new Set());
     },
-    onCreateTagDialogOpen,
-    onDeleteTag,
     presentation: 'drawer',
   };
 

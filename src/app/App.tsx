@@ -26,25 +26,39 @@ import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
 import { cancelIdleTask, scheduleIdleTask } from "@/app/lib/idleTask";
 import { cn } from "@/app/components/ui/utils";
+import { isAdminTelegramId } from "@/lib/admins";
 
 const loadVerseListModule = () => import("./components/VerseList");
 const loadProfileModule = () => import("./components/Profile");
-const loadAddVerseDialogModule = () => import("./components/AddVerseDialog");
 const loadTrainingModule = () => import("./components/Training");
 const loadDashboardModule = () => import("./components/Dashboard");
+const loadAdminModule = () => import("./components/Admin");
 const loadPlayerProfileDrawerModule = () => import("./components/PlayerProfileDrawer");
 
 const ROOT_PAGE_MODULE_LOADERS: Record<AppRootPage, () => Promise<unknown>> = {
   dashboard: loadDashboardModule,
   verses: loadVerseListModule,
   training: loadTrainingModule,
+  admin: loadAdminModule,
   profile: loadProfileModule,
 };
 
-const AUXILIARY_MODULE_LOADERS = [
-  loadAddVerseDialogModule,
-  loadPlayerProfileDrawerModule,
-] as const;
+const ROOT_PAGES: AppRootPage[] = [
+  "dashboard",
+  "verses",
+  "training",
+  "profile",
+];
+
+const ROOT_PAGES_WITH_ADMIN: AppRootPage[] = [
+  "dashboard",
+  "verses",
+  "training",
+  "admin",
+  "profile",
+];
+
+const AUXILIARY_MODULE_LOADERS = [loadPlayerProfileDrawerModule] as const;
 
 const VerseList = dynamic(() => loadVerseListModule().then((m) => m.VerseList), {
   loading: () => <div className="min-h-[60vh]" />,
@@ -54,18 +68,15 @@ const Profile = dynamic(() => loadProfileModule().then((m) => m.Profile), {
   loading: () => <div className="min-h-[60vh]" />,
 });
 
-const AddVerseDialog = dynamic(
-  () => loadAddVerseDialogModule().then((m) => m.AddVerseDialog),
-  {
-    loading: () => null,
-  }
-);
-
 const Training = dynamic(() => loadTrainingModule().then((m) => m.Training), {
   loading: () => <div className="min-h-[60vh]" />,
 });
 
 const Dashboard = dynamic(() => loadDashboardModule().then((m) => m.Dashboard), {
+  loading: () => <div className="min-h-[50vh]" />,
+});
+
+const Admin = dynamic(() => loadAdminModule().then((m) => m.Admin), {
   loading: () => <div className="min-h-[50vh]" />,
 });
 
@@ -86,7 +97,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [showAddVerseDialog, setShowAddVerseDialog] = useState(false);
   const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
@@ -97,6 +107,8 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const { theme, handleToggleTheme } = useAppTheme();
   const nav = useAppNavigation();
+  const isAdmin = isAdminTelegramId(telegramId);
+  const availableRootPages = isAdmin ? ROOT_PAGES_WITH_ADMIN : ROOT_PAGES;
 
   const {
     dashboardStats,
@@ -182,16 +194,11 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleNavigateBackInApp = nav.handleNavigateBackInApp;
 
   const handleTelegramBack = useCallback(() => {
-    if (showAddVerseDialog) {
-      setShowAddVerseDialog(false);
-      return;
-    }
-
     handleNavigateBackInApp();
-  }, [handleNavigateBackInApp, showAddVerseDialog]);
+  }, [handleNavigateBackInApp]);
 
   useTelegramBackButton({
-    enabled: showAddVerseDialog || nav.canGoBackInApp,
+    enabled: nav.canGoBackInApp,
     onBack: handleTelegramBack,
     priority: 10,
   });
@@ -273,7 +280,15 @@ export default function App({ onInitialContentReady }: AppProps) {
     nav.pushPage("training");
   }, [ensureTrainingVersesLoaded, nav, telegramId]);
 
+  const handleAdminCatalogMutated = useCallback(() => {
+    setVerseListExternalSyncVersion((prev) => prev + 1);
+  }, []);
+
   const prefetchRootPage = useCallback(async (page: AppRootPage) => {
+    if (!availableRootPages.includes(page)) {
+      return;
+    }
+
     if (prefetchedPagesRef.current.has(page)) {
       return;
     }
@@ -286,17 +301,17 @@ export default function App({ onInitialContentReady }: AppProps) {
       prefetchedPagesRef.current.delete(page);
       console.error(`Не удалось предзагрузить страницу ${page}`, error);
     }
-  }, []);
+  }, [availableRootPages]);
 
   const handleRootPagePrefetchIntent = useCallback((page: string) => {
     const nextPage = page as AppRootPage;
 
-    if (!(nextPage in ROOT_PAGE_MODULE_LOADERS)) {
+    if (!availableRootPages.includes(nextPage)) {
       return;
     }
 
     void prefetchRootPage(nextPage);
-  }, [prefetchRootPage]);
+  }, [availableRootPages, prefetchRootPage]);
 
   const handleVerseAdded = useCallback(
     async (verse: {
@@ -389,13 +404,19 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, [nav.currentPage]);
 
   useEffect(() => {
+    if (isAdmin || nav.currentPage !== "admin") return;
+    nav.handleRootNavigate("dashboard");
+  }, [isAdmin, nav.currentPage, nav.handleRootNavigate]);
+
+  useEffect(() => {
     if (isBootstrapping) {
       return;
     }
 
     const idleHandle = scheduleIdleTask(() => {
-      const pagesToPrefetch = (Object.keys(ROOT_PAGE_MODULE_LOADERS) as AppRootPage[])
-        .filter((page) => page !== nav.currentPage);
+      const pagesToPrefetch = availableRootPages.filter(
+        (page) => page !== nav.currentPage,
+      );
 
       void Promise.allSettled(pagesToPrefetch.map((page) => prefetchRootPage(page)));
       void Promise.allSettled(AUXILIARY_MODULE_LOADERS.map((loader) => loader()));
@@ -404,7 +425,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     return () => {
       cancelIdleTask(idleHandle);
     };
-  }, [isBootstrapping, nav.currentPage, prefetchRootPage]);
+  }, [availableRootPages, isBootstrapping, nav.currentPage, prefetchRootPage]);
 
   useEffect(() => {
     if (nav.currentPage !== "training" && isTrainingSessionFullscreen) {
@@ -447,6 +468,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           onNavigateIntent={handleRootPagePrefetchIntent}
           isContentReady={!isBootstrapping}
           hideChrome={nav.currentPage === "training" && isTrainingSessionFullscreen}
+          showAdminPage={isAdmin}
           contentMode={
             nav.currentPage === "dashboard"
               ? "fit"
@@ -496,7 +518,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                 )}
               >
                 <VerseList
-                  onVerseAdded={handleVerseAdded}
                   reopenGalleryVerseId={null}
                   reopenGalleryStatusFilter={
                     nav.pendingVerseListReturn?.statusFilter ?? null
@@ -516,6 +537,24 @@ export default function App({ onInitialContentReady }: AppProps) {
                 />
               </section>
             )}
+
+            {isAdmin && (shouldKeepRootPagesAlive || nav.currentPage === "admin") ? (
+              <section
+                aria-hidden={nav.currentPage !== "admin"}
+                className={cn(
+                  "h-full min-h-0",
+                  nav.currentPage === "admin"
+                    ? "relative"
+                    : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
+                )}
+              >
+                <Admin
+                  telegramId={telegramId}
+                  onVerseAdded={handleVerseAdded}
+                  onCatalogMutated={handleAdminCatalogMutated}
+                />
+              </section>
+            ) : null}
 
             {nav.currentPage === "training" && (
               <section className="relative h-full min-h-0">
@@ -558,13 +597,6 @@ export default function App({ onInitialContentReady }: AppProps) {
           </div>
         </Layout>
       </div>
-
-      <AddVerseDialog
-        open={showAddVerseDialog}
-        viewerTelegramId={telegramId}
-        onClose={() => setShowAddVerseDialog(false)}
-        onAdd={handleVerseAdded}
-      />
 
       <PlayerProfileDrawer
         viewerTelegramId={telegramId}

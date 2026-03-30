@@ -1,6 +1,11 @@
 import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
 
-export type AppRootPage = "dashboard" | "verses" | "training" | "profile";
+export type AppRootPage =
+  | "dashboard"
+  | "verses"
+  | "training"
+  | "admin"
+  | "profile";
 
 export type PendingVerseListReturn = {
   statusFilter: VerseListStatusFilter;
