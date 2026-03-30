@@ -36,6 +36,8 @@ import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 
+const LIST_OVERLAY_SPACER_GAP_PX = 12;
+
 interface VerseListProps {
   reopenGalleryVerseId?: string | null;
   reopenGalleryStatusFilter?: VerseListStatusFilter | null;
@@ -96,7 +98,9 @@ export function VerseList({
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
+  const filterOverlayRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
+  const [filterOverlayHeight, setFilterOverlayHeight] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
@@ -111,6 +115,58 @@ export function VerseList({
       isFocusMode ? "1" : "0",
     );
   }, [isFocusMode]);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const overlay = filterOverlayRef.current;
+    if (!overlay) return;
+
+    let frameId = 0;
+
+    const updateOverlayHeight = () => {
+      const currentOverlay = filterOverlayRef.current;
+      if (!currentOverlay) return;
+
+      const nextHeight = Math.ceil(currentOverlay.getBoundingClientRect().height);
+      setFilterOverlayHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    const scheduleOverlayHeightUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        updateOverlayHeight();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleOverlayHeightUpdate())
+        : null;
+
+    resizeObserver?.observe(overlay);
+    window.addEventListener("resize", scheduleOverlayHeightUpdate, {
+      passive: true,
+    });
+    window.visualViewport?.addEventListener(
+      "resize",
+      scheduleOverlayHeightUpdate,
+    );
+    scheduleOverlayHeightUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleOverlayHeightUpdate);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        scheduleOverlayHeightUpdate,
+      );
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -336,6 +392,7 @@ export function VerseList({
     },
     [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
   );
+  const listTopInset = filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX;
 
   const listContent =
     visibleListItems.length > 0 ? (
@@ -343,6 +400,7 @@ export function VerseList({
         items={visibleListItems}
         enableInfiniteLoader={vm.list.enableInfiniteLoader}
         preferInternalScroll
+        topInset={listTopInset}
         hasMoreItems={vm.pagination.hasMoreVerses}
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
@@ -429,11 +487,13 @@ export function VerseList({
           />
         </div>
 
-        <div
-          className="z-40 shrink-0"
-        >
-          <div className="px-2 pt-2 pb-0 sm:px-6 lg:px-8">
+        <div className="relative min-h-0 flex-1">
+          <div
+            ref={filterOverlayRef}
+            className="pointer-events-none absolute inset-x-0 top-0 z-40 px-4 pt-2 pb-0 sm:px-6 lg:px-8"
+          >
             <VerseListFiltersTrigger
+              className="pointer-events-auto"
               open={isFiltersDrawerOpen}
               onOpen={() => setIsLocalFiltersDrawerOpen(true)}
               isFocusMode={isFocusMode}
@@ -441,56 +501,58 @@ export function VerseList({
               {...filterCardProps}
             />
           </div>
-        </div>
 
-        <div
-          ref={listViewportHostRef}
-          className="flex min-h-0 flex-1 flex-col px-2 pt-0 pb-0 sm:px-6 lg:px-8"
-        >
           <div
-            className={listViewportClassName}
-            style={
-              listViewportHeight
-                ? { height: `${listViewportHeight}px` }
-                : undefined
-            }
+            ref={listViewportHostRef}
+            className="flex h-full min-h-0 flex-col px-2 pt-0 pb-0 sm:px-6 lg:px-8"
           >
-            {vm.ui.isListLoading ? (
-              <div
-                data-tour-filter={vm.filters.statusFilter}
-                data-tour-state="loading"
-                className="relative flex h-full min-h-0 flex-col overflow-y-auto py-2"
-                style={{
-                  paddingBottom:
-                    "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
-                }}
-              >
-                <VerseListSkeletonCards count={5} />
-              </div>
-            ) : null}
-            {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
-              <div
-                data-tour-filter={vm.filters.statusFilter}
-                data-tour-state="empty"
-                className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
-                style={{
-                  paddingBottom:
-                    "calc(var(--app-bottom-nav-clearance, 0px) + 2rem)",
-                }}
-              >
-                <div className="w-full max-w-md">
-                  <VerseListEmptyState
-                    currentFilterLabel={vm.ui.currentFilterLabel}
-                    isAllFilter={vm.filters.statusFilter === "catalog"}
-                  />
+            <div
+              className={listViewportClassName}
+              style={
+                listViewportHeight
+                  ? { height: `${listViewportHeight}px` }
+                  : undefined
+              }
+            >
+              {vm.ui.isListLoading ? (
+                <div
+                  data-tour-filter={vm.filters.statusFilter}
+                  data-tour-state="loading"
+                  className="relative flex h-full min-h-0 flex-col overflow-y-auto py-2"
+                  style={{
+                    paddingTop: `${listTopInset}px`,
+                    paddingBottom:
+                      "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
+                  }}
+                >
+                  <VerseListSkeletonCards count={5} />
                 </div>
-              </div>
-            ) : null}
-            {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
-              <div className="relative flex h-full min-h-0 flex-col">
-                <div className="min-h-0 flex-1">{listContent}</div>
-              </div>
-            ) : null}
+              ) : null}
+              {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
+                <div
+                  data-tour-filter={vm.filters.statusFilter}
+                  data-tour-state="empty"
+                  className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
+                  style={{
+                    paddingTop: `${listTopInset}px`,
+                    paddingBottom:
+                      "calc(var(--app-bottom-nav-clearance, 0px) + 2rem)",
+                  }}
+                >
+                  <div className="w-full max-w-md">
+                    <VerseListEmptyState
+                      currentFilterLabel={vm.ui.currentFilterLabel}
+                      isAllFilter={vm.filters.statusFilter === "catalog"}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+                <div className="relative flex h-full min-h-0 flex-col">
+                  <div className="min-h-0 flex-1">{listContent}</div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 

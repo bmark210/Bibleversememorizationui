@@ -20,6 +20,7 @@ type VerseVirtualizedListProps = {
   items: Array<Verse>;
   enableInfiniteLoader: boolean;
   preferInternalScroll?: boolean;
+  topInset?: number;
   hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
@@ -116,6 +117,7 @@ export function VerseVirtualizedList({
   items,
   enableInfiniteLoader,
   preferInternalScroll = false,
+  topInset = 0,
   hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
@@ -138,6 +140,7 @@ export function VerseVirtualizedList({
   );
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
   const usesExternalScrollParent = !preferInternalScroll && customScrollParent !== null;
+  const normalizedTopInset = Math.max(0, Math.floor(topInset));
   const normalizedPrefetchRows = Math.max(0, prefetchRows);
   const cachedRowsPerSide = Math.min(
     MAX_CACHE_ITEMS_PER_SIDE,
@@ -395,12 +398,22 @@ export function VerseVirtualizedList({
     return VerseListVirtuosoFooter;
   }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
 
+  const HeaderComponent = useMemo(() => {
+    const VerseListVirtuosoHeader = () =>
+      normalizedTopInset > 0 ? (
+        <div aria-hidden="true" style={{ height: normalizedTopInset }} />
+      ) : null;
+
+    return VerseListVirtuosoHeader;
+  }, [normalizedTopInset]);
+
   const virtuosoComponents = useMemo(
     () => ({
+      Header: HeaderComponent,
       Footer: FooterComponent,
       ScrollSeekPlaceholder: ScrollSeekItemPlaceholder,
     }),
-    [FooterComponent]
+    [FooterComponent, HeaderComponent]
   );
 
   if (items.length === 0) return null;
@@ -438,7 +451,7 @@ export function VerseVirtualizedList({
         itemContent={(index, verse) => {
           const layoutSignature = getItemLayoutSignature(verse);
           const content = (
-            <div style={{ marginTop: index === 0 ? '1rem' : '0' }} data-layout-signature={layoutSignature} className="h-full">
+            <div data-layout-signature={layoutSignature} className="h-full">
               {renderRow(verse)}
             </div>
           );
