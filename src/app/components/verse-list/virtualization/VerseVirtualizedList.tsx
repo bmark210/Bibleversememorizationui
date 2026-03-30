@@ -40,6 +40,11 @@ const DEFAULT_ITEM_HEIGHT_ESTIMATE = 176;
 const SCROLL_SEEK_ENTER_VELOCITY = 720;
 const SCROLL_SEEK_EXIT_VELOCITY = 140;
 const EXTERNAL_SCROLL_ACTIVATION_PX = 8;
+const MIN_CACHE_ITEMS_PER_SIDE = 4;
+const MAX_CACHE_ITEMS_PER_SIDE = 12;
+const EXTRA_BOTTOM_CACHE_ITEMS = 2;
+const MIN_CACHE_TOP_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 3;
+const MIN_CACHE_BOTTOM_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 4;
 
 function isScrollableOverflow(value: string) {
   return value === 'auto' || value === 'scroll' || value === 'overlay';
@@ -133,6 +138,38 @@ export function VerseVirtualizedList({
   );
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
   const usesExternalScrollParent = !preferInternalScroll && customScrollParent !== null;
+  const normalizedPrefetchRows = Math.max(0, prefetchRows);
+  const cachedRowsPerSide = Math.min(
+    MAX_CACHE_ITEMS_PER_SIDE,
+    Math.max(MIN_CACHE_ITEMS_PER_SIDE, normalizedPrefetchRows + 2),
+  );
+  const cachedBottomRows = Math.min(
+    MAX_CACHE_ITEMS_PER_SIDE + EXTRA_BOTTOM_CACHE_ITEMS,
+    cachedRowsPerSide + EXTRA_BOTTOM_CACHE_ITEMS,
+  );
+  const overscanTopPx = Math.max(
+    MIN_CACHE_TOP_PX,
+    cachedRowsPerSide * DEFAULT_ITEM_HEIGHT_ESTIMATE,
+  );
+  const overscanBottomPx = Math.max(
+    MIN_CACHE_BOTTOM_PX,
+    cachedBottomRows * DEFAULT_ITEM_HEIGHT_ESTIMATE,
+  );
+  const overscanPx = Math.max(overscanTopPx, overscanBottomPx);
+  const viewportCache = useMemo(
+    () => ({
+      top: overscanTopPx,
+      bottom: overscanBottomPx,
+    }),
+    [overscanBottomPx, overscanTopPx],
+  );
+  const overscanItemWindow = useMemo(
+    () => ({
+      top: cachedRowsPerSide,
+      bottom: cachedBottomRows,
+    }),
+    [cachedBottomRows, cachedRowsPerSide],
+  );
 
   useLayoutEffect(() => {
     if (preferInternalScroll) {
@@ -158,7 +195,6 @@ export function VerseVirtualizedList({
       if (isFetchingMore) return;
       if (items.length === 0) return;
 
-      const normalizedPrefetchRows = Math.max(0, prefetchRows);
       const lastRealIndex = items.length - 1;
       const triggerIndex = Math.max(0, lastRealIndex - normalizedPrefetchRows);
       if (range.stopIndex < triggerIndex) return;
@@ -198,7 +234,7 @@ export function VerseVirtualizedList({
       items.length,
       onLoadMore,
       pageSize,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
     ]
   );
@@ -215,10 +251,7 @@ export function VerseVirtualizedList({
       const containerRect = container.getBoundingClientRect();
       const scrollParentRect = customScrollParent.getBoundingClientRect();
       const distanceToBottom = containerRect.bottom - scrollParentRect.bottom;
-      const bottomThresholdPx = Math.max(
-        280,
-        Math.max(1, prefetchRows) * DEFAULT_ITEM_HEIGHT_ESTIMATE,
-      );
+      const bottomThresholdPx = overscanBottomPx;
 
       debug('virtuoso-externalScroll', {
         scrollTop: customScrollParent.scrollTop,
@@ -250,7 +283,8 @@ export function VerseVirtualizedList({
     debug,
     items.length,
     maybeTriggerAutoLoadMore,
-    prefetchRows,
+    normalizedPrefetchRows,
+    overscanBottomPx,
     totalCount,
     usesExternalScrollParent,
   ]);
@@ -287,10 +321,10 @@ export function VerseVirtualizedList({
         range: visibleRange,
         listLength: items.length,
         totalCount,
-        prefetchRows,
+        prefetchRows: normalizedPrefetchRows,
         nearEnd:
           items.length > 0 &&
-          visibleRange.stopIndex >= Math.max(0, items.length - 1 - Math.max(0, prefetchRows)),
+          visibleRange.stopIndex >= Math.max(0, items.length - 1 - normalizedPrefetchRows),
       });
 
       if (usesExternalScrollParent) return;
@@ -300,7 +334,7 @@ export function VerseVirtualizedList({
       debug,
       items.length,
       maybeTriggerAutoLoadMore,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
       usesExternalScrollParent,
     ]
@@ -309,7 +343,7 @@ export function VerseVirtualizedList({
   const handleEndReached = useCallback(
     (index: number) => {
       const range: RangeLike = {
-        startIndex: Math.max(0, index - Math.max(0, prefetchRows)),
+        startIndex: Math.max(0, index - normalizedPrefetchRows),
         stopIndex: index,
       };
       lastVisibleRangeRef.current = range;
@@ -332,7 +366,7 @@ export function VerseVirtualizedList({
       isFetchingMore,
       items.length,
       maybeTriggerAutoLoadMore,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
       usesExternalScrollParent,
     ]
@@ -398,14 +432,9 @@ export function VerseVirtualizedList({
               }
             : undefined
         }
-        increaseViewportBy={{
-          top: 0,
-          bottom: Math.max(180, Math.max(0, prefetchRows) * 120),
-        }}
-        minOverscanItemCount={{
-          top: 1,
-          bottom: Math.max(2, Math.max(0, prefetchRows)),
-        }}
+        increaseViewportBy={viewportCache}
+        overscan={overscanPx}
+        minOverscanItemCount={overscanItemWindow}
         itemContent={(index, verse) => {
           const layoutSignature = getItemLayoutSignature(verse);
           const content = (
