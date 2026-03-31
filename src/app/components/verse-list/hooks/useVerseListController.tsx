@@ -56,7 +56,7 @@ type UseVerseListControllerParams = {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
-  onLearningCapacityExceeded?: () => void;
+  onLearningCapacityExceeded?: (verse: Verse) => void;
   cardColorConfig?: VerseCardColorConfig;
 };
 
@@ -125,7 +125,7 @@ export function useVerseListController({
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
     if (disabled) return 'catalog';
     if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
-    return initialStoredStatusFilter ?? 'catalog';
+    return initialStoredStatusFilter ?? 'my';
   });
   const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(() =>
     disabled ? false : null
@@ -178,7 +178,8 @@ export function useVerseListController({
     hasOwnVerses === false &&
     !reopenGalleryStatusFilter &&
     statusFilter !== 'catalog' &&
-    statusFilter !== 'friends';
+    statusFilter !== 'friends' &&
+    statusFilter !== 'my'; // stay on 'my' even when empty — guided empty state handles it
   const shouldDelayListFetch = !disabled &&
     Boolean(telegramId) &&
     (hasOwnVerses === null || shouldAutoSwitchToMy || shouldAutoSwitchToCatalog);

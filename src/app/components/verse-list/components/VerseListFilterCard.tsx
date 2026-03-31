@@ -22,6 +22,10 @@ import {
 import { parseStoredBoolean, VERSE_LIST_STORAGE_KEYS } from '../storage';
 import type { VerseListBookOption } from '../bookOptions';
 import type { VerseListFilterOption, VerseListSortOption } from '../types';
+import {
+  getVerseListPrimaryFilterKey,
+  getVisibleVerseListPrimaryFilterOptions,
+} from './primaryFilterTabs';
 
 function ScrollRow({
   children,
@@ -83,12 +87,12 @@ function ExpandableSectionBody({
 }) {
   return (
     <div
-        key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
-        id={controls}
-        className="overflow-hidden"
-      >
-        {expanded ? expandedContent : collapsedContent}
-      </div>
+      key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
+      id={controls}
+      className="overflow-hidden"
+    >
+      {expanded ? expandedContent : collapsedContent}
+    </div>
   );
 }
 
@@ -120,12 +124,6 @@ export type VerseListFilterCardProps = {
   presentation?: 'card' | 'drawer';
 };
 
-const ROOT_TABS = [
-  { key: 'catalog', label: 'Каталог' },
-  { key: 'friends', label: 'Друзья' },
-  { key: 'my', label: 'Мои стихи' },
-] as const;
-
 const ALL_BOOKS_LABEL = 'Все';
 
 function VerseListFilterSections({
@@ -145,21 +143,16 @@ function VerseListFilterSections({
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-}: Omit<VerseListFilterCardProps, 'presentation'>) {
+  presentation = 'card',
+}: VerseListFilterCardProps) {
   const deletingTagId = null;
   const [areBooksExpanded, setAreBooksExpanded] = useState(false);
   const [areTagsExpanded, setAreTagsExpanded] = useState(false);
   const booksPanelId = React.useId();
   const tagsPanelId = React.useId();
-  const activeRootTab: (typeof ROOT_TABS)[number]['key'] =
-    statusFilter === 'catalog'
-      ? 'catalog'
-      : statusFilter === 'friends'
-        ? 'friends'
-        : 'my';
-  const visibleRootTabs = hasFriends
-    ? ROOT_TABS
-    : ROOT_TABS.filter((tab) => tab.key !== 'friends');
+  const isDrawerPresentation = presentation === 'drawer';
+  const activeRootTab = getVerseListPrimaryFilterKey(statusFilter);
+  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions(hasFriends);
   const selectedBook =
     selectedBookId == null
       ? null
@@ -259,7 +252,10 @@ function VerseListFilterSections({
 
   return (
     <div className="overflow-hidden pb-2">
-      <div data-tour="verse-list-filters-root-tabs" className="mt-2 px-3">
+      <div
+        data-tour="verse-list-filters-root-tabs"
+        className={cn('mt-2 px-3', isDrawerPresentation && 'hidden md:block')}
+      >
         <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
           Основной фильтр:{' '}
           {activeRootTab === 'my'
@@ -422,53 +418,6 @@ function VerseListFilterSections({
         </div>
       </div>
 
-
-      <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-          Сортировка:{' '}
-          {sortBy === 'bible'
-            ? 'По канону библии'
-            : sortBy === 'popularity'
-              ? 'По популярности'
-              : 'По активности'}
-        </div>
-        <div className="rounded-xl border border-border-subtle bg-bg-subtle p-1.5">
-          <div
-            role="radiogroup"
-            aria-label="Сортировка стихов"
-            className="grid grid-cols-3 gap-1"
-          >
-            {sortOptions.map((option) => {
-              const isActive = sortBy === option.key;
-              const Icon =
-                option.key === 'bible'
-                  ? BookOpen
-                  : option.key === 'popularity'
-                    ? TrendingUp
-                    : History;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => onSortChange(option.key, option.label)}
-                  className={cn(
-                    'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
-                    isActive
-                      ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                      : 'border border-transparent text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="truncate">{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       <div data-tour="verse-list-filters-tags" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
@@ -529,6 +478,52 @@ function VerseListFilterSections({
               Теги пока не созданы
             </p>
           )}
+        </div>
+      </div>
+
+      <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
+        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+          Сортировка:{' '}
+          {sortBy === 'bible'
+            ? 'По канону библии'
+            : sortBy === 'popularity'
+              ? 'По популярности'
+              : 'По активности'}
+        </div>
+        <div className="rounded-xl border border-border-subtle bg-bg-subtle p-1.5">
+          <div
+            role="radiogroup"
+            aria-label="Сортировка стихов"
+            className="grid grid-cols-3 gap-1"
+          >
+            {sortOptions.map((option) => {
+              const isActive = sortBy === option.key;
+              const Icon =
+                option.key === 'bible'
+                  ? BookOpen
+                  : option.key === 'popularity'
+                    ? TrendingUp
+                    : History;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  onClick={() => onSortChange(option.key, option.label)}
+                  className={cn(
+                    'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
+                    isActive
+                      ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border border-transparent text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="truncate">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -613,6 +608,7 @@ export function VerseListFilterCard({
     hasActiveTags,
     onTagClick,
     onClearTags,
+    presentation,
   };
 
   if (isDrawerPresentation) {

@@ -21,6 +21,7 @@ type VerseVirtualizedListProps = {
   enableInfiniteLoader: boolean;
   preferInternalScroll?: boolean;
   topInset?: number;
+  bottomInset?: number;
   hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
@@ -33,6 +34,8 @@ type VerseVirtualizedListProps = {
   pageSize: number;
   prefetchRows: number;
   skeletonCount?: number;
+  footerNode?: React.ReactNode;
+  headerNode?: React.ReactNode;
   debugInfiniteScroll?: DebugInfiniteScroll;
 };
 
@@ -118,6 +121,7 @@ export function VerseVirtualizedList({
   enableInfiniteLoader,
   preferInternalScroll = false,
   topInset = 0,
+  bottomInset = 0,
   hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
@@ -130,6 +134,8 @@ export function VerseVirtualizedList({
   pageSize,
   prefetchRows,
   skeletonCount = DEFAULT_INLINE_SKELETON_COUNT,
+  footerNode,
+  headerNode,
   debugInfiniteScroll,
 }: VerseVirtualizedListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -141,6 +147,7 @@ export function VerseVirtualizedList({
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
   const usesExternalScrollParent = !preferInternalScroll && customScrollParent !== null;
   const normalizedTopInset = Math.max(0, Math.floor(topInset));
+  const normalizedBottomInset = Math.max(0, Math.floor(bottomInset));
   const normalizedPrefetchRows = Math.max(0, prefetchRows);
   const cachedRowsPerSide = Math.min(
     MAX_CACHE_ITEMS_PER_SIDE,
@@ -384,28 +391,36 @@ export function VerseVirtualizedList({
   const FooterComponent = useMemo(() => {
     const VerseListVirtuosoFooter = () => {
       const footerPaddingBottom =
-        'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)';
+        normalizedBottomInset > 0
+          ? `calc(var(--app-bottom-nav-clearance, 0px) + ${normalizedBottomInset}px + 0.75rem)`
+          : 'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)';
 
       return (
-        <div aria-hidden="true" style={{ paddingBottom: footerPaddingBottom }}>
-          <InlineLoadMoreSkeleton
-            count={inlineLoadSkeletonCount}
-            pulse={showDelayedLoadMoreSkeleton}
-          />
+        <div style={{ paddingBottom: footerPaddingBottom }}>
+          {footerNode}
+          <div aria-hidden="true">
+            <InlineLoadMoreSkeleton
+              count={inlineLoadSkeletonCount}
+              pulse={showDelayedLoadMoreSkeleton}
+            />
+          </div>
         </div>
       );
     };
     return VerseListVirtuosoFooter;
-  }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
+  }, [footerNode, inlineLoadSkeletonCount, normalizedBottomInset, showDelayedLoadMoreSkeleton]);
 
   const HeaderComponent = useMemo(() => {
-    const VerseListVirtuosoHeader = () =>
-      normalizedTopInset > 0 ? (
-        <div aria-hidden="true" style={{ height: normalizedTopInset }} />
-      ) : null;
-
+    const VerseListVirtuosoHeader = () => (
+      <>
+        {normalizedTopInset > 0 && (
+          <div aria-hidden="true" style={{ height: normalizedTopInset }} />
+        )}
+        {headerNode}
+      </>
+    );
     return VerseListVirtuosoHeader;
-  }, [normalizedTopInset]);
+  }, [normalizedTopInset, headerNode]);
 
   const virtuosoComponents = useMemo(
     () => ({

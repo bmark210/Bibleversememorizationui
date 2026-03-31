@@ -16,6 +16,7 @@ import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { fetchLearningCapacity } from "@/app/components/Training/exam/examApi";
 import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
+import { toast } from "@/app/lib/toast";
 
 type DashboardLeaderboardQuery = {
   offset?: number;
@@ -109,6 +110,15 @@ export function useDashboardData(telegramId: string | null) {
       const cap = await fetchLearningCapacity({ telegramId: telegramIdValue });
       if (learningCapacityRequestIdRef.current === requestId) {
         setLearningCapacity(cap);
+        if (cap.promotedVerseIds && cap.promotedVerseIds.length > 0) {
+          const count = cap.promotedVerseIds.length;
+          toast.success(
+            count === 1
+              ? 'Стих из очереди перемещён в изучение'
+              : `${count} стиха из очереди перемещены в изучение`,
+            { label: 'Очередь' }
+          );
+        }
       }
       return cap;
     } catch {

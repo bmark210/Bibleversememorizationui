@@ -40,7 +40,7 @@ type UseVerseActionsParams = {
     }
   ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
   onVerseMutationCommitted?: () => void;
-  onLearningCapacityExceeded?: () => void;
+  onLearningCapacityExceeded?: (verse: Verse) => void;
 };
 
 function getErrorStatusCode(error: unknown): number | null {
@@ -200,10 +200,7 @@ export function useVerseActions({
         const statusCode = getErrorStatusCode(err);
         if (statusCode === 422) {
           haptic('warning');
-          toast.info('Слоты для изучения заполнены. Пройдите экзамен, чтобы добавить больше стихов.', {
-            label: 'Изучение',
-          });
-          onLearningCapacityExceeded?.();
+          onLearningCapacityExceeded?.(verse);
         } else {
           if (telegramId) {
             void resetAndFetchFirstPage(telegramId, statusFilter);

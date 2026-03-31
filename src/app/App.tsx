@@ -550,6 +550,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
                   onLearningCapacityExceeded={handleNavigateToExam}
+                  learningCapacity={learningCapacity}
                   telegramId={telegramId}
                   hasFriends={hasVerseListFriends}
                   onFriendsChanged={handleFriendsChanged}

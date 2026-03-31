@@ -17,6 +17,7 @@ import { VerseListFiltersTrigger } from "./verse-list/components/VerseListFilter
 import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
+import { VerseListPrimaryFilterDock } from "./verse-list/components/VerseListPrimaryFilterDock";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import {
@@ -32,11 +33,25 @@ import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
+import { VerseListSlotCard } from "./verse-list/components/VerseListSlotCard";
+import { VerseListQueueSection } from "./verse-list/components/VerseListQueueSection";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
+import type { LearningCapacityResponse, QueueVerseItem } from "@/app/components/Training/exam/types";
+import { fetchVerseQueue, addVerseToQueue, removeVerseFromQueue } from "@/app/components/Training/exam/queueApi";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/app/components/ui/drawer";
+import { GraduationCap, ListOrdered } from "lucide-react";
+import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
+const PRIMARY_FILTER_DOCK_GAP_PX = 12;
 
 interface VerseListProps {
   reopenGalleryVerseId?: string | null;
@@ -46,6 +61,7 @@ interface VerseListProps {
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
   onLearningCapacityExceeded?: () => void;
+  learningCapacity?: LearningCapacityResponse | null;
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
@@ -65,6 +81,7 @@ export function VerseList({
   onVerseMutationCommitted,
   onNavigateToTraining,
   onLearningCapacityExceeded,
+  learningCapacity = null,
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
@@ -100,9 +117,17 @@ export function VerseList({
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
   const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
+  // Queue drawer: shown when user tries to start learning but slots are full
+  const [queueTargetVerse, setQueueTargetVerse] = useState<Verse | null>(null);
+  const [isAddingToQueue, setIsAddingToQueue] = useState(false);
+  // Queue items for "my" mode
+  const [queueItems, setQueueItems] = useState<QueueVerseItem[]>([]);
+  const [queueFreeSlots, setQueueFreeSlots] = useState(0);
   const filterOverlayRef = useRef<HTMLDivElement | null>(null);
+  const primaryFilterDockRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
   const [filterOverlayHeight, setFilterOverlayHeight] = useState(0);
+  const [primaryFilterDockHeight, setPrimaryFilterDockHeight] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
@@ -117,6 +142,7 @@ export function VerseList({
       isFocusMode ? "1" : "0",
     );
   }, [isFocusMode]);
+
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -163,6 +189,62 @@ export function VerseList({
       window.visualViewport?.removeEventListener(
         "resize",
         scheduleOverlayHeightUpdate,
+      );
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const dock = primaryFilterDockRef.current;
+    if (!dock) return;
+
+    let frameId = 0;
+
+    const updateDockHeight = () => {
+      const currentDock = primaryFilterDockRef.current;
+      if (!currentDock) return;
+
+      const styles = window.getComputedStyle(currentDock);
+      const nextHeight =
+        styles.display === "none"
+          ? 0
+          : Math.ceil(currentDock.getBoundingClientRect().height);
+
+      setPrimaryFilterDockHeight((prev) =>
+        prev === nextHeight ? prev : nextHeight,
+      );
+    };
+
+    const scheduleDockHeightUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        updateDockHeight();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleDockHeightUpdate())
+        : null;
+
+    resizeObserver?.observe(dock);
+    window.addEventListener("resize", scheduleDockHeightUpdate, {
+      passive: true,
+    });
+    window.visualViewport?.addEventListener("resize", scheduleDockHeightUpdate);
+    scheduleDockHeightUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleDockHeightUpdate);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        scheduleDockHeightUpdate,
       );
       if (frameId) {
         window.cancelAnimationFrame(frameId);
@@ -282,7 +364,7 @@ export function VerseList({
     onReopenGalleryHandled,
     verseListExternalSyncVersion,
     onVerseMutationCommitted,
-    onLearningCapacityExceeded,
+    onLearningCapacityExceeded: (verse) => setQueueTargetVerse(verse),
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
@@ -292,8 +374,77 @@ export function VerseList({
     [isFocusMode],
   );
   const isAllMode = vm.filters.statusFilter === "catalog";
+  const isMyMode = vm.filters.statusFilter === "my";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
+
+  // Load queue data when in "my" mode
+  const loadQueue = useCallback(() => {
+    if (!telegramId) return;
+    fetchVerseQueue({ telegramId }).then((resp) => {
+      setQueueItems(resp.items ?? []);
+      setQueueFreeSlots(resp.freeSlots ?? 0);
+    }).catch(() => {});
+  }, [telegramId]);
+
+  useEffect(() => {
+    if (!isMyMode || !telegramId) return;
+    loadQueue();
+  }, [isMyMode, telegramId, loadQueue]);
+
+  const handleRemoveFromQueue = useCallback(
+    (externalVerseId: string) => {
+      if (!telegramId) return;
+      removeVerseFromQueue({ telegramId, externalVerseId })
+        .then(() => {
+          setQueueItems((prev) => {
+            const updated = prev.filter((item) => item.externalVerseId !== externalVerseId);
+            return updated.map((item, idx) => ({ ...item, queuePosition: idx + 1 }));
+          });
+        })
+        .catch(() => {});
+    },
+    [telegramId],
+  );
+
+  const handleAddToQueue = useCallback(async () => {
+    if (!queueTargetVerse || !telegramId) return;
+    setIsAddingToQueue(true);
+    try {
+      await addVerseToQueue({ telegramId, externalVerseId: queueTargetVerse.externalVerseId });
+      setQueueTargetVerse(null);
+      toast.success('Добавлено в очередь', {
+        description: queueTargetVerse.reference,
+        label: 'Стихи',
+      });
+      loadQueue();
+    } catch {
+      toast.error('Ошибка — попробуйте ещё раз', { label: 'Стихи' });
+    } finally {
+      setIsAddingToQueue(false);
+    }
+  }, [queueTargetVerse, telegramId, loadQueue]);
+
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
+
+  const handleNavigateToCatalog = useCallback(() => {
+    vm.filterTabs.onTabClick("catalog", "Каталог");
+  }, [vm.filterTabs.onTabClick]);
+
+  const handleNavigateToExam = useCallback(() => {
+    onLearningCapacityExceeded?.();
+  }, [onLearningCapacityExceeded]);
+
+  const slotCardFooter = useMemo(() => {
+    if (!isMyMode) return undefined;
+    return (
+      <VerseListSlotCard
+        learningCapacity={learningCapacity}
+        onNavigateToCatalog={handleNavigateToCatalog}
+        onNavigateToExam={handleNavigateToExam}
+        queueCount={learningCapacity?.queueCount ?? 0}
+      />
+    );
+  }, [isMyMode, learningCapacity, handleNavigateToCatalog, handleNavigateToExam]);
 
   const handleTelegramBack = useCallback(() => {
     if (isGalleryOpen) {
@@ -396,6 +547,10 @@ export function VerseList({
     [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
   );
   const listTopInset = filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX;
+  const listBottomInset =
+    primaryFilterDockHeight > 0
+      ? primaryFilterDockHeight + PRIMARY_FILTER_DOCK_GAP_PX
+      : 0;
 
   const listContent =
     visibleListItems.length > 0 ? (
@@ -404,6 +559,7 @@ export function VerseList({
         enableInfiniteLoader={vm.list.enableInfiniteLoader}
         preferInternalScroll
         topInset={listTopInset}
+        bottomInset={listBottomInset}
         hasMoreItems={vm.pagination.hasMoreVerses}
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
@@ -415,6 +571,16 @@ export function VerseList({
         totalCount={vm.pagination.totalCount}
         pageSize={vm.list.pageSize}
         prefetchRows={vm.list.prefetchRows}
+        footerNode={slotCardFooter}
+        headerNode={
+          isMyMode && queueItems.length > 0 ? (
+            <VerseListQueueSection
+              items={queueItems}
+              freeSlots={queueFreeSlots}
+              onRemove={handleRemoveFromQueue}
+            />
+          ) : undefined
+        }
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
@@ -525,7 +691,9 @@ export function VerseList({
                   style={{
                     paddingTop: `${listTopInset}px`,
                     paddingBottom:
-                      "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
+                      listBottomInset > 0
+                        ? `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset}px + 0.5rem)`
+                        : "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
                   }}
                 >
                   <VerseListSkeletonCards count={5} />
@@ -535,18 +703,24 @@ export function VerseList({
                 <div
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="empty"
-                  className="relative flex h-full min-h-0 items-center justify-center px-4 py-8 sm:px-6"
+                  className="relative flex h-full min-h-0 flex-col overflow-y-auto px-4 sm:px-6"
                   style={{
                     paddingTop: `${listTopInset}px`,
                     paddingBottom:
-                      "calc(var(--app-bottom-nav-clearance, 0px) + 2rem)",
+                      listBottomInset > 0
+                        ? `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset}px + 2rem)`
+                        : "calc(var(--app-bottom-nav-clearance, 0px) + 2rem)",
                   }}
                 >
-                  <div className="w-full max-w-md">
-                    <VerseListEmptyState
-                      currentFilterLabel={vm.ui.currentFilterLabel}
-                      isAllFilter={vm.filters.statusFilter === "catalog"}
-                    />
+                  <div className="flex flex-1 items-center justify-center py-8">
+                    <div className="w-full max-w-md">
+                      <VerseListEmptyState
+                        currentFilterLabel={vm.ui.currentFilterLabel}
+                        isAllFilter={vm.filters.statusFilter === "catalog"}
+                        isMyFilter={isMyMode}
+                        onNavigateToCatalog={isMyMode ? handleNavigateToCatalog : undefined}
+                      />
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -563,6 +737,16 @@ export function VerseList({
           open={isFiltersDrawerOpen}
           onOpenChange={setIsLocalFiltersDrawerOpen}
           {...filterCardProps}
+        />
+
+        <VerseListPrimaryFilterDock
+          rootRef={primaryFilterDockRef}
+          statusFilter={vm.filters.statusFilter}
+          currentFilterLabel={vm.ui.currentFilterLabel}
+          currentFilterTheme={vm.ui.currentFilterTheme}
+          totalCount={vm.pagination.totalCount}
+          hasFriends={hasFriends}
+          onTabClick={vm.filterTabs.onTabClick}
         />
 
         {vm.gallery.galleryIndex !== null &&
@@ -612,6 +796,67 @@ export function VerseList({
           open={isVerseProgressDrawerOpen}
           onOpenChange={handleVerseProgressOpenChange}
         />
+
+        <Drawer
+          open={queueTargetVerse !== null}
+          onOpenChange={(open) => {
+            if (!open) setQueueTargetVerse(null);
+          }}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Слоты для изучения заполнены</DrawerTitle>
+              <DrawerDescription>
+                Добавьте стих в очередь — он начнёт изучаться, когда освободится слот
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex flex-col gap-3 px-4 pb-6">
+              <button
+                type="button"
+                disabled={isAddingToQueue}
+                onClick={handleAddToQueue}
+                className={cn(
+                  'flex items-center gap-3.5 rounded-2xl border border-border bg-bg-elevated px-4 py-3.5',
+                  'text-left transition-colors hover:bg-bg-elevated/80',
+                  isAddingToQueue && 'pointer-events-none opacity-60',
+                )}
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle">
+                  <ListOrdered className="h-3.5 w-3.5 text-text-muted" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-text-primary">Добавить в очередь</p>
+                  <p className="mt-0.5 text-[11px] text-text-subtle">
+                    Стих начнёт изучаться, когда освободится слот
+                  </p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQueueTargetVerse(null);
+                  onLearningCapacityExceeded?.();
+                }}
+                className={cn(
+                  'flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5',
+                  'text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10',
+                )}
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12">
+                  <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                    Перейти к экзамену
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-text-subtle">
+                    Сдайте экзамен, чтобы увеличить количество слотов
+                  </p>
+                </div>
+              </button>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
     </>
   );

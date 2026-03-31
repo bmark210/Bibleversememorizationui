@@ -17,6 +17,7 @@ export type ExamSessionOutput = {
   passed: boolean;
   newlyConfirmedCount: number;
   newCapacity: number;
+  promotedVerseIds?: string[];
 };
 
 export type ExamEligibleVersesResponse = {
@@ -33,6 +34,22 @@ export type LearningCapacityResponse = {
   canAddMore: boolean;
   base: number;
   examConfirmedCount: number;
+  queueCount: number;
+  promotedVerseIds?: string[];
+};
+
+export type QueueVerseItem = {
+  externalVerseId: string;
+  reference: string;
+  text?: string;
+  queuePosition: number;
+};
+
+export type QueueResponse = {
+  items: QueueVerseItem[];
+  totalCount: number;
+  freeSlots: number;
+  promotedVerseIds?: string[];
 };
 
 export const EXAM_MIN_ELIGIBLE = 3;
