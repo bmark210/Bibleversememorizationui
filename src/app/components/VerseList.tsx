@@ -45,6 +45,7 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
+  onLearningCapacityExceeded?: () => void;
   telegramId?: string | null;
   hasFriends?: boolean;
   isAnchorEligible?: boolean;
@@ -63,6 +64,7 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
+  onLearningCapacityExceeded,
   telegramId = null,
   hasFriends = false,
   onOpenPlayerProfile,
@@ -280,6 +282,7 @@ export function VerseList({
     onReopenGalleryHandled,
     verseListExternalSyncVersion,
     onVerseMutationCommitted,
+    onLearningCapacityExceeded,
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 

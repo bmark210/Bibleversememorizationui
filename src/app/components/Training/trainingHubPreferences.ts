@@ -15,7 +15,7 @@ type StoredShape = {
 const ANCHOR_SET = new Set<string>(ALL_ANCHOR_MODE_GROUPS);
 
 function isScenario(v: unknown): v is TrainingScenario {
-  return v === "core" || v === "anchor";
+  return v === "core" || v === "anchor" || v === "exam";
 }
 
 function normalizeCoreModes(raw: unknown): CoreTrainingMode[] | null {

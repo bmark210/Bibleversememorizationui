@@ -20,6 +20,7 @@ type UseAppBootstrapParams = {
   setDashboardFriendsActivity: (v: null) => void;
   setVerseListFriendsPresence: (v: null) => void;
   loadDashboardStats: (telegramId: string) => Promise<unknown>;
+  loadLearningCapacity: (telegramId: string) => Promise<unknown>;
   loadDashboardLeaderboard: (telegramId: string) => Promise<unknown>;
   loadDashboardFriendsActivity: (telegramId: string) => Promise<unknown>;
   loadVerseListFriendsPresence: (telegramId: string) => Promise<unknown>;
@@ -35,6 +36,7 @@ export function useAppBootstrap({
   setDashboardFriendsActivity,
   setVerseListFriendsPresence,
   loadDashboardStats,
+  loadLearningCapacity,
   loadDashboardLeaderboard,
   loadDashboardFriendsActivity,
   loadVerseListFriendsPresence,
@@ -108,6 +110,7 @@ export function useAppBootstrap({
       try {
         await Promise.all([
           loadDashboardStats(resolvedTelegramId),
+          loadLearningCapacity(resolvedTelegramId),
           loadDashboardLeaderboard(resolvedTelegramId),
           loadDashboardFriendsActivity(resolvedTelegramId),
           loadVerseListFriendsPresence(resolvedTelegramId),
@@ -132,6 +135,7 @@ export function useAppBootstrap({
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
+    loadLearningCapacity,
     scheduleTrainingVersePrefetch,
     setCurrentUserAvatarUrl,
     setDashboardFriendsActivity,

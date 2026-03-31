@@ -56,6 +56,7 @@ type UseVerseListControllerParams = {
   onReopenGalleryHandled?: () => void;
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
+  onLearningCapacityExceeded?: () => void;
   cardColorConfig?: VerseCardColorConfig;
 };
 
@@ -100,6 +101,7 @@ export function useVerseListController({
   onReopenGalleryHandled,
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
+  onLearningCapacityExceeded,
   cardColorConfig,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
@@ -277,6 +279,7 @@ export function useVerseListController({
       void refreshHasOwnVerses();
       onVerseMutationCommitted?.();
     },
+    onLearningCapacityExceeded,
   });
 
   useEffect(() => {

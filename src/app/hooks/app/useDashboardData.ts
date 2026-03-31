@@ -14,6 +14,8 @@ import {
 } from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
+import { fetchLearningCapacity } from "@/app/components/Training/exam/examApi";
+import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
 
 type DashboardLeaderboardQuery = {
   offset?: number;
@@ -23,6 +25,7 @@ type DashboardLeaderboardQuery = {
 export function useDashboardData(telegramId: string | null) {
   const [dashboardStats, setDashboardStats] = useState<domain_UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
+  const [learningCapacity, setLearningCapacity] = useState<LearningCapacityResponse | null>(null);
   const [dashboardLeaderboard, setDashboardLeaderboard] =
     useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
@@ -35,6 +38,7 @@ export function useDashboardData(telegramId: string | null) {
     useState(false);
 
   const dashboardStatsRequestIdRef = useRef(0);
+  const learningCapacityRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
   const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({
@@ -95,6 +99,20 @@ export function useDashboardData(telegramId: string | null) {
       if (dashboardStatsRequestIdRef.current === requestId) {
         setIsDashboardStatsLoading(false);
       }
+    }
+  }, []);
+
+  const loadLearningCapacity = useCallback(async (telegramIdValue: string) => {
+    if (!telegramIdValue) return null;
+    const requestId = ++learningCapacityRequestIdRef.current;
+    try {
+      const cap = await fetchLearningCapacity({ telegramId: telegramIdValue });
+      if (learningCapacityRequestIdRef.current === requestId) {
+        setLearningCapacity(cap);
+      }
+      return cap;
+    } catch {
+      return null;
     }
   }, []);
 
@@ -214,6 +232,7 @@ export function useDashboardData(telegramId: string | null) {
     dashboardStats,
     setDashboardStats,
     isDashboardStatsLoading,
+    learningCapacity,
     dashboardLeaderboard,
     setDashboardLeaderboard,
     isDashboardLeaderboardLoading,
@@ -224,6 +243,7 @@ export function useDashboardData(telegramId: string | null) {
     setVerseListFriendsPresence,
     isVerseListFriendsPresenceLoading,
     loadDashboardStats,
+    loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
     loadVerseListFriendsPresence,

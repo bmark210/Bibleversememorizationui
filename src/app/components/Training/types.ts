@@ -6,7 +6,7 @@ import type { VerseListStatusFilter } from "@/app/components/verse-list/constant
 /** Training mode — what kind of exercises to run */
 export type TrainingMode = "learning" | "review" | "anchor";
 export type CoreTrainingMode = Exclude<TrainingMode, "anchor">;
-export type TrainingScenario = "core" | "anchor";
+export type TrainingScenario = "core" | "anchor" | "exam";
 /** Training order — how to sort verses before session start */
 export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 
@@ -14,6 +14,7 @@ export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 export type TrainingView =
   | { mode: "hub" }
   | { mode: "anchor"; anchorModes: AnchorModeGroup[] }
+  | { mode: "exam" }
   | {
       mode: "verse-session";
       verses: Verse[];
@@ -61,6 +62,7 @@ export const TRAINING_MODE_LABELS: Record<TrainingMode, string> = {
 export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
   core: "Практика",
   anchor: "Игры",
+  exam: "Экзамен",
 };
 
 /** Anchor mode groups — user-facing categories that map to TrainerModeId sets */

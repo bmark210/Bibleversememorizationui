@@ -5,6 +5,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
 import { AnchorSession } from "./anchor/AnchorSession";
 import { TrainingSession } from "./session/TrainingSession";
+import { ExamSession } from "./exam/ExamSession";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type {
   TrainingProps,
@@ -146,6 +147,10 @@ export function Training({
   }, [directLaunch, goToHub, onDirectLaunchExit]);
 
   const handleStart = useCallback(() => {
+    if (selectedScenario === "exam") {
+      setView({ mode: "exam" });
+      return;
+    }
     if (selectedScenario === "anchor") {
       setView({ mode: "anchor", anchorModes: selectedAnchorModes });
       return;
@@ -222,6 +227,16 @@ export function Training({
               onSessionCommitted={onVerseMutationCommitted}
               onClose={handleExitSession}
             />
+        </div>
+      )}
+
+      {view.mode === "exam" && telegramId && (
+        <div className="h-full overflow-y-auto">
+          <ExamSession
+            telegramId={telegramId}
+            onClose={handleExitSession}
+            onSessionCommitted={onVerseMutationCommitted}
+          />
         </div>
       )}
 

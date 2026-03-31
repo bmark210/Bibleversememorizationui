@@ -1,12 +1,14 @@
 'use client'
 
 import { useMemo } from 'react'
+import { GraduationCap } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import type { Verse } from '@/app/domain/verse'
 import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
 import type { DashboardCompactFriendsActivityResponse } from '@/api/services/friendsActivity'
+import type { LearningCapacityResponse } from '@/app/components/Training/exam/types'
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
@@ -24,6 +26,7 @@ interface DashboardProps {
   todayVerses: Array<Verse>
   dashboardStats?: domain_UserDashboardStats | null
   isDashboardStatsLoading?: boolean
+  learningCapacity?: LearningCapacityResponse | null
   dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null
@@ -31,6 +34,7 @@ interface DashboardProps {
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
+  onOpenExam?: () => void
   onOpenPlayerProfile?: (player: {
     telegramId: string
     name: string
@@ -133,6 +137,7 @@ export function Dashboard({
   todayVerses,
   dashboardStats = null,
   isDashboardStatsLoading = false,
+  learningCapacity = null,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
@@ -140,6 +145,7 @@ export function Dashboard({
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
+  onOpenExam,
   onOpenPlayerProfile,
   onLeaderboardWindowRequest,
   isInitializingData = false,
@@ -176,14 +182,37 @@ export function Dashboard({
     [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, userXp],
   )
 
+  const isCapacityFull =
+    learningCapacity != null && !learningCapacity.canAddMore
+
   if (isInitializingData) {
     return <div className="min-h-0 flex-1" />
   }
 
   return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {isCapacityFull && onOpenExam && (
+        <div className="shrink-0 px-3 pt-2 sm:px-4 lg:px-5">
+          <button
+            type="button"
+            onClick={onOpenExam}
+            className="flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-500/15"
+          >
+            <GraduationCap className="h-5 w-5 shrink-0 text-amber-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Слоты заполнены ({learningCapacity!.activeLearning}/{learningCapacity!.capacity})
+              </p>
+              <p className="text-xs text-text-muted">
+                Пройдите экзамен, чтобы добавить новые стихи в изучение
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
     <section
       className={cn(
-        'mx-auto grid h-full min-h-0 w-full max-w-5xl grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
+        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
         'gap-2 px-3 py-2 sm:gap-3 sm:py-3',
         'lg:grid-cols-[minmax(0,1.05fr)_minmax(19rem,0.95fr)] lg:grid-rows-[auto_minmax(0,1fr)]',
         'sm:px-4 lg:px-5',
@@ -230,5 +259,6 @@ export function Dashboard({
         />
       </div>
     </section>
+    </div>
   )
 }

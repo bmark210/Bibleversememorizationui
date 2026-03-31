@@ -40,6 +40,7 @@ type UseVerseActionsParams = {
     }
   ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
   onVerseMutationCommitted?: () => void;
+  onLearningCapacityExceeded?: () => void;
 };
 
 function getErrorStatusCode(error: unknown): number | null {
@@ -73,6 +74,7 @@ export function useVerseActions({
   setAnnouncement,
   applyVersePatch,
   onVerseMutationCommitted,
+  onLearningCapacityExceeded,
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
@@ -195,13 +197,22 @@ export function useVerseActions({
         setAnnouncement(`${verse.reference}: ${message}`);
       } catch (err) {
         console.error('Не удалось изменить статус стиха:', err);
-        if (telegramId) {
-          void resetAndFetchFirstPage(telegramId, statusFilter);
+        const statusCode = getErrorStatusCode(err);
+        if (statusCode === 422) {
+          haptic('warning');
+          toast.info('Слоты для изучения заполнены. Пройдите экзамен, чтобы добавить больше стихов.', {
+            label: 'Изучение',
+          });
+          onLearningCapacityExceeded?.();
+        } else {
+          if (telegramId) {
+            void resetAndFetchFirstPage(telegramId, statusFilter);
+          }
+          haptic('error');
+          toast.error('Ошибка — попробуйте ещё раз', {
+            label: 'Стихи',
+          });
         }
-        haptic('error');
-        toast.error('Ошибка — попробуйте ещё раз', {
-          label: 'Стихи',
-        });
       } finally {
         markVersePending(verse, false);
       }
@@ -217,6 +228,7 @@ export function useVerseActions({
       resetAndFetchFirstPage,
       applyVersePatch,
       onVerseMutationCommitted,
+      onLearningCapacityExceeded,
     ]
   );
 
