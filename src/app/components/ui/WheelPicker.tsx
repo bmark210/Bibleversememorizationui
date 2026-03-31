@@ -104,7 +104,6 @@ export function WheelPicker({ values, value, onChange, className }: WheelPickerP
           paddingTop: padding,
           paddingBottom: padding,
           scrollbarWidth: 'none',
-          // @ts-expect-error webkit
           WebkitOverflowScrolling: 'touch',
         }}
       >
