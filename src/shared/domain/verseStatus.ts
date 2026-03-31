@@ -1,5 +1,6 @@
 export const VerseStatus = {
   MY: "MY",
+  QUEUE: "QUEUE",
   LEARNING: "LEARNING",
   STOPPED: "STOPPED",
   MASTERED: "MASTERED",

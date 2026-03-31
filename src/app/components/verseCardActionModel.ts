@@ -1,7 +1,7 @@
 import {
   Anchor,
   Brain,
-  CalendarClock,
+  // CalendarClock,
   Dumbbell,
   Pause,
   Play,
@@ -83,7 +83,7 @@ export function resolveVerseCardActionModel(
     utilityAction: getUtilityAction(status),
     waitingLabel,
     statusTone: getStatusTone({ status, isNotYetDue }),
-    showProgress: status !== "CATALOG" && status !== VerseStatus.MY,
+    showProgress: status !== "CATALOG" && status !== VerseStatus.MY && status !== VerseStatus.QUEUE,
     isNotYetDue,
   };
 }
@@ -104,6 +104,11 @@ function getPrimaryAction(params: {
       icon: Plus,
       dataTour: "verse-card-add-button",
     };
+  }
+
+  if (status === VerseStatus.QUEUE) {
+    // Already queued — no CTA needed; the queue badge communicates the state
+    return null;
   }
 
   if (status === VerseStatus.MY) {
@@ -184,7 +189,7 @@ function getStatusTone(params: {
   status: DisplayVerseStatus;
   isNotYetDue: boolean;
 }): VerseStatusSummaryTone | null {
-  const { status, isNotYetDue } = params;
+  const { status } = params;
 
   if (status === "CATALOG" || status === VerseStatus.MY) {
     return null;
@@ -218,13 +223,13 @@ function getStatusTone(params: {
   }
 
   if (status === "REVIEW") {
-    if (isNotYetDue) {
-      return {
-        icon: CalendarClock,
-        title: "В ожидании",
-        ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
-      };
-    }
+    // if (isNotYetDue) {
+    //   return {
+    //     icon: CalendarClock,
+    //     title: "В ожидании",
+    //     ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
+    //   };
+    // }
 
     return {
       icon: RefreshCw,

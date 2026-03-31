@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
@@ -16,6 +16,7 @@ import {
 } from '@/app/components/verseCardColorConfig';
 import { Verse } from "@/app/domain/verse";
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
+import { VerseStatus } from '@/shared/domain/verseStatus';
 import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress';
 import {
   getVerseCardLayoutSignature,
@@ -33,6 +34,7 @@ export type SwipeCardProps = {
   onStartTraining?: (verse: Verse) => void;
   onPauseLearning: (verse: Verse) => void;
   onResumeLearning: (verse: Verse) => void;
+  onEditQueuePosition?: (verse: Verse) => void;
   isPending?: boolean;
   isFocusMode?: boolean;
   isAnchorEligible?: boolean;
@@ -49,6 +51,7 @@ const SwipeableVerseCardComponent = ({
   onStartTraining,
   onPauseLearning,
   onResumeLearning,
+  onEditQueuePosition,
   isPending = false,
   isFocusMode = false,
   isAnchorEligible = false,
@@ -441,7 +444,38 @@ const SwipeableVerseCardComponent = ({
               </div>
             ) : null}
           </div>
-          {!isFocusMode && (statusMetaContent || waitingMetaContent) ? (
+          {!isFocusMode && displayStatus === VerseStatus.QUEUE ? (
+            <div key={layoutSignature} className="relative overflow-hidden">
+              <div className="flex items-end justify-between gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    stopCardOpen(e);
+                    if (onEditQueuePosition) {
+                      haptic('light');
+                      onEditQueuePosition(verse);
+                    }
+                  }}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border border-status-queue/28 bg-status-queue-soft px-2.5 py-1 text-[11px] font-semibold text-status-queue',
+                    onEditQueuePosition
+                      ? 'cursor-pointer transition-opacity hover:opacity-75 active:scale-95'
+                      : 'cursor-default',
+                  )}
+                  aria-label="Изменить позицию в очереди"
+                >
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span>В очереди</span>
+                  {typeof verse.queuePosition === 'number' && verse.queuePosition > 0 && (
+                    <>
+                      <span className="opacity-40">·</span>
+                      <span className="tabular-nums">#{verse.queuePosition}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : !isFocusMode && (statusMetaContent || waitingMetaContent) ? (
             <div
               key={layoutSignature}
               className="relative overflow-hidden"

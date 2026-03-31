@@ -1,4 +1,4 @@
-export type VerseCardTone = "my" | "catalog" | "learning" | "review" | "mastered" | "stopped";
+export type VerseCardTone = "my" | "queue" | "catalog" | "learning" | "review" | "mastered" | "stopped";
 
 export type VerseCardStatusToneKey =
   | "learning"
@@ -77,6 +77,16 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
       accentBorderClassName: "border-border-default/70",
       accentTextClassName: "text-brand-primary",
       progressClassName: "text-brand-primary",
+    },
+    queue: {
+      frameClassName: "bg-status-queue",
+      surfaceClassName: "",
+      surfaceTintClassName: "bg-status-queue-tint",
+      glowClassName: "bg-status-queue-soft",
+      lineClassName: "from-transparent via-status-queue to-transparent",
+      accentBorderClassName: "border-status-queue/28",
+      accentTextClassName: "text-status-queue",
+      progressClassName: "text-status-queue",
     },
     my: {
       frameClassName: "bg-status-collection",

@@ -12,7 +12,7 @@ export type VerseListStatusFilter =
   | "stopped"
   | "my";
 export type VerseListSortBy = "updatedAt" | "bible" | "popularity";
-export type VerseStageVisualKey = VerseListStatusFilter;
+export type VerseStageVisualKey = VerseListStatusFilter | "queue";
 export type StoppedVerseStageKind = "progress" | "review" | "mastered";
 
 export type FilterVisualTheme = {
@@ -129,6 +129,10 @@ export function getVerseStageVisual(
     return { key: "catalog", label: "Каталог" };
   }
 
+  if (status === VerseStatus.QUEUE) {
+    return { key: "queue", label: "В очереди" };
+  }
+
   if (status === VerseStatus.MY) {
     return { key: "my", label: "Мой" };
   }
@@ -169,6 +173,10 @@ export function getVerseCardLayoutSignature(
 
   if (status === 'CATALOG') {
     return 'catalog';
+  }
+
+  if (status === VerseStatus.QUEUE) {
+    return 'my'; // same layout structure as MY, different color
   }
 
   if (status === VerseStatus.MY) {

@@ -57,6 +57,7 @@ type UseVerseListControllerParams = {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onLearningCapacityExceeded?: (verse: Verse) => void;
+  onEditQueuePosition?: (verse: Verse) => void;
   cardColorConfig?: VerseCardColorConfig;
 };
 
@@ -102,6 +103,7 @@ export function useVerseListController({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onLearningCapacityExceeded,
+  onEditQueuePosition,
   cardColorConfig,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
@@ -571,6 +573,7 @@ export function useVerseListController({
         onOpenProgress={onOpenVerseProgress}
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
+        onEditQueuePosition={onEditQueuePosition}
         onStartTraining={(v) => {
           const preferredMode = getTrainingLaunchMode(normalizeDisplayVerseStatus(v.status));
           if (!preferredMode || !onNavigateToTraining) return;
@@ -599,6 +602,7 @@ export function useVerseListController({
       cardColorConfig,
       isAnchorEligible,
       isFocusMode,
+      onEditQueuePosition,
       onNavigateToTraining,
       onOpenVerseOwners,
       onOpenVerseProgress,

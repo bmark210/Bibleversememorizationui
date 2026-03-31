@@ -1,5 +1,6 @@
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -14,6 +15,7 @@ import {
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { PreparedVersePreview } from "../previewModel";
 
 type Props = {
@@ -27,6 +29,7 @@ type Props = {
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
+  onEditQueuePosition?: (verse: Verse) => void;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
   colorConfig?: VerseCardColorConfig;
 };
@@ -51,6 +54,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
+  onEditQueuePosition,
   onVerticalSwipeStep,
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: Props) {
@@ -407,7 +411,30 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
           ) : null
         }
         footer={
-          showFooter && statusTone ? (
+          preview.status === VerseStatus.QUEUE ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => onEditQueuePosition?.(verse)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border border-status-queue/28 bg-status-queue-soft px-3 py-1.5 text-[12px] font-semibold text-status-queue',
+                  onEditQueuePosition
+                    ? 'cursor-pointer transition-opacity hover:opacity-75 active:scale-95'
+                    : 'cursor-default',
+                )}
+                aria-label="Изменить позицию в очереди"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span>В очереди</span>
+                {typeof verse.queuePosition === 'number' && verse.queuePosition > 0 && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span className="tabular-nums">#{verse.queuePosition}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : showFooter && statusTone ? (
             <button
               type="button"
               onClick={() => onOpenProgress?.(verse)}

@@ -8,6 +8,7 @@ export function normalizeDisplayVerseStatus(value: unknown): DisplayVerseStatus 
   if (value === "MASTERED") return "MASTERED";
   if (value === VerseStatus.LEARNING || value === "LEARNING") return VerseStatus.LEARNING;
   if (value === VerseStatus.STOPPED || value === "STOPPED") return VerseStatus.STOPPED;
+  if (value === VerseStatus.QUEUE || value === "QUEUE") return VerseStatus.QUEUE;
   return VerseStatus.MY;
 }
 

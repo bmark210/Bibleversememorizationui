@@ -40,6 +40,25 @@ export async function addVerseToQueue(params: {
   return res.json();
 }
 
+export async function reorderVerseInQueue(params: {
+  telegramId: string;
+  externalVerseId: string;
+  queuePosition: number;
+}): Promise<{ status: string }> {
+  const res = await fetch(
+    `${baseUrl()}/api/users/${params.telegramId}/verses/${params.externalVerseId}/queue`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queuePosition: params.queuePosition }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`reorderVerseInQueue failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function removeVerseFromQueue(params: {
   telegramId: string;
   externalVerseId: string;

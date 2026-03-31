@@ -44,6 +44,7 @@ export type Verse = {
   reference: string;
   contextPromptText?: string;
   contextPromptReference?: string;
+  queuePosition?: number | null;
 };
 
 export type AppVerseApiRecord = {
@@ -82,6 +83,7 @@ export type AppVerseApiRecord = {
   reference?: string | null;
   contextPromptText?: string | null;
   contextPromptReference?: string | null;
+  queuePosition?: number | null;
 };
 
 function parseDateValue(value: unknown): Date | null {
@@ -166,6 +168,7 @@ export function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
     contextPromptText: typeof verse.contextPromptText === "string" ? verse.contextPromptText : undefined,
     contextPromptReference: typeof verse.contextPromptReference === "string" ? verse.contextPromptReference : undefined,
+    queuePosition: typeof verse.queuePosition === "number" ? verse.queuePosition : null,
   };
 }
 

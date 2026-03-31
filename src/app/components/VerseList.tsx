@@ -34,12 +34,12 @@ import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import { VerseListSlotCard } from "./verse-list/components/VerseListSlotCard";
-import { VerseListQueueSection } from "./verse-list/components/VerseListQueueSection";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import type { LearningCapacityResponse, QueueVerseItem } from "@/app/components/Training/exam/types";
-import { fetchVerseQueue, addVerseToQueue, removeVerseFromQueue } from "@/app/components/Training/exam/queueApi";
+import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
+import { addVerseToQueue, reorderVerseInQueue } from "@/app/components/Training/exam/queueApi";
+import { WheelPicker } from "@/app/components/ui/WheelPicker";
 import {
   Drawer,
   DrawerContent,
@@ -120,9 +120,9 @@ export function VerseList({
   // Queue drawer: shown when user tries to start learning but slots are full
   const [queueTargetVerse, setQueueTargetVerse] = useState<Verse | null>(null);
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
-  // Queue items for "my" mode
-  const [queueItems, setQueueItems] = useState<QueueVerseItem[]>([]);
-  const [queueFreeSlots, setQueueFreeSlots] = useState(0);
+  // Position picker for queue reordering
+  const [positionEditVerse, setPositionEditVerse] = useState<Verse | null>(null);
+  const [positionEditValue, setPositionEditValue] = useState(1);
   const filterOverlayRef = useRef<HTMLDivElement | null>(null);
   const primaryFilterDockRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
@@ -323,6 +323,11 @@ export function VerseList({
     setVerseTagsTarget(null);
   }, []);
 
+  const handleOpenPositionEdit = useCallback((verse: Verse) => {
+    setPositionEditVerse(verse);
+    setPositionEditValue(typeof verse.queuePosition === 'number' && verse.queuePosition > 0 ? verse.queuePosition : 1);
+  }, []);
+
   const vm = useVerseListController({
     disabled: false,
     initialTags: [],
@@ -365,6 +370,7 @@ export function VerseList({
     verseListExternalSyncVersion,
     onVerseMutationCommitted,
     onLearningCapacityExceeded: (verse) => setQueueTargetVerse(verse),
+    onEditQueuePosition: handleOpenPositionEdit,
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
@@ -377,34 +383,21 @@ export function VerseList({
   const isMyMode = vm.filters.statusFilter === "my";
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
 
-  // Load queue data when in "my" mode
-  const loadQueue = useCallback(() => {
-    if (!telegramId) return;
-    fetchVerseQueue({ telegramId }).then((resp) => {
-      setQueueItems(resp.items ?? []);
-      setQueueFreeSlots(resp.freeSlots ?? 0);
-    }).catch(() => {});
-  }, [telegramId]);
-
-  useEffect(() => {
-    if (!isMyMode || !telegramId) return;
-    loadQueue();
-  }, [isMyMode, telegramId, loadQueue]);
-
-  const handleRemoveFromQueue = useCallback(
-    (externalVerseId: string) => {
-      if (!telegramId) return;
-      removeVerseFromQueue({ telegramId, externalVerseId })
-        .then(() => {
-          setQueueItems((prev) => {
-            const updated = prev.filter((item) => item.externalVerseId !== externalVerseId);
-            return updated.map((item, idx) => ({ ...item, queuePosition: idx + 1 }));
-          });
-        })
-        .catch(() => {});
-    },
-    [telegramId],
-  );
+  const handleSavePosition = useCallback(async () => {
+    if (!positionEditVerse || !telegramId) return;
+    const { externalVerseId, queuePosition } = positionEditVerse;
+    if (positionEditValue === queuePosition) {
+      setPositionEditVerse(null);
+      return;
+    }
+    try {
+      await reorderVerseInQueue({ telegramId, externalVerseId, queuePosition: positionEditValue });
+      setPositionEditVerse(null);
+      toast.success('Позиция обновлена', { label: 'Очередь' });
+    } catch {
+      toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
+    }
+  }, [positionEditVerse, positionEditValue, telegramId]);
 
   const handleAddToQueue = useCallback(async () => {
     if (!queueTargetVerse || !telegramId) return;
@@ -416,13 +409,12 @@ export function VerseList({
         description: queueTargetVerse.reference,
         label: 'Стихи',
       });
-      loadQueue();
     } catch {
       toast.error('Ошибка — попробуйте ещё раз', { label: 'Стихи' });
     } finally {
       setIsAddingToQueue(false);
     }
-  }, [queueTargetVerse, telegramId, loadQueue]);
+  }, [queueTargetVerse, telegramId]);
 
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
 
@@ -572,15 +564,6 @@ export function VerseList({
         pageSize={vm.list.pageSize}
         prefetchRows={vm.list.prefetchRows}
         footerNode={slotCardFooter}
-        headerNode={
-          isMyMode && queueItems.length > 0 ? (
-            <VerseListQueueSection
-              items={queueItems}
-              freeSlots={queueFreeSlots}
-              onRemove={handleRemoveFromQueue}
-            />
-          ) : undefined
-        }
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;
@@ -797,6 +780,60 @@ export function VerseList({
           onOpenChange={handleVerseProgressOpenChange}
         />
 
+        {/* Queue position picker drawer */}
+        <Drawer
+          open={positionEditVerse !== null}
+          onOpenChange={(open) => { if (!open) setPositionEditVerse(null); }}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Позиция в очереди</DrawerTitle>
+              {positionEditVerse && (
+                <DrawerDescription>{positionEditVerse.reference}</DrawerDescription>
+              )}
+            </DrawerHeader>
+            <div className="flex flex-col items-center px-4 pb-2">
+              <WheelPicker
+                values={Array.from(
+                  { length: Math.max(learningCapacity?.queueCount ?? 1, positionEditVerse?.queuePosition ?? 1) },
+                  (_, i) => i + 1,
+                )}
+                value={positionEditValue}
+                onChange={setPositionEditValue}
+                className="w-40"
+              />
+              <p className="mt-1 text-[11px] text-text-subtle">
+                {positionEditValue === 1
+                  ? 'Первым начнёт изучение'
+                  : `Позиция ${positionEditValue} в очереди`}
+              </p>
+            </div>
+            <div className="flex gap-3 px-4 pb-6 pt-2">
+              <button
+                type="button"
+                onClick={() => setPositionEditVerse(null)}
+                className={cn(
+                  'flex-1 rounded-2xl border border-border bg-transparent py-3',
+                  'text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle',
+                )}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePosition}
+                className={cn(
+                  'flex-1 rounded-2xl bg-brand-primary py-3',
+                  'text-[14px] font-semibold text-white transition-opacity hover:opacity-90',
+                )}
+              >
+                Сохранить
+              </button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Queue full drawer */}
         <Drawer
           open={queueTargetVerse !== null}
           onOpenChange={(open) => {

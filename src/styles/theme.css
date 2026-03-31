@@ -63,6 +63,9 @@ body[data-theme='light'] {
   --status-paused: var(--accent-wine);
   --status-paused-soft: rgba(122, 62, 62, 0.16);
   --status-paused-tint: rgba(122, 62, 62, 0.085);
+  --status-queue: #8a7a9e;
+  --status-queue-soft: rgba(138, 122, 158, 0.13);
+  --status-queue-tint: rgba(138, 122, 158, 0.07);
 
   --interactive-hover: rgba(140, 106, 59, 0.1);
   --interactive-active: rgba(140, 106, 59, 0.16);
@@ -171,6 +174,9 @@ body[data-theme='dark'] {
   --status-paused: var(--accent-wine);
   --status-paused-soft: rgba(139, 87, 80, 0.2);
   --status-paused-tint: rgba(139, 87, 80, 0.12);
+  --status-queue: #9e8fb5;
+  --status-queue-soft: rgba(158, 143, 181, 0.17);
+  --status-queue-tint: rgba(158, 143, 181, 0.1);
 
   --interactive-hover: rgba(200, 169, 107, 0.12);
   --interactive-active: rgba(200, 169, 107, 0.2);
@@ -276,6 +282,9 @@ body[data-theme='dark'] {
   --color-status-paused: var(--status-paused);
   --color-status-paused-soft: var(--status-paused-soft);
   --color-status-paused-tint: var(--status-paused-tint);
+  --color-status-queue: var(--status-queue);
+  --color-status-queue-soft: var(--status-queue-soft);
+  --color-status-queue-tint: var(--status-queue-tint);
 
   --color-interactive-hover: var(--interactive-hover);
   --color-interactive-active: var(--interactive-active);
