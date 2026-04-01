@@ -1607,46 +1607,6 @@ export const DashboardFriendsActivityCard = React.memo(
                     )}
                   </div>
                 </div>
-
-                {/* Most recently active friend as a signal row */}
-                {(() => {
-                  const recentFriend = summaryEntries.find((e) => e.lastActiveAt);
-                  if (!recentFriend) return null;
-                  const friendName = recentFriend.name?.trim() || "Друг";
-                  return (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenPlayerProfile?.({
-                          telegramId: String(recentFriend.telegramId ?? ""),
-                          name: friendName,
-                          avatarUrl: recentFriend.avatarUrl?.trim() ? recentFriend.avatarUrl.trim() : null,
-                        });
-                      }}
-                      className="mt-auto flex w-full items-center gap-2.5 rounded-[1.1rem] border border-border-subtle bg-bg-elevated/60 px-3 py-1 text-left shadow-[var(--shadow-soft)] transition-colors hover:border-brand-primary/15 hover:bg-bg-surface narrow:gap-2 narrow:px-2.5 narrow:py-1.5"
-                      aria-label={`Открыть профиль ${friendName}`}
-                    >
-                      <div className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-muted narrow:text-[8px]">
-                        Последний
-                      </div>
-                      <Avatar className="h-7 w-7 shrink-0 border border-border-subtle narrow:h-6 narrow:w-6">
-                        {recentFriend.avatarUrl ? (
-                          <AvatarImage src={recentFriend.avatarUrl} alt={friendName} />
-                        ) : null}
-                        <AvatarFallback className="bg-bg-subtle text-[9px] text-text-secondary">
-                          {getInitials(friendName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight text-text-primary narrow:text-[12px]">
-                        {friendName}
-                      </div>
-                      <div className="shrink-0 text-[11px] text-text-muted narrow:text-[10px]">
-                        {formatFriendLastActive(recentFriend.lastActiveAt)}
-                      </div>
-                    </button>
-                  );
-                })()}
               </>
             ) : (
               <DashboardInfoTile

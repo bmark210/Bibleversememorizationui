@@ -9,13 +9,15 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { VersePreviewOverride } from "./types";
 import {
-  computeTotalProgressPercent,
   getVerseIdentity,
   mergePreviewOverrides,
-  normalizeVerseStatus,
   parseDate,
 } from "./utils";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import {
+  getVerseDisplayStatus,
+  getVerseProgressPercent,
+} from "@/shared/verseRules";
 
 export type PreparedPreviewUser = {
   telegramId: string;
@@ -225,9 +227,7 @@ export function getPreparedVersePreview(
     return cached;
   }
 
-  const status = normalizeVerseStatus(verse.status);
-  const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
-  const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
+  const status = getVerseDisplayStatus(verse);
   const popularityValue =
     typeof verse.popularityValue === "number"
       ? Math.max(0, Math.round(verse.popularityValue))
@@ -247,10 +247,7 @@ export function getPreparedVersePreview(
       isAnchorEligible,
     }),
     tone: getPreviewTone(status),
-    totalProgressPercent: computeTotalProgressPercent(
-      rawMasteryLevel,
-      repetitionsCount
-    ),
+    totalProgressPercent: getVerseProgressPercent(verse),
     normalizedTags: normalizeTags(verse),
     previewUsers: normalizePreviewUsers(verse),
     popularityValue,

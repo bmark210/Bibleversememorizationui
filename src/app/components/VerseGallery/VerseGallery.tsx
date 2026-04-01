@@ -20,6 +20,7 @@ import {
 } from "@/app/lib/semanticToast";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { getVerseDisplayStatus } from "@/shared/verseRules";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryDeleteDrawer } from "./components/GalleryDeleteDrawer";
@@ -35,7 +36,6 @@ import { useGalleryScrollLock } from "./hooks/useGalleryScrollLock";
 import { usePreparedVersePreview } from "./hooks/usePreparedVersePreview";
 import { usePreviewNavigation } from "./hooks/usePreviewNavigation";
 import {
-  normalizeVerseStatus,
   toPreviewOverrideFromVersePatch,
   haptic,
   clamp,
@@ -45,7 +45,7 @@ import type { TrainingMode } from "@/app/components/Training/types";
 import type { VerseGalleryProps } from "./types";
 
 function getTrainingLaunchMode(
-  status: ReturnType<typeof normalizeVerseStatus>
+  status: ReturnType<typeof getVerseDisplayStatus>
 ): TrainingMode | null {
   if (status === "MASTERED") return "anchor";
   if (status === "REVIEW") return "review";
@@ -73,7 +73,7 @@ function normalizeSelectedTagSlugs(
 }
 
 function getPreviewStatusMutation(
-  status: ReturnType<typeof normalizeVerseStatus>,
+  status: ReturnType<typeof getVerseDisplayStatus>,
   actionId: VerseCardActionId | null | undefined,
 ): PreviewStatusMutation | null {
   if (!actionId) return null;

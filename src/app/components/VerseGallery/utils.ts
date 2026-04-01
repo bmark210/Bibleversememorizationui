@@ -1,10 +1,7 @@
 import { Pause, Play, Plus } from "lucide-react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 export { clamp } from "@/shared/utils/clamp";
-import {
-  normalizeDisplayVerseStatus,
-  type DisplayVerseStatus,
-} from "@/app/types/verseStatus";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import { computeVerseTotalProgressPercent } from "@/shared/training/verseTotalProgress";
 import {
@@ -12,6 +9,12 @@ import {
   normalizeRawMasteryLevel as normalizeSharedRawMasteryLevel,
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
+import {
+  getVerseDisplayStatus,
+  getVerseNextAvailabilityAt,
+  isVerseDueForTraining,
+  isVerseReview,
+} from "@/shared/verseRules";
 import { chooseTrainingMode } from "@/modules/training/application/chooseTrainingMode";
 import { triggerHaptic } from "@/app/lib/haptics";
 import type { Verse } from "@/app/domain/verse";
@@ -75,10 +78,6 @@ export function parseDate(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function normalizeVerseStatus(status: Verse["status"]): DisplayVerseStatus {
-  return normalizeDisplayVerseStatus(status);
-}
-
 export function normalizeRawMasteryLevel(raw: number | null | undefined): number {
   return normalizeSharedRawMasteryLevel(raw);
 }
@@ -110,7 +109,7 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
       ? String((verse as Record<string, unknown>).telegramId)
       : null,
     externalVerseId,
-    status: normalizeVerseStatus(verse.status),
+    status: getVerseDisplayStatus(verse),
     rawMasteryLevel,
     stageMasteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
@@ -120,10 +119,18 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
     ),
     lastModeId,
     lastReviewedAt: parseDate((verse as Record<string, unknown>).lastReviewedAt),
-    nextReviewAt: parseDate(
-      (verse as Record<string, unknown>).nextReviewAt ??
-        (verse as Record<string, unknown>).nextReview
-    ),
+    nextReviewAt: getVerseNextAvailabilityAt({
+      status: verse.status,
+      flow: verse.flow,
+      masteryLevel: verse.masteryLevel,
+      repetitions: verse.repetitions,
+      nextReviewAt:
+        ((verse as Record<string, unknown>).nextReviewAt as string | null | undefined) ??
+        null,
+      nextReview:
+        ((verse as Record<string, unknown>).nextReview as string | null | undefined) ??
+        null,
+    }),
   };
 }
 
@@ -136,14 +143,25 @@ function isTrainingDueVerse(
 }
 
 export function isTrainingEligibleVerse(verse: TrainingVerseState) {
-  return (
-    (verse.status === VerseStatus.LEARNING || verse.status === "REVIEW") &&
-    isTrainingDueVerse(verse)
-  );
+  return isVerseDueForTraining({
+    status: verse.status,
+    flow: verse.raw.flow,
+    masteryLevel: verse.rawMasteryLevel,
+    repetitions: verse.repetitions,
+    nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
+    nextReview: verse.nextReviewAt?.toISOString() ?? null,
+  });
 }
 
 export function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status">) {
-  return verse.status === "REVIEW";
+  return isVerseReview({
+    status: verse.status,
+    flow: null,
+    masteryLevel: 0,
+    repetitions: 0,
+    nextReviewAt: null,
+    nextReview: null,
+  });
 }
 
 export function matchesTrainingSubsetFilter(
@@ -382,6 +400,7 @@ export function mergePreviewOverrides(
 export function toPreviewOverrideFromVersePatch(patch: VerseMutablePatch): VersePreviewOverride {
   const next: VersePreviewOverride = {};
   if (patch.status !== undefined) next.status = patch.status;
+  if (patch.flow !== undefined) next.flow = patch.flow ?? null;
   if (patch.masteryLevel !== undefined) next.masteryLevel = patch.masteryLevel ?? 0;
   if (patch.repetitions !== undefined) next.repetitions = patch.repetitions ?? 0;
   if (patch.lastReviewedAt !== undefined) next.lastReviewedAt = patch.lastReviewedAt ?? null;

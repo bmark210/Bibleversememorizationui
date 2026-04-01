@@ -20,7 +20,7 @@ type UseVerseActionsParams = {
   telegramId?: string;
   statusFilter: VerseListStatusFilter;
   matchesListFilter: (
-    verse: Pick<Verse, 'status' | 'masteryLevel'>,
+    verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
     filter: VerseListStatusFilter
   ) => boolean;
   resetAndFetchFirstPage: (telegramId: string, filter: VerseListStatusFilter) => Promise<void>;
@@ -33,7 +33,7 @@ type UseVerseActionsParams = {
     options: {
       statusFilter: VerseListStatusFilter;
       matchesListFilter: (
-        verse: Pick<Verse, 'status' | 'masteryLevel'>,
+        verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
         filter: VerseListStatusFilter
       ) => boolean;
       adjustTotalCountOnFilterExit?: boolean;
@@ -259,6 +259,7 @@ export function useVerseActions({
               ? {
                   ...v,
                   status: 'CATALOG' as const,
+                  flow: null,
                   masteryLevel: 0,
                   repetitions: 0,
                   reviewLapseStreak: 0,

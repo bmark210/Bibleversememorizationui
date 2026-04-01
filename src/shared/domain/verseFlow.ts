@@ -1,9 +1,21 @@
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 
+export const VerseAction = {
+  ADD_TO_MY: "add_to_my",
+  START_LEARNING: "start_learning",
+  TRAIN: "train",
+  PAUSE: "pause",
+  RESUME: "resume",
+  ANCHOR: "anchor",
+} as const;
+
+export type VerseAction = (typeof VerseAction)[keyof typeof VerseAction];
+
 export const VerseFlowCode = {
   CATALOG: "CATALOG",
   MY: "MY",
+  QUEUE: "QUEUE",
   LEARNING: "LEARNING",
   REVIEW_DUE: "REVIEW_DUE",
   REVIEW_WAITING: "REVIEW_WAITING",
@@ -20,7 +32,7 @@ export type VerseFlow = {
   group: "catalog" | "library" | "active" | "paused" | "complete";
   phase: "catalog" | "my" | "learning" | "review" | "mastered";
   availability: "READY" | "WAITING" | "PAUSED" | "NONE";
-  allowedActions: string[];
+  allowedActions: VerseAction[];
   remainingLearnings: number;
   remainingReviews: number;
   availableAt?: string | null;
@@ -58,7 +70,15 @@ export function normalizeVerseFlow(value: unknown): VerseFlow | null {
         ? raw.availability
         : "NONE",
     allowedActions: Array.isArray(raw.allowedActions)
-      ? raw.allowedActions.filter((item): item is string => typeof item === "string")
+      ? raw.allowedActions.filter(
+          (item): item is VerseAction =>
+            item === VerseAction.ADD_TO_MY ||
+            item === VerseAction.START_LEARNING ||
+            item === VerseAction.TRAIN ||
+            item === VerseAction.PAUSE ||
+            item === VerseAction.RESUME ||
+            item === VerseAction.ANCHOR,
+        )
       : [],
     remainingLearnings: Math.max(0, Math.round(Number(raw.remainingLearnings ?? 0))),
     remainingReviews: Math.max(0, Math.round(Number(raw.remainingReviews ?? 0))),
@@ -78,6 +98,8 @@ export function getDisplayStatusFromFlow(flow: VerseFlow | null): DisplayVerseSt
       return "CATALOG";
     case VerseFlowCode.MY:
       return VerseStatus.MY;
+    case VerseFlowCode.QUEUE:
+      return VerseStatus.QUEUE;
     case VerseFlowCode.LEARNING:
       return VerseStatus.LEARNING;
     case VerseFlowCode.REVIEW_DUE:

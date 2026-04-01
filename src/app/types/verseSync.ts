@@ -7,6 +7,7 @@ export type VerseIdentityRef = {
 
 export type VerseMutablePatch = {
   status?: Verse["status"];
+  flow?: Verse["flow"] | null;
   masteryLevel?: number | null;
   repetitions?: number | null;
   reviewLapseStreak?: number | null;

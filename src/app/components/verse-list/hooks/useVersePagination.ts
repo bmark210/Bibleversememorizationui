@@ -213,10 +213,10 @@ export function useVersePagination({
   const applyVersePatch = useCallback(
     (
       event: VersePatchEvent,
-      options: {
-        statusFilter: VerseListStatusFilter;
-        matchesListFilter: (
-          verse: Pick<Verse, 'status' | 'masteryLevel'>,
+    options: {
+      statusFilter: VerseListStatusFilter;
+      matchesListFilter: (
+          verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
           filter: VerseListStatusFilter
         ) => boolean;
         adjustTotalCountOnFilterExit?: boolean;

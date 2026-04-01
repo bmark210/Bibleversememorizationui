@@ -23,7 +23,7 @@ export type GalleryStatusAction = {
 };
 
 export type VersePreviewOverride = Partial<
-  Pick<Verse, "status" | "masteryLevel" | "repetitions">
+  Pick<Verse, "status" | "flow" | "masteryLevel" | "repetitions">
 > & {
   lastReviewedAt?: string | Date | null;
   nextReviewAt?: string | Date | null;

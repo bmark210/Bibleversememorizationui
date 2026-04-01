@@ -21,14 +21,14 @@ import {
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
 import type { Verse } from "@/app/domain/verse";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import { getVerseDisplayStatus } from "@/shared/verseRules";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
  
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
 
 /** Pick the training mode that best matches a verse's current status */
 function autoModeForVerse(verse: Verse): TrainingMode {
-  const status = normalizeDisplayVerseStatus(verse.status);
+  const status = getVerseDisplayStatus(verse);
   if (status === "REVIEW") return "review";
   if (status === "MASTERED") return "anchor";
   return "learning";

@@ -1,6 +1,7 @@
 import type { Verse } from "@/app/domain/verse";
 import type { VerseIdentityRef, VerseMutablePatch } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import { normalizeVerseFlow } from "@/shared/domain/verseFlow";
 
 type VerseLikeIdentity = Pick<Verse, "id" | "externalVerseId">;
 
@@ -57,6 +58,10 @@ export function pickMutableVersePatchFromApiResponse(raw: unknown): VerseMutable
 
   if (hasOwn(responseRecord, "status")) {
     patch.status = normalizeDisplayVerseStatus(responseRecord.status);
+    hasPatchFields = true;
+  }
+  if (hasOwn(responseRecord, "flow")) {
+    patch.flow = normalizeVerseFlow(responseRecord.flow);
     hasPatchFields = true;
   }
   if (hasOwn(responseRecord, "masteryLevel")) {

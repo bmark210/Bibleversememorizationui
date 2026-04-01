@@ -1,6 +1,12 @@
 import type { Verse } from "@/app/domain/verse";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import { normalizeVerseFlow } from "@/shared/domain/verseFlow";
+import {
+  getVerseNextAvailabilityAt,
+  isVerseAnchorEligible,
+  isVerseDueForTraining,
+  isVerseLearning,
+  isVerseMastered,
+  isVerseReview,
+} from "@/shared/verseRules";
 import type { CoreTrainingMode } from "./types";
 
 export type CoreTrainingCounts = {
@@ -13,33 +19,20 @@ export type CoreTrainingCounts = {
   earliestWaitingReviewAt: Date | null;
 };
 
-function parseReviewDate(value: unknown): Date | null {
-  if (!value) return null;
-  const parsed = value instanceof Date ? value : new Date(String(value));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 export function isDueReviewVerse(
   verse: Pick<Verse, "status" | "nextReviewAt" | "nextReview" | "flow">
 ) {
-  const flow = normalizeVerseFlow(verse.flow);
-  if (flow?.code === "REVIEW_DUE") return true;
-  if (flow?.code === "REVIEW_WAITING") return false;
-  if (normalizeDisplayVerseStatus(verse.status) !== "REVIEW") return false;
-
-  const nextReviewAt = parseReviewDate(verse.nextReviewAt ?? verse.nextReview);
-  if (!nextReviewAt) return true;
-
-  return nextReviewAt.getTime() <= Date.now();
+  return isVerseDueForTraining(verse);
 }
 
 export function isAnchorEligibleVerse(verse: Pick<Verse, "status" | "flow">) {
-  const flow = normalizeVerseFlow(verse.flow);
-  if (flow) {
-    return flow.code === "REVIEW_DUE" || flow.code === "REVIEW_WAITING" || flow.code === "MASTERED";
-  }
-  const status = normalizeDisplayVerseStatus(verse.status);
-  return status === "REVIEW" || status === "MASTERED";
+  return isVerseAnchorEligible({
+    ...verse,
+    masteryLevel: 0,
+    repetitions: 0,
+    nextReviewAt: null,
+    nextReview: null,
+  });
 }
 
 export function getAnchorEligibleVerseCount(allVerses: Verse[]) {
@@ -64,27 +57,20 @@ export function getCoreTrainingCountsFromVerses(
   let earliestWaitingReviewAt: Date | null = null;
 
   for (const verse of allVerses) {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    const flow = normalizeVerseFlow(verse.flow);
-
-    if (flow?.code === "LEARNING" || status === "LEARNING") {
+    if (isVerseLearning(verse)) {
       learningCount += 1;
       continue;
     }
 
-    if (
-      flow?.code === "REVIEW_DUE" ||
-      flow?.code === "REVIEW_WAITING" ||
-      status === "REVIEW"
-    ) {
+    if (isVerseReview(verse)) {
       totalReviewCount += 1;
 
-      if (flow?.code === "REVIEW_DUE" || isDueReviewVerse(verse)) {
+      if (isDueReviewVerse(verse)) {
         dueReviewCount += 1;
         continue;
       }
 
-      const nextReviewAt = parseReviewDate(verse.nextReviewAt ?? verse.nextReview);
+      const nextReviewAt = getVerseNextAvailabilityAt(verse);
       if (
         nextReviewAt &&
         (earliestWaitingReviewAt === null ||
@@ -95,7 +81,7 @@ export function getCoreTrainingCountsFromVerses(
       continue;
     }
 
-    if (flow?.code === "MASTERED" || status === "MASTERED") {
+    if (isVerseMastered(verse)) {
       masteredCount += 1;
     }
   }
@@ -145,19 +131,12 @@ export function pickVersesForCoreModes(
   if (modes.length === 0) return [];
 
   return allVerses.filter((verse) => {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    const flow = normalizeVerseFlow(verse.flow);
-
-    if (flow?.code === "LEARNING" || status === "LEARNING") {
+    if (isVerseLearning(verse)) {
       return modes.includes("learning");
     }
 
-    if (
-      flow?.code === "REVIEW_DUE" ||
-      flow?.code === "REVIEW_WAITING" ||
-      status === "REVIEW"
-    ) {
-      return modes.includes("review") && (flow?.code === "REVIEW_DUE" || isDueReviewVerse(verse));
+    if (isVerseReview(verse)) {
+      return modes.includes("review") && isDueReviewVerse(verse);
     }
 
     return false;

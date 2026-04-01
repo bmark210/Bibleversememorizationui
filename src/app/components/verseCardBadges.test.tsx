@@ -160,8 +160,8 @@ test("waiting review shows waiting title and a separate next-step pill", () => {
   assert.ok(galleryHtml.includes("В ожидании"));
   assert.ok(!listHtml.includes("В изучении"));
   assert.ok(!galleryHtml.includes("В изучении"));
-  assert.match(listHtml, /Сегодня в|Завтра в|до /);
-  assert.match(galleryHtml, /Сегодня в|Завтра в|до /);
+  assert.match(listHtml, /Доступно сегодня в|Доступно завтра в|Доступно /);
+  assert.match(galleryHtml, /Доступно сегодня в|Доступно завтра в|Доступно /);
   assert.ok(!listHtml.includes("Ждёт повтора"));
   assert.ok(!galleryHtml.includes("Ждёт повтора"));
 });

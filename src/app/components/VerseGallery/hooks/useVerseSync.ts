@@ -1,15 +1,9 @@
 import { useCallback } from "react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
-import { VerseStatus } from "@/shared/domain/verseStatus";
-import { computeDisplayStatus } from "@/modules/training/application/computeDisplayStatus";
-import {
-  getDisplayStatusFromFlow,
-  normalizeVerseFlow,
-} from "@/shared/domain/verseFlow";
 import type { Verse } from "@/app/domain/verse";
+import { getVerseDisplayStatus, getVerseFlow } from "@/shared/verseRules";
 import {
   normalizeRawMasteryLevel,
-  normalizeVerseStatus,
   parseDate,
   toStageMasteryLevel,
 } from "../utils";
@@ -63,14 +57,9 @@ export function normalizePersistedTrainingVerseState(
   currentVerse: TrainingVerseState,
   persistedResponse: PersistedTrainingVerse
 ): TrainingVerseState {
-  const persistedStatus = normalizeVerseStatus(
-    (getDisplayStatusFromFlow(normalizeVerseFlow(persistedResponse?.flow)) ??
-      (persistedResponse?.status as Verse["status"] | undefined)) ??
-      currentVerse.status
-  );
-  const persistedFlow = normalizeVerseFlow(
-    persistedResponse?.flow ?? currentVerse.raw.flow
-  );
+  const persistedFlow = getVerseFlow({
+    flow: persistedResponse?.flow ?? currentVerse.raw.flow,
+  });
   const persistedMasteryLevel = normalizeRawMasteryLevel(
     persistedResponse?.masteryLevel ?? currentVerse.rawMasteryLevel
   );
@@ -91,10 +80,16 @@ export function normalizePersistedTrainingVerseState(
     currentVerse.lastReviewedAt;
   const persistedNextReviewAt =
     parseDate(persistedResponse?.nextReviewAt ?? currentVerse.nextReviewAt) ?? null;
-  const persistedDisplayStatus =
-    persistedStatus === VerseStatus.LEARNING
-      ? computeDisplayStatus(persistedMasteryLevel, persistedRepetitions)
-      : persistedStatus;
+  const persistedDisplayStatus = getVerseDisplayStatus({
+    status:
+      (persistedResponse?.status as Verse["status"] | undefined) ??
+      currentVerse.status,
+    flow: persistedFlow,
+    masteryLevel: persistedMasteryLevel,
+    repetitions: persistedRepetitions,
+    nextReviewAt: persistedNextReviewAt?.toISOString() ?? null,
+    nextReview: persistedNextReviewAt?.toISOString() ?? null,
+  });
   const persistedLastModeId = normalizeLastModeId(
     persistedResponse?.lastTrainingModeId,
     currentVerse.lastModeId

@@ -1,7 +1,11 @@
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
-import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
-import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import {
+  getVerseDisplayStatus,
+  resolvePausedVerseKind,
+  resolveVerseJourneyPhase,
+  type PausedVerseKind,
+} from '@/shared/verseRules';
 
 export type VerseListStatusFilter =
   | "catalog"
@@ -12,7 +16,7 @@ export type VerseListStatusFilter =
   | "my";
 export type VerseListSortBy = "updatedAt" | "bible" | "popularity";
 export type VerseStageVisualKey = VerseListStatusFilter | "queue";
-export type StoppedVerseStageKind = "progress" | "review" | "mastered";
+export type StoppedVerseStageKind = PausedVerseKind;
 
 export type FilterVisualTheme = {
   dotClassName: string;
@@ -28,8 +32,6 @@ export const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 0;
 export const PREFETCH_ROWS = 6;
 // Minimum time to keep the list skeleton visible (initial fetch and load-more requests).
 export const LOAD_MORE_SKELETON_DELAY_MS = 250;
-export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
-export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = REPEAT_THRESHOLD_FOR_MASTERED;
 export const DEFAULT_VERSE_LIST_STATUS_FILTER: VerseListStatusFilter = "my";
 export const DEFAULT_VERSE_LIST_SORT_BY: VerseListSortBy = "bible";
 
@@ -92,65 +94,38 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
 };
 
 export function getStoppedVerseStageKind(
-  verse: Pick<Verse, 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'flow' | 'masteryLevel' | 'repetitions'>
 ): StoppedVerseStageKind {
-  const masteryLevel = Math.max(0, Number(verse.masteryLevel ?? 0));
-  const repetitions = Math.max(0, Number(verse.repetitions ?? 0));
-
-  if (masteryLevel < STOPPED_REVIEW_MASTERY_THRESHOLD) {
-    return 'progress';
-  }
-
-  if (repetitions >= STOPPED_MASTERED_REPETITIONS_THRESHOLD) {
-    return 'mastered';
-  }
-
-  return 'review';
+  return resolvePausedVerseKind(verse);
 }
 
 export function getVerseStageVisual(
-  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>
 ): {
   key: VerseStageVisualKey;
   label: string;
 } {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  if (status === "CATALOG") {
-    return { key: "catalog", label: "Каталог" };
-  }
+  const status = getVerseDisplayStatus(verse);
+  const phase = resolveVerseJourneyPhase(verse);
 
-  if (status === VerseStatus.QUEUE) {
-    return { key: "queue", label: "В очереди" };
-  }
-
-  if (status === VerseStatus.MY) {
-    return { key: "my", label: "Мой" };
-  }
+  if (phase === 'catalog') return { key: 'catalog', label: 'Каталог' };
+  if (phase === 'queue') return { key: 'queue', label: 'В очереди' };
+  if (phase === 'my') return { key: 'my', label: 'Мой' };
 
   if (status === VerseStatus.STOPPED) {
     const stoppedKind = getStoppedVerseStageKind(verse);
-    if (stoppedKind === 'mastered') {
-      return { key: 'stopped', label: 'Выучено · пауза' };
-    }
-    if (stoppedKind === 'review') {
-      return { key: 'stopped', label: 'Повторение · пауза' };
-    }
+    if (stoppedKind === 'mastered') return { key: 'stopped', label: 'Выучено · пауза' };
+    if (stoppedKind === 'review') return { key: 'stopped', label: 'Повторение · пауза' };
     return { key: 'stopped', label: 'На паузе' };
   }
 
-  if (status === 'MASTERED') {
-    return { key: 'mastered', label: 'Выучено' };
-  }
-
-  if (status === 'REVIEW') {
-    return { key: 'review', label: 'Повторение' };
-  }
-
+  if (phase === 'mastered') return { key: 'mastered', label: 'Выучено' };
+  if (phase === 'review') return { key: 'review', label: 'Повторение' };
   return { key: 'learning', label: 'Изучение' };
 }
 
 export function getVerseCardLayoutSignature(
-  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>
 ):
   | 'catalog'
   | 'my'
@@ -159,25 +134,13 @@ export function getVerseCardLayoutSignature(
   | 'stopped-progress'
   | 'stopped-repeat'
   | 'stopped-mastered' {
-  const status = normalizeDisplayVerseStatus(verse.status);
+  const phase = resolveVerseJourneyPhase(verse);
+  const status = getVerseDisplayStatus(verse);
 
-  if (status === 'CATALOG') {
-    return 'catalog';
-  }
-
-  if (status === VerseStatus.QUEUE) {
-    return 'my'; // same layout structure as MY, different color
-  }
-
-  if (status === VerseStatus.MY) {
-    return 'my';
-  }
-
-  if (status === VerseStatus.LEARNING) {
-    return 'learning-progress';
-  }
-
-  if (status === 'REVIEW' || status === 'MASTERED') {
+  if (phase === 'catalog') return 'catalog';
+  if (phase === 'queue' || phase === 'my') return 'my';
+  if (phase === 'learning' && status !== VerseStatus.STOPPED) return 'learning-progress';
+  if ((phase === 'review' || phase === 'mastered') && status !== VerseStatus.STOPPED) {
     return 'review-pill';
   }
 

@@ -53,7 +53,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/app/components/ui/drawer";
-import { computeVerseTotalProgressPercent } from "@/shared/training/verseTotalProgress";
+import { getVerseProgressPercent } from "@/shared/verseRules";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { ArrowLeft, ArrowRightLeft, GraduationCap, ListOrdered, Loader2 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
@@ -1144,10 +1144,7 @@ export function VerseList({
                         {replaceableLearningVerses.map((verse) => {
                           const isSelected =
                             selectedReplacementVerseId === verse.externalVerseId;
-                          const progressPercent = computeVerseTotalProgressPercent(
-                            verse.masteryLevel,
-                            verse.repetitions,
-                          );
+                          const progressPercent = getVerseProgressPercent(verse);
                           return (
                             <button
                               key={verse.externalVerseId}

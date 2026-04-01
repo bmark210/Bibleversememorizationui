@@ -1,7 +1,7 @@
 import {
   Anchor,
   Brain,
-  // CalendarClock,
+  Clock3,
   Dumbbell,
   Pause,
   Play,
@@ -16,6 +16,12 @@ import { normalizeVerseFlow, type VerseFlow } from "@/shared/domain/verseFlow";
 import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { VerseStatusSummaryTone } from "@/app/components/VerseStatusSummary";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import {
+  getVerseDisplayStatus,
+  getVerseNextAvailabilityAt,
+  hasVerseAction,
+  isVerseWaitingReview,
+} from "@/shared/verseRules";
 
 export type VerseCardActionId =
   | "add-to-my"
@@ -69,31 +75,132 @@ export function resolveVerseCardActionModel(
   } = params;
 
   const flow = normalizeVerseFlow(rawFlow);
-  const isNotYetDue =
-    flow?.code === "REVIEW_WAITING" ||
-    (status === "REVIEW" &&
-      isValidDate(nextReviewAt) &&
-      nextReviewAt.getTime() > now.getTime());
+  const resolvedStatus = getVerseDisplayStatus({
+    status,
+    flow,
+    masteryLevel: 0,
+    repetitions: 0,
+    nextReviewAt:
+      isValidDate(nextReviewAt) ? nextReviewAt.toISOString() : flow?.availableAt ?? null,
+    nextReview:
+      isValidDate(nextReviewAt) ? nextReviewAt.toISOString() : flow?.availableAt ?? null,
+  });
+  const resolvedNextReviewAt =
+    isValidDate(nextReviewAt)
+      ? nextReviewAt
+      : getVerseNextAvailabilityAt({
+          status: resolvedStatus,
+          flow,
+          masteryLevel: 0,
+          repetitions: 0,
+          nextReviewAt: flow?.availableAt ?? null,
+          nextReview: flow?.availableAt ?? null,
+        });
+  const isNotYetDue = isVerseWaitingReview(
+    {
+      status: resolvedStatus,
+      flow,
+      masteryLevel: 0,
+      repetitions: 0,
+      nextReviewAt: isValidDate(resolvedNextReviewAt)
+        ? resolvedNextReviewAt.toISOString()
+        : null,
+      nextReview: isValidDate(resolvedNextReviewAt)
+        ? resolvedNextReviewAt.toISOString()
+        : null,
+    },
+    now,
+  );
   const waitingLabel = isNotYetDue
-    ? formatVerseAvailabilityLabel(nextReviewAt, { now, timeZone })
+    ? formatVerseAvailabilityLabel(resolvedNextReviewAt, { now, timeZone })
     : null;
 
   return {
-    primaryAction: getPrimaryAction({ status, isNotYetDue, isAnchorEligible }),
-    utilityAction: getUtilityAction(status),
+    primaryAction: getPrimaryAction({
+      status: resolvedStatus,
+      flow,
+      isNotYetDue,
+      isAnchorEligible,
+    }),
+    utilityAction: getUtilityAction({ status: resolvedStatus, flow }),
     waitingLabel,
-    statusTone: getStatusTone({ status, isNotYetDue }),
-    showProgress: status !== "CATALOG" && status !== VerseStatus.MY && status !== VerseStatus.QUEUE,
+    statusTone: getStatusTone({ status: resolvedStatus, isNotYetDue }),
+    showProgress:
+      resolvedStatus !== "CATALOG" &&
+      resolvedStatus !== VerseStatus.MY &&
+      resolvedStatus !== VerseStatus.QUEUE,
     isNotYetDue,
   };
 }
 
 function getPrimaryAction(params: {
   status: DisplayVerseStatus;
+  flow: VerseFlow | null;
   isNotYetDue: boolean;
   isAnchorEligible: boolean;
 }): VerseCardActionSpec | null {
-  const { status, isNotYetDue, isAnchorEligible } = params;
+  const { status, flow, isNotYetDue, isAnchorEligible } = params;
+
+  if (flow) {
+    if (hasVerseAction({ flow }, "add_to_my")) {
+      return {
+        id: "add-to-my",
+        label: "Добавить в мои",
+        ariaLabel: "Добавить стих в мои стихи",
+        title: "Добавить стих в мои стихи",
+        icon: Plus,
+        dataTour: "verse-card-add-button",
+      };
+    }
+
+    if (hasVerseAction({ flow }, "start_learning")) {
+      return {
+        id: "start-learning",
+        label: "Начать изучение",
+        ariaLabel: "Начать изучение стиха",
+        title: "Начать изучение",
+        icon: Play,
+        dataTour: "verse-card-promote-button",
+      };
+    }
+
+    if (hasVerseAction({ flow }, "resume")) {
+      return {
+        id: "resume",
+        label: "Возобновить",
+        ariaLabel: "Возобновить изучение стиха",
+        title: "Возобновить изучение",
+        icon: Play,
+      };
+    }
+
+    if (hasVerseAction({ flow }, "anchor")) {
+      if (!isAnchorEligible) return null;
+      return {
+        id: "anchor",
+        label: "Закрепить",
+        ariaLabel: "Перейти к закреплению стиха",
+        title: "Перейти к закреплению",
+        icon: Anchor,
+      };
+    }
+
+    if (hasVerseAction({ flow }, "train") && !isNotYetDue) {
+      return {
+        id: "train",
+        label: "Тренироваться",
+        ariaLabel:
+          status === "REVIEW"
+            ? "Перейти к повторению стиха"
+            : "Продолжить тренировку стиха",
+        title:
+          status === "REVIEW"
+            ? "Перейти к повторению"
+            : "Продолжить тренировку",
+        icon: Dumbbell,
+      };
+    }
+  }
 
   if (status === "CATALOG") {
     return {
@@ -167,7 +274,15 @@ function getPrimaryAction(params: {
   return null;
 }
 
-function getUtilityAction(status: DisplayVerseStatus): VerseCardActionSpec | null {
+function getUtilityAction(params: {
+  status: DisplayVerseStatus;
+  flow: VerseFlow | null;
+}): VerseCardActionSpec | null {
+  const { status, flow } = params;
+  if (flow && !hasVerseAction({ flow }, "pause")) {
+    return null;
+  }
+
   if (
     status === VerseStatus.LEARNING ||
     status === "REVIEW" ||
@@ -189,7 +304,7 @@ function getStatusTone(params: {
   status: DisplayVerseStatus;
   isNotYetDue: boolean;
 }): VerseStatusSummaryTone | null {
-  const { status } = params;
+  const { status, isNotYetDue } = params;
 
   if (status === "CATALOG" || status === VerseStatus.MY) {
     return null;
@@ -223,13 +338,13 @@ function getStatusTone(params: {
   }
 
   if (status === "REVIEW") {
-    // if (isNotYetDue) {
-    //   return {
-    //     icon: CalendarClock,
-    //     title: "В ожидании",
-    //     ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
-    //   };
-    // }
+    if (isNotYetDue) {
+      return {
+        icon: Clock3,
+        title: "В ожидании",
+        ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
+      };
+    }
 
     return {
       icon: RefreshCw,

@@ -4,12 +4,17 @@ import { useMemo } from 'react'
 import { GraduationCap } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import type { Verse } from '@/app/domain/verse'
-import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
 import type { DashboardCompactFriendsActivityResponse } from '@/api/services/friendsActivity'
 import type { LearningCapacityResponse } from '@/app/components/Training/exam/types'
-import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
+import {
+  getVerseNextAvailabilityAt,
+  getVerseProgressPercent,
+  isVerseLearning,
+  isVerseMastered,
+  isVerseReview,
+} from '@/shared/verseRules'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
 import { cn } from './ui/utils'
@@ -70,7 +75,11 @@ function pluralizeDays(count: number) {
 }
 
 export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
-  return clampPercent(computeVerseTotalProgressPercent(masteryLevel, repetitions))
+  return clampPercent(getVerseProgressPercent({
+    flow: null,
+    masteryLevel,
+    repetitions,
+  }))
 }
 
 function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
@@ -78,33 +87,29 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
 
   const summary = todayVerses.reduce(
     (acc, verse) => {
-      const progress = toMasteryPercent(verse.masteryLevel, verse.repetitions)
-      const flow = normalizeVerseFlow(verse.flow)
+      const progress = getVerseProgressPercent(verse)
 
       acc.progressTotal += progress
 
-      if (flow?.code === 'LEARNING' || verse.status === 'LEARNING') {
+      if (isVerseLearning(verse)) {
         acc.learningVersesCount += 1
       }
 
-      if (
-        flow?.code === 'REVIEW_DUE' ||
-        flow?.code === 'REVIEW_WAITING' ||
-        verse.status === 'REVIEW'
-      ) {
+      if (isVerseReview(verse)) {
         acc.reviewVersesCount += 1
 
-        if (flow?.code === 'REVIEW_DUE' || !verse.nextReviewAt) {
+        const nextReviewAt = getVerseNextAvailabilityAt(verse)
+        if (!nextReviewAt) {
           acc.dueReviewCount += 1
         } else {
-          const nextReviewTime = new Date(verse.nextReviewAt).getTime()
+          const nextReviewTime = nextReviewAt.getTime()
           if (Number.isNaN(nextReviewTime) || nextReviewTime <= now) {
             acc.dueReviewCount += 1
           }
         }
       }
 
-      if (flow?.code === 'MASTERED' || verse.status === 'MASTERED') {
+      if (isVerseMastered(verse)) {
         acc.masteredVerses += 1
       }
 

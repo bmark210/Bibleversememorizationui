@@ -3,7 +3,10 @@ import { Verse } from "@/app/domain/verse";
 import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { DirectLaunchVerse } from '@/app/components/Training/types';
 import { VerseStatus } from '@/shared/domain/verseStatus';
-import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
+import {
+  getVerseDisplayStatus,
+  matchesVerseListFilter,
+} from '@/shared/verseRules';
 import {
   DEFAULT_VERSE_LIST_STATUS_FILTER,
   DEFAULT_VERSE_LIST_SORT_BY,
@@ -75,7 +78,7 @@ function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
 }
 
 function getTrainingLaunchMode(
-  status: ReturnType<typeof normalizeDisplayVerseStatus>
+  status: ReturnType<typeof getVerseDisplayStatus>
 ) {
   if (status === 'MASTERED') return 'anchor' as const;
   if (status === 'REVIEW') return 'review' as const;
@@ -233,30 +236,15 @@ export function useVerseListController({
     loadMoreSkeletonDelayMs: LOAD_MORE_SKELETON_DELAY_MS,
   });
 
-  const isReviewVerse = useCallback((verse: Pick<Verse, 'status'>) => {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    return status === 'REVIEW';
-  }, []);
-
-  const isMasteredVerse = useCallback((verse: Pick<Verse, 'status'>) => {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    return status === 'MASTERED';
-  }, []);
-
   const matchesListFilter = useCallback(
-    (verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
-      const status = normalizeDisplayVerseStatus(verse.status);
+    (
+      verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
+      filter: VerseListStatusFilter
+    ) => {
       if (filter === 'catalog') return true;
-      if (filter === 'learning') {
-        return status === VerseStatus.LEARNING;
-      }
-      if (filter === 'review') return isReviewVerse(verse);
-      if (filter === 'mastered') return isMasteredVerse(verse);
-      if (filter === 'stopped') return status === VerseStatus.STOPPED;
-      if (filter === 'my') return status !== 'CATALOG';
-      return true;
+      return matchesVerseListFilter(verse, filter);
     },
-    [isMasteredVerse, isReviewVerse]
+    []
   );
 
   const actions = useVerseActions({
@@ -474,7 +462,7 @@ export function useVerseListController({
       if (!(matchesStatus && matchesBook && matchesSearch)) continue;
       filtered.push(verse);
 
-      const displayStatus = normalizeDisplayVerseStatus(verse.status);
+      const displayStatus = getVerseDisplayStatus(verse);
       if (displayStatus === 'REVIEW') review.push(verse);
       else if (displayStatus === 'MASTERED') mastered.push(verse);
       else if (displayStatus === VerseStatus.LEARNING) learning.push(verse);
@@ -545,7 +533,7 @@ export function useVerseListController({
         onOpenTags={onOpenVerseTags}
         onEditQueuePosition={onEditQueuePosition}
         onStartTraining={(v) => {
-          const preferredMode = getTrainingLaunchMode(normalizeDisplayVerseStatus(v.status));
+          const preferredMode = getTrainingLaunchMode(getVerseDisplayStatus(v));
           if (!preferredMode || !onNavigateToTraining) return;
           onNavigateToTraining({
             verse: v,
@@ -557,7 +545,7 @@ export function useVerseListController({
           });
         }}
         onAddToLearning={(v) => {
-          const isCatalog = normalizeDisplayVerseStatus(v.status) === 'CATALOG';
+          const isCatalog = getVerseDisplayStatus(v) === 'CATALOG';
           void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
         }}
         onPauseLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.STOPPED)}

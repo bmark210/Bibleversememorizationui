@@ -15,9 +15,11 @@ import {
   type VerseCardColorConfig,
 } from '@/app/components/verseCardColorConfig';
 import { Verse } from "@/app/domain/verse";
-import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import { VerseStatus } from '@/shared/domain/verseStatus';
-import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress';
+import {
+  getVerseDisplayStatus,
+  getVerseProgressPercent,
+} from '@/shared/verseRules';
 import {
   getVerseCardLayoutSignature,
   getVerseStageVisual,
@@ -57,14 +59,11 @@ const SwipeableVerseCardComponent = ({
   isAnchorEligible = false,
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: SwipeCardProps) => {
-  const displayStatus = normalizeDisplayVerseStatus(verse.status);
+  const displayStatus = getVerseDisplayStatus(verse);
   const stageVisual = getVerseStageVisual(verse);
   const tonePalette = colorConfig.tones[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
-  const totalProgressPercent = computeVerseTotalProgressPercent(
-    verse.masteryLevel,
-    verse.repetitions
-  );
+  const totalProgressPercent = getVerseProgressPercent(verse);
   const popularityValue =
     typeof verse.popularityValue === 'number'
       ? Math.max(0, Math.round(verse.popularityValue))

@@ -3,11 +3,15 @@
 import React, { useMemo } from "react";
 import { Brain, Repeat } from "lucide-react";
 import type { Verse } from "@/app/domain/verse";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import { getStoppedVerseStageKind } from "@/app/components/verse-list/constants";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import { computeVerseProgressBreakdown } from "@/shared/training/verseTotalProgress";
+import {
+  getVerseDisplayStatus,
+  getVerseResolvedProgress,
+  isVersePaused,
+  resolveVerseJourneyPhase,
+} from "@/shared/verseRules";
 import {
   Drawer,
   DrawerContent,
@@ -29,19 +33,11 @@ type StatusTone = {
 };
 
 function resolveCurrentPhase(verse: Verse): PhaseKey {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  if (status === "CATALOG" || status === VerseStatus.MY) {
+  const phase = resolveVerseJourneyPhase(verse);
+  if (phase === "catalog" || phase === "my" || phase === "queue") {
     return "collection";
   }
-  if (status === VerseStatus.STOPPED) {
-    const stoppedKind = getStoppedVerseStageKind(verse);
-    if (stoppedKind === "mastered") return "mastered";
-    if (stoppedKind === "review") return "review";
-    return "learning";
-  }
-  if (status === VerseStatus.MASTERED) return "mastered";
-  if (status === VerseStatus.REVIEW) return "review";
-  return "learning";
+  return phase;
 }
 
 function pluralizeRu(
@@ -64,11 +60,12 @@ function formatRemaining(value: number, forms: [string, string, string]) {
 function getStatusLabel(
   phase: PhaseKey,
   isPaused: boolean,
-  status: ReturnType<typeof normalizeDisplayVerseStatus>,
+  status: DisplayVerseStatus,
 ) {
   if (isPaused) return "На паузе";
   if (status === "CATALOG") return "Каталог";
   if (status === VerseStatus.MY) return "Мой список";
+  if (status === VerseStatus.QUEUE) return "В очереди";
   if (phase === "learning") return "В изучении";
   if (phase === "review") return "Повторение";
   return "Выучен";
@@ -78,7 +75,7 @@ function getSubtitle(
   phase: PhaseKey,
   isPaused: boolean,
   totalRemaining: number,
-  status: ReturnType<typeof normalizeDisplayVerseStatus>,
+  status: DisplayVerseStatus,
 ) {
   if (isPaused) {
     return "Стих временно остановлен, но прогресс сохранен.";
@@ -91,6 +88,9 @@ function getSubtitle(
   }
   if (status === VerseStatus.MY) {
     return "Стих уже в списке, но обучение еще не началось.";
+  }
+  if (status === VerseStatus.QUEUE) {
+    return "Стих ожидает свободный слот изучения.";
   }
   return `До полного освоения осталось ${formatRemaining(totalRemaining, [
     "шаг",
@@ -171,15 +171,15 @@ export function VerseProgressDrawer({
     if (!verse) return null;
 
     const phase = resolveCurrentPhase(verse);
-    const status = normalizeDisplayVerseStatus(verse.status);
-    const isPaused = status === VerseStatus.STOPPED;
+    const status = getVerseDisplayStatus(verse);
+    const isPaused = isVersePaused(verse);
     const {
       totalCompleted,
       totalRemaining,
       remainingLearnings,
       remainingRepeats,
       progressPercent,
-    } = computeVerseProgressBreakdown(verse.masteryLevel, verse.repetitions);
+    } = getVerseResolvedProgress(verse);
 
     return {
       phase,
