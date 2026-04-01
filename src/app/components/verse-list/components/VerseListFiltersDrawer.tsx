@@ -40,7 +40,6 @@ export function VerseListFiltersDrawer({
   statusFilter,
   defaultStatusFilter,
   filterOptions,
-  hasFriends = false,
   onTabClick,
   selectedBookId,
   bookOptions,
@@ -167,7 +166,6 @@ export function VerseListFiltersDrawer({
     statusFilter: draftStatusFilter,
     defaultStatusFilter,
     filterOptions,
-    hasFriends,
     onTabClick: (filter) => {
       setDraftStatusFilter(filter);
     },

@@ -17,7 +17,6 @@ type VerseListPrimaryFilterDockProps = {
   currentFilterLabel: string;
   currentFilterTheme: FilterVisualTheme;
   totalCount: number;
-  hasFriends?: boolean;
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
   className?: string;
   rootRef?: Ref<HTMLDivElement>;
@@ -32,11 +31,6 @@ const PRIMARY_FILTER_VISUALS: Record<
     activeClassName:
       'border-border-default bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]',
   },
-  friends: {
-    dotClassName: 'bg-status-community',
-    activeClassName:
-      'border-status-community/30 bg-status-community-soft text-status-community shadow-[var(--shadow-soft)]',
-  },
   my: {
     dotClassName: 'bg-status-collection',
     activeClassName:
@@ -47,13 +41,12 @@ const PRIMARY_FILTER_VISUALS: Record<
 export function VerseListPrimaryFilterDock({
   statusFilter,
   currentFilterTheme,
-  hasFriends = false,
   onTabClick,
   className,
   rootRef,
 }: VerseListPrimaryFilterDockProps) {
   const activeRootTab = getVerseListPrimaryFilterKey(statusFilter);
-  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions(hasFriends);
+  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions();
 
   return (
     <div

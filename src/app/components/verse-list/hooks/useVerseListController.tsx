@@ -44,7 +44,6 @@ import type { VerseCardColorConfig } from '@/app/components/verseCardColorConfig
 type UseVerseListControllerParams = {
   disabled?: boolean;
   initialTags?: domain_Tag[];
-  hasFriends?: boolean;
   isFocusMode?: boolean;
   onOpenVerseOwners?: (verse: Verse) => void;
   onOpenVerseTags?: (verse: Verse) => void;
@@ -65,17 +64,14 @@ function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
   return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : 'catalog';
 }
 
-function readInitialStoredStatusFilter(
-  canUseFriendsFilter: boolean
-): VerseListStatusFilter | null {
+function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
   if (typeof window === 'undefined') return null;
 
-  const stored =
+  return (
     parseStoredStatusFilter(
       window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
-    ) ?? null;
-
-  return stored === 'friends' && !canUseFriendsFilter ? null : stored;
+    ) ?? null
+  );
 }
 
 function getTrainingLaunchMode(
@@ -90,7 +86,6 @@ function getTrainingLaunchMode(
 export function useVerseListController({
   disabled = false,
   initialTags = [],
-  hasFriends = false,
   isFocusMode = false,
   onOpenVerseOwners,
   onOpenVerseTags,
@@ -107,7 +102,6 @@ export function useVerseListController({
   cardColorConfig,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
-  const canUseFriendsFilter = hasFriends;
   const hasOwnVersesRequestIdRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState(() => {
@@ -122,7 +116,7 @@ export function useVerseListController({
   });
   const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(() => {
     if (reopenGalleryStatusFilter) return null;
-    return readInitialStoredStatusFilter(canUseFriendsFilter);
+    return readInitialStoredStatusFilter();
   });
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
     if (disabled) return 'catalog';
@@ -180,7 +174,6 @@ export function useVerseListController({
     hasOwnVerses === false &&
     !reopenGalleryStatusFilter &&
     statusFilter !== 'catalog' &&
-    statusFilter !== 'friends' &&
     statusFilter !== 'my'; // stay on 'my' even when empty — guided empty state handles it
   const shouldDelayListFetch = !disabled &&
     Boolean(telegramId) &&
@@ -220,8 +213,7 @@ export function useVerseListController({
       } catch (error) {
         if (hasOwnVersesRequestIdRef.current !== requestId) return null;
         console.error('Не удалось определить наличие пользовательских стихов:', error);
-        const fallbackHasOwnVerses =
-          statusFilter !== 'catalog' && statusFilter !== 'friends';
+        const fallbackHasOwnVerses = statusFilter !== 'catalog';
         setHasOwnVerses(fallbackHasOwnVerses);
         return fallbackHasOwnVerses;
       }
@@ -255,7 +247,6 @@ export function useVerseListController({
     (verse: Pick<Verse, 'status' | 'masteryLevel'>, filter: VerseListStatusFilter) => {
       const status = normalizeDisplayVerseStatus(verse.status);
       if (filter === 'catalog') return true;
-      if (filter === 'friends') return true;
       if (filter === 'learning') {
         return status === VerseStatus.LEARNING;
       }
@@ -359,18 +350,10 @@ export function useVerseListController({
     if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryVerseId) return;
-
-    const resolvedReturnFilter =
-      reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter
-        ? defaultStatusFilter
-        : reopenGalleryStatusFilter;
-
-    if (statusFilter !== resolvedReturnFilter) return;
+    if (statusFilter !== reopenGalleryStatusFilter) return;
     onReopenGalleryHandled?.();
   }, [
     disabled,
-    canUseFriendsFilter,
-    defaultStatusFilter,
     onReopenGalleryHandled,
     reopenGalleryStatusFilter,
     reopenGalleryVerseId,
@@ -380,20 +363,9 @@ export function useVerseListController({
   useEffect(() => {
     if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
-    if (reopenGalleryStatusFilter === 'friends' && !canUseFriendsFilter) {
-      setStatusFilter(defaultStatusFilter);
-      return;
-    }
     if (statusFilter === reopenGalleryStatusFilter) return;
     setStatusFilter(reopenGalleryStatusFilter);
-  }, [canUseFriendsFilter, defaultStatusFilter, disabled, reopenGalleryStatusFilter, statusFilter]);
-
-  useEffect(() => {
-    if (disabled) return;
-    if (canUseFriendsFilter) return;
-    if (statusFilter !== 'friends') return;
-    setStatusFilter(defaultStatusFilter);
-  }, [canUseFriendsFilter, defaultStatusFilter, disabled, statusFilter]);
+  }, [disabled, reopenGalleryStatusFilter, statusFilter]);
 
   useEffect(() => {
     if (disabled) return;
@@ -545,9 +517,7 @@ export function useVerseListController({
   const currentFilterLabel =
     statusFilter === 'catalog'
       ? 'Каталог'
-      : statusFilter === 'friends'
-        ? 'Друзья'
-        : statusFilter === 'my'
+      : statusFilter === 'my'
         ? 'Мои стихи'
         : filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Мои стихи';
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
@@ -639,12 +609,11 @@ export function useVerseListController({
   }, [pagination.fetchNextPage]);
 
   const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
-    if (nextFilter === 'friends' && !canUseFriendsFilter) return;
     if (statusFilter === nextFilter) return;
     haptic('light');
     setStatusFilter(nextFilter);
     setAnnouncement(`Фильтр: ${label}`);
-  }, [canUseFriendsFilter, statusFilter]);
+  }, [statusFilter]);
 
   const handleBookChange = useCallback((nextBookId: number | null, label: string) => {
     if (selectedBookId === nextBookId) return;
@@ -653,7 +622,7 @@ export function useVerseListController({
     setAnnouncement(`Книга: ${label}`);
   }, [selectedBookId]);
 
-  const isMyScopeFilter = statusFilter !== 'catalog' && statusFilter !== 'friends';
+  const isMyScopeFilter = statusFilter !== 'catalog';
   const sortOptions = useMemo<VerseListSortOption[]>(
     () => [
       { key: 'bible', label: 'Канон' },
@@ -707,19 +676,6 @@ export function useVerseListController({
         tintClassName: 'bg-status-collection-soft',
       },
     };
-    if (statusFilter === 'friends') {
-      return {
-        items: filteredVerses,
-        config: {
-          headingId: 'friends-verses-heading',
-          title: 'Стихи друзей',
-          subtitle: 'Что изучают и повторяют ваши друзья',
-          dotClassName: 'bg-status-community',
-          borderClassName: 'bg-gradient-to-b from-status-community-soft to-bg-app',
-          tintClassName: 'bg-status-community-soft',
-        },
-      };
-    }
     if (statusFilter === 'learning') {
       return {
         items: learningVerses,

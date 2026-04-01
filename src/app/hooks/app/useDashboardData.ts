@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
-import { fetchFriendsPage } from "@/api/services/friends";
 import {
   fetchDashboardFriendsActivity,
   type DashboardCompactFriendsActivityResponse,
@@ -34,9 +33,6 @@ export function useDashboardData(telegramId: string | null) {
     useState<DashboardCompactFriendsActivityResponse | null>(null);
   const [isDashboardFriendsActivityLoading, setIsDashboardFriendsActivityLoading] =
     useState(false);
-  const [verseListFriendsPresence, setVerseListFriendsPresence] = useState<boolean | null>(null);
-  const [isVerseListFriendsPresenceLoading, setIsVerseListFriendsPresenceLoading] =
-    useState(false);
 
   const dashboardStatsRequestIdRef = useRef(0);
   const learningCapacityRequestIdRef = useRef(0);
@@ -46,14 +42,12 @@ export function useDashboardData(telegramId: string | null) {
     offset: 0,
     limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
   });
-  const verseListFriendsPresenceRequestIdRef = useRef(0);
 
   const dashboardFetchFailedRef = useRef({
     stats: false,
     leaderboard: false,
     friendsActivity: false,
   });
-  const verseListFriendsFetchFailedRef = useRef(false);
 
   useEffect(() => {
     dashboardFetchFailedRef.current = {
@@ -62,8 +56,6 @@ export function useDashboardData(telegramId: string | null) {
       friendsActivity: false,
     };
     setDashboardFriendsActivity(null);
-    verseListFriendsFetchFailedRef.current = false;
-    setVerseListFriendsPresence(null);
     leaderboardQueryRef.current = {
       offset: 0,
       limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
@@ -207,37 +199,6 @@ export function useDashboardData(telegramId: string | null) {
     [loadDashboardLeaderboard, telegramId]
   );
 
-  const loadVerseListFriendsPresence = useCallback(async (telegramIdValue: string) => {
-    if (!telegramIdValue) return null;
-
-    const requestId = ++verseListFriendsPresenceRequestIdRef.current;
-    setIsVerseListFriendsPresenceLoading(true);
-
-    try {
-      const page = await fetchFriendsPage(telegramIdValue, { limit: 1 });
-      if (verseListFriendsPresenceRequestIdRef.current !== requestId) {
-        return null;
-      }
-      verseListFriendsFetchFailedRef.current = false;
-      const total = page.total ?? 0;
-      const hasItems = (page.items?.length ?? 0) > 0;
-      const hasFriends = total > 0 || hasItems;
-      setVerseListFriendsPresence(hasFriends);
-      return hasFriends;
-    } catch (error) {
-      console.error("Не удалось проверить список друзей:", error);
-      if (verseListFriendsPresenceRequestIdRef.current === requestId) {
-        verseListFriendsFetchFailedRef.current = true;
-        setVerseListFriendsPresence(null);
-      }
-      return null;
-    } finally {
-      if (verseListFriendsPresenceRequestIdRef.current === requestId) {
-        setIsVerseListFriendsPresenceLoading(false);
-      }
-    }
-  }, []);
-
   return {
     dashboardStats,
     setDashboardStats,
@@ -249,16 +210,11 @@ export function useDashboardData(telegramId: string | null) {
     dashboardFriendsActivity,
     setDashboardFriendsActivity,
     isDashboardFriendsActivityLoading,
-    verseListFriendsPresence,
-    setVerseListFriendsPresence,
-    isVerseListFriendsPresenceLoading,
     loadDashboardStats,
     loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
-    verseListFriendsFetchFailedRef,
   };
 }

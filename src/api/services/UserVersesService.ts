@@ -74,7 +74,7 @@ export class UserVersesService {
         status?: 'MY' | 'LEARNING' | 'STOPPED',
         orderBy?: 'createdAt' | 'updatedAt' | 'bible' | 'popularity',
         order?: 'asc' | 'desc',
-        filter?: 'catalog' | 'friends' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
+        filter?: 'catalog' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
         bookId?: number,
         search?: string,
         tagSlugs?: string,

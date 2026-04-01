@@ -34,7 +34,7 @@ export function WheelPicker({ values, value, onChange, className }: WheelPickerP
     const idx = values.indexOf(value);
     if (idx >= 0) scrollToIndex(idx, false);
     lastCommittedRef.current = value;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // If external value changes, scroll to it
   useEffect(() => {

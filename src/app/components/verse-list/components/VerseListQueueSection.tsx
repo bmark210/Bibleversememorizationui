@@ -6,7 +6,6 @@ import type { QueueVerseItem } from '@/app/components/Training/exam/types';
 
 type VerseListQueueSectionProps = {
   items: QueueVerseItem[];
-  freeSlots: number;
   onRemove: (externalVerseId: string) => void;
   onEditPosition: (item: QueueVerseItem) => void;
   className?: string;
@@ -14,7 +13,6 @@ type VerseListQueueSectionProps = {
 
 export function VerseListQueueSection({
   items,
-  freeSlots,
   onRemove,
   onEditPosition,
   className,

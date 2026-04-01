@@ -63,7 +63,6 @@ interface VerseListProps {
   onLearningCapacityExceeded?: () => void;
   learningCapacity?: LearningCapacityResponse | null;
   telegramId?: string | null;
-  hasFriends?: boolean;
   isAnchorEligible?: boolean;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
@@ -83,7 +82,6 @@ export function VerseList({
   onLearningCapacityExceeded,
   learningCapacity = null,
   telegramId = null,
-  hasFriends = false,
   onOpenPlayerProfile,
   isAnchorEligible = false,
   onFriendsChanged,
@@ -112,7 +110,7 @@ export function VerseList({
   const [verseOwnersTarget, setVerseOwnersTarget] = useState<{
     externalVerseId: string;
     reference: string;
-    scope: "friends" | "players";
+    scope: "players";
     totalCount: number;
   } | null>(null);
   const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
@@ -331,7 +329,6 @@ export function VerseList({
   const vm = useVerseListController({
     disabled: false,
     initialTags: [],
-    hasFriends,
     isFocusMode,
     onOpenVerseTags: (verse: Verse) => {
       if (!verse.tags || verse.tags.length === 0) return;
@@ -353,7 +350,7 @@ export function VerseList({
       setVerseOwnersTarget({
         externalVerseId: verse.externalVerseId,
         reference: verse.reference,
-        scope: verse.popularityScope,
+        scope: "players",
         totalCount: Math.max(0, Math.round(verse.popularityValue)),
       });
       setIsVerseOwnersDrawerOpen(true);
@@ -394,10 +391,11 @@ export function VerseList({
       await reorderVerseInQueue({ telegramId, externalVerseId, queuePosition: positionEditValue });
       setPositionEditVerse(null);
       toast.success('Позиция обновлена', { label: 'Очередь' });
+      onVerseMutationCommitted?.();
     } catch {
       toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
     }
-  }, [positionEditVerse, positionEditValue, telegramId]);
+  }, [positionEditVerse, positionEditValue, telegramId, onVerseMutationCommitted]);
 
   const handleAddToQueue = useCallback(async () => {
     if (!queueTargetVerse || !telegramId) return;
@@ -577,7 +575,6 @@ export function VerseList({
       statusFilter: vm.filters.statusFilter,
       defaultStatusFilter: vm.filters.defaultStatusFilter,
       filterOptions: vm.filters.filterOptions,
-      hasFriends,
       onTabClick: vm.filterTabs.onTabClick,
       selectedBookId: vm.filters.selectedBookId,
       bookOptions: vm.filters.bookOptions,
@@ -603,7 +600,6 @@ export function VerseList({
       vm.filters.statusFilter,
       vm.filters.defaultStatusFilter,
       vm.filters.filterOptions,
-      hasFriends,
       vm.filterTabs.onTabClick,
       vm.filters.selectedBookId,
       vm.filters.bookOptions,
@@ -728,7 +724,6 @@ export function VerseList({
           currentFilterLabel={vm.ui.currentFilterLabel}
           currentFilterTheme={vm.ui.currentFilterTheme}
           totalCount={vm.pagination.totalCount}
-          hasFriends={hasFriends}
           onTabClick={vm.filterTabs.onTabClick}
         />
 
@@ -749,6 +744,7 @@ export function VerseList({
               onSelectTag={handleVerseTagSelect}
               onFriendsChanged={onFriendsChanged}
               onNavigateToTraining={handleNavigateToTrainingFromGallery}
+              onEditQueuePosition={handleOpenPositionEdit}
               previewTotalCount={vm.pagination.totalCount}
               previewHasMore={vm.pagination.hasMoreVerses}
               previewIsLoadingMore={vm.pagination.isFetchingMoreVerses}

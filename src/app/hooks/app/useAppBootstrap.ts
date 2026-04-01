@@ -18,12 +18,10 @@ type UseAppBootstrapParams = {
   setDashboardStats: (v: null) => void;
   setDashboardLeaderboard: (v: null) => void;
   setDashboardFriendsActivity: (v: null) => void;
-  setVerseListFriendsPresence: (v: null) => void;
   loadDashboardStats: (telegramId: string) => Promise<unknown>;
   loadLearningCapacity: (telegramId: string) => Promise<unknown>;
   loadDashboardLeaderboard: (telegramId: string) => Promise<unknown>;
   loadDashboardFriendsActivity: (telegramId: string) => Promise<unknown>;
-  loadVerseListFriendsPresence: (telegramId: string) => Promise<unknown>;
   scheduleTrainingVersePrefetch: (telegramId: string) => void;
 };
 
@@ -34,12 +32,10 @@ export function useAppBootstrap({
   setDashboardStats,
   setDashboardLeaderboard,
   setDashboardFriendsActivity,
-  setVerseListFriendsPresence,
   loadDashboardStats,
   loadLearningCapacity,
   loadDashboardLeaderboard,
   loadDashboardFriendsActivity,
-  loadVerseListFriendsPresence,
   scheduleTrainingVersePrefetch,
 }: UseAppBootstrapParams) {
   useEffect(() => {
@@ -70,7 +66,6 @@ export function useAppBootstrap({
         setDashboardStats(null);
         setDashboardLeaderboard(null);
         setDashboardFriendsActivity(null);
-        setVerseListFriendsPresence(null);
         setCurrentUserAvatarUrl(null);
         useCurrentUserStatsStore.getState().clear();
         finishBootstrapping();
@@ -113,7 +108,6 @@ export function useAppBootstrap({
           loadLearningCapacity(resolvedTelegramId),
           loadDashboardLeaderboard(resolvedTelegramId),
           loadDashboardFriendsActivity(resolvedTelegramId),
-          loadVerseListFriendsPresence(resolvedTelegramId),
         ]);
       } catch (err) {
         console.error("Не удалось получить данные дашборда:", err);
@@ -131,7 +125,6 @@ export function useAppBootstrap({
       isMounted = false;
     };
   }, [
-    loadVerseListFriendsPresence,
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
@@ -143,6 +136,5 @@ export function useAppBootstrap({
     setDashboardStats,
     setIsBootstrapping,
     setTelegramId,
-    setVerseListFriendsPresence,
   ]);
 }

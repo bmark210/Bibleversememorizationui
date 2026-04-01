@@ -73,6 +73,8 @@ export type VerseGalleryProps = {
   onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */
   onNavigateToTraining: (launch: DirectLaunchVerse) => void;
+  /** Open the queue position picker for the given verse */
+  onEditQueuePosition?: (verse: Verse) => void;
   /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */
   isAnchorEligible?: boolean;
   previewTotalCount?: number;

@@ -5,7 +5,6 @@ import { UserVersesService } from "@/api/services/UserVersesService";
 /** Должен совпадать с VerseListStatusFilter в списке стихов (без импорта из app — избегаем циклов). */
 export type UserVersesListFilter =
   | "catalog"
-  | "friends"
   | "learning"
   | "review"
   | "mastered"
@@ -28,7 +27,7 @@ type FetchUserVersesPageParams = {
 
 function apiFilter(
   filter: UserVersesListFilter
-): "friends" | "my" | "learning" | "review" | "mastered" | "stopped" {
+): "my" | "learning" | "review" | "mastered" | "stopped" {
   if (filter === "catalog") {
     return "my";
   }

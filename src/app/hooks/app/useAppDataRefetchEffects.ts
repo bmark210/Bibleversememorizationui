@@ -11,7 +11,6 @@ type DashboardFetchFailedRef = RefObject<{
   leaderboard: boolean;
   friendsActivity: boolean;
 }>;
-type FriendsFetchFailedRef = RefObject<boolean>;
 type TrainingFetchFailedRef = RefObject<boolean>;
 type TrainingPromiseRef = RefObject<Promise<Array<Verse>> | null>;
 
@@ -21,20 +20,16 @@ export function useAppDataRefetchEffects(options: {
   dashboardStats: domain_UserDashboardStats | null;
   dashboardLeaderboard: domain_UserLeaderboardResponse | null;
   dashboardFriendsActivity: DashboardCompactFriendsActivityResponse | null;
-  verseListFriendsPresence: boolean | null;
   isDashboardStatsLoading: boolean;
   isDashboardLeaderboardLoading: boolean;
   isDashboardFriendsActivityLoading: boolean;
-  isVerseListFriendsPresenceLoading: boolean;
   hasLoadedTrainingVerses: boolean;
   trainingVersesPromiseRef: TrainingPromiseRef;
   dashboardFetchFailedRef: DashboardFetchFailedRef;
-  verseListFriendsFetchFailedRef: FriendsFetchFailedRef;
   trainingVersesFetchFailedRef: TrainingFetchFailedRef;
   loadDashboardStats: (id: string) => void;
   loadDashboardLeaderboard: (id: string) => void;
   loadDashboardFriendsActivity: (id: string) => void;
-  loadVerseListFriendsPresence: (id: string) => void;
   scheduleTrainingVersePrefetch: (id: string) => void;
 }) {
   const {
@@ -43,20 +38,16 @@ export function useAppDataRefetchEffects(options: {
     dashboardStats,
     dashboardLeaderboard,
     dashboardFriendsActivity,
-    verseListFriendsPresence,
     isDashboardStatsLoading,
     isDashboardLeaderboardLoading,
     isDashboardFriendsActivityLoading,
-    isVerseListFriendsPresenceLoading,
     hasLoadedTrainingVerses,
     trainingVersesPromiseRef,
     dashboardFetchFailedRef,
-    verseListFriendsFetchFailedRef,
     trainingVersesFetchFailedRef,
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     scheduleTrainingVersePrefetch,
   } = options;
 
@@ -89,14 +80,6 @@ export function useAppDataRefetchEffects(options: {
     }
 
     if (
-      verseListFriendsPresence === null &&
-      !isVerseListFriendsPresenceLoading &&
-      !verseListFriendsFetchFailedRef.current
-    ) {
-      void loadVerseListFriendsPresence(telegramId);
-    }
-
-    if (
       !hasLoadedTrainingVerses &&
       !trainingVersesPromiseRef.current &&
       !trainingVersesFetchFailedRef.current
@@ -105,17 +88,14 @@ export function useAppDataRefetchEffects(options: {
     }
   }, [
     dashboardFriendsActivity,
-    verseListFriendsPresence,
     dashboardLeaderboard,
     dashboardStats,
     hasLoadedTrainingVerses,
     isBootstrapping,
     isDashboardFriendsActivityLoading,
-    isVerseListFriendsPresenceLoading,
     isDashboardLeaderboardLoading,
     isDashboardStatsLoading,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     loadDashboardLeaderboard,
     loadDashboardStats,
     scheduleTrainingVersePrefetch,

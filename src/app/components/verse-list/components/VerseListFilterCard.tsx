@@ -104,7 +104,6 @@ export type VerseListFilterCardProps = {
   statusFilter: VerseListStatusFilter;
   defaultStatusFilter: VerseListStatusFilter;
   filterOptions: VerseListFilterOption[];
-  hasFriends?: boolean;
   onTabClick: (filter: VerseListStatusFilter, label: string) => void;
   selectedBookId: number | null;
   bookOptions: VerseListBookOption[];
@@ -129,7 +128,6 @@ const ALL_BOOKS_LABEL = 'Все';
 function VerseListFilterSections({
   statusFilter,
   // filterOptions,
-  hasFriends = false,
   onTabClick,
   selectedBookId,
   bookOptions,
@@ -152,7 +150,7 @@ function VerseListFilterSections({
   const tagsPanelId = React.useId();
   const isDrawerPresentation = presentation === 'drawer';
   const activeRootTab = getVerseListPrimaryFilterKey(statusFilter);
-  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions(hasFriends);
+  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions();
   const selectedBook =
     selectedBookId == null
       ? null
@@ -257,12 +255,7 @@ function VerseListFilterSections({
         className={cn('mt-2 px-3', isDrawerPresentation && 'hidden md:block')}
       >
         <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-          Основной фильтр:{' '}
-          {activeRootTab === 'my'
-            ? 'Мои стихи'
-            : activeRootTab === 'friends'
-              ? 'Друзья'
-              : 'Общий'}
+          Основной фильтр: {activeRootTab === 'my' ? 'Мои стихи' : 'Каталог'}
         </div>
         <div
           role="tablist"
@@ -538,7 +531,6 @@ export function VerseListFilterCard({
   statusFilter,
   defaultStatusFilter,
   filterOptions,
-  hasFriends = false,
   onTabClick,
   selectedBookId,
   bookOptions,
@@ -591,7 +583,6 @@ export function VerseListFilterCard({
     statusFilter,
     defaultStatusFilter,
     filterOptions,
-    hasFriends,
     onTabClick,
     selectedBookId,
     bookOptions,

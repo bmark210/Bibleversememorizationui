@@ -5,7 +5,6 @@ import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/sha
 
 export type VerseListStatusFilter =
   | "catalog"
-  | "friends"
   | "learning"
   | "review"
   | "mastered"
@@ -41,15 +40,6 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     currentBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
     statusBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
     cardClassName: 'bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated',
-  },
-  friends: {
-    dotClassName: 'bg-status-community',
-    activeTabClassName: 'border-status-community/30 bg-status-community-soft text-status-community shadow-[var(--shadow-soft)]',
-    currentBadgeClassName:
-      'border-status-community/25 bg-status-community-soft text-status-community',
-    statusBadgeClassName:
-      'border-status-community/25 bg-status-community-soft text-status-community',
-    cardClassName: 'bg-gradient-to-br from-status-community-soft via-bg-surface to-bg-elevated',
   },
   learning: {
     dotClassName: 'bg-status-learning',

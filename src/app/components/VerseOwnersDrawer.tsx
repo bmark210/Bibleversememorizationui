@@ -8,6 +8,7 @@ import {
 } from "@/api/services/verseOwners";
 import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
   Drawer,
@@ -16,6 +17,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "./ui/drawer";
+import { cn } from "./ui/utils";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 
@@ -71,6 +73,33 @@ function formatRelativeLastActive(value: string | null): string {
     day: "numeric",
     month: "short",
   });
+}
+
+function getRelationshipBadgeCopy(params: {
+  isCurrentUser: boolean;
+  isFriend: boolean;
+}) {
+  if (params.isCurrentUser) {
+    return {
+      label: "Это вы",
+      className:
+        "border-primary/20 bg-primary/10 text-primary",
+    };
+  }
+
+  if (params.isFriend) {
+    return {
+      label: "Ваш друг",
+      className:
+        "border-status-learning/25 bg-status-learning-soft text-status-learning",
+    };
+  }
+
+  return {
+    label: "Не в друзьях",
+    className:
+      "border-border/60 bg-background/70 text-foreground/62",
+  };
 }
 
 export function VerseOwnersDrawer({
@@ -187,7 +216,29 @@ export function VerseOwnersDrawer({
 
   const hasMore = items.length < totalCount;
   const scopeTitle = target?.scope === "friends" ? "Друзья со стихом" : "Игроки со стихом";
-  const ScopeIcon = target?.scope === "friends" ? Users : Users;
+  const ScopeIcon = Users;
+  const relationshipSummary = React.useMemo(() => {
+    return items.reduce(
+      (acc, item) => {
+        const telegramId = String(item.telegramId ?? "");
+        if (viewerTelegramId && telegramId === viewerTelegramId) {
+          acc.currentUserCount += 1;
+          return acc;
+        }
+        if (item.isFriend) {
+          acc.friendCount += 1;
+          return acc;
+        }
+        acc.otherPlayersCount += 1;
+        return acc;
+      },
+      {
+        currentUserCount: 0,
+        friendCount: 0,
+        otherPlayersCount: 0,
+      }
+    );
+  }, [items, viewerTelegramId]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     if (isInitialLoading || isFetchingMore || !hasMore) {
@@ -248,8 +299,31 @@ export function VerseOwnersDrawer({
                 {scopeTitle}
               </DrawerTitle>
               <DrawerDescription className="mt-1 text-sm text-foreground/56">
-                {target?.reference ?? "Стих"} · {totalCount} участников
+                {target?.reference ?? "Стих"} ·{" "}
+                {target?.scope === "friends" ? `${totalCount} друзей` : `${totalCount} участников`}
               </DrawerDescription>
+              {target?.scope !== "friends" ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {relationshipSummary.currentUserCount > 0 ? (
+                    <Badge className="border-primary/20 bg-primary/10 text-primary">
+                      Вы
+                    </Badge>
+                  ) : null}
+                  {relationshipSummary.friendCount > 0 ? (
+                    <Badge className="border-status-learning/25 bg-status-learning-soft text-status-learning">
+                      Друзья: {relationshipSummary.friendCount}
+                    </Badge>
+                  ) : null}
+                  {relationshipSummary.otherPlayersCount > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="border-border/60 bg-background/70 text-foreground/62"
+                    >
+                      Другие игроки: {relationshipSummary.otherPlayersCount}
+                    </Badge>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </DrawerHeader>
@@ -283,41 +357,72 @@ export function VerseOwnersDrawer({
             </div>
           ) : items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/60 bg-background/50 p-4 text-sm text-foreground/56">
-              Пока никто не добавил этот стих в выбранной группе.
+              Пока никто не добавил этот стих.
             </div>
           ) : (
             <div className="space-y-2 pb-2">
               {items.map((item) => {
                 const label = ownerDisplayName(item);
+                const telegramId = String(item.telegramId ?? "");
+                const isCurrentUser =
+                  Boolean(viewerTelegramId) && telegramId === viewerTelegramId;
+                const relationshipBadge = getRelationshipBadgeCopy({
+                  isCurrentUser,
+                  isFriend: Boolean(item.isFriend),
+                });
                 return (
-                <button
-                  key={item.telegramId ?? label}
-                  type="button"
-                  onClick={() => handleSelectPlayer(item)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/55 px-3 py-3 text-left transition-colors hover:bg-background/70"
-                  aria-label={`Открыть профиль ${label}`}
-                >
-                  <Avatar className="h-10 w-10 border border-border/60 bg-background/70">
-                    {item.avatarUrl ? (
-                      <AvatarImage src={item.avatarUrl} alt={label} />
-                    ) : null}
-                    <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
-                      {getInitials(label)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <button
+                    key={item.telegramId ?? label}
+                    type="button"
+                    onClick={() => handleSelectPlayer(item)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
+                      isCurrentUser
+                        ? "border-primary/18 bg-primary/[0.07] hover:bg-primary/[0.11]"
+                        : item.isFriend
+                          ? "border-status-learning/18 bg-status-learning-soft/55 hover:bg-status-learning-soft/80"
+                          : "border-border/60 bg-background/55 hover:bg-background/70"
+                    )}
+                    aria-label={`Открыть профиль ${label}`}
+                  >
+                    <Avatar
+                      className={cn(
+                        "h-10 w-10 border bg-background/70",
+                        isCurrentUser
+                          ? "border-primary/25"
+                          : item.isFriend
+                            ? "border-status-learning/25"
+                            : "border-border/60"
+                      )}
+                    >
+                      {item.avatarUrl ? (
+                        <AvatarImage src={item.avatarUrl} alt={label} />
+                      ) : null}
+                      <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
+                        {getInitials(label)}
+                      </AvatarFallback>
+                    </Avatar>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground/82">
-                      {label}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-foreground/82">
+                            {label}
+                          </div>
+                          <div className="mt-1 truncate text-xs text-foreground/48">
+                            {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
+                            {formatXp(getDisplayXp(item))} ·{" "}
+                            {getDisplayDailyStreak(item)} дн. подряд
+                          </div>
+                        </div>
+
+                        <Badge className={relationshipBadge.className}>
+                          {relationshipBadge.label}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="mt-1 truncate text-xs text-foreground/48">
-                      {formatRelativeLastActive(item.lastActiveAt)} ·{" "}
-                      {formatXp(getDisplayXp(item))} ·{" "}
-                      {getDisplayDailyStreak(item)} дн. подряд
-                    </div>
-                  </div>
-                </button>
-              );
+                  </button>
+                );
               })}
 
               {isFetchingMore ? (

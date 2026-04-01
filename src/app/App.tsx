@@ -119,21 +119,16 @@ export default function App({ onInitialContentReady }: AppProps) {
     dashboardFriendsActivity,
     setDashboardFriendsActivity,
     setDashboardLeaderboard,
-    setVerseListFriendsPresence,
     isDashboardStatsLoading,
     dashboardLeaderboard,
     isDashboardLeaderboardLoading,
     isDashboardFriendsActivityLoading,
-    verseListFriendsPresence,
-    isVerseListFriendsPresenceLoading,
     loadDashboardStats,
     loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
-    verseListFriendsFetchFailedRef,
   } = useDashboardData(telegramId);
 
   const {
@@ -157,12 +152,10 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardStats,
     setDashboardLeaderboard,
     setDashboardFriendsActivity,
-    setVerseListFriendsPresence,
     loadDashboardStats,
     loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     scheduleTrainingVersePrefetch,
   });
 
@@ -172,20 +165,16 @@ export default function App({ onInitialContentReady }: AppProps) {
     dashboardStats,
     dashboardLeaderboard,
     dashboardFriendsActivity,
-    verseListFriendsPresence,
     isDashboardStatsLoading,
     isDashboardLeaderboardLoading,
     isDashboardFriendsActivityLoading,
-    isVerseListFriendsPresenceLoading,
     hasLoadedTrainingVerses,
     trainingVersesPromiseRef,
     dashboardFetchFailedRef,
-    verseListFriendsFetchFailedRef,
     trainingVersesFetchFailedRef,
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     scheduleTrainingVersePrefetch,
   });
 
@@ -193,7 +182,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const pendingMutationRefetchRef = useRef(false);
   const prefetchedPagesRef = useRef<Set<AppRootPage>>(new Set(["dashboard"]));
 
-  const hasVerseListFriends = verseListFriendsPresence === true;
   const shouldKeepRootPagesAlive = !isBootstrapping;
 
   const handleNavigateBackInApp = nav.handleNavigateBackInApp;
@@ -253,14 +241,10 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (!telegramIdValue) return;
     dashboardFetchFailedRef.current.friendsActivity = false;
     void loadDashboardFriendsActivity(telegramIdValue);
-    verseListFriendsFetchFailedRef.current = false;
-    void loadVerseListFriendsPresence(telegramIdValue);
   }, [
     dashboardFetchFailedRef,
     loadDashboardFriendsActivity,
-    loadVerseListFriendsPresence,
     telegramId,
-    verseListFriendsFetchFailedRef,
   ]);
 
   const handleOpenPlayerProfile = useCallback((player: PlayerProfilePreview) => {
@@ -552,7 +536,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                   onLearningCapacityExceeded={handleNavigateToExam}
                   learningCapacity={learningCapacity}
                   telegramId={telegramId}
-                  hasFriends={hasVerseListFriends}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
                   isAnchorEligible={

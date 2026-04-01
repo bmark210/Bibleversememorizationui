@@ -123,6 +123,7 @@ export function VerseGallery({
   onSelectTag,
   onFriendsChanged,
   onNavigateToTraining,
+  onEditQueuePosition,
   isAnchorEligible = false,
   previewTotalCount = verses.length,
   previewHasMore = false,
@@ -477,6 +478,7 @@ export function VerseGallery({
               onOpenProgress={handleOpenProgress}
               onOpenTags={handleOpenTagsDrawer}
               onOpenOwners={handleOpenOwnersDrawer}
+              onEditQueuePosition={onEditQueuePosition}
               onVerticalSwipeStep={
                 isFocusMode && !isActionPending && !isBlockingOverlayOpen
                   ? handleFocusModeVerticalSwipe
