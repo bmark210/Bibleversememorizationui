@@ -164,15 +164,17 @@ export function Dashboard({
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
+  const masteredVerses =
+    dashboardStats?.masteredCount ?? todaySummary.masteredVerses
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null
   const dailyStreak = currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null
 
   const statsCards = useMemo(
     () =>
       [
-        { key: 'active', label: 'Активность', value: `${learningVerses + dueReviewVerses} стиха`, tone: 'learning' as const },
-        // { key: 'review', label: 'Повторение', value: `${dueReviewVerses}`, tone: 'review' as const },
         { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
+        { key: 'active', label: 'Активно', value: `${learningVerses + dueReviewVerses}`, tone: 'learning' as const },
+        { key: 'mastered', label: 'Выучено', value: `${masteredVerses}`, tone: 'review' as const },
         {
           key: 'streak',
           label: 'Серия',
@@ -184,7 +186,7 @@ export function Dashboard({
           tone: 'mastered' as const,
         },
       ] as const,
-    [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, userXp],
+    [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
   )
 
   const isCapacityFull =
@@ -196,30 +198,12 @@ export function Dashboard({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {isCapacityFull && onOpenExam && (
-        <div className="shrink-0 px-3 pt-2 sm:px-4 lg:px-5">
-          <button
-            type="button"
-            onClick={onOpenExam}
-            className="flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-500/15"
-          >
-            <GraduationCap className="h-5 w-5 shrink-0 text-amber-500" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Слоты заполнены ({learningCapacity!.activeLearning}/{learningCapacity!.capacity})
-              </p>
-              <p className="text-xs text-text-muted">
-                Пройдите экзамен, чтобы добавить новые стихи в изучение
-              </p>
-            </div>
-          </button>
-        </div>
-      )}
+   
     <section
       className={cn(
-        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden',
+        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 content-start grid-cols-1 grid-rows-[auto_auto_auto] overflow-y-auto',
         'gap-2 px-3 py-2 sm:gap-3 sm:py-3',
-        'lg:grid-cols-[minmax(0,1.05fr)_minmax(19rem,0.95fr)] lg:grid-rows-[auto_minmax(0,1fr)]',
+        'lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] lg:grid-rows-[auto_auto]',
         'sm:px-4 lg:px-5',
       )}
     >
@@ -248,7 +232,7 @@ export function Dashboard({
         <DashboardTrainingStatsCard statsCards={statsCards} />
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-2 sm:gap-3 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
+      <div className="grid min-h-0 grid-cols-1 gap-2 sm:gap-3 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(15rem,0.78fr)_minmax(18rem,1.22fr)] lg:items-start">
         <DashboardLeaderboardCard
           leaderboard={dashboardLeaderboard}
           isLeaderboardLoading={isDashboardLeaderboardLoading}
@@ -263,7 +247,28 @@ export function Dashboard({
           onOpenPlayerProfile={onOpenPlayerProfile}
         />
       </div>
+      
+    {isCapacityFull && onOpenExam && (
+        <div className="shrink-0 px-3 sm:px-4 lg:px-5 flex-1">
+          <button
+            type="button"
+            onClick={onOpenExam}
+            className="flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-500/15"
+          >
+            <GraduationCap className="h-5 w-5 shrink-0 text-amber-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Слоты заполнены ({learningCapacity!.activeLearning}/{learningCapacity!.capacity})
+              </p>
+              <p className="text-xs text-text-muted">
+                Пройдите экзамен, чтобы добавить новые стихи в изучение
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
     </section>
+
     </div>
   )
 }
