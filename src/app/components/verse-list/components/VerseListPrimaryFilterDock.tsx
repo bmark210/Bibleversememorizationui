@@ -2,10 +2,7 @@
 
 import type { Ref } from 'react';
 import { cn } from '@/app/components/ui/utils';
-import type {
-  FilterVisualTheme,
-  VerseListStatusFilter,
-} from '../constants';
+import type { FilterVisualTheme, VerseListStatusFilter } from '../constants';
 import {
   getVerseListPrimaryFilterKey,
   getVisibleVerseListPrimaryFilterOptions,
@@ -24,23 +21,20 @@ type VerseListPrimaryFilterDockProps = {
 
 const PRIMARY_FILTER_VISUALS: Record<
   VerseListPrimaryFilterKey,
-  { dotClassName: string; activeClassName: string }
+  { activeClassName: string }
 > = {
   catalog: {
-    dotClassName: 'bg-text-muted',
     activeClassName:
-      'border-border-default bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]',
+      'border-border/60 bg-background/60 text-foreground/88',
   },
   my: {
-    dotClassName: 'bg-status-collection',
     activeClassName:
-      'border-status-collection/30 bg-status-collection-soft text-status-collection shadow-[var(--shadow-soft)]',
+      'border-border/60 bg-background/60 text-foreground/88',
   },
 };
 
 export function VerseListPrimaryFilterDock({
   statusFilter,
-  currentFilterTheme,
   onTabClick,
   className,
   rootRef,
@@ -58,9 +52,7 @@ export function VerseListPrimaryFilterDock({
       style={{ bottom: 'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)' }}
     >
       <div className="pointer-events-auto mx-auto w-full max-w-xl">
-        <div className="relative overflow-hidden rounded-[22px] border border-border-subtle bg-bg-overlay/90 px-2 py-2 shadow-[0_-8px_24px_rgba(7,5,2,0.18),0_12px_32px_rgba(7,5,2,0.22)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-brand-primary/30 to-transparent" />
-
+        <div className="relative overflow-hidden rounded-[24px] border border-border/70 bg-card px-2 py-2 transition-[opacity,transform] duration-200">
           <div
             role="tablist"
             aria-label="Основной фильтр списка стихов"
@@ -71,10 +63,7 @@ export function VerseListPrimaryFilterDock({
           >
             {visibleRootTabs.map(({ key, label }) => {
               const isActive = activeRootTab === key;
-              const activeClasses =
-                isActive && key === 'my'
-                  ? currentFilterTheme.activeTabClassName
-                  : PRIMARY_FILTER_VISUALS[key].activeClassName;
+              const activeClasses = PRIMARY_FILTER_VISUALS[key].activeClassName;
 
               return (
                 <button
@@ -90,10 +79,10 @@ export function VerseListPrimaryFilterDock({
                     )
                   }
                   className={cn(
-                    'flex min-h-[44px] items-center justify-center rounded-[16px] border px-3 py-2 text-[13px] font-semibold transition-[transform,background-color,border-color,color,box-shadow] duration-200',
+                    'flex min-h-[40px] items-center justify-center rounded-[18px] border px-3 py-1.5 text-sm font-medium transition-[background-color,border-color,color] duration-200',
                     isActive
-                      ? cn(activeClasses, 'translate-y-[-1px]')
-                      : 'border-transparent text-text-muted hover:text-text-secondary',
+                      ? activeClasses
+                      : 'border-transparent bg-transparent text-foreground/56 hover:bg-background/35 hover:text-foreground/72',
                   )}
                 >
                   <span className="truncate">{label}</span>
