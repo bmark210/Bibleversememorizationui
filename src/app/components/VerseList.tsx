@@ -20,6 +20,7 @@ import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeleto
 import { VerseListPrimaryFilterDock } from "./verse-list/components/VerseListPrimaryFilterDock";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
+import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
 import {
   getVerseCardLayoutSignature,
   type VerseListStatusFilter,
@@ -35,10 +36,15 @@ import { useVerseListController } from "./verse-list/hooks/useVerseListControlle
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
 import { VerseListSlotCard } from "./verse-list/components/VerseListSlotCard";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
-import type { Verse } from "@/app/domain/verse";
+import {
+  mapUserVerseToAppVerse,
+  type AppVerseApiRecord,
+  type Verse,
+} from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
 import { addVerseToQueue, reorderVerseInQueue } from "@/app/components/Training/exam/queueApi";
+import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { WheelPicker } from "@/app/components/ui/WheelPicker";
 import {
   Drawer,
@@ -47,11 +53,15 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/app/components/ui/drawer";
-import { GraduationCap, ListOrdered } from "lucide-react";
+import { computeVerseTotalProgressPercent } from "@/shared/training/verseTotalProgress";
+import { VerseStatus } from "@/shared/domain/verseStatus";
+import { ArrowLeft, ArrowRightLeft, GraduationCap, ListOrdered, Loader2 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
 const PRIMARY_FILTER_DOCK_GAP_PX = 12;
+
+type LearningSlotDrawerStep = "actions" | "replace";
 
 interface VerseListProps {
   reopenGalleryVerseId?: string | null;
@@ -118,6 +128,16 @@ export function VerseList({
   // Queue drawer: shown when user tries to start learning but slots are full
   const [queueTargetVerse, setQueueTargetVerse] = useState<Verse | null>(null);
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
+  const [learningSlotDrawerStep, setLearningSlotDrawerStep] =
+    useState<LearningSlotDrawerStep>("actions");
+  const [replaceableLearningVerses, setReplaceableLearningVerses] = useState<Verse[]>([]);
+  const [isLoadingReplaceableLearningVerses, setIsLoadingReplaceableLearningVerses] =
+    useState(false);
+  const [replaceableLearningVersesError, setReplaceableLearningVersesError] =
+    useState<string | null>(null);
+  const [selectedReplacementVerseId, setSelectedReplacementVerseId] =
+    useState<string | null>(null);
+  const [isReplacingLearningVerse, setIsReplacingLearningVerse] = useState(false);
   // Position picker for queue reordering
   const [positionEditVerse, setPositionEditVerse] = useState<Verse | null>(null);
   const [positionEditValue, setPositionEditValue] = useState(1);
@@ -127,6 +147,7 @@ export function VerseList({
   const [filterOverlayHeight, setFilterOverlayHeight] = useState(0);
   const [primaryFilterDockHeight, setPrimaryFilterDockHeight] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
+  const replaceableLearningVersesRequestIdRef = useRef(0);
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
   const toggleFocusMode = useCallback(() => {
@@ -414,7 +435,79 @@ export function VerseList({
     }
   }, [queueTargetVerse, telegramId]);
 
+  const loadReplaceableLearningVerses = useCallback(
+    async (targetExternalVerseId: string) => {
+      if (!telegramId) {
+        setReplaceableLearningVerses([]);
+        setReplaceableLearningVersesError("Профиль Telegram ещё не инициализирован.");
+        return;
+      }
+
+      const requestId = ++replaceableLearningVersesRequestIdRef.current;
+      setIsLoadingReplaceableLearningVerses(true);
+      setReplaceableLearningVersesError(null);
+
+      try {
+        const page = await fetchUserVersesPage({
+          telegramId,
+          filter: "learning",
+          orderBy: "updatedAt",
+          order: "desc",
+          limit: 50,
+        });
+
+        if (replaceableLearningVersesRequestIdRef.current !== requestId) return;
+
+        const learningVerses = (page.items ?? [])
+          .map((item) => mapUserVerseToAppVerse(item as AppVerseApiRecord))
+          .filter((verse) => verse.externalVerseId !== targetExternalVerseId);
+
+        setReplaceableLearningVerses(learningVerses);
+        setSelectedReplacementVerseId((current) => {
+          if (current && learningVerses.some((verse) => verse.externalVerseId === current)) {
+            return current;
+          }
+          return learningVerses[0]?.externalVerseId ?? null;
+        });
+      } catch (error) {
+        if (replaceableLearningVersesRequestIdRef.current !== requestId) return;
+        console.error("Не удалось загрузить стихи в изучении для замены:", error);
+        setReplaceableLearningVerses([]);
+        setReplaceableLearningVersesError("Не удалось загрузить активные слоты.");
+        setSelectedReplacementVerseId(null);
+      } finally {
+        if (replaceableLearningVersesRequestIdRef.current === requestId) {
+          setIsLoadingReplaceableLearningVerses(false);
+        }
+      }
+    },
+    [telegramId],
+  );
+
+  useEffect(() => {
+    if (!queueTargetVerse) {
+      replaceableLearningVersesRequestIdRef.current += 1;
+      setLearningSlotDrawerStep("actions");
+      setReplaceableLearningVerses([]);
+      setReplaceableLearningVersesError(null);
+      setSelectedReplacementVerseId(null);
+      setIsLoadingReplaceableLearningVerses(false);
+      setIsReplacingLearningVerse(false);
+      return;
+    }
+
+    setLearningSlotDrawerStep("actions");
+    void loadReplaceableLearningVerses(queueTargetVerse.externalVerseId);
+  }, [loadReplaceableLearningVerses, queueTargetVerse]);
+
   const isGalleryOpen = vm.gallery.galleryIndex !== null;
+  const selectedReplacementVerse = useMemo(
+    () =>
+      replaceableLearningVerses.find(
+        (verse) => verse.externalVerseId === selectedReplacementVerseId,
+      ) ?? null,
+    [replaceableLearningVerses, selectedReplacementVerseId],
+  );
 
   const handleNavigateToCatalog = useCallback(() => {
     vm.filterTabs.onTabClick("catalog", "Каталог");
@@ -423,6 +516,67 @@ export function VerseList({
   const handleNavigateToExam = useCallback(() => {
     onLearningCapacityExceeded?.();
   }, [onLearningCapacityExceeded]);
+
+  const handleOpenReplaceLearningStep = useCallback(() => {
+    setLearningSlotDrawerStep("replace");
+    if (
+      queueTargetVerse &&
+      !isLoadingReplaceableLearningVerses &&
+      (replaceableLearningVerses.length === 0 || replaceableLearningVersesError)
+    ) {
+      void loadReplaceableLearningVerses(queueTargetVerse.externalVerseId);
+    }
+  }, [
+    isLoadingReplaceableLearningVerses,
+    loadReplaceableLearningVerses,
+    queueTargetVerse,
+    replaceableLearningVerses.length,
+    replaceableLearningVersesError,
+  ]);
+
+  const handleReplaceLearningVerse = useCallback(async () => {
+    if (!queueTargetVerse || !selectedReplacementVerse) return;
+
+    setIsReplacingLearningVerse(true);
+    let didPauseCurrentVerse = false;
+
+    try {
+      await vm.gallery.onStatusChange(selectedReplacementVerse, VerseStatus.STOPPED);
+      didPauseCurrentVerse = true;
+
+      await vm.gallery.onStatusChange(queueTargetVerse, VerseStatus.LEARNING);
+
+      toast.success("Стих поставлен в изучение", {
+        description: (
+          <>
+            <div>{queueTargetVerse.reference}</div>
+            <div className="text-xs text-foreground/65">
+              Вместо {selectedReplacementVerse.reference}
+            </div>
+          </>
+        ),
+        label: "Стихи",
+      });
+      setQueueTargetVerse(null);
+    } catch (error) {
+      console.error("Не удалось заменить стих в изучении:", error);
+
+      if (didPauseCurrentVerse) {
+        try {
+          await vm.gallery.onStatusChange(selectedReplacementVerse, VerseStatus.LEARNING);
+        } catch (rollbackError) {
+          console.error("Не удалось восстановить прежний стих после ошибки:", rollbackError);
+        }
+      }
+
+      toast.error("Не удалось заменить стих", {
+        description: "Попробуйте ещё раз.",
+        label: "Стихи",
+      });
+    } finally {
+      setIsReplacingLearningVerse(false);
+    }
+  }, [queueTargetVerse, selectedReplacementVerse, vm.gallery]);
 
   const slotCardFooter = useMemo(() => {
     if (!isMyMode) return undefined;
@@ -836,57 +990,272 @@ export function VerseList({
             if (!open) setQueueTargetVerse(null);
           }}
         >
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Слоты для изучения заполнены</DrawerTitle>
-              <DrawerDescription>
-                Добавьте стих в очередь — он начнёт изучаться, когда освободится слот
-              </DrawerDescription>
+          <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6">
+            <DrawerHeader className="px-0 pb-0 pt-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/70 text-foreground/72">
+                  {learningSlotDrawerStep === "replace" ? (
+                    <ArrowRightLeft className="h-5 w-5" />
+                  ) : (
+                    <ListOrdered className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <DrawerTitle>
+                    {learningSlotDrawerStep === "replace"
+                      ? "Заменить"
+                      : "Слоты заняты"}
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 truncate text-sm text-foreground/58">
+                    {learningSlotDrawerStep === "replace"
+                      ? "Выберите стих для паузы"
+                      : queueTargetVerse?.reference ?? "Новый стих"}
+                  </DrawerDescription>
+                  {learningCapacity ? (
+                    <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/48">
+                      {learningCapacity.activeLearning}/{learningCapacity.capacity} занято
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </DrawerHeader>
-            <div className="flex flex-col gap-3 px-4 pb-6">
-              <button
-                type="button"
-                disabled={isAddingToQueue}
-                onClick={handleAddToQueue}
-                className={cn(
-                  'flex items-center gap-3.5 rounded-2xl border border-border bg-bg-elevated px-4 py-3.5',
-                  'text-left transition-colors hover:bg-bg-elevated/80',
-                  isAddingToQueue && 'pointer-events-none opacity-60',
-                )}
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle">
-                  <ListOrdered className="h-3.5 w-3.5 text-text-muted" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-text-primary">Добавить в очередь</p>
-                  <p className="mt-0.5 text-[11px] text-text-subtle">
-                    Стих начнёт изучаться, когда освободится слот
-                  </p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setQueueTargetVerse(null);
-                  onLearningCapacityExceeded?.();
-                }}
-                className={cn(
-                  'flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5',
-                  'text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10',
-                )}
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12">
-                  <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
-                    Перейти к экзамену
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-text-subtle">
-                    Сдайте экзамен, чтобы увеличить количество слотов
-                  </p>
-                </div>
-              </button>
+            <div className="mt-5 flex flex-col gap-3 pb-6">
+              {learningSlotDrawerStep === "replace" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLearningSlotDrawerStep("actions")}
+                    className="inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground/68 transition-colors hover:bg-background"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Назад
+                  </button>
+
+                  {isLoadingReplaceableLearningVerses ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={`replace-learning-skeleton-${index}`}
+                          className="h-20 animate-pulse rounded-2xl border border-border/60 bg-background/60"
+                        />
+                      ))}
+                    </div>
+                  ) : replaceableLearningVersesError ? (
+                    <div className="rounded-2xl border border-destructive/25 bg-destructive/8 p-4">
+                      <p className="text-sm text-destructive">
+                        {replaceableLearningVersesError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (queueTargetVerse) {
+                            void loadReplaceableLearningVerses(queueTargetVerse.externalVerseId);
+                          }
+                        }}
+                        className="mt-3 inline-flex rounded-full border border-destructive/20 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground/78 transition-colors hover:bg-background"
+                      >
+                        Повторить
+                      </button>
+                    </div>
+                  ) : replaceableLearningVerses.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border/60 bg-background/50 p-4 text-sm text-foreground/56">
+                      Нет стихов для замены.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2.5">
+                        {replaceableLearningVerses.map((verse) => {
+                          const isSelected =
+                            selectedReplacementVerseId === verse.externalVerseId;
+                          const progressPercent = computeVerseTotalProgressPercent(
+                            verse.masteryLevel,
+                            verse.repetitions,
+                          );
+                          return (
+                            <button
+                              key={verse.externalVerseId}
+                              type="button"
+                              onClick={() =>
+                                setSelectedReplacementVerseId(verse.externalVerseId)
+                              }
+                              className={cn(
+                                "w-full rounded-[22px] border px-4 py-3 text-left transition-colors",
+                                isSelected
+                                  ? "border-brand-primary/22 bg-brand-primary/8"
+                                  : "border-border/60 bg-background/70 hover:bg-background"
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[15px] font-semibold text-foreground/84">
+                                    {verse.reference}
+                                  </p>
+                                  <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-foreground/56">
+                                    {verse.text}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 items-start gap-2">
+                                  <div
+                                    className={cn(
+                                      "inline-flex rounded-full border px-3 py-1",
+                                      isSelected
+                                        ? "border-status-learning/22 bg-status-learning-soft"
+                                        : "border-border/60 bg-background/80",
+                                    )}
+                                  >
+                                    <VerseProgressValue
+                                      progressPercent={progressPercent}
+                                      size="sm"
+                                      className={VERSE_CARD_COLOR_CONFIG.tones.learning.progressClassName}
+                                    />
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "mt-1 h-4 w-4 rounded-full border transition-colors",
+                                      isSelected
+                                        ? "border-brand-primary bg-brand-primary"
+                                        : "border-border/60 bg-transparent"
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setLearningSlotDrawerStep("actions")}
+                          className={cn(
+                            "flex-1 rounded-2xl border border-border bg-transparent py-3 text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle",
+                            isReplacingLearningVerse && "pointer-events-none opacity-60",
+                          )}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!selectedReplacementVerse || isReplacingLearningVerse}
+                          onClick={handleReplaceLearningVerse}
+                          className={cn(
+                            "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-brand-primary/25 bg-brand-primary py-3 text-[14px] font-semibold text-white transition-opacity hover:opacity-90",
+                            (!selectedReplacementVerse || isReplacingLearningVerse) &&
+                              "pointer-events-none opacity-60",
+                          )}
+                        >
+                          {isReplacingLearningVerse ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ArrowRightLeft className="h-4 w-4" />
+                          )}
+                          <span>Заменить стих</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={isAddingToQueue || isReplacingLearningVerse}
+                    onClick={handleAddToQueue}
+                    className={cn(
+                      "flex items-center gap-3.5 rounded-[24px] border border-border/65 bg-background/72 px-4 py-4 text-left transition-colors hover:bg-background",
+                      (isAddingToQueue || isReplacingLearningVerse) &&
+                        "pointer-events-none opacity-60",
+                    )}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/90 text-foreground/68">
+                      {isAddingToQueue ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ListOrdered className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold text-foreground/82">
+                        В очередь
+                      </p>
+                      <p className="mt-1 text-[12px] text-foreground/56">
+                        Автостарт позже
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      isLoadingReplaceableLearningVerses ||
+                      isReplacingLearningVerse ||
+                      replaceableLearningVerses.length === 0
+                    }
+                    onClick={handleOpenReplaceLearningStep}
+                    className={cn(
+                      "flex items-center gap-3.5 rounded-[24px] border border-border/65 bg-background/72 px-4 py-4 text-left transition-colors hover:bg-background",
+                      (isLoadingReplaceableLearningVerses ||
+                        isReplacingLearningVerse ||
+                        replaceableLearningVerses.length === 0) &&
+                        "opacity-75",
+                    )}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/90 text-foreground/68">
+                      {isLoadingReplaceableLearningVerses ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRightLeft className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold text-foreground/82">
+                        Заменить
+                      </p>
+                      <p className="mt-1 text-[12px] text-foreground/56">
+                        {replaceableLearningVerses.length > 0
+                          ? "Сразу в активный слот"
+                          : "Нет доступных стихов"}
+                      </p>
+                    </div>
+                    {replaceableLearningVerses.length > 0 ? (
+                      <div className="text-[12px] font-semibold tabular-nums text-foreground/52">
+                        {replaceableLearningVerses.length}
+                      </div>
+                    ) : null}
+                  </button>
+
+                  {replaceableLearningVersesError ? (
+                    <div className="rounded-2xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-xs text-destructive">
+                      {replaceableLearningVersesError}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQueueTargetVerse(null);
+                      onLearningCapacityExceeded?.();
+                    }}
+                    className={cn(
+                      'flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5',
+                      'text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10',
+                    )}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12">
+                      <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                        Перейти к экзамену
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-text-subtle">
+                        Сдайте экзамен, чтобы увеличить количество слотов
+                      </p>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           </DrawerContent>
         </Drawer>
