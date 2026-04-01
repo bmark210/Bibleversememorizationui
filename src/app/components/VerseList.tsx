@@ -148,6 +148,12 @@ export function VerseList({
   const [primaryFilterDockHeight, setPrimaryFilterDockHeight] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
   const replaceableLearningVersesRequestIdRef = useRef(0);
+  const replaceableLearningVersesScrollRef = useRef<HTMLDivElement | null>(null);
+  const [replaceableLearningVersesScrollState, setReplaceableLearningVersesScrollState] =
+    useState(() => ({
+      hasOverflow: false,
+      isAtBottom: true,
+    }));
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
   const toggleFocusMode = useCallback(() => {
@@ -508,6 +514,73 @@ export function VerseList({
       ) ?? null,
     [replaceableLearningVerses, selectedReplacementVerseId],
   );
+  const showReplaceFooterShadow =
+    replaceableLearningVersesScrollState.hasOverflow &&
+    !replaceableLearningVersesScrollState.isAtBottom;
+
+  const updateReplaceableLearningVersesScrollState = useCallback(() => {
+    const element = replaceableLearningVersesScrollRef.current;
+    if (!element) {
+      setReplaceableLearningVersesScrollState((prev) =>
+        prev.hasOverflow || !prev.isAtBottom
+          ? { hasOverflow: false, isAtBottom: true }
+          : prev,
+      );
+      return;
+    }
+
+    const hasOverflow = element.scrollHeight - element.clientHeight > 6;
+    const isAtBottom =
+      !hasOverflow ||
+      element.scrollTop + element.clientHeight >= element.scrollHeight - 6;
+
+    setReplaceableLearningVersesScrollState((prev) =>
+      prev.hasOverflow === hasOverflow && prev.isAtBottom === isAtBottom
+        ? prev
+        : { hasOverflow, isAtBottom }
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    if (learningSlotDrawerStep !== "replace") return;
+
+    const element = replaceableLearningVersesScrollRef.current;
+    if (!element) return;
+
+    let frameId = 0;
+
+    const scheduleUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        updateReplaceableLearningVersesScrollState();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => scheduleUpdate())
+        : null;
+
+    resizeObserver?.observe(element);
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    scheduleUpdate();
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [
+    learningSlotDrawerStep,
+    isLoadingReplaceableLearningVerses,
+    replaceableLearningVerses,
+    replaceableLearningVersesError,
+    updateReplaceableLearningVersesScrollState,
+  ]);
 
   const handleNavigateToCatalog = useCallback(() => {
     vm.filterTabs.onTabClick("catalog", "Каталог");
@@ -1019,7 +1092,7 @@ export function VerseList({
                 </div>
               </div>
             </DrawerHeader>
-            <div className="mt-5 flex flex-col gap-3 pb-6">
+            <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3 pb-4">
               {learningSlotDrawerStep === "replace" ? (
                 <>
                   <button
@@ -1063,7 +1136,11 @@ export function VerseList({
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-2.5">
+                      <div
+                        ref={replaceableLearningVersesScrollRef}
+                        onScroll={updateReplaceableLearningVersesScrollState}
+                        className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1"
+                      >
                         {replaceableLearningVerses.map((verse) => {
                           const isSelected =
                             selectedReplacementVerseId === verse.externalVerseId;
@@ -1124,7 +1201,15 @@ export function VerseList({
                         })}
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="relative shrink-0 pt-3">
+                        <div
+                          aria-hidden="true"
+                          className={cn(
+                            "pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-card/95 via-card/70 to-transparent transition-opacity duration-200",
+                            showReplaceFooterShadow ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <div className="flex gap-3 border-t border-border/40 bg-card/95 pt-3">
                         <button
                           type="button"
                           onClick={() => setLearningSlotDrawerStep("actions")}
@@ -1152,6 +1237,7 @@ export function VerseList({
                           )}
                           <span>Заменить стих</span>
                         </button>
+                        </div>
                       </div>
                     </>
                   )}
