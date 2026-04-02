@@ -33,14 +33,7 @@ function areSetsEqual(left: Set<string>, right: Set<string>) {
 export function VerseListFiltersDrawer({
   open,
   onOpenChange,
-  totalVisible,
   totalCount,
-  currentFilterLabel,
-  currentFilterTheme,
-  statusFilter,
-  defaultStatusFilter,
-  filterOptions,
-  onTabClick,
   selectedBookId,
   bookOptions,
   onBookChange,
@@ -57,7 +50,6 @@ export function VerseListFiltersDrawer({
   onTagClick,
   onClearTags,
 }: VerseListFiltersDrawerProps) {
-  const [draftStatusFilter, setDraftStatusFilter] = useState(statusFilter);
   const [draftSelectedBookId, setDraftSelectedBookId] = useState(selectedBookId);
   const [draftSortBy, setDraftSortBy] = useState(sortBy);
   const [draftSearchQuery, setDraftSearchQuery] = useState(searchQuery);
@@ -67,15 +59,13 @@ export function VerseListFiltersDrawer({
 
   useEffect(() => {
     if (!open) return;
-    setDraftStatusFilter(statusFilter);
     setDraftSelectedBookId(selectedBookId);
     setDraftSortBy(sortBy);
     setDraftSearchQuery(searchQuery);
     setDraftSelectedTagSlugs(new Set(selectedTagSlugs));
-  }, [open, searchQuery, selectedBookId, selectedTagSlugs, sortBy, statusFilter]);
+  }, [open, searchQuery, selectedBookId, selectedTagSlugs, sortBy]);
 
   const resetDraftFilters = () => {
-    setDraftStatusFilter(defaultStatusFilter);
     setDraftSelectedBookId(null);
     setDraftSortBy(DEFAULT_VERSE_LIST_SORT_BY);
     setDraftSearchQuery('');
@@ -84,7 +74,6 @@ export function VerseListFiltersDrawer({
 
   const handleDrawerOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setDraftStatusFilter(statusFilter);
       setDraftSelectedBookId(selectedBookId);
       setDraftSortBy(sortBy);
       setDraftSearchQuery(searchQuery);
@@ -95,13 +84,11 @@ export function VerseListFiltersDrawer({
 
   const draftTrimmedSearchQuery = draftSearchQuery.trim();
   const hasFiltersApplied =
-    draftStatusFilter !== defaultStatusFilter ||
     draftSelectedBookId !== null ||
     draftSortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     draftSelectedTagSlugs.size > 0 ||
     draftTrimmedSearchQuery.length > 0;
   const hasDraftChanges =
-    draftStatusFilter !== statusFilter ||
     draftSelectedBookId !== selectedBookId ||
     draftSortBy !== sortBy ||
     draftSearchQuery !== searchQuery ||
@@ -109,7 +96,6 @@ export function VerseListFiltersDrawer({
 
   const handleApply = () => {
     const isResetState =
-      draftStatusFilter === defaultStatusFilter &&
       draftSelectedBookId === null &&
       draftSortBy === DEFAULT_VERSE_LIST_SORT_BY &&
       draftTrimmedSearchQuery.length === 0 &&
@@ -119,13 +105,6 @@ export function VerseListFiltersDrawer({
       onResetFilters();
       onOpenChange(false);
       return;
-    }
-
-    if (draftStatusFilter !== statusFilter) {
-      const nextFilterLabel =
-        filterOptions.find((option) => option.key === draftStatusFilter)?.label ??
-        currentFilterLabel;
-      onTabClick(draftStatusFilter, nextFilterLabel);
     }
 
     if (draftSelectedBookId !== selectedBookId) {
@@ -159,16 +138,7 @@ export function VerseListFiltersDrawer({
   };
 
   const filterCardProps: VerseListFilterCardProps = {
-    totalVisible,
     totalCount,
-    currentFilterLabel,
-    currentFilterTheme,
-    statusFilter: draftStatusFilter,
-    defaultStatusFilter,
-    filterOptions,
-    onTabClick: (filter) => {
-      setDraftStatusFilter(filter);
-    },
     selectedBookId: draftSelectedBookId,
     bookOptions,
     onBookChange: (bookId) => {
@@ -216,8 +186,11 @@ export function VerseListFiltersDrawer({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <DrawerTitle className="text-xl tracking-tight text-primary">
-                Фильтры стихов
+                Настроить каталог
               </DrawerTitle>
+              <p className="mt-1 text-sm text-text-secondary">
+                Поиск, книга, темы и сортировка для подбора новых стихов.
+              </p>
             </div>
 
             {hasFiltersApplied && onResetFilters ? (

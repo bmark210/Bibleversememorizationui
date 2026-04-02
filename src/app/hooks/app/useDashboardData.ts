@@ -12,8 +12,8 @@ import {
   fetchDashboardLeaderboard,
 } from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
+import { fetchLearningCapacity } from "@/app/components/Training/learningCapacityApi";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
-import { fetchLearningCapacity } from "@/app/components/Training/exam/examApi";
 import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
 import { toast } from "@/app/lib/toast";
 

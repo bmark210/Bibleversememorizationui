@@ -10,7 +10,7 @@ type VerseListEmptyStateProps = {
 };
 
 export function VerseListEmptyState({
-  currentFilterLabel,
+  currentFilterLabel: _currentFilterLabel,
   isAllFilter = false,
   isMyFilter = false,
   onNavigateToCatalog,
@@ -54,7 +54,7 @@ export function VerseListEmptyState({
   const title = isAllFilter ? 'Каталог пуст' : 'Ничего не найдено';
   const description = isAllFilter
     ? 'Сейчас нет доступных стихов для добавления. Возможно, подходящие стихи уже находятся в разделе «Мои стихи» или фильтры слишком сузили список.'
-    : `По фильтру «${currentFilterLabel}» сейчас нет карточек. Попробуйте переключить фильтр.`;
+    : `По текущим параметрам каталога пока нет карточек. Ослабьте поиск, книгу или темы и попробуйте снова.`;
 
   return (
     <Card className="relative my-4 flex h-[calc(100%-2rem)] min-h-[14rem] flex-col justify-center overflow-hidden rounded-3xl border-border/70 bg-gradient-to-br from-background via-background to-muted/30 p-7 text-center gap-4 sm:p-8">

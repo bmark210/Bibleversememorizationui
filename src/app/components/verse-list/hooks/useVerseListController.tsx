@@ -720,7 +720,7 @@ export function useVerseListController({
 
       setStatusFilter(resolvedNextFilter);
       setAnnouncement(
-        `Фильтр: ${nextRootFilter === "catalog" ? "Каталог" : "Мои стихи"}`,
+        `Раздел: ${nextRootFilter === "catalog" ? "Каталог" : "Мои стихи"}`,
       );
     },
     [statusFilter, tagFilter.clearTags],

@@ -17,18 +17,11 @@ import { cn } from '@/app/components/ui/utils';
 import type { domain_Tag } from '@/api/models/domain_Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
-  // FILTER_VISUAL_THEME,
-  type FilterVisualTheme,
   type VerseListSortBy,
-  type VerseListStatusFilter,
 } from '../constants';
 import { parseStoredBoolean, VERSE_LIST_STORAGE_KEYS } from '../storage';
 import type { VerseListBookOption } from '../bookOptions';
-import type { VerseListFilterOption, VerseListSortOption } from '../types';
-import {
-  getVerseListPrimaryFilterKey,
-  getVisibleVerseListPrimaryFilterOptions,
-} from './primaryFilterTabs';
+import type { VerseListSortOption } from '../types';
 
 function ScrollRow({
   children,
@@ -100,14 +93,7 @@ function ExpandableSectionBody({
 }
 
 export type VerseListFilterCardProps = {
-  totalVisible: number;
   totalCount: number;
-  currentFilterLabel: string;
-  currentFilterTheme: FilterVisualTheme;
-  statusFilter: VerseListStatusFilter;
-  defaultStatusFilter: VerseListStatusFilter;
-  filterOptions: VerseListFilterOption[];
-  onTabClick: (filter: VerseListStatusFilter, label: string) => void;
   selectedBookId: number | null;
   bookOptions: VerseListBookOption[];
   onBookChange: (bookId: number | null, label: string) => void;
@@ -127,12 +113,9 @@ export type VerseListFilterCardProps = {
 };
 
 const ALL_BOOKS_LABEL = 'Все';
-const MY_ROOT_FILTER_LABEL = 'Мои стихи';
 
 function VerseListFilterSections({
-  statusFilter,
-  filterOptions,
-  onTabClick,
+  totalCount: _totalCount,
   selectedBookId,
   bookOptions,
   onBookChange,
@@ -147,17 +130,13 @@ function VerseListFilterSections({
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-  presentation = 'card',
+  presentation: _presentation = 'card',
 }: VerseListFilterCardProps) {
   const deletingTagId = null;
   const [areBooksExpanded, setAreBooksExpanded] = useState(false);
   const [areTagsExpanded, setAreTagsExpanded] = useState(false);
   const booksPanelId = React.useId();
   const tagsPanelId = React.useId();
-  const isDrawerPresentation = presentation === 'drawer';
-  const activeRootTab = getVerseListPrimaryFilterKey(statusFilter);
-  const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions();
-  const isMyRootTab = activeRootTab === 'my';
   const trimmedSearchQuery = searchQuery.trim();
   const selectedBook =
     selectedBookId == null
@@ -258,98 +237,6 @@ function VerseListFilterSections({
 
   return (
     <div className="overflow-hidden pb-2">
-      <div
-        data-tour="verse-list-filters-root-tabs"
-        className={cn('mt-2 px-3', isDrawerPresentation && 'hidden md:block')}
-      >
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-          Основной фильтр: {activeRootTab === 'my' ? 'Мои стихи' : 'Каталог'}
-        </div>
-        <div
-          role="tablist"
-          aria-label="Основной фильтр списка стихов"
-          className="grid gap-1 rounded-2xl border border-border-subtle bg-bg-subtle p-1"
-          style={{
-            gridTemplateColumns: `repeat(${visibleRootTabs.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {visibleRootTabs.map(({ key, label }) => {
-            const isActive = activeRootTab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                data-tour={`verse-filter-tab-${key}`}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() =>
-                  onTabClick(
-                    key === 'my' ? 'my' : key,
-                    key === 'my' ? 'Мои стихи' : label,
-                  )
-                }
-                className={cn(
-                  'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
-                    : 'text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
-                )}
-              >
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {isMyRootTab ? (
-        <div className="mt-3 px-3">
-          <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-            Раздел в моих стихах
-          </div>
-          <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-1">
-            <div role="tablist" aria-label="Раздел моих стихов">
-              <ScrollRow className="py-0.5">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={statusFilter === 'my'}
-                  onClick={() => onTabClick('my', MY_ROOT_FILTER_LABEL)}
-                  className={cn(
-                    'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
-                    statusFilter === 'my'
-                      ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
-                      : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
-                  )}
-                >
-                  Все мои
-                </button>
-                {filterOptions.map((option) => {
-                  const isActive = statusFilter === option.key;
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() => onTabClick(option.key, option.label)}
-                      className={cn(
-                        'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
-                        isActive
-                          ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
-                          : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </ScrollRow>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {onSearchChange ? (
         <div data-tour="verse-list-filters-search" className="mt-3 px-3">
           <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
@@ -371,11 +258,7 @@ function VerseListFilterSections({
             <Input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={
-                isMyRootTab
-                  ? 'Найти в моих стихах'
-                  : 'Найти в каталоге'
-              }
+              placeholder="Найти в каталоге"
               className="pr-11 pl-10"
             />
             {trimmedSearchQuery.length > 0 ? (
@@ -576,14 +459,7 @@ function VerseListFilterSections({
 }
 
 export function VerseListFilterCard({
-  totalVisible,
-  totalCount,
-  currentFilterLabel,
-  currentFilterTheme,
-  statusFilter,
-  defaultStatusFilter,
-  filterOptions,
-  onTabClick,
+  totalCount: _totalCount,
   selectedBookId,
   bookOptions,
   onBookChange,
@@ -621,21 +497,13 @@ export function VerseListFilterCard({
 
   const trimmedSearchQuery = searchQuery.trim();
   const hasFiltersApplied =
-    statusFilter !== defaultStatusFilter ||
     selectedBookId !== null ||
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
     trimmedSearchQuery.length > 0;
 
   const sharedProps = {
-    totalVisible,
-    totalCount,
-    currentFilterLabel,
-    currentFilterTheme,
-    statusFilter,
-    defaultStatusFilter,
-    filterOptions,
-    onTabClick,
+    totalCount: _totalCount,
     selectedBookId,
     bookOptions,
     onBookChange,

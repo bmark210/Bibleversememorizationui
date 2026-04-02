@@ -8,7 +8,6 @@ import {
   Brain,
   Check,
   FlipHorizontal,
-  GraduationCap,
   KeyRound,
   Layers,
   Link2,
@@ -126,12 +125,6 @@ const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
       "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-status-mastered/25 data-[state=active]:bg-status-mastered-soft data-[state=active]:text-status-mastered",
     countClassName:
       "group-data-[state=active]/tab:text-status-mastered",
-  },
-  exam: {
-    triggerClassName:
-      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-amber-500/25 data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-500",
-    countClassName:
-      "group-data-[state=active]/tab:text-amber-500",
   },
 };
 
@@ -291,24 +284,11 @@ export function TrainingHub({
     matchesModes(selectedModes, preset.modes),
   );
   const activeCorePreset = selectedCorePreset ?? preferredCorePreset;
-  const EXAM_ACCENT: AccentTheme = {
-    checkedItemClassName: "",
-    checkedIconClassName: "",
-    checkedTitleClassName: "",
-    checkedSubtitleClassName: "",
-    checkedIndicatorClassName: "",
-    checkedDotClassName: "bg-amber-500",
-    summaryClassName: "text-amber-500",
-    ctaClassName:
-      "border-amber-500/30 bg-amber-500 text-white hover:bg-amber-400",
-  };
 
   const currentAccentTheme =
     selectedScenario === "anchor"
       ? ANCHOR_ACCENT
-      : selectedScenario === "exam"
-        ? EXAM_ACCENT
-        : activeCorePreset.theme;
+      : activeCorePreset.theme;
 
   const selectionCounts = useMemo(
     () =>
@@ -333,7 +313,6 @@ export function TrainingHub({
     currentWaitingReviewCount > 0;
   const learningAndReviewingLocked =
     selectedScenario === "core" && currentCount === 0;
-  // Exam is never locked from the hub — ExamSession itself shows lock state
   const startLocked = anchorLocked || learningAndReviewingLocked;
 
   const hasSelection =
@@ -351,15 +330,11 @@ export function TrainingHub({
   const sessionSummary =
     selectedScenario === "anchor"
       ? TRAINING_SCENARIO_LABELS.anchor
-      : selectedScenario === "exam"
-        ? TRAINING_SCENARIO_LABELS.exam
-        : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
+      : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
   const startLabel =
     selectedScenario === "anchor"
       ? "Начать закрепление"
-      : selectedScenario === "exam"
-        ? "Открыть экзамен"
-        : "Начать практику";
+      : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
   const lockedStartLabel =
     selectedScenario === "anchor"
@@ -447,7 +422,7 @@ export function TrainingHub({
                   onValueChange={handleScenarioChange}
                   className="gap-4"
                 >
-                  <TabsList className="grid h-auto w-full grid-cols-3 rounded-[22px] p-1">
+                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] p-1">
                     <TabsTrigger
                       data-tour="training-scenario-core"
                       value="core"
@@ -470,17 +445,6 @@ export function TrainingHub({
                         countClassName={SCENARIO_THEME.anchor.countClassName}
                       />
                     </TabsTrigger>
-                    <TabsTrigger
-                      data-tour="training-scenario-exam"
-                      value="exam"
-                      className={SCENARIO_THEME.exam.triggerClassName}
-                    >
-                      <ScenarioTabLabel
-                        title={TRAINING_SCENARIO_LABELS.exam}
-                        countClassName={SCENARIO_THEME.exam.countClassName}
-                        icon={GraduationCap}
-                      />
-                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </section>
@@ -489,37 +453,7 @@ export function TrainingHub({
 
           {/* Mode list — scrollable middle section */}
           <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-3.5 pb-3.5 pt-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:px-4 sm:pb-4 sm:pt-4">
-            {selectedScenario === "exam" ? (
-                <div data-tour="training-exam-info">
-                  <SectionLabel>Про экзамен</SectionLabel>
-                  <div className="mt-2 space-y-2.5">
-                    <div className="rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3.5">
-                      <p className="text-sm font-medium text-text-primary">
-                        Что проверяется
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                        Стихи в фазе повторения (≥&nbsp;2 успешных цикла): знание ссылки и первых слов.
-                      </p>
-                    </div>
-                    <div className="rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3.5">
-                      <p className="text-sm font-medium text-text-primary">
-                        Что открывается
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                        Каждые 3 подтверждённых стиха открывают 1 дополнительный слот для изучения новых стихов.
-                      </p>
-                    </div>
-                    <div className="rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3.5">
-                      <p className="text-sm font-medium text-text-primary">
-                        Ограничение
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                        Один экзамен в день. Нужно минимум 3 стиха в повторении.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : selectedScenario === "core" ? (
+            {selectedScenario === "core" ? (
                 <div data-tour="training-core-presets">
                   <SectionLabel>Режим практики</SectionLabel>
                   <RadioGroupPrimitive.Root
@@ -694,11 +628,7 @@ export function TrainingHub({
                 currentAccentTheme.ctaClassName,
               )}
             >
-              {selectedScenario === "exam" ? (
-                <GraduationCap className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
+              <Play className="h-4 w-4" />
               {startLabel}
             </Button>
           )}

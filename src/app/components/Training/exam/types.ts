@@ -33,7 +33,6 @@ export type LearningCapacityResponse = {
   capacity: number;
   canAddMore: boolean;
   base: number;
-  examConfirmedCount: number;
   queueCount: number;
   promotedVerseIds?: string[];
 };

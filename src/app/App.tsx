@@ -20,8 +20,6 @@ import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
 import { cancelIdleTask, scheduleIdleTask } from "@/app/lib/idleTask";
 import { cn } from "@/app/components/ui/utils";
-import { writeTrainingHubPreferences } from "@/app/components/Training/trainingHubPreferences";
-import { ALL_ANCHOR_MODE_GROUPS } from "@/app/components/Training/types";
 
 const loadVerseListModule = () => import("./components/VerseList");
 const loadProfileModule = () => import("./components/Profile");
@@ -249,18 +247,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     nav.pushPage("training");
   }, [ensureTrainingVersesLoaded, nav, telegramId]);
 
-  const handleNavigateToExam = useCallback(() => {
-    writeTrainingHubPreferences({
-      scenario: "exam",
-      coreModes: ["learning", "review"],
-      anchorModes: [...ALL_ANCHOR_MODE_GROUPS],
-    });
-    if (telegramId) {
-      void ensureTrainingVersesLoaded(telegramId);
-    }
-    nav.pushPage("training");
-  }, [ensureTrainingVersesLoaded, nav, telegramId]);
-
   const prefetchRootPage = useCallback(async (page: AppRootPage) => {
     if (!availableRootPages.includes(page)) {
       return;
@@ -394,7 +380,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                   currentTelegramId={telegramId}
                   currentUserAvatarUrl={currentUserAvatarUrl}
                   onOpenTraining={handleOpenTraining}
-                  onOpenExam={handleNavigateToExam}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
                   onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
                   isInitializingData={isBootstrapping}
@@ -421,7 +406,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
-                  onLearningCapacityExceeded={handleNavigateToExam}
                   learningCapacity={learningCapacity}
                   telegramId={telegramId}
                   onFriendsChanged={handleFriendsChanged}

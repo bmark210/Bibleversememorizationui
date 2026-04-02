@@ -15,9 +15,8 @@ import { VerseListEmptyState } from "./verse-list/components/VerseListEmptyState
 import { VerseListFiltersDrawer } from "./verse-list/components/VerseListFiltersDrawer";
 import { VerseListFiltersTrigger } from "./verse-list/components/VerseListFiltersTrigger";
 import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
-import { VerseListHeader } from "./verse-list/components/VerseListHeader";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
-import { VerseListPrimaryFilterDock } from "./verse-list/components/VerseListPrimaryFilterDock";
+import { VerseListModeSwitch } from "./verse-list/components/VerseListModeSwitch";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
@@ -29,6 +28,7 @@ import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
 } from "./verse-list/storage";
+import type { VerseListPrimaryFilterKey } from "./verse-list/components/primaryFilterTabs";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { cn } from "@/app/components/ui/utils";
@@ -69,8 +69,8 @@ import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   ArrowLeft,
   ArrowRightLeft,
-  GraduationCap,
   ListOrdered,
+  Lock,
   Loader2,
 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
@@ -104,7 +104,6 @@ function MyModeSectionDivider({ label }: { label: string }) {
     </div>
   );
 }
-const PRIMARY_FILTER_DOCK_GAP_PX = 12;
 
 type LearningSlotDrawerStep = "actions" | "replace";
 
@@ -115,7 +114,6 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
-  onLearningCapacityExceeded?: () => void;
   learningCapacity?: LearningCapacityResponse | null;
   telegramId?: string | null;
   isAnchorEligible?: boolean;
@@ -134,7 +132,6 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
-  onLearningCapacityExceeded,
   learningCapacity = null,
   telegramId = null,
   onOpenPlayerProfile,
@@ -199,10 +196,8 @@ export function VerseList({
   );
   const [positionEditValue, setPositionEditValue] = useState(1);
   const filterOverlayRef = useRef<HTMLDivElement | null>(null);
-  const primaryFilterDockRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
   const [filterOverlayHeight, setFilterOverlayHeight] = useState(0);
-  const [primaryFilterDockHeight, setPrimaryFilterDockHeight] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(
     null,
   );
@@ -280,62 +275,6 @@ export function VerseList({
       window.visualViewport?.removeEventListener(
         "resize",
         scheduleOverlayHeightUpdate,
-      );
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
-      }
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const dock = primaryFilterDockRef.current;
-    if (!dock) return;
-
-    let frameId = 0;
-
-    const updateDockHeight = () => {
-      const currentDock = primaryFilterDockRef.current;
-      if (!currentDock) return;
-
-      const styles = window.getComputedStyle(currentDock);
-      const nextHeight =
-        styles.display === "none"
-          ? 0
-          : Math.ceil(currentDock.getBoundingClientRect().height);
-
-      setPrimaryFilterDockHeight((prev) =>
-        prev === nextHeight ? prev : nextHeight,
-      );
-    };
-
-    const scheduleDockHeightUpdate = () => {
-      if (frameId) return;
-      frameId = window.requestAnimationFrame(() => {
-        frameId = 0;
-        updateDockHeight();
-      });
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => scheduleDockHeightUpdate())
-        : null;
-
-    resizeObserver?.observe(dock);
-    window.addEventListener("resize", scheduleDockHeightUpdate, {
-      passive: true,
-    });
-    window.visualViewport?.addEventListener("resize", scheduleDockHeightUpdate);
-    scheduleDockHeightUpdate();
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleDockHeightUpdate);
-      window.visualViewport?.removeEventListener(
-        "resize",
-        scheduleDockHeightUpdate,
       );
       if (frameId) {
         window.cancelAnimationFrame(frameId);
@@ -495,12 +434,23 @@ export function VerseList({
   );
   const isCatalogMode = vm.filters.statusFilter === "catalog";
   const isMyMode = vm.filters.statusFilter === "my";
+  const activeMode: VerseListPrimaryFilterKey = isCatalogMode ? "catalog" : "my";
   const showCatalogFilters = isCatalogMode;
   // "Мои стихи" mode renders its own sectioned layout via myModeContent.
   // For catalog and sub-filter modes use the standard virtualized list items.
   const visibleListItems = isCatalogMode
     ? vm.list.listItems
     : vm.list.sectionItems;
+
+  const handleModeChange = useCallback(
+    (nextMode: VerseListPrimaryFilterKey) => {
+      vm.filterTabs.onTabClick(
+        nextMode,
+        nextMode === "catalog" ? "Каталог" : "Мои стихи",
+      );
+    },
+    [vm.filterTabs.onTabClick],
+  );
 
   useEffect(() => {
     if (!showCatalogFilters && isLocalFiltersDrawerOpen) {
@@ -710,10 +660,6 @@ export function VerseList({
     vm.filterTabs.onTabClick("catalog", "Каталог");
   }, [vm.filterTabs.onTabClick]);
 
-  const handleNavigateToExam = useCallback(() => {
-    onLearningCapacityExceeded?.();
-  }, [onLearningCapacityExceeded]);
-
   const handleOpenReplaceLearningStep = useCallback(() => {
     setLearningSlotDrawerStep("replace");
     if (
@@ -788,10 +734,7 @@ export function VerseList({
     showCatalogFilters && filterOverlayHeight > 0
       ? filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX
       : 0;
-  const listBottomInset =
-    primaryFilterDockHeight > 0
-      ? primaryFilterDockHeight + PRIMARY_FILTER_DOCK_GAP_PX
-      : 0;
+  const listBottomInset = 0;
 
   const slotCardFooter = useMemo(() => {
     if (!isMyMode) return undefined;
@@ -799,7 +742,6 @@ export function VerseList({
       <VerseListSlotCard
         learningCapacity={learningCapacity}
         onNavigateToCatalog={handleNavigateToCatalog}
-        onNavigateToExam={handleNavigateToExam}
         queueCount={learningCapacity?.queueCount ?? 0}
       />
     );
@@ -807,7 +749,6 @@ export function VerseList({
     isMyMode,
     learningCapacity,
     handleNavigateToCatalog,
-    handleNavigateToExam,
   ]);
 
   const myModeContent = useMemo(() => {
@@ -1023,16 +964,7 @@ export function VerseList({
 
   const filterCardProps = useMemo(
     () => ({
-      totalVisible: vm.ui.totalVisible,
       totalCount: vm.pagination.totalCount,
-      currentFilterLabel: vm.ui.currentFilterLabel,
-      currentFilterTheme: vm.ui.currentFilterTheme,
-      statusFilter: vm.filters.statusFilter,
-      defaultStatusFilter: isCatalogMode
-        ? "catalog"
-        : vm.filters.defaultStatusFilter,
-      filterOptions: vm.filters.filterOptions,
-      onTabClick: vm.filterTabs.onTabClick,
       selectedBookId: vm.filters.selectedBookId,
       bookOptions: vm.filters.bookOptions,
       onBookChange: vm.filterTabs.onBookChange,
@@ -1050,14 +982,7 @@ export function VerseList({
       onClearTags: vm.tagFilter.onClearTags,
     }),
     [
-      vm.ui.totalVisible,
       vm.pagination.totalCount,
-      vm.ui.currentFilterLabel,
-      vm.ui.currentFilterTheme,
-      vm.filters.statusFilter,
-      vm.filters.defaultStatusFilter,
-      vm.filters.filterOptions,
-      vm.filterTabs.onTabClick,
       vm.filters.selectedBookId,
       vm.filters.bookOptions,
       vm.filterTabs.onBookChange,
@@ -1073,7 +998,6 @@ export function VerseList({
       vm.tagFilter.hasActiveTags,
       vm.tagFilter.onTagClick,
       vm.tagFilter.onClearTags,
-      isCatalogMode,
     ],
   );
 
@@ -1085,10 +1009,6 @@ export function VerseList({
       <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {vm.ui.announcement}
-        </div>
-
-        <div className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}>
-          <VerseListHeader isFullscreen={isTelegramFullscreen} />
         </div>
 
         <div className="relative min-h-0 flex-1">
@@ -1174,6 +1094,12 @@ export function VerseList({
           </div>
         </div>
 
+        <VerseListModeSwitch
+          activeMode={activeMode}
+          totalCount={vm.pagination.totalCount}
+          onModeChange={handleModeChange}
+        />
+
         {showCatalogFilters ? (
           <VerseListFiltersDrawer
             open={isFiltersDrawerOpen}
@@ -1181,15 +1107,6 @@ export function VerseList({
             {...filterCardProps}
           />
         ) : null}
-
-        <VerseListPrimaryFilterDock
-          rootRef={primaryFilterDockRef}
-          statusFilter={vm.filters.statusFilter}
-          currentFilterLabel={vm.ui.currentFilterLabel}
-          currentFilterTheme={vm.ui.currentFilterTheme}
-          totalCount={vm.pagination.totalCount}
-          onTabClick={vm.filterTabs.onTabClick}
-        />
 
         {vm.gallery.galleryIndex !== null &&
           vm.pagination.verses[vm.gallery.galleryIndex] &&
@@ -1577,29 +1494,23 @@ export function VerseList({
                     </div>
                   ) : null}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQueueTargetVerse(null);
-                      onLearningCapacityExceeded?.();
-                    }}
+                  <div
                     className={cn(
-                      "flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5",
-                      "text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10",
+                      "flex items-center gap-3.5 rounded-2xl border border-border/65 bg-background/72 px-4 py-3.5 text-left",
                     )}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12">
-                      <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-foreground/68">
+                      <Lock className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
-                        Перейти к экзамену
+                      <p className="text-[13px] font-medium text-foreground/82">
+                        Лимит изучения: 5 стихов
                       </p>
                       <p className="mt-0.5 text-[11px] text-text-subtle">
-                        Сдайте экзамен, чтобы увеличить количество слотов
+                        Завершите текущие или поставьте один на паузу, чтобы освободить слот
                       </p>
                     </div>
-                  </button>
+                  </div>
                 </>
               )}
             </div>

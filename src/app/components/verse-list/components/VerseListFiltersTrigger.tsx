@@ -8,15 +8,9 @@ import type { VerseListFilterCardProps } from './VerseListFilterCard';
 type VerseListFiltersTriggerProps = Pick<
   VerseListFilterCardProps,
   | 'totalCount'
-  | 'currentFilterLabel'
-  | 'currentFilterTheme'
-  | 'statusFilter'
-  | 'defaultStatusFilter'
   | 'selectedBookId'
-  | 'bookOptions'
   | 'sortBy'
   | 'searchQuery'
-  | 'selectedTagSlugs'
   | 'hasActiveTags'
 > & {
   open: boolean;
@@ -33,20 +27,13 @@ export function VerseListFiltersTrigger({
   onToggleFocusMode,
   className,
   totalCount,
-  currentFilterLabel,
-  currentFilterTheme,
-  statusFilter,
-  defaultStatusFilter,
   selectedBookId,
-  bookOptions: _bookOptions,
   sortBy,
   searchQuery = '',
-  selectedTagSlugs: _selectedTagSlugs,
   hasActiveTags,
 }: VerseListFiltersTriggerProps) {
   const trimmedSearchQuery = searchQuery.trim();
   const activeFilterCount = [
-    statusFilter !== defaultStatusFilter,
     selectedBookId !== null,
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY,
     hasActiveTags,
@@ -63,14 +50,14 @@ export function VerseListFiltersTrigger({
       <button
         type="button"
         data-tour="verse-list-filters-trigger"
-        aria-label="Открыть фильтры стихов"
+        aria-label="Открыть параметры каталога"
         onClick={onOpen}
         className="flex min-w-0 flex-1 items-start justify-between gap-3 rounded-[20px] px-2 py-1 text-left"
       >
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2 text-sm font-medium text-foreground/88">
             <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
-            <span>Фильтры</span>
+            <span>Настроить каталог</span>
             {activeFilterCount > 0 ? (
               <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                 {activeFilterCount} актив.
@@ -79,16 +66,14 @@ export function VerseListFiltersTrigger({
           </span>
 
           <span className="mt-1 flex min-w-0 items-center gap-2 text-xs text-foreground/56">
-            <span
-              className={cn(
-                'h-2 w-2 shrink-0 rounded-full',
-                currentFilterTheme.dotClassName,
-              )}
-            />
-            <span className="truncate">{currentFilterLabel}</span>
+            <span className="truncate">
+              {activeFilterCount > 0
+                ? 'Есть активные параметры каталога'
+                : 'Поиск, книга, темы и сортировка'}
+            </span>
             <span aria-hidden="true">•</span>
             <span className="truncate">
-              {totalCount > 0 ? `${totalCount} в списке` : 'Пока пусто'}
+              {totalCount > 0 ? `${totalCount} найдено` : 'Нет совпадений'}
             </span>
           </span>
         </span>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { GraduationCap } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import type { Verse } from '@/app/domain/verse'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
@@ -39,7 +39,6 @@ interface DashboardProps {
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
-  onOpenExam?: () => void
   onOpenPlayerProfile?: (player: {
     telegramId: string
     name: string
@@ -150,7 +149,6 @@ export function Dashboard({
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
-  onOpenExam,
   onOpenPlayerProfile,
   onLeaderboardWindowRequest,
   isInitializingData = false,
@@ -248,23 +246,19 @@ export function Dashboard({
         />
       </div>
       
-    {isCapacityFull && onOpenExam && (
+    {isCapacityFull && learningCapacity && (
         <div className="shrink-0 px-3 sm:px-4 lg:px-5 flex-1">
-          <button
-            type="button"
-            onClick={onOpenExam}
-            className="flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-500/15"
-          >
-            <GraduationCap className="h-5 w-5 shrink-0 text-amber-500" />
+          <div className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-left">
+            <Lock className="h-5 w-5 shrink-0 text-text-muted" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Слоты заполнены ({learningCapacity!.activeLearning}/{learningCapacity!.capacity})
+              <p className="text-sm font-medium text-text-primary">
+                Слоты заполнены ({learningCapacity.activeLearning}/{learningCapacity.capacity})
               </p>
               <p className="text-xs text-text-muted">
-                Пройдите экзамен, чтобы добавить новые стихи в изучение
+                Завершите текущие, чтобы добавить новые
               </p>
             </div>
-          </button>
+          </div>
         </div>
       )}
     </section>
