@@ -1,12 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Verse } from "@/app/domain/verse";
-import type { domain_Tag } from '@/api/models/domain_Tag';
-import type { DirectLaunchVerse } from '@/app/components/Training/types';
-import { VerseStatus } from '@/shared/domain/verseStatus';
+import type { domain_Tag } from "@/api/models/domain_Tag";
+import type { DirectLaunchVerse } from "@/app/components/Training/types";
+import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   getVerseDisplayStatus,
   matchesVerseListFilter,
-} from '@/shared/verseRules';
+} from "@/shared/verseRules";
 import {
   DEFAULT_VERSE_LIST_STATUS_FILTER,
   DEFAULT_VERSE_LIST_SORT_BY,
@@ -17,20 +23,20 @@ import {
   getVerseCardLayoutSignature,
   type VerseListSortBy,
   type VerseListStatusFilter,
-} from '../constants';
+} from "../constants";
 import {
   parseStoredBookId,
   parseStoredSortBy,
   parseStoredStatusFilter,
   VERSE_LIST_STORAGE_KEYS,
-} from '../storage';
-import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
-import { haptic } from '../haptics';
-import { SwipeableVerseCard } from '../components/SwipeableVerseCard';
-import { useTelegramId } from './useTelegramId';
-import { useVerseActions } from './useVerseActions';
-import { useVersePagination } from './useVersePagination';
-import { useTagFilter } from './useTagFilter';
+} from "../storage";
+import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
+import { haptic } from "../haptics";
+import { SwipeableVerseCard } from "../components/SwipeableVerseCard";
+import { useTelegramId } from "./useTelegramId";
+import { useVerseActions } from "./useVerseActions";
+import { useVersePagination } from "./useVersePagination";
+import { useTagFilter } from "./useTagFilter";
 import type {
   DebugInfiniteScroll,
   VerseListController,
@@ -38,11 +44,11 @@ import type {
   VerseListLoadRange,
   VerseListSectionConfig,
   VerseListSortOption,
-} from '../types';
-import type { VersePatchEvent } from '@/app/types/verseSync';
-import { parseExternalVerseId } from '@/shared/bible/externalVerseId';
-import { VERSE_LIST_BOOK_OPTIONS } from '../bookOptions';
-import type { VerseCardColorConfig } from '@/app/components/verseCardColorConfig';
+} from "../types";
+import type { VersePatchEvent } from "@/app/types/verseSync";
+import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { VERSE_LIST_BOOK_OPTIONS } from "../bookOptions";
+import type { VerseCardColorConfig } from "@/app/components/verseCardColorConfig";
 
 type UseVerseListControllerParams = {
   disabled?: boolean;
@@ -65,31 +71,35 @@ type UseVerseListControllerParams = {
 };
 
 function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
-  return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : 'catalog';
+  return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : "catalog";
 }
 
-function getRootStatusFilter(
-  filter: VerseListStatusFilter
-): 'catalog' | 'my' {
-  return filter === 'catalog' ? 'catalog' : 'my';
+function getRootStatusFilter(filter: VerseListStatusFilter): "catalog" | "my" {
+  return filter === "catalog" ? "catalog" : "my";
+}
+
+function normalizeStatusFilterToRoot(
+  filter: VerseListStatusFilter,
+): VerseListStatusFilter {
+  return getRootStatusFilter(filter);
 }
 
 function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   return (
     parseStoredStatusFilter(
-      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter)
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter),
     ) ?? null
   );
 }
 
 function getTrainingLaunchMode(
-  status: ReturnType<typeof getVerseDisplayStatus>
+  status: ReturnType<typeof getVerseDisplayStatus>,
 ) {
-  if (status === 'MASTERED') return 'anchor' as const;
-  if (status === 'REVIEW') return 'review' as const;
-  if (status === VerseStatus.LEARNING) return 'learning' as const;
+  if (status === "MASTERED") return "anchor" as const;
+  if (status === "REVIEW") return "review" as const;
+  if (status === VerseStatus.LEARNING) return "learning" as const;
   return null;
 }
 
@@ -116,64 +126,78 @@ export function useVerseListController({
   const hasOwnVersesRequestIdRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState(() => {
-    if (disabled) return '';
-    if (typeof window === 'undefined') return '';
-    return window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? '';
+    if (disabled) return "";
+    if (typeof window === "undefined") return "";
+    return (
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.searchQuery) ?? ""
+    );
   });
   const tagFilter = useTagFilter({
     disabled,
     initialTags,
     reloadVersion: verseListExternalSyncVersion,
   });
-  const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(() => {
-    if (reopenGalleryStatusFilter) return null;
-    return readInitialStoredStatusFilter();
-  });
-  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(() => {
-    if (disabled) return 'catalog';
-    if (reopenGalleryStatusFilter) return reopenGalleryStatusFilter;
-    return initialStoredStatusFilter ?? 'my';
-  });
+  const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(
+    () => {
+      if (reopenGalleryStatusFilter) return null;
+      return readInitialStoredStatusFilter();
+    },
+  );
+  const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(
+    () => {
+      if (disabled) return "catalog";
+      if (reopenGalleryStatusFilter)
+        return normalizeStatusFilterToRoot(reopenGalleryStatusFilter);
+      return normalizeStatusFilterToRoot(initialStoredStatusFilter ?? "my");
+    },
+  );
   const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(() =>
-    disabled ? false : null
+    disabled ? false : null,
   );
   const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
     if (disabled) return DEFAULT_VERSE_LIST_SORT_BY;
-    if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
+    if (typeof window === "undefined") return DEFAULT_VERSE_LIST_SORT_BY;
     return (
-      parseStoredSortBy(window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.sortBy)) ??
-      DEFAULT_VERSE_LIST_SORT_BY
+      parseStoredSortBy(
+        window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.sortBy),
+      ) ?? DEFAULT_VERSE_LIST_SORT_BY
     );
   });
   const [selectedBookId, setSelectedBookId] = useState<number | null>(() => {
     if (disabled) return null;
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     return parseStoredBookId(
-      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedBookId)
+      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.selectedBookId),
     );
   });
+  const rootStatusFilter = getRootStatusFilter(statusFilter);
+  const isCatalogRootFilter = rootStatusFilter === "catalog";
   const selectedTagSlugsForServer = useMemo(
-    () => Array.from(tagFilter.selectedTagSlugs).sort(),
-    [tagFilter.selectedTagSlugs]
+    () =>
+      isCatalogRootFilter ? Array.from(tagFilter.selectedTagSlugs).sort() : [],
+    [isCatalogRootFilter, tagFilter.selectedTagSlugs],
   );
-  const searchQueryForServer = searchQuery;
+  const searchQueryForServer = isCatalogRootFilter ? searchQuery : "";
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState("");
   const lastHandledExternalSyncVersionRef = useRef<number | null>(
-    typeof verseListExternalSyncVersion === 'number' ? verseListExternalSyncVersion : null
+    typeof verseListExternalSyncVersion === "number"
+      ? verseListExternalSyncVersion
+      : null,
   );
 
   const { telegramId } = useTelegramId();
   const defaultStatusFilter = disabled
-    ? 'catalog'
+    ? "catalog"
     : getDefaultStatusFilter(Boolean(hasOwnVerses));
   const shouldAutoSwitchToCatalog =
     !disabled &&
     hasOwnVerses === false &&
     !reopenGalleryStatusFilter &&
-    statusFilter !== 'catalog' &&
-    statusFilter !== 'my'; // stay on 'my' even when empty — guided empty state handles it
-  const shouldDelayListFetch = !disabled &&
+    statusFilter !== "catalog" &&
+    statusFilter !== "my"; // stay on 'my' even when empty — guided empty state handles it
+  const shouldDelayListFetch =
+    !disabled &&
     Boolean(telegramId) &&
     (hasOwnVerses === null || shouldAutoSwitchToCatalog);
 
@@ -183,7 +207,8 @@ export function useVerseListController({
         setHasOwnVerses(false);
         return false;
       }
-      const resolvedTelegramId = telegramIdOverride?.trim() || telegramId?.trim() || '';
+      const resolvedTelegramId =
+        telegramIdOverride?.trim() || telegramId?.trim() || "";
       if (!resolvedTelegramId) {
         setHasOwnVerses(null);
         return null;
@@ -194,27 +219,29 @@ export function useVerseListController({
       try {
         const page = await fetchUserVersesPage({
           telegramId: resolvedTelegramId,
-          filter: 'my',
-          orderBy: 'updatedAt',
-          order: 'desc',
+          filter: "my",
+          orderBy: "updatedAt",
+          order: "desc",
           limit: 1,
         });
 
         if (hasOwnVersesRequestIdRef.current !== requestId) return null;
-        const total =
-          page.totalCount ?? page.total ?? (page.items?.length ?? 0);
+        const total = page.totalCount ?? page.total ?? page.items?.length ?? 0;
         const nextHasOwnVerses = total > 0;
         setHasOwnVerses(nextHasOwnVerses);
         return nextHasOwnVerses;
       } catch (error) {
         if (hasOwnVersesRequestIdRef.current !== requestId) return null;
-        console.error('Не удалось определить наличие пользовательских стихов:', error);
-        const fallbackHasOwnVerses = statusFilter !== 'catalog';
+        console.error(
+          "Не удалось определить наличие пользовательских стихов:",
+          error,
+        );
+        const fallbackHasOwnVerses = statusFilter !== "catalog";
         setHasOwnVerses(fallbackHasOwnVerses);
         return fallbackHasOwnVerses;
       }
     },
-    [disabled, statusFilter, telegramId]
+    [disabled, statusFilter, telegramId],
   );
 
   const pagination = useVersePagination({
@@ -222,7 +249,7 @@ export function useVerseListController({
     disabled,
     statusFilter,
     searchQuery: searchQueryForServer,
-    bookId: selectedBookId,
+    bookId: isCatalogRootFilter ? selectedBookId : null,
     tagSlugs: selectedTagSlugsForServer,
     sortBy,
     pageSize: VERSE_LIST_PAGE_SIZE,
@@ -231,15 +258,18 @@ export function useVerseListController({
 
   const matchesListFilter = useCallback(
     (
-      verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
-      filter: VerseListStatusFilter
-    ) => matchesVerseListFilter(verse, filter),
-    []
+      verse: Pick<Verse, "status" | "flow" | "masteryLevel" | "repetitions">,
+      filter: VerseListStatusFilter,
+    ) => {
+      if (filter === "catalog") return true;
+      return matchesVerseListFilter(verse, filter);
+    },
+    [],
   );
 
   const getFirstQueueReference = useCallback(() => {
     const first = pagination.verses.find(
-      (v) => v.status === VerseStatus.QUEUE && v.queuePosition === 1
+      (v) => v.status === VerseStatus.QUEUE && v.queuePosition === 1,
     );
     return first?.reference ?? null;
   }, [pagination.verses]);
@@ -265,8 +295,8 @@ export function useVerseListController({
   useEffect(() => {
     if (disabled) {
       setHasOwnVerses(false);
-      setStatusFilter('catalog');
-      setSearchQuery('');
+      setStatusFilter("catalog");
+      setSearchQuery("");
       setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
       setSelectedBookId(null);
       tagFilter.clearTags();
@@ -292,7 +322,7 @@ export function useVerseListController({
     if (hasOwnVerses == null) return;
 
     if (shouldAutoSwitchToCatalog) {
-      setStatusFilter('catalog');
+      setStatusFilter("catalog");
     }
   }, [disabled, hasOwnVerses, shouldAutoSwitchToCatalog]);
 
@@ -311,7 +341,10 @@ export function useVerseListController({
   useEffect(() => {
     if (disabled) return;
     if (verseListExternalSyncVersion == null) return;
-    if (lastHandledExternalSyncVersionRef.current === verseListExternalSyncVersion) return;
+    if (
+      lastHandledExternalSyncVersionRef.current === verseListExternalSyncVersion
+    )
+      return;
     lastHandledExternalSyncVersionRef.current = verseListExternalSyncVersion;
     if (!telegramId) return;
     if (!pagination.hasFetchedVersesOnce) return;
@@ -330,7 +363,8 @@ export function useVerseListController({
     if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
     if (reopenGalleryVerseId) return;
-    if (statusFilter !== reopenGalleryStatusFilter) return;
+    if (statusFilter !== normalizeStatusFilterToRoot(reopenGalleryStatusFilter))
+      return;
     onReopenGalleryHandled?.();
   }, [
     disabled,
@@ -343,62 +377,80 @@ export function useVerseListController({
   useEffect(() => {
     if (disabled) return;
     if (!reopenGalleryStatusFilter) return;
-    if (statusFilter === reopenGalleryStatusFilter) return;
-    setStatusFilter(reopenGalleryStatusFilter);
+    const normalizedReopenFilter = normalizeStatusFilterToRoot(
+      reopenGalleryStatusFilter,
+    );
+    if (statusFilter === normalizedReopenFilter) return;
+    setStatusFilter(normalizedReopenFilter);
   }, [disabled, reopenGalleryStatusFilter, statusFilter]);
 
   useEffect(() => {
     if (disabled) return;
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.statusFilter, statusFilter);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      VERSE_LIST_STORAGE_KEYS.statusFilter,
+      statusFilter,
+    );
   }, [disabled, statusFilter]);
 
   useEffect(() => {
     if (disabled) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.sortBy, sortBy);
   }, [disabled, sortBy]);
 
   useEffect(() => {
     if (disabled) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (selectedBookId == null) {
       window.localStorage.removeItem(VERSE_LIST_STORAGE_KEYS.selectedBookId);
       return;
     }
     window.localStorage.setItem(
       VERSE_LIST_STORAGE_KEYS.selectedBookId,
-      String(selectedBookId)
+      String(selectedBookId),
     );
   }, [disabled, selectedBookId]);
 
   useEffect(() => {
     if (disabled) return;
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(VERSE_LIST_STORAGE_KEYS.searchQuery, searchQuery);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      VERSE_LIST_STORAGE_KEYS.searchQuery,
+      searchQuery,
+    );
   }, [disabled, searchQuery]);
 
   useEffect(() => {
     if (disabled) return;
     if (!reopenGalleryVerseId) return;
-    if (reopenGalleryStatusFilter && statusFilter !== reopenGalleryStatusFilter) return;
+    if (
+      reopenGalleryStatusFilter &&
+      statusFilter !== normalizeStatusFilterToRoot(reopenGalleryStatusFilter)
+    ) {
+      return;
+    }
     if (!pagination.hasFetchedVersesOnce) return;
     if (pagination.isFetchingVerses) return;
 
     const index = pagination.verses.findIndex(
-      (v) => String(v.id) === String(reopenGalleryVerseId) || v.externalVerseId === reopenGalleryVerseId
+      (v) =>
+        String(v.id) === String(reopenGalleryVerseId) ||
+        v.externalVerseId === reopenGalleryVerseId,
     );
 
     if (index === -1) {
       if (pagination.hasMoreVerses && !pagination.isFetchingMoreVerses) {
-        void pagination.ensureVerseLoadedForReopen(String(reopenGalleryVerseId));
+        void pagination.ensureVerseLoadedForReopen(
+          String(reopenGalleryVerseId),
+        );
         return;
       }
       onReopenGalleryHandled?.();
       return;
     }
 
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       setGalleryIndex(index);
       onReopenGalleryHandled?.();
       return;
@@ -432,8 +484,16 @@ export function useVerseListController({
   ]);
 
   // Single-pass filtering + classification: O(n) instead of O(5n).
-  const { filteredVerses, reviewVerses, masteredVerses, learningVerses, stoppedVerses } = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+  const {
+    filteredVerses,
+    reviewVerses,
+    masteredVerses,
+    learningVerses,
+    stoppedVerses,
+  } = useMemo(() => {
+    const normalizedQuery = isCatalogRootFilter
+      ? searchQuery.trim().toLowerCase()
+      : "";
     const filtered: Verse[] = [];
     const review: Verse[] = [];
     const mastered: Verse[] = [];
@@ -442,8 +502,12 @@ export function useVerseListController({
 
     for (const verse of pagination.verses) {
       const matchesStatus = matchesListFilter(verse, statusFilter);
-      const verseBookId = parseExternalVerseId(verse.externalVerseId)?.book ?? null;
-      const matchesBook = selectedBookId == null || verseBookId === selectedBookId;
+      const verseBookId =
+        parseExternalVerseId(verse.externalVerseId)?.book ?? null;
+      const matchesBook =
+        !isCatalogRootFilter ||
+        selectedBookId == null ||
+        verseBookId === selectedBookId;
       const matchesSearch =
         !normalizedQuery ||
         verse.reference.toLowerCase().includes(normalizedQuery) ||
@@ -453,8 +517,8 @@ export function useVerseListController({
       filtered.push(verse);
 
       const displayStatus = getVerseDisplayStatus(verse);
-      if (displayStatus === 'REVIEW') review.push(verse);
-      else if (displayStatus === 'MASTERED') mastered.push(verse);
+      if (displayStatus === "REVIEW") review.push(verse);
+      else if (displayStatus === "MASTERED") mastered.push(verse);
       else if (displayStatus === VerseStatus.LEARNING) learning.push(verse);
       else if (displayStatus === VerseStatus.STOPPED) stopped.push(verse);
     }
@@ -466,49 +530,60 @@ export function useVerseListController({
       learningVerses: learning,
       stoppedVerses: stopped,
     };
-  }, [pagination.verses, selectedBookId, statusFilter, matchesListFilter, searchQuery]);
+  }, [
+    pagination.verses,
+    isCatalogRootFilter,
+    selectedBookId,
+    statusFilter,
+    matchesListFilter,
+    searchQuery,
+  ]);
 
   const hasLocalClientFiltersActive = false;
-
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
     () => [
       // { key: 'catalog', label: 'Каталог' },
       // { key: 'my', label: 'Мои' },
-      { key: 'learning', label: 'Изучаю' },
-      { key: 'review', label: 'Повторяю' },
-      { key: 'mastered', label: 'Выучены' },
-      { key: 'stopped', label: 'На паузе' },
+      { key: "learning", label: "Изучаю" },
+      { key: "review", label: "Повторяю" },
+      { key: "mastered", label: "Выучены" },
+      { key: "stopped", label: "На паузе" },
     ],
-    []
+    [],
   );
 
   const isListLoading =
     (!disabled && shouldDelayListFetch && !pagination.hasFetchedVersesOnce) ||
-    pagination.isFetchingVerses && !pagination.hasFetchedVersesOnce && pagination.verses.length === 0;
+    (pagination.isFetchingVerses &&
+      !pagination.hasFetchedVersesOnce &&
+      pagination.verses.length === 0);
   const isEmptyFiltered =
     !disabled &&
     pagination.hasFetchedVersesOnce &&
     !pagination.isFetchingVerses &&
     filteredVerses.length === 0;
   const currentFilterLabel =
-    statusFilter === 'catalog'
-      ? 'Каталог'
-      : statusFilter === 'my'
-        ? 'Мои стихи'
-        : filterOptions.find((option) => option.key === statusFilter)?.label ?? 'Мои стихи';
+    statusFilter === "catalog"
+      ? "Каталог"
+      : statusFilter === "my"
+        ? "Мои стихи"
+        : (filterOptions.find((option) => option.key === statusFilter)?.label ??
+          "Мои стихи");
   const currentFilterTheme = FILTER_VISUAL_THEME[statusFilter];
   const totalVisible = filteredVerses.length;
   const bookOptions = VERSE_LIST_BOOK_OPTIONS;
 
   const openVerseInGallery = useCallback(
     (verse: Verse) => {
-      const index = pagination.verses.findIndex((v) => actions.isSameVerse(v, verse));
+      const index = pagination.verses.findIndex((v) =>
+        actions.isSameVerse(v, verse),
+      );
       if (index === -1) return;
-      haptic('light');
+      haptic("light");
       setGalleryIndex(index);
     },
-    [pagination.verses, actions]
+    [pagination.verses, actions],
   );
 
   const renderVerseRow = useCallback(
@@ -529,17 +604,24 @@ export function useVerseListController({
             verse: v,
             preferredMode,
             returnTarget: {
-              kind: 'verse-list',
+              kind: "verse-list",
               statusFilter,
             },
           });
         }}
         onAddToLearning={(v) => {
-          const isCatalog = getVerseDisplayStatus(v) === 'CATALOG';
-          void actions.updateVerseStatus(v, isCatalog ? VerseStatus.MY : VerseStatus.LEARNING);
+          const isCatalog = getVerseDisplayStatus(v) === "CATALOG";
+          void actions.updateVerseStatus(
+            v,
+            isCatalog ? VerseStatus.MY : VerseStatus.LEARNING,
+          );
         }}
-        onPauseLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.STOPPED)}
-        onResumeLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.LEARNING)}
+        onPauseLearning={(v) =>
+          void actions.updateVerseStatus(v, VerseStatus.STOPPED)
+        }
+        onResumeLearning={(v) =>
+          void actions.updateVerseStatus(v, VerseStatus.LEARNING)
+        }
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
         isAnchorEligible={isAnchorEligible}
         colorConfig={cardColorConfig}
@@ -558,7 +640,7 @@ export function useVerseListController({
       onOpenVerseTags,
       openVerseInGallery,
       statusFilter,
-    ]
+    ],
   );
 
   const renderCatalogRow = useCallback(
@@ -571,7 +653,10 @@ export function useVerseListController({
         onOpenProgress={onOpenVerseProgress}
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
-        onAddToLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.MY)}
+        onAddToLearning={(v) =>
+          void actions.updateVerseStatus(v, VerseStatus.MY)
+        }
+        onRemoveFromMy={(v) => actions.confirmDeleteVerse(v)}
         onPauseLearning={() => {}}
         onResumeLearning={() => {}}
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
@@ -586,21 +671,23 @@ export function useVerseListController({
       onOpenVerseProgress,
       onOpenVerseTags,
       openVerseInGallery,
-    ]
+    ],
   );
 
   const handleLoadMoreRows = useCallback(
     async (range: VerseListLoadRange) => {
       if (hasLocalClientFiltersActive) {
-        debugInfiniteScroll('virtualized-loadMoreRows-skip:local-filters', { range });
+        debugInfiniteScroll("virtualized-loadMoreRows-skip:local-filters", {
+          range,
+        });
         return;
       }
-      debugInfiniteScroll('virtualized-loadMoreRows', {
+      debugInfiniteScroll("virtualized-loadMoreRows", {
         range,
         hasMoreVerses: pagination.hasMoreVerses,
         isFetchingMoreVerses: pagination.isFetchingMoreVerses,
       });
-      await pagination.fetchNextPage({ source: 'auto' });
+      await pagination.fetchNextPage({ source: "auto" });
     },
     [
       hasLocalClientFiltersActive,
@@ -608,71 +695,84 @@ export function useVerseListController({
       pagination.hasMoreVerses,
       pagination.isFetchingMoreVerses,
       pagination.fetchNextPage,
-    ]
+    ],
   );
 
   const handleRetryLoadMore = useCallback(async () => {
-    await pagination.fetchNextPage({ source: 'manual' });
+    await pagination.fetchNextPage({ source: "manual" });
   }, [pagination.fetchNextPage]);
 
-  const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
-    if (statusFilter === nextFilter) return;
+  const handleTabClick = useCallback(
+    (nextFilter: VerseListStatusFilter, _label: string) => {
+      const currentRootFilter = getRootStatusFilter(statusFilter);
+      const nextRootFilter = getRootStatusFilter(nextFilter);
+      const resolvedNextFilter = normalizeStatusFilterToRoot(nextFilter);
+      if (statusFilter === resolvedNextFilter) return;
 
-    const currentRootFilter = getRootStatusFilter(statusFilter);
-    const nextRootFilter = getRootStatusFilter(nextFilter);
+      haptic("light");
 
-    haptic('light');
+      if (currentRootFilter !== nextRootFilter) {
+        setSelectedBookId(null);
+        setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
+        setSearchQuery("");
+        tagFilter.clearTags();
+      }
 
-    if (currentRootFilter !== nextRootFilter) {
-      setSelectedBookId(null);
-      setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
-      setSearchQuery('');
-      tagFilter.clearTags();
-    }
-
-    setStatusFilter(nextFilter);
-    setAnnouncement(`Фильтр: ${label}`);
-  }, [statusFilter, tagFilter.clearTags]);
-
-  const handleBookChange = useCallback((nextBookId: number | null, label: string) => {
-    if (selectedBookId === nextBookId) return;
-    haptic('light');
-    setSelectedBookId(nextBookId);
-    setAnnouncement(`Книга: ${label}`);
-  }, [selectedBookId]);
-
-  const isMyScopeFilter = statusFilter !== 'catalog';
-  const sortOptions = useMemo<VerseListSortOption[]>(
-    () => [
-      { key: 'bible', label: 'Канон' },
-      { key: 'updatedAt', label: 'Активность' },
-      { key: 'popularity', label: 'Прогресс' },
-    ],
-    [isMyScopeFilter]
+      setStatusFilter(resolvedNextFilter);
+      setAnnouncement(
+        `Фильтр: ${nextRootFilter === "catalog" ? "Каталог" : "Мои стихи"}`,
+      );
+    },
+    [statusFilter, tagFilter.clearTags],
   );
 
-  const handleSortChange = useCallback((nextSortBy: VerseListSortBy, label: string) => {
-    if (sortBy === nextSortBy) return;
-    haptic('light');
-    setSortBy(nextSortBy);
-    setAnnouncement(`Сортировка: ${label}`);
-  }, [sortBy]);
+  const handleBookChange = useCallback(
+    (nextBookId: number | null, label: string) => {
+      if (selectedBookId === nextBookId) return;
+      haptic("light");
+      setSelectedBookId(nextBookId);
+      setAnnouncement(`Книга: ${label}`);
+    },
+    [selectedBookId],
+  );
+
+  const isMyScopeFilter = statusFilter !== "catalog";
+  const sortOptions = useMemo<VerseListSortOption[]>(
+    () => [
+      { key: "bible", label: "Канон" },
+      { key: "updatedAt", label: "Активность" },
+      { key: "popularity", label: "Прогресс" },
+    ],
+    [isMyScopeFilter],
+  );
+
+  const handleSortChange = useCallback(
+    (nextSortBy: VerseListSortBy, label: string) => {
+      if (sortBy === nextSortBy) return;
+      haptic("light");
+      setSortBy(nextSortBy);
+      setAnnouncement(`Сортировка: ${label}`);
+    },
+    [sortBy],
+  );
 
   const handleResetFilters = useCallback(() => {
+    const resetStatusFilter =
+      statusFilter === "catalog" ? "catalog" : defaultStatusFilter;
     const hasChanges =
-      statusFilter !== defaultStatusFilter ||
+      statusFilter !== resetStatusFilter ||
       selectedBookId !== null ||
       sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
       searchQuery.trim().length > 0 ||
       tagFilter.hasActiveTags;
     if (!hasChanges) return;
-    haptic('light');
-    setStatusFilter(defaultStatusFilter);
+    haptic("light");
+    setStatusFilter(resetStatusFilter);
     setSelectedBookId(null);
     setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
-    setSearchQuery('');
+    setSearchQuery("");
     tagFilter.clearTags();
-    setAnnouncement('Фильтры сброшены');
+    setAnnouncement("Фильтры сброшены");
   }, [
     defaultStatusFilter,
     searchQuery,
@@ -683,88 +783,103 @@ export function useVerseListController({
     tagFilter.hasActiveTags,
   ]);
 
-  const activeFilteredSection = useMemo<{ items: Verse[]; config: VerseListSectionConfig } | null>(() => {
-    if (statusFilter === 'catalog') return {
-      items: filteredVerses,
-      config: {
-        headingId: 'my-verses-heading',
-        title: 'Каталог',
-        subtitle: 'Глобальный каталог стихов',
-        dotClassName: 'bg-status-collection',
-        borderClassName: 'bg-gradient-to-b from-status-collection-soft to-bg-app',
-        tintClassName: 'bg-status-collection-soft',
-      },
-    };
-    if (statusFilter === 'learning') {
+  const activeFilteredSection = useMemo<{
+    items: Verse[];
+    config: VerseListSectionConfig;
+  } | null>(() => {
+    if (statusFilter === "catalog")
+      return {
+        items: filteredVerses,
+        config: {
+          headingId: "my-verses-heading",
+          title: "Каталог",
+          subtitle: "Глобальный каталог стихов",
+          dotClassName: "bg-status-collection",
+          borderClassName:
+            "bg-gradient-to-b from-status-collection-soft to-bg-app",
+          tintClassName: "bg-status-collection-soft",
+        },
+      };
+    if (statusFilter === "learning") {
       return {
         items: learningVerses,
         config: {
-          headingId: 'learning-verses-heading',
-          title: 'Изучение',
-          subtitle: 'Стихи, которые вы изучаете',
-          dotClassName: 'bg-status-learning',
-          borderClassName: 'bg-gradient-to-b from-status-learning-soft to-bg-app',
-          tintClassName: 'bg-status-learning-soft',
+          headingId: "learning-verses-heading",
+          title: "Изучение",
+          subtitle: "Стихи, которые вы изучаете",
+          dotClassName: "bg-status-learning",
+          borderClassName:
+            "bg-gradient-to-b from-status-learning-soft to-bg-app",
+          tintClassName: "bg-status-learning-soft",
         },
       };
     }
-    if (statusFilter === 'review') {
+    if (statusFilter === "review") {
       return {
         items: reviewVerses,
         config: {
-          headingId: 'review-verses-heading',
-          title: 'Повторение',
-          subtitle: 'Ваши стихи для повторения',
-          dotClassName: 'bg-status-review',
-          borderClassName: 'bg-gradient-to-b from-status-review-soft to-bg-app',
-          tintClassName: 'bg-status-review-soft',
+          headingId: "review-verses-heading",
+          title: "Повторение",
+          subtitle: "Ваши стихи для повторения",
+          dotClassName: "bg-status-review",
+          borderClassName: "bg-gradient-to-b from-status-review-soft to-bg-app",
+          tintClassName: "bg-status-review-soft",
         },
       };
     }
-    if (statusFilter === 'mastered') {
+    if (statusFilter === "mastered") {
       return {
         items: masteredVerses,
         config: {
-          headingId: 'mastered-verses-heading',
-          title: 'Выученные',
-          subtitle: 'Ваши выученные стихи',
-          dotClassName: 'bg-status-mastered',
-          borderClassName: 'bg-gradient-to-b from-status-mastered-soft to-bg-app',
-          tintClassName: 'bg-status-mastered-soft',
+          headingId: "mastered-verses-heading",
+          title: "Выученные",
+          subtitle: "Ваши выученные стихи",
+          dotClassName: "bg-status-mastered",
+          borderClassName:
+            "bg-gradient-to-b from-status-mastered-soft to-bg-app",
+          tintClassName: "bg-status-mastered-soft",
         },
       };
     }
-    if (statusFilter === 'stopped') {
+    if (statusFilter === "stopped") {
       return {
         items: stoppedVerses,
         config: {
-          headingId: 'stopped-verses-heading',
-          title: 'На паузе',
-          subtitle: 'Ваши стихи на паузе',
-          dotClassName: 'bg-status-paused',
-          borderClassName: 'bg-gradient-to-b from-status-paused-soft to-bg-app',
-          tintClassName: 'bg-status-paused-soft',
+          headingId: "stopped-verses-heading",
+          title: "На паузе",
+          subtitle: "Ваши стихи на паузе",
+          dotClassName: "bg-status-paused",
+          borderClassName: "bg-gradient-to-b from-status-paused-soft to-bg-app",
+          tintClassName: "bg-status-paused-soft",
         },
       };
     }
     return {
       items: filteredVerses,
       config: {
-        headingId: 'my-verses-heading',
-        title: 'Мои стихи',
-        subtitle: 'Стихи, добавленные в мой список',
-        dotClassName: 'bg-brand-primary',
-        borderClassName: 'bg-gradient-to-b from-brand-primary/12 to-bg-app',
-        tintClassName: 'bg-brand-primary/10',
+        headingId: "my-verses-heading",
+        title: "Мои стихи",
+        subtitle: "Стихи, добавленные в мой список",
+        dotClassName: "bg-brand-primary",
+        borderClassName: "bg-gradient-to-b from-brand-primary/12 to-bg-app",
+        tintClassName: "bg-brand-primary/10",
       },
     };
-  }, [statusFilter, learningVerses, reviewVerses, masteredVerses, stoppedVerses, filteredVerses]);
+  }, [
+    statusFilter,
+    learningVerses,
+    reviewVerses,
+    masteredVerses,
+    stoppedVerses,
+    filteredVerses,
+  ]);
 
-  const listItems = statusFilter === 'catalog'
-    ? hasLocalClientFiltersActive
-      ? filteredVerses
-      : pagination.verses
-    : [];
+  const listItems =
+    statusFilter === "catalog"
+      ? hasLocalClientFiltersActive
+        ? filteredVerses
+        : pagination.verses
+      : [];
   const sectionItems = activeFilteredSection?.items ?? [];
 
   return {
@@ -804,7 +919,8 @@ export function useVerseListController({
       isFetchingVerses: pagination.isFetchingVerses,
       isFetchingMoreVerses: pagination.isFetchingMoreVerses,
       loadMoreError: pagination.loadMoreError,
-      showDelayedInitialFetchSkeleton: pagination.showDelayedInitialFetchSkeleton,
+      showDelayedInitialFetchSkeleton:
+        pagination.showDelayedInitialFetchSkeleton,
       showDelayedLoadMoreSkeleton: pagination.showDelayedLoadMoreSkeleton,
       appendRevealRange: pagination.appendRevealRange,
     },
@@ -841,9 +957,11 @@ export function useVerseListController({
       galleryIndex,
       onClose: () => setGalleryIndex(null),
       onStatusChange: actions.handleStatusChange,
-      onVersePatched: (event: VersePatchEvent) => actions.applyVersePatchedFromGallery(event),
+      onVersePatched: (event: VersePatchEvent) =>
+        actions.applyVersePatchedFromGallery(event),
       onDelete: actions.handleDeleteVerse,
-      onRequestMorePreviewVerses: () => pagination.fetchNextPage({ source: 'gallery' }),
+      onRequestMorePreviewVerses: () =>
+        pagination.fetchNextPage({ source: "gallery" }),
     },
   };
 }

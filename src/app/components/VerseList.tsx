@@ -43,7 +43,11 @@ import {
 } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
-import { addVerseToQueue, removeVerseFromQueue, reorderVerseInQueue } from "@/app/components/Training/exam/queueApi";
+import {
+  addVerseToQueue,
+  removeVerseFromQueue,
+  reorderVerseInQueue,
+} from "@/app/components/Training/exam/queueApi";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { WheelPicker } from "@/app/components/ui/WheelPicker";
 import {
@@ -53,9 +57,22 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/app/components/ui/drawer";
-import { getVerseDisplayStatus, getVerseProgressPercent, isVerseLearning, isVerseMastered, isVersePaused, isVerseReview } from "@/shared/verseRules";
+import {
+  getVerseDisplayStatus,
+  getVerseProgressPercent,
+  isVerseLearning,
+  isVerseMastered,
+  isVersePaused,
+  isVerseReview,
+} from "@/shared/verseRules";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { ArrowLeft, ArrowRightLeft, GraduationCap, ListOrdered, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  GraduationCap,
+  ListOrdered,
+  Loader2,
+} from "lucide-react";
 import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
@@ -138,7 +155,8 @@ export function VerseList({
       ) ?? false
     );
   });
-  const [isLocalFiltersDrawerOpen, setIsLocalFiltersDrawerOpen] = useState(false);
+  const [isLocalFiltersDrawerOpen, setIsLocalFiltersDrawerOpen] =
+    useState(false);
   const [isVerseTagsDrawerOpen, setIsVerseTagsDrawerOpen] = useState(false);
   const [verseTagsTarget, setVerseTagsTarget] = useState<Pick<
     Verse,
@@ -151,37 +169,54 @@ export function VerseList({
     scope: "players";
     totalCount: number;
   } | null>(null);
-  const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] = useState(false);
-  const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(null);
+  const [isVerseProgressDrawerOpen, setIsVerseProgressDrawerOpen] =
+    useState(false);
+  const [verseProgressTarget, setVerseProgressTarget] = useState<Verse | null>(
+    null,
+  );
   // Queue drawer: shown when user tries to start learning but slots are full
   const [queueTargetVerse, setQueueTargetVerse] = useState<Verse | null>(null);
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
   const [learningSlotDrawerStep, setLearningSlotDrawerStep] =
     useState<LearningSlotDrawerStep>("actions");
-  const [replaceableLearningVerses, setReplaceableLearningVerses] = useState<Verse[]>([]);
-  const [isLoadingReplaceableLearningVerses, setIsLoadingReplaceableLearningVerses] =
-    useState(false);
+  const [replaceableLearningVerses, setReplaceableLearningVerses] = useState<
+    Verse[]
+  >([]);
+  const [
+    isLoadingReplaceableLearningVerses,
+    setIsLoadingReplaceableLearningVerses,
+  ] = useState(false);
   const [replaceableLearningVersesError, setReplaceableLearningVersesError] =
     useState<string | null>(null);
-  const [selectedReplacementVerseId, setSelectedReplacementVerseId] =
-    useState<string | null>(null);
-  const [isReplacingLearningVerse, setIsReplacingLearningVerse] = useState(false);
+  const [selectedReplacementVerseId, setSelectedReplacementVerseId] = useState<
+    string | null
+  >(null);
+  const [isReplacingLearningVerse, setIsReplacingLearningVerse] =
+    useState(false);
   // Position picker for queue reordering
-  const [positionEditVerse, setPositionEditVerse] = useState<Verse | null>(null);
+  const [positionEditVerse, setPositionEditVerse] = useState<Verse | null>(
+    null,
+  );
   const [positionEditValue, setPositionEditValue] = useState(1);
   const filterOverlayRef = useRef<HTMLDivElement | null>(null);
   const primaryFilterDockRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
   const [filterOverlayHeight, setFilterOverlayHeight] = useState(0);
   const [primaryFilterDockHeight, setPrimaryFilterDockHeight] = useState(0);
-  const [listViewportHeight, setListViewportHeight] = useState<number | null>(null);
+  const [listViewportHeight, setListViewportHeight] = useState<number | null>(
+    null,
+  );
   const replaceableLearningVersesRequestIdRef = useRef(0);
-  const replaceableLearningVersesScrollRef = useRef<HTMLDivElement | null>(null);
-  const [replaceableLearningVersesScrollState, setReplaceableLearningVersesScrollState] =
-    useState(() => ({
-      hasOverflow: false,
-      isAtBottom: true,
-    }));
+  const replaceableLearningVersesScrollRef = useRef<HTMLDivElement | null>(
+    null,
+  );
+  const [
+    replaceableLearningVersesScrollState,
+    setReplaceableLearningVersesScrollState,
+  ] = useState(() => ({
+    hasOverflow: false,
+    isAtBottom: true,
+  }));
   const isFiltersDrawerOpen = isLocalFiltersDrawerOpen;
 
   const toggleFocusMode = useCallback(() => {
@@ -196,7 +231,6 @@ export function VerseList({
     );
   }, [isFocusMode]);
 
-
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -209,8 +243,12 @@ export function VerseList({
       const currentOverlay = filterOverlayRef.current;
       if (!currentOverlay) return;
 
-      const nextHeight = Math.ceil(currentOverlay.getBoundingClientRect().height);
-      setFilterOverlayHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+      const nextHeight = Math.ceil(
+        currentOverlay.getBoundingClientRect().height,
+      );
+      setFilterOverlayHeight((prev) =>
+        prev === nextHeight ? prev : nextHeight,
+      );
     };
 
     const scheduleOverlayHeightUpdate = () => {
@@ -335,7 +373,9 @@ export function VerseList({
         ),
       );
 
-      setListViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+      setListViewportHeight((prev) =>
+        prev === nextHeight ? prev : nextHeight,
+      );
     };
 
     const scheduleViewportHeightUpdate = () => {
@@ -355,7 +395,10 @@ export function VerseList({
     window.addEventListener("resize", scheduleViewportHeightUpdate, {
       passive: true,
     });
-    window.visualViewport?.addEventListener("resize", scheduleViewportHeightUpdate);
+    window.visualViewport?.addEventListener(
+      "resize",
+      scheduleViewportHeightUpdate,
+    );
     scheduleViewportHeightUpdate();
 
     return () => {
@@ -378,18 +421,25 @@ export function VerseList({
 
   const handleOpenPositionEdit = useCallback((verse: Verse) => {
     setPositionEditVerse(verse);
-    setPositionEditValue(typeof verse.queuePosition === 'number' && verse.queuePosition > 0 ? verse.queuePosition : 1);
+    setPositionEditValue(
+      typeof verse.queuePosition === "number" && verse.queuePosition > 0
+        ? verse.queuePosition
+        : 1,
+    );
   }, []);
 
-  const handleRemoveFromQueue = useCallback(async (externalVerseId: string) => {
-    if (!telegramId) return;
-    try {
-      await removeVerseFromQueue({ telegramId, externalVerseId });
-      onVerseMutationCommitted?.();
-    } catch {
-      toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
-    }
-  }, [telegramId, onVerseMutationCommitted]);
+  const handleRemoveFromQueue = useCallback(
+    async (externalVerseId: string) => {
+      if (!telegramId) return;
+      try {
+        await removeVerseFromQueue({ telegramId, externalVerseId });
+        onVerseMutationCommitted?.();
+      } catch {
+        toast.error("Ошибка — попробуйте ещё раз", { label: "Очередь" });
+      }
+    },
+    [telegramId, onVerseMutationCommitted],
+  );
 
   const vm = useVerseListController({
     disabled: false,
@@ -433,7 +483,8 @@ export function VerseList({
     onVerseMutationCommitted,
     onLearningCapacityExceeded: (verse) => setQueueTargetVerse(verse),
     onEditQueuePosition: handleOpenPositionEdit,
-    onRemoveFromQueue: (verse) => void handleRemoveFromQueue(verse.externalVerseId),
+    onRemoveFromQueue: (verse) =>
+      void handleRemoveFromQueue(verse.externalVerseId),
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
@@ -444,9 +495,18 @@ export function VerseList({
   );
   const isCatalogMode = vm.filters.statusFilter === "catalog";
   const isMyMode = vm.filters.statusFilter === "my";
+  const showCatalogFilters = isCatalogMode;
   // "Мои стихи" mode renders its own sectioned layout via myModeContent.
   // For catalog and sub-filter modes use the standard virtualized list items.
-  const visibleListItems = isCatalogMode ? vm.list.listItems : vm.list.sectionItems;
+  const visibleListItems = isCatalogMode
+    ? vm.list.listItems
+    : vm.list.sectionItems;
+
+  useEffect(() => {
+    if (!showCatalogFilters && isLocalFiltersDrawerOpen) {
+      setIsLocalFiltersDrawerOpen(false);
+    }
+  }, [showCatalogFilters, isLocalFiltersDrawerOpen]);
 
   const handleSavePosition = useCallback(async () => {
     if (!positionEditVerse || !telegramId) return;
@@ -456,28 +516,40 @@ export function VerseList({
       return;
     }
     try {
-      await reorderVerseInQueue({ telegramId, externalVerseId, queuePosition: positionEditValue });
+      await reorderVerseInQueue({
+        telegramId,
+        externalVerseId,
+        queuePosition: positionEditValue,
+      });
       setPositionEditVerse(null);
-      toast.success('Позиция обновлена', { label: 'Очередь' });
+      toast.success("Позиция обновлена", { label: "Очередь" });
       onVerseMutationCommitted?.();
     } catch {
-      toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
+      toast.error("Ошибка — попробуйте ещё раз", { label: "Очередь" });
     }
-  }, [positionEditVerse, positionEditValue, telegramId, onVerseMutationCommitted]);
+  }, [
+    positionEditVerse,
+    positionEditValue,
+    telegramId,
+    onVerseMutationCommitted,
+  ]);
 
   const handleAddToQueue = useCallback(async () => {
     if (!queueTargetVerse || !telegramId) return;
     setIsAddingToQueue(true);
     try {
-      await addVerseToQueue({ telegramId, externalVerseId: queueTargetVerse.externalVerseId });
+      await addVerseToQueue({
+        telegramId,
+        externalVerseId: queueTargetVerse.externalVerseId,
+      });
       setQueueTargetVerse(null);
-      toast.success('Добавлено в очередь', {
+      toast.success("Добавлено в очередь", {
         description: queueTargetVerse.reference,
-        label: 'Стихи',
+        label: "Стихи",
       });
       onVerseMutationCommitted?.();
     } catch {
-      toast.error('Ошибка — попробуйте ещё раз', { label: 'Стихи' });
+      toast.error("Ошибка — попробуйте ещё раз", { label: "Стихи" });
     } finally {
       setIsAddingToQueue(false);
     }
@@ -487,7 +559,9 @@ export function VerseList({
     async (targetExternalVerseId: string) => {
       if (!telegramId) {
         setReplaceableLearningVerses([]);
-        setReplaceableLearningVersesError("Профиль Telegram ещё не инициализирован.");
+        setReplaceableLearningVersesError(
+          "Профиль Telegram ещё не инициализирован.",
+        );
         return;
       }
 
@@ -512,16 +586,24 @@ export function VerseList({
 
         setReplaceableLearningVerses(learningVerses);
         setSelectedReplacementVerseId((current) => {
-          if (current && learningVerses.some((verse) => verse.externalVerseId === current)) {
+          if (
+            current &&
+            learningVerses.some((verse) => verse.externalVerseId === current)
+          ) {
             return current;
           }
           return learningVerses[0]?.externalVerseId ?? null;
         });
       } catch (error) {
         if (replaceableLearningVersesRequestIdRef.current !== requestId) return;
-        console.error("Не удалось загрузить стихи в изучении для замены:", error);
+        console.error(
+          "Не удалось загрузить стихи в изучении для замены:",
+          error,
+        );
         setReplaceableLearningVerses([]);
-        setReplaceableLearningVersesError("Не удалось загрузить активные слоты.");
+        setReplaceableLearningVersesError(
+          "Не удалось загрузить активные слоты.",
+        );
         setSelectedReplacementVerseId(null);
       } finally {
         if (replaceableLearningVersesRequestIdRef.current === requestId) {
@@ -579,7 +661,7 @@ export function VerseList({
     setReplaceableLearningVersesScrollState((prev) =>
       prev.hasOverflow === hasOverflow && prev.isAtBottom === isAtBottom
         ? prev
-        : { hasOverflow, isAtBottom }
+        : { hasOverflow, isAtBottom },
     );
   }, []);
 
@@ -656,7 +738,10 @@ export function VerseList({
     let didPauseCurrentVerse = false;
 
     try {
-      await vm.gallery.onStatusChange(selectedReplacementVerse, VerseStatus.STOPPED);
+      await vm.gallery.onStatusChange(
+        selectedReplacementVerse,
+        VerseStatus.STOPPED,
+      );
       didPauseCurrentVerse = true;
 
       await vm.gallery.onStatusChange(queueTargetVerse, VerseStatus.LEARNING);
@@ -678,9 +763,15 @@ export function VerseList({
 
       if (didPauseCurrentVerse) {
         try {
-          await vm.gallery.onStatusChange(selectedReplacementVerse, VerseStatus.LEARNING);
+          await vm.gallery.onStatusChange(
+            selectedReplacementVerse,
+            VerseStatus.LEARNING,
+          );
         } catch (rollbackError) {
-          console.error("Не удалось восстановить прежний стих после ошибки:", rollbackError);
+          console.error(
+            "Не удалось восстановить прежний стих после ошибки:",
+            rollbackError,
+          );
         }
       }
 
@@ -694,7 +785,7 @@ export function VerseList({
   }, [queueTargetVerse, selectedReplacementVerse, vm.gallery]);
 
   const listTopInset =
-    filterOverlayHeight > 0
+    showCatalogFilters && filterOverlayHeight > 0
       ? filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX
       : 0;
   const listBottomInset =
@@ -712,7 +803,12 @@ export function VerseList({
         queueCount={learningCapacity?.queueCount ?? 0}
       />
     );
-  }, [isMyMode, learningCapacity, handleNavigateToCatalog, handleNavigateToExam]);
+  }, [
+    isMyMode,
+    learningCapacity,
+    handleNavigateToCatalog,
+    handleNavigateToExam,
+  ]);
 
   const myModeContent = useMemo(() => {
     if (!isMyMode) return null;
@@ -723,7 +819,9 @@ export function VerseList({
       .filter((v) => v.status === VerseStatus.QUEUE)
       .sort((a, b) => (a.queuePosition ?? 999) - (b.queuePosition ?? 999));
 
-    const nonQueueVerses = vm.list.sectionItems.filter((v) => v.status !== VerseStatus.QUEUE);
+    const nonQueueVerses = vm.list.sectionItems.filter(
+      (v) => v.status !== VerseStatus.QUEUE,
+    );
     const groups = groupByDisplayStatus(nonQueueVerses);
     const hasContent =
       groups.learning.length > 0 ||
@@ -757,22 +855,24 @@ export function VerseList({
         {slotCardFooter}
 
         {/* Изучение */}
-        {groups.learning.length > 0 && renderSection(groups.learning, 'Изучение')}
+        {groups.learning.length > 0 &&
+          renderSection(groups.learning, "Изучение")}
 
         {/* В очереди — сразу после изучения, т.к. очередь пополняет слоты */}
-        {queueVerses.length > 0 && renderSection(queueVerses, 'В очереди')}
+        {queueVerses.length > 0 && renderSection(queueVerses, "В очереди")}
 
         {/* Повторение */}
-        {groups.review.length > 0 && renderSection(groups.review, 'Повторение')}
+        {groups.review.length > 0 && renderSection(groups.review, "Повторение")}
 
         {/* Выучены */}
-        {groups.mastered.length > 0 && renderSection(groups.mastered, 'Выучены')}
+        {groups.mastered.length > 0 &&
+          renderSection(groups.mastered, "Выучены")}
 
         {/* На паузе */}
-        {groups.stopped.length > 0 && renderSection(groups.stopped, 'На паузе')}
+        {groups.stopped.length > 0 && renderSection(groups.stopped, "На паузе")}
 
         {/* В списке — добавлены, но ещё не начаты */}
-        {groups.my.length > 0 && renderSection(groups.my, 'В списке')}
+        {groups.my.length > 0 && renderSection(groups.my, "В списке")}
 
         {!hasContent && (
           <div className="flex flex-1 items-center justify-center py-16">
@@ -792,6 +892,7 @@ export function VerseList({
     vm.list,
     vm.ui.currentFilterLabel,
     slotCardFooter,
+    listTopInset,
     listBottomInset,
     handleNavigateToCatalog,
   ]);
@@ -856,15 +957,12 @@ export function VerseList({
     [vm.gallery, onNavigateToTraining, vm.filters.statusFilter],
   );
 
-  const handleVerseOwnersOpenChange = useCallback(
-    (open: boolean) => {
-      setIsVerseOwnersDrawerOpen(open);
-      if (!open) {
-        setVerseOwnersTarget(null);
-      }
-    },
-    [],
-  );
+  const handleVerseOwnersOpenChange = useCallback((open: boolean) => {
+    setIsVerseOwnersDrawerOpen(open);
+    if (!open) {
+      setVerseOwnersTarget(null);
+    }
+  }, []);
 
   const handleVerseTagsDrawerOpenChange = useCallback(
     (open: boolean) => {
@@ -877,15 +975,12 @@ export function VerseList({
     [closeVerseTagsDrawer],
   );
 
-  const handleVerseProgressOpenChange = useCallback(
-    (open: boolean) => {
-      setIsVerseProgressDrawerOpen(open);
-      if (!open) {
-        setVerseProgressTarget(null);
-      }
-    },
-    [],
-  );
+  const handleVerseProgressOpenChange = useCallback((open: boolean) => {
+    setIsVerseProgressDrawerOpen(open);
+    if (!open) {
+      setVerseProgressTarget(null);
+    }
+  }, []);
 
   const handleVerseTagSelect = useCallback(
     (slug: string) => {
@@ -894,7 +989,11 @@ export function VerseList({
       }
       closeVerseTagsDrawer();
     },
-    [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
+    [
+      closeVerseTagsDrawer,
+      vm.tagFilter.onTagClick,
+      vm.tagFilter.selectedTagSlugs,
+    ],
   );
   const listContent =
     visibleListItems.length > 0 ? (
@@ -908,7 +1007,9 @@ export function VerseList({
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
         onLoadMore={vm.list.onLoadMoreRows}
-        renderRow={isCatalogMode ? vm.list.renderCatalogRow : vm.list.renderVerseRow}
+        renderRow={
+          isCatalogMode ? vm.list.renderCatalogRow : vm.list.renderVerseRow
+        }
         getItemKey={vm.list.getItemKey}
         getItemLayoutSignature={getListItemLayoutSignature}
         statusFilter={vm.filters.statusFilter}
@@ -927,7 +1028,9 @@ export function VerseList({
       currentFilterLabel: vm.ui.currentFilterLabel,
       currentFilterTheme: vm.ui.currentFilterTheme,
       statusFilter: vm.filters.statusFilter,
-      defaultStatusFilter: vm.filters.defaultStatusFilter,
+      defaultStatusFilter: isCatalogMode
+        ? "catalog"
+        : vm.filters.defaultStatusFilter,
       filterOptions: vm.filters.filterOptions,
       onTabClick: vm.filterTabs.onTabClick,
       selectedBookId: vm.filters.selectedBookId,
@@ -970,6 +1073,7 @@ export function VerseList({
       vm.tagFilter.hasActiveTags,
       vm.tagFilter.onTagClick,
       vm.tagFilter.onClearTags,
+      isCatalogMode,
     ],
   );
 
@@ -984,9 +1088,7 @@ export function VerseList({
         </div>
 
         <div className={cn("shrink-0", !isTelegramFullscreen && "pb-2")}>
-          <VerseListHeader
-            isFullscreen={isTelegramFullscreen}
-          />
+          <VerseListHeader isFullscreen={isTelegramFullscreen} />
         </div>
 
         <div className="relative min-h-0 flex-1">
@@ -994,14 +1096,16 @@ export function VerseList({
             ref={filterOverlayRef}
             className="pointer-events-none absolute inset-x-0 top-0 z-40 px-4 pt-2 pb-0 sm:px-6 lg:px-8"
           >
-            <VerseListFiltersTrigger
-              className="pointer-events-auto"
-              open={isFiltersDrawerOpen}
-              onOpen={() => setIsLocalFiltersDrawerOpen(true)}
-              isFocusMode={isFocusMode}
-              onToggleFocusMode={toggleFocusMode}
-              {...filterCardProps}
-            />
+            {showCatalogFilters ? (
+              <VerseListFiltersTrigger
+                className="pointer-events-auto"
+                open={isFiltersDrawerOpen}
+                onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+                isFocusMode={isFocusMode}
+                onToggleFocusMode={toggleFocusMode}
+                {...filterCardProps}
+              />
+            ) : null}
           </div>
 
           <div
@@ -1057,20 +1161,26 @@ export function VerseList({
                   </div>
                 </div>
               ) : null}
-              {!vm.ui.isListLoading && (isMyMode || (!vm.ui.isEmptyFiltered && vm.list.sectionConfig)) ? (
+              {!vm.ui.isListLoading &&
+              (isMyMode ||
+                (!vm.ui.isEmptyFiltered && vm.list.sectionConfig)) ? (
                 <div className="relative flex h-full min-h-0 flex-col">
-                  <div className="min-h-0 flex-1">{isMyMode ? myModeContent : listContent}</div>
+                  <div className="min-h-0 flex-1">
+                    {isMyMode ? myModeContent : listContent}
+                  </div>
                 </div>
               ) : null}
             </div>
           </div>
         </div>
 
-        <VerseListFiltersDrawer
-          open={isFiltersDrawerOpen}
-          onOpenChange={setIsLocalFiltersDrawerOpen}
-          {...filterCardProps}
-        />
+        {showCatalogFilters ? (
+          <VerseListFiltersDrawer
+            open={isFiltersDrawerOpen}
+            onOpenChange={setIsLocalFiltersDrawerOpen}
+            {...filterCardProps}
+          />
+        ) : null}
 
         <VerseListPrimaryFilterDock
           rootRef={primaryFilterDockRef}
@@ -1133,19 +1243,28 @@ export function VerseList({
         {/* Queue position picker drawer */}
         <Drawer
           open={positionEditVerse !== null}
-          onOpenChange={(open) => { if (!open) setPositionEditVerse(null); }}
+          onOpenChange={(open) => {
+            if (!open) setPositionEditVerse(null);
+          }}
         >
           <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>Позиция в очереди</DrawerTitle>
               {positionEditVerse && (
-                <DrawerDescription>{positionEditVerse.reference}</DrawerDescription>
+                <DrawerDescription>
+                  {positionEditVerse.reference}
+                </DrawerDescription>
               )}
             </DrawerHeader>
             <div className="flex flex-col items-center px-4 pb-2">
               <WheelPicker
                 values={Array.from(
-                  { length: Math.max(learningCapacity?.queueCount ?? 1, positionEditVerse?.queuePosition ?? 1) },
+                  {
+                    length: Math.max(
+                      learningCapacity?.queueCount ?? 1,
+                      positionEditVerse?.queuePosition ?? 1,
+                    ),
+                  },
                   (_, i) => i + 1,
                 )}
                 value={positionEditValue}
@@ -1154,7 +1273,7 @@ export function VerseList({
               />
               <p className="mt-1 text-[11px] text-text-subtle">
                 {positionEditValue === 1
-                  ? 'Первым начнёт изучение'
+                  ? "Первым начнёт изучение"
                   : `Позиция ${positionEditValue} в очереди`}
               </p>
             </div>
@@ -1163,8 +1282,8 @@ export function VerseList({
                 type="button"
                 onClick={() => setPositionEditVerse(null)}
                 className={cn(
-                  'flex-1 rounded-2xl border border-border bg-transparent py-3',
-                  'text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle',
+                  "flex-1 rounded-2xl border border-border bg-transparent py-3",
+                  "text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle",
                 )}
               >
                 Отмена
@@ -1173,8 +1292,8 @@ export function VerseList({
                 type="button"
                 onClick={handleSavePosition}
                 className={cn(
-                  'flex-1 rounded-2xl bg-brand-primary py-3',
-                  'text-[14px] font-semibold text-white transition-opacity hover:opacity-90',
+                  "flex-1 rounded-2xl bg-brand-primary py-3",
+                  "text-[14px] font-semibold text-white transition-opacity hover:opacity-90",
                 )}
               >
                 Сохранить
@@ -1209,11 +1328,12 @@ export function VerseList({
                   <DrawerDescription className="mt-1 truncate text-sm text-foreground/58">
                     {learningSlotDrawerStep === "replace"
                       ? "Выберите стих для паузы"
-                      : queueTargetVerse?.reference ?? "Новый стих"}
+                      : (queueTargetVerse?.reference ?? "Новый стих")}
                   </DrawerDescription>
                   {learningCapacity ? (
                     <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/48">
-                      {learningCapacity.activeLearning}/{learningCapacity.capacity} занято
+                      {learningCapacity.activeLearning}/
+                      {learningCapacity.capacity} занято
                     </div>
                   ) : null}
                 </div>
@@ -1249,7 +1369,9 @@ export function VerseList({
                         type="button"
                         onClick={() => {
                           if (queueTargetVerse) {
-                            void loadReplaceableLearningVerses(queueTargetVerse.externalVerseId);
+                            void loadReplaceableLearningVerses(
+                              queueTargetVerse.externalVerseId,
+                            );
                           }
                         }}
                         className="mt-3 inline-flex rounded-full border border-destructive/20 bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground/78 transition-colors hover:bg-background"
@@ -1270,20 +1392,24 @@ export function VerseList({
                       >
                         {replaceableLearningVerses.map((verse) => {
                           const isSelected =
-                            selectedReplacementVerseId === verse.externalVerseId;
-                          const progressPercent = getVerseProgressPercent(verse);
+                            selectedReplacementVerseId ===
+                            verse.externalVerseId;
+                          const progressPercent =
+                            getVerseProgressPercent(verse);
                           return (
                             <button
                               key={verse.externalVerseId}
                               type="button"
                               onClick={() =>
-                                setSelectedReplacementVerseId(verse.externalVerseId)
+                                setSelectedReplacementVerseId(
+                                  verse.externalVerseId,
+                                )
                               }
                               className={cn(
                                 "w-full rounded-[22px] border px-4 py-3 text-left transition-colors",
                                 isSelected
                                   ? "border-brand-primary/22 bg-brand-primary/8"
-                                  : "border-border/60 bg-background/70 hover:bg-background"
+                                  : "border-border/60 bg-background/70 hover:bg-background",
                               )}
                             >
                               <div className="flex items-start justify-between gap-3">
@@ -1307,7 +1433,10 @@ export function VerseList({
                                     <VerseProgressValue
                                       progressPercent={progressPercent}
                                       size="sm"
-                                      className={VERSE_CARD_COLOR_CONFIG.tones.learning.progressClassName}
+                                      className={
+                                        VERSE_CARD_COLOR_CONFIG.tones.learning
+                                          .progressClassName
+                                      }
                                     />
                                   </div>
                                   <div
@@ -1315,7 +1444,7 @@ export function VerseList({
                                       "mt-1 h-4 w-4 rounded-full border transition-colors",
                                       isSelected
                                         ? "border-brand-primary bg-brand-primary"
-                                        : "border-border/60 bg-transparent"
+                                        : "border-border/60 bg-transparent",
                                     )}
                                   />
                                 </div>
@@ -1330,37 +1459,44 @@ export function VerseList({
                           aria-hidden="true"
                           className={cn(
                             "pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-card/95 via-card/70 to-transparent transition-opacity duration-200",
-                            showReplaceFooterShadow ? "opacity-100" : "opacity-0",
+                            showReplaceFooterShadow
+                              ? "opacity-100"
+                              : "opacity-0",
                           )}
                         />
                         <div className="flex gap-3 border-t border-border/40 bg-card/95 pt-3">
-                        <button
-                          type="button"
-                          onClick={() => setLearningSlotDrawerStep("actions")}
-                          className={cn(
-                            "flex-1 rounded-2xl border border-border bg-transparent py-3 text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle",
-                            isReplacingLearningVerse && "pointer-events-none opacity-60",
-                          )}
-                        >
-                          Отмена
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!selectedReplacementVerse || isReplacingLearningVerse}
-                          onClick={handleReplaceLearningVerse}
-                          className={cn(
-                            "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-brand-primary/25 bg-brand-primary py-3 text-[14px] font-semibold text-white transition-opacity hover:opacity-90",
-                            (!selectedReplacementVerse || isReplacingLearningVerse) &&
-                              "pointer-events-none opacity-60",
-                          )}
-                        >
-                          {isReplacingLearningVerse ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ArrowRightLeft className="h-4 w-4" />
-                          )}
-                          <span>Заменить стих</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setLearningSlotDrawerStep("actions")}
+                            className={cn(
+                              "flex-1 rounded-2xl border border-border bg-transparent py-3 text-[14px] font-medium text-text-secondary transition-colors hover:bg-bg-subtle",
+                              isReplacingLearningVerse &&
+                                "pointer-events-none opacity-60",
+                            )}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              !selectedReplacementVerse ||
+                              isReplacingLearningVerse
+                            }
+                            onClick={handleReplaceLearningVerse}
+                            className={cn(
+                              "flex flex-1 items-center justify-center gap-2 rounded-2xl border border-brand-primary/25 bg-brand-primary py-3 text-[14px] font-semibold text-white transition-opacity hover:opacity-90",
+                              (!selectedReplacementVerse ||
+                                isReplacingLearningVerse) &&
+                                "pointer-events-none opacity-60",
+                            )}
+                          >
+                            {isReplacingLearningVerse ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ArrowRightLeft className="h-4 w-4" />
+                            )}
+                            <span>Заменить стих</span>
+                          </button>
                         </div>
                       </div>
                     </>
@@ -1448,8 +1584,8 @@ export function VerseList({
                       onLearningCapacityExceeded?.();
                     }}
                     className={cn(
-                      'flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5',
-                      'text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10',
+                      "flex items-center gap-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/6 px-4 py-3.5",
+                      "text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/10",
                     )}
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12">
