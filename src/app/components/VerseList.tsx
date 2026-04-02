@@ -17,6 +17,7 @@ import { VerseListFiltersTrigger } from "./verse-list/components/VerseListFilter
 import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
 import { VerseListModeSwitch } from "./verse-list/components/VerseListModeSwitch";
+import { VerseListReadingModeBar } from "./verse-list/components/VerseListReadingModeBar";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
@@ -1021,8 +1022,6 @@ export function VerseList({
                 className="pointer-events-auto"
                 open={isFiltersDrawerOpen}
                 onOpen={() => setIsLocalFiltersDrawerOpen(true)}
-                isFocusMode={isFocusMode}
-                onToggleFocusMode={toggleFocusMode}
                 {...filterCardProps}
               />
             ) : null}
@@ -1094,11 +1093,17 @@ export function VerseList({
           </div>
         </div>
 
-        <VerseListModeSwitch
-          activeMode={activeMode}
-          totalCount={vm.pagination.totalCount}
-          onModeChange={handleModeChange}
-        />
+        <div className="relative shrink-0">
+          <VerseListReadingModeBar
+            isFocusMode={isFocusMode}
+            onToggle={toggleFocusMode}
+          />
+          <VerseListModeSwitch
+            activeMode={activeMode}
+            totalCount={vm.pagination.totalCount}
+            onModeChange={handleModeChange}
+          />
+        </div>
 
         {showCatalogFilters ? (
           <VerseListFiltersDrawer
