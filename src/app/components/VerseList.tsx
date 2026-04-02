@@ -31,11 +31,9 @@ import {
 } from "./verse-list/storage";
 import type { VerseListPrimaryFilterKey } from "./verse-list/components/primaryFilterTabs";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
-import { VerseListSlotCard } from "./verse-list/components/VerseListSlotCard";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   mapUserVerseToAppVerse,
@@ -139,12 +137,6 @@ export function VerseList({
   isAnchorEligible = false,
   onFriendsChanged,
 }: VerseListProps) {
-  const isTelegramFullscreen = useTelegramUiStore(
-    (state) => state.isTelegramFullscreen,
-  );
-  // const stickyControlsTop = isTelegramFullscreen
-  //   ? Math.max(0, contentSafeAreaInset.top)
-  //   : 0;
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -737,21 +729,6 @@ export function VerseList({
       : 0;
   const listBottomInset = 0;
 
-  const slotCardFooter = useMemo(() => {
-    if (!isMyMode) return undefined;
-    return (
-      <VerseListSlotCard
-        learningCapacity={learningCapacity}
-        onNavigateToCatalog={handleNavigateToCatalog}
-        queueCount={learningCapacity?.queueCount ?? 0}
-      />
-    );
-  }, [
-    isMyMode,
-    learningCapacity,
-    handleNavigateToCatalog,
-  ]);
-
   const myModeContent = useMemo(() => {
     if (!isMyMode) return null;
 
@@ -794,8 +771,6 @@ export function VerseList({
           paddingBottom: `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset > 0 ? listBottomInset : 0}px + 0.5rem)`,
         }}
       >
-        {slotCardFooter}
-
         {/* Изучение */}
         {groups.learning.length > 0 &&
           renderSection(groups.learning, "Изучение")}
@@ -833,7 +808,6 @@ export function VerseList({
     isMyMode,
     vm.list,
     vm.ui.currentFilterLabel,
-    slotCardFooter,
     listTopInset,
     listBottomInset,
     handleNavigateToCatalog,
@@ -958,7 +932,6 @@ export function VerseList({
         totalCount={vm.pagination.totalCount}
         pageSize={vm.list.pageSize}
         prefetchRows={vm.list.prefetchRows}
-        footerNode={slotCardFooter}
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
       />
     ) : null;

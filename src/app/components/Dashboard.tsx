@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Lock } from 'lucide-react'
 import { useTelegram } from '../contexts/TelegramContext'
 import type { Verse } from '@/app/domain/verse'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
@@ -141,7 +140,6 @@ export function Dashboard({
   todayVerses,
   dashboardStats = null,
   isDashboardStatsLoading = false,
-  learningCapacity = null,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
   dashboardFriendsActivity = null,
@@ -186,9 +184,6 @@ export function Dashboard({
       ] as const,
     [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
   )
-
-  const isCapacityFull =
-    learningCapacity != null && !learningCapacity.canAddMore
 
   if (isInitializingData) {
     return <div className="min-h-0 flex-1" />
@@ -245,22 +240,6 @@ export function Dashboard({
           onOpenPlayerProfile={onOpenPlayerProfile}
         />
       </div>
-      
-    {isCapacityFull && learningCapacity && (
-        <div className="shrink-0 px-3 sm:px-4 lg:px-5 flex-1">
-          <div className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle bg-bg-surface px-4 py-3 text-left">
-            <Lock className="h-5 w-5 shrink-0 text-text-muted" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-text-primary">
-                Слоты заполнены ({learningCapacity.activeLearning}/{learningCapacity.capacity})
-              </p>
-              <p className="text-xs text-text-muted">
-                Завершите текущие, чтобы добавить новые
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
 
     </div>
