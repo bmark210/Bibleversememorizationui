@@ -145,6 +145,7 @@ export function useVersePagination({
           telegramId: id,
           bookId: bookId ?? undefined,
           tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
+          search: normalizedSearchQuery || undefined,
           orderBy:
             sortBy === 'bible'
               ? 'bible'
@@ -244,8 +245,7 @@ export function useVersePagination({
           didPatch = true;
           changed = true;
 
-          const keep =
-            currentFilter === 'catalog' ? true : matchesListFilter(merged, currentFilter);
+          const keep = matchesListFilter(merged, currentFilter);
 
           if (keep) {
             next.push(merged);

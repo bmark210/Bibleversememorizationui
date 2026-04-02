@@ -3,12 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
+  Search,
   ChevronDown,
   ChevronUp,
   History,
   TrendingUp,
+  X,
 } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
+import { Input } from '@/app/components/ui/input';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
 import type { domain_Tag } from '@/api/models/domain_Tag';
@@ -124,10 +127,11 @@ export type VerseListFilterCardProps = {
 };
 
 const ALL_BOOKS_LABEL = 'Все';
+const MY_ROOT_FILTER_LABEL = 'Мои стихи';
 
 function VerseListFilterSections({
   statusFilter,
-  // filterOptions,
+  filterOptions,
   onTabClick,
   selectedBookId,
   bookOptions,
@@ -135,6 +139,8 @@ function VerseListFilterSections({
   sortBy,
   sortOptions,
   onSortChange,
+  searchQuery = '',
+  onSearchChange,
   allTags = [],
   isLoadingTags = false,
   selectedTagSlugs = new Set(),
@@ -151,6 +157,8 @@ function VerseListFilterSections({
   const isDrawerPresentation = presentation === 'drawer';
   const activeRootTab = getVerseListPrimaryFilterKey(statusFilter);
   const visibleRootTabs = getVisibleVerseListPrimaryFilterOptions();
+  const isMyRootTab = activeRootTab === 'my';
+  const trimmedSearchQuery = searchQuery.trim();
   const selectedBook =
     selectedBookId == null
       ? null
@@ -294,52 +302,96 @@ function VerseListFilterSections({
         </div>
       </div>
 
-            {/* {isMyMode ? (
-              <div className="mt-3 px-3">
-                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-                  Доп фильтр
-                </div>
-                <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
-                  <div role="tablist" aria-label="Подфильтр моих стихов">
-                    <ScrollRow>
-                      {filterOptions.map((option) => {
-                        const isActive = statusFilter === option.key;
-                        const optionTheme = FILTER_VISUAL_THEME[option.key];
-                        return (
-                          <button
-                            key={option.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={isActive}
-                            onClick={() =>
-                              isActive
-                                ? onTabClick('my', 'Мои стихи')
-                                : onTabClick(option.key, option.label)
-                            }
-                            className={cn(
-                              'first:ml-1 last:mr-1 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium text-foreground/75 transition-colors',
-                              isActive
-                                ? optionTheme.activeTabClassName
-                                : 'text-muted-foreground hover:bg-background/60',
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                isActive
-                                  ? optionTheme.dotClassName
-                                  : 'bg-muted-foreground/35',
-                              )}
-                            />
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </ScrollRow>
-                  </div>
-                </div>
-              </div>
-            ) : null} */}
+      {isMyRootTab ? (
+        <div className="mt-3 px-3">
+          <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            Раздел в моих стихах
+          </div>
+          <div className="rounded-2xl border border-border-subtle bg-bg-subtle p-1">
+            <div role="tablist" aria-label="Раздел моих стихов">
+              <ScrollRow className="py-0.5">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={statusFilter === 'my'}
+                  onClick={() => onTabClick('my', MY_ROOT_FILTER_LABEL)}
+                  className={cn(
+                    'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                    statusFilter === 'my'
+                      ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
+                  )}
+                >
+                  Все мои
+                </button>
+                {filterOptions.map((option) => {
+                  const isActive = statusFilter === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => onTabClick(option.key, option.label)}
+                      className={cn(
+                        'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                        isActive
+                          ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+                          : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </ScrollRow>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {onSearchChange ? (
+        <div data-tour="verse-list-filters-search" className="mt-3 px-3">
+          <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              Поиск
+            </span>
+            {trimmedSearchQuery.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={
+                isMyRootTab
+                  ? 'Найти в моих стихах'
+                  : 'Найти в каталоге'
+              }
+              className="pr-11 pl-10"
+            />
+            {trimmedSearchQuery.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-surface hover:text-text-primary"
+                aria-label="Очистить поиск"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">

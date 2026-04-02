@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookMarked, Clock, Minus, Users } from 'lucide-react';
+import { Archive, BookMarked, Clock, Users, X } from 'lucide-react';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
@@ -13,20 +13,7 @@ import { resolveVerseCardActionModel } from '@/app/components/verseCardActionMod
 import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
-  type VerseCardTonePalette,
 } from '@/app/components/verseCardColorConfig';
-
-// Warm brown tone for "В моих" state in catalog mode
-const CATALOG_OWNED_TONE: VerseCardTonePalette = {
-  frameClassName: 'bg-[#8c6a3b]/85',
-  surfaceClassName: '',
-  surfaceTintClassName: 'bg-[#8c6a3b]/14',
-  glowClassName: 'bg-[#8c6a3b]/22',
-  lineClassName: 'from-transparent via-[#8c6a3b]/60 to-transparent',
-  accentBorderClassName: 'border-[#8c6a3b]/40',
-  accentTextClassName: 'text-[#c49a6c]',
-  progressClassName: 'text-[#c49a6c]',
-};
 import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import {
@@ -50,7 +37,7 @@ export type SwipeCardProps = {
   onPauseLearning: (verse: Verse) => void;
   onResumeLearning: (verse: Verse) => void;
   onEditQueuePosition?: (verse: Verse) => void;
-  onRemoveFromMy?: (verse: Verse) => void;
+  onRemoveFromQueue?: (verse: Verse) => void;
   isPending?: boolean;
   isFocusMode?: boolean;
   isCatalogMode?: boolean;
@@ -69,7 +56,7 @@ const SwipeableVerseCardComponent = ({
   onPauseLearning,
   onResumeLearning,
   onEditQueuePosition,
-  onRemoveFromMy,
+  onRemoveFromQueue,
   isPending = false,
   isFocusMode = false,
   isCatalogMode = false,
@@ -77,11 +64,8 @@ const SwipeableVerseCardComponent = ({
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: SwipeCardProps) => {
   const displayStatus = getVerseDisplayStatus(verse);
-  const isOwnedInCatalog = isCatalogMode && displayStatus !== 'CATALOG';
   const stageVisual = getVerseStageVisual(verse);
-  const tonePalette = isOwnedInCatalog
-    ? CATALOG_OWNED_TONE
-    : colorConfig.tones[stageVisual.key];
+  const tonePalette = colorConfig.tones[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
   const totalProgressPercent = getVerseProgressPercent(verse);
   const popularityValue =
@@ -190,34 +174,36 @@ const SwipeableVerseCardComponent = ({
       .join('');
 
   const renderActions = () => {
-    // Catalog mode: simple "Добавить" / "Убрать из моих"
+    // Queue mode: show remove-from-queue button
+    if (displayStatus === VerseStatus.QUEUE) {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          title="Убрать из очереди"
+          aria-label={`Убрать ${verse.reference} из очереди`}
+          disabled={isPending}
+          className={cn(
+            "h-9 rounded-full px-3 text-[12px] font-medium",
+            colorConfig.actionButtonClassName,
+            colorConfig.actionButtonHoverClassName,
+            tonePalette.accentBorderClassName,
+            tonePalette.accentTextClassName,
+          )}
+          onClick={(e) => {
+            stopCardOpen(e);
+            onRemoveFromQueue?.(verse);
+          }}
+        >
+          <X className="h-3.5 w-3.5 shrink-0" />
+          <span className="max-w-[8rem] truncate text-[12px] font-medium">Убрать</span>
+        </Button>
+      );
+    }
+
+    // Catalog mode only shows verses that are not yet in "Мои стихи".
     if (isCatalogMode) {
-      if (isOwnedInCatalog) {
-        return (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            title="Убрать из моих стихов"
-            aria-label={`Убрать ${verse.reference} из моих стихов`}
-            disabled={isPending}
-            className={cn(
-              "h-9 rounded-full px-3 text-[12px] font-medium",
-              colorConfig.actionButtonClassName,
-              colorConfig.actionButtonHoverClassName,
-              tonePalette.accentBorderClassName,
-              tonePalette.accentTextClassName,
-            )}
-            onClick={(e) => {
-              stopCardOpen(e);
-              onRemoveFromMy?.(verse);
-            }}
-          >
-            <Minus className="h-3.5 w-3.5 shrink-0" />
-            <span className="max-w-[8rem] truncate text-[12px] font-medium">Убрать из моих</span>
-          </Button>
-        );
-      }
       return (
         <Button
           type="button"
@@ -517,16 +503,16 @@ const SwipeableVerseCardComponent = ({
               </div>
             ) : null}
           </div>
-          {!isFocusMode && isCatalogMode && isOwnedInCatalog ? (
-            <div key="catalog-owned" className="relative overflow-hidden">
+          {!isFocusMode && !isCatalogMode && displayStatus === VerseStatus.MY ? (
+            <div key="my-shelf" className="relative overflow-hidden">
               <div className="flex items-center pt-3">
                 <div className={cn(
                   'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1',
-                  'border-[#8c6a3b]/45 bg-[#8c6a3b]/16 text-[#c49a6c]',
+                  'border-status-collection/28 bg-status-collection-soft text-status-collection',
                   'text-[11px] font-semibold',
                 )}>
-                  <BookMarked className="h-3 w-3 shrink-0" />
-                  <span>В моих</span>
+                  <Archive className="h-3 w-3 shrink-0" />
+                  <span>На полке</span>
                 </div>
               </div>
             </div>

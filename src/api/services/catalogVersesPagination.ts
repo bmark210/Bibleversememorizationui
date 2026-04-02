@@ -5,6 +5,7 @@ export async function fetchCatalogVersesPage(params: {
   telegramId?: string;
   bookId?: number;
   tagSlugs?: string[];
+  search?: string;
   orderBy: "bible" | "popularity" | "createdAt";
   order: "asc" | "desc";
   limit: number;
@@ -19,6 +20,7 @@ export async function fetchCatalogVersesPage(params: {
     undefined,
     params.bookId,
     tagSlugs,
+    params.search,
     params.orderBy,
     params.order,
     params.limit,

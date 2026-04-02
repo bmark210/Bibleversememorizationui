@@ -60,11 +60,18 @@ type UseVerseListControllerParams = {
   onVerseMutationCommitted?: () => void;
   onLearningCapacityExceeded?: (verse: Verse) => void;
   onEditQueuePosition?: (verse: Verse) => void;
+  onRemoveFromQueue?: (verse: Verse) => void;
   cardColorConfig?: VerseCardColorConfig;
 };
 
 function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
   return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : 'catalog';
+}
+
+function getRootStatusFilter(
+  filter: VerseListStatusFilter
+): 'catalog' | 'my' {
+  return filter === 'catalog' ? 'catalog' : 'my';
 }
 
 function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
@@ -102,6 +109,7 @@ export function useVerseListController({
   onVerseMutationCommitted,
   onLearningCapacityExceeded,
   onEditQueuePosition,
+  onRemoveFromQueue,
   cardColorConfig,
 }: UseVerseListControllerParams): VerseListController {
   const debugInfiniteScroll = useCallback<DebugInfiniteScroll>(() => {}, []);
@@ -129,9 +137,6 @@ export function useVerseListController({
   const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(() =>
     disabled ? false : null
   );
-  const [previousHasOwnVerses, setPreviousHasOwnVerses] = useState<boolean | null>(() =>
-    disabled ? false : null
-  );
   const [sortBy, setSortBy] = useState<VerseListSortBy>(() => {
     if (disabled) return DEFAULT_VERSE_LIST_SORT_BY;
     if (typeof window === 'undefined') return DEFAULT_VERSE_LIST_SORT_BY;
@@ -151,7 +156,7 @@ export function useVerseListController({
     () => Array.from(tagFilter.selectedTagSlugs).sort(),
     [tagFilter.selectedTagSlugs]
   );
-  const searchQueryForServer = statusFilter === 'catalog' ? '' : searchQuery;
+  const searchQueryForServer = searchQuery;
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const lastHandledExternalSyncVersionRef = useRef<number | null>(
@@ -162,16 +167,6 @@ export function useVerseListController({
   const defaultStatusFilter = disabled
     ? 'catalog'
     : getDefaultStatusFilter(Boolean(hasOwnVerses));
-  const hasStoredInitialStatusFilter = initialStoredStatusFilter !== null;
-  const shouldAutoSwitchToMy =
-    !disabled &&
-    hasOwnVerses === true &&
-    !reopenGalleryStatusFilter &&
-    statusFilter === 'catalog' &&
-    (
-      previousHasOwnVerses === false ||
-      (previousHasOwnVerses === null && !hasStoredInitialStatusFilter)
-    );
   const shouldAutoSwitchToCatalog =
     !disabled &&
     hasOwnVerses === false &&
@@ -180,19 +175,17 @@ export function useVerseListController({
     statusFilter !== 'my'; // stay on 'my' even when empty — guided empty state handles it
   const shouldDelayListFetch = !disabled &&
     Boolean(telegramId) &&
-    (hasOwnVerses === null || shouldAutoSwitchToMy || shouldAutoSwitchToCatalog);
+    (hasOwnVerses === null || shouldAutoSwitchToCatalog);
 
   const refreshHasOwnVerses = useCallback(
     async (telegramIdOverride?: string | null) => {
       if (disabled) {
         setHasOwnVerses(false);
-        setPreviousHasOwnVerses(false);
         return false;
       }
       const resolvedTelegramId = telegramIdOverride?.trim() || telegramId?.trim() || '';
       if (!resolvedTelegramId) {
         setHasOwnVerses(null);
-        setPreviousHasOwnVerses(null);
         return null;
       }
 
@@ -240,10 +233,7 @@ export function useVerseListController({
     (
       verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
       filter: VerseListStatusFilter
-    ) => {
-      if (filter === 'catalog') return true;
-      return matchesVerseListFilter(verse, filter);
-    },
+    ) => matchesVerseListFilter(verse, filter),
     []
   );
 
@@ -275,7 +265,6 @@ export function useVerseListController({
   useEffect(() => {
     if (disabled) {
       setHasOwnVerses(false);
-      setPreviousHasOwnVerses(false);
       setStatusFilter('catalog');
       setSearchQuery('');
       setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
@@ -287,7 +276,6 @@ export function useVerseListController({
     if (!telegramId) {
       pagination.clearPaginationState();
       setHasOwnVerses(null);
-      setPreviousHasOwnVerses(null);
       return;
     }
     void refreshHasOwnVerses(telegramId);
@@ -305,12 +293,8 @@ export function useVerseListController({
 
     if (shouldAutoSwitchToCatalog) {
       setStatusFilter('catalog');
-    } else if (shouldAutoSwitchToMy) {
-      setStatusFilter(DEFAULT_VERSE_LIST_STATUS_FILTER);
     }
-
-    setPreviousHasOwnVerses(hasOwnVerses);
-  }, [disabled, hasOwnVerses, shouldAutoSwitchToCatalog, shouldAutoSwitchToMy]);
+  }, [disabled, hasOwnVerses, shouldAutoSwitchToCatalog]);
 
   useEffect(() => {
     if (disabled) return;
@@ -450,7 +434,6 @@ export function useVerseListController({
   // Single-pass filtering + classification: O(n) instead of O(5n).
   const { filteredVerses, reviewVerses, masteredVerses, learningVerses, stoppedVerses } = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    const useClientTextSearch = statusFilter === 'catalog';
     const filtered: Verse[] = [];
     const review: Verse[] = [];
     const mastered: Verse[] = [];
@@ -463,7 +446,6 @@ export function useVerseListController({
       const matchesBook = selectedBookId == null || verseBookId === selectedBookId;
       const matchesSearch =
         !normalizedQuery ||
-        !useClientTextSearch ||
         verse.reference.toLowerCase().includes(normalizedQuery) ||
         verse.text.toLowerCase().includes(normalizedQuery);
 
@@ -486,8 +468,7 @@ export function useVerseListController({
     };
   }, [pagination.verses, selectedBookId, statusFilter, matchesListFilter, searchQuery]);
 
-  const hasLocalClientSearchActive = statusFilter === 'catalog' && searchQuery.trim().length > 0;
-  const hasLocalClientFiltersActive = hasLocalClientSearchActive;
+  const hasLocalClientFiltersActive = false;
 
 
   const filterOptions = useMemo<VerseListFilterOption[]>(
@@ -540,6 +521,7 @@ export function useVerseListController({
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
         onEditQueuePosition={onEditQueuePosition}
+        onRemoveFromQueue={onRemoveFromQueue}
         onStartTraining={(v) => {
           const preferredMode = getTrainingLaunchMode(getVerseDisplayStatus(v));
           if (!preferredMode || !onNavigateToTraining) return;
@@ -569,6 +551,7 @@ export function useVerseListController({
       isAnchorEligible,
       isFocusMode,
       onEditQueuePosition,
+      onRemoveFromQueue,
       onNavigateToTraining,
       onOpenVerseOwners,
       onOpenVerseProgress,
@@ -589,7 +572,6 @@ export function useVerseListController({
         onOpenOwners={onOpenVerseOwners}
         onOpenTags={onOpenVerseTags}
         onAddToLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.MY)}
-        onRemoveFromMy={(v) => actions.confirmDeleteVerse(v)}
         onPauseLearning={() => {}}
         onResumeLearning={() => {}}
         isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
@@ -635,10 +617,22 @@ export function useVerseListController({
 
   const handleTabClick = useCallback((nextFilter: VerseListStatusFilter, label: string) => {
     if (statusFilter === nextFilter) return;
+
+    const currentRootFilter = getRootStatusFilter(statusFilter);
+    const nextRootFilter = getRootStatusFilter(nextFilter);
+
     haptic('light');
+
+    if (currentRootFilter !== nextRootFilter) {
+      setSelectedBookId(null);
+      setSortBy(DEFAULT_VERSE_LIST_SORT_BY);
+      setSearchQuery('');
+      tagFilter.clearTags();
+    }
+
     setStatusFilter(nextFilter);
     setAnnouncement(`Фильтр: ${label}`);
-  }, [statusFilter]);
+  }, [statusFilter, tagFilter.clearTags]);
 
   const handleBookChange = useCallback((nextBookId: number | null, label: string) => {
     if (selectedBookId === nextBookId) return;
