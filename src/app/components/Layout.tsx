@@ -5,7 +5,6 @@ import {
   BookOpen,
   Dumbbell,
   LayoutDashboard,
-  Shield,
   User,
 } from "lucide-react";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
@@ -22,14 +21,12 @@ interface LayoutProps {
   isContentReady?: boolean;
   hideChrome?: boolean;
   contentMode?: "scroll" | "fit" | "fit-strict";
-  showAdminPage?: boolean;
 }
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Главная",
   verses: "Стихи",
   training: "Тренировка",
-  admin: "Админка",
   profile: "Профиль",
 };
 
@@ -40,20 +37,6 @@ const DEFAULT_NAV_ITEMS = [
   { id: "profile", label: "Профиль", icon: User },
 ] as const;
 
-const ADMIN_NAV_ITEM = {
-  id: "admin",
-  label: "Админка",
-  icon: Shield,
-} as const;
-
-const ADMIN_NAV_ITEMS = [
-  DEFAULT_NAV_ITEMS[0],
-  DEFAULT_NAV_ITEMS[1],
-  DEFAULT_NAV_ITEMS[2],
-  ADMIN_NAV_ITEM,
-  DEFAULT_NAV_ITEMS[3],
-] as const;
-
 export function Layout({
   children,
   currentPage,
@@ -62,7 +45,6 @@ export function Layout({
   isContentReady = false,
   hideChrome = false,
   contentMode = "scroll",
-  showAdminPage = false,
 }: LayoutProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
@@ -77,7 +59,7 @@ export function Layout({
   const hideAppChrome = hideChrome;
   const isFitContent = contentMode === "fit" || contentMode === "fit-strict";
   const isFitStrict = contentMode === "fit-strict";
-  const navItems = showAdminPage ? ADMIN_NAV_ITEMS : DEFAULT_NAV_ITEMS;
+  const navItems = DEFAULT_NAV_ITEMS;
 
   useEffect(() => {
     if (typeof window === "undefined") return;

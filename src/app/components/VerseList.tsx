@@ -42,8 +42,9 @@ import {
   type Verse,
 } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
-import { addVerseToQueue, reorderVerseInQueue } from "@/app/components/Training/exam/queueApi";
+import type { LearningCapacityResponse, QueueVerseItem } from "@/app/components/Training/exam/types";
+import { addVerseToQueue, fetchVerseQueue, removeVerseFromQueue, reorderVerseInQueue } from "@/app/components/Training/exam/queueApi";
+import { VerseListQueueSection } from "@/app/components/verse-list/components/VerseListQueueSection";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { WheelPicker } from "@/app/components/ui/WheelPicker";
 import {
@@ -53,12 +54,40 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/app/components/ui/drawer";
-import { getVerseProgressPercent } from "@/shared/verseRules";
+import { getVerseDisplayStatus, getVerseProgressPercent, isVerseLearning, isVerseMastered, isVersePaused, isVerseReview } from "@/shared/verseRules";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { ArrowLeft, ArrowRightLeft, GraduationCap, ListOrdered, Loader2 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
+
+function groupByDisplayStatus(verses: Verse[]) {
+  const g = {
+    learning: [] as Verse[],
+    review: [] as Verse[],
+    stopped: [] as Verse[],
+    mastered: [] as Verse[],
+    my: [] as Verse[],
+  };
+  for (const v of verses) {
+    if (isVerseLearning(v)) g.learning.push(v);
+    else if (isVerseReview(v)) g.review.push(v);
+    else if (isVersePaused(v)) g.stopped.push(v);
+    else if (isVerseMastered(v)) g.mastered.push(v);
+    else if (getVerseDisplayStatus(v) === VerseStatus.MY) g.my.push(v);
+  }
+  return g;
+}
+
+function MyModeSectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 px-1 py-3">
+      <div className="h-px flex-1 bg-border-subtle/50" />
+      <span className="text-[11px] font-medium text-text-subtle">{label}</span>
+      <div className="h-px flex-1 bg-border-subtle/50" />
+    </div>
+  );
+}
 const PRIMARY_FILTER_DOCK_GAP_PX = 12;
 
 type LearningSlotDrawerStep = "actions" | "replace";
@@ -141,6 +170,8 @@ export function VerseList({
   // Position picker for queue reordering
   const [positionEditVerse, setPositionEditVerse] = useState<Verse | null>(null);
   const [positionEditValue, setPositionEditValue] = useState(1);
+  // Queue section data
+  const [queueItems, setQueueItems] = useState<QueueVerseItem[]>([]);
   const filterOverlayRef = useRef<HTMLDivElement | null>(null);
   const primaryFilterDockRef = useRef<HTMLDivElement | null>(null);
   const listViewportHostRef = useRef<HTMLDivElement | null>(null);
@@ -353,6 +384,36 @@ export function VerseList({
     setPositionEditValue(typeof verse.queuePosition === 'number' && verse.queuePosition > 0 ? verse.queuePosition : 1);
   }, []);
 
+  const loadQueueItems = useCallback(async () => {
+    if (!telegramId) return;
+    try {
+      const data = await fetchVerseQueue({ telegramId });
+      setQueueItems(data.items ?? []);
+    } catch {
+      // silently ignore — queue section just won't show
+    }
+  }, [telegramId]);
+
+  useEffect(() => {
+    void loadQueueItems();
+  }, [loadQueueItems, verseListExternalSyncVersion]);
+
+  const handleRemoveFromQueue = useCallback(async (externalVerseId: string) => {
+    if (!telegramId) return;
+    try {
+      await removeVerseFromQueue({ telegramId, externalVerseId });
+      setQueueItems((prev) => prev.filter((i) => i.externalVerseId !== externalVerseId));
+      onVerseMutationCommitted?.();
+    } catch {
+      toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
+    }
+  }, [telegramId, onVerseMutationCommitted]);
+
+  const handleEditQueueItemPosition = useCallback((item: QueueVerseItem) => {
+    setPositionEditVerse({ externalVerseId: item.externalVerseId, reference: item.reference, queuePosition: item.queuePosition } as unknown as Verse);
+    setPositionEditValue(item.queuePosition > 0 ? item.queuePosition : 1);
+  }, []);
+
   const vm = useVerseListController({
     disabled: false,
     initialTags: [],
@@ -405,6 +466,8 @@ export function VerseList({
   );
   const isAllMode = vm.filters.statusFilter === "catalog";
   const isMyMode = vm.filters.statusFilter === "my";
+  // "Мои стихи" mode renders its own sectioned layout via myModeContent.
+  // For catalog and sub-filter modes use the standard virtualized list items.
   const visibleListItems = isAllMode ? vm.list.listItems : vm.list.sectionItems;
 
   const handleSavePosition = useCallback(async () => {
@@ -419,10 +482,11 @@ export function VerseList({
       setPositionEditVerse(null);
       toast.success('Позиция обновлена', { label: 'Очередь' });
       onVerseMutationCommitted?.();
+      void loadQueueItems();
     } catch {
       toast.error('Ошибка — попробуйте ещё раз', { label: 'Очередь' });
     }
-  }, [positionEditVerse, positionEditValue, telegramId, onVerseMutationCommitted]);
+  }, [positionEditVerse, positionEditValue, telegramId, onVerseMutationCommitted, loadQueueItems]);
 
   const handleAddToQueue = useCallback(async () => {
     if (!queueTargetVerse || !telegramId) return;
@@ -434,12 +498,13 @@ export function VerseList({
         description: queueTargetVerse.reference,
         label: 'Стихи',
       });
+      void loadQueueItems();
     } catch {
       toast.error('Ошибка — попробуйте ещё раз', { label: 'Стихи' });
     } finally {
       setIsAddingToQueue(false);
     }
-  }, [queueTargetVerse, telegramId]);
+  }, [queueTargetVerse, telegramId, loadQueueItems]);
 
   const loadReplaceableLearningVerses = useCallback(
     async (targetExternalVerseId: string) => {
@@ -651,6 +716,12 @@ export function VerseList({
     }
   }, [queueTargetVerse, selectedReplacementVerse, vm.gallery]);
 
+  const listTopInset = isAllMode ? filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX : 0;
+  const listBottomInset =
+    primaryFilterDockHeight > 0
+      ? primaryFilterDockHeight + PRIMARY_FILTER_DOCK_GAP_PX
+      : 0;
+
   const slotCardFooter = useMemo(() => {
     if (!isMyMode) return undefined;
     return (
@@ -662,6 +733,91 @@ export function VerseList({
       />
     );
   }, [isMyMode, learningCapacity, handleNavigateToCatalog, handleNavigateToExam]);
+
+  const myModeContent = useMemo(() => {
+    if (!isMyMode) return null;
+
+    const nonQueueVerses = vm.list.sectionItems.filter((v) => v.status !== VerseStatus.QUEUE);
+    const groups = groupByDisplayStatus(nonQueueVerses);
+    const hasContent =
+      groups.learning.length > 0 ||
+      queueItems.length > 0 ||
+      groups.review.length > 0 ||
+      groups.mastered.length > 0 ||
+      groups.stopped.length > 0 ||
+      groups.my.length > 0;
+
+    const renderSection = (verses: Verse[], label: string) => (
+      <>
+        <MyModeSectionDivider label={label} />
+        <div className="space-y-3 pb-1">
+          {verses.map((v) => (
+            <React.Fragment key={vm.list.getItemKey(v)}>
+              {vm.list.renderVerseRow(v)}
+            </React.Fragment>
+          ))}
+        </div>
+      </>
+    );
+
+    return (
+      <div
+        className="h-full overflow-y-auto px-2 sm:px-6"
+        style={{
+          paddingBottom: `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset > 0 ? listBottomInset : 0}px + 0.5rem)`,
+        }}
+      >
+        {slotCardFooter}
+
+        {/* Изучение */}
+        {groups.learning.length > 0 && renderSection(groups.learning, 'Изучение')}
+
+        {/* В очереди — сразу после изучения, т.к. очередь пополняет слоты */}
+        {queueItems.length > 0 && (
+          <VerseListQueueSection
+            items={queueItems}
+            onRemove={handleRemoveFromQueue}
+            onEditPosition={handleEditQueueItemPosition}
+            className="px-1"
+          />
+        )}
+
+        {/* Повторение */}
+        {groups.review.length > 0 && renderSection(groups.review, 'Повторение')}
+
+        {/* Выучены */}
+        {groups.mastered.length > 0 && renderSection(groups.mastered, 'Выучены')}
+
+        {/* На паузе */}
+        {groups.stopped.length > 0 && renderSection(groups.stopped, 'На паузе')}
+
+        {/* В списке — добавлены, но ещё не начаты */}
+        {groups.my.length > 0 && renderSection(groups.my, 'В списке')}
+
+        {!hasContent && (
+          <div className="flex flex-1 items-center justify-center py-16">
+            <div className="w-full max-w-md px-4">
+              <VerseListEmptyState
+                currentFilterLabel={vm.ui.currentFilterLabel}
+                isMyFilter
+                onNavigateToCatalog={handleNavigateToCatalog}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }, [
+    isMyMode,
+    vm.list,
+    vm.ui.currentFilterLabel,
+    queueItems,
+    slotCardFooter,
+    listBottomInset,
+    handleRemoveFromQueue,
+    handleEditQueueItemPosition,
+    handleNavigateToCatalog,
+  ]);
 
   const handleTelegramBack = useCallback(() => {
     if (isGalleryOpen) {
@@ -763,12 +919,6 @@ export function VerseList({
     },
     [closeVerseTagsDrawer, vm.tagFilter.onTagClick, vm.tagFilter.selectedTagSlugs],
   );
-  const listTopInset = filterOverlayHeight + LIST_OVERLAY_SPACER_GAP_PX;
-  const listBottomInset =
-    primaryFilterDockHeight > 0
-      ? primaryFilterDockHeight + PRIMARY_FILTER_DOCK_GAP_PX
-      : 0;
-
   const listContent =
     visibleListItems.length > 0 ? (
       <VerseVirtualizedList
@@ -781,7 +931,7 @@ export function VerseList({
         isFetchingMore={vm.pagination.isFetchingMoreVerses}
         showDelayedLoadMoreSkeleton={vm.pagination.showDelayedLoadMoreSkeleton}
         onLoadMore={vm.list.onLoadMoreRows}
-        renderRow={vm.list.renderVerseRow}
+        renderRow={isAllMode ? vm.list.renderCatalogRow : vm.list.renderVerseRow}
         getItemKey={vm.list.getItemKey}
         getItemLayoutSignature={getListItemLayoutSignature}
         statusFilter={vm.filters.statusFilter}
@@ -867,14 +1017,16 @@ export function VerseList({
             ref={filterOverlayRef}
             className="pointer-events-none absolute inset-x-0 top-0 z-40 px-4 pt-2 pb-0 sm:px-6 lg:px-8"
           >
-            <VerseListFiltersTrigger
-              className="pointer-events-auto"
-              open={isFiltersDrawerOpen}
-              onOpen={() => setIsLocalFiltersDrawerOpen(true)}
-              isFocusMode={isFocusMode}
-              onToggleFocusMode={toggleFocusMode}
-              {...filterCardProps}
-            />
+            {isAllMode && (
+              <VerseListFiltersTrigger
+                className="pointer-events-auto"
+                open={isFiltersDrawerOpen}
+                onOpen={() => setIsLocalFiltersDrawerOpen(true)}
+                isFocusMode={isFocusMode}
+                onToggleFocusMode={toggleFocusMode}
+                {...filterCardProps}
+              />
+            )}
           </div>
 
           <div
@@ -905,7 +1057,7 @@ export function VerseList({
                   <VerseListSkeletonCards count={5} />
                 </div>
               ) : null}
-              {!vm.ui.isListLoading && vm.ui.isEmptyFiltered ? (
+              {!vm.ui.isListLoading && vm.ui.isEmptyFiltered && !isMyMode ? (
                 <div
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="empty"
@@ -923,16 +1075,16 @@ export function VerseList({
                       <VerseListEmptyState
                         currentFilterLabel={vm.ui.currentFilterLabel}
                         isAllFilter={vm.filters.statusFilter === "catalog"}
-                        isMyFilter={isMyMode}
-                        onNavigateToCatalog={isMyMode ? handleNavigateToCatalog : undefined}
+                        isMyFilter={false}
+                        onNavigateToCatalog={undefined}
                       />
                     </div>
                   </div>
                 </div>
               ) : null}
-              {!vm.ui.isListLoading && !vm.ui.isEmptyFiltered && vm.list.sectionConfig ? (
+              {!vm.ui.isListLoading && (isMyMode || (!vm.ui.isEmptyFiltered && vm.list.sectionConfig)) ? (
                 <div className="relative flex h-full min-h-0 flex-col">
-                  <div className="min-h-0 flex-1">{listContent}</div>
+                  <div className="min-h-0 flex-1">{isMyMode ? myModeContent : listContent}</div>
                 </div>
               ) : null}
             </div>

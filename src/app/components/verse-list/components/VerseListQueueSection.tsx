@@ -21,6 +21,13 @@ export function VerseListQueueSection({
 
   return (
     <div className={cn('mb-1', className)}>
+      {/* Section header */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="h-px flex-1 bg-border-subtle/50" />
+        <span className="text-[11px] text-text-subtle">В очереди</span>
+        <div className="h-px flex-1 bg-border-subtle/50" />
+      </div>
+
       {/* Cards */}
       <div className="space-y-3 pb-1">
         {items.map((item) => (
@@ -44,7 +51,11 @@ export function VerseListQueueSection({
               )}
               aria-label={`Позиция в очереди: ${item.queuePosition}. Нажмите, чтобы изменить`}
             >
-              <span className="tabular-nums">#{item.queuePosition}</span>
+              {item.queuePosition === 1 ? (
+                <span>Следующий</span>
+              ) : (
+                <span className="tabular-nums">#{item.queuePosition}</span>
+              )}
               <span className="text-text-subtle">·</span>
               <span>В очереди</span>
             </button>
@@ -78,12 +89,6 @@ export function VerseListQueueSection({
         ))}
       </div>
 
-      {/* Divider to active learning */}
-      <div className="mt-4 mb-1 flex items-center gap-2">
-        <div className="h-px flex-1 bg-border-subtle/50" />
-        <span className="text-[11px] text-text-subtle">Активное изучение</span>
-        <div className="h-px flex-1 bg-border-subtle/50" />
-      </div>
     </div>
   );
 }

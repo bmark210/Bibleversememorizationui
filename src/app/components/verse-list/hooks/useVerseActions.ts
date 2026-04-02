@@ -41,6 +41,8 @@ type UseVerseActionsParams = {
   ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
   onVerseMutationCommitted?: () => void;
   onLearningCapacityExceeded?: (verse: Verse) => void;
+  /** Returns the reference of the first queued verse, if any */
+  getFirstQueueReference?: () => string | null;
 };
 
 function getErrorStatusCode(error: unknown): number | null {
@@ -75,6 +77,7 @@ export function useVerseActions({
   applyVersePatch,
   onVerseMutationCommitted,
   onLearningCapacityExceeded,
+  getFirstQueueReference,
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
@@ -194,6 +197,12 @@ export function useVerseActions({
             label: 'Стихи',
           });
         }
+        if (toastKind === 'pause' && getFirstQueueReference) {
+          const nextRef = getFirstQueueReference();
+          if (nextRef) {
+            toast.info(`${nextRef} займёт освободившийся слот`, { label: 'Очередь' });
+          }
+        }
         setAnnouncement(`${verse.reference}: ${message}`);
       } catch (err) {
         console.error('Не удалось изменить статус стиха:', err);
@@ -226,6 +235,7 @@ export function useVerseActions({
       applyVersePatch,
       onVerseMutationCommitted,
       onLearningCapacityExceeded,
+      getFirstQueueReference,
     ]
   );
 

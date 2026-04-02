@@ -161,6 +161,10 @@ export function useVersePagination({
         };
       }
 
+      // "my" mode shows all verses in sectioned layout without a virtualized list,
+      // so fetch the maximum allowed page size to avoid needing pagination.
+      const effectiveLimit = filter === 'my' ? 100 : pageSize;
+
       const page = await fetchUserVersesPage({
         telegramId: id,
         orderBy:
@@ -174,7 +178,7 @@ export function useVersePagination({
         bookId: bookId ?? undefined,
         search: normalizedSearchQuery || undefined,
         tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
-        limit: pageSize,
+        limit: effectiveLimit,
         startWith: startWith ?? undefined,
       });
 

@@ -247,6 +247,13 @@ export function useVerseListController({
     []
   );
 
+  const getFirstQueueReference = useCallback(() => {
+    const first = pagination.verses.find(
+      (v) => v.status === VerseStatus.QUEUE && v.queuePosition === 1
+    );
+    return first?.reference ?? null;
+  }, [pagination.verses]);
+
   const actions = useVerseActions({
     telegramId,
     statusFilter,
@@ -262,6 +269,7 @@ export function useVerseListController({
       onVerseMutationCommitted?.();
     },
     onLearningCapacityExceeded,
+    getFirstQueueReference,
   });
 
   useEffect(() => {
@@ -570,6 +578,35 @@ export function useVerseListController({
     ]
   );
 
+  const renderCatalogRow = useCallback(
+    (verse: Verse) => (
+      <SwipeableVerseCard
+        verse={verse}
+        isCatalogMode
+        isFocusMode={isFocusMode}
+        onOpen={() => openVerseInGallery(verse)}
+        onOpenProgress={onOpenVerseProgress}
+        onOpenOwners={onOpenVerseOwners}
+        onOpenTags={onOpenVerseTags}
+        onAddToLearning={(v) => void actions.updateVerseStatus(v, VerseStatus.MY)}
+        onRemoveFromMy={(v) => actions.confirmDeleteVerse(v)}
+        onPauseLearning={() => {}}
+        onResumeLearning={() => {}}
+        isPending={actions.pendingVerseKeys.has(actions.getVerseKey(verse))}
+        colorConfig={cardColorConfig}
+      />
+    ),
+    [
+      actions,
+      cardColorConfig,
+      isFocusMode,
+      onOpenVerseOwners,
+      onOpenVerseProgress,
+      onOpenVerseTags,
+      openVerseInGallery,
+    ]
+  );
+
   const handleLoadMoreRows = useCallback(
     async (range: VerseListLoadRange) => {
       if (hasLocalClientFiltersActive) {
@@ -785,6 +822,7 @@ export function useVerseListController({
       pageSize: VERSE_LIST_PAGE_SIZE,
       prefetchRows: PREFETCH_ROWS,
       renderVerseRow,
+      renderCatalogRow,
       getItemKey: actions.getVerseKey,
       getItemLayoutSignature: getVerseCardLayoutSignature,
       onLoadMoreRows: handleLoadMoreRows,

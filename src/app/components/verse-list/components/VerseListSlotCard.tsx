@@ -98,8 +98,8 @@ export function VerseListSlotCard({
             <ListOrdered className="h-3.5 w-3.5 text-text-muted" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-text-secondary">
-              Очередь · {queueCount} {queueCount === 1 ? 'стих' : queueCount < 5 ? 'стиха' : 'стихов'}
+            <p className="text-[13px] font-medium text-text-primary">
+              Все слоты заняты · {queueCount} {queueCount === 1 ? 'стих' : queueCount < 5 ? 'стиха' : 'стихов'} в очереди
             </p>
             <p className="mt-0.5 text-[11px] text-text-subtle">
               Первый стих продвинется, как только освободится слот

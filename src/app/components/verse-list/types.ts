@@ -87,6 +87,7 @@ export type VerseListController = {
     pageSize: number;
     prefetchRows: number;
     renderVerseRow: (verse: Verse) => React.ReactNode;
+    renderCatalogRow: (verse: Verse) => React.ReactNode;
     getItemKey: (verse: Pick<Verse, 'id' | 'externalVerseId'>) => string;
     getItemLayoutSignature: (verse: Verse) => VerseCardLayoutSignature;
     onLoadMoreRows: (range: VerseListLoadRange) => Promise<void>;

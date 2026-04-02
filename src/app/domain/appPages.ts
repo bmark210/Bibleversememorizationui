@@ -4,7 +4,6 @@ export type AppRootPage =
   | "dashboard"
   | "verses"
   | "training"
-  | "admin"
   | "profile";
 
 export type PendingVerseListReturn = {
