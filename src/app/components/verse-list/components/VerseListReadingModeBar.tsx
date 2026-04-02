@@ -14,13 +14,13 @@ export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-1.5 pr-4">
+    <div className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-3">
       <div className="pointer-events-auto">
         {/* Pill — fixed height, expands horizontally to the left */}
         <div
           className={cn(
             'flex h-9 items-center overflow-hidden',
-            'rounded-full border border-border-subtle bg-bg-overlay/98 shadow-[var(--shadow-soft)] backdrop-blur-xl',
+            'rounded-l-full rounded-r-none border border-border-subtle bg-bg-overlay/98 shadow-[var(--shadow-soft)] backdrop-blur-xl',
             'transition-[width] duration-300 ease-out',
             isOpen ? 'w-60' : 'w-[58px]',
           )}
@@ -30,7 +30,7 @@ export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
             className={cn(
               'flex h-full items-center gap-3 overflow-hidden whitespace-nowrap',
               'transition-opacity duration-150',
-              isOpen ? 'opacity-100 delay-150 pl-4 pr-1 flex-1' : 'opacity-0 delay-0',
+              isOpen ? 'opacity-100 delay-150 pl-4 flex-1' : 'opacity-0 delay-0',
             )}
           >
             <span className="flex-1 truncate text-[12px] font-medium text-text-secondary">
