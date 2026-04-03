@@ -41,6 +41,11 @@ import {
   clamp,
 } from "./utils";
 import { TRAINING_STAGE_MASTERY_MAX } from "./constants";
+import {
+  isCatalogGalleryMode,
+  isCatalogGalleryOwnedVerse,
+  shouldShowGalleryDelete,
+} from "./presentation";
 import type { TrainingMode } from "@/app/components/Training/types";
 import type { VerseGalleryProps } from "./types";
 
@@ -113,6 +118,7 @@ function getPreviewStatusMutation(
 export function VerseGallery({
   verses,
   initialIndex,
+  sourceMode = "my",
   activeTagSlugs = null,
   viewerTelegramId = null,
   isFocusMode = false,
@@ -200,6 +206,10 @@ export function VerseGallery({
   const previewActiveVerse = preview?.verse ?? null;
   const previewActionModel = preview?.actionModel ?? null;
   const previewStatus = preview?.status ?? null;
+  const isCatalogSourceMode = isCatalogGalleryMode(sourceMode);
+  const isCatalogOwnedPreview =
+    previewStatus != null &&
+    isCatalogGalleryOwnedVerse(sourceMode, previewStatus);
   const isBlockingOverlayOpen = isDeleteDialogOpen || isOverlayOpen;
   const previewDisplayTotal = useMemo(
     () => Math.max(previewTotalCount, verses.length, 1),
@@ -290,6 +300,10 @@ export function VerseGallery({
   );
 
   const handlePrimaryStatusAction = useEventCallback(() => {
+    if (isCatalogOwnedPreview) {
+      setIsDeleteDialogOpen(true);
+      return;
+    }
     void handlePreviewStatusMutation(previewActionModel?.primaryAction?.id);
   });
 
@@ -316,7 +330,16 @@ export function VerseGallery({
         toasterId: GALLERY_TOASTER_ID,
       });
 
-      if (verses.length <= 1) {
+      if (isCatalogSourceMode) {
+        setPreviewOverride(previewActiveVerse, {
+          status: "CATALOG",
+          flow: null,
+          masteryLevel: 0,
+          repetitions: 0,
+          lastReviewedAt: null,
+          nextReviewAt: null,
+        });
+      } else if (verses.length <= 1) {
         handleClose();
       } else {
         const newDir = activeIndex > 0 ? -1 : 1;
@@ -469,11 +492,13 @@ export function VerseGallery({
           >
             <VersePreviewCard
               preview={preview}
+              sourceMode={sourceMode}
               isActionPending={isActionPending}
               activeTagSlugs={selectedTagSlugs}
               isFocusMode={isFocusMode}
               onStartTraining={handleStartTraining}
               onStatusAction={handlePrimaryStatusAction}
+              onCatalogRemove={handleDeleteDialogOpen}
               onUtilityAction={handleUtilityStatusAction}
               onOpenProgress={handleOpenProgress}
               onOpenTags={handleOpenTagsDrawer}
@@ -495,7 +520,10 @@ export function VerseGallery({
           isFocusMode={isFocusMode}
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
-          showDelete={previewStatus !== "CATALOG"}
+          showDelete={
+            previewStatus != null &&
+            shouldShowGalleryDelete(sourceMode, previewStatus)
+          }
           bottomInset={contentSafeAreaInset.bottom}
           onClose={handleClose}
           onToggleFocusMode={onToggleFocusMode}

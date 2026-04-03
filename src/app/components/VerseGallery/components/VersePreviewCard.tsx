@@ -1,6 +1,6 @@
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clock } from "lucide-react";
+import { BookMarked, Clock, Minus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -17,14 +17,22 @@ import {
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { PreparedVersePreview } from "../previewModel";
+import type { VerseGallerySourceMode } from "../types";
+import {
+  getGalleryPreviewTone,
+  isCatalogGalleryOwnedVerse,
+  isCatalogGalleryMode,
+} from "../presentation";
 
 type Props = {
   preview: PreparedVersePreview;
+  sourceMode?: VerseGallerySourceMode;
   isActionPending: boolean;
   activeTagSlugs?: Set<string> | Iterable<string> | null;
   isFocusMode?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onCatalogRemove?: () => void;
   onUtilityAction?: () => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
@@ -45,11 +53,13 @@ function getInitials(name: string) {
 
 export const VersePreviewCard = React.memo(function VersePreviewCard({
   preview,
+  sourceMode = "my",
   isActionPending,
   activeTagSlugs = null,
   isFocusMode = false,
   onStartTraining,
   onStatusAction,
+  onCatalogRemove,
   onUtilityAction,
   onOpenProgress,
   onOpenTags,
@@ -71,7 +81,10 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     popularityValue,
     popularityBadge,
   } = preview;
-  const tonePalette = colorConfig.tones[tone ?? "learning"];
+  const isCatalogMode = isCatalogGalleryMode(sourceMode);
+  const isCatalogOwned = isCatalogGalleryOwnedVerse(sourceMode, preview.status);
+  const displayTone = getGalleryPreviewTone(sourceMode, tone);
+  const tonePalette = colorConfig.tones[displayTone ?? "learning"];
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -112,13 +125,44 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   const waitingActionLabel = actionModel.waitingLabel;
   const statusTone = actionModel.statusTone;
   const showFooter =
-    !isFocusMode && actionModel.showProgress && statusTone !== null;
+    !isFocusMode &&
+    !isCatalogMode &&
+    actionModel.showProgress &&
+    statusTone !== null;
   const inlineUtilityAction =
-    primaryAction?.id === "train" && actionModel.utilityAction?.id === "pause"
+    !isCatalogMode &&
+    primaryAction?.id === "train" &&
+    actionModel.utilityAction?.id === "pause"
       ? actionModel.utilityAction
       : null;
+  const primaryLabel = isCatalogMode
+    ? isCatalogOwned
+      ? "Убрать из моих"
+      : "Добавить в мои"
+    : primaryAction?.label ?? null;
+  const primaryAriaLabel = isCatalogMode
+    ? isCatalogOwned
+      ? `Убрать стих ${verse.reference} из моих`
+      : `Добавить стих ${verse.reference} в мои`
+    : primaryAction?.ariaLabel ?? undefined;
+  const primaryIcon = isCatalogMode
+    ? isCatalogOwned
+      ? Minus
+      : BookMarked
+    : primaryAction?.icon;
+  const PrimaryIcon = primaryIcon;
 
   const handlePrimaryAction = useCallback(() => {
+    if (isCatalogMode) {
+      if (isCatalogOwned) {
+        onCatalogRemove?.();
+        return;
+      }
+
+      onStatusAction();
+      return;
+    }
+
     if (!primaryAction) return;
 
     if (primaryAction.id === "train" || primaryAction.id === "anchor") {
@@ -127,7 +171,14 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     }
 
     onStatusAction();
-  }, [primaryAction, onStartTraining, onStatusAction]);
+  }, [
+    isCatalogMode,
+    isCatalogOwned,
+    onCatalogRemove,
+    onStartTraining,
+    onStatusAction,
+    primaryAction,
+  ]);
 
   // ── Line-clamp calculation ──────────────────────────────────────────────────
   // Deferred to useEffect (not useLayoutEffect) so it doesn't block the first
@@ -197,7 +248,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
         minHeight="training"
         bodyScrollable={isFocusMode}
         onVerticalSwipeStep={isFocusMode ? onVerticalSwipeStep : undefined}
-        previewTone={tone}
+        previewTone={displayTone}
         colorConfig={colorConfig}
         metaBadge={
           isFocusMode ? null : hasOwnersTrigger ? (
@@ -354,7 +405,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
           </div>
         }
         centerAction={
-          primaryAction ? (
+          PrimaryIcon && primaryLabel ? (
             <div className="flex max-w-full items-center justify-center gap-2.5">
               <Button
                 data-tour="verse-gallery-primary-cta"
@@ -369,10 +420,10 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                 )}
                 onClick={handlePrimaryAction}
                 disabled={isActionPending}
-                aria-label={primaryAction.ariaLabel}
+                aria-label={primaryAriaLabel}
               >
-                <primaryAction.icon className="h-4 w-4" />
-                <span className="min-w-0 truncate">{primaryAction.label}</span>
+                <PrimaryIcon className="h-4 w-4" />
+                <span className="min-w-0 truncate">{primaryLabel}</span>
               </Button>
 
               {inlineUtilityAction ? (
@@ -397,7 +448,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                 </Button>
               ) : null}
             </div>
-          ) : waitingActionLabel ? (
+          ) : !isCatalogMode && waitingActionLabel ? (
             <div className="flex justify-center">
               <VerseStatusMetaPill
                 label={waitingActionLabel}
@@ -411,7 +462,19 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
           ) : null
         }
         footer={
-          preview.status === VerseStatus.QUEUE ? (
+          isCatalogOwned ? (
+            <div className="flex justify-center">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold",
+                  "border-status-collection/28 bg-status-collection-soft text-status-collection",
+                )}
+              >
+                <BookMarked className="h-3.5 w-3.5 shrink-0" />
+                <span>В моих</span>
+              </span>
+            </div>
+          ) : preview.status === VerseStatus.QUEUE ? (
             <div className="flex justify-center">
               <button
                 type="button"

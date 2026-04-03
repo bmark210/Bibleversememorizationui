@@ -25,34 +25,44 @@ export function MyVersesFilterBar({
   if (sections.length === 0) return null;
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
+    <div className="py-3">
+      <div className="flex gap-2 overflow-x-auto rounded-[22px] border border-border/60 bg-background/88 p-1.5 shadow-[var(--shadow-soft)] backdrop-blur-xl scrollbar-hide">
       {sections.map((section) => (
         <button
           key={section.key}
           type="button"
           onClick={() => onToggleVisibility(section.key)}
+          aria-pressed={section.isVisible}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5',
+            'inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 py-1.5',
             'text-[11px] font-medium transition-all duration-200',
             section.isVisible
               ? [
-                  section.softBgClass,
-                  section.accentClass,
-                  'border-transparent',
+                  'border-transparent bg-foreground/[0.035] text-foreground/82 shadow-[0_1px_3px_rgba(15,23,42,0.08)]',
                 ]
-              : 'border-border-subtle/60 bg-transparent text-text-subtle opacity-50',
+              : 'border-border-subtle/60 bg-transparent text-text-subtle opacity-70',
           )}
         >
           <span
             className={cn(
-              'h-[5px] w-[5px] rounded-full transition-opacity',
+              'h-[6px] w-[6px] rounded-full transition-opacity',
               section.isVisible ? section.dotClass : 'bg-text-muted',
             )}
           />
-          <span>{section.title}</span>
-          <span className="tabular-nums opacity-70">{section.count}</span>
+          <span className="whitespace-nowrap">{section.title}</span>
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums transition-colors',
+              section.isVisible
+                ? [section.softBgClass, section.accentClass]
+                : 'bg-bg-subtle text-text-subtle',
+            )}
+          >
+            {section.count}
+          </span>
         </button>
       ))}
+      </div>
     </div>
   );
 }

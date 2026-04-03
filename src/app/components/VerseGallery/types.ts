@@ -11,6 +11,7 @@ import type { TrainingModeRating } from "@/app/components/training-session/modes
 export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
 export type PanelMode = "preview" | "training";
 export type VerseGalleryLaunchMode = "preview" | "training";
+export type VerseGallerySourceMode = "catalog" | "my";
 export type Rating = TrainingModeRating;
 export type TrainingSubsetFilter = "learning" | "review" | "catalog";
 export type ModeId = TrainingModeId;
@@ -62,6 +63,7 @@ export type PlayerProfilePreview = {
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
+  sourceMode?: VerseGallerySourceMode;
   activeTagSlugs?: Iterable<string> | null;
   viewerTelegramId?: string | null;
   isFocusMode?: boolean;

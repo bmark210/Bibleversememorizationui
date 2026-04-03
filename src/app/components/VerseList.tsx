@@ -1148,6 +1148,7 @@ export function VerseList({
             <VerseGallery
               verses={vm.pagination.verses}
               initialIndex={vm.gallery.galleryIndex}
+              sourceMode={activeMode}
               activeTagSlugs={vm.tagFilter.selectedTagSlugs}
               viewerTelegramId={telegramId}
               isFocusMode={isFocusMode}
