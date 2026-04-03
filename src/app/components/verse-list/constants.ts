@@ -14,6 +14,8 @@ export type VerseListStatusFilter =
   | "mastered"
   | "stopped"
   | "my";
+
+export type MyVersesSectionKey = 'learning' | 'queue' | 'review' | 'mastered' | 'stopped' | 'my';
 export type VerseListSortBy = "updatedAt" | "bible" | "popularity";
 export type VerseStageVisualKey = VerseListStatusFilter | "queue";
 export type StoppedVerseStageKind = PausedVerseKind;
@@ -91,6 +93,68 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
       'border-status-collection/25 bg-status-collection-soft text-status-collection',
     cardClassName: 'bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated',
   },
+};
+
+export type StatusBoxTheme = {
+  dotClass: string;
+  accentClass: string;
+  softBgClass: string;
+  tintBgClass: string;
+  borderClass: string;
+};
+
+export const STATUS_BOX_THEME: Record<MyVersesSectionKey, StatusBoxTheme> = {
+  learning: {
+    dotClass: 'bg-status-learning',
+    accentClass: 'text-status-learning',
+    softBgClass: 'bg-status-learning-soft',
+    tintBgClass: 'bg-status-learning-tint',
+    borderClass: 'border-status-learning/20',
+  },
+  queue: {
+    dotClass: 'bg-status-queue',
+    accentClass: 'text-status-queue',
+    softBgClass: 'bg-status-queue-soft',
+    tintBgClass: 'bg-status-queue-tint',
+    borderClass: 'border-status-queue/20',
+  },
+  review: {
+    dotClass: 'bg-status-review',
+    accentClass: 'text-status-review',
+    softBgClass: 'bg-status-review-soft',
+    tintBgClass: 'bg-status-review-tint',
+    borderClass: 'border-status-review/20',
+  },
+  mastered: {
+    dotClass: 'bg-status-mastered',
+    accentClass: 'text-status-mastered',
+    softBgClass: 'bg-status-mastered-soft',
+    tintBgClass: 'bg-status-mastered-tint',
+    borderClass: 'border-status-mastered/20',
+  },
+  stopped: {
+    dotClass: 'bg-status-paused',
+    accentClass: 'text-status-paused',
+    softBgClass: 'bg-status-paused-soft',
+    tintBgClass: 'bg-status-paused-tint',
+    borderClass: 'border-status-paused/20',
+  },
+  my: {
+    dotClass: 'bg-status-collection',
+    accentClass: 'text-status-collection',
+    softBgClass: 'bg-status-collection-soft',
+    tintBgClass: 'bg-status-collection-tint',
+    borderClass: 'border-status-collection/20',
+  },
+};
+
+export const SECTION_META: Record<MyVersesSectionKey, { title: string; description: string }> = {
+  learning: { title: 'Изучение', description: 'Стихи, которые вы сейчас учите' },
+  queue: { title: 'В очереди', description: 'Ждут свободного слота' },
+  review: { title: 'Повторение', description: 'Интервальное повторение' },
+  mastered: { title: 'Выучены', description: 'Полностью заученные стихи' },
+  stopped: { title: 'На паузе', description: 'Изучение приостановлено' },
+  my: { title: 'В списке', description: 'Добавлены, но ещё не начаты' },
 };
 
 export function getStoppedVerseStageKind(

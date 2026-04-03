@@ -13,6 +13,7 @@ import {
   getVerseDisplayStatus,
   matchesVerseListFilter,
 } from "@/shared/verseRules";
+import { toast } from "@/app/lib/toast";
 import {
   DEFAULT_VERSE_LIST_STATUS_FILTER,
   DEFAULT_VERSE_LIST_SORT_BY,
@@ -267,12 +268,19 @@ export function useVerseListController({
     [],
   );
 
-  const getFirstQueueReference = useCallback(() => {
-    const first = pagination.verses.find(
-      (v) => v.status === VerseStatus.QUEUE && v.queuePosition === 1,
-    );
-    return first?.reference ?? null;
-  }, [pagination.verses]);
+  const handleSlotFreed = useCallback(
+    (promotedIds: string[]) => {
+      // Show a toast for each verse promoted QUEUE → LEARNING.
+      for (const externalId of promotedIds) {
+        const verse = pagination.verses.find((v) => v.externalVerseId === externalId);
+        const ref = verse?.reference ?? externalId;
+        toast.success(`${ref} начинает изучение`, { label: 'Очередь' });
+      }
+      // Refetch so the boxes reflect the new LEARNING / QUEUE state.
+      void pagination.refetchCurrentListFromExternalSync();
+    },
+    [pagination.verses, pagination.refetchCurrentListFromExternalSync],
+  );
 
   const actions = useVerseActions({
     telegramId,
@@ -289,7 +297,7 @@ export function useVerseListController({
       onVerseMutationCommitted?.();
     },
     onLearningCapacityExceeded,
-    getFirstQueueReference,
+    onSlotFreed: handleSlotFreed,
   });
 
   useEffect(() => {
@@ -943,6 +951,9 @@ export function useVerseListController({
       onBookChange: handleBookChange,
       onSortChange: handleSortChange,
       onResetFilters: handleResetFilters,
+    },
+    refetch: {
+      refetchVerses: pagination.refetchCurrentListFromExternalSync,
     },
     footerLoadState: {
       onRetryLoadMore: handleRetryLoadMore,

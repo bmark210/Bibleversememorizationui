@@ -23,8 +23,15 @@ import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
 import {
   getVerseCardLayoutSignature,
+  STATUS_BOX_THEME,
+  SECTION_META,
   type VerseListStatusFilter,
+  type MyVersesSectionKey,
 } from "./verse-list/constants";
+import { StatusBox } from "./verse-list/components/StatusBox";
+import { MyVersesFilterBar } from "./verse-list/components/MyVersesFilterBar";
+import { LearningSlotPlaceholders } from "./verse-list/components/LearningSlotPlaceholders";
+import { useMyVersesUiStore } from "@/app/stores/myVersesUiStore";
 import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
@@ -62,6 +69,7 @@ import {
   isVerseLearning,
   isVerseMastered,
   isVersePaused,
+  isVerseQueued,
   isVerseReview,
 } from "@/shared/verseRules";
 import { VerseStatus } from "@/shared/domain/verseStatus";
@@ -79,6 +87,7 @@ const LIST_OVERLAY_SPACER_GAP_PX = 12;
 function groupByDisplayStatus(verses: Verse[]) {
   const g = {
     learning: [] as Verse[],
+    queue: [] as Verse[],
     review: [] as Verse[],
     stopped: [] as Verse[],
     mastered: [] as Verse[],
@@ -86,6 +95,7 @@ function groupByDisplayStatus(verses: Verse[]) {
   };
   for (const v of verses) {
     if (isVerseLearning(v)) g.learning.push(v);
+    else if (isVerseQueued(v)) g.queue.push(v);
     else if (isVerseReview(v)) g.review.push(v);
     else if (isVersePaused(v)) g.stopped.push(v);
     else if (isVerseMastered(v)) g.mastered.push(v);
@@ -94,15 +104,6 @@ function groupByDisplayStatus(verses: Verse[]) {
   return g;
 }
 
-function MyModeSectionDivider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-2 px-1 py-3">
-      <div className="h-px flex-1 bg-border-subtle/50" />
-      <span className="text-[11px] font-medium text-text-subtle">{label}</span>
-      <div className="h-px flex-1 bg-border-subtle/50" />
-    </div>
-  );
-}
 
 type LearningSlotDrawerStep = "actions" | "replace";
 
@@ -137,6 +138,15 @@ export function VerseList({
   isAnchorEligible = false,
   onFriendsChanged,
 }: VerseListProps) {
+  const collapsedSections = useMyVersesUiStore((s) => s.collapsedSections);
+  const hiddenSections = useMyVersesUiStore((s) => s.hiddenSections);
+  const toggleCollapsed = useMyVersesUiStore((s) => s.toggleCollapsed);
+  const toggleHidden = useMyVersesUiStore((s) => s.toggleHidden);
+
+  useEffect(() => {
+    useMyVersesUiStore.getState().hydrateFromStorage();
+  }, []);
+
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -194,6 +204,7 @@ export function VerseList({
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(
     null,
   );
+  const refetchVersesRef = useRef<(() => Promise<void>) | null>(null);
   const replaceableLearningVersesRequestIdRef = useRef(0);
   const replaceableLearningVersesScrollRef = useRef<HTMLDivElement | null>(
     null,
@@ -366,6 +377,7 @@ export function VerseList({
       try {
         await removeVerseFromQueue({ telegramId, externalVerseId });
         onVerseMutationCommitted?.();
+        await refetchVersesRef.current?.();
       } catch {
         toast.error("Ошибка — попробуйте ещё раз", { label: "Очередь" });
       }
@@ -420,6 +432,8 @@ export function VerseList({
     cardColorConfig: VERSE_CARD_COLOR_CONFIG,
   });
 
+  refetchVersesRef.current = vm.refetch.refetchVerses;
+
   const getListItemLayoutSignature = useCallback(
     (verse: Verse) =>
       `${getVerseCardLayoutSignature(verse)}:${isFocusMode ? "focus" : "default"}`,
@@ -467,6 +481,7 @@ export function VerseList({
       setPositionEditVerse(null);
       toast.success("Позиция обновлена", { label: "Очередь" });
       onVerseMutationCommitted?.();
+      await vm.refetch.refetchVerses();
     } catch {
       toast.error("Ошибка — попробуйте ещё раз", { label: "Очередь" });
     }
@@ -475,6 +490,7 @@ export function VerseList({
     positionEditValue,
     telegramId,
     onVerseMutationCommitted,
+    vm.refetch,
   ]);
 
   const handleAddToQueue = useCallback(async () => {
@@ -491,12 +507,13 @@ export function VerseList({
         label: "Стихи",
       });
       onVerseMutationCommitted?.();
+      await vm.refetch.refetchVerses();
     } catch {
       toast.error("Ошибка — попробуйте ещё раз", { label: "Стихи" });
     } finally {
       setIsAddingToQueue(false);
     }
-  }, [queueTargetVerse, telegramId, onVerseMutationCommitted]);
+  }, [queueTargetVerse, telegramId, onVerseMutationCommitted, vm.refetch]);
 
   const loadReplaceableLearningVerses = useCallback(
     async (targetExternalVerseId: string) => {
@@ -733,35 +750,47 @@ export function VerseList({
     if (!isMyMode) return null;
 
     // Derive QUEUE verses directly from the main verse list — single source of truth,
-    // sorted by queue position. Full SwipeableVerseCards are rendered for these.
+    // sorted by queue position. Use flow-based detection for robust matching.
     const queueVerses = vm.list.sectionItems
-      .filter((v) => v.status === VerseStatus.QUEUE)
+      .filter((v) => isVerseQueued(v))
       .sort((a, b) => (a.queuePosition ?? 999) - (b.queuePosition ?? 999));
 
     const nonQueueVerses = vm.list.sectionItems.filter(
-      (v) => v.status !== VerseStatus.QUEUE,
+      (v) => !isVerseQueued(v),
     );
     const groups = groupByDisplayStatus(nonQueueVerses);
-    const hasContent =
-      groups.learning.length > 0 ||
-      queueVerses.length > 0 ||
-      groups.review.length > 0 ||
-      groups.mastered.length > 0 ||
-      groups.stopped.length > 0 ||
-      groups.my.length > 0;
 
-    const renderSection = (verses: Verse[], label: string) => (
-      <>
-        <MyModeSectionDivider label={label} />
-        <div className="space-y-3 pb-1">
-          {verses.map((v) => (
-            <React.Fragment key={vm.list.getItemKey(v)}>
-              {vm.list.renderVerseRow(v)}
-            </React.Fragment>
-          ))}
-        </div>
-      </>
+    const capacity = learningCapacity?.capacity ?? 5;
+
+    const sectionOrder: Array<{
+      key: MyVersesSectionKey;
+      verses: Verse[];
+      alwaysShow?: boolean;
+    }> = [
+      { key: 'learning', verses: groups.learning, alwaysShow: true },
+      { key: 'queue', verses: queueVerses },
+      { key: 'review', verses: groups.review },
+      { key: 'mastered', verses: groups.mastered },
+      { key: 'stopped', verses: groups.stopped },
+      { key: 'my', verses: groups.my },
+    ];
+
+    const hasContent = sectionOrder.some(
+      (s) => s.verses.length > 0 || s.alwaysShow,
     );
+
+    // Build filter bar chips — show sections with verses + learning (always)
+    const filterChips = sectionOrder
+      .filter((s) => s.verses.length > 0 || s.key === 'learning')
+      .map((s) => ({
+        key: s.key,
+        title: SECTION_META[s.key].title,
+        count: s.verses.length,
+        isVisible: !hiddenSections.has(s.key),
+        dotClass: STATUS_BOX_THEME[s.key].dotClass,
+        accentClass: STATUS_BOX_THEME[s.key].accentClass,
+        softBgClass: STATUS_BOX_THEME[s.key].softBgClass,
+      }));
 
     return (
       <div
@@ -771,25 +800,46 @@ export function VerseList({
           paddingBottom: `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset > 0 ? listBottomInset : 0}px + 0.5rem)`,
         }}
       >
-        {/* Изучение */}
-        {groups.learning.length > 0 &&
-          renderSection(groups.learning, "Изучение")}
+        {filterChips.length > 1 && (
+          <MyVersesFilterBar
+            sections={filterChips}
+            onToggleVisibility={toggleHidden}
+          />
+        )}
 
-        {/* В очереди — сразу после изучения, т.к. очередь пополняет слоты */}
-        {queueVerses.length > 0 && renderSection(queueVerses, "В очереди")}
+        <div className="space-y-3">
+          {sectionOrder.map(({ key, verses, alwaysShow }) => {
+            if (hiddenSections.has(key)) return null;
+            if (verses.length === 0 && !alwaysShow) return null;
 
-        {/* Повторение */}
-        {groups.review.length > 0 && renderSection(groups.review, "Повторение")}
-
-        {/* Выучены */}
-        {groups.mastered.length > 0 &&
-          renderSection(groups.mastered, "Выучены")}
-
-        {/* На паузе */}
-        {groups.stopped.length > 0 && renderSection(groups.stopped, "На паузе")}
-
-        {/* В списке — добавлены, но ещё не начаты */}
-        {groups.my.length > 0 && renderSection(groups.my, "В списке")}
+            return (
+              <StatusBox
+                key={key}
+                title={SECTION_META[key].title}
+                description={SECTION_META[key].description}
+                count={verses.length}
+                isCollapsed={collapsedSections.has(key)}
+                onToggleCollapse={() => toggleCollapsed(key)}
+                theme={STATUS_BOX_THEME[key]}
+              >
+                <div className="space-y-3">
+                  {verses.map((v) => (
+                    <React.Fragment key={vm.list.getItemKey(v)}>
+                      {vm.list.renderVerseRow(v)}
+                    </React.Fragment>
+                  ))}
+                  {key === 'learning' && (
+                    <LearningSlotPlaceholders
+                      filledCount={verses.length}
+                      capacity={capacity}
+                      onNavigateToCatalog={handleNavigateToCatalog}
+                    />
+                  )}
+                </div>
+              </StatusBox>
+            );
+          })}
+        </div>
 
         {!hasContent && (
           <div className="flex flex-1 items-center justify-center py-16">
@@ -811,6 +861,11 @@ export function VerseList({
     listTopInset,
     listBottomInset,
     handleNavigateToCatalog,
+    collapsedSections,
+    hiddenSections,
+    toggleCollapsed,
+    toggleHidden,
+    learningCapacity,
   ]);
 
   const handleTelegramBack = useCallback(() => {

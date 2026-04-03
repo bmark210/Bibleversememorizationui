@@ -11,7 +11,7 @@ import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
-import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
+import { pickMutableVersePatchFromApiResponse, extractPromotedVerseIds } from '@/app/utils/versePatch';
 import { buildVerseDeletionXpFeedback } from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
@@ -41,8 +41,9 @@ type UseVerseActionsParams = {
   ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
   onVerseMutationCommitted?: () => void;
   onLearningCapacityExceeded?: (verse: Verse) => void;
-  /** Returns the reference of the first queued verse, if any */
-  getFirstQueueReference?: () => string | null;
+  /** Called when a learning slot is freed and queue auto-promotion may have occurred.
+   *  promotedIds contains the externalVerseIds of verses moved QUEUE → LEARNING. */
+  onSlotFreed?: (promotedIds: string[]) => void;
 };
 
 function getErrorStatusCode(error: unknown): number | null {
@@ -77,7 +78,7 @@ export function useVerseActions({
   applyVersePatch,
   onVerseMutationCommitted,
   onLearningCapacityExceeded,
-  getFirstQueueReference,
+  onSlotFreed,
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
@@ -107,11 +108,12 @@ export function useVerseActions({
   );
 
   const patchVerseStatusOnServer = useCallback(
-    async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
+    async (verse: Verse, status: VerseStatus): Promise<{ patch: VerseMutablePatch; promotedVerseIds: string[] }> => {
       if (!telegramId) throw new Error('No telegramId');
       const response = await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, { status });
       const patch = pickMutableVersePatchFromApiResponse(response);
-      return patch ?? { status };
+      const promotedVerseIds = extractPromotedVerseIds(response);
+      return { patch: patch ?? { status }, promotedVerseIds };
     },
     [telegramId]
   );
@@ -131,12 +133,13 @@ export function useVerseActions({
       if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
         await addVerseToCollection(verse.externalVerseId);
       }
-      const patch = await patchVerseStatusOnServer(verse, status);
+      const { patch, promotedVerseIds } = await patchVerseStatusOnServer(verse, status);
       applyVersePatch(
         { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
         { statusFilter, matchesListFilter }
       );
       onVerseMutationCommitted?.();
+      if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
       return patch;
     },
     [
@@ -144,6 +147,7 @@ export function useVerseActions({
       applyVersePatch,
       matchesListFilter,
       onVerseMutationCommitted,
+      onSlotFreed,
       patchVerseStatusOnServer,
       statusFilter,
     ]
@@ -168,7 +172,7 @@ export function useVerseActions({
         if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
           await addVerseToCollection(verse.externalVerseId);
         }
-        const patch = await patchVerseStatusOnServer(verse, nextStatus);
+        const { patch, promotedVerseIds } = await patchVerseStatusOnServer(verse, nextStatus);
         applyVersePatch(
           { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
           { statusFilter, matchesListFilter }
@@ -197,12 +201,7 @@ export function useVerseActions({
             label: 'Стихи',
           });
         }
-        if (toastKind === 'pause' && getFirstQueueReference) {
-          const nextRef = getFirstQueueReference();
-          if (nextRef) {
-            toast.info(`${nextRef} займёт освободившийся слот`, { label: 'Очередь' });
-          }
-        }
+        if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
         setAnnouncement(`${verse.reference}: ${message}`);
       } catch (err) {
         console.error('Не удалось изменить статус стиха:', err);
@@ -235,7 +234,7 @@ export function useVerseActions({
       applyVersePatch,
       onVerseMutationCommitted,
       onLearningCapacityExceeded,
-      getFirstQueueReference,
+      onSlotFreed,
     ]
   );
 
@@ -251,11 +250,13 @@ export function useVerseActions({
     async (verse: Verse) => {
       if (!telegramId) return;
       let xpLoss = 0;
+      let promotedVerseIds: string[] = [];
       try {
         const del = await deleteUserVerseWithXp(telegramId, verse.externalVerseId);
         if (del && del.xpDelta < 0) {
           xpLoss = -del.xpDelta;
         }
+        promotedVerseIds = extractPromotedVerseIds(del as unknown);
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
         const statusCode = getErrorStatusCode(err);
@@ -294,9 +295,10 @@ export function useVerseActions({
         });
       }
       onVerseMutationCommitted?.();
+      if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
       return { xpLoss };
     },
-    [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
+    [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted, onSlotFreed]
   );
 
   const confirmDeleteVerse = useCallback((verse: Verse) => {

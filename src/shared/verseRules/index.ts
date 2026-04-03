@@ -151,6 +151,12 @@ export function isVerseMastered(subject: VerseRulesSubject): boolean {
   return getVerseDisplayStatus(subject) === "MASTERED";
 }
 
+export function isVerseQueued(subject: VerseRulesSubject): boolean {
+  const flow = getVerseFlow(subject);
+  if (flow) return flow.code === VerseFlowCode.QUEUE;
+  return getVerseDisplayStatus(subject) === VerseStatus.QUEUE;
+}
+
 export function isVersePaused(subject: VerseRulesSubject): boolean {
   const flow = getVerseFlow(subject);
   if (flow) {

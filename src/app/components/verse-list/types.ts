@@ -99,6 +99,9 @@ export type VerseListController = {
     onSortChange: (sortBy: VerseListSortBy, label: string) => void;
     onResetFilters: () => void;
   };
+  refetch: {
+    refetchVerses: () => Promise<void>;
+  };
   footerLoadState: {
     onRetryLoadMore: () => Promise<void>;
   };

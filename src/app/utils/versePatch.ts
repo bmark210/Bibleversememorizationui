@@ -101,3 +101,12 @@ export function mergeVersePatch<T extends Verse>(verse: T, patch: VerseMutablePa
     ...patch,
   } as T;
 }
+
+/** Extracts the list of externalVerseIds auto-promoted from QUEUE → LEARNING,
+ *  as returned by the backend in the `promotedVerseIds` field. */
+export function extractPromotedVerseIds(raw: unknown): string[] {
+  if (!isRecord(raw)) return [];
+  const ids = raw.promotedVerseIds;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string => typeof id === 'string');
+}
