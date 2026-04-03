@@ -77,7 +77,6 @@ import {
   ArrowLeft,
   ArrowRightLeft,
   ListOrdered,
-  Lock,
   Loader2,
 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
@@ -1528,23 +1527,6 @@ export function VerseList({
                     </div>
                   ) : null}
 
-                  <div
-                    className={cn(
-                      "flex items-center gap-3.5 rounded-2xl border border-border/65 bg-background/72 px-4 py-3.5 text-left",
-                    )}
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-foreground/68">
-                      <Lock className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-foreground/82">
-                        Лимит изучения: 5 стихов
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-text-subtle">
-                        Завершите текущие или поставьте один на паузу, чтобы освободить слот
-                      </p>
-                    </div>
-                  </div>
                 </>
               )}
             </div>
