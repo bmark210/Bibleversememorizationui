@@ -1,6 +1,16 @@
 import { OpenAPI } from "@/api/core/OpenAPI";
 import type { QueueResponse } from "./types";
 
+export class QueueApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "QueueApiError";
+  }
+}
+
 function baseUrl() {
   return OpenAPI.BASE || "";
 }
@@ -17,7 +27,7 @@ export async function fetchVerseQueue(params: {
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`fetchVerseQueue failed: ${res.status}`);
+    throw new QueueApiError(`fetchVerseQueue failed: ${res.status}`, res.status);
   }
   return res.json();
 }
@@ -35,7 +45,7 @@ export async function addVerseToQueue(params: {
     },
   );
   if (!res.ok) {
-    throw new Error(`addVerseToQueue failed: ${res.status}`);
+    throw new QueueApiError(`addVerseToQueue failed: ${res.status}`, res.status);
   }
   return res.json();
 }
@@ -54,7 +64,10 @@ export async function reorderVerseInQueue(params: {
     },
   );
   if (!res.ok) {
-    throw new Error(`reorderVerseInQueue failed: ${res.status}`);
+    throw new QueueApiError(
+      `reorderVerseInQueue failed: ${res.status}`,
+      res.status,
+    );
   }
   return res.json();
 }
@@ -68,7 +81,10 @@ export async function removeVerseFromQueue(params: {
     { method: "DELETE" },
   );
   if (!res.ok) {
-    throw new Error(`removeVerseFromQueue failed: ${res.status}`);
+    throw new QueueApiError(
+      `removeVerseFromQueue failed: ${res.status}`,
+      res.status,
+    );
   }
   return res.json();
 }

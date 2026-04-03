@@ -53,6 +53,7 @@ import {
   addVerseToQueue,
   removeVerseFromQueue,
   reorderVerseInQueue,
+  QueueApiError,
 } from "@/app/components/Training/exam/queueApi";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { WheelPicker } from "@/app/components/ui/WheelPicker";
@@ -496,10 +497,25 @@ export function VerseList({
     if (!queueTargetVerse || !telegramId) return;
     setIsAddingToQueue(true);
     try {
-      await addVerseToQueue({
+      const result = await addVerseToQueue({
         telegramId,
         externalVerseId: queueTargetVerse.externalVerseId,
       });
+
+      if (result.status === "slot_available") {
+        setQueueTargetVerse(null);
+        toast.info("Освободился слот изучения", {
+          description: "Стих можно запустить без очереди.",
+          label: "Стихи",
+        });
+        await vm.refetch.refetchVerses();
+        return;
+      }
+
+      if (result.status !== "queued") {
+        throw new Error(`Unexpected queue status: ${result.status}`);
+      }
+
       setQueueTargetVerse(null);
       toast.success("Добавлено в очередь", {
         description: queueTargetVerse.reference,
@@ -507,7 +523,19 @@ export function VerseList({
       });
       onVerseMutationCommitted?.();
       await vm.refetch.refetchVerses();
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof QueueApiError &&
+        (error.status === 404 || error.status === 409)
+      ) {
+        setQueueTargetVerse(null);
+        await vm.refetch.refetchVerses();
+        toast.info("Список уже изменился", {
+          description: "Обновили данные, попробуйте ещё раз.",
+          label: "Стихи",
+        });
+        return;
+      }
       toast.error("Ошибка — попробуйте ещё раз", { label: "Стихи" });
     } finally {
       setIsAddingToQueue(false);
