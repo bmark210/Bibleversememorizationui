@@ -1,4 +1,4 @@
-import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
+﻿import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
 import { UserVersesService } from "@/api/services/UserVersesService";
 
 export type VerseOwnersScope = "friends" | "players";

@@ -24,6 +24,7 @@ type UseVerseActionsParams = {
     filter: VerseListStatusFilter
   ) => boolean;
   resetAndFetchFirstPage: (telegramId: string, filter: VerseListStatusFilter) => Promise<void>;
+  refetchCurrentList: () => Promise<void>;
   setVerses: React.Dispatch<React.SetStateAction<Array<Verse>>>;
   setTotalCount: React.Dispatch<React.SetStateAction<number>>;
   setGalleryIndex: React.Dispatch<React.SetStateAction<number | null>>;
@@ -66,11 +67,14 @@ function getErrorStatusCode(error: unknown): number | null {
   return Number.isFinite(parsedStatus) ? parsedStatus : null;
 }
 
+type ReplaceLearningVerseOutcome = 'success' | 'stale' | 'error';
+
 export function useVerseActions({
   telegramId,
   statusFilter,
   matchesListFilter,
   resetAndFetchFirstPage,
+  refetchCurrentList,
   setVerses,
   setTotalCount,
   setGalleryIndex,
@@ -246,6 +250,87 @@ export function useVerseActions({
     [applyVersePatch, matchesListFilter, onVerseMutationCommitted, statusFilter]
   );
 
+  const replaceLearningVerse = useCallback(
+    async (activateVerse: Verse, pauseVerse: Verse): Promise<ReplaceLearningVerseOutcome> => {
+      if (!telegramId) {
+        return 'error';
+      }
+
+      const pendingVerses = isSameVerse(activateVerse, pauseVerse)
+        ? [activateVerse]
+        : [activateVerse, pauseVerse];
+
+      for (const verse of pendingVerses) {
+        markVersePending(verse, true);
+      }
+
+      try {
+        const response = await UserVersesService.replaceLearningVerse(telegramId, {
+          activateExternalVerseId: activateVerse.externalVerseId,
+          pauseExternalVerseId: pauseVerse.externalVerseId,
+        });
+
+        const activatedPatch =
+          pickMutableVersePatchFromApiResponse(response.activatedVerse) ?? {
+            status: VerseStatus.LEARNING,
+          };
+        const pausedPatch =
+          pickMutableVersePatchFromApiResponse(response.pausedVerse) ?? {
+            status: VerseStatus.STOPPED,
+          };
+
+        applyVersePatch(
+          {
+            target: { id: activateVerse.id, externalVerseId: activateVerse.externalVerseId },
+            patch: activatedPatch,
+          },
+          { statusFilter, matchesListFilter }
+        );
+        applyVersePatch(
+          {
+            target: { id: pauseVerse.id, externalVerseId: pauseVerse.externalVerseId },
+            patch: pausedPatch,
+          },
+          { statusFilter, matchesListFilter }
+        );
+        onVerseMutationCommitted?.();
+        setAnnouncement(`${activateVerse.reference}: добавлено в изучение вместо ${pauseVerse.reference}`);
+        haptic('success');
+        return 'success';
+      } catch (err) {
+        console.error('Не удалось заменить стих в изучении:', err);
+        const statusCode = getErrorStatusCode(err);
+        if (statusCode === 404 || statusCode === 409) {
+          try {
+            await refetchCurrentList();
+          } catch (refetchError) {
+            console.error('Не удалось обновить список после ошибки замены:', refetchError);
+          }
+          haptic('warning');
+          return 'stale';
+        }
+
+        haptic('error');
+        return 'error';
+      } finally {
+        for (const verse of pendingVerses) {
+          markVersePending(verse, false);
+        }
+      }
+    },
+    [
+      telegramId,
+      isSameVerse,
+      markVersePending,
+      applyVersePatch,
+      statusFilter,
+      matchesListFilter,
+      onVerseMutationCommitted,
+      setAnnouncement,
+      refetchCurrentList,
+    ]
+  );
+
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
@@ -367,6 +452,7 @@ export function useVerseActions({
     handleStatusChange,
     applyVersePatchedFromGallery,
     updateVerseStatus,
+    replaceLearningVerse,
     handleDeleteVerse,
     confirmDeleteVerse,
     handleConfirmDeleteVerse,

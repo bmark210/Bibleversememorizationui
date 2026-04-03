@@ -1,4 +1,4 @@
-import { OpenAPI } from "@/api/core/OpenAPI";
+﻿import { OpenAPI } from "@/api/core/OpenAPI";
 import { request } from "@/api/core/request";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 

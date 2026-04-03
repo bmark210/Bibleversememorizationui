@@ -1,4 +1,4 @@
-import type { domain_CatalogVersesPageResponse } from "@/api/models/domain_CatalogVersesPageResponse";
+﻿import type { domain_CatalogVersesPageResponse } from "@/api/models/domain_CatalogVersesPageResponse";
 import { CatalogService } from "@/api/services/CatalogService";
 
 export async function fetchCatalogVersesPage(params: {

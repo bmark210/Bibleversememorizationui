@@ -102,6 +102,9 @@ export type VerseListController = {
   refetch: {
     refetchVerses: () => Promise<void>;
   };
+  mutations: {
+    replaceLearningVerse: (activateVerse: Verse, pauseVerse: Verse) => Promise<'success' | 'stale' | 'error'>;
+  };
   footerLoadState: {
     onRetryLoadMore: () => Promise<void>;
   };

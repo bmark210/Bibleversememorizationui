@@ -1,10 +1,3 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-export type bible_memory_db_internal_domain_VerseListTag = {
-    id?: string;
-    slug?: string;
-    title?: string;
-};
+﻿/* compatibility alias for legacy imports */
+export type bible_memory_db_internal_domain_VerseListTag = import('./domain_VerseListTag').domain_VerseListTag;
 

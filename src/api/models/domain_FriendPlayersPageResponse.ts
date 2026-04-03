@@ -1,1 +1,12 @@
-export type { bible_memory_db_internal_domain_FriendPlayersPageResponse as domain_FriendPlayersPageResponse } from "./bible_memory_db_internal_domain_FriendPlayersPageResponse";
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+import type { domain_FriendPlayerListItem } from './domain_FriendPlayerListItem';
+export type domain_FriendPlayersPageResponse = {
+    items?: Array<domain_FriendPlayerListItem>;
+    limit?: number;
+    offset?: number;
+    total?: number;
+};
+

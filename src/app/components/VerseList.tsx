@@ -690,16 +690,29 @@ export function VerseList({
     if (!queueTargetVerse || !selectedReplacementVerse) return;
 
     setIsReplacingLearningVerse(true);
-    let didPauseCurrentVerse = false;
 
     try {
-      await vm.gallery.onStatusChange(
+      const outcome = await vm.mutations.replaceLearningVerse(
+        queueTargetVerse,
         selectedReplacementVerse,
-        VerseStatus.STOPPED,
       );
-      didPauseCurrentVerse = true;
 
-      await vm.gallery.onStatusChange(queueTargetVerse, VerseStatus.LEARNING);
+      if (outcome === "stale") {
+        setQueueTargetVerse(null);
+        toast.info("Список уже изменился", {
+          description: "Попробуйте ещё раз.",
+          label: "Стихи",
+        });
+        return;
+      }
+
+      if (outcome === "error") {
+        toast.error("Не удалось заменить стих", {
+          description: "Попробуйте ещё раз.",
+          label: "Стихи",
+        });
+        return;
+      }
 
       toast.success("Стих поставлен в изучение", {
         description: (
@@ -715,21 +728,6 @@ export function VerseList({
       setQueueTargetVerse(null);
     } catch (error) {
       console.error("Не удалось заменить стих в изучении:", error);
-
-      if (didPauseCurrentVerse) {
-        try {
-          await vm.gallery.onStatusChange(
-            selectedReplacementVerse,
-            VerseStatus.LEARNING,
-          );
-        } catch (rollbackError) {
-          console.error(
-            "Не удалось восстановить прежний стих после ошибки:",
-            rollbackError,
-          );
-        }
-      }
-
       toast.error("Не удалось заменить стих", {
         description: "Попробуйте ещё раз.",
         label: "Стихи",
@@ -737,7 +735,7 @@ export function VerseList({
     } finally {
       setIsReplacingLearningVerse(false);
     }
-  }, [queueTargetVerse, selectedReplacementVerse, vm.gallery]);
+  }, [queueTargetVerse, selectedReplacementVerse, vm.mutations]);
 
   const listTopInset =
     showCatalogFilters && filterOverlayHeight > 0

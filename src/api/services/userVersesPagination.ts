@@ -1,4 +1,4 @@
-import type { bible_memory_db_internal_domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
+﻿import type { bible_memory_db_internal_domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
 import type { domain_UserVersesPageResponse } from "@/api/models/domain_UserVersesPageResponse";
 import { UserVersesService } from "@/api/services/UserVersesService";
 

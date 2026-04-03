@@ -1,8 +1,3 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-export type internal_api_ErrorResponse = {
-    error?: string;
-};
+﻿/* compatibility alias for legacy imports */
+export type internal_api_ErrorResponse = import('./api_ErrorResponse').api_ErrorResponse;
 

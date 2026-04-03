@@ -1,4 +1,4 @@
-import { OpenAPI } from "@/api/core/OpenAPI";
+﻿import { OpenAPI } from "@/api/core/OpenAPI";
 import { request } from "@/api/core/request";
 
 export const DASHBOARD_FRIENDS_ACTIVITY_LIMIT = 12;

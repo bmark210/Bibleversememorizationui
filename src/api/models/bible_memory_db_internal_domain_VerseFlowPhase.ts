@@ -1,11 +1,3 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-export enum bible_memory_db_internal_domain_VerseFlowPhase {
-    VerseFlowPhaseCatalog = 'catalog',
-    VerseFlowPhaseMy = 'my',
-    VerseFlowPhaseLearning = 'learning',
-    VerseFlowPhaseReview = 'review',
-    VerseFlowPhaseMastered = 'mastered',
-}
+﻿/* compatibility alias for legacy imports */
+export type bible_memory_db_internal_domain_VerseFlowPhase = import('./domain_VerseFlowPhase').domain_VerseFlowPhase;
+

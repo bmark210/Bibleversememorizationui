@@ -287,6 +287,7 @@ export function useVerseListController({
     statusFilter,
     matchesListFilter,
     resetAndFetchFirstPage: pagination.resetAndFetchFirstPage,
+    refetchCurrentList: pagination.refetchCurrentListFromExternalSync,
     setVerses: pagination.setVerses,
     setTotalCount: pagination.setTotalCount,
     setGalleryIndex,
@@ -954,6 +955,9 @@ export function useVerseListController({
     },
     refetch: {
       refetchVerses: pagination.refetchCurrentListFromExternalSync,
+    },
+    mutations: {
+      replaceLearningVerse: actions.replaceLearningVerse,
     },
     footerLoadState: {
       onRetryLoadMore: handleRetryLoadMore,
