@@ -1057,6 +1057,7 @@ export function VerseList({
           <VerseListReadingModeBar
             isFocusMode={isFocusMode}
             onToggle={toggleFocusMode}
+            isMyVersesMode={isMyMode}
           />
           <VerseListModeSwitch
             activeMode={activeMode}

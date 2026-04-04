@@ -536,7 +536,7 @@ export function MyVersesSectionsLayout({
               'transition-opacity duration-300',
               scrollEdges.atTop ? 'opacity-0' : 'opacity-100',
             )} />
-            <div className="pointer-events-auto relative px-3 pt-1.5 sm:px-5">
+            <div className="pointer-events-auto relative px-8 pt-1.5 sm:px-5">
               <SectionEdgeButton
                 action={topAction}
                 onClick={() => topAction && handleNavigate(topAction)}
@@ -551,7 +551,7 @@ export function MyVersesSectionsLayout({
               'transition-opacity duration-300',
               scrollEdges.atBottom ? 'opacity-0' : 'opacity-100',
             )} />
-            <div className="pointer-events-auto relative px-3 pb-1.5 sm:px-5">
+            <div className="pointer-events-auto relative px-8 pb-1.5 sm:px-5">
               <SectionEdgeButton
                 action={bottomAction}
                 onClick={() => bottomAction && handleNavigate(bottomAction)}

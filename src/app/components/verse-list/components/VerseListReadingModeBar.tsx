@@ -8,13 +8,14 @@ import { Switch } from '@/app/components/ui/switch';
 type Props = {
   isFocusMode: boolean;
   onToggle: () => void;
+  isMyVersesMode: boolean;
 };
 
-export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
+export function VerseListReadingModeBar({ isFocusMode, onToggle, isMyVersesMode }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-18">
+    <div className={cn("pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-6", isMyVersesMode && ' !pb-18')}>
       <div className="pointer-events-auto">
         {/* Pill — fixed height, expands horizontally to the left */}
         <div
