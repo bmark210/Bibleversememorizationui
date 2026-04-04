@@ -26,6 +26,7 @@ import {
   type VerseListStatusFilter,
 } from "./verse-list/constants";
 import { MyVersesSectionsLayout } from "./verse-list/components/MyVersesSectionsLayout";
+import { buildMyVersesSections } from "./verse-list/myVersesSections";
 import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
@@ -59,15 +60,10 @@ import {
   DrawerTitle,
 } from "@/app/components/ui/drawer";
 import {
-  getVerseDisplayStatus,
   getVerseProgressPercent,
   isVerseLearning,
-  isVerseMastered,
-  isVersePaused,
   isVerseQueued,
-  isVerseReview,
 } from "@/shared/verseRules";
-import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -78,26 +74,6 @@ import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
 const FIXED_LEARNING_SLOTS_CAPACITY = 5;
-
-function groupByDisplayStatus(verses: Verse[]) {
-  const g = {
-    learning: [] as Verse[],
-    queue: [] as Verse[],
-    review: [] as Verse[],
-    stopped: [] as Verse[],
-    mastered: [] as Verse[],
-    my: [] as Verse[],
-  };
-  for (const v of verses) {
-    if (isVerseLearning(v)) g.learning.push(v);
-    else if (isVerseQueued(v)) g.queue.push(v);
-    else if (isVerseReview(v)) g.review.push(v);
-    else if (isVersePaused(v)) g.stopped.push(v);
-    else if (isVerseMastered(v)) g.mastered.push(v);
-    else if (getVerseDisplayStatus(v) === VerseStatus.MY) g.my.push(v);
-  }
-  return g;
-}
 
 
 type LearningSlotDrawerStep = "actions" | "replace";
@@ -789,19 +765,7 @@ export function VerseList({
   const myModeSections = useMemo(() => {
     if (!isMyMode) return null;
 
-    const nonQueueVerses = vm.list.sectionItems.filter(
-      (v) => !isVerseQueued(v),
-    );
-    const groups = groupByDisplayStatus(nonQueueVerses);
-
-    return [
-      { key: 'learning' as const, verses: groups.learning, alwaysShow: true },
-      { key: 'queue'    as const, verses: myModeQueueVerses },
-      { key: 'review'   as const, verses: groups.review },
-      { key: 'mastered' as const, verses: groups.mastered },
-      { key: 'stopped'  as const, verses: groups.stopped },
-      { key: 'my'       as const, verses: groups.my },
-    ];
+    return buildMyVersesSections(vm.list.sectionItems, myModeQueueVerses);
   }, [isMyMode, vm.list.sectionItems, myModeQueueVerses]);
 
   const myModeContent = useMemo(() => {
