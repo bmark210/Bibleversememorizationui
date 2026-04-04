@@ -3,6 +3,16 @@ import type { Verse } from "@/app/domain/verse";
 import type { VersePreviewOverride } from "../types";
 import { getPreparedVersePreview, type PreparedVersePreview } from "../previewModel";
 import { mergePreviewOverrides } from "../utils";
+import { warmUpText, buildFont } from "@/app/utils/textLayout";
+
+// ---------------------------------------------------------------------------
+// Literata font constants for VersePreviewCard body text.
+// Must match usePreviewLineClamp:
+//   text-[1.45rem] → 23px (mobile)
+//   sm:text-[1.95rem] → 31px (desktop ≥640px)
+// ---------------------------------------------------------------------------
+const LITERATA_MOBILE_FONT = buildFont(Math.round(1.45 * 16), 'Literata');
+const LITERATA_DESKTOP_FONT = buildFont(Math.round(1.95 * 16), 'Literata');
 
 type Params = {
   verses: Verse[];
@@ -86,6 +96,15 @@ export function usePreparedVersePreview({
           previewOverrides,
           isAnchorEligible
         );
+
+        // Pre-warm pretext canvas cache for Literata at both breakpoint sizes
+        // so the first lineClamp measurement returns instantly (no cold-path lag).
+        const verseText = verses[index]?.text;
+        if (verseText) {
+          const quotedText = `«${verseText}»`;
+          warmUpText(quotedText, LITERATA_MOBILE_FONT);
+          warmUpText(quotedText, LITERATA_DESKTOP_FONT);
+        }
       }
     });
   }, [activeIndex, isAnchorEligible, previewOverrides, verses]);

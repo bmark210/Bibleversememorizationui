@@ -84,3 +84,53 @@ export function measureTextHeight(
     return 0;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Combined layout measurement (line count + height)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns both the number of wrapped lines and total rendered height of `text`.
+ *
+ * Use this when you need both values at once (avoids running `prepare` twice).
+ *
+ * @param maxWidth   Available width in px
+ * @param lineHeight Line height in px
+ * @returns `{ lineCount: 0, height: 0 }` when inputs are invalid.
+ */
+export function measureTextLayout(
+  text: string,
+  font: string,
+  maxWidth: number,
+  lineHeight: number,
+): { lineCount: number; height: number } {
+  if (!text || maxWidth <= 0 || lineHeight <= 0) return { lineCount: 0, height: 0 };
+  try {
+    const prepared = prepare(text, font);
+    return layout(prepared, maxWidth, lineHeight);
+  } catch {
+    return { lineCount: 0, height: 0 };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Warm-up (pre-heat font-metrics canvas cache)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pre-warms the canvas font-metrics cache for a (text, font) pair.
+ *
+ * Call this during idle time for text that will be measured soon so the
+ * first real measurement call returns instantly.
+ *
+ * @param text Any representative text — e.g. the verse body.
+ * @param font CSS font string, e.g. `buildFont(23, 'Literata')`.
+ */
+export function warmUpText(text: string, font: string): void {
+  if (!text) return;
+  try {
+    prepare(text, font);
+  } catch {
+    // Best-effort pre-warm — ignore failures silently.
+  }
+}

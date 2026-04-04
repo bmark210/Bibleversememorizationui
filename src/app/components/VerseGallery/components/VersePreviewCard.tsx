@@ -1,5 +1,5 @@
 import React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { BookMarked, Clock, Minus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
@@ -18,6 +18,7 @@ import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import type { PreparedVersePreview } from "../previewModel";
 import type { VerseGallerySourceMode } from "../types";
+import { usePreviewLineClamp } from "../hooks/usePreviewLineClamp";
 import {
   getGalleryPreviewTone,
   isCatalogGalleryOwnedVerse,
@@ -69,8 +70,14 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
-  const previewTextRef = useRef<HTMLParagraphElement>(null);
-  const [lineClamp, setLineClamp] = useState(8);
+  // Replaces two getComputedStyle calls (forced reflows) with CSS-constant
+  // arithmetic + pretext font measurement — no DOM queries needed.
+  const lineClamp = usePreviewLineClamp(
+    // verse is not yet destructured here; access via preview directly
+    preview.verse.text,
+    isFocusMode,
+    previewBodyRef,
+  );
   const {
     verse,
     actionModel,
@@ -179,67 +186,6 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     onStatusAction,
     primaryAction,
   ]);
-
-  // ── Line-clamp calculation ──────────────────────────────────────────────────
-  // Deferred to useEffect (not useLayoutEffect) so it doesn't block the first
-  // paint of the card after a swipe. ResizeObserver is debounced via rAF.
-  useEffect(() => {
-    if (isFocusMode || typeof window === "undefined") return;
-
-    const bodyEl = previewBodyRef.current;
-    const textEl = previewTextRef.current;
-    if (!bodyEl || !textEl) return;
-
-    let rafId: number | null = null;
-
-    const updateLineClamp = () => {
-      const currentBodyEl = previewBodyRef.current;
-      const currentTextEl = previewTextRef.current;
-      if (!currentBodyEl || !currentTextEl) return;
-
-      const availableHeight = currentBodyEl.clientHeight;
-      if (availableHeight <= 0) return;
-
-      let lineHeight = Number.parseFloat(
-        window.getComputedStyle(currentTextEl).lineHeight || "",
-      );
-      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-        const fontSize =
-          Number.parseFloat(
-            window.getComputedStyle(currentTextEl).fontSize || "0",
-          ) || 16;
-        lineHeight = fontSize * 1.625;
-      }
-
-      const nextClamp = Math.max(2, Math.floor(availableHeight / lineHeight));
-      setLineClamp((prev) => (prev === nextClamp ? prev : nextClamp));
-    };
-
-    const scheduleUpdate = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        updateLineClamp();
-      });
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => scheduleUpdate())
-        : null;
-
-    resizeObserver?.observe(bodyEl);
-    window.addEventListener("resize", scheduleUpdate, { passive: true });
-    scheduleUpdate();
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleUpdate);
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [isFocusMode, showFooter, verse.text]);
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
@@ -391,7 +337,6 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             )}
           >
             <p
-              ref={previewTextRef}
               style={isFocusMode ? undefined : { WebkitLineClamp: lineClamp }}
               className={cn(
               "font-verse w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
