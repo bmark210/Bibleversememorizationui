@@ -23,15 +23,9 @@ import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
 import {
   getVerseCardLayoutSignature,
-  STATUS_BOX_THEME,
-  SECTION_META,
   type VerseListStatusFilter,
-  type MyVersesSectionKey,
 } from "./verse-list/constants";
-import { StatusBox } from "./verse-list/components/StatusBox";
-import { MyVersesFilterBar } from "./verse-list/components/MyVersesFilterBar";
-import { LearningSlotPlaceholders } from "./verse-list/components/LearningSlotPlaceholders";
-import { useMyVersesUiStore } from "@/app/stores/myVersesUiStore";
+import { MyVersesSectionsLayout } from "./verse-list/components/MyVersesSectionsLayout";
 import {
   parseStoredBoolean,
   VERSE_LIST_STORAGE_KEYS,
@@ -137,15 +131,6 @@ export function VerseList({
   isAnchorEligible = false,
   onFriendsChanged,
 }: VerseListProps) {
-  const collapsedSections = useMyVersesUiStore((s) => s.collapsedSections);
-  const hiddenSections = useMyVersesUiStore((s) => s.hiddenSections);
-  const toggleCollapsed = useMyVersesUiStore((s) => s.toggleCollapsed);
-  const toggleHidden = useMyVersesUiStore((s) => s.toggleHidden);
-
-  useEffect(() => {
-    useMyVersesUiStore.getState().hydrateFromStorage();
-  }, []);
-
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -801,7 +786,7 @@ export function VerseList({
       : 0;
   const listBottomInset = 0;
 
-  const myModeContent = useMemo(() => {
+  const myModeSections = useMemo(() => {
     if (!isMyMode) return null;
 
     const nonQueueVerses = vm.list.sectionItems.filter(
@@ -809,111 +794,37 @@ export function VerseList({
     );
     const groups = groupByDisplayStatus(nonQueueVerses);
 
-    const sectionOrder: Array<{
-      key: MyVersesSectionKey;
-      verses: Verse[];
-      alwaysShow?: boolean;
-    }> = [
-      { key: 'learning', verses: groups.learning, alwaysShow: true },
-      { key: 'queue', verses: myModeQueueVerses },
-      { key: 'review', verses: groups.review },
-      { key: 'mastered', verses: groups.mastered },
-      { key: 'stopped', verses: groups.stopped },
-      { key: 'my', verses: groups.my },
+    return [
+      { key: 'learning' as const, verses: groups.learning, alwaysShow: true },
+      { key: 'queue'    as const, verses: myModeQueueVerses },
+      { key: 'review'   as const, verses: groups.review },
+      { key: 'mastered' as const, verses: groups.mastered },
+      { key: 'stopped'  as const, verses: groups.stopped },
+      { key: 'my'       as const, verses: groups.my },
     ];
+  }, [isMyMode, vm.list.sectionItems, myModeQueueVerses]);
 
-    const hasContent = sectionOrder.some(
-      (s) => s.verses.length > 0 || s.alwaysShow,
-    );
-
-    // Build filter bar chips — show sections with verses + learning (always)
-    const filterChips = sectionOrder
-      .filter((s) => s.verses.length > 0 || s.key === 'learning')
-      .map((s) => ({
-        key: s.key,
-        title: SECTION_META[s.key].title,
-        count: s.verses.length,
-        isVisible: !hiddenSections.has(s.key),
-        dotClass: STATUS_BOX_THEME[s.key].dotClass,
-        accentClass: STATUS_BOX_THEME[s.key].accentClass,
-        softBgClass: STATUS_BOX_THEME[s.key].softBgClass,
-      }));
+  const myModeContent = useMemo(() => {
+    if (!isMyMode || !myModeSections) return null;
 
     return (
-      <div
-        className="h-full overflow-y-auto px-2 sm:px-6"
-        style={{
-          paddingTop: `${listTopInset}px`,
-          paddingBottom: `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset > 0 ? listBottomInset : 0}px + 0.5rem)`,
-        }}
-      >
-        {filterChips.length > 1 && (
-          <MyVersesFilterBar
-            sections={filterChips}
-            onToggleVisibility={toggleHidden}
-          />
-        )}
-
-        <div className="space-y-3">
-          {sectionOrder.map(({ key, verses, alwaysShow }) => {
-            if (hiddenSections.has(key)) return null;
-            if (verses.length === 0 && !alwaysShow) return null;
-
-            return (
-              <StatusBox
-                key={key}
-                title={SECTION_META[key].title}
-                description={SECTION_META[key].description}
-                count={verses.length}
-                isCollapsed={collapsedSections.has(key)}
-                onToggleCollapse={() => toggleCollapsed(key)}
-                theme={STATUS_BOX_THEME[key]}
-              >
-                <div className="space-y-3">
-                  {verses.map((v) => (
-                    <React.Fragment key={vm.list.getItemKey(v)}>
-                      {vm.list.renderVerseRow(v)}
-                    </React.Fragment>
-                  ))}
-                  {key === 'learning' && (
-                    <LearningSlotPlaceholders
-                      filledCount={verses.length}
-                      capacity={learningSlotsSummary.capacity}
-                      onNavigateToCatalog={handleNavigateToCatalog}
-                    />
-                  )}
-                </div>
-              </StatusBox>
-            );
-          })}
-        </div>
-
-        {!hasContent && (
-          <div className="flex flex-1 items-center justify-center py-16">
-            <div className="w-full max-w-md px-4">
-              <VerseListEmptyState
-                currentFilterLabel={vm.ui.currentFilterLabel}
-                isMyFilter
-                onNavigateToCatalog={handleNavigateToCatalog}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <MyVersesSectionsLayout
+        sections={myModeSections}
+        renderVerseRow={vm.list.renderVerseRow}
+        getItemKey={vm.list.getItemKey}
+        learningCapacity={learningSlotsSummary.capacity}
+        currentFilterLabel={vm.ui.currentFilterLabel}
+        onNavigateToCatalog={handleNavigateToCatalog}
+      />
     );
   }, [
     isMyMode,
-    vm.list,
+    myModeSections,
+    vm.list.renderVerseRow,
+    vm.list.getItemKey,
     vm.ui.currentFilterLabel,
-    listTopInset,
-    listBottomInset,
     handleNavigateToCatalog,
-    collapsedSections,
-    hiddenSections,
-    toggleCollapsed,
-    toggleHidden,
     learningSlotsSummary.capacity,
-    myModeQueueVerses,
   ]);
 
   const handleTelegramBack = useCallback(() => {
