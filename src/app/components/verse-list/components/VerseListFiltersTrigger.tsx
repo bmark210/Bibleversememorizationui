@@ -39,7 +39,7 @@ export function VerseListFiltersTrigger({
   return (
     <div
       className={cn(
-        'flex w-full items-stretch rounded-[24px] border border-border/70 bg-card/88 p-2 backdrop-blur-2xl transition-[opacity,transform] duration-200',
+        'flex w-full items-stretch border border-border/70 bg-card/88 p-2 backdrop-blur-2xl transition-[opacity,transform] duration-200',
         className,
       )}
     >

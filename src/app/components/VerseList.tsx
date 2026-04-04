@@ -975,7 +975,7 @@ export function VerseList({
         <div className="relative min-h-0 flex-1">
           <div
             ref={filterOverlayRef}
-            className="pointer-events-none absolute inset-x-0 top-0 z-40 px-4 pt-2 pb-0 sm:px-6 lg:px-8"
+            className="pointer-events-none absolute inset-x-0 top-0 z-40"
           >
             {showCatalogFilters ? (
               <VerseListFiltersTrigger
