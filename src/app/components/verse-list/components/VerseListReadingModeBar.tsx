@@ -14,7 +14,7 @@ export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-3">
+    <div className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-18">
       <div className="pointer-events-auto">
         {/* Pill — fixed height, expands horizontally to the left */}
         <div
@@ -22,7 +22,7 @@ export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
             'flex h-9 items-center overflow-hidden',
             'rounded-l-full rounded-r-none border border-border-subtle bg-bg-overlay/98 shadow-[var(--shadow-soft)] backdrop-blur-xl',
             'transition-[width] duration-300 ease-out',
-            isOpen ? 'w-60' : 'w-[58px]',
+            isOpen ? 'w-60' : 'w-[60px]',
           )}
         >
           {/* ── Left: label + toggle (hidden when collapsed) ── */}

@@ -65,10 +65,11 @@ type MyVersesSectionsLayoutProps = {
 type SectionNavigationState = {
   activeSectionIndex: number;
   isPastCurrentSectionStart: boolean;
+  isBeforeCurrentSectionEnd: boolean;
 };
 
 type SectionEdgeAction = {
-  kind: 'current-start' | 'adjacent';
+  kind: 'current-start' | 'current-end' | 'adjacent';
   direction: 'up' | 'down';
   targetIndex: number;
   section: MyVersesSectionData;
@@ -111,6 +112,18 @@ function isPastSectionStart(
   return (
     getSectionOffsetFromContainer(container, sectionElement) <
     SECTION_ACTIVE_OFFSET_PX - SECTION_RETURN_THRESHOLD_PX
+  );
+}
+
+// Symmetric to isPastSectionStart — true when the next section is still
+// below the visible area by at least SECTION_RETURN_THRESHOLD_PX.
+function isBeforeSectionEnd(
+  container: HTMLDivElement,
+  nextSectionElement: HTMLDivElement,
+) {
+  return (
+    getSectionOffsetFromContainer(container, nextSectionElement) >
+    container.clientHeight - SECTION_RETURN_THRESHOLD_PX
   );
 }
 
@@ -161,10 +174,20 @@ function resolveBottomAction(
   sections: MyVersesSectionData[],
   nav: SectionNavigationState,
 ): SectionEdgeAction | null {
-  const targetIndex = nav.activeSectionIndex + 1;
-  const target = sections[targetIndex];
-  if (!target) return null;
-  return { kind: 'adjacent', direction: 'down', targetIndex, section: target };
+  const nextIndex = nav.activeSectionIndex + 1;
+  const next = sections[nextIndex];
+  if (!next) return null;
+
+  if (nav.isBeforeCurrentSectionEnd) {
+    return {
+      kind: 'current-end',
+      direction: 'down',
+      targetIndex: nextIndex,
+      section: sections[nav.activeSectionIndex],
+    };
+  }
+
+  return { kind: 'adjacent', direction: 'down', targetIndex: nextIndex, section: next };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -237,6 +260,7 @@ function SectionEdgeButtonContent({
   const meta = SECTION_META[section.key];
   const DirectionIcon = direction === 'up' ? ChevronUp : ChevronDown;
   const isReturnToStart = kind === 'current-start';
+  const isScrollToEnd = kind === 'current-end';
 
   return (
     <button
@@ -245,7 +269,9 @@ function SectionEdgeButtonContent({
       aria-label={
         isReturnToStart
           ? `Вернуться к началу раздела ${meta.title}`
-          : `Перейти к разделу ${meta.title}`
+          : isScrollToEnd
+            ? `Перейти к концу раздела ${meta.title}`
+            : `Перейти к разделу ${meta.title}`
       }
       className={cn(
         'flex h-11 w-full items-center gap-3 rounded-[22px] border px-4',
@@ -267,6 +293,10 @@ function SectionEdgeButtonContent({
         {isReturnToStart ? (
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
             К началу
+          </div>
+        ) : isScrollToEnd ? (
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+            К концу
           </div>
         ) : null}
         <div className={cn('truncate text-[13px] font-semibold', theme.accentClass)}>
@@ -314,15 +344,22 @@ export function MyVersesSectionsLayout({
   const [nav, setNav] = useState<SectionNavigationState>({
     activeSectionIndex: 0,
     isPastCurrentSectionStart: false,
+    isBeforeCurrentSectionEnd: true,
   });
+
+  const [scrollEdges, setScrollEdges] = useState({ atTop: true, atBottom: false });
 
   useEffect(() => {
     setNav((cur) => {
       const next = visibleSections.length === 0
         ? 0
         : Math.min(cur.activeSectionIndex, visibleSections.length - 1);
-      if (cur.activeSectionIndex === next && !cur.isPastCurrentSectionStart) return cur;
-      return { activeSectionIndex: next, isPastCurrentSectionStart: false };
+      if (
+        cur.activeSectionIndex === next &&
+        !cur.isPastCurrentSectionStart &&
+        cur.isBeforeCurrentSectionEnd
+      ) return cur;
+      return { activeSectionIndex: next, isPastCurrentSectionStart: false, isBeforeCurrentSectionEnd: true };
     });
   }, [visibleSections.length]);
 
@@ -339,12 +376,23 @@ export function MyVersesSectionsLayout({
       const isPastCurrentSectionStart = activeEl
         ? isPastSectionStart(container, activeEl)
         : false;
+      const nextEl = sectionRefs.current[visibleSections[activeSectionIndex + 1]?.key ?? ''] ?? null;
+      const isBeforeCurrentSectionEnd = nextEl
+        ? isBeforeSectionEnd(container, nextEl)
+        : false;
 
       setNav((cur) =>
         cur.activeSectionIndex === activeSectionIndex &&
-        cur.isPastCurrentSectionStart === isPastCurrentSectionStart
+        cur.isPastCurrentSectionStart === isPastCurrentSectionStart &&
+        cur.isBeforeCurrentSectionEnd === isBeforeCurrentSectionEnd
           ? cur
-          : { activeSectionIndex, isPastCurrentSectionStart },
+          : { activeSectionIndex, isPastCurrentSectionStart, isBeforeCurrentSectionEnd },
+      );
+
+      const atTop = container.scrollTop <= 1;
+      const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 1;
+      setScrollEdges((cur) =>
+        cur.atTop === atTop && cur.atBottom === atBottom ? cur : { atTop, atBottom },
       );
     };
 
@@ -387,9 +435,6 @@ export function MyVersesSectionsLayout({
       <div
         ref={scrollRef}
         className="h-full overflow-y-auto px-2 sm:px-4"
-        style={{
-          paddingBottom: 'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)',
-        }}
       >
         {hasContent ? (
           <>
@@ -436,7 +481,11 @@ export function MyVersesSectionsLayout({
                always positions section headers just below this overlay.
           ── */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
-            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background via-background/70 to-transparent" />
+            <div className={cn(
+              'absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background via-background/70 to-transparent',
+              'transition-opacity duration-300',
+              scrollEdges.atTop ? 'opacity-0' : 'opacity-100',
+            )} />
             <div className="pointer-events-auto relative px-3 pt-1.5 sm:px-5">
               <SectionEdgeButton
                 action={topAction}
@@ -448,9 +497,12 @@ export function MyVersesSectionsLayout({
           {/* ── Bottom overlay: next section + gradient ───────────────────────── */}
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 z-10"
-            style={{ paddingBottom: 'var(--app-bottom-nav-clearance, 0px)' }}
           >
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background via-background/70 to-transparent" />
+            <div className={cn(
+              'absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background via-background/70 to-transparent',
+              'transition-opacity duration-300',
+              scrollEdges.atBottom ? 'opacity-0' : 'opacity-100',
+            )} />
             <div className="pointer-events-auto relative px-3 pb-1.5 sm:px-5">
               <SectionEdgeButton
                 action={bottomAction}
