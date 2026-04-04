@@ -1,88 +1,51 @@
-﻿import type { bible_memory_db_internal_domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
 import type { domain_UserVersesPageResponse } from "@/api/models/domain_UserVersesPageResponse";
-import { UserVersesService } from "@/api/services/UserVersesService";
-
-/** Должен совпадать с VerseListStatusFilter в списке стихов (без импорта из app — избегаем циклов). */
-export type UserVersesListFilter =
-  | "catalog"
-  | "learning"
-  | "review"
-  | "mastered"
-  | "stopped"
-  | "my";
-
-const LIST_PAGE_LIMIT = 100;
+import { UserVersesService } from "./UserVersesService";
 
 type FetchUserVersesPageParams = {
   telegramId: string;
-  orderBy?: "bible" | "popularity" | "updatedAt";
+  status?: "MY" | "LEARNING" | "STOPPED";
+  orderBy?: "createdAt" | "updatedAt" | "bible" | "popularity";
   order?: "asc" | "desc";
-  filter: UserVersesListFilter;
+  filter?: "catalog" | "my" | "learning" | "review" | "mastered" | "stopped";
   bookId?: number;
   search?: string;
   tagSlugs?: string[];
-  limit: number;
+  limit?: number;
   startWith?: number;
 };
 
-function apiFilter(
-  filter: UserVersesListFilter
-): "my" | "learning" | "review" | "mastered" | "stopped" {
-  if (filter === "catalog") {
-    return "my";
-  }
-  return filter;
-}
-
 export async function fetchUserVersesPage(
-  params: FetchUserVersesPageParams
+  params: FetchUserVersesPageParams,
 ): Promise<domain_UserVersesPageResponse> {
-  const orderBy = params.orderBy ?? "updatedAt";
-  const order = params.order ?? "desc";
-  const tagSlugs =
-    params.tagSlugs && params.tagSlugs.length > 0
-      ? params.tagSlugs.join(",")
-      : undefined;
-  return UserVersesService.listUserVerses(
+  const response = await UserVersesService.listUserVerses(
     params.telegramId,
-    undefined,
-    orderBy,
-    order,
-    apiFilter(params.filter),
+    params.status,
+    params.orderBy,
+    params.order,
+    params.filter,
     params.bookId,
     params.search,
-    tagSlugs,
-    params.limit,
-    params.startWith
+    params.tagSlugs?.filter(Boolean).join(",") || undefined,
+    params.limit ?? 20,
+    params.startWith,
   );
+
+  return {
+    ...response,
+    items: response.items ?? [],
+    limit: response.limit ?? params.limit ?? 20,
+    offset: response.offset ?? params.startWith ?? 0,
+    total: response.total ?? response.totalCount ?? response.items?.length ?? 0,
+    totalCount: response.totalCount ?? response.total ?? response.items?.length ?? 0,
+  };
 }
 
 export async function fetchAllUserVerses(params: {
   telegramId: string;
-}): Promise<Array<bible_memory_db_internal_domain_VerseListItem>> {
-  const out: Array<bible_memory_db_internal_domain_VerseListItem> = [];
-  let startWith = 0;
-
-  for (;;) {
-    const page = await UserVersesService.listUserVerses(
-      params.telegramId,
-      undefined,
-      "updatedAt",
-      "desc",
-      "my",
-      undefined,
-      undefined,
-      undefined,
-      LIST_PAGE_LIMIT,
-      startWith
-    );
-    const batch = page.items ?? [];
-    out.push(...batch);
-    if (batch.length < LIST_PAGE_LIMIT) {
-      break;
-    }
-    startWith += batch.length;
-  }
-
-  return out;
+}): Promise<domain_UserVersesPageResponse["items"]> {
+  const response = await fetchUserVersesPage({
+    telegramId: params.telegramId,
+    limit: 100,
+  });
+  return response.items ?? [];
 }

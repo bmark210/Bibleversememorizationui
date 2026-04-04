@@ -12,10 +12,7 @@ import {
   fetchDashboardLeaderboard,
 } from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
-import { fetchLearningCapacity } from "@/app/components/Training/learningCapacityApi";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
-import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
-import { toast } from "@/app/lib/toast";
 
 type DashboardLeaderboardQuery = {
   offset?: number;
@@ -25,7 +22,6 @@ type DashboardLeaderboardQuery = {
 export function useDashboardData(telegramId: string | null) {
   const [dashboardStats, setDashboardStats] = useState<domain_UserDashboardStats | null>(null);
   const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
-  const [learningCapacity, setLearningCapacity] = useState<LearningCapacityResponse | null>(null);
   const [dashboardLeaderboard, setDashboardLeaderboard] =
     useState<domain_UserLeaderboardResponse | null>(null);
   const [isDashboardLeaderboardLoading, setIsDashboardLeaderboardLoading] = useState(false);
@@ -35,7 +31,6 @@ export function useDashboardData(telegramId: string | null) {
     useState(false);
 
   const dashboardStatsRequestIdRef = useRef(0);
-  const learningCapacityRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
   const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({
@@ -92,29 +87,6 @@ export function useDashboardData(telegramId: string | null) {
       if (dashboardStatsRequestIdRef.current === requestId) {
         setIsDashboardStatsLoading(false);
       }
-    }
-  }, []);
-
-  const loadLearningCapacity = useCallback(async (telegramIdValue: string) => {
-    if (!telegramIdValue) return null;
-    const requestId = ++learningCapacityRequestIdRef.current;
-    try {
-      const cap = await fetchLearningCapacity({ telegramId: telegramIdValue });
-      if (learningCapacityRequestIdRef.current === requestId) {
-        setLearningCapacity(cap);
-        if (cap.promotedVerseIds && cap.promotedVerseIds.length > 0) {
-          const count = cap.promotedVerseIds.length;
-          toast.success(
-            count === 1
-              ? 'Стих из очереди перемещён в изучение'
-              : `${count} стиха из очереди перемещены в изучение`,
-            { label: 'Очередь' }
-          );
-        }
-      }
-      return cap;
-    } catch {
-      return null;
     }
   }, []);
 
@@ -203,7 +175,6 @@ export function useDashboardData(telegramId: string | null) {
     dashboardStats,
     setDashboardStats,
     isDashboardStatsLoading,
-    learningCapacity,
     dashboardLeaderboard,
     setDashboardLeaderboard,
     isDashboardLeaderboardLoading,
@@ -211,7 +182,6 @@ export function useDashboardData(telegramId: string | null) {
     setDashboardFriendsActivity,
     isDashboardFriendsActivityLoading,
     loadDashboardStats,
-    loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
     handleLeaderboardWindowRequest,

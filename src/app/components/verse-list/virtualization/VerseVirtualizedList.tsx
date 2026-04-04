@@ -37,6 +37,12 @@ type VerseVirtualizedListProps = {
   footerNode?: React.ReactNode;
   headerNode?: React.ReactNode;
   debugInfiniteScroll?: DebugInfiniteScroll;
+  /**
+   * Optional per-item height estimator (powered by @chenglou/pretext).
+   * When provided, ScrollSeek placeholders use pretext-computed heights
+   * instead of the global DEFAULT_ITEM_HEIGHT_ESTIMATE.
+   */
+  getItemHeightEstimate?: (verse: Verse) => number;
 };
 
 const DEFAULT_INLINE_SKELETON_COUNT = 4;
@@ -116,6 +122,40 @@ function ScrollSeekItemPlaceholder({ height }: { height: number; index: number }
   );
 }
 
+/**
+ * Creates a ScrollSeek placeholder that uses pretext-computed per-item
+ * height estimates instead of the global constant.
+ * Called once per render when `getItemHeightEstimate` is provided.
+ */
+function makeSmartScrollSeekPlaceholder(
+  items: Array<Verse>,
+  getItemHeightEstimate: (verse: Verse) => number,
+) {
+  return function SmartScrollSeekPlaceholder({
+    height,
+    index,
+  }: {
+    height: number;
+    index: number;
+  }) {
+    const verse = items[index];
+    const resolvedHeight = verse
+      ? getItemHeightEstimate(verse)
+      : Number.isFinite(height) && height > 0
+        ? height
+        : DEFAULT_ITEM_HEIGHT_ESTIMATE;
+
+    return (
+      <div className="pb-3" aria-hidden="true">
+        <div
+          className="rounded-2xl border border-border/60 bg-card/55 animate-pulse"
+          style={{ minHeight: resolvedHeight }}
+        />
+      </div>
+    );
+  };
+}
+
 export function VerseVirtualizedList({
   items,
   enableInfiniteLoader,
@@ -137,6 +177,7 @@ export function VerseVirtualizedList({
   footerNode,
   headerNode,
   debugInfiniteScroll,
+  getItemHeightEstimate,
 }: VerseVirtualizedListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
@@ -422,13 +463,25 @@ export function VerseVirtualizedList({
     return VerseListVirtuosoHeader;
   }, [normalizedTopInset, headerNode]);
 
+  // When a pretext-based estimator is available, build a per-item-aware
+  // placeholder component; otherwise fall back to the global constant.
+  const SmartPlaceholder = useMemo(
+    () =>
+      getItemHeightEstimate
+        ? makeSmartScrollSeekPlaceholder(items, getItemHeightEstimate)
+        : ScrollSeekItemPlaceholder,
+    // Rebuild when estimator or items reference changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getItemHeightEstimate, items],
+  );
+
   const virtuosoComponents = useMemo(
     () => ({
       Header: HeaderComponent,
       Footer: FooterComponent,
-      ScrollSeekPlaceholder: ScrollSeekItemPlaceholder,
+      ScrollSeekPlaceholder: SmartPlaceholder,
     }),
-    [FooterComponent, HeaderComponent]
+    [FooterComponent, HeaderComponent, SmartPlaceholder]
   );
 
   if (items.length === 0) return null;

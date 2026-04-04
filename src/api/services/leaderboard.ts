@@ -1,26 +1,24 @@
-﻿import { OpenAPI } from "@/api/core/OpenAPI";
-import { request } from "@/api/core/request";
 import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import { UsersService } from "./UsersService";
 
-export const DASHBOARD_LEADERBOARD_WINDOW_SIZE = 20;
+export const DASHBOARD_LEADERBOARD_WINDOW_SIZE = 25;
 
 export async function fetchDashboardLeaderboard(params: {
   telegramId: string;
   limit?: number;
   offset?: number;
 }): Promise<domain_UserLeaderboardResponse> {
-  const { telegramId, limit = DASHBOARD_LEADERBOARD_WINDOW_SIZE, offset = 0 } = params;
+  const response = await UsersService.getLeaderboard(
+    params.telegramId,
+    params.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+    params.offset,
+  );
 
-  return request<domain_UserLeaderboardResponse>(OpenAPI, {
-    method: "GET",
-    url: "/api/users/leaderboard",
-    query: {
-      telegramId,
-      limit,
-      offset,
-    },
-    errors: {
-      500: "Internal Server Error",
-    },
-  });
+  return {
+    ...response,
+    items: response.items ?? [],
+    limit: response.limit ?? params.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+    offset: response.offset ?? params.offset ?? 0,
+    totalParticipants: response.totalParticipants ?? response.items?.length ?? 0,
+  };
 }

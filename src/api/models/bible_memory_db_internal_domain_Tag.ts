@@ -1,3 +1,11 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_Tag = import('./domain_Tag').domain_Tag;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type bible_memory_db_internal_domain_Tag = {
+    createdAt?: string;
+    id?: string;
+    slug?: string;
+    title?: string;
+};
 

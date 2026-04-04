@@ -146,66 +146,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/users/{telegramId}/exam/capacity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get learning capacity
-         * @description Returns the user's active learning count, total capacity, and whether they can add more verses.
-         */
-        get: operations["getLearningCapacity"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/users/{telegramId}/exam/eligible": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get exam-eligible verses
-         * @description Returns verses that qualify for the exam (masteryLevel>=7, repetitions>=2). Includes canStart flag and cooldown info.
-         */
-        get: operations["getExamEligibleVerses"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/users/{telegramId}/exam/session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Submit exam session results
-         * @description Saves exam results, marks confirmed verses, and updates learning capacity.
-         */
-        post: operations["submitExamSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/users/{telegramId}/friends": {
         parameters: {
             query?: never;
@@ -494,7 +434,7 @@ export interface paths {
         put?: never;
         /**
          * Add verse to queue
-         * @description Moves a verse from MY status (or after a 422 capacity error) into the learning queue.
+         * @description Moves a verse from MY or STOPPED status into the learning queue.
          */
         post: operations["addVerseToQueue"];
         /**
@@ -612,7 +552,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["api.HealthResponse"];
+                        "application/json": components["schemas"]["internal_api.HealthResponse"];
                     };
                 };
             };
@@ -629,95 +569,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        "api.ActionStatusResponse": {
-            status?: string;
-        };
-        "api.AddFriendRequest": {
-            targetTelegramId?: string;
-        };
-        "api.AddToQueueBody": {
-            externalVerseId?: string;
-        };
-        "api.AnchorTrainingSessionResponse": {
-            /** @description NewTotalXP is the user's total XP after this session. */
-            newTotalXp?: number;
-            /** @description XPAwarded is the amount of XP earned in this session. */
-            xpAwarded?: number;
-        };
-        "api.BooleanOKResponse": {
-            ok?: boolean;
-        };
-        "api.CreateTagRequest": {
-            slug?: string;
-            title?: string;
-        };
-        "api.ErrorResponse": {
-            error?: string;
-        };
-        "api.HealthResponse": {
-            status?: string;
-        };
-        "api.PatchUserVerseRequest": {
-            lastReviewedAt?: string;
-            lastTrainingModeId?: number;
-            masteryLevel?: number;
-            nextReviewAt?: string;
-            repetitions?: number;
-            reviewLapseStreak?: number;
-            status?: string;
-        };
-        "api.ReferenceTrainerResponse": {
-            /** @description MinRequired is the minimum number of verses recommended for a session. */
-            minRequired?: number;
-            /** @description TotalCount is the total number of verses available in the pool. */
-            totalCount?: number;
-            /** @description Verses is the pool of user verses available for training. */
-            verses?: components["schemas"]["domain.UserVerse"][];
-        };
-        "api.ReorderQueueBody": {
-            queuePosition?: number;
-        };
-        "api.ReplaceLearningVerseRequest": {
-            activateExternalVerseId?: string;
-            pauseExternalVerseId?: string;
-        };
-        "api.ReplaceLearningVerseResponse": {
-            activatedVerse?: components["schemas"]["domain.UserVerse"];
-            pausedVerse?: components["schemas"]["domain.UserVerse"];
-        };
-        "api.UpdateTagRequest": {
-            title?: string;
-        };
-        "api.UpsertUserVerseRequest": {
-            externalVerseId?: string;
-            lastReviewedAt?: string;
-            lastTrainingModeId?: number;
-            masteryLevel?: number;
-            nextReviewAt?: string;
-            repetitions?: number;
-        };
-        "api.VerseTagMutationRequest": {
-            tagId?: string;
-            tagSlug?: string;
-        };
-        "api.VerseTagsPutRequest": {
-            tagSlugs?: string[];
-        };
-        "api.generateExerciseRequest": {
-            mode?: string;
-            verseReference?: string;
-            verseText?: string;
-        };
-        "api.generateExerciseResponse": {
-            data?: components["schemas"]["api.impostorWordData"];
-            mode?: string;
-        };
-        "api.impostorWordData": {
-            changedWord?: string;
-            correctWord?: string;
-            wordIndex?: number;
-        };
-        "domain.AnchorTrainingResult": {
+        "bible-memory-db_internal_domain.AnchorTrainingResult": {
             /** @description ExternalVerseID identifies the verse being trained. */
             externalVerseId?: string;
             /** @description ModeId is the training mode used: "reference-choice", "broken-mirror", "impostor-word", etc. */
@@ -725,36 +577,36 @@ export interface components {
             /** @description Outcome of the answer: "correct_first", "correct_retry", or "wrong". */
             outcome?: string;
         };
-        "domain.AnchorTrainingSessionInput": {
+        "bible-memory-db_internal_domain.AnchorTrainingSessionInput": {
             /** @description Results are the individual question results from this session. */
-            results?: components["schemas"]["domain.AnchorTrainingResult"][];
+            results?: components["schemas"]["bible-memory-db_internal_domain.AnchorTrainingResult"][];
         };
-        "domain.CatalogVerseDeleteResponse": {
+        "bible-memory-db_internal_domain.CatalogVerseDeleteResponse": {
             deletedExternalVerseId?: string;
             ok?: boolean;
         };
-        "domain.CatalogVersesPageResponse": {
-            items?: components["schemas"]["domain.VerseListItem"][];
+        "bible-memory-db_internal_domain.CatalogVersesPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
             totalCount?: number;
         };
-        "domain.CreateFeedbackInput": {
+        "bible-memory-db_internal_domain.CreateFeedbackInput": {
             telegramId: string;
             text: string;
         };
-        "domain.DashboardCompactFriendActivityEntry": {
+        "bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry": {
             avatarUrl?: string;
             dailyStreak?: number;
             lastActiveAt?: string;
             name?: string;
             telegramId?: string;
         };
-        "domain.DashboardCompactFriendsActivityResponse": {
+        "bible-memory-db_internal_domain.DashboardCompactFriendsActivityResponse": {
             activeLast7Days?: number;
-            entries?: components["schemas"]["domain.DashboardCompactFriendActivityEntry"][];
+            entries?: components["schemas"]["bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry"][];
             friendsTotal?: number;
             generatedAt?: string;
         };
-        "domain.DashboardFriendActivityEntry": {
+        "bible-memory-db_internal_domain.DashboardFriendActivityEntry": {
             avatarUrl?: string;
             dailyStreak?: number;
             lastActiveAt?: string;
@@ -764,63 +616,37 @@ export interface components {
             weeklyRepetitions?: number;
             xp?: number;
         };
-        "domain.DashboardFriendsActivityResponse": {
-            entries?: components["schemas"]["domain.DashboardFriendActivityEntry"][];
+        "bible-memory-db_internal_domain.DashboardFriendsActivityResponse": {
+            entries?: components["schemas"]["bible-memory-db_internal_domain.DashboardFriendActivityEntry"][];
             generatedAt?: string;
-            summary?: components["schemas"]["domain.DashboardFriendsActivitySummary"];
+            summary?: components["schemas"]["bible-memory-db_internal_domain.DashboardFriendsActivitySummary"];
         };
-        "domain.DashboardFriendsActivitySummary": {
+        "bible-memory-db_internal_domain.DashboardFriendsActivitySummary": {
             activeLast7Days?: number;
             avgStreakDays?: number;
             avgWeeklyRepetitions?: number;
             avgXp?: number;
             friendsTotal?: number;
         };
-        "domain.DeleteUserVerseResult": {
+        "bible-memory-db_internal_domain.DeleteUserVerseResult": {
             status?: string;
             xp?: number;
             xpDelta?: number;
         };
-        "domain.ExamEligibleVersesResponse": {
-            canStart?: boolean;
-            /** @description CooldownUntil is set when exam is on cooldown (not nil means canStart=false due to cooldown). */
-            cooldownUntil?: string;
-            minRequired?: number;
-            totalCount?: number;
-            verses?: components["schemas"]["domain.UserVerse"][];
-        };
-        "domain.ExamSessionInput": {
-            results?: components["schemas"]["domain.ExamVerseResult"][];
-        };
-        "domain.ExamSessionOutput": {
-            failCount?: number;
-            newCapacity?: number;
-            newlyConfirmedCount?: number;
-            passCount?: number;
-            passed?: boolean;
-            /** @description PromotedVerseIds contains externalVerseIds of verses auto-promoted from queue after this session. */
-            promotedVerseIds?: string[];
-            sessionId?: string;
-            verseCount?: number;
-        };
-        "domain.ExamVerseResult": {
-            externalVerseId?: string;
-            passed?: boolean;
-        };
-        "domain.Feedback": {
+        "bible-memory-db_internal_domain.Feedback": {
             createdAt?: string;
             id?: string;
             telegramId?: string;
             text?: string;
             updatedAt?: string;
         };
-        "domain.FeedbackPageResponse": {
-            items?: components["schemas"]["domain.Feedback"][];
+        "bible-memory-db_internal_domain.FeedbackPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.Feedback"][];
             limit?: number;
             offset?: number;
             total?: number;
         };
-        "domain.FriendPlayerListItem": {
+        "bible-memory-db_internal_domain.FriendPlayerListItem": {
             avatarUrl?: string;
             isFriend?: boolean;
             name?: string;
@@ -828,23 +654,13 @@ export interface components {
             telegramId?: string;
             versesCount?: number;
         };
-        "domain.FriendPlayersPageResponse": {
-            items?: components["schemas"]["domain.FriendPlayerListItem"][];
+        "bible-memory-db_internal_domain.FriendPlayersPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.FriendPlayerListItem"][];
             limit?: number;
             offset?: number;
             total?: number;
         };
-        "domain.LearningCapacityResponse": {
-            activeLearning?: number;
-            base?: number;
-            canAddMore?: boolean;
-            capacity?: number;
-            examConfirmedCount?: number;
-            /** @description PromotedVerseIds contains externalVerseIds of verses auto-promoted from queue since last check. */
-            promotedVerseIds?: string[];
-            queueCount?: number;
-        };
-        "domain.PlayerProfile": {
+        "bible-memory-db_internal_domain.PlayerProfile": {
             avatarUrl?: string;
             createdAt?: string;
             dailyStreak?: number;
@@ -859,20 +675,20 @@ export interface components {
             weeklyRepetitions?: number;
             xp?: number;
         };
-        "domain.QueueResponse": {
+        "bible-memory-db_internal_domain.QueueResponse": {
             freeSlots?: number;
-            items?: components["schemas"]["domain.QueueVerseItem"][];
+            items?: components["schemas"]["bible-memory-db_internal_domain.QueueVerseItem"][];
             /** @description PromotedVerseIds contains any externalVerseIds auto-promoted during this request. */
             promotedVerseIds?: string[];
             totalCount?: number;
         };
-        "domain.QueueVerseItem": {
+        "bible-memory-db_internal_domain.QueueVerseItem": {
             externalVerseId?: string;
             queuePosition?: number;
             reference?: string;
             text?: string;
         };
-        "domain.SocialPlayerListItem": {
+        "bible-memory-db_internal_domain.SocialPlayerListItem": {
             avatarUrl?: string;
             dailyStreak?: number;
             isFriend?: boolean;
@@ -883,43 +699,43 @@ export interface components {
             weeklyRepetitions?: number;
             xp?: number;
         };
-        "domain.SocialPlayersPageResponse": {
-            items?: components["schemas"]["domain.SocialPlayerListItem"][];
+        "bible-memory-db_internal_domain.SocialPlayersPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.SocialPlayerListItem"][];
             limit?: number;
             startWith?: number;
             totalCount?: number;
         };
-        "domain.Tag": {
+        "bible-memory-db_internal_domain.Tag": {
             createdAt?: string;
             id?: string;
             slug?: string;
             title?: string;
         };
-        "domain.TrainingStepHTTPRequest": {
+        "bible-memory-db_internal_domain.TrainingStepHTTPRequest": {
             isLearningVerse?: boolean;
             /** @description "learning" | "review" */
             phase?: string;
             rating?: number;
             trainingModeId?: number;
         };
-        "domain.TrainingStepHTTPResponse": {
+        "bible-memory-db_internal_domain.TrainingStepHTTPResponse": {
             graduatedToReview?: boolean;
             nextTrainingModeId?: number;
             /** @description PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot. */
             promotedVerseIds?: string[];
             reviewWasSuccessful?: boolean;
-            userVerse?: components["schemas"]["domain.UserVerse"];
+            userVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
         };
         /** @enum {string} */
-        "domain.Translation": "NRT" | "SYNOD" | "RBS2" | "BTI";
-        "domain.UpsertUserInput": {
+        "bible-memory-db_internal_domain.Translation": "NRT" | "SYNOD" | "RBS2" | "BTI";
+        "bible-memory-db_internal_domain.UpsertUserInput": {
             avatarUrl?: string;
             name?: string;
             nickname?: string;
             telegramId: string;
-            translation?: components["schemas"]["domain.Translation"];
+            translation?: components["schemas"]["bible-memory-db_internal_domain.Translation"];
         };
-        "domain.User": {
+        "bible-memory-db_internal_domain.User": {
             avatarUrl?: string;
             createdAt?: string;
             dailyStreak?: number;
@@ -927,10 +743,10 @@ export interface components {
             name?: string;
             nickname?: string;
             telegramId?: string;
-            translation?: components["schemas"]["domain.Translation"];
+            translation?: components["schemas"]["bible-memory-db_internal_domain.Translation"];
             xp?: number;
         };
-        "domain.UserDashboardStats": {
+        "bible-memory-db_internal_domain.UserDashboardStats": {
             dailyStreak?: number;
             /** @description DueReviewVerses: повторение, следующее повторение уже «наступило» — nextReviewAt == nil или <= now (REVIEW_DUE). */
             dueReviewVerses?: number;
@@ -946,13 +762,13 @@ export interface components {
             waitingReviewVerses?: number;
             xp?: number;
         };
-        "domain.UserLeaderboardCurrentUser": {
+        "bible-memory-db_internal_domain.UserLeaderboardCurrentUser": {
             inTop?: boolean;
             rank?: number;
             versesCount?: number;
             xp?: number;
         };
-        "domain.UserLeaderboardEntry": {
+        "bible-memory-db_internal_domain.UserLeaderboardEntry": {
             avatarUrl?: string;
             name?: string;
             nickname?: string;
@@ -962,20 +778,19 @@ export interface components {
             versesCount?: number;
             xp?: number;
         };
-        "domain.UserLeaderboardResponse": {
-            currentUser?: components["schemas"]["domain.UserLeaderboardCurrentUser"];
-            items?: components["schemas"]["domain.UserLeaderboardEntry"][];
+        "bible-memory-db_internal_domain.UserLeaderboardResponse": {
+            currentUser?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardCurrentUser"];
+            items?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardEntry"][];
             limit?: number;
             offset?: number;
             totalParticipants?: number;
         };
-        "domain.UserVerse": {
+        "bible-memory-db_internal_domain.UserVerse": {
             contextPromptReference?: string;
             /** @description Context: соседний стих для режима «Контекст» закрепления. */
             contextPromptText?: string;
             createdAt?: string;
-            examConfirmed?: boolean;
-            flow?: components["schemas"]["domain.VerseFlow"];
+            flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
             id?: number;
             lastReviewedAt?: string;
             lastTrainingModeId?: number;
@@ -985,23 +800,23 @@ export interface components {
             reference?: string;
             repetitions?: number;
             reviewLapseStreak?: number;
-            status?: components["schemas"]["domain.VerseStatus"];
+            status?: components["schemas"]["bible-memory-db_internal_domain.VerseStatus"];
             telegramId?: string;
             /** @description Text/Reference подставляются при ответе API (Helloao), не из БД. */
             text?: string;
             updatedAt?: string;
             /** @description Joined */
-            verse?: components["schemas"]["domain.Verse"];
+            verse?: components["schemas"]["bible-memory-db_internal_domain.Verse"];
             verseId?: string;
         };
-        "domain.UserVersesPageResponse": {
-            items?: components["schemas"]["domain.VerseListItem"][];
+        "bible-memory-db_internal_domain.UserVersesPageResponse": {
+            items?: components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
             limit?: number;
             offset?: number;
             total?: number;
             totalCount?: number;
         };
-        "domain.UserWithVerses": {
+        "bible-memory-db_internal_domain.UserWithVerses": {
             avatarUrl?: string;
             createdAt?: string;
             dailyStreak?: number;
@@ -1009,97 +824,185 @@ export interface components {
             name?: string;
             nickname?: string;
             telegramId?: string;
-            translation?: components["schemas"]["domain.Translation"];
+            translation?: components["schemas"]["bible-memory-db_internal_domain.Translation"];
             versesCount?: number;
             xp?: number;
         };
-        "domain.Verse": {
+        "bible-memory-db_internal_domain.Verse": {
             createdAt?: string;
             difficultyLetters?: number;
             externalVerseId?: string;
             id?: string;
         };
         /** @enum {string} */
-        "domain.VerseAction": "add_to_my" | "start_learning" | "train" | "pause" | "resume" | "anchor";
-        "domain.VerseAdminSummary": {
+        "bible-memory-db_internal_domain.VerseAction": "add_to_my" | "start_learning" | "train" | "pause" | "resume" | "anchor";
+        "bible-memory-db_internal_domain.VerseAdminSummary": {
             canDelete?: boolean;
             externalVerseId?: string;
             tagLinksCount?: number;
             userLinksCount?: number;
         };
         /** @enum {string} */
-        "domain.VerseDifficultyLevel": "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+        "bible-memory-db_internal_domain.VerseDifficultyLevel": "EASY" | "MEDIUM" | "HARD" | "EXPERT";
         /** @enum {string} */
-        "domain.VerseDisplayStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "REVIEW" | "MASTERED" | "CATALOG";
-        "domain.VerseFlow": {
-            allowedActions?: components["schemas"]["domain.VerseAction"][];
-            availability?: components["schemas"]["domain.VerseFlowAvailability"];
+        "bible-memory-db_internal_domain.VerseDisplayStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "REVIEW" | "MASTERED" | "CATALOG";
+        "bible-memory-db_internal_domain.VerseFlow": {
+            allowedActions?: components["schemas"]["bible-memory-db_internal_domain.VerseAction"][];
+            availability?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowAvailability"];
             availableAt?: string;
-            code?: components["schemas"]["domain.VerseFlowCode"];
-            group?: components["schemas"]["domain.VerseFlowGroup"];
-            phase?: components["schemas"]["domain.VerseFlowPhase"];
+            code?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowCode"];
+            group?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowGroup"];
+            phase?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowPhase"];
             progressPercent?: number;
             remainingLearnings?: number;
             remainingReviews?: number;
         };
         /** @enum {string} */
-        "domain.VerseFlowAvailability": "READY" | "WAITING" | "PAUSED" | "NONE";
+        "bible-memory-db_internal_domain.VerseFlowAvailability": "READY" | "WAITING" | "PAUSED" | "NONE";
         /** @enum {string} */
-        "domain.VerseFlowCode": "CATALOG" | "MY" | "LEARNING" | "REVIEW_DUE" | "REVIEW_WAITING" | "MASTERED" | "PAUSED_LEARNING" | "PAUSED_REVIEW" | "PAUSED_MASTERED" | "QUEUE";
+        "bible-memory-db_internal_domain.VerseFlowCode": "CATALOG" | "MY" | "LEARNING" | "REVIEW_DUE" | "REVIEW_WAITING" | "MASTERED" | "PAUSED_LEARNING" | "PAUSED_REVIEW" | "PAUSED_MASTERED" | "QUEUE";
         /** @enum {string} */
-        "domain.VerseFlowGroup": "catalog" | "library" | "active" | "paused" | "complete";
+        "bible-memory-db_internal_domain.VerseFlowGroup": "catalog" | "library" | "active" | "paused" | "complete";
         /** @enum {string} */
-        "domain.VerseFlowPhase": "catalog" | "my" | "learning" | "review" | "mastered";
-        "domain.VerseListItem": {
+        "bible-memory-db_internal_domain.VerseFlowPhase": "catalog" | "my" | "learning" | "review" | "mastered";
+        "bible-memory-db_internal_domain.VerseListItem": {
             contextPromptReference?: string;
             contextPromptText?: string;
             createdAt?: string;
-            difficultyLevel?: components["schemas"]["domain.VerseDifficultyLevel"];
+            difficultyLevel?: components["schemas"]["bible-memory-db_internal_domain.VerseDifficultyLevel"];
             externalVerseId?: string;
-            flow?: components["schemas"]["domain.VerseFlow"];
+            flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
             lastReviewedAt?: string;
             lastTrainingModeId?: number;
             masteryLevel?: number;
             nextReviewAt?: string;
-            popularityPreviewUsers?: components["schemas"]["domain.VersePopularityPreviewUser"][];
-            popularityScope?: components["schemas"]["domain.VersePopularityScope"];
+            popularityPreviewUsers?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityPreviewUser"][];
+            popularityScope?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityScope"];
             popularityValue?: number;
             queuePosition?: number;
             reference?: string;
             repetitions?: number;
             reviewLapseStreak?: number;
-            status?: components["schemas"]["domain.VerseDisplayStatus"];
-            tags?: components["schemas"]["domain.VerseListTag"][];
+            status?: components["schemas"]["bible-memory-db_internal_domain.VerseDisplayStatus"];
+            tags?: components["schemas"]["bible-memory-db_internal_domain.VerseListTag"][];
             text?: string;
             updatedAt?: string;
         };
-        "domain.VerseListTag": {
+        "bible-memory-db_internal_domain.VerseListTag": {
             id?: string;
             slug?: string;
             title?: string;
         };
-        "domain.VersePopularityPreviewUser": {
+        "bible-memory-db_internal_domain.VersePopularityPreviewUser": {
             avatarUrl?: string;
             name?: string;
             telegramId?: string;
         };
         /** @enum {string} */
-        "domain.VersePopularityScope": "friends" | "players" | "self";
+        "bible-memory-db_internal_domain.VersePopularityScope": "friends" | "players" | "self";
         /** @enum {string} */
-        "domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED";
-        "domain.VerseTagLinkResponse": {
+        "bible-memory-db_internal_domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED";
+        "bible-memory-db_internal_domain.VerseTagLinkResponse": {
             externalVerseId?: string;
             id?: string;
             tagId?: string;
+        };
+        "internal_api.ActionStatusResponse": {
+            status?: string;
+        };
+        "internal_api.AddFriendRequest": {
+            targetTelegramId?: string;
+        };
+        "internal_api.AddToQueueBody": {
+            externalVerseId?: string;
+        };
+        "internal_api.AnchorTrainingSessionResponse": {
+            /** @description NewTotalXP is the user's total XP after this session. */
+            newTotalXp?: number;
+            /** @description XPAwarded is the amount of XP earned in this session. */
+            xpAwarded?: number;
+        };
+        "internal_api.BooleanOKResponse": {
+            ok?: boolean;
+        };
+        "internal_api.CreateTagRequest": {
+            slug?: string;
+            title?: string;
+        };
+        "internal_api.ErrorResponse": {
+            error?: string;
+        };
+        "internal_api.HealthResponse": {
+            status?: string;
+        };
+        "internal_api.PatchUserVerseRequest": {
+            lastReviewedAt?: string;
+            lastTrainingModeId?: number;
+            masteryLevel?: number;
+            nextReviewAt?: string;
+            repetitions?: number;
+            reviewLapseStreak?: number;
+            status?: string;
+        };
+        "internal_api.ReferenceTrainerResponse": {
+            /** @description MinRequired is the minimum number of verses recommended for a session. */
+            minRequired?: number;
+            /** @description TotalCount is the total number of verses available in the pool. */
+            totalCount?: number;
+            /** @description Verses is the pool of user verses available for training. */
+            verses?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"][];
+        };
+        "internal_api.ReorderQueueBody": {
+            queuePosition?: number;
+        };
+        "internal_api.ReplaceLearningVerseRequest": {
+            activateExternalVerseId?: string;
+            pauseExternalVerseId?: string;
+        };
+        "internal_api.ReplaceLearningVerseResponse": {
+            activatedVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+            pausedVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+        };
+        "internal_api.UpdateTagRequest": {
+            title?: string;
+        };
+        "internal_api.UpsertUserVerseRequest": {
+            externalVerseId?: string;
+            lastReviewedAt?: string;
+            lastTrainingModeId?: number;
+            masteryLevel?: number;
+            nextReviewAt?: string;
+            repetitions?: number;
+        };
+        "internal_api.VerseTagMutationRequest": {
+            tagId?: string;
+            tagSlug?: string;
+        };
+        "internal_api.VerseTagsPutRequest": {
+            tagSlugs?: string[];
+        };
+        "internal_api.generateExerciseRequest": {
+            mode?: string;
+            verseReference?: string;
+            verseText?: string;
+        };
+        "internal_api.generateExerciseResponse": {
+            data?: components["schemas"]["internal_api.impostorWordData"];
+            mode?: string;
+        };
+        "internal_api.impostorWordData": {
+            changedWord?: string;
+            correctWord?: string;
+            wordIndex?: number;
         };
     };
     responses: never;
     parameters: never;
     requestBodies: {
         /** @description Verse-tag payload */
-        "api.VerseTagMutationRequest": {
+        "internal_api.VerseTagMutationRequest": {
             content: {
-                "application/json": components["schemas"]["api.VerseTagMutationRequest"];
+                "application/json": components["schemas"]["internal_api.VerseTagMutationRequest"];
             };
         };
     };
@@ -1130,7 +1033,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.FeedbackPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.FeedbackPageResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1139,7 +1042,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1154,7 +1057,7 @@ export interface operations {
         /** @description Feedback payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["domain.CreateFeedbackInput"];
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.CreateFeedbackInput"];
             };
         };
         responses: {
@@ -1164,7 +1067,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Feedback"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Feedback"];
                 };
             };
             /** @description Bad Request */
@@ -1173,7 +1076,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Too Many Requests */
@@ -1182,7 +1085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1191,7 +1094,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1206,7 +1109,7 @@ export interface operations {
         /** @description Exercise generation request */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.generateExerciseRequest"];
+                "application/json": components["schemas"]["internal_api.generateExerciseRequest"];
             };
         };
         responses: {
@@ -1216,7 +1119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.generateExerciseResponse"];
+                    "application/json": components["schemas"]["internal_api.generateExerciseResponse"];
                 };
             };
             /** @description Invalid request */
@@ -1225,7 +1128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description All AI providers failed */
@@ -1234,7 +1137,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1254,7 +1157,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Tag"][];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"][];
                 };
             };
             /** @description Internal Server Error */
@@ -1263,7 +1166,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1284,7 +1187,7 @@ export interface operations {
         /** @description Tag payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.CreateTagRequest"];
+                "application/json": components["schemas"]["internal_api.CreateTagRequest"];
             };
         };
         responses: {
@@ -1294,7 +1197,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Tag"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"];
                 };
             };
             /** @description Bad Request */
@@ -1303,7 +1206,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Forbidden */
@@ -1312,7 +1215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1321,7 +1224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1350,7 +1253,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.BooleanOKResponse"];
+                    "application/json": components["schemas"]["internal_api.BooleanOKResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1359,7 +1262,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Forbidden */
@@ -1368,7 +1271,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1377,7 +1280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Conflict */
@@ -1386,7 +1289,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1395,7 +1298,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1419,7 +1322,7 @@ export interface operations {
         /** @description Tag title payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.UpdateTagRequest"];
+                "application/json": components["schemas"]["internal_api.UpdateTagRequest"];
             };
         };
         responses: {
@@ -1429,7 +1332,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Tag"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"];
                 };
             };
             /** @description Bad Request */
@@ -1438,7 +1341,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Forbidden */
@@ -1447,7 +1350,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1456,7 +1359,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1465,7 +1368,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1480,7 +1383,7 @@ export interface operations {
         /** @description User payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["domain.UpsertUserInput"];
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.UpsertUserInput"];
             };
         };
         responses: {
@@ -1490,7 +1393,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.User"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.User"];
                 };
             };
             /** @description Bad Request */
@@ -1499,7 +1402,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1508,7 +1411,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1535,7 +1438,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserLeaderboardResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1544,7 +1447,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1559,7 +1462,7 @@ export interface operations {
         /** @description Telegram user payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["domain.UpsertUserInput"];
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.UpsertUserInput"];
             };
         };
         responses: {
@@ -1569,7 +1472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.User"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.User"];
                 };
             };
             /** @description Created */
@@ -1578,7 +1481,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.User"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.User"];
                 };
             };
             /** @description Bad Request */
@@ -1587,7 +1490,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1596,7 +1499,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1619,7 +1522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserWithVerses"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserWithVerses"];
                 };
             };
             /** @description Bad Request */
@@ -1628,7 +1531,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1637,138 +1540,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-        };
-    };
-    getLearningCapacity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Telegram ID */
-                telegramId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["domain.LearningCapacityResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-        };
-    };
-    getExamEligibleVerses: {
-        parameters: {
-            query?: {
-                /** @description Bible translation */
-                translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
-            };
-            header?: never;
-            path: {
-                /** @description Telegram ID */
-                telegramId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["domain.ExamEligibleVersesResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-        };
-    };
-    submitExamSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Telegram ID */
-                telegramId: string;
-            };
-            cookie?: never;
-        };
-        /** @description Exam results */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["domain.ExamSessionInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["domain.ExamSessionOutput"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1798,7 +1570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.FriendPlayersPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.FriendPlayersPageResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1807,7 +1579,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1816,7 +1588,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1834,7 +1606,7 @@ export interface operations {
         /** @description Friend payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.AddFriendRequest"];
+                "application/json": components["schemas"]["internal_api.AddFriendRequest"];
             };
         };
         responses: {
@@ -1844,7 +1616,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ActionStatusResponse"];
+                    "application/json": components["schemas"]["internal_api.ActionStatusResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1853,7 +1625,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1862,7 +1634,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1888,7 +1660,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.DashboardFriendsActivityResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.DashboardFriendsActivityResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1897,7 +1669,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1906,7 +1678,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1915,7 +1687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1941,7 +1713,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.DashboardCompactFriendsActivityResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.DashboardCompactFriendsActivityResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1950,7 +1722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1959,7 +1731,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -1968,7 +1740,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -1993,7 +1765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ActionStatusResponse"];
+                    "application/json": components["schemas"]["internal_api.ActionStatusResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2002,7 +1774,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2011,7 +1783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2041,7 +1813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.FriendPlayersPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.FriendPlayersPageResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2050,7 +1822,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2059,7 +1831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2084,7 +1856,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.PlayerProfile"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.PlayerProfile"];
                 };
             };
             /** @description Bad Request */
@@ -2093,7 +1865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2102,7 +1874,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2111,7 +1883,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2134,7 +1906,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserDashboardStats"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserDashboardStats"];
                 };
             };
             /** @description Bad Request */
@@ -2143,7 +1915,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2152,7 +1924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2184,7 +1956,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.SocialPlayersPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.SocialPlayersPageResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2193,7 +1965,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2202,7 +1974,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2211,7 +1983,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2253,7 +2025,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserVersesPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserVersesPageResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2262,7 +2034,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2271,7 +2043,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2289,7 +2061,7 @@ export interface operations {
         /** @description Verse progress payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.UpsertUserVerseRequest"];
+                "application/json": components["schemas"]["internal_api.UpsertUserVerseRequest"];
             };
         };
         responses: {
@@ -2299,7 +2071,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserVerse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
                 };
             };
             /** @description Bad Request */
@@ -2308,7 +2080,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2317,7 +2089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2343,7 +2115,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.QueueResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.QueueResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2352,7 +2124,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2361,7 +2133,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2379,7 +2151,7 @@ export interface operations {
         /** @description Verse ID */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.AddToQueueBody"];
+                "application/json": components["schemas"]["internal_api.AddToQueueBody"];
             };
         };
         responses: {
@@ -2400,7 +2172,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2428,7 +2200,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ReferenceTrainerResponse"];
+                    "application/json": components["schemas"]["internal_api.ReferenceTrainerResponse"];
                 };
             };
             /** @description Invalid telegramId */
@@ -2437,7 +2209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Server error */
@@ -2446,7 +2218,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2464,7 +2236,7 @@ export interface operations {
         /** @description Session results */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["domain.AnchorTrainingSessionInput"];
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.AnchorTrainingSessionInput"];
             };
         };
         responses: {
@@ -2474,7 +2246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.AnchorTrainingSessionResponse"];
+                    "application/json": components["schemas"]["internal_api.AnchorTrainingSessionResponse"];
                 };
             };
             /** @description Invalid request */
@@ -2483,7 +2255,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Server error */
@@ -2492,7 +2264,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2510,7 +2282,7 @@ export interface operations {
         /** @description Replace payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.ReplaceLearningVerseRequest"];
+                "application/json": components["schemas"]["internal_api.ReplaceLearningVerseRequest"];
             };
         };
         responses: {
@@ -2520,7 +2292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ReplaceLearningVerseResponse"];
+                    "application/json": components["schemas"]["internal_api.ReplaceLearningVerseResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2529,7 +2301,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2538,7 +2310,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Conflict */
@@ -2547,7 +2319,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2556,7 +2328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2584,7 +2356,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.VerseListItem"][];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.VerseListItem"][];
                 };
             };
             /** @description Bad Request */
@@ -2593,7 +2365,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2602,7 +2374,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2627,7 +2399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.DeleteUserVerseResult"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.DeleteUserVerseResult"];
                 };
             };
             /** @description Bad Request */
@@ -2636,7 +2408,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2645,7 +2417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2665,7 +2437,7 @@ export interface operations {
         /** @description Patch payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.PatchUserVerseRequest"];
+                "application/json": components["schemas"]["internal_api.PatchUserVerseRequest"];
             };
         };
         responses: {
@@ -2675,7 +2447,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.UserVerse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
                 };
             };
             /** @description Bad Request */
@@ -2684,7 +2456,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2693,7 +2465,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2729,7 +2501,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2738,7 +2510,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2774,7 +2546,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2783,7 +2555,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2803,7 +2575,7 @@ export interface operations {
         /** @description New position */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.ReorderQueueBody"];
+                "application/json": components["schemas"]["internal_api.ReorderQueueBody"];
             };
         };
         responses: {
@@ -2824,7 +2596,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2833,7 +2605,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2853,7 +2625,7 @@ export interface operations {
         /** @description Training step payload */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["domain.TrainingStepHTTPRequest"];
+                "application/json": components["schemas"]["bible-memory-db_internal_domain.TrainingStepHTTPRequest"];
             };
         };
         responses: {
@@ -2863,7 +2635,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.TrainingStepHTTPResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.TrainingStepHTTPResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2872,7 +2644,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2881,7 +2653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2890,7 +2662,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2929,7 +2701,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.CatalogVersesPageResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.CatalogVersesPageResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -2938,7 +2710,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -2967,7 +2739,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.VerseAdminSummary"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.VerseAdminSummary"];
                 };
             };
             /** @description Bad Request */
@@ -2976,7 +2748,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Forbidden */
@@ -2985,7 +2757,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -2994,7 +2766,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -3003,7 +2775,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -3032,7 +2804,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.CatalogVerseDeleteResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.CatalogVerseDeleteResponse"];
                 };
             };
             /** @description Bad Request */
@@ -3041,7 +2813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Forbidden */
@@ -3050,7 +2822,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -3059,7 +2831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Conflict */
@@ -3068,7 +2840,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -3077,7 +2849,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -3100,7 +2872,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Tag"][];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"][];
                 };
             };
             /** @description Internal Server Error */
@@ -3109,7 +2881,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -3127,7 +2899,7 @@ export interface operations {
         /** @description Tag slugs (empty clears all) */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api.VerseTagsPutRequest"];
+                "application/json": components["schemas"]["internal_api.VerseTagsPutRequest"];
             };
         };
         responses: {
@@ -3137,7 +2909,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.Tag"][];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"][];
                 };
             };
             /** @description Bad Request */
@@ -3146,7 +2918,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -3155,7 +2927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -3164,7 +2936,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -3179,7 +2951,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["api.VerseTagMutationRequest"];
+        requestBody: components["requestBodies"]["internal_api.VerseTagMutationRequest"];
         responses: {
             /** @description Created */
             201: {
@@ -3187,7 +2959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["domain.VerseTagLinkResponse"];
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.VerseTagLinkResponse"];
                 };
             };
             /** @description Bad Request */
@@ -3196,7 +2968,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -3205,7 +2977,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -3214,7 +2986,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };
@@ -3229,7 +3001,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["api.VerseTagMutationRequest"];
+        requestBody: components["requestBodies"]["internal_api.VerseTagMutationRequest"];
         responses: {
             /** @description OK */
             200: {
@@ -3237,7 +3009,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.BooleanOKResponse"];
+                    "application/json": components["schemas"]["internal_api.BooleanOKResponse"];
                 };
             };
             /** @description Bad Request */
@@ -3246,7 +3018,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -3255,7 +3027,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */
@@ -3264,7 +3036,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["api.ErrorResponse"];
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
         };

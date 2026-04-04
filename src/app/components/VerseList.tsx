@@ -41,6 +41,7 @@ import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { cn } from "@/app/components/ui/utils";
 import { useVerseListController } from "./verse-list/hooks/useVerseListController";
 import { VerseVirtualizedList } from "./verse-list/virtualization/VerseVirtualizedList";
+import { useVerseItemHeightEstimator } from "./verse-list/hooks/useVerseItemHeightEstimator";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   mapUserVerseToAppVerse,
@@ -48,13 +49,12 @@ import {
   type Verse,
 } from "@/app/domain/verse";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import type { LearningCapacityResponse } from "@/app/components/Training/exam/types";
 import {
   addVerseToQueue,
   removeVerseFromQueue,
   reorderVerseInQueue,
   QueueApiError,
-} from "@/app/components/Training/exam/queueApi";
+} from "@/app/components/Training/queue/queueApi";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { WheelPicker } from "@/app/components/ui/WheelPicker";
 import {
@@ -83,6 +83,7 @@ import {
 import { toast } from "@/app/lib/toast";
 
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
+const FIXED_LEARNING_SLOTS_CAPACITY = 5;
 
 function groupByDisplayStatus(verses: Verse[]) {
   const g = {
@@ -114,7 +115,6 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
-  learningCapacity?: LearningCapacityResponse | null;
   telegramId?: string | null;
   isAnchorEligible?: boolean;
   onFriendsChanged?: () => void;
@@ -132,7 +132,6 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
-  learningCapacity = null,
   telegramId = null,
   onOpenPlayerProfile,
   isAnchorEligible = false,
@@ -204,6 +203,9 @@ export function VerseList({
   const [listViewportHeight, setListViewportHeight] = useState<number | null>(
     null,
   );
+  // Pixel width of the scrollable list area — used by the pretext-based
+  // verse card height estimator.  Default 375 matches a typical mobile screen.
+  const [listContainerWidth, setListContainerWidth] = useState(375);
   const refetchVersesRef = useRef<(() => Promise<void>) | null>(null);
   const replaceableLearningVersesRequestIdRef = useRef(0);
   const replaceableLearningVersesScrollRef = useRef<HTMLDivElement | null>(
@@ -302,6 +304,8 @@ export function VerseList({
       const rootStyles = window.getComputedStyle(document.documentElement);
       const paddingTop = Number.parseFloat(styles.paddingTop || "0") || 0;
       const paddingBottom = Number.parseFloat(styles.paddingBottom || "0") || 0;
+      const paddingLeft = Number.parseFloat(styles.paddingLeft || "0") || 0;
+      const paddingRight = Number.parseFloat(styles.paddingRight || "0") || 0;
       const bottomNavClearance =
         Number.parseFloat(
           rootStyles.getPropertyValue("--app-bottom-nav-clearance") || "0",
@@ -315,9 +319,16 @@ export function VerseList({
             bottomNavClearance,
         ),
       );
+      const nextWidth = Math.max(
+        240,
+        Math.floor(currentHost.clientWidth - paddingLeft - paddingRight),
+      );
 
       setListViewportHeight((prev) =>
         prev === nextHeight ? prev : nextHeight,
+      );
+      setListContainerWidth((prev) =>
+        prev === nextWidth ? prev : nextWidth,
       );
     };
 
@@ -448,6 +459,25 @@ export function VerseList({
   const visibleListItems = isCatalogMode
     ? vm.list.listItems
     : vm.list.sectionItems;
+  const myModeQueueVerses = useMemo(
+    () =>
+      vm.list.sectionItems
+        .filter((verse) => isVerseQueued(verse))
+        .sort((a, b) => (a.queuePosition ?? 999) - (b.queuePosition ?? 999)),
+    [vm.list.sectionItems],
+  );
+  const learningSlotsSummary = useMemo(() => {
+    const activeLearning = vm.list.sectionItems.filter((verse) =>
+      isVerseLearning(verse),
+    ).length;
+
+    return {
+      activeLearning,
+      capacity: FIXED_LEARNING_SLOTS_CAPACITY,
+      canAddMore: activeLearning < FIXED_LEARNING_SLOTS_CAPACITY,
+      queueCount: myModeQueueVerses.length,
+    };
+  }, [myModeQueueVerses.length, vm.list.sectionItems]);
 
   const handleModeChange = useCallback(
     (nextMode: VerseListPrimaryFilterKey) => {
@@ -774,18 +804,10 @@ export function VerseList({
   const myModeContent = useMemo(() => {
     if (!isMyMode) return null;
 
-    // Derive QUEUE verses directly from the main verse list — single source of truth,
-    // sorted by queue position. Use flow-based detection for robust matching.
-    const queueVerses = vm.list.sectionItems
-      .filter((v) => isVerseQueued(v))
-      .sort((a, b) => (a.queuePosition ?? 999) - (b.queuePosition ?? 999));
-
     const nonQueueVerses = vm.list.sectionItems.filter(
       (v) => !isVerseQueued(v),
     );
     const groups = groupByDisplayStatus(nonQueueVerses);
-
-    const capacity = learningCapacity?.capacity ?? 5;
 
     const sectionOrder: Array<{
       key: MyVersesSectionKey;
@@ -793,7 +815,7 @@ export function VerseList({
       alwaysShow?: boolean;
     }> = [
       { key: 'learning', verses: groups.learning, alwaysShow: true },
-      { key: 'queue', verses: queueVerses },
+      { key: 'queue', verses: myModeQueueVerses },
       { key: 'review', verses: groups.review },
       { key: 'mastered', verses: groups.mastered },
       { key: 'stopped', verses: groups.stopped },
@@ -856,7 +878,7 @@ export function VerseList({
                   {key === 'learning' && (
                     <LearningSlotPlaceholders
                       filledCount={verses.length}
-                      capacity={capacity}
+                      capacity={learningSlotsSummary.capacity}
                       onNavigateToCatalog={handleNavigateToCatalog}
                     />
                   )}
@@ -890,7 +912,8 @@ export function VerseList({
     hiddenSections,
     toggleCollapsed,
     toggleHidden,
-    learningCapacity,
+    learningSlotsSummary.capacity,
+    myModeQueueVerses,
   ]);
 
   const handleTelegramBack = useCallback(() => {
@@ -991,6 +1014,14 @@ export function VerseList({
       vm.tagFilter.selectedTagSlugs,
     ],
   );
+  // Pretext-based per-verse card height estimator.
+  // Feeds accurate heights into the ScrollSeek placeholder so fast-scroll
+  // placeholders match the real card heights (no layout jumps on deceleration).
+  const getVerseHeightEstimate = useVerseItemHeightEstimator(
+    visibleListItems,
+    listContainerWidth,
+  );
+
   const listContent =
     visibleListItems.length > 0 ? (
       <VerseVirtualizedList
@@ -1013,6 +1044,7 @@ export function VerseList({
         pageSize={vm.list.pageSize}
         prefetchRows={vm.list.prefetchRows}
         debugInfiniteScroll={vm.list.debugInfiniteScroll}
+        getItemHeightEstimate={getVerseHeightEstimate}
       />
     ) : null;
 
@@ -1237,7 +1269,7 @@ export function VerseList({
                 values={Array.from(
                   {
                     length: Math.max(
-                      learningCapacity?.queueCount ?? 1,
+                      learningSlotsSummary.queueCount || 1,
                       positionEditVerse?.queuePosition ?? 1,
                     ),
                   },
@@ -1306,12 +1338,10 @@ export function VerseList({
                       ? "Выберите стих для паузы"
                       : (queueTargetVerse?.reference ?? "Новый стих")}
                   </DrawerDescription>
-                  {learningCapacity ? (
-                    <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/48">
-                      {learningCapacity.activeLearning}/
-                      {learningCapacity.capacity} занято
-                    </div>
-                  ) : null}
+                  <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/48">
+                    {learningSlotsSummary.activeLearning}/
+                    {learningSlotsSummary.capacity} занято
+                  </div>
                 </div>
               </div>
             </DrawerHeader>

@@ -6,7 +6,6 @@ import type { Verse } from '@/app/domain/verse'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
 import type { DashboardCompactFriendsActivityResponse } from '@/api/services/friendsActivity'
-import type { LearningCapacityResponse } from '@/app/components/Training/exam/types'
 import {
   getVerseNextAvailabilityAt,
   getVerseProgressPercent,
@@ -30,7 +29,6 @@ interface DashboardProps {
   todayVerses: Array<Verse>
   dashboardStats?: domain_UserDashboardStats | null
   isDashboardStatsLoading?: boolean
-  learningCapacity?: LearningCapacityResponse | null
   dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
   dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null

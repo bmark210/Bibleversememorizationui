@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type api_CreateTagRequest = {
-    slug?: string;
-    title?: string;
+export type internal_api_ReplaceLearningVerseRequest = {
+    activateExternalVerseId?: string;
+    pauseExternalVerseId?: string;
 };
 

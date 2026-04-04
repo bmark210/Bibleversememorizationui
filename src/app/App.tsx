@@ -91,7 +91,6 @@ export default function App({ onInitialContentReady }: AppProps) {
   const {
     dashboardStats,
     setDashboardStats,
-    learningCapacity,
     dashboardFriendsActivity,
     setDashboardFriendsActivity,
     setDashboardLeaderboard,
@@ -100,7 +99,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     isDashboardLeaderboardLoading,
     isDashboardFriendsActivityLoading,
     loadDashboardStats,
-    loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
     handleLeaderboardWindowRequest,
@@ -129,7 +127,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     setDashboardLeaderboard,
     setDashboardFriendsActivity,
     loadDashboardStats,
-    loadLearningCapacity,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
     scheduleTrainingVersePrefetch,
@@ -196,7 +193,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     trainingVersesFetchFailedRef.current = false;
     void loadTrainingVersesForDashboard(telegramId);
     void loadDashboardStats(telegramId);
-    void loadLearningCapacity(telegramId);
     void loadDashboardLeaderboard(telegramId);
     void loadDashboardFriendsActivity(telegramId);
   }, [
@@ -205,7 +201,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
-    loadLearningCapacity,
     loadTrainingVersesForDashboard,
     telegramId,
     trainingVersesFetchFailedRef,
@@ -320,7 +315,6 @@ export default function App({ onInitialContentReady }: AppProps) {
       trainingVersesFetchFailedRef.current = false;
       void loadTrainingVersesForDashboard(telegramId);
       void loadDashboardStats(telegramId);
-      void loadLearningCapacity(telegramId);
       void loadDashboardLeaderboard(telegramId);
       void loadDashboardFriendsActivity(telegramId);
     }
@@ -330,7 +324,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     loadDashboardFriendsActivity,
     loadDashboardLeaderboard,
     loadDashboardStats,
-    loadLearningCapacity,
     loadTrainingVersesForDashboard,
     telegramId,
     trainingVersesFetchFailedRef,
@@ -372,7 +365,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                   todayVerses={verses}
                   dashboardStats={dashboardStats}
                   isDashboardStatsLoading={isDashboardStatsLoading}
-                  learningCapacity={learningCapacity}
                   dashboardLeaderboard={dashboardLeaderboard}
                   isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
                   dashboardFriendsActivity={dashboardFriendsActivity}
@@ -406,7 +398,6 @@ export default function App({ onInitialContentReady }: AppProps) {
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
-                  learningCapacity={learningCapacity}
                   telegramId={telegramId}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}

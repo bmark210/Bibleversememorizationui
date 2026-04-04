@@ -1,3 +1,10 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_VerseTagLinkResponse = import('./domain_VerseTagLinkResponse').domain_VerseTagLinkResponse;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type bible_memory_db_internal_domain_VerseTagLinkResponse = {
+    externalVerseId?: string;
+    id?: string;
+    tagId?: string;
+};
 

@@ -2,7 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type api_AddToQueueBody = {
+export type bible_memory_db_internal_domain_QueueVerseItem = {
     externalVerseId?: string;
+    queuePosition?: number;
+    reference?: string;
+    text?: string;
 };
 

@@ -2,10 +2,15 @@
 
 import { ListOrdered, Lock, Plus } from 'lucide-react';
 import { cn } from '@/app/components/ui/utils';
-import type { LearningCapacityResponse } from '@/app/components/Training/exam/types';
+
+type LearningSlotsSummary = {
+  activeLearning: number;
+  capacity: number;
+  canAddMore: boolean;
+};
 
 type VerseListSlotCardProps = {
-  learningCapacity: LearningCapacityResponse | null;
+  learningCapacity: LearningSlotsSummary | null;
   onNavigateToCatalog: () => void;
   queueCount?: number;
 };

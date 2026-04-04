@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { domain_QueueVerseItem } from './domain_QueueVerseItem';
-export type domain_QueueResponse = {
+import type { bible_memory_db_internal_domain_QueueVerseItem } from './bible_memory_db_internal_domain_QueueVerseItem';
+export type bible_memory_db_internal_domain_QueueResponse = {
     freeSlots?: number;
-    items?: Array<domain_QueueVerseItem>;
+    items?: Array<bible_memory_db_internal_domain_QueueVerseItem>;
     /**
      * PromotedVerseIds contains any externalVerseIds auto-promoted during this request.
      */

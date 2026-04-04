@@ -16,8 +16,9 @@ import {
   normalizeWord,
   cleanWordForDisplay,
   getWordMask,
-  getWordMaskWidth,
+  getWordMaskWidthWithFont,
 } from "./wordUtils";
+import { buildFont } from "@/app/utils/textLayout";
 import {
   WordSequenceField,
   type WordSequenceFieldItem,
@@ -176,6 +177,7 @@ export function ModeClickWordsHintedExercise({
   inlineActionsDisabled = false,
 }: ClickWordsHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
+  const wordFont = buildFont(fontSizes.sm);
   const [{ slots, uniqueChoices }, setExerciseData] = useState(() =>
     buildExercise({ text: verse.text, difficultyLevel: verse.difficultyLevel }),
   );
@@ -291,11 +293,11 @@ export function ModeClickWordsHintedExercise({
         return {
           id: slot.id,
           content: getWordMask(slot.text),
-          minWidth: getWordMaskWidth(slot.text),
+          minWidth: getWordMaskWidthWithFont(slot.text, wordFont),
           state: isActiveGap ? "active-gap" : "future-gap",
         };
       }),
-    [slots, hiddenIndexByOrder, selectedCount, isCompleted],
+    [slots, hiddenIndexByOrder, selectedCount, isCompleted, wordFont],
   );
 
   const remainingCountByNormalized = useMemo(() => {

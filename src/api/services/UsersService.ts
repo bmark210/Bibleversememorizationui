@@ -2,17 +2,17 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { api_ActionStatusResponse } from '../models/api_ActionStatusResponse';
-import type { api_AddFriendRequest } from '../models/api_AddFriendRequest';
-import type { domain_DashboardCompactFriendsActivityResponse } from '../models/domain_DashboardCompactFriendsActivityResponse';
-import type { domain_DashboardFriendsActivityResponse } from '../models/domain_DashboardFriendsActivityResponse';
-import type { domain_FriendPlayersPageResponse } from '../models/domain_FriendPlayersPageResponse';
-import type { domain_PlayerProfile } from '../models/domain_PlayerProfile';
-import type { domain_UpsertUserInput } from '../models/domain_UpsertUserInput';
-import type { domain_User } from '../models/domain_User';
-import type { domain_UserDashboardStats } from '../models/domain_UserDashboardStats';
-import type { domain_UserLeaderboardResponse } from '../models/domain_UserLeaderboardResponse';
-import type { domain_UserWithVerses } from '../models/domain_UserWithVerses';
+import type { bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse';
+import type { bible_memory_db_internal_domain_DashboardFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardFriendsActivityResponse';
+import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from '../models/bible_memory_db_internal_domain_FriendPlayersPageResponse';
+import type { bible_memory_db_internal_domain_PlayerProfile } from '../models/bible_memory_db_internal_domain_PlayerProfile';
+import type { bible_memory_db_internal_domain_UpsertUserInput } from '../models/bible_memory_db_internal_domain_UpsertUserInput';
+import type { bible_memory_db_internal_domain_User } from '../models/bible_memory_db_internal_domain_User';
+import type { bible_memory_db_internal_domain_UserDashboardStats } from '../models/bible_memory_db_internal_domain_UserDashboardStats';
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse } from '../models/bible_memory_db_internal_domain_UserLeaderboardResponse';
+import type { bible_memory_db_internal_domain_UserWithVerses } from '../models/bible_memory_db_internal_domain_UserWithVerses';
+import type { internal_api_ActionStatusResponse } from '../models/internal_api_ActionStatusResponse';
+import type { internal_api_AddFriendRequest } from '../models/internal_api_AddFriendRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -20,12 +20,12 @@ export class UsersService {
     /**
      * Create or update a user
      * @param request User payload
-     * @returns domain_User Created
+     * @returns bible_memory_db_internal_domain_User Created
      * @throws ApiError
      */
     public static upsertUser(
-        request: domain_UpsertUserInput,
-    ): CancelablePromise<domain_User> {
+        request: bible_memory_db_internal_domain_UpsertUserInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_User> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users',
@@ -41,14 +41,14 @@ export class UsersService {
      * @param telegramId Optional current user Telegram ID
      * @param limit Max items
      * @param offset Pagination offset
-     * @returns domain_UserLeaderboardResponse OK
+     * @returns bible_memory_db_internal_domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
     public static getLeaderboard(
         telegramId?: string,
         limit: number = 25,
         offset?: number,
-    ): CancelablePromise<domain_UserLeaderboardResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/leaderboard',
@@ -65,12 +65,12 @@ export class UsersService {
     /**
      * Create or refresh a Telegram user
      * @param request Telegram user payload
-     * @returns domain_User OK
+     * @returns bible_memory_db_internal_domain_User OK
      * @throws ApiError
      */
     public static upsertTelegramUser(
-        request: domain_UpsertUserInput,
-    ): CancelablePromise<domain_User> {
+        request: bible_memory_db_internal_domain_UpsertUserInput,
+    ): CancelablePromise<bible_memory_db_internal_domain_User> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/telegram',
@@ -84,12 +84,12 @@ export class UsersService {
     /**
      * Get user by Telegram ID
      * @param telegramId Telegram ID
-     * @returns domain_UserWithVerses OK
+     * @returns bible_memory_db_internal_domain_UserWithVerses OK
      * @throws ApiError
      */
     public static getUserByTelegramId(
         telegramId: string,
-    ): CancelablePromise<domain_UserWithVerses> {
+    ): CancelablePromise<bible_memory_db_internal_domain_UserWithVerses> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}',
@@ -108,7 +108,7 @@ export class UsersService {
      * @param search Search by name or nickname
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns domain_FriendPlayersPageResponse OK
+     * @returns bible_memory_db_internal_domain_FriendPlayersPageResponse OK
      * @throws ApiError
      */
     public static listFriends(
@@ -116,7 +116,7 @@ export class UsersService {
         search?: string,
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<domain_FriendPlayersPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/friends',
@@ -138,13 +138,13 @@ export class UsersService {
      * Add a friend
      * @param telegramId Telegram ID
      * @param request Friend payload
-     * @returns api_ActionStatusResponse OK
+     * @returns internal_api_ActionStatusResponse OK
      * @throws ApiError
      */
     public static addFriend(
         telegramId: string,
-        request: api_AddFriendRequest,
-    ): CancelablePromise<api_ActionStatusResponse> {
+        request: internal_api_AddFriendRequest,
+    ): CancelablePromise<internal_api_ActionStatusResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/{telegramId}/friends',
@@ -162,13 +162,13 @@ export class UsersService {
      * Get friends activity
      * @param telegramId Telegram ID
      * @param limit Max items
-     * @returns domain_DashboardFriendsActivityResponse OK
+     * @returns bible_memory_db_internal_domain_DashboardFriendsActivityResponse OK
      * @throws ApiError
      */
     public static listFriendsActivity(
         telegramId: string,
         limit: number = 6,
-    ): CancelablePromise<domain_DashboardFriendsActivityResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_DashboardFriendsActivityResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/friends/activity',
@@ -189,13 +189,13 @@ export class UsersService {
      * Get compact friends activity
      * @param telegramId Telegram ID
      * @param limit Max items
-     * @returns domain_DashboardCompactFriendsActivityResponse OK
+     * @returns bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse OK
      * @throws ApiError
      */
     public static listFriendsActivityCompact(
         telegramId: string,
         limit: number = 12,
-    ): CancelablePromise<domain_DashboardCompactFriendsActivityResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/friends/activity/compact',
@@ -216,13 +216,13 @@ export class UsersService {
      * Remove a friend
      * @param telegramId Telegram ID
      * @param friendTelegramId Friend Telegram ID
-     * @returns api_ActionStatusResponse OK
+     * @returns internal_api_ActionStatusResponse OK
      * @throws ApiError
      */
     public static removeFriend(
         telegramId: string,
         friendTelegramId: string,
-    ): CancelablePromise<api_ActionStatusResponse> {
+    ): CancelablePromise<internal_api_ActionStatusResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/users/{telegramId}/friends/{friendTelegramId}',
@@ -242,7 +242,7 @@ export class UsersService {
      * @param search Search by name or nickname
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns domain_FriendPlayersPageResponse OK
+     * @returns bible_memory_db_internal_domain_FriendPlayersPageResponse OK
      * @throws ApiError
      */
     public static listPlayers(
@@ -250,7 +250,7 @@ export class UsersService {
         search?: string,
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<domain_FriendPlayersPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/players',
@@ -272,13 +272,13 @@ export class UsersService {
      * Get player profile
      * @param telegramId Viewer Telegram ID
      * @param targetTelegramId Target Telegram ID
-     * @returns domain_PlayerProfile OK
+     * @returns bible_memory_db_internal_domain_PlayerProfile OK
      * @throws ApiError
      */
     public static getPlayerProfile(
         telegramId: string,
         targetTelegramId: string,
-    ): CancelablePromise<domain_PlayerProfile> {
+    ): CancelablePromise<bible_memory_db_internal_domain_PlayerProfile> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/players/{targetTelegramId}',
@@ -296,12 +296,12 @@ export class UsersService {
     /**
      * Get dashboard statistics
      * @param telegramId Telegram ID
-     * @returns domain_UserDashboardStats OK
+     * @returns bible_memory_db_internal_domain_UserDashboardStats OK
      * @throws ApiError
      */
     public static getUserStats(
         telegramId: string,
-    ): CancelablePromise<domain_UserDashboardStats> {
+    ): CancelablePromise<bible_memory_db_internal_domain_UserDashboardStats> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/stats',

@@ -1,3 +1,5 @@
+import { measureTextWidth } from '@/app/utils/textLayout';
+
 const SACRED_STEMS = [
   'бог', 'бож', 'господ', 'христ', 'иисус', 'дух',
   'всевышн', 'создател', 'творц', 'творец', 'спасител',
@@ -110,6 +112,35 @@ export function getWordMaskWidth(word: string): number {
     WORD_MASK_MIN_WIDTH_PX,
     cellWidth + WORD_MASK_HORIZONTAL_PADDING_PX + WORD_MASK_BORDER_ALLOWANCE_PX
   );
+}
+
+/**
+ * Font-aware version of getWordMaskWidth.
+ *
+ * Measures the actual rendered width of the word via @chenglou/pretext
+ * instead of multiplying letter count by a fixed pixel constant.
+ * This is more accurate for proportional fonts (e.g. "И" vs "ш" differ
+ * significantly) and handles CJK / emoji / Cyrillic correctly.
+ *
+ * Falls back to the static estimate if pretext returns 0 (e.g. canvas
+ * is unavailable during SSR or an unknown font is passed).
+ *
+ * @param word - The original word token (punctuation is stripped internally)
+ * @param font - CSS font string, e.g. `buildFont(fontSizes.sm)` → "400 16px Inter"
+ */
+export function getWordMaskWidthWithFont(word: string, font: string): number {
+  const text = stripPunctuation(word) || word;
+  const textWidth = measureTextWidth(text, font);
+
+  if (textWidth > 0) {
+    return Math.max(
+      WORD_MASK_MIN_WIDTH_PX,
+      Math.ceil(textWidth) + WORD_MASK_HORIZONTAL_PADDING_PX + WORD_MASK_BORDER_ALLOWANCE_PX,
+    );
+  }
+
+  // Graceful fallback: use the original letter-count estimate
+  return getWordMaskWidth(word);
 }
 
 interface VisibleChoiceInput {

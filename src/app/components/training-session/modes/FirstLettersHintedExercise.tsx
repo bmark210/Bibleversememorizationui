@@ -10,9 +10,10 @@ import { Verse } from "@/app/domain/verse";
 import {
   getComparableFirstLetter,
   getWordMask,
-  getWordMaskWidth,
+  getWordMaskWidthWithFont,
   tokenizeWords,
 } from './wordUtils';
+import { buildFont } from '@/app/utils/textLayout';
 import type { TrainingExerciseResolution } from './exerciseResult';
 import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
@@ -151,6 +152,7 @@ export function ModeFirstLettersHintedExercise({
   inlineActionsDisabled = false,
 }: FirstLettersHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
+  const wordFont = buildFont(fontSizes.sm);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
@@ -263,11 +265,11 @@ export function ModeFirstLettersHintedExercise({
         return {
           id: slot.id,
           content: getWordMask(slot.text),
-          minWidth: getWordMaskWidth(slot.text),
+          minWidth: getWordMaskWidthWithFont(slot.text, wordFont),
           state: isActiveGap ? 'active-gap' : 'future-gap',
         };
       }),
-    [slots, hiddenIndexByOrder, selectedCount, isCompleted]
+    [slots, hiddenIndexByOrder, selectedCount, isCompleted, wordFont]
   );
 
   const handleLetterClick = (letter: string) => {

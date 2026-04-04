@@ -1,3 +1,20 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_PlayerProfile = import('./domain_PlayerProfile').domain_PlayerProfile;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type bible_memory_db_internal_domain_PlayerProfile = {
+    avatarUrl?: string;
+    createdAt?: string;
+    dailyStreak?: number;
+    displayName?: string;
+    isCurrentUser?: boolean;
+    isFriend?: boolean;
+    lastActiveAt?: string;
+    masteredVerses?: number;
+    name?: string;
+    nickname?: string;
+    telegramId?: string;
+    weeklyRepetitions?: number;
+    xp?: number;
+};
 

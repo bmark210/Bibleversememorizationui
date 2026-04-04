@@ -1,3 +1,10 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_VerseStatus = import('./domain_VerseStatus').domain_VerseStatus;
-
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export enum bible_memory_db_internal_domain_VerseStatus {
+    StatusMy = 'MY',
+    StatusQueue = 'QUEUE',
+    StatusLearning = 'LEARNING',
+    StatusStopped = 'STOPPED',
+}

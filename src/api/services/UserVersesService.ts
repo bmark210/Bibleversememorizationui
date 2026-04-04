@@ -2,20 +2,20 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { api_AnchorTrainingSessionResponse } from '../models/api_AnchorTrainingSessionResponse';
-import type { api_PatchUserVerseRequest } from '../models/api_PatchUserVerseRequest';
-import type { api_ReferenceTrainerResponse } from '../models/api_ReferenceTrainerResponse';
-import type { api_ReplaceLearningVerseRequest } from '../models/api_ReplaceLearningVerseRequest';
-import type { api_ReplaceLearningVerseResponse } from '../models/api_ReplaceLearningVerseResponse';
-import type { api_UpsertUserVerseRequest } from '../models/api_UpsertUserVerseRequest';
-import type { domain_AnchorTrainingSessionInput } from '../models/domain_AnchorTrainingSessionInput';
-import type { domain_DeleteUserVerseResult } from '../models/domain_DeleteUserVerseResult';
-import type { domain_SocialPlayersPageResponse } from '../models/domain_SocialPlayersPageResponse';
-import type { domain_TrainingStepHTTPRequest } from '../models/domain_TrainingStepHTTPRequest';
-import type { domain_TrainingStepHTTPResponse } from '../models/domain_TrainingStepHTTPResponse';
-import type { domain_UserVerse } from '../models/domain_UserVerse';
-import type { domain_UserVersesPageResponse } from '../models/domain_UserVersesPageResponse';
-import type { domain_VerseListItem } from '../models/domain_VerseListItem';
+import type { bible_memory_db_internal_domain_AnchorTrainingSessionInput } from '../models/bible_memory_db_internal_domain_AnchorTrainingSessionInput';
+import type { bible_memory_db_internal_domain_DeleteUserVerseResult } from '../models/bible_memory_db_internal_domain_DeleteUserVerseResult';
+import type { bible_memory_db_internal_domain_SocialPlayersPageResponse } from '../models/bible_memory_db_internal_domain_SocialPlayersPageResponse';
+import type { bible_memory_db_internal_domain_TrainingStepHTTPRequest } from '../models/bible_memory_db_internal_domain_TrainingStepHTTPRequest';
+import type { bible_memory_db_internal_domain_TrainingStepHTTPResponse } from '../models/bible_memory_db_internal_domain_TrainingStepHTTPResponse';
+import type { bible_memory_db_internal_domain_UserVerse } from '../models/bible_memory_db_internal_domain_UserVerse';
+import type { bible_memory_db_internal_domain_UserVersesPageResponse } from '../models/bible_memory_db_internal_domain_UserVersesPageResponse';
+import type { bible_memory_db_internal_domain_VerseListItem } from '../models/bible_memory_db_internal_domain_VerseListItem';
+import type { internal_api_AnchorTrainingSessionResponse } from '../models/internal_api_AnchorTrainingSessionResponse';
+import type { internal_api_PatchUserVerseRequest } from '../models/internal_api_PatchUserVerseRequest';
+import type { internal_api_ReferenceTrainerResponse } from '../models/internal_api_ReferenceTrainerResponse';
+import type { internal_api_ReplaceLearningVerseRequest } from '../models/internal_api_ReplaceLearningVerseRequest';
+import type { internal_api_ReplaceLearningVerseResponse } from '../models/internal_api_ReplaceLearningVerseResponse';
+import type { internal_api_UpsertUserVerseRequest } from '../models/internal_api_UpsertUserVerseRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -27,7 +27,7 @@ export class UserVersesService {
      * @param scope Scope
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns domain_SocialPlayersPageResponse OK
+     * @returns bible_memory_db_internal_domain_SocialPlayersPageResponse OK
      * @throws ApiError
      */
     public static listVerseOwners(
@@ -36,7 +36,7 @@ export class UserVersesService {
         scope?: 'friends' | 'players',
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<domain_SocialPlayersPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_SocialPlayersPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verse-owners/{externalVerseId}',
@@ -68,7 +68,7 @@ export class UserVersesService {
      * @param tagSlugs Comma-separated tag slugs
      * @param limit Max items
      * @param startWith Pagination offset
-     * @returns domain_UserVersesPageResponse OK
+     * @returns bible_memory_db_internal_domain_UserVersesPageResponse OK
      * @throws ApiError
      */
     public static listUserVerses(
@@ -82,7 +82,7 @@ export class UserVersesService {
         tagSlugs?: string,
         limit: number = 20,
         startWith?: number,
-    ): CancelablePromise<domain_UserVersesPageResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_UserVersesPageResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses',
@@ -111,13 +111,13 @@ export class UserVersesService {
      * If no User row exists for telegramId yet, creates a minimal user (same defaults as user upsert) so the verse can be linked. Body must include externalVerseId; other fields are optional.
      * @param telegramId Telegram ID
      * @param request Verse progress payload
-     * @returns domain_UserVerse Created
+     * @returns bible_memory_db_internal_domain_UserVerse Created
      * @throws ApiError
      */
     public static upsertUserVerse(
         telegramId: string,
-        request: api_UpsertUserVerseRequest,
-    ): CancelablePromise<domain_UserVerse> {
+        request: internal_api_UpsertUserVerseRequest,
+    ): CancelablePromise<bible_memory_db_internal_domain_UserVerse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/{telegramId}/verses',
@@ -137,14 +137,14 @@ export class UserVersesService {
      * @param telegramId Telegram ID
      * @param limit Max items to return
      * @param translation Bible translation
-     * @returns api_ReferenceTrainerResponse Verse pool with metadata
+     * @returns internal_api_ReferenceTrainerResponse Verse pool with metadata
      * @throws ApiError
      */
     public static getReferenceTrainer(
         telegramId: string,
         limit: number = 12,
         translation?: 'NRT' | 'SYNOD' | 'RBS2' | 'BTI',
-    ): CancelablePromise<api_ReferenceTrainerResponse> {
+    ): CancelablePromise<internal_api_ReferenceTrainerResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses/reference-trainer',
@@ -166,13 +166,13 @@ export class UserVersesService {
      * Processes training results and awards XP based on outcomes and verse difficulty.
      * @param telegramId Telegram ID
      * @param request Session results
-     * @returns api_AnchorTrainingSessionResponse XP awarded
+     * @returns internal_api_AnchorTrainingSessionResponse XP awarded
      * @throws ApiError
      */
     public static saveReferenceTrainerSession(
         telegramId: string,
-        request: domain_AnchorTrainingSessionInput,
-    ): CancelablePromise<api_AnchorTrainingSessionResponse> {
+        request: bible_memory_db_internal_domain_AnchorTrainingSessionInput,
+    ): CancelablePromise<internal_api_AnchorTrainingSessionResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/{telegramId}/verses/reference-trainer/session',
@@ -191,13 +191,13 @@ export class UserVersesService {
      * Swaps one active LEARNING verse with another user verse without triggering queue auto-promotion.
      * @param telegramId Telegram ID
      * @param request Replace payload
-     * @returns api_ReplaceLearningVerseResponse OK
+     * @returns internal_api_ReplaceLearningVerseResponse OK
      * @throws ApiError
      */
     public static replaceLearningVerse(
         telegramId: string,
-        request: api_ReplaceLearningVerseRequest,
-    ): CancelablePromise<api_ReplaceLearningVerseResponse> {
+        request: internal_api_ReplaceLearningVerseRequest,
+    ): CancelablePromise<internal_api_ReplaceLearningVerseResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/{telegramId}/verses/replace-learning',
@@ -219,14 +219,14 @@ export class UserVersesService {
      * @param telegramId Telegram ID
      * @param orderBy Sort field
      * @param order Sort direction
-     * @returns domain_VerseListItem OK
+     * @returns bible_memory_db_internal_domain_VerseListItem OK
      * @throws ApiError
      */
     public static listUserVersesReview(
         telegramId: string,
         orderBy?: 'createdAt' | 'updatedAt',
         order?: 'asc' | 'desc',
-    ): CancelablePromise<Array<domain_VerseListItem>> {
+    ): CancelablePromise<Array<bible_memory_db_internal_domain_VerseListItem>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses/review',
@@ -247,13 +247,13 @@ export class UserVersesService {
      * Delete verse progress
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
-     * @returns domain_DeleteUserVerseResult OK
+     * @returns bible_memory_db_internal_domain_DeleteUserVerseResult OK
      * @throws ApiError
      */
     public static deleteUserVerse(
         telegramId: string,
         externalVerseId: string,
-    ): CancelablePromise<domain_DeleteUserVerseResult> {
+    ): CancelablePromise<bible_memory_db_internal_domain_DeleteUserVerseResult> {
         return __request(OpenAPI, {
             method: 'DELETE',
             url: '/api/users/{telegramId}/verses/{externalVerseId}',
@@ -272,14 +272,14 @@ export class UserVersesService {
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @param request Patch payload
-     * @returns domain_UserVerse OK
+     * @returns bible_memory_db_internal_domain_UserVerse OK
      * @throws ApiError
      */
     public static patchUserVerse(
         telegramId: string,
         externalVerseId: string,
-        request: api_PatchUserVerseRequest,
-    ): CancelablePromise<domain_UserVerse> {
+        request: internal_api_PatchUserVerseRequest,
+    ): CancelablePromise<bible_memory_db_internal_domain_UserVerse> {
         return __request(OpenAPI, {
             method: 'PATCH',
             url: '/api/users/{telegramId}/verses/{externalVerseId}',
@@ -300,14 +300,14 @@ export class UserVersesService {
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @param request Training step payload
-     * @returns domain_TrainingStepHTTPResponse OK
+     * @returns bible_memory_db_internal_domain_TrainingStepHTTPResponse OK
      * @throws ApiError
      */
     public static postUserVerseTrainingStep(
         telegramId: string,
         externalVerseId: string,
-        request: domain_TrainingStepHTTPRequest,
-    ): CancelablePromise<domain_TrainingStepHTTPResponse> {
+        request: bible_memory_db_internal_domain_TrainingStepHTTPRequest,
+    ): CancelablePromise<bible_memory_db_internal_domain_TrainingStepHTTPResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/users/{telegramId}/verses/{externalVerseId}/training-step',

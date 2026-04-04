@@ -1,9 +1,24 @@
-﻿import type { bible_memory_db_internal_domain_DeleteUserVerseResult } from "@/api/models/bible_memory_db_internal_domain_DeleteUserVerseResult";
-import { UserVersesService } from "@/api/services/UserVersesService";
+import type { bible_memory_db_internal_domain_DeleteUserVerseResult } from "@/api/models/bible_memory_db_internal_domain_DeleteUserVerseResult";
+import { UserVersesService } from "./UserVersesService";
 
-export function deleteUserVerseWithXp(
+export type DeleteUserVerseWithXpResult =
+  bible_memory_db_internal_domain_DeleteUserVerseResult & {
+    promotedVerseIds?: string[];
+  };
+
+export async function deleteUserVerseWithXp(
   telegramId: string,
-  externalVerseId: string
-): Promise<bible_memory_db_internal_domain_DeleteUserVerseResult> {
-  return UserVersesService.deleteUserVerse(telegramId, externalVerseId);
+  externalVerseId: string,
+): Promise<DeleteUserVerseWithXpResult> {
+  const response = (await UserVersesService.deleteUserVerse(
+    telegramId,
+    externalVerseId,
+  )) as DeleteUserVerseWithXpResult;
+
+  return {
+    ...response,
+    status: response.status ?? "deleted",
+    xp: response.xp ?? 0,
+    xpDelta: response.xpDelta ?? 0,
+  };
 }

@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { api_AddToQueueBody } from '../models/api_AddToQueueBody';
-import type { api_ReorderQueueBody } from '../models/api_ReorderQueueBody';
-import type { domain_QueueResponse } from '../models/domain_QueueResponse';
+import type { bible_memory_db_internal_domain_QueueResponse } from '../models/bible_memory_db_internal_domain_QueueResponse';
+import type { internal_api_AddToQueueBody } from '../models/internal_api_AddToQueueBody';
+import type { internal_api_ReorderQueueBody } from '../models/internal_api_ReorderQueueBody';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -14,13 +14,13 @@ export class QueueService {
      * Returns all verses waiting in queue, ordered by position. Also auto-promotes from queue if slots are free.
      * @param telegramId Telegram ID
      * @param translation Bible translation
-     * @returns domain_QueueResponse OK
+     * @returns bible_memory_db_internal_domain_QueueResponse OK
      * @throws ApiError
      */
     public static getVerseQueue(
         telegramId: string,
         translation?: string,
-    ): CancelablePromise<domain_QueueResponse> {
+    ): CancelablePromise<bible_memory_db_internal_domain_QueueResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses/queue',
@@ -45,7 +45,7 @@ export class QueueService {
      */
     public static addVerseToQueueBody(
         telegramId: string,
-        request: api_AddToQueueBody,
+        request: internal_api_AddToQueueBody,
     ): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -61,7 +61,7 @@ export class QueueService {
     }
     /**
      * Add verse to queue
-     * Moves a verse from MY status (or after a 422 capacity error) into the learning queue.
+     * Moves a verse from MY or STOPPED status into the learning queue.
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @returns string OK
@@ -121,7 +121,7 @@ export class QueueService {
     public static reorderVerseInQueue(
         telegramId: string,
         externalVerseId: string,
-        request: api_ReorderQueueBody,
+        request: internal_api_ReorderQueueBody,
     ): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'PATCH',

@@ -21,8 +21,9 @@ import {
   normalizeWord,
   cleanWordForDisplay,
   getWordMask,
-  getWordMaskWidth,
+  getWordMaskWidthWithFont,
 } from './wordUtils';
+import { buildFont } from '@/app/utils/textLayout';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -132,6 +133,9 @@ export function ModeClickWordsExercise({
   inlineActionsDisabled = false,
 }: ClickWordsExerciseProps) {
   const fontSizes = useTrainingFontSize();
+  // Build the CSS font string once per font-size level so pretext can
+  // compute accurate single-line widths for gap placeholders.
+  const wordFont = buildFont(fontSizes.sm);
   const [{ orderedTokens, uniqueChoices }, setTokenData] = useState(
     () => initClickWordsExercise(verse.text)
   );
@@ -207,11 +211,13 @@ export function ModeClickWordsExercise({
         return {
           id: token.id,
           content: isFilled ? token.text : getWordMask(token.text),
-          minWidth: isFilled ? undefined : getWordMaskWidth(token.text),
+          // Use pretext for an accurate gap width that matches the actual
+          // rendered word (proportional font metrics, Cyrillic-aware).
+          minWidth: isFilled ? undefined : getWordMaskWidthWithFont(token.text, wordFont),
           state: isFilled ? 'filled' : isActiveGap ? 'active-gap' : 'future-gap',
         };
       }),
-    [orderedTokens, selectedCount, isCompleted]
+    [orderedTokens, selectedCount, isCompleted, wordFont]
   );
 
   const remainingCountByNormalized = useMemo(() => {

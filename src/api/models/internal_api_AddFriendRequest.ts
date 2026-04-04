@@ -1,3 +1,8 @@
-﻿/* compatibility alias for legacy imports */
-export type internal_api_AddFriendRequest = import('./api_AddFriendRequest').api_AddFriendRequest;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type internal_api_AddFriendRequest = {
+    targetTelegramId?: string;
+};
 

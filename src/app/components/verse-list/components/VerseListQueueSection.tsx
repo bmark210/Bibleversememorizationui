@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { cn } from '@/app/components/ui/utils';
-import type { QueueVerseItem } from '@/app/components/Training/exam/types';
+import type { QueueVerseItem } from '@/app/components/Training/queue/types';
 
 type VerseListQueueSectionProps = {
   items: QueueVerseItem[];

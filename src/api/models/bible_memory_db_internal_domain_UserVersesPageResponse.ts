@@ -1,3 +1,13 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_UserVersesPageResponse = import('./domain_UserVersesPageResponse').domain_UserVersesPageResponse;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+import type { bible_memory_db_internal_domain_VerseListItem } from './bible_memory_db_internal_domain_VerseListItem';
+export type bible_memory_db_internal_domain_UserVersesPageResponse = {
+    items?: Array<bible_memory_db_internal_domain_VerseListItem>;
+    limit?: number;
+    offset?: number;
+    total?: number;
+    totalCount?: number;
+};
 

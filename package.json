@@ -16,6 +16,7 @@
     "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.4",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-alert-dialog": "1.1.6",

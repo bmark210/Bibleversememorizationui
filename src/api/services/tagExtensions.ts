@@ -1,23 +1,19 @@
-﻿import type { domain_Tag } from "@/api/models/domain_Tag";
-import { TagsService } from "@/api/services/TagsService";
-import { getTelegramUserId } from "@/app/lib/telegramWebApp";
+import type { domain_Tag } from "@/api/models/domain_Tag";
+import { TagsService } from "./TagsService";
 
-export function listVerseTags(externalVerseId: string): Promise<Array<domain_Tag>> {
-  return TagsService.listVerseTags(externalVerseId);
+export async function listVerseTags(externalVerseId: string): Promise<domain_Tag[]> {
+  const response = await TagsService.listVerseTags(externalVerseId);
+  return response ?? [];
 }
 
-export async function postTag(body: {
+export async function postTag(params: {
   title: string;
   slug: string;
+  telegramId?: string;
 }): Promise<domain_Tag> {
-  const telegramId =
-    getTelegramUserId()?.toString().trim() ||
-    (typeof window !== "undefined"
-      ? window.localStorage.getItem("telegramId")?.trim()
-      : undefined);
   return TagsService.createTag(
-    { title: body.title, slug: body.slug },
-    telegramId,
-    telegramId
+    { title: params.title, slug: params.slug },
+    params.telegramId,
+    params.telegramId,
   );
 }

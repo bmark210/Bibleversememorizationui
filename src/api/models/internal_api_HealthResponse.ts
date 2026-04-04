@@ -1,3 +1,8 @@
-﻿/* compatibility alias for legacy imports */
-export type internal_api_HealthResponse = import('./api_HealthResponse').api_HealthResponse;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type internal_api_HealthResponse = {
+    status?: string;
+};
 

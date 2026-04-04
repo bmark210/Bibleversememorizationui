@@ -1,44 +1,27 @@
-﻿import { OpenAPI } from "@/api/core/OpenAPI";
-import { request } from "@/api/core/request";
+import type { bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry } from "@/api/models/bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry";
+import type { bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse } from "@/api/models/bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse";
+import { UsersService } from "./UsersService";
+
+export type DashboardCompactFriendActivityEntry =
+  bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry;
+export type DashboardCompactFriendsActivityResponse =
+  bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse;
 
 export const DASHBOARD_FRIENDS_ACTIVITY_LIMIT = 12;
-
-export type DashboardCompactFriendActivityEntry = {
-  telegramId: string;
-  name: string;
-  avatarUrl: string | null;
-  lastActiveAt: string | null;
-  dailyStreak: number;
-};
-
-export type DashboardCompactFriendsActivityResponse = {
-  generatedAt: string;
-  friendsTotal: number;
-  activeLast7Days: number;
-  entries: Array<DashboardCompactFriendActivityEntry>;
-};
 
 export async function fetchDashboardFriendsActivity(params: {
   telegramId: string;
   limit?: number;
 }): Promise<DashboardCompactFriendsActivityResponse> {
-  const {
-    telegramId,
-    limit = DASHBOARD_FRIENDS_ACTIVITY_LIMIT,
-  } = params;
+  const response = await UsersService.listFriendsActivityCompact(
+    params.telegramId,
+    params.limit ?? DASHBOARD_FRIENDS_ACTIVITY_LIMIT,
+  );
 
-  return request<DashboardCompactFriendsActivityResponse>(OpenAPI, {
-    method: "GET",
-    url: "/api/users/{telegramId}/friends/activity/compact",
-    path: {
-      telegramId,
-    },
-    query: {
-      limit,
-    },
-    errors: {
-      404: "Not Found",
-      500: "Internal Server Error",
-    },
-  });
+  return {
+    ...response,
+    entries: response.entries ?? [],
+    activeLast7Days: response.activeLast7Days ?? 0,
+    friendsTotal: response.friendsTotal ?? 0,
+  };
 }

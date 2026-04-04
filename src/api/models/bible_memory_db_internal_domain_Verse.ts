@@ -1,3 +1,11 @@
-﻿/* compatibility alias for legacy imports */
-export type bible_memory_db_internal_domain_Verse = import('./domain_Verse').domain_Verse;
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type bible_memory_db_internal_domain_Verse = {
+    createdAt?: string;
+    difficultyLetters?: number;
+    externalVerseId?: string;
+    id?: string;
+};
 

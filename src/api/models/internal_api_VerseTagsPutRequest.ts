@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type api_HealthResponse = {
-    status?: string;
+export type internal_api_VerseTagsPutRequest = {
+    tagSlugs?: Array<string>;
 };
 

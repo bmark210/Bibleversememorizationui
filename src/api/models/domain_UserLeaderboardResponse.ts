@@ -1,14 +1,3 @@
-/* generated using openapi-typescript-codegen -- do not edit */
-/* istanbul ignore file */
-/* tslint:disable */
-/* eslint-disable */
-import type { domain_UserLeaderboardCurrentUser } from './domain_UserLeaderboardCurrentUser';
-import type { domain_UserLeaderboardEntry } from './domain_UserLeaderboardEntry';
-export type domain_UserLeaderboardResponse = {
-    currentUser?: domain_UserLeaderboardCurrentUser;
-    items?: Array<domain_UserLeaderboardEntry>;
-    limit?: number;
-    offset?: number;
-    totalParticipants?: number;
-};
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse } from "./bible_memory_db_internal_domain_UserLeaderboardResponse";
 
+export type domain_UserLeaderboardResponse = bible_memory_db_internal_domain_UserLeaderboardResponse;

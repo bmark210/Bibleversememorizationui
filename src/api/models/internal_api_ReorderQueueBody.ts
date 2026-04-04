@@ -2,8 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type domain_CreateFeedbackInput = {
-    telegramId: string;
-    text: string;
+export type internal_api_ReorderQueueBody = {
+    queuePosition?: number;
 };
 

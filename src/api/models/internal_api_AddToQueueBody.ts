@@ -2,8 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type domain_ExamVerseResult = {
+export type internal_api_AddToQueueBody = {
     externalVerseId?: string;
-    passed?: boolean;
 };
 
