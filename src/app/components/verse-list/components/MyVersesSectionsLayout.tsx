@@ -277,10 +277,10 @@ function SectionEdgeButtonContent({
   const theme = STATUS_BOX_THEME[section.key];
   const meta = SECTION_META[section.key];
   const DirectionIcon = direction === 'up' ? ChevronUp : ChevronDown;
-  // const sublabel =
-  //   kind === 'current-start' ? 'К началу' :
-  //   kind === 'current-end' ? 'К концу' :
-  //   null;
+  const sublabel =
+    kind === 'current-start' ? 'К началу' :
+    kind === 'current-end' ? 'К концу' :
+    null;
 
   return (
     <button
@@ -306,14 +306,15 @@ function SectionEdgeButtonContent({
       </div>
 
       <div className="min-w-0 flex-1">
-        {/* {sublabel && (
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-            {sublabel}
-          </div>
-        )} */}
-        <div className={cn('truncate text-[13px] font-semibold', theme.accentClass)}>
+      <span className={cn('truncate text-[13px] font-semibold', theme.accentClass)}>
           {meta.title}
-        </div>
+        </span>
+        {sublabel && (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+           {' '} • {sublabel}
+          </span>
+        )}
+        
       </div>
 
       <span className={cn(
