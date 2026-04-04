@@ -31,11 +31,15 @@ import {
 } from '../myVersesSections';
 import type { Verse } from '@/app/domain/verse';
 
-// How far from the container top a section header must be to be considered "active"
-const SECTION_ACTIVE_OFFSET_PX = 14;
-// How far past the section start (beyond SECTION_ACTIVE_OFFSET_PX) before
-// the "К началу" button appears instead of "previous section"
-const SECTION_RETURN_THRESHOLD_PX = 100;
+// Height of each navigation button overlay (wrapper py-1.5×2 + button h-11).
+// SECTION_ACTIVE_OFFSET_PX is set to this value so that scrollToSection()
+// always lands the section header just below the button — never behind it.
+const NAV_BUTTON_OVERLAY_HEIGHT_PX = 56;
+const SECTION_ACTIVE_OFFSET_PX = NAV_BUTTON_OVERLAY_HEIGHT_PX;
+
+// How far past the section start before "К началу" appears instead of
+// "previous section". Measured from SECTION_ACTIVE_OFFSET_PX downward.
+const SECTION_RETURN_THRESHOLD_PX = 120;
 
 const SECTION_ICONS: Record<
   MyVersesSectionKey,
@@ -70,7 +74,7 @@ type SectionEdgeAction = {
   section: MyVersesSectionData;
 };
 
-// ─── Pure geometry helpers ────────────────────────────────────────────────────
+// ─── Geometry helpers ─────────────────────────────────────────────────────────
 
 function getSectionOffsetFromContainer(
   container: HTMLDivElement,
@@ -88,22 +92,15 @@ function resolveActiveSectionIndex(
   refs: Partial<Record<MyVersesSectionKey, HTMLDivElement | null>>,
 ) {
   let activeIndex = 0;
-
-  for (let index = 0; index < sections.length; index += 1) {
-    const sectionElement = refs[sections[index].key];
-    if (!sectionElement) continue;
-
-    if (
-      getSectionOffsetFromContainer(container, sectionElement) <=
-      SECTION_ACTIVE_OFFSET_PX
-    ) {
-      activeIndex = index;
+  for (let i = 0; i < sections.length; i += 1) {
+    const el = refs[sections[i].key];
+    if (!el) continue;
+    if (getSectionOffsetFromContainer(container, el) <= SECTION_ACTIVE_OFFSET_PX) {
+      activeIndex = i;
       continue;
     }
-
     break;
   }
-
   return activeIndex;
 }
 
@@ -117,6 +114,8 @@ function isPastSectionStart(
   );
 }
 
+// Scrolls so the section marker lands exactly at SECTION_ACTIVE_OFFSET_PX
+// from the container top — i.e. just below the navigation button overlay.
 function getScrollTarget(
   container: HTMLDivElement,
   sectionElement: HTMLDivElement,
@@ -133,49 +132,39 @@ function getScrollTarget(
 
 function resolveTopAction(
   sections: MyVersesSectionData[],
-  navigationState: SectionNavigationState,
+  nav: SectionNavigationState,
 ): SectionEdgeAction | null {
-  const currentSection = sections[navigationState.activeSectionIndex];
-  if (!currentSection) return null;
+  const current = sections[nav.activeSectionIndex];
+  if (!current) return null;
 
-  // Scrolled deep into section → offer "К началу [current section]"
-  if (navigationState.isPastCurrentSectionStart) {
+  if (nav.isPastCurrentSectionStart) {
     return {
       kind: 'current-start',
       direction: 'up',
-      targetIndex: navigationState.activeSectionIndex,
-      section: currentSection,
+      targetIndex: nav.activeSectionIndex,
+      section: current,
     };
   }
 
-  // At the very first section → nothing above
-  if (navigationState.activeSectionIndex === 0) {
-    return null;
-  }
+  if (nav.activeSectionIndex === 0) return null;
 
-  // At section start → offer previous section
+  const prev = sections[nav.activeSectionIndex - 1];
   return {
     kind: 'adjacent',
     direction: 'up',
-    targetIndex: navigationState.activeSectionIndex - 1,
-    section: sections[navigationState.activeSectionIndex - 1],
+    targetIndex: nav.activeSectionIndex - 1,
+    section: prev,
   };
 }
 
 function resolveBottomAction(
   sections: MyVersesSectionData[],
-  navigationState: SectionNavigationState,
+  nav: SectionNavigationState,
 ): SectionEdgeAction | null {
-  const targetIndex = navigationState.activeSectionIndex + 1;
-  const targetSection = sections[targetIndex];
-  if (!targetSection) return null;
-
-  return {
-    kind: 'adjacent',
-    direction: 'down',
-    targetIndex,
-    section: targetSection,
-  };
+  const targetIndex = nav.activeSectionIndex + 1;
+  const target = sections[targetIndex];
+  if (!target) return null;
+  return { kind: 'adjacent', direction: 'down', targetIndex, section: target };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -193,27 +182,17 @@ function SectionInlineHeader({
 
   return (
     <div className="flex items-center gap-2.5 px-1 pb-3 pt-5 first:pt-2">
-      <div
-        className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-xl',
-          theme.softBgClass,
-        )}
-      >
+      <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-xl', theme.softBgClass)}>
         <Icon className={cn('h-3.5 w-3.5', theme.accentClass)} />
       </div>
-
       <span className={cn('text-[13px] font-semibold tracking-tight', theme.accentClass)}>
         {meta.title}
       </span>
-
-      <span
-        className={cn(
-          'ml-auto inline-flex h-5 min-w-[1.35rem] items-center justify-center rounded-full px-1.5',
-          'text-[11px] font-semibold tabular-nums',
-          theme.softBgClass,
-          theme.accentClass,
-        )}
-      >
+      <span className={cn(
+        'ml-auto inline-flex h-5 min-w-[1.35rem] items-center justify-center rounded-full px-1.5',
+        'text-[11px] font-semibold tabular-nums',
+        theme.softBgClass, theme.accentClass,
+      )}>
         {count}
       </span>
     </div>
@@ -221,9 +200,8 @@ function SectionInlineHeader({
 }
 
 /**
- * Collapsible edge navigation button — animates in/out via max-height + opacity.
- * py-1.5 / py-0 pairing makes the `padding` transition meaningful and gives
- * the button breathing room above and below.
+ * Collapses to zero when action is null (no space taken, no phantom padding).
+ * Padding animates via transition-[max-height,opacity,padding].
  */
 function SectionEdgeButton({
   action,
@@ -235,18 +213,18 @@ function SectionEdgeButton({
   return (
     <div
       className={cn(
-        'shrink-0 overflow-hidden px-3 transition-[max-height,opacity,padding] duration-200 sm:px-5',
+        'overflow-hidden transition-[max-height,opacity,padding] duration-200',
         action
-          ? 'max-h-[4rem] py-1.5 opacity-100'
+          ? 'max-h-[3.5rem] py-1.5 opacity-100'
           : 'pointer-events-none max-h-0 py-0 opacity-0',
       )}
     >
-      {action ? <SectionEdgeButtonInner action={action} onClick={onClick} /> : null}
+      {action ? <SectionEdgeButtonContent action={action} onClick={onClick} /> : null}
     </div>
   );
 }
 
-function SectionEdgeButtonInner({
+function SectionEdgeButtonContent({
   action,
   onClick,
 }: {
@@ -258,22 +236,22 @@ function SectionEdgeButtonInner({
   const theme = STATUS_BOX_THEME[section.key];
   const meta = SECTION_META[section.key];
   const DirectionIcon = direction === 'up' ? ChevronUp : ChevronDown;
-  const hasSecondaryLabel = kind === 'current-start';
+  const isReturnToStart = kind === 'current-start';
 
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={
-        kind === 'current-start'
+        isReturnToStart
           ? `Вернуться к началу раздела ${meta.title}`
           : `Перейти к разделу ${meta.title}`
       }
       className={cn(
         'flex h-11 w-full items-center gap-3 rounded-[22px] border px-4',
-        'bg-bg-overlay/70 shadow-[var(--shadow-soft)] backdrop-blur-lg',
-        'transition-[color,background-color,transform] duration-150',
-        'hover:bg-bg-overlay/90 active:scale-[0.97] active:bg-bg-overlay/50',
+        'bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-sm',
+        'transition-[background-color,transform] duration-150',
+        'hover:bg-bg-elevated active:scale-[0.97] active:bg-bg-elevated/80',
         theme.borderClass,
       )}
     >
@@ -281,17 +259,12 @@ function SectionEdgeButtonInner({
         <DirectionIcon className="h-4 w-4 shrink-0 text-text-muted" />
       ) : null}
 
-      <div
-        className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-xl',
-          theme.softBgClass,
-        )}
-      >
+      <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-xl', theme.softBgClass)}>
         <Icon className={cn('h-3.5 w-3.5', theme.accentClass)} />
       </div>
 
       <div className="min-w-0 flex-1">
-        {hasSecondaryLabel ? (
+        {isReturnToStart ? (
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
             К началу
           </div>
@@ -301,14 +274,11 @@ function SectionEdgeButtonInner({
         </div>
       </div>
 
-      <span
-        className={cn(
-          'inline-flex h-5 min-w-[1.35rem] items-center justify-center rounded-full px-1.5',
-          'text-[11px] font-semibold tabular-nums',
-          theme.softBgClass,
-          theme.accentClass,
-        )}
-      >
+      <span className={cn(
+        'inline-flex h-5 min-w-[1.35rem] items-center justify-center rounded-full px-1.5',
+        'text-[11px] font-semibold tabular-nums',
+        theme.softBgClass, theme.accentClass,
+      )}>
         {section.verses.length}
       </span>
 
@@ -330,163 +300,109 @@ export function MyVersesSectionsLayout({
   onNavigateToCatalog,
 }: MyVersesSectionsLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<
-    Partial<Record<MyVersesSectionKey, HTMLDivElement | null>>
-  >({});
+  const sectionRefs = useRef<Partial<Record<MyVersesSectionKey, HTMLDivElement | null>>>({});
 
-  const visibleSections = useMemo(
-    () => getVisibleMyVersesSections(sections),
-    [sections],
-  );
+  const visibleSections = useMemo(() => getVisibleMyVersesSections(sections), [sections]);
+
   const hasContent = useMemo(
     () =>
-      visibleSections.some((section) => section.verses.length > 0) ||
-      visibleSections.some((section) => section.alwaysShow),
+      visibleSections.some((s) => s.verses.length > 0) ||
+      visibleSections.some((s) => s.alwaysShow),
     [visibleSections],
   );
-  const [navigationState, setNavigationState] = useState<SectionNavigationState>({
+
+  const [nav, setNav] = useState<SectionNavigationState>({
     activeSectionIndex: 0,
     isPastCurrentSectionStart: false,
   });
 
-  // Clamp activeSectionIndex when the section list shrinks
   useEffect(() => {
-    setNavigationState((current) => {
-      const nextActiveIndex =
-        visibleSections.length === 0
-          ? 0
-          : Math.min(current.activeSectionIndex, visibleSections.length - 1);
-
-      if (
-        current.activeSectionIndex === nextActiveIndex &&
-        current.isPastCurrentSectionStart === false
-      ) {
-        return current;
-      }
-
-      return {
-        activeSectionIndex: nextActiveIndex,
-        isPastCurrentSectionStart: false,
-      };
+    setNav((cur) => {
+      const next = visibleSections.length === 0
+        ? 0
+        : Math.min(cur.activeSectionIndex, visibleSections.length - 1);
+      if (cur.activeSectionIndex === next && !cur.isPastCurrentSectionStart) return cur;
+      return { activeSectionIndex: next, isPastCurrentSectionStart: false };
     });
   }, [visibleSections.length]);
 
-  // Sync navigation state on scroll / resize
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || visibleSections.length === 0) return;
 
     let frameId = 0;
 
-    const syncNavigationState = () => {
+    const sync = () => {
       frameId = 0;
-
-      const activeSectionIndex = resolveActiveSectionIndex(
-        container,
-        visibleSections,
-        sectionRefs.current,
-      );
-      const activeSection = visibleSections[activeSectionIndex];
-      const activeSectionElement = activeSection
-        ? sectionRefs.current[activeSection.key]
-        : null;
-      const isPastCurrentSectionStart = activeSectionElement
-        ? isPastSectionStart(container, activeSectionElement)
+      const activeSectionIndex = resolveActiveSectionIndex(container, visibleSections, sectionRefs.current);
+      const activeEl = sectionRefs.current[visibleSections[activeSectionIndex]?.key ?? ''] ?? null;
+      const isPastCurrentSectionStart = activeEl
+        ? isPastSectionStart(container, activeEl)
         : false;
 
-      setNavigationState((current) =>
-        current.activeSectionIndex === activeSectionIndex &&
-        current.isPastCurrentSectionStart === isPastCurrentSectionStart
-          ? current
+      setNav((cur) =>
+        cur.activeSectionIndex === activeSectionIndex &&
+        cur.isPastCurrentSectionStart === isPastCurrentSectionStart
+          ? cur
           : { activeSectionIndex, isPastCurrentSectionStart },
       );
     };
 
-    const scheduleSync = () => {
+    const schedule = () => {
       if (frameId) return;
-      frameId = window.requestAnimationFrame(syncNavigationState);
+      frameId = window.requestAnimationFrame(sync);
     };
 
-    scheduleSync();
-    container.addEventListener('scroll', scheduleSync, { passive: true });
-    window.addEventListener('resize', scheduleSync, { passive: true });
+    schedule();
+    container.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
 
     return () => {
-      container.removeEventListener('scroll', scheduleSync);
-      window.removeEventListener('resize', scheduleSync);
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
-      }
+      container.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (frameId) window.cancelAnimationFrame(frameId);
     };
   }, [visibleSections]);
 
   const scrollToSection = useCallback(
     (index: number) => {
       const container = scrollRef.current;
-      const targetSection = visibleSections[index];
-      const sectionElement = targetSection
-        ? sectionRefs.current[targetSection.key]
-        : null;
-      if (!container || !sectionElement) return;
-
-      container.scrollTo({
-        top: getScrollTarget(container, sectionElement),
-        behavior: 'smooth',
-      });
+      const el = sectionRefs.current[visibleSections[index]?.key ?? ''] ?? null;
+      if (!container || !el) return;
+      container.scrollTo({ top: getScrollTarget(container, el), behavior: 'smooth' });
     },
     [visibleSections],
   );
 
-  const topAction = useMemo(
-    () => resolveTopAction(visibleSections, navigationState),
-    [navigationState, visibleSections],
-  );
-  const bottomAction = useMemo(
-    () => resolveBottomAction(visibleSections, navigationState),
-    [navigationState, visibleSections],
-  );
+  const topAction = useMemo(() => resolveTopAction(visibleSections, nav), [nav, visibleSections]);
+  const bottomAction = useMemo(() => resolveBottomAction(visibleSections, nav), [nav, visibleSections]);
 
   const hasMultipleSections = visibleSections.length > 1;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    // `relative` so absolute overlays are clipped to this container.
+    <div className="relative h-full overflow-hidden">
 
-      {/* ── Top edge: к началу / previous section ── */}
-      {hasMultipleSections ? (
-        <SectionEdgeButton
-          action={topAction}
-          onClick={() => topAction && scrollToSection(topAction.targetIndex)}
-        />
-      ) : null}
-
-      {/* ── Scrollable content ── */}
+      {/* ── Scrollable content — full height, no artificial top/bottom padding ── */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-2 sm:px-4"
+        className="h-full overflow-y-auto px-2 sm:px-4"
         style={{
-          paddingBottom:
-            'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)',
+          paddingBottom: 'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)',
         }}
       >
         {hasContent ? (
           <>
             {visibleSections.map(({ key, verses }) => (
               <section key={key}>
-                <div
-                  ref={(element) => {
-                    sectionRefs.current[key] = element;
-                  }}
-                />
-
+                <div ref={(el) => { sectionRefs.current[key] = el; }} />
                 <SectionInlineHeader sectionKey={key} count={verses.length} />
-
                 <div className="space-y-2 pb-2">
                   {verses.map((verse) => (
                     <React.Fragment key={getItemKey(verse)}>
                       {renderVerseRow(verse)}
                     </React.Fragment>
                   ))}
-
                   {key === 'learning' ? (
                     <LearningSlotPlaceholders
                       filledCount={verses.length}
@@ -511,17 +427,37 @@ export function MyVersesSectionsLayout({
         )}
       </div>
 
-      {/* ── Bottom navigation: dots + next section ─────────────────────────────
-           Dots are always visible (when 2+ sections): show current position
-           and allow direct jumps to any section.
-           The edge button slides in/out below the dots.
-      ── */}
       {hasMultipleSections ? (
         <>
-          <SectionEdgeButton
-            action={bottomAction}
-            onClick={() => bottomAction && scrollToSection(bottomAction.targetIndex)}
-          />
+          {/* ── Top overlay: gradient + к началу / prev section ─────────────────
+               Floats over the scroll area. bg-transparent on the button lets
+               the gradient and content show through — truly transparent.
+               SECTION_ACTIVE_OFFSET_PX = button height so scrollToSection()
+               always positions section headers just below this overlay.
+          ── */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background via-background/70 to-transparent" />
+            <div className="pointer-events-auto relative px-3 pt-1.5 sm:px-5">
+              <SectionEdgeButton
+                action={topAction}
+                onClick={() => topAction && scrollToSection(topAction.targetIndex)}
+              />
+            </div>
+          </div>
+
+          {/* ── Bottom overlay: next section + gradient ───────────────────────── */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10"
+            style={{ paddingBottom: 'var(--app-bottom-nav-clearance, 0px)' }}
+          >
+            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background via-background/70 to-transparent" />
+            <div className="pointer-events-auto relative px-3 pb-1.5 sm:px-5">
+              <SectionEdgeButton
+                action={bottomAction}
+                onClick={() => bottomAction && scrollToSection(bottomAction.targetIndex)}
+              />
+            </div>
+          </div>
         </>
       ) : null}
     </div>

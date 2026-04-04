@@ -989,7 +989,7 @@ export function VerseList({
 
           <div
             ref={listViewportHostRef}
-            className="flex h-full min-h-0 flex-col px-2 pt-0 pb-0 sm:px-6 lg:px-8"
+            className="flex h-full min-h-0 flex-col pt-0 pb-0 sm:px-6 lg:px-8"
           >
             <div
               className={listViewportClassName}
