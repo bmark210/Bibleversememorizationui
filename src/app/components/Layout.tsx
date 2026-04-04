@@ -11,12 +11,12 @@ import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { triggerHaptic } from "../lib/haptics";
 import { useTelegramUiStore } from "../stores/telegramUiStore";
+import { useScreenStore } from "../stores/screenStore";
 import { cn } from "./ui/utils";
+import type { AppRootPage } from "@/app/domain/appPages";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: string;
-  onNavigate: (page: string) => void;
   onNavigateIntent?: (page: string) => void;
   isContentReady?: boolean;
   hideChrome?: boolean;
@@ -39,13 +39,12 @@ const DEFAULT_NAV_ITEMS = [
 
 export function Layout({
   children,
-  currentPage,
-  onNavigate,
   onNavigateIntent,
   isContentReady = false,
   hideChrome = false,
   contentMode = "scroll",
 }: LayoutProps) {
+  const { active: currentPage, go } = useScreenStore();
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
@@ -148,7 +147,7 @@ export function Layout({
     }
 
     triggerHaptic("medium");
-    onNavigate(page);
+    go(page as AppRootPage);
   };
 
   const handleNavigateIntent = (page: string) => {

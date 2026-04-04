@@ -13,12 +13,12 @@ import {
 import type { AppRootPage, PlayerProfilePreview } from "@/app/domain/appPages";
 import { useAppBootstrap } from "@/app/hooks/app/useAppBootstrap";
 import { useAppDataRefetchEffects } from "@/app/hooks/app/useAppDataRefetchEffects";
-import { useAppNavigation } from "@/app/hooks/app/useAppNavigation";
 import { useAppTheme } from "@/app/hooks/app/useAppTheme";
 import { useDashboardData } from "@/app/hooks/app/useDashboardData";
 import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
 import { cancelIdleTask, scheduleIdleTask } from "@/app/lib/idleTask";
+import { useScreenStore } from "@/app/stores/screenStore";
 import { cn } from "@/app/components/ui/utils";
 
 const loadVerseListModule = () => import("./components/VerseList");
@@ -85,7 +85,17 @@ export default function App({ onInitialContentReady }: AppProps) {
     useState(false);
 
   const { theme, handleToggleTheme } = useAppTheme();
-  const nav = useAppNavigation();
+
+  const activeScreen = useScreenStore((s) => s.active);
+  const canGoBack = useScreenStore((s) => s.history.length > 0);
+  const trainingDirectLaunch = useScreenStore((s) => s.trainingDirectLaunch);
+  const pendingVerseListReturn = useScreenStore((s) => s.pendingVerseListReturn);
+  const push = useScreenStore((s) => s.push);
+  const back = useScreenStore((s) => s.back);
+  const navigateToTrainingWithVerse = useScreenStore((s) => s.navigateToTrainingWithVerse);
+  const onDirectLaunchExit = useScreenStore((s) => s.onDirectLaunchExit);
+  const onVerseListReturnHandled = useScreenStore((s) => s.onVerseListReturnHandled);
+
   const availableRootPages = ROOT_PAGES;
 
   const {
@@ -115,7 +125,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     scheduleTrainingVersePrefetch,
     trainingVersesPromiseRef,
     trainingVersesFetchFailedRef,
-  } = useTrainingVersesPool(telegramId, nav.currentPage);
+  } = useTrainingVersesPool(telegramId, activeScreen);
 
   useTelegramWebAppSetup();
 
@@ -157,15 +167,9 @@ export default function App({ onInitialContentReady }: AppProps) {
 
   const shouldKeepRootPagesAlive = !isBootstrapping;
 
-  const handleNavigateBackInApp = nav.handleNavigateBackInApp;
-
-  const handleTelegramBack = useCallback(() => {
-    handleNavigateBackInApp();
-  }, [handleNavigateBackInApp]);
-
   useTelegramBackButton({
-    enabled: nav.canGoBackInApp,
-    onBack: handleTelegramBack,
+    enabled: canGoBack,
+    onBack: back,
     priority: 10,
   });
 
@@ -239,8 +243,8 @@ export default function App({ onInitialContentReady }: AppProps) {
     if (telegramId) {
       void ensureTrainingVersesLoaded(telegramId);
     }
-    nav.pushPage("training");
-  }, [ensureTrainingVersesLoaded, nav, telegramId]);
+    push("training");
+  }, [ensureTrainingVersesLoaded, push, telegramId]);
 
   const prefetchRootPage = useCallback(async (page: AppRootPage) => {
     if (!availableRootPages.includes(page)) {
@@ -278,8 +282,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, [isBootstrapping, onInitialContentReady]);
 
   useEffect(() => {
-    prefetchedPagesRef.current.add(nav.currentPage);
-  }, [nav.currentPage]);
+    prefetchedPagesRef.current.add(activeScreen);
+  }, [activeScreen]);
 
   useEffect(() => {
     if (isBootstrapping) {
@@ -288,7 +292,7 @@ export default function App({ onInitialContentReady }: AppProps) {
 
     const idleHandle = scheduleIdleTask(() => {
       const pagesToPrefetch = availableRootPages.filter(
-        (page) => page !== nav.currentPage,
+        (page) => page !== activeScreen,
       );
 
       void Promise.allSettled(pagesToPrefetch.map((page) => prefetchRootPage(page)));
@@ -298,13 +302,13 @@ export default function App({ onInitialContentReady }: AppProps) {
     return () => {
       cancelIdleTask(idleHandle);
     };
-  }, [availableRootPages, isBootstrapping, nav.currentPage, prefetchRootPage]);
+  }, [availableRootPages, isBootstrapping, activeScreen, prefetchRootPage]);
 
   useEffect(() => {
-    if (nav.currentPage !== "training" && isTrainingSessionFullscreen) {
+    if (activeScreen !== "training" && isTrainingSessionFullscreen) {
       setIsTrainingSessionFullscreen(false);
     }
-  }, [isTrainingSessionFullscreen, nav.currentPage]);
+  }, [isTrainingSessionFullscreen, activeScreen]);
 
   useEffect(() => {
     if (!isTrainingSessionFullscreen && pendingMutationRefetchRef.current && telegramId) {
@@ -336,27 +340,25 @@ export default function App({ onInitialContentReady }: AppProps) {
         className="h-dvh transition-colors"
       >
         <Layout
-          currentPage={nav.currentPage}
-          onNavigate={nav.handleRootNavigate}
           onNavigateIntent={handleRootPagePrefetchIntent}
           isContentReady={!isBootstrapping}
-          hideChrome={nav.currentPage === "training" && isTrainingSessionFullscreen}
+          hideChrome={activeScreen === "training" && isTrainingSessionFullscreen}
           contentMode={
-            nav.currentPage === "dashboard"
+            activeScreen === "dashboard"
               ? "fit"
-              : nav.currentPage === "training" || nav.currentPage === "verses"
+              : activeScreen === "training" || activeScreen === "verses"
                 ? "fit-strict"
                 : "scroll"
           }
         >
           <div className="relative h-full min-h-0">
-            {(shouldKeepRootPagesAlive || nav.currentPage === "dashboard") && (
+            {(shouldKeepRootPagesAlive || activeScreen === "dashboard") && (
               <section
                 aria-busy={isBootstrapping}
-                aria-hidden={nav.currentPage !== "dashboard"}
+                aria-hidden={activeScreen !== "dashboard"}
                 className={cn(
                   "h-full min-h-0",
-                  nav.currentPage === "dashboard"
+                  activeScreen === "dashboard"
                     ? "relative"
                     : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
                 )}
@@ -379,12 +381,12 @@ export default function App({ onInitialContentReady }: AppProps) {
               </section>
             )}
 
-            {(shouldKeepRootPagesAlive || nav.currentPage === "verses") && (
+            {(shouldKeepRootPagesAlive || activeScreen === "verses") && (
               <section
-                aria-hidden={nav.currentPage !== "verses"}
+                aria-hidden={activeScreen !== "verses"}
                 className={cn(
                   "h-full min-h-0",
-                  nav.currentPage === "verses"
+                  activeScreen === "verses"
                     ? "relative"
                     : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
                 )}
@@ -392,12 +394,12 @@ export default function App({ onInitialContentReady }: AppProps) {
                 <VerseList
                   reopenGalleryVerseId={null}
                   reopenGalleryStatusFilter={
-                    nav.pendingVerseListReturn?.statusFilter ?? null
+                    pendingVerseListReturn?.statusFilter ?? null
                   }
-                  onReopenGalleryHandled={nav.handleVerseListReturnHandled}
+                  onReopenGalleryHandled={onVerseListReturnHandled}
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
-                  onNavigateToTraining={nav.handleNavigateToTrainingWithVerse}
+                  onNavigateToTraining={navigateToTrainingWithVerse}
                   telegramId={telegramId}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
@@ -409,29 +411,29 @@ export default function App({ onInitialContentReady }: AppProps) {
               </section>
             )}
 
-            {nav.currentPage === "training" && (
+            {activeScreen === "training" && (
               <section className="relative h-full min-h-0">
                 <Training
                   allVerses={verses}
                   isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
                   dashboardStats={dashboardStats}
                   telegramId={telegramId}
-                  directLaunch={nav.trainingDirectLaunch}
-                  onDirectLaunchExit={nav.handleDirectLaunchExit}
+                  directLaunch={trainingDirectLaunch}
+                  onDirectLaunchExit={onDirectLaunchExit}
                   onVersePatched={handleTrainingVersePatched}
-                  onRequestVerseSelection={() => nav.pushPage("verses")}
+                  onRequestVerseSelection={() => push("verses")}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onSessionFullscreenChange={setIsTrainingSessionFullscreen}
                 />
               </section>
             )}
 
-            {(shouldKeepRootPagesAlive || nav.currentPage === "profile") && (
+            {(shouldKeepRootPagesAlive || activeScreen === "profile") && (
               <section
-                aria-hidden={nav.currentPage !== "profile"}
+                aria-hidden={activeScreen !== "profile"}
                 className={cn(
                   "h-full min-h-0",
-                  nav.currentPage === "profile"
+                  activeScreen === "profile"
                     ? "relative"
                     : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
                 )}
