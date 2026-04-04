@@ -222,7 +222,8 @@ function SectionInlineHeader({
 
 /**
  * Collapsible edge navigation button — animates in/out via max-height + opacity.
- * The `py-1` / `py-0` pairing makes the `padding` transition meaningful.
+ * py-1.5 / py-0 pairing makes the `padding` transition meaningful and gives
+ * the button breathing room above and below.
  */
 function SectionEdgeButton({
   action,
@@ -234,9 +235,9 @@ function SectionEdgeButton({
   return (
     <div
       className={cn(
-        'shrink-0 overflow-hidden px-2 transition-[max-height,opacity,padding] duration-200 sm:px-4',
+        'shrink-0 overflow-hidden px-3 transition-[max-height,opacity,padding] duration-200 sm:px-5',
         action
-          ? 'max-h-[3.5rem] py-1 opacity-100'
+          ? 'max-h-[4rem] py-1.5 opacity-100'
           : 'pointer-events-none max-h-0 py-0 opacity-0',
       )}
     >
@@ -270,9 +271,9 @@ function SectionEdgeButtonInner({
       }
       className={cn(
         'flex h-11 w-full items-center gap-3 rounded-[22px] border px-4',
-        'bg-background/92 shadow-[var(--shadow-soft)] backdrop-blur-xl',
+        'bg-bg-overlay/70 shadow-[var(--shadow-soft)] backdrop-blur-lg',
         'transition-[color,background-color,transform] duration-150',
-        'hover:bg-background active:scale-[0.97] active:bg-bg-subtle/75',
+        'hover:bg-bg-overlay/90 active:scale-[0.97] active:bg-bg-overlay/50',
         theme.borderClass,
       )}
     >
@@ -511,9 +512,9 @@ export function MyVersesSectionsLayout({
       </div>
 
       {/* ── Bottom navigation: dots + next section ─────────────────────────────
-           Dots are always visible (when 2+ sections) so the user can see
-           their current position and jump to any section directly.
-           The edge button slides in/out below the dots as needed.
+           Dots are always visible (when 2+ sections): show current position
+           and allow direct jumps to any section.
+           The edge button slides in/out below the dots.
       ── */}
       {hasMultipleSections ? (
         <>
