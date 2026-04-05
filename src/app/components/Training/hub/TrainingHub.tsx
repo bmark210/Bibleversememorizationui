@@ -38,12 +38,17 @@ import {
 } from "../coreTrainingAvailability";
 import type {
   AnchorModeGroup,
+  AnchorSubScenario,
   CoreTrainingMode,
+  FlashcardMode,
   TrainingScenario,
 } from "../types";
 import {
   ALL_ANCHOR_MODE_GROUPS,
+  ALL_FLASHCARD_MODES,
   ANCHOR_MODE_GROUP_LABELS,
+  FLASHCARD_MODE_DESCRIPTIONS,
+  FLASHCARD_MODE_LABELS,
   TRAINING_SCENARIO_LABELS,
 } from "../types";
 import { Button } from "../../ui/button";
@@ -57,10 +62,15 @@ interface TrainingHubProps {
   selectedScenario: TrainingScenario;
   selectedModes: CoreTrainingMode[];
   selectedAnchorModes: AnchorModeGroup[];
+  selectedAnchorSubScenario: AnchorSubScenario;
+  selectedFlashcardMode: FlashcardMode;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
   onAnchorModesChange: (modes: AnchorModeGroup[]) => void;
+  onAnchorSubScenarioChange: (sub: AnchorSubScenario) => void;
+  onFlashcardModeChange: (mode: FlashcardMode) => void;
   onStart: () => void;
+  onStartFlashcard: () => void;
   onStartSelection: () => void;
 }
 
@@ -99,7 +109,7 @@ type AccentTheme = {
   ctaClassName: string;
 };
 
-const ANCHOR_MIN_REQUIRED = 10;
+const ANCHOR_MIN_REQUIRED = 0;
 
 const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
   "reference-v1": Link2,
@@ -225,10 +235,15 @@ export function TrainingHub({
   selectedScenario,
   selectedModes,
   selectedAnchorModes,
+  selectedAnchorSubScenario,
+  selectedFlashcardMode,
   onScenarioChange,
   onModesChange,
   onAnchorModesChange,
+  onAnchorSubScenarioChange,
+  onFlashcardModeChange,
   onStart,
+  onStartFlashcard,
   onStartSelection,
 }: TrainingHubProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
@@ -306,7 +321,9 @@ export function TrainingHub({
       ? 0
       : getWaitingReviewCountForCoreModes(selectedModes, counts);
   const anchorLocked =
-    selectedScenario === "anchor" && anchorAvailableCount < ANCHOR_MIN_REQUIRED;
+    selectedScenario === "anchor" &&
+    selectedAnchorSubScenario === "interactive" &&
+    anchorAvailableCount < ANCHOR_MIN_REQUIRED;
   const reviewWaitingLocked =
     selectedScenario === "core" &&
     currentCount === 0 &&
@@ -329,11 +346,15 @@ export function TrainingHub({
   const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
   const sessionSummary =
     selectedScenario === "anchor"
-      ? TRAINING_SCENARIO_LABELS.anchor
+      ? selectedAnchorSubScenario === "flashcard"
+        ? "Карточки"
+        : TRAINING_SCENARIO_LABELS.anchor
       : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
   const startLabel =
     selectedScenario === "anchor"
-      ? "Начать закрепление"
+      ? selectedAnchorSubScenario === "flashcard"
+        ? "Начать карточки"
+        : "Начать закрепление"
       : "Начать практику";
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
   const lockedStartLabel =
@@ -477,76 +498,146 @@ export function TrainingHub({
                 </div>
               ) : (
                 <div data-tour="training-anchor-presets">
-                  <SectionLabel>Режимы игр</SectionLabel>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                  {ALL_ANCHOR_MODE_GROUPS.map((group) => {
-                    const isChecked = selectedAnchorModes.includes(group);
-                    const Icon = ANCHOR_MODE_GROUP_ICONS[group];
-                    return (
-                      <button
-                        key={group}
-                        type="button"
-                        aria-pressed={isChecked}
-                        onClick={() => {
-                          const next = isChecked
-                            ? selectedAnchorModes.filter((g) => g !== group)
-                            : [...selectedAnchorModes, group];
-                          if (next.length > 0) {
-                            triggerHaptic(isChecked ? "light" : "medium");
-                            onAnchorModesChange(next);
-                          }
-                        }}
-                        className={cn(
-                          "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
-                          "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
-                          isChecked
-                            ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]"
-                            : "border-border-subtle bg-bg-surface text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated",
-                        )}
-                      >
-                        <span
+                  {/* Sub-scenario switcher: Интерактивные | Карточки */}
+                  <div className="flex gap-1 rounded-2xl border border-border-subtle bg-bg-surface p-1">
+                    {(["interactive", "flashcard"] as AnchorSubScenario[]).map((sub) => {
+                      const isActive = selectedAnchorSubScenario === sub;
+                      const label = sub === "interactive" ? "Интерактивные" : "Карточки";
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(isActive ? "light" : "medium");
+                            onAnchorSubScenarioChange(sub);
+                          }}
                           className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                            isChecked
-                              ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered"
-                              : "border-border-subtle bg-bg-subtle text-text-muted group-hover:border-brand-primary/20 group-hover:text-text-secondary",
+                            "flex-1 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                            isActive
+                              ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
+                              : "text-text-muted hover:text-text-secondary",
                           )}
                         >
-                          <Icon
-                            className="h-[17px] w-[17px]"
-                            strokeWidth={2}
-                            aria-hidden
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Interactive modes */}
+                  {selectedAnchorSubScenario === "interactive" && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ALL_ANCHOR_MODE_GROUPS.map((group) => {
+                        const isChecked = selectedAnchorModes.includes(group);
+                        const Icon = ANCHOR_MODE_GROUP_ICONS[group];
+                        return (
+                          <button
+                            key={group}
+                            type="button"
+                            aria-pressed={isChecked}
+                            onClick={() => {
+                              const next = isChecked
+                                ? selectedAnchorModes.filter((g) => g !== group)
+                                : [...selectedAnchorModes, group];
+                              if (next.length > 0) {
+                                triggerHaptic(isChecked ? "light" : "medium");
+                                onAnchorModesChange(next);
+                              }
+                            }}
                             className={cn(
-                              "block text-[13px] font-semibold leading-tight tracking-tight",
+                              "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
+                              "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
                               isChecked
-                                ? "text-status-mastered"
-                                : "text-text-primary",
+                                ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]"
+                                : "border-border-subtle bg-bg-surface text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated",
                             )}
                           >
-                            {ANCHOR_MODE_GROUP_LABELS[group]}
-                          </span>
-                        </span>
-                        <span
-                          className={cn(
-                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                            isChecked
-                              ? "border-status-mastered/40 bg-brand-primary text-brand-primary-foreground"
-                              : "border-border-subtle bg-bg-subtle opacity-70",
-                          )}
-                          aria-hidden
-                        >
-                          {isChecked ? (
-                            <Check className="h-3 w-3" strokeWidth={3} />
-                          ) : null}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  </div>
+                            <span
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                                isChecked
+                                  ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered"
+                                  : "border-border-subtle bg-bg-subtle text-text-muted group-hover:border-brand-primary/20 group-hover:text-text-secondary",
+                              )}
+                            >
+                              <Icon className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span
+                                className={cn(
+                                  "block text-[13px] font-semibold leading-tight tracking-tight",
+                                  isChecked ? "text-status-mastered" : "text-text-primary",
+                                )}
+                              >
+                                {ANCHOR_MODE_GROUP_LABELS[group]}
+                              </span>
+                            </span>
+                            <span
+                              className={cn(
+                                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                                isChecked
+                                  ? "border-status-mastered/40 bg-brand-primary text-brand-primary-foreground"
+                                  : "border-border-subtle bg-bg-subtle opacity-70",
+                              )}
+                              aria-hidden
+                            >
+                              {isChecked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Flashcard modes */}
+                  {selectedAnchorSubScenario === "flashcard" && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {ALL_FLASHCARD_MODES.map((fMode) => {
+                        const isSelected = selectedFlashcardMode === fMode;
+                        return (
+                          <button
+                            key={fMode}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              triggerHaptic(isSelected ? "light" : "medium");
+                              onFlashcardModeChange(fMode);
+                            }}
+                            className={cn(
+                              "flex flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-all duration-150",
+                              "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
+                              isSelected
+                                ? "border-brand-primary/30 bg-brand-primary/10 shadow-[var(--shadow-soft)]"
+                                : "border-border-subtle bg-bg-surface hover:border-brand-primary/20 hover:bg-bg-elevated",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "block text-[13px] font-semibold leading-tight tracking-tight",
+                                isSelected ? "text-brand-primary" : "text-text-primary",
+                              )}
+                            >
+                              {FLASHCARD_MODE_LABELS[fMode]}
+                            </span>
+                            <span className="block text-[11px] leading-snug text-text-muted">
+                              {FLASHCARD_MODE_DESCRIPTIONS[fMode]}
+                            </span>
+                            <span
+                              className={cn(
+                                "mt-1 flex h-4 w-4 items-center justify-center rounded-full border",
+                                isSelected
+                                  ? "border-brand-primary/40 bg-brand-primary"
+                                  : "border-border-subtle bg-bg-subtle",
+                              )}
+                              aria-hidden
+                            >
+                              {isSelected ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} /> : null}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -622,7 +713,11 @@ export function TrainingHub({
               size="lg"
               haptic="medium"
               data-tour="training-start-button"
-              onClick={onStart}
+              onClick={
+                selectedScenario === "anchor" && selectedAnchorSubScenario === "flashcard"
+                  ? onStartFlashcard
+                  : onStart
+              }
               className={cn(
                 "h-12 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
                 currentAccentTheme.ctaClassName,

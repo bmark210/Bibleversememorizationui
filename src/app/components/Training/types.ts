@@ -10,10 +10,29 @@ export type TrainingScenario = "core" | "anchor";
 /** Training order — how to sort verses before session start */
 export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 
+/** Sub-scenario within the Игры tab */
+export type AnchorSubScenario = "interactive" | "flashcard";
+
+/** Flashcard mode — which side to hide */
+export type FlashcardMode = "reference" | "verse";
+
+export const FLASHCARD_MODE_LABELS: Record<FlashcardMode, string> = {
+  reference: "Ссылка",
+  verse: "Стих",
+};
+
+export const FLASHCARD_MODE_DESCRIPTIONS: Record<FlashcardMode, string> = {
+  reference: "Текст → вспомни ссылку",
+  verse: "Ссылка → вспомни текст",
+};
+
+export const ALL_FLASHCARD_MODES: FlashcardMode[] = ["reference", "verse"];
+
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
   | { mode: "hub" }
   | { mode: "anchor"; anchorModes: AnchorModeGroup[] }
+  | { mode: "flashcard"; flashcardMode: FlashcardMode }
   | {
       mode: "verse-session";
       verses: Verse[];

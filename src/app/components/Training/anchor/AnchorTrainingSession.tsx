@@ -500,13 +500,6 @@ export function AnchorTrainingSession({
           telegramId: telegramIdValue,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
         });
-        if (response.verses.length === 0 && response.totalCount < response.minRequired) {
-          setErrorMessage(
-            `Недостаточно стихов на этапе повторения или выученных. Нужно минимум ${response.minRequired}, сейчас ${response.totalCount}.`
-          );
-          setVersePool([]);
-          return;
-        }
         const merged = response.verses
           .map(mapToTrainingVerse)
           .filter((verse): verse is TrainingVerse => verse !== null);
