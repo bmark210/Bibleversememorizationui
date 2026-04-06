@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { normalizeVerseFlow } from "@/shared/domain/verseFlow";
 import {
   getVerseDisplayStatus,
   getVerseProgressPercent,
@@ -13,7 +14,7 @@ test("flow is the primary source for display status", () => {
   assert.equal(
     getVerseDisplayStatus({
       status: VerseStatus.LEARNING,
-      flow: { code: "QUEUE" },
+      flow: normalizeVerseFlow({ code: "QUEUE" }),
       masteryLevel: 0,
       repetitions: 0,
       nextReviewAt: null,
@@ -25,7 +26,7 @@ test("flow is the primary source for display status", () => {
   assert.equal(
     getVerseDisplayStatus({
       status: VerseStatus.LEARNING,
-      flow: { code: "REVIEW_WAITING" },
+      flow: normalizeVerseFlow({ code: "REVIEW_WAITING" }),
       masteryLevel: 7,
       repetitions: 2,
       nextReviewAt: "2099-01-01T00:00:00.000Z",
@@ -52,12 +53,12 @@ test("rules gracefully fall back when flow is absent", () => {
 test("resolved progress prefers backend flow values", () => {
   const verse = {
     status: VerseStatus.LEARNING,
-    flow: {
+    flow: normalizeVerseFlow({
       code: "REVIEW_WAITING",
       remainingLearnings: 0,
       remainingReviews: 3,
       progressPercent: 79,
-    },
+    }),
     masteryLevel: 7,
     repetitions: 4,
     nextReviewAt: "2099-01-01T00:00:00.000Z",

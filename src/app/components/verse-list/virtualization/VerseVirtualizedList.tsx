@@ -470,8 +470,6 @@ export function VerseVirtualizedList({
       getItemHeightEstimate
         ? makeSmartScrollSeekPlaceholder(items, getItemHeightEstimate)
         : ScrollSeekItemPlaceholder,
-    // Rebuild when estimator or items reference changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [getItemHeightEstimate, items],
   );
 
