@@ -26,8 +26,8 @@ export function LearningSlotPlaceholders({
           type="button"
           onClick={onNavigateToCatalog}
           className={cn(
-            'group flex w-full items-center gap-3 rounded-2xl',
-            'border border-dashed border-border-subtle/60 bg-transparent px-4 py-3.5',
+            'group flex w-full items-center gap-3 rounded-2xl bg-bg-overlay h-[5rem] border border-border',
+            'border border-dashed border-border-subtle/60 px-4 py-3.5',
             'text-left transition-colors duration-200',
             'hover:border-status-learning/30 hover:bg-status-learning-tint',
           )}
