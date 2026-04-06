@@ -16,6 +16,44 @@ export type MyVersesSectionData = {
   alwaysShow?: boolean;
 };
 
+export type MyVersesNavItem = {
+  key: MyVersesSectionKey;
+  count: number;
+  sectionIndex: number;
+  rowIndex: number;
+};
+
+export type MyVersesVirtualRow =
+  | {
+      kind: "section";
+      rowKey: string;
+      sectionKey: MyVersesSectionKey;
+      sectionIndex: number;
+      count: number;
+    }
+  | {
+      kind: "verse";
+      rowKey: string;
+      sectionKey: MyVersesSectionKey;
+      sectionIndex: number;
+      verse: Verse;
+    }
+  | {
+      kind: "learning-placeholders";
+      rowKey: string;
+      sectionKey: "learning";
+      sectionIndex: number;
+      filledCount: number;
+      emptyCount: number;
+      capacity: number;
+    };
+
+export type MyVersesVirtualModel = {
+  sections: MyVersesSectionData[];
+  navItems: MyVersesNavItem[];
+  rows: MyVersesVirtualRow[];
+};
+
 type MyVersesSectionBuckets = Record<MyVersesSectionKey, Verse[]>;
 
 function createEmptyBuckets(): MyVersesSectionBuckets {
@@ -92,4 +130,65 @@ export function getVisibleMyVersesSections(
   return sections.filter(
     (section) => section.alwaysShow || section.verses.length > 0,
   );
+}
+
+export function buildMyVersesVirtualModel(
+  sections: MyVersesSectionData[],
+  learningCapacity: number,
+): MyVersesVirtualModel {
+  const visibleSections = getVisibleMyVersesSections(sections);
+  const rows: MyVersesVirtualRow[] = [];
+  const navItems: MyVersesNavItem[] = [];
+
+  visibleSections.forEach((section, sectionIndex) => {
+    navItems.push({
+      key: section.key,
+      count: section.verses.length,
+      sectionIndex,
+      rowIndex: rows.length,
+    });
+
+    rows.push({
+      kind: "section",
+      rowKey: `section-${section.key}`,
+      sectionKey: section.key,
+      sectionIndex,
+      count: section.verses.length,
+    });
+
+    for (const verse of section.verses) {
+      rows.push({
+        kind: "verse",
+        rowKey: `verse-${verse.externalVerseId}`,
+        sectionKey: section.key,
+        sectionIndex,
+        verse,
+      });
+    }
+
+    if (section.key !== "learning") {
+      return;
+    }
+
+    const emptyCount = Math.max(0, learningCapacity - section.verses.length);
+    if (emptyCount === 0) {
+      return;
+    }
+
+    rows.push({
+      kind: "learning-placeholders",
+      rowKey: "learning-placeholders",
+      sectionKey: "learning",
+      sectionIndex,
+      filledCount: section.verses.length,
+      emptyCount,
+      capacity: learningCapacity,
+    });
+  });
+
+  return {
+    sections: visibleSections,
+    navItems,
+    rows,
+  };
 }

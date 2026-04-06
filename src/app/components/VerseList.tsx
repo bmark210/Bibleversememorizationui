@@ -420,6 +420,13 @@ export function VerseList({
   const visibleListItems = isCatalogMode
     ? vm.list.listItems
     : vm.list.sectionItems;
+  // Pretext-based per-verse card height estimator.
+  // Feeds accurate heights into the ScrollSeek placeholder so fast-scroll
+  // placeholders match the real card heights (no layout jumps on deceleration).
+  const getVerseHeightEstimate = useVerseItemHeightEstimator(
+    visibleListItems,
+    listContainerWidth,
+  );
   const myModeQueueVerses = useMemo(
     () =>
       vm.list.sectionItems
@@ -775,19 +782,19 @@ export function VerseList({
       <MyVersesSectionsLayout
         sections={myModeSections}
         renderVerseRow={vm.list.renderVerseRow}
-        getItemKey={vm.list.getItemKey}
         learningCapacity={learningSlotsSummary.capacity}
         currentFilterLabel={vm.ui.currentFilterLabel}
         onNavigateToCatalog={handleNavigateToCatalog}
+        getVerseHeightEstimate={getVerseHeightEstimate}
       />
     );
   }, [
     isMyMode,
     myModeSections,
     vm.list.renderVerseRow,
-    vm.list.getItemKey,
     vm.ui.currentFilterLabel,
     handleNavigateToCatalog,
+    getVerseHeightEstimate,
     learningSlotsSummary.capacity,
   ]);
 
@@ -889,14 +896,6 @@ export function VerseList({
       vm.tagFilter.selectedTagSlugs,
     ],
   );
-  // Pretext-based per-verse card height estimator.
-  // Feeds accurate heights into the ScrollSeek placeholder so fast-scroll
-  // placeholders match the real card heights (no layout jumps on deceleration).
-  const getVerseHeightEstimate = useVerseItemHeightEstimator(
-    visibleListItems,
-    listContainerWidth,
-  );
-
   const listContent =
     visibleListItems.length > 0 ? (
       <VerseVirtualizedList

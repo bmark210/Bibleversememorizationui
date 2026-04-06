@@ -8,6 +8,7 @@ import {
 } from "@/shared/domain/verseFlow";
 import {
   buildMyVersesSections,
+  buildMyVersesVirtualModel,
   getVisibleMyVersesSections,
 } from "./myVersesSections";
 
@@ -135,4 +136,50 @@ test("getVisibleMyVersesSections keeps learning available and omits empty sectio
     visibleSections.map((section) => section.key),
     ["learning", "my"],
   );
+});
+
+test("buildMyVersesVirtualModel creates stable jump targets and learning placeholder rows", () => {
+  const sections = buildMyVersesSections(
+    [
+      createVerse(VerseFlowCode.LEARNING, "learning-1"),
+      createVerse(VerseFlowCode.REVIEW_DUE, "review-1"),
+      createVerse(VerseFlowCode.MY, "my-1"),
+    ],
+    [],
+  );
+
+  const model = buildMyVersesVirtualModel(sections, 3);
+
+  assert.deepEqual(
+    model.navItems.map((item) => ({
+      key: item.key,
+      count: item.count,
+      rowIndex: item.rowIndex,
+    })),
+    [
+      { key: "learning", count: 1, rowIndex: 0 },
+      { key: "review", count: 1, rowIndex: 3 },
+      { key: "my", count: 1, rowIndex: 5 },
+    ],
+  );
+  assert.deepEqual(
+    model.rows.map((row) => row.kind),
+    [
+      "section",
+      "verse",
+      "learning-placeholders",
+      "section",
+      "verse",
+      "section",
+      "verse",
+    ],
+  );
+
+  const placeholderRow = model.rows[2];
+  assert.equal(placeholderRow.kind, "learning-placeholders");
+  if (placeholderRow.kind !== "learning-placeholders") {
+    throw new Error("Expected a learning placeholder row");
+  }
+  assert.equal(placeholderRow.emptyCount, 2);
+  assert.equal(placeholderRow.capacity, 3);
 });
