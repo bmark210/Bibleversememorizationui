@@ -721,10 +721,12 @@ export interface components {
         "bible-memory-db_internal_domain.TrainingStepHTTPResponse": {
             graduatedToReview?: boolean;
             nextTrainingModeId?: number;
+            newTotalXp?: number;
             /** @description PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot. */
             promotedVerseIds?: string[];
             reviewWasSuccessful?: boolean;
             userVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+            xpDelta?: number;
         };
         /** @enum {string} */
         "bible-memory-db_internal_domain.Translation": "NRT" | "SYNOD" | "RBS2" | "BTI";

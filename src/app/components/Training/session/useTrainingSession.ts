@@ -335,16 +335,11 @@ export function useTrainingSession({
           context: "core",
           before: {
             status: current.status,
-            difficultyLevel: current.raw.difficultyLevel,
-            masteryLevel: current.rawMasteryLevel,
-            repetitions: current.repetitions,
           },
           after: {
             status: persistedUpdated.status,
-            difficultyLevel: persistedUpdated.raw.difficultyLevel,
-            masteryLevel: persistedUpdated.rawMasteryLevel,
-            repetitions: persistedUpdated.repetitions,
           },
+          xpDelta: stepRes.xpDelta ?? 0,
         });
 
         applyAuthoritativeVerse(current, persistedUpdated);
