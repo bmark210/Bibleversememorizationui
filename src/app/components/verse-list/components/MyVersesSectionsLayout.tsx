@@ -9,15 +9,11 @@ import React, {
   useState,
 } from 'react';
 import {
-  BookOpen,
-  Bookmark,
-  ListOrdered,
-  PauseCircle,
-  RefreshCw,
-  Star,
+  type LucideIcon,
 } from 'lucide-react';
 import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
 import { cn } from '@/app/components/ui/utils';
+import { VERSE_STATUS_ICONS } from '@/app/components/verseStatusVisuals';
 import { LearningSlotPlaceholders } from './LearningSlotPlaceholders';
 import { VerseListEmptyState } from './VerseListEmptyState';
 import {
@@ -42,16 +38,13 @@ const SCROLL_SEEK_EXIT_VELOCITY = 140;
 const OVERSCAN_TOP_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 3;
 const OVERSCAN_BOTTOM_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 4;
 
-const SECTION_ICONS: Record<
-  MyVersesSectionKey,
-  React.ComponentType<{ className?: string }>
-> = {
-  learning: BookOpen,
-  queue: ListOrdered,
-  review: RefreshCw,
-  mastered: Star,
-  stopped: PauseCircle,
-  my: Bookmark,
+const SECTION_ICONS: Record<MyVersesSectionKey, LucideIcon> = {
+  learning: VERSE_STATUS_ICONS.learning,
+  queue: VERSE_STATUS_ICONS.queue,
+  review: VERSE_STATUS_ICONS.review,
+  mastered: VERSE_STATUS_ICONS.mastered,
+  stopped: VERSE_STATUS_ICONS.stopped,
+  my: VERSE_STATUS_ICONS.my,
 };
 
 type MyVersesSectionsLayoutProps = {

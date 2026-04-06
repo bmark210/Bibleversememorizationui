@@ -8,6 +8,7 @@ import { SwipeableVerseCard } from "@/app/components/verse-list/components/Swipe
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";
 import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewModel";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import { OWNED_COLLECTION_BADGE_CLASS_NAME } from "@/app/components/verseStatusVisuals";
 
 function createVerse(
   overrides: Partial<Verse> & Pick<Verse, "status">,
@@ -50,10 +51,14 @@ function renderListCard(verse: Verse) {
   );
 }
 
-function renderGalleryCard(verse: Verse) {
+function renderGalleryCard(
+  verse: Verse,
+  options?: { sourceMode?: "my" | "catalog" },
+) {
   return renderToStaticMarkup(
     <VersePreviewCard
       preview={getPreparedVersePreview(verse)}
+      sourceMode={options?.sourceMode}
       isActionPending={false}
       onStartTraining={() => {}}
       onStatusAction={() => {}}
@@ -85,6 +90,24 @@ test("gallery cards do not render progress pill for catalog and my states", () =
   assert.ok(!myHtml.includes("Показать путь прогресса стиха"));
   assert.ok(!catalogHtml.includes("В изучении"));
   assert.ok(!myHtml.includes("В изучении"));
+});
+
+test("my verses reuse the same owned collection presentation as catalog cards", () => {
+  const myHtml = renderListCard(createVerse({ status: VerseStatus.MY }));
+  const catalogOwnedHtml = renderGalleryCard(
+    createVerse({ status: VerseStatus.MY }),
+    { sourceMode: "catalog" },
+  );
+
+  assert.ok(myHtml.includes("В моих"));
+  assert.ok(myHtml.includes("Начать изучение"));
+  assert.ok(!myHtml.includes("Убрать из моих"));
+  assert.ok(myHtml.includes("bg-[#8c6a3b]/85"));
+  assert.ok(catalogOwnedHtml.includes("Убрать из моих"));
+  assertIncludesClassTokens(myHtml, OWNED_COLLECTION_BADGE_CLASS_NAME);
+  assert.ok(
+    catalogOwnedHtml.includes(OWNED_COLLECTION_BADGE_CLASS_NAME),
+  );
 });
 
 test("learning and review cards keep distinct status pills in list and gallery", () => {
@@ -128,14 +151,13 @@ test("list cards hide training CTA while gallery keeps it", () => {
   assert.ok(galleryHtml.includes("Тренироваться"));
 });
 
-test("gallery learning cards place pause inline next to training without visible label", () => {
+test("gallery learning cards keep the primary training CTA without assuming inline pause", () => {
   const galleryHtml = renderGalleryCard(
     createVerse({ status: VerseStatus.LEARNING, masteryLevel: 2 }),
   );
 
-  assert.ok(galleryHtml.includes('data-tour="verse-gallery-inline-utility"'));
   assert.ok(galleryHtml.includes("Тренироваться"));
-  assert.ok(!galleryHtml.includes(">Пауза<"));
+  assert.ok(!galleryHtml.includes('data-tour="verse-gallery-inline-utility"'));
 });
 
 test("waiting review shows waiting title and a separate next-step pill", () => {
@@ -176,6 +198,66 @@ test("stopped and mastered keep their own distinct pills", () => {
 
   assert.ok(stoppedHtml.includes("На паузе"));
   assert.ok(masteredHtml.includes("Выучен"));
+});
+
+test("list cards and gallery share the same icon and palette tokens for core statuses", () => {
+  const cases = [
+    {
+      verse: createVerse({ status: VerseStatus.LEARNING, masteryLevel: 2 }),
+      iconClass: "lucide-brain",
+      classTokens: [
+        "border-status-learning/25",
+        "bg-status-learning-soft",
+        "text-status-learning/85",
+        "text-status-learning",
+      ],
+    },
+    {
+      verse: createVerse({
+        status: "REVIEW",
+        masteryLevel: 7,
+        repetitions: 2,
+        nextReviewAt: "2000-01-01T00:00:00.000Z",
+      }),
+      iconClass: "lucide-refresh-cw",
+      classTokens: [
+        "border-status-review/25",
+        "bg-status-review-soft",
+        "text-status-review/85",
+        "text-status-review",
+      ],
+    },
+    {
+      verse: createVerse({ status: "MASTERED", masteryLevel: 7, repetitions: 7 }),
+      iconClass: "lucide-trophy",
+      classTokens: [
+        "border-status-mastered/25",
+        "bg-status-mastered-soft",
+        "text-status-mastered/85",
+        "text-status-mastered",
+      ],
+    },
+    {
+      verse: createVerse({ status: VerseStatus.STOPPED, masteryLevel: 4 }),
+      iconClass: "lucide-pause",
+      classTokens: [
+        "border-status-paused/25",
+        "bg-status-paused-soft",
+        "text-status-paused/85",
+        "text-status-paused",
+      ],
+    },
+  ];
+
+  for (const { verse, iconClass, classTokens } of cases) {
+    const listHtml = renderListCard(verse);
+    const galleryHtml = renderGalleryCard(verse);
+
+    assert.ok(listHtml.includes(iconClass));
+    assert.ok(galleryHtml.includes(iconClass));
+    assertIncludesClassTokens(listHtml, classTokens.join(" "));
+    assertIncludesClassTokens(galleryHtml, classTokens.join(" "));
+  }
 });
 
 test("list and gallery tags share one neutral color treatment", () => {

@@ -1,5 +1,5 @@
 import React from "react";
-import { Archive, BookMarked, Clock, Minus, Users, X } from "lucide-react";
+import { BookMarked, Clock, Minus, Users, X } from "lucide-react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -17,27 +17,19 @@ import { resolveVerseCardActionModel } from "@/app/components/verseCardActionMod
 import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
-  type VerseCardTonePalette,
 } from "@/app/components/verseCardColorConfig";
 import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import {
+  OWNED_COLLECTION_BADGE_CLASS_NAME,
+  OWNED_COLLECTION_CARD_TONE,
+} from "@/app/components/verseStatusVisuals";
 import {
   getVerseDisplayStatus,
   getVerseProgressPercent,
 } from "@/shared/verseRules";
 import { getVerseCardLayoutSignature, getVerseStageVisual } from "../constants";
 import { haptic } from "../haptics";
-
-const CATALOG_OWNED_TONE: VerseCardTonePalette = {
-  frameClassName: "bg-[#8c6a3b]/85",
-  surfaceClassName: "",
-  surfaceTintClassName: "bg-[#8c6a3b]/14",
-  glowClassName: "bg-[#8c6a3b]/22",
-  lineClassName: "from-transparent via-[#8c6a3b]/60 to-transparent",
-  accentBorderClassName: "border-[#8c6a3b]/40",
-  accentTextClassName: "text-[#c49a6c]",
-  progressClassName: "text-[#c49a6c]",
-};
 
 export type SwipeCardProps = {
   verse: Verse;
@@ -80,9 +72,11 @@ const SwipeableVerseCardComponent = ({
 }: SwipeCardProps) => {
   const displayStatus = getVerseDisplayStatus(verse);
   const isOwnedInCatalog = isCatalogMode && displayStatus !== "CATALOG";
+  const usesOwnedCollectionPresentation =
+    isOwnedInCatalog || (!isCatalogMode && displayStatus === VerseStatus.MY);
   const stageVisual = getVerseStageVisual(verse);
-  const tonePalette = isOwnedInCatalog
-    ? CATALOG_OWNED_TONE
+  const tonePalette = usesOwnedCollectionPresentation
+    ? OWNED_COLLECTION_CARD_TONE
     : colorConfig.tones[stageVisual.key];
   const layoutSignature = getVerseCardLayoutSignature(verse);
   const totalProgressPercent = getVerseProgressPercent(verse);
@@ -134,10 +128,6 @@ const SwipeableVerseCardComponent = ({
   });
   const visiblePrimaryAction =
     ctaModel.primaryAction?.id === "train" ? null : ctaModel.primaryAction;
-  const canRemoveFromMy =
-    !isCatalogMode &&
-    displayStatus === VerseStatus.MY &&
-    typeof onRemoveFromMy === "function";
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -283,35 +273,6 @@ const SwipeableVerseCardComponent = ({
           <X className="h-3.5 w-3.5 shrink-0" />
           <span className="max-w-[8rem] truncate text-[12px] font-medium">
             Убрать
-          </span>
-        </Button>
-      );
-    }
-
-    if (canRemoveFromMy) {
-      return (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          title="Убрать из моих стихов"
-          aria-label={`Убрать ${verse.reference} из моих стихов`}
-          disabled={isPending}
-          className={cn(
-            "h-9 rounded-full px-3 text-[12px] font-medium",
-            colorConfig.actionButtonClassName,
-            colorConfig.actionButtonHoverClassName,
-            tonePalette.accentBorderClassName,
-            tonePalette.accentTextClassName,
-          )}
-          onClick={(e) => {
-            stopCardOpen(e);
-            onRemoveFromMy?.(verse);
-          }}
-        >
-          <Minus className="h-3.5 w-3.5 shrink-0" />
-          <span className="max-w-[8rem] truncate text-[12px] font-medium">
-            Убрать из моих
           </span>
         </Button>
       );
@@ -605,35 +566,18 @@ const SwipeableVerseCardComponent = ({
               </div>
             ) : null}
           </div>
-          {!isFocusMode && isCatalogMode && isOwnedInCatalog ? (
+          {!isFocusMode && usesOwnedCollectionPresentation ? (
             <div key="catalog-owned" className="relative overflow-hidden">
               <div className="flex items-center pt-3">
                 <div
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-                    "border-[#8c6a3b]/45 bg-[#8c6a3b]/16 text-[#c49a6c]",
+                    OWNED_COLLECTION_BADGE_CLASS_NAME,
                     "text-[11px] font-semibold",
                   )}
                 >
                   <BookMarked className="h-3 w-3 shrink-0" />
                   <span>В моих</span>
-                </div>
-              </div>
-            </div>
-          ) : !isFocusMode &&
-            !isCatalogMode &&
-            displayStatus === VerseStatus.MY ? (
-            <div key="my-shelf" className="relative overflow-hidden">
-              <div className="flex items-center pt-3">
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-                    "border-status-collection/28 bg-status-collection-soft text-status-collection",
-                    "text-[11px] font-semibold",
-                  )}
-                >
-                  <Archive className="h-3 w-3 shrink-0" />
-                  <span>На полке</span>
                 </div>
               </div>
             </div>

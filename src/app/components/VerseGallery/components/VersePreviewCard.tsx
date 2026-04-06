@@ -16,6 +16,7 @@ import {
 } from "@/app/components/verseCardColorConfig";
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
+import { OWNED_COLLECTION_BADGE_CLASS_NAME } from "@/app/components/verseStatusVisuals";
 import type { PreparedVersePreview } from "../previewModel";
 import type { VerseGallerySourceMode } from "../types";
 import { usePreviewLineClamp } from "../hooks/usePreviewLineClamp";
@@ -412,7 +413,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold",
-                  "border-status-collection/28 bg-status-collection-soft text-status-collection",
+                  OWNED_COLLECTION_BADGE_CLASS_NAME,
                 )}
               >
                 <BookMarked className="h-3.5 w-3.5 shrink-0" />

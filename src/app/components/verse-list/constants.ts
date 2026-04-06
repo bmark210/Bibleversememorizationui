@@ -1,6 +1,10 @@
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import {
+  OWNED_COLLECTION_FILTER_THEME,
+  OWNED_COLLECTION_SECTION_THEME,
+} from "@/app/components/verseStatusVisuals";
+import {
   getVerseDisplayStatus,
   resolvePausedVerseKind,
   resolveVerseJourneyPhase,
@@ -85,13 +89,7 @@ export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualThem
     cardClassName: 'bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated',
   },
   my: {
-    dotClassName: 'bg-status-collection',
-    activeTabClassName: 'border-status-collection/30 bg-status-collection-soft text-status-collection shadow-[var(--shadow-soft)]',
-    currentBadgeClassName:
-      'border-status-collection/25 bg-status-collection-soft text-status-collection',
-    statusBadgeClassName:
-      'border-status-collection/25 bg-status-collection-soft text-status-collection',
-    cardClassName: 'bg-gradient-to-br from-status-collection-soft via-bg-surface to-bg-elevated',
+    ...OWNED_COLLECTION_FILTER_THEME,
   },
 };
 
@@ -140,11 +138,7 @@ export const STATUS_BOX_THEME: Record<MyVersesSectionKey, StatusBoxTheme> = {
     borderClass: 'border-status-paused/20',
   },
   my: {
-    dotClass: 'bg-status-collection',
-    accentClass: 'text-status-collection',
-    softBgClass: 'bg-status-collection-soft',
-    tintBgClass: 'bg-status-collection-tint',
-    borderClass: 'border-status-collection/20',
+    ...OWNED_COLLECTION_SECTION_THEME,
   },
 };
 
@@ -154,7 +148,7 @@ export const SECTION_META: Record<MyVersesSectionKey, { title: string; descripti
   review: { title: 'Повторение', description: 'Интервальное повторение' },
   mastered: { title: 'Выучены', description: 'Полностью заученные стихи' },
   stopped: { title: 'На паузе', description: 'Изучение приостановлено' },
-  my: { title: 'В списке', description: 'Добавлены, но ещё не начаты' },
+  my: { title: 'В моих', description: 'Добавлены, но ещё не начаты' },
 };
 
 export function getStoppedVerseStageKind(
