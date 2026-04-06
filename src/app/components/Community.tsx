@@ -1,12 +1,16 @@
 "use client";
 
 import React from "react";
-import { Search, UserMinus, UserPlus, Users } from "lucide-react";
+import {
+  Search,
+  UserMinus,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
-import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
 import {
   addFriend,
-  EMPTY_FRIEND_PLAYERS_PAGE,
   fetchFriendsPage,
   fetchPlayersPage,
   removeFriend,
@@ -22,14 +26,18 @@ import {
   ROW_DETAIL,
   ROW_NAME,
   ROW_PAD,
-  SHOW_ME_BTN,
 } from "./ui/responsiveTokens";
 import { cn } from "./ui/utils";
+import {
+  mergeCommunityPageWindow,
+  type CommunityListCacheItem,
+} from "./communityVirtualization";
 
 type FriendsTab = "players" | "friends";
 
-const FRIENDS_PAGE_SIZE = 4;
+const FRIENDS_PAGE_SIZE = 8;
 const SEARCH_DEBOUNCE_MS = 280;
+const COMMUNITY_OVERSCAN = 220;
 
 const PAGE_SHELL =
   "mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-[auto_auto] short-phone:overflow-visible";
@@ -46,6 +54,14 @@ const SUMMARY_TILE_VALUE =
 const ROW_ACTION_BUTTON =
   "h-8 w-8 shrink-0 rounded-full p-0 narrow:h-7.5 narrow:w-7.5";
 
+type CommunityListState = {
+  items: CommunityListCacheItem[];
+  total: number;
+  error: string | null;
+  isInitialLoading: boolean;
+  isLoadingMore: boolean;
+};
+
 interface CommunityProps {
   telegramId?: string | null;
   onFriendsChanged?: () => void;
@@ -56,6 +72,24 @@ interface CommunityProps {
   }) => void;
   friendsRefreshVersion?: number;
 }
+
+const EMPTY_LIST_STATE: CommunityListState = {
+  items: [],
+  total: 0,
+  error: null,
+  isInitialLoading: false,
+  isLoadingMore: false,
+};
+
+const COMMUNITY_LIST_BASE_CLASS =
+  "h-full min-h-0 [scrollbar-gutter:stable] pr-1";
+
+const CommunityVirtuosoList = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(function CommunityVirtuosoList({ className, ...props }, ref) {
+  return <div ref={ref} className={cn("grid content-start gap-2", className)} {...props} />;
+});
 
 function getInitials(name: string) {
   return name
@@ -82,6 +116,170 @@ function friendPlayerSubtitle(item: domain_FriendPlayerListItem): string {
   return "Нет данных";
 }
 
+function createOffsetRecord() {
+  return {
+    players: new Set<number>(),
+    friends: new Set<number>(),
+  } as const;
+}
+
+function CommunityRowSkeleton({ isLast = false }: { isLast?: boolean }) {
+  return (
+    <div className={cn(isLast ? "pb-0" : "pb-2")}>
+      <div className="h-[58px] animate-pulse rounded-[1.2rem] border border-border-subtle bg-bg-elevated" />
+    </div>
+  );
+}
+
+function CommunityLoadingRow() {
+  return (
+    <div className="flex justify-center py-2">
+      <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 text-[11px] font-medium text-text-muted shadow-[var(--shadow-soft)]">
+        <span className="h-2 w-2 rounded-full bg-brand-primary/80 animate-pulse" />
+        Загрузка
+      </div>
+    </div>
+  );
+}
+
+function CommunityListRow({
+  item,
+  activeFriendsTab,
+  isMutationPending,
+  onOpenPlayerProfile,
+  onToggleFriend,
+}: {
+  item: domain_FriendPlayerListItem;
+  activeFriendsTab: FriendsTab;
+  isMutationPending: boolean;
+  onOpenPlayerProfile?: (player: {
+    telegramId: string;
+    name: string;
+    avatarUrl: string | null;
+  }) => void;
+  onToggleFriend: (item: domain_FriendPlayerListItem) => void;
+}) {
+  const rowId = String(item.telegramId ?? "");
+  const displayName = friendPlayerDisplayName(item);
+  const showRemoveAction = activeFriendsTab === "friends" || item.isFriend;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] transition-[background-color,border-color,box-shadow] hover:border-brand-primary/18 hover:bg-bg-surface",
+        ROW_PAD,
+      )}
+    >
+      {onOpenPlayerProfile ? (
+        <button
+          type="button"
+          onClick={() =>
+            onOpenPlayerProfile({
+              telegramId: rowId,
+              name: displayName,
+              avatarUrl: item.avatarUrl?.trim() ? item.avatarUrl.trim() : null,
+            })
+          }
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] text-left"
+          aria-label={`Открыть профиль ${displayName}`}
+        >
+          <Avatar
+            className={cn(
+              ROW_AVATAR,
+              "border border-border-subtle bg-bg-surface",
+            )}
+          >
+            {item.avatarUrl ? (
+              <AvatarImage src={item.avatarUrl} alt={displayName} />
+            ) : null}
+            <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
+              {getInitials(displayName)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="min-w-0 flex-1">
+            <div
+              className={cn(
+                "truncate font-medium text-text-primary",
+                ROW_NAME,
+              )}
+            >
+              {displayName}
+            </div>
+            <div
+              className={cn(
+                "mt-0.5 truncate text-text-muted",
+                ROW_DETAIL,
+              )}
+            >
+              {friendPlayerSubtitle(item)}
+            </div>
+          </div>
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar
+            className={cn(
+              ROW_AVATAR,
+              "border border-border-subtle bg-bg-surface",
+            )}
+          >
+            {item.avatarUrl ? (
+              <AvatarImage src={item.avatarUrl} alt={displayName} />
+            ) : null}
+            <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
+              {getInitials(displayName)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="min-w-0 flex-1">
+            <div
+              className={cn(
+                "truncate font-medium text-text-primary",
+                ROW_NAME,
+              )}
+            >
+              {displayName}
+            </div>
+            <div
+              className={cn(
+                "mt-0.5 truncate text-text-muted",
+                ROW_DETAIL,
+              )}
+            >
+              {friendPlayerSubtitle(item)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isMutationPending}
+        data-tour={showRemoveAction ? undefined : "profile-add-friend-button"}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleFriend(item);
+        }}
+        aria-label={
+          showRemoveAction
+            ? `Удалить ${displayName}`
+            : `Добавить ${displayName}`
+        }
+        className={ROW_ACTION_BUTTON}
+      >
+        {showRemoveAction ? (
+          <UserMinus className="h-3.5 w-3.5" />
+        ) : (
+          <UserPlus className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export function Community({
   telegramId = null,
   onFriendsChanged,
@@ -94,19 +292,28 @@ export function Community({
   const [friendsSearchInput, setFriendsSearchInput] = React.useState("");
   const [playersSearchQuery, setPlayersSearchQuery] = React.useState("");
   const [friendsSearchQuery, setFriendsSearchQuery] = React.useState("");
-  const [playersPageIndex, setPlayersPageIndex] = React.useState(1);
-  const [friendsPageIndex, setFriendsPageIndex] = React.useState(1);
-  const [playersPage, setPlayersPage] =
-    React.useState<domain_FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
-  const [friendsPage, setFriendsPage] =
-    React.useState<domain_FriendPlayersPageResponse>(EMPTY_FRIEND_PLAYERS_PAGE);
-  const [isListLoading, setIsListLoading] = React.useState(false);
-  const [listError, setListError] = React.useState<string | null>(null);
   const [pendingMutationByTelegramId, setPendingMutationByTelegramId] =
     React.useState<Record<string, boolean>>({});
-  const playersRequestIdRef = React.useRef(0);
-  const friendsRequestIdRef = React.useRef(0);
+  const [listStates, setListStates] = React.useState<
+    Record<FriendsTab, CommunityListState>
+  >({
+    players: EMPTY_LIST_STATE,
+    friends: EMPTY_LIST_STATE,
+  });
+
+  const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+  const listStatesRef = React.useRef(listStates);
+  const loadedOffsetsRef = React.useRef(createOffsetRecord());
+  const pendingOffsetsRef = React.useRef(createOffsetRecord());
+  const queryVersionRef = React.useRef({
+    players: 0,
+    friends: 0,
+  });
   const lastExternalRefreshVersionRef = React.useRef(friendsRefreshVersion);
+
+  React.useEffect(() => {
+    listStatesRef.current = listStates;
+  }, [listStates]);
 
   React.useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -122,127 +329,153 @@ export function Community({
     return () => window.clearTimeout(timeout);
   }, [friendsSearchInput]);
 
-  React.useEffect(() => {
-    setPlayersPageIndex(1);
-  }, [playersSearchQuery]);
-
-  React.useEffect(() => {
-    setFriendsPageIndex(1);
-  }, [friendsSearchQuery]);
-
-  const fetchTabPage = React.useCallback(
+  const requestTabWindow = React.useCallback(
     async (
       tab: FriendsTab,
-      pageIndex: number,
-      options?: { withLoader?: boolean },
+      requestedOffset: number,
+      options?: { initial?: boolean; force?: boolean },
     ) => {
       if (!telegramId) {
-        if (tab === "players") {
-          setPlayersPage(EMPTY_FRIEND_PLAYERS_PAGE);
-        } else {
-          setFriendsPage(EMPTY_FRIEND_PLAYERS_PAGE);
-        }
-        setListError(null);
-        return;
+        React.startTransition(() => {
+          setListStates((previous) => ({
+            ...previous,
+            [tab]: EMPTY_LIST_STATE,
+          }));
+        });
+        return null;
       }
 
-      const requestId =
-        tab === "players"
-          ? ++playersRequestIdRef.current
-          : ++friendsRequestIdRef.current;
-      const withLoader = options?.withLoader !== false;
-      const startWith = Math.max(0, (pageIndex - 1) * FRIENDS_PAGE_SIZE);
+      const activeQuery =
+        tab === "players" ? playersSearchQuery : friendsSearchQuery;
+      const normalizedOffset = Math.max(0, Math.trunc(requestedOffset));
+      const loadedOffsets = loadedOffsetsRef.current[tab];
+      const pendingOffsets = pendingOffsetsRef.current[tab];
 
-      if (withLoader) {
-        setIsListLoading(true);
+      if (
+        !options?.force &&
+        (loadedOffsets.has(normalizedOffset) ||
+          pendingOffsets.has(normalizedOffset))
+      ) {
+        return null;
       }
-      setListError(null);
+
+      const requestVersion = queryVersionRef.current[tab];
+      pendingOffsets.add(normalizedOffset);
+      setListStates((previous) => ({
+        ...previous,
+        [tab]: {
+          ...previous[tab],
+          error: null,
+          isInitialLoading:
+            options?.initial === true && previous[tab].items.length === 0,
+          isLoadingMore:
+            options?.initial === true ? false : true,
+        },
+      }));
 
       try {
-        const activeSearchQuery =
-          tab === "players" ? playersSearchQuery : friendsSearchQuery;
         const nextPage =
           tab === "players"
             ? await fetchPlayersPage(telegramId, {
-                search: activeSearchQuery || undefined,
+                search: activeQuery || undefined,
                 limit: FRIENDS_PAGE_SIZE,
-                startWith,
+                startWith: normalizedOffset,
               })
             : await fetchFriendsPage(telegramId, {
-                search: activeSearchQuery || undefined,
+                search: activeQuery || undefined,
                 limit: FRIENDS_PAGE_SIZE,
-                startWith,
+                startWith: normalizedOffset,
               });
 
-        const isStale =
-          tab === "players"
-            ? playersRequestIdRef.current !== requestId
-            : friendsRequestIdRef.current !== requestId;
-        if (isStale) return;
-
-        const total = nextPage.total ?? 0;
-        const totalPages = Math.max(1, Math.ceil(total / FRIENDS_PAGE_SIZE));
-        if (pageIndex > totalPages) {
-          if (tab === "players") {
-            setPlayersPageIndex(totalPages);
-          } else {
-            setFriendsPageIndex(totalPages);
-          }
-          return;
+        if (queryVersionRef.current[tab] !== requestVersion) {
+          return null;
         }
 
-        if (tab === "players") {
-          setPlayersPage(nextPage);
-        } else {
-          setFriendsPage(nextPage);
-        }
+        loadedOffsets.add(Math.max(0, nextPage.offset ?? normalizedOffset));
+        React.startTransition(() => {
+          setListStates((previous) => ({
+            ...previous,
+            [tab]: {
+              items: mergeCommunityPageWindow(previous[tab].items, nextPage),
+              total: Math.max(0, nextPage.total ?? previous[tab].total),
+              error: null,
+              isInitialLoading: false,
+              isLoadingMore:
+                pendingOffsetsRef.current[tab].size > 1,
+            },
+          }));
+        });
+
+        return nextPage;
       } catch (error) {
+        if (queryVersionRef.current[tab] !== requestVersion) {
+          return null;
+        }
+
         const message =
           error instanceof Error
             ? error.message
             : "Не удалось загрузить список";
-        setListError(message);
+        setListStates((previous) => ({
+          ...previous,
+          [tab]: {
+            ...previous[tab],
+            error: message,
+            isInitialLoading: false,
+            isLoadingMore:
+              pendingOffsetsRef.current[tab].size > 1,
+          },
+        }));
+        return null;
       } finally {
-        const isStale =
-          tab === "players"
-            ? playersRequestIdRef.current !== requestId
-            : friendsRequestIdRef.current !== requestId;
-        if (!isStale && withLoader) {
-          setIsListLoading(false);
+        pendingOffsets.delete(normalizedOffset);
+        if (queryVersionRef.current[tab] === requestVersion) {
+          setListStates((previous) => ({
+            ...previous,
+            [tab]: {
+              ...previous[tab],
+              isInitialLoading: false,
+              isLoadingMore: pendingOffsetsRef.current[tab].size > 0,
+            },
+          }));
         }
       }
     },
     [friendsSearchQuery, playersSearchQuery, telegramId],
   );
 
-  React.useEffect(() => {
-    const pageIndex =
-      activeFriendsTab === "players" ? playersPageIndex : friendsPageIndex;
-    void fetchTabPage(activeFriendsTab, pageIndex, { withLoader: true });
-  }, [activeFriendsTab, fetchTabPage, friendsPageIndex, playersPageIndex]);
+  const resetAndPrimeTab = React.useCallback(
+    (tab: FriendsTab) => {
+      queryVersionRef.current[tab] += 1;
+      loadedOffsetsRef.current[tab].clear();
+      pendingOffsetsRef.current[tab].clear();
+
+      React.startTransition(() => {
+        setListStates((previous) => ({
+          ...previous,
+          [tab]: {
+            ...EMPTY_LIST_STATE,
+            isInitialLoading: Boolean(telegramId),
+          },
+        }));
+      });
+
+      if (!telegramId) {
+        return;
+      }
+
+      void requestTabWindow(tab, 0, { initial: true, force: true });
+    },
+    [requestTabWindow, telegramId],
+  );
 
   React.useEffect(() => {
-    if (!telegramId) return;
+    resetAndPrimeTab("players");
+  }, [playersSearchQuery, resetAndPrimeTab, telegramId]);
 
-    const secondaryTab = activeFriendsTab === "players" ? "friends" : "players";
-    const secondaryPageIndex =
-      secondaryTab === "players" ? playersPageIndex : friendsPageIndex;
-
-    void fetchTabPage(secondaryTab, secondaryPageIndex, { withLoader: false });
-  }, [
-    activeFriendsTab,
-    fetchTabPage,
-    friendsPageIndex,
-    playersPageIndex,
-    telegramId,
-  ]);
-
-  const refreshFriendsLists = React.useCallback(async () => {
-    await Promise.all([
-      fetchTabPage("players", playersPageIndex, { withLoader: false }),
-      fetchTabPage("friends", friendsPageIndex, { withLoader: false }),
-    ]);
-  }, [fetchTabPage, friendsPageIndex, playersPageIndex]);
+  React.useEffect(() => {
+    resetAndPrimeTab("friends");
+  }, [friendsSearchQuery, resetAndPrimeTab, telegramId]);
 
   React.useEffect(() => {
     if (!telegramId) return;
@@ -251,8 +484,17 @@ export function Community({
     }
 
     lastExternalRefreshVersionRef.current = friendsRefreshVersion;
-    void refreshFriendsLists();
-  }, [friendsRefreshVersion, refreshFriendsLists, telegramId]);
+    resetAndPrimeTab("players");
+    resetAndPrimeTab("friends");
+  }, [friendsRefreshVersion, resetAndPrimeTab, telegramId]);
+
+  React.useEffect(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: 0,
+      align: "start",
+      behavior: "auto",
+    });
+  }, [activeFriendsTab, friendsSearchQuery, playersSearchQuery]);
 
   const setMutationPending = (targetTelegramId: string, isPending: boolean) => {
     setPendingMutationByTelegramId((prev) => {
@@ -296,7 +538,8 @@ export function Community({
         }
       }
 
-      await refreshFriendsLists();
+      resetAndPrimeTab("players");
+      resetAndPrimeTab("friends");
       onFriendsChanged?.();
     } catch (error) {
       const message =
@@ -309,34 +552,22 @@ export function Community({
     }
   };
 
-  const currentPage =
-    activeFriendsTab === "players" ? playersPageIndex : friendsPageIndex;
-  const currentPageData =
-    activeFriendsTab === "players" ? playersPage : friendsPage;
-  const totalPages = Math.max(
-    1,
-    Math.ceil((currentPageData.total ?? 0) / FRIENDS_PAGE_SIZE),
-  );
-  const canGoPrev = currentPage > 1;
-  const canGoNext = currentPage < totalPages;
-  const canManageFriends = Boolean(telegramId);
   const activeSearchInput =
     activeFriendsTab === "players" ? playersSearchInput : friendsSearchInput;
   const activeSearchQuery =
     activeFriendsTab === "players" ? playersSearchQuery : friendsSearchQuery;
-  const playersTotal = playersPage.total ?? 0;
-  const friendsTotal = friendsPage.total ?? 0;
+  const activeState = listStates[activeFriendsTab];
+  const playersTotal = listStates.players.total;
+  const friendsTotal = listStates.friends.total;
   const activeCount = activeFriendsTab === "players" ? playersTotal : friendsTotal;
   const activeListTitle =
     activeFriendsTab === "players" ? "Игроки сообщества" : "Мои друзья";
-  
-  const updatePage = (nextPage: number) => {
-    if (activeFriendsTab === "players") {
-      setPlayersPageIndex(nextPage);
-    } else {
-      setFriendsPageIndex(nextPage);
-    }
-  };
+  const canManageFriends = Boolean(telegramId);
+  const loadedItemsCount = React.useMemo(
+    () => activeState.items.reduce((total, item) => total + (item ? 1 : 0), 0),
+    [activeState.items],
+  );
+  const hasMoreRows = loadedItemsCount < activeState.total;
 
   const handleSearchInputChange = (value: string) => {
     if (activeFriendsTab === "players") {
@@ -345,6 +576,36 @@ export function Community({
     }
     setFriendsSearchInput(value);
   };
+
+  const handleRangeChanged = React.useCallback(
+    ({ endIndex }: ListRange) => {
+      const activeTabState = listStatesRef.current[activeFriendsTab];
+      const loadedCount = activeTabState.items.reduce(
+        (total, item) => total + (item ? 1 : 0),
+        0,
+      );
+
+      if (loadedCount < activeTabState.total && endIndex >= loadedCount - 1) {
+        void requestTabWindow(activeFriendsTab, loadedCount);
+      }
+    },
+    [activeFriendsTab, requestTabWindow],
+  );
+
+  const handleEndReached = React.useCallback(
+    () => {
+      const activeTabState = listStatesRef.current[activeFriendsTab];
+      const loadedCount = activeTabState.items.reduce(
+        (total, item) => total + (item ? 1 : 0),
+        0,
+      );
+
+      if (loadedCount < activeTabState.total) {
+        void requestTabWindow(activeFriendsTab, loadedCount);
+      }
+    },
+    [activeFriendsTab, requestTabWindow],
+  );
 
   return (
     <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
@@ -364,10 +625,22 @@ export function Community({
               )}
             >
               <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div className={cn(SUMMARY_TILE_LABEL, activeFriendsTab === "friends" && "text-brand-primary/80")}>
+              <div
+                className={cn(
+                  SUMMARY_TILE_LABEL,
+                  activeFriendsTab === "friends" && "text-brand-primary/80",
+                )}
+              >
                 Мои друзья
               </div>
-              <div className={cn(SUMMARY_TILE_VALUE, activeFriendsTab === "friends" ? "text-brand-primary" : "text-text-primary")}>
+              <div
+                className={cn(
+                  SUMMARY_TILE_VALUE,
+                  activeFriendsTab === "friends"
+                    ? "text-brand-primary"
+                    : "text-text-primary",
+                )}
+              >
                 {friendsTotal}
               </div>
             </button>
@@ -383,10 +656,22 @@ export function Community({
               )}
             >
               <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div className={cn(SUMMARY_TILE_LABEL, activeFriendsTab === "players" && "text-brand-primary/80")}>
+              <div
+                className={cn(
+                  SUMMARY_TILE_LABEL,
+                  activeFriendsTab === "players" && "text-brand-primary/80",
+                )}
+              >
                 Игроки
               </div>
-              <div className={cn(SUMMARY_TILE_VALUE, activeFriendsTab === "players" ? "text-brand-primary" : "text-text-primary")}>
+              <div
+                className={cn(
+                  SUMMARY_TILE_VALUE,
+                  activeFriendsTab === "players"
+                    ? "text-brand-primary"
+                    : "text-text-primary",
+                )}
+              >
                 {playersTotal}
               </div>
             </button>
@@ -396,7 +681,7 @@ export function Community({
 
       <AppSurface
         data-tour="profile-friends"
-        className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 short-phone:h-auto short-phone:grid-rows-none"
+        className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 short-phone:h-auto short-phone:grid-rows-none"
       >
         {!canManageFriends ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.25rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-sm text-text-secondary">
@@ -409,9 +694,6 @@ export function Community({
                 <div className="text-sm font-semibold text-text-primary">
                   {activeListTitle}
                 </div>
-                {/* <div className="mt-1 text-xs leading-5 text-text-muted">
-                  {activeListDescription}
-                </div> */}
               </div>
 
               <div className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated px-3 text-xs font-semibold text-text-secondary shadow-[var(--shadow-soft)]">
@@ -434,183 +716,80 @@ export function Community({
               />
             </div>
 
-            <div className="grid min-h-0 content-start gap-2 overflow-y-auto pr-1">
-              {isListLoading ? (
-                Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
-                  <div
-                    key={`community-skeleton-${index}`}
-                    className="h-[58px] animate-pulse rounded-[1.2rem] border border-border-subtle bg-bg-elevated"
-                  />
-                ))
-              ) : listError ? (
-                <div className="rounded-[1.2rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
-                  {listError}
+            <div className="min-h-0">
+              {activeState.isInitialLoading && activeState.items.length === 0 ? (
+                <div className="grid min-h-0 content-start gap-2 overflow-y-auto pr-1">
+                  {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
+                    <CommunityRowSkeleton
+                      key={`community-skeleton-${activeFriendsTab}-${index}`}
+                      isLast={index === FRIENDS_PAGE_SIZE - 1}
+                    />
+                  ))}
                 </div>
-              ) : currentPageData.items.length === 0 ? (
+              ) : activeState.error ? (
+                <div className="rounded-[1.2rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
+                  {activeState.error}
+                </div>
+              ) : activeState.total === 0 ? (
                 <div className="rounded-[1.2rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-center text-sm text-text-secondary">
                   {activeSearchQuery ? "Ничего не найдено" : "Список пуст"}
                 </div>
               ) : (
-                currentPageData.items.map((item) => {
-                  const rowId = String(item.telegramId ?? "");
-                  const displayName = friendPlayerDisplayName(item);
-                  const isMutationPending =
-                    pendingMutationByTelegramId[rowId] === true;
-                  const showRemoveAction =
-                    activeFriendsTab === "friends" || item.isFriend;
+                <Virtuoso
+                  ref={virtuosoRef}
+                  key={`${activeFriendsTab}:${activeSearchQuery}`}
+                  className={COMMUNITY_LIST_BASE_CLASS}
+                  totalCount={loadedItemsCount + (hasMoreRows ? 1 : 0)}
+                  defaultItemHeight={74}
+                  increaseViewportBy={COMMUNITY_OVERSCAN}
+                  overscan={COMMUNITY_OVERSCAN}
+                  components={{ List: CommunityVirtuosoList }}
+                  computeItemKey={(index) => {
+                    if (hasMoreRows && index >= loadedItemsCount) {
+                      return `${activeFriendsTab}-loader-${loadedItemsCount}`;
+                    }
+                    const item = activeState.items[index];
+                    return item
+                      ? `${activeFriendsTab}-${String(item.telegramId ?? index)}`
+                      : `${activeFriendsTab}-skeleton-${index}`;
+                  }}
+                  rangeChanged={handleRangeChanged}
+                  endReached={handleEndReached}
+                  itemContent={(index) => {
+                    if (hasMoreRows && index >= loadedItemsCount) {
+                      return <CommunityLoadingRow />;
+                    }
 
-                  return (
-                    <div
-                      key={`${activeFriendsTab}-${rowId}`}
-                      className={cn(
-                        "flex items-center gap-3 border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] transition-[background-color,border-color,box-shadow] hover:border-brand-primary/18 hover:bg-bg-surface",
-                        ROW_PAD,
-                      )}
-                    >
-                      {onOpenPlayerProfile ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onOpenPlayerProfile({
-                              telegramId: rowId,
-                              name: displayName,
-                              avatarUrl: item.avatarUrl?.trim()
-                                ? item.avatarUrl.trim()
-                                : null,
-                            })
-                          }
-                          className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] text-left"
-                          aria-label={`Открыть профиль ${displayName}`}
-                        >
-                          <Avatar
-                            className={cn(
-                              ROW_AVATAR,
-                              "border border-border-subtle bg-bg-surface",
-                            )}
-                          >
-                            {item.avatarUrl ? (
-                              <AvatarImage src={item.avatarUrl} alt={displayName} />
-                            ) : null}
-                            <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
-                              {getInitials(displayName)}
-                            </AvatarFallback>
-                          </Avatar>
+                    const item = activeState.items[index];
 
-                          <div className="min-w-0 flex-1">
-                            <div
-                              className={cn(
-                                "truncate font-medium text-text-primary",
-                                ROW_NAME,
-                              )}
-                            >
-                              {displayName}
-                            </div>
-                            <div
-                              className={cn(
-                                "mt-0.5 truncate text-text-muted",
-                                ROW_DETAIL,
-                              )}
-                            >
-                              {friendPlayerSubtitle(item)}
-                            </div>
-                          </div>
-                        </button>
-                      ) : (
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <Avatar
-                            className={cn(
-                              ROW_AVATAR,
-                              "border border-border-subtle bg-bg-surface",
-                            )}
-                          >
-                            {item.avatarUrl ? (
-                              <AvatarImage src={item.avatarUrl} alt={displayName} />
-                            ) : null}
-                            <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
-                              {getInitials(displayName)}
-                            </AvatarFallback>
-                          </Avatar>
+                    if (!item) {
+                      return (
+                        <CommunityRowSkeleton
+                          isLast={index === activeState.total - 1}
+                        />
+                      );
+                    }
 
-                          <div className="min-w-0 flex-1">
-                            <div
-                              className={cn(
-                                "truncate font-medium text-text-primary",
-                                ROW_NAME,
-                              )}
-                            >
-                              {displayName}
-                            </div>
-                            <div
-                              className={cn(
-                                "mt-0.5 truncate text-text-muted",
-                                ROW_DETAIL,
-                              )}
-                            >
-                              {friendPlayerSubtitle(item)}
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                    const rowId = String(item.telegramId ?? "");
+                    const isMutationPending =
+                      pendingMutationByTelegramId[rowId] === true;
 
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isMutationPending}
-                        data-tour={
-                          showRemoveAction
-                            ? undefined
-                            : "profile-add-friend-button"
-                        }
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleToggleFriend(item);
-                        }}
-                        aria-label={
-                          showRemoveAction
-                            ? `Удалить ${displayName}`
-                            : `Добавить ${displayName}`
-                        }
-                        className={ROW_ACTION_BUTTON}
-                      >
-                        {showRemoveAction ? (
-                          <UserMinus className="h-3.5 w-3.5" />
-                        ) : (
-                          <UserPlus className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })
+                    return (
+                      <div className={cn(index === activeState.total - 1 ? "pb-0" : "pb-2")}>
+                        <CommunityListRow
+                          item={item}
+                          activeFriendsTab={activeFriendsTab}
+                          isMutationPending={isMutationPending}
+                          onOpenPlayerProfile={onOpenPlayerProfile}
+                          onToggleFriend={(nextItem) => {
+                            void handleToggleFriend(nextItem);
+                          }}
+                        />
+                      </div>
+                    );
+                  }}
+                />
               )}
-            </div>
-
-            <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-3">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!canGoPrev || isListLoading}
-                onClick={() => updatePage(Math.max(1, currentPage - 1))}
-                className={SHOW_ME_BTN}
-              >
-                Назад
-              </Button>
-
-              <div className="text-xs text-text-muted">
-                {currentPage}/{totalPages}
-              </div>
-
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!canGoNext || isListLoading}
-                onClick={() => updatePage(Math.min(totalPages, currentPage + 1))}
-                className={SHOW_ME_BTN}
-              >
-                Вперёд
-              </Button>
             </div>
           </>
         )}

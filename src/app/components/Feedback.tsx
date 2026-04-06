@@ -27,6 +27,13 @@ const FEEDBACK_LAST_SUBMIT_KEY_PREFIX = "feedback:lastSubmitAt:";
 
 const PANEL =
   "rounded-[1.2rem] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]";
+const INTERNAL_SCROLL_AREA =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]";
+
+type FeedbackProps = {
+  telegramId?: string | null;
+  variant?: "default" | "profile";
+};
 
 function feedbackLastSubmitStorageKey(telegramId: string): string {
   return `${FEEDBACK_LAST_SUBMIT_KEY_PREFIX}${telegramId}`;
@@ -77,10 +84,6 @@ function formatCooldownRemaining(ms: number): string {
   return `${s} с`;
 }
 
-type FeedbackProps = {
-  telegramId?: string | null;
-};
-
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -125,7 +128,10 @@ function formatFeedbackDate(value: string): string {
   }).format(new Date(parsed));
 }
 
-export function Feedback({ telegramId = null }: FeedbackProps) {
+export function Feedback({
+  telegramId = null,
+  variant = "default",
+}: FeedbackProps) {
   const [text, setText] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [adminPageIndex, setAdminPageIndex] = React.useState(1);
@@ -153,6 +159,7 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
     text.length <= MAX_FEEDBACK_LENGTH &&
     !isSubmitting &&
     !isFeedbackCooldownActive;
+  const isProfileVariant = variant === "profile";
 
   React.useEffect(() => {
     if (!normalizedTelegramId) {
@@ -322,19 +329,28 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 short-phone:h-auto">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-text-primary">
-            Обратная связь
+    <div
+      className={cn(
+        "flex min-h-0 flex-col gap-3",
+        isProfileVariant
+          ? "h-full"
+          : "h-full short-phone:h-auto",
+      )}
+    >
+      {!isProfileVariant ? (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-text-primary">
+              Обратная связь
+            </div>
+            <div className="text-xs text-text-muted">1 сообщение в час</div>
           </div>
-          <div className="text-xs text-text-muted">1 сообщение в час</div>
-        </div>
 
-        <div className="inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-[11px] text-text-secondary">
-          {isAdmin ? "Админ" : `${MAX_FEEDBACK_LENGTH} симв.`}
+          <div className="inline-flex items-center rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-[11px] text-text-secondary">
+            {isAdmin ? "Админ" : `${MAX_FEEDBACK_LENGTH} симв.`}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {!normalizedTelegramId ? (
         <div
@@ -370,7 +386,9 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
               <div
                 className={cn(
                   "text-xs",
-                  remainingChars < 120 ? "text-state-warning" : "text-text-muted",
+                  remainingChars < 120
+                    ? "text-state-warning"
+                    : "text-text-muted",
                 )}
               >
                 {remainingChars} симв.
@@ -412,80 +430,89 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2">
-                {isAdminListLoading ? (
-                  Array.from({ length: ADMIN_FEEDBACK_PAGE_SIZE }).map((_, index) => (
-                    <div
-                      key={`feedback-skeleton-${index}`}
-                      className="h-[86px] animate-pulse rounded-[1rem] border border-border-subtle bg-bg-surface"
-                    />
-                  ))
-                ) : adminListError ? (
-                  <div className="rounded-[1rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
-                    <div>{adminListError}</div>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRefreshVersion((prev) => prev + 1)}
-                        className="rounded-full"
-                      >
-                        Повторить
-                      </Button>
+              <div
+                className={cn(
+                  "mt-3",
+                  isProfileVariant ? INTERNAL_SCROLL_AREA : "grid gap-2",
+                )}
+              >
+                <div className="grid gap-2">
+                  {isAdminListLoading ? (
+                    Array.from({ length: ADMIN_FEEDBACK_PAGE_SIZE }).map(
+                      (_, index) => (
+                        <div
+                          key={`feedback-skeleton-${index}`}
+                          className="h-[86px] animate-pulse rounded-[1rem] border border-border-subtle bg-bg-surface"
+                        />
+                      ),
+                    )
+                  ) : adminListError ? (
+                    <div className="rounded-[1rem] border border-state-error/25 bg-state-error/12 px-4 py-3 text-sm text-state-error">
+                      <div>{adminListError}</div>
+                      <div className="mt-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRefreshVersion((prev) => prev + 1)}
+                          className="rounded-full"
+                        >
+                          Повторить
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : adminItems.length === 0 ? (
-                  <div className="rounded-[1rem] border border-dashed border-border-subtle bg-bg-surface px-4 py-6 text-sm text-text-secondary">
-                    Отзывов пока нет.
-                  </div>
-                ) : (
-                  adminItems.map((item) => {
-                    const authorName = getFeedbackAuthorName(item);
+                  ) : adminItems.length === 0 ? (
+                    <div className="rounded-[1rem] border border-dashed border-border-subtle bg-bg-surface px-4 py-6 text-sm text-text-secondary">
+                      Отзывов пока нет.
+                    </div>
+                  ) : (
+                    adminItems.map((item) => {
+                      const authorName = getFeedbackAuthorName(item);
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="rounded-[1rem] border border-border-subtle bg-bg-surface px-3 py-2.5"
-                      >
-                        <div className="flex items-start gap-3">
-                          <Avatar className="h-9 w-9 border border-border-subtle bg-bg-elevated">
-                            {item.user.avatarUrl ? (
-                              <AvatarImage
-                                src={item.user.avatarUrl}
-                                alt={authorName}
-                              />
-                            ) : null}
-                            <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
-                              {getInitials(authorName || "U")}
-                            </AvatarFallback>
-                          </Avatar>
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-[1rem] border border-border-subtle bg-bg-surface px-3 py-2.5"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-9 w-9 border border-border-subtle bg-bg-elevated">
+                              {item.user.avatarUrl ? (
+                                <AvatarImage
+                                  src={item.user.avatarUrl}
+                                  alt={authorName}
+                                />
+                              ) : null}
+                              <AvatarFallback className="bg-bg-subtle text-xs text-text-secondary">
+                                {getInitials(authorName || "U")}
+                              </AvatarFallback>
+                            </Avatar>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium text-text-primary">
-                                  {authorName}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium text-text-primary">
+                                    {authorName}
+                                  </div>
+                                  <div className="text-[11px] text-text-muted">
+                                    ID {item.telegramId}
+                                  </div>
                                 </div>
-                                <div className="text-[11px] text-text-muted">
-                                  ID {item.telegramId}
+
+                                <div className="shrink-0 text-[11px] text-text-muted">
+                                  {formatFeedbackDate(item.createdAt)}
                                 </div>
                               </div>
 
-                              <div className="shrink-0 text-[11px] text-text-muted">
-                                {formatFeedbackDate(item.createdAt)}
-                              </div>
+                              <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-5 text-text-secondary">
+                                {item.text}
+                              </p>
                             </div>
-
-                            <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-5 text-text-secondary">
-                              {item.text}
-                            </p>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               {adminTotalCount > ADMIN_FEEDBACK_PAGE_SIZE ? (
@@ -513,7 +540,9 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
                     variant="outline"
                     disabled={adminPageIndex >= totalPages || isAdminListLoading}
                     onClick={() =>
-                      setAdminPageIndex((prev) => Math.min(totalPages, prev + 1))
+                      setAdminPageIndex((prev) =>
+                        Math.min(totalPages, prev + 1),
+                      )
                     }
                     className="h-8 rounded-full px-3 text-xs"
                   >
@@ -521,6 +550,25 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
                   </Button>
                 </div>
               ) : null}
+            </div>
+          ) : isProfileVariant ? (
+            <div className="flex flex-col gap-2 px-1 text-xs text-text-muted sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                Коротко: экран, действие, результат и ожидание.
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  applyTemplate(
+                    "Экран:\nЧто делал:\nЧто увидел:\nЧто ожидал:",
+                  )
+                }
+                className="h-8 rounded-full px-3 text-xs sm:shrink-0"
+              >
+                Шаблон
+              </Button>
             </div>
           ) : (
             <div className="grid flex-1 min-h-0 grid-cols-2 gap-2 short-phone:grid-cols-1">
