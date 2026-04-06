@@ -353,24 +353,41 @@ const SwipeableVerseCardComponent = ({
     />
   ) : null;
 
-  const statusMetaContent =
+  const statusPillContent =
     !ctaModel.showProgress || !ctaModel.statusTone ? null : (
-      <div className="flex max-w-full flex-wrap items-center gap-2">
-        <button
-          type="button"
-          data-tour="verse-card-progress-button"
-          onClick={handleOpenProgress}
-          className="inline-flex max-w-full items-center text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
-          aria-label={`Показать путь прогресса стиха ${verse.reference}`}
-        >
-          <VerseStatusPill
-            tone={ctaModel.statusTone}
-            size="sm"
-            className="max-w-full"
-          />
-        </button>
-        {waitingMetaContent}
-      </div>
+      <button
+        type="button"
+        data-tour="verse-card-progress-button"
+        onClick={handleOpenProgress}
+        className="inline-flex max-w-full items-center text-left transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-full"
+        aria-label={`Показать путь прогресса стиха ${verse.reference}`}
+      >
+        <VerseStatusPill
+          tone={ctaModel.statusTone}
+          size="sm"
+          className="max-w-full"
+        />
+      </button>
+    );
+
+  const progressValueContent =
+    !ctaModel.showProgress || !ctaModel.statusTone ? null : (
+      <button
+        type="button"
+        onClick={handleOpenProgress}
+        className={cn(
+          "inline-flex shrink-0 rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+          colorConfig.summaryCompactPanelClassName,
+          tonePalette.accentBorderClassName,
+        )}
+        aria-label={`Показать путь прогресса стиха ${verse.reference}`}
+      >
+        <VerseProgressValue
+          progressPercent={totalProgressPercent}
+          size="sm"
+          className={tonePalette.progressClassName}
+        />
+      </button>
     );
 
   const socialMetaContent = !isFocusMode ? (
@@ -432,6 +449,61 @@ const SwipeableVerseCardComponent = ({
       </div>
     ) : null
   ) : null;
+  const isPureCatalogCard = isCatalogMode && displayStatus === "CATALOG";
+  const ownedStatusContent = usesOwnedCollectionPresentation ? (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
+        OWNED_COLLECTION_BADGE_CLASS_NAME,
+        "text-[11px] font-semibold",
+      )}
+    >
+      <BookMarked className="h-3 w-3 shrink-0" />
+      <span>В моих</span>
+    </div>
+  ) : null;
+  const queueStatusContent =
+    displayStatus === VerseStatus.QUEUE ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          stopCardOpen(e);
+          if (onEditQueuePosition) {
+            haptic("light");
+            onEditQueuePosition(verse);
+          }
+        }}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-status-queue/28 bg-status-queue-soft px-2.5 py-1 text-[11px] font-semibold text-status-queue",
+          onEditQueuePosition
+            ? "cursor-pointer transition-opacity hover:opacity-75 active:scale-95"
+            : "cursor-default",
+        )}
+        aria-label="Изменить позицию в очереди"
+      >
+        <Clock className="h-3 w-3 shrink-0" />
+        {verse.queuePosition === 1 ? (
+          <span>Следующий</span>
+        ) : (
+          <span>В очереди</span>
+        )}
+        {typeof verse.queuePosition === "number" &&
+          verse.queuePosition > 1 && (
+            <>
+              <span className="opacity-40">·</span>
+              <span className="tabular-nums">#{verse.queuePosition}</span>
+            </>
+          )}
+      </button>
+    ) : null;
+  const footerStatusContent =
+    ownedStatusContent ?? queueStatusContent ?? statusPillContent;
+  const shouldRenderFooterRow =
+    isPureCatalogCard
+      ? Boolean(socialMetaContent)
+      : Boolean(
+          footerStatusContent || socialMetaContent || progressValueContent,
+        );
 
   return (
     <div className="relative isolate verse-card-appear">
@@ -560,88 +632,29 @@ const SwipeableVerseCardComponent = ({
               </div>
             )}
 
-            {socialMetaContent ? (
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                {socialMetaContent}
-              </div>
-            ) : null}
           </div>
-          {!isFocusMode && usesOwnedCollectionPresentation ? (
-            <div key="catalog-owned" className="relative overflow-hidden">
-              <div className="flex items-center pt-3">
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-                    OWNED_COLLECTION_BADGE_CLASS_NAME,
-                    "text-[11px] font-semibold",
-                  )}
-                >
-                  <BookMarked className="h-3 w-3 shrink-0" />
-                  <span>В моих</span>
-                </div>
-              </div>
-            </div>
-          ) : !isFocusMode && displayStatus === VerseStatus.QUEUE ? (
+          {!isFocusMode && shouldRenderFooterRow ? (
             <div key={layoutSignature} className="relative overflow-hidden">
-              <div className="flex items-end justify-between gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    stopCardOpen(e);
-                    if (onEditQueuePosition) {
-                      haptic("light");
-                      onEditQueuePosition(verse);
-                    }
-                  }}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border border-status-queue/28 bg-status-queue-soft px-2.5 py-1 text-[11px] font-semibold text-status-queue",
-                    onEditQueuePosition
-                      ? "cursor-pointer transition-opacity hover:opacity-75 active:scale-95"
-                      : "cursor-default",
-                  )}
-                  aria-label="Изменить позицию в очереди"
-                >
-                  <Clock className="h-3 w-3 shrink-0" />
-                  {verse.queuePosition === 1 ? (
-                    <span>Следующий</span>
-                  ) : (
-                    <span>В очереди</span>
-                  )}
-                  {typeof verse.queuePosition === "number" &&
-                    verse.queuePosition > 1 && (
-                      <>
-                        <span className="opacity-40">·</span>
-                        <span className="tabular-nums">
-                          #{verse.queuePosition}
-                        </span>
-                      </>
-                    )}
-                </button>
-              </div>
-            </div>
-          ) : !isFocusMode && (statusMetaContent || waitingMetaContent) ? (
-            <div key={layoutSignature} className="relative overflow-hidden">
-              <div className="flex items-end justify-between gap-3 pt-3">
-                <div className="min-w-0 flex-1">
-                  {statusMetaContent ?? waitingMetaContent}
+              {isPureCatalogCard ? (
+                <div className="flex items-center justify-start pt-3">
+                  {socialMetaContent}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenProgress}
-                  className={cn(
-                    "inline-flex shrink-0 rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-                    colorConfig.summaryCompactPanelClassName,
-                    tonePalette.accentBorderClassName,
-                  )}
-                  aria-label={`Показать путь прогресса стиха ${verse.reference}`}
-                >
-                  <VerseProgressValue
-                    progressPercent={totalProgressPercent}
-                    size="sm"
-                    className={tonePalette.progressClassName}
-                  />
-                </button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3">
+                  <div className="min-w-0 justify-self-start">
+                    {footerStatusContent}
+                  </div>
+                  <div className="min-w-0 justify-self-center">
+                    {socialMetaContent}
+                  </div>
+                  <div className="min-w-0 justify-self-end">
+                    {progressValueContent}
+                  </div>
+                </div>
+              )}
+              {waitingMetaContent ? (
+                <div className="pt-2">{waitingMetaContent}</div>
+              ) : null}
             </div>
           ) : null}
         </div>

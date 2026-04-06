@@ -8,7 +8,9 @@ import { SwipeableVerseCard } from "@/app/components/verse-list/components/Swipe
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";
 import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewModel";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
-import { OWNED_COLLECTION_BADGE_CLASS_NAME } from "@/app/components/verseStatusVisuals";
+import {
+  OWNED_COLLECTION_BADGE_CLASS_NAME,
+} from "@/app/components/verseStatusVisuals";
 
 function createVerse(
   overrides: Partial<Verse> & Pick<Verse, "status">,
@@ -38,15 +40,20 @@ function createVerse(
   };
 }
 
-function renderListCard(verse: Verse) {
+function renderListCard(
+  verse: Verse,
+  options?: { isCatalogMode?: boolean; withOwnersHandler?: boolean },
+) {
   return renderToStaticMarkup(
     <SwipeableVerseCard
       verse={verse}
       onOpen={() => {}}
+      onOpenOwners={options?.withOwnersHandler ? () => {} : undefined}
       onAddToLearning={() => {}}
       onStartTraining={() => {}}
       onPauseLearning={() => {}}
       onResumeLearning={() => {}}
+      isCatalogMode={options?.isCatalogMode}
     />,
   );
 }
@@ -258,6 +265,96 @@ test("list cards and gallery share the same icon and palette tokens for core sta
     assertIncludesClassTokens(listHtml, classTokens.join(" "));
     assertIncludesClassTokens(galleryHtml, classTokens.join(" "));
   }
+});
+
+test("list footer keeps status social badge and progress on one horizontal line", () => {
+  const html = renderListCard(
+    createVerse({
+      status: VerseStatus.LEARNING,
+      masteryLevel: 2,
+      popularityScope: "players",
+      popularityValue: 9,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+  );
+
+  const statusIndex = html.indexOf("В изучении");
+  const socialIndex = html.indexOf("lucide-users");
+  const progressIndex = html.indexOf('aria-label="Освоение ');
+
+  assert.notEqual(statusIndex, -1);
+  assert.notEqual(socialIndex, -1);
+  assert.notEqual(progressIndex, -1);
+  assert.ok(statusIndex < socialIndex);
+  assert.ok(socialIndex < progressIndex);
+  assert.ok(
+    html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+});
+
+test("catalog list cards keep the players pill left-aligned in the footer", () => {
+  const html = renderListCard(
+    createVerse({
+      status: "CATALOG",
+      popularityScope: "players",
+      popularityValue: 2,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+    { isCatalogMode: true, withOwnersHandler: true },
+  );
+
+  assert.ok(html.includes("У игроков: "));
+  assert.ok(html.includes("flex items-center justify-start pt-3"));
+  assert.ok(
+    !html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+});
+
+test("owned collection cards keep status left and players in the center row", () => {
+  const html = renderListCard(
+    createVerse({
+      status: VerseStatus.MY,
+      popularityScope: "players",
+      popularityValue: 3,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+    { isCatalogMode: true, withOwnersHandler: true },
+  );
+
+  const socialIndex = html.indexOf("У игроков: ");
+  const badgeIndex = html.indexOf("В моих");
+
+  assert.notEqual(socialIndex, -1);
+  assert.notEqual(badgeIndex, -1);
+  assert.ok(badgeIndex < socialIndex);
+  assert.ok(
+    html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+  assert.ok(!html.includes("space-y-2 pt-3"));
 });
 
 test("list and gallery tags share one neutral color treatment", () => {
