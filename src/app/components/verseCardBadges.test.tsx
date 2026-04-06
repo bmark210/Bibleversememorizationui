@@ -100,7 +100,7 @@ test("gallery cards do not render progress pill for catalog and my states", () =
   assert.ok(!myHtml.includes("В изучении"));
 });
 
-test("catalog gallery preview uses brighter chrome for reference tags and players pill", () => {
+test("catalog gallery preview keeps stronger reference chrome without overriding chip style", () => {
   const html = renderGalleryCard(
     createVerse({
       status: "CATALOG",
@@ -120,11 +120,7 @@ test("catalog gallery preview uses brighter chrome for reference tags and player
   );
   assertIncludesClassTokens(
     html,
-    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.tagClassName,
-  );
-  assertIncludesClassTokens(
-    html,
-    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.metaPanelClassName,
+    VERSE_CARD_COLOR_CONFIG.tagClassName,
   );
 });
 
@@ -420,4 +416,57 @@ test("list and gallery tags share one neutral color treatment", () => {
 
   assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
   assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+});
+
+test("players pill shares the same chip chrome as tags in list and gallery", () => {
+  const verseWithPopularity = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verseWithPopularity, {
+    withOwnersHandler: true,
+  });
+  const galleryHtml = renderGalleryCard(verseWithPopularity);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assert.ok(listHtml.includes("У игроков: "));
+  assert.ok(galleryHtml.includes("У игроков 8"));
+});
+
+test("catalog gallery chips use the same base chrome as list cards", () => {
+  const verse = createVerse({
+    status: "CATALOG",
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verse, {
+    isCatalogMode: true,
+    withOwnersHandler: true,
+  });
+  const galleryHtml = renderGalleryCard(verse, { sourceMode: "catalog" });
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assert.ok(listHtml.includes("У игроков: "));
+  assert.ok(galleryHtml.includes("У игроков 8"));
 });

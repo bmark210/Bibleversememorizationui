@@ -14,7 +14,7 @@ export function VerseListReadingModeBar({ isFocusMode, onToggle }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className={cn("pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-6")}>
+    <div className={cn("pointer-events-none absolute inset-x-0 bottom-full z-20 flex justify-end pb-3")}>
       <div className="pointer-events-auto">
         {/* Pill — fixed height, expands horizontally to the left */}
         <div

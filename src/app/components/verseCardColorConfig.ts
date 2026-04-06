@@ -15,8 +15,6 @@ export type VerseCardStatusToneKey =
   | "mastered"
   | "stopped";
 
-export type VerseCardPopularityScope = "friends" | "players";
-
 export type VerseCardTonePalette = {
   frameClassName: string;
   surfaceClassName: string;
@@ -37,16 +35,12 @@ export type VerseCardStatusPillPalette = {
 export type VerseCardPreviewChromePalette = {
   referenceClassName: string;
   dividerClassName: string;
-  tagClassName: string;
-  tagInteractiveClassName: string;
-  metaPanelClassName: string;
 };
 
 export type VerseCardColorConfig = {
   surfaceBorderClassName: string;
   actionButtonClassName: string;
   actionButtonHoverClassName: string;
-  metaPanelClassName: string;
   summaryPanelClassName: string;
   summaryCompactPanelClassName: string;
   waitingPillClassName: string;
@@ -57,32 +51,17 @@ export type VerseCardColorConfig = {
   tones: Record<VerseCardTone, VerseCardTonePalette>;
   previewChrome: Record<VerseCardTone, VerseCardPreviewChromePalette>;
   statusPills: Record<VerseCardStatusToneKey, VerseCardStatusPillPalette>;
-  popularity: Record<
-    VerseCardPopularityScope,
-    {
-      accentClassName: string;
-    }
-  >;
 };
 
 const DEFAULT_PREVIEW_CHROME: VerseCardPreviewChromePalette = {
   referenceClassName: "",
   dividerClassName: "",
-  tagClassName: "",
-  tagInteractiveClassName: "",
-  metaPanelClassName: "",
 };
 
 const CATALOG_PREVIEW_CHROME: VerseCardPreviewChromePalette = {
   referenceClassName:
     "!text-[#f1d6a7] [text-shadow:0_1px_0_rgba(0,0,0,0.16)]",
   dividerClassName: "via-[#d3a66d]/72",
-  tagClassName:
-    "!border-[#d0a56f]/38 !bg-[#23170f]/94 !text-[#f0d7ae]",
-  tagInteractiveClassName:
-    "!hover:border-[#e0b57a]/54 !hover:bg-[#2f2116]/96 !hover:text-[#f6e2bf]",
-  metaPanelClassName:
-    "!border-[#d0a56f]/42 !bg-[#23170f]/94 !text-[#f0d7ae]",
 };
 
 export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
@@ -91,8 +70,6 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     "border bg-bg-overlay/92 text-text-primary shadow-[var(--shadow-soft)] backdrop-blur-sm",
   actionButtonHoverClassName:
     "hover:border-border-default hover:bg-bg-surface/96",
-  metaPanelClassName:
-    "border-border-subtle/85 bg-bg-overlay/92 text-text-secondary shadow-[var(--shadow-soft)] backdrop-blur-sm",
   summaryPanelClassName:
     "w-full justify-between rounded-[1.7rem] border border-border-subtle/85 bg-bg-overlay/92 px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-sm",
   summaryCompactPanelClassName:
@@ -221,14 +198,6 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
       pillClassName: "border-status-paused/25 bg-status-paused-soft",
       iconClassName: "text-status-paused",
       titleClassName: "text-status-paused/85",
-    },
-  },
-  popularity: {
-    friends: {
-      accentClassName: "border-status-community/30 text-status-community",
-    },
-    players: {
-      accentClassName: "border-status-collection/30 text-status-collection",
     },
   },
 };

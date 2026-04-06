@@ -1,6 +1,5 @@
 import React from "react";
 import { BookMarked, Clock, Minus, Users, X } from "lucide-react";
-import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import {
   Avatar,
@@ -18,6 +17,10 @@ import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
+import {
+  getVerseBadgeChromeClassName,
+  getVerseBadgeInteractiveChromeClassName,
+} from "@/app/components/verseCardBadgeChrome";
 import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
 import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
@@ -96,7 +99,6 @@ const SwipeableVerseCardComponent = ({
         ? {
             icon: Users,
             label: `${popularityValue}`,
-            accentClassName: colorConfig.popularity.friends.accentClassName,
           }
         : null;
     }
@@ -105,12 +107,14 @@ const SwipeableVerseCardComponent = ({
         ? {
             icon: Users,
             label: `${popularityValue}`,
-            accentClassName: colorConfig.popularity.players.accentClassName,
           }
         : null;
     }
     return null;
   })();
+  const badgeChromeClassName = getVerseBadgeChromeClassName(colorConfig);
+  const badgeInteractiveChromeClassName =
+    getVerseBadgeInteractiveChromeClassName(colorConfig);
   const popularityPreviewUsers = Array.isArray(verse.popularityPreviewUsers)
     ? verse.popularityPreviewUsers.slice(0, 3)
     : [];
@@ -404,14 +408,12 @@ const SwipeableVerseCardComponent = ({
           onOpenOwners?.(verse);
         }}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] shadow-sm transition-colors",
-          colorConfig.metaPanelClassName,
-          colorConfig.actionButtonHoverClassName,
-          popularityChip?.accentClassName,
+          "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+          badgeInteractiveChromeClassName,
         )}
         aria-label={popularityChip?.label ?? "Открыть список пользователей"}
       >
-        <span className="font-semibold tabular-nums">
+        <span className="font-medium tabular-nums">
           {verse.popularityScope === "players" ? "У игроков: " : "У друзей: "}{" "}
           {popularityValue}
         </span>
@@ -441,16 +443,15 @@ const SwipeableVerseCardComponent = ({
       </button>
     ) : popularityChip ? (
       <div className="pointer-events-none">
-        <Badge
+        <span
           className={cn(
-            "rounded-full border px-2.5 py-0.5 text-[10px] shadow-sm",
-            colorConfig.metaPanelClassName,
-            popularityChip.accentClassName,
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+            badgeChromeClassName,
           )}
         >
           <popularityChip.icon className="w-3.5 h-3.5" />
           {popularityChip.label}
-        </Badge>
+        </span>
       </div>
     ) : null
   ) : null;
@@ -588,9 +589,8 @@ const SwipeableVerseCardComponent = ({
                       type="button"
                       onClick={handleOpenTags}
                       className={cn(
-                        "inline-flex items-center gap-0.5 rounded-full border px-2.5 py-0.5 text-[10px] transition-colors",
-                        colorConfig.tagClassName,
-                        colorConfig.tagInteractiveClassName,
+                        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                        badgeInteractiveChromeClassName,
                       )}
                       aria-label={`Открыть все теги стиха ${verse.reference}`}
                     >
@@ -601,8 +601,8 @@ const SwipeableVerseCardComponent = ({
                     <span
                       key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                       className={cn(
-                        "inline-flex items-center gap-0.5 rounded-full border px-2.5 py-0.5 text-[10px]",
-                        colorConfig.tagClassName,
+                        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                        badgeChromeClassName,
                       )}
                     >
                       <span className="opacity-50">#</span>
@@ -616,9 +616,8 @@ const SwipeableVerseCardComponent = ({
                       type="button"
                       onClick={handleOpenTags}
                       className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] transition-colors",
-                        colorConfig.tagClassName,
-                        colorConfig.tagInteractiveClassName,
+                        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                        badgeInteractiveChromeClassName,
                       )}
                       aria-label={`Показать еще ${verse.tags.length - 3} тегов стиха ${verse.reference}`}
                     >
@@ -627,8 +626,8 @@ const SwipeableVerseCardComponent = ({
                   ) : (
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px]",
-                        colorConfig.tagClassName,
+                        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                        badgeChromeClassName,
                       )}
                     >
                       +{verse.tags.length - 3}

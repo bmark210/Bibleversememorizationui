@@ -13,7 +13,6 @@ import {
   mergePreviewOverrides,
   parseDate,
 } from "./utils";
-import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   resolveVerseState,
 } from "@/shared/verseRules";
@@ -27,7 +26,6 @@ export type PreparedPreviewUser = {
 export type PreparedPopularityBadge = {
   icon: LucideIcon;
   label: string;
-  accentClassName: string;
 };
 
 export type PreparedVersePreview = {
@@ -185,8 +183,6 @@ function getPopularityBadge(
     return {
       icon: Users,
       label: `У друзей ${popularityValue}`,
-      accentClassName:
-        VERSE_CARD_COLOR_CONFIG.popularity.friends.accentClassName,
     };
   }
 
@@ -194,8 +190,6 @@ function getPopularityBadge(
     return {
       icon: Users,
       label: `У игроков ${popularityValue}`,
-      accentClassName:
-        VERSE_CARD_COLOR_CONFIG.popularity.players.accentClassName,
     };
   }
 

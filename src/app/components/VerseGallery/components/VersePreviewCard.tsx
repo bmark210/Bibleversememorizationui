@@ -14,6 +14,10 @@ import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
+import {
+  getVerseBadgeChromeClassName,
+  getVerseBadgeInteractiveChromeClassName,
+} from "@/app/components/verseCardBadgeChrome";
 import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
@@ -101,6 +105,9 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     isCatalogMode,
   });
   const previewChrome = colorConfig.previewChrome[displayTone ?? "learning"];
+  const badgeChromeClassName = getVerseBadgeChromeClassName(colorConfig);
+  const badgeInteractiveChromeClassName =
+    getVerseBadgeInteractiveChromeClassName(colorConfig);
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -211,11 +218,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               type="button"
               onClick={() => onOpenOwners?.(verse)}
               className={cn(
-                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] shadow-sm transition-colors",
-                colorConfig.metaPanelClassName,
-                previewChrome.metaPanelClassName,
-                colorConfig.actionButtonHoverClassName,
-                popularityBadge?.accentClassName,
+                "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                badgeInteractiveChromeClassName,
               )}
               aria-label={popularityBadge?.label ?? "Открыть список пользователей"}
             >
@@ -249,10 +253,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
           ) : popularityBadge && popularityValue && popularityValue > 0 ? (
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                colorConfig.metaPanelClassName,
-                previewChrome.metaPanelClassName,
-                popularityBadge.accentClassName,
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                badgeChromeClassName,
               )}
             >
               <popularityBadge.icon className="h-3.5 w-3.5" />
@@ -292,11 +294,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         type="button"
                         onClick={() => onOpenTags(verse)}
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                          colorConfig.tagClassName,
-                          previewChrome.tagClassName,
-                          colorConfig.tagInteractiveClassName,
-                          previewChrome.tagInteractiveClassName,
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          badgeInteractiveChromeClassName,
                         )}
                         aria-label={`Открыть теги стиха ${verse.reference}`}
                       >
@@ -306,9 +305,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                       <span
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName,
-                          previewChrome.tagClassName,
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          badgeChromeClassName,
                         )}
                       >
                         #{tag.title}
@@ -322,11 +320,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         type="button"
                         onClick={() => onOpenTags(verse)}
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                          colorConfig.tagClassName,
-                          previewChrome.tagClassName,
-                          colorConfig.tagInteractiveClassName,
-                          previewChrome.tagInteractiveClassName,
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          badgeInteractiveChromeClassName,
                         )}
                         aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                       >
@@ -335,9 +330,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                     ) : (
                       <span
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName,
-                          previewChrome.tagClassName,
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          badgeChromeClassName,
                         )}
                       >
                         +{normalizedTags.length - 3}
