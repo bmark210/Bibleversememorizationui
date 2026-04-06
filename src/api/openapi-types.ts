@@ -772,6 +772,7 @@ export interface components {
         };
         "bible-memory-db_internal_domain.UserLeaderboardEntry": {
             avatarUrl?: string;
+            dailyStreak?: number;
             name?: string;
             nickname?: string;
             rank?: number;
@@ -1423,6 +1424,8 @@ export interface operations {
             query?: {
                 /** @description Optional current user Telegram ID */
                 telegramId?: string;
+                /** @description Center returned window around current user rank */
+                aroundCurrent?: boolean;
                 /** @description Max items */
                 limit?: number;
                 /** @description Pagination offset */

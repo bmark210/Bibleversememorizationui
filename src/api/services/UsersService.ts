@@ -41,6 +41,7 @@ export class UsersService {
      * @param telegramId Optional current user Telegram ID
      * @param limit Max items
      * @param offset Pagination offset
+     * @param aroundCurrent Center returned window around current user rank
      * @returns bible_memory_db_internal_domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
@@ -48,6 +49,7 @@ export class UsersService {
         telegramId?: string,
         limit: number = 25,
         offset?: number,
+        aroundCurrent?: boolean,
     ): CancelablePromise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -56,6 +58,7 @@ export class UsersService {
                 'telegramId': telegramId,
                 'limit': limit,
                 'offset': offset,
+                'aroundCurrent': aroundCurrent,
             },
             errors: {
                 500: `Internal Server Error`,

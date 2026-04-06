@@ -18,9 +18,10 @@ import {
   DASHBOARD_FRIENDS_ACTIVITY_LIMIT,
   fetchDashboardFriendsActivity,
 } from "@/api/services/friendsActivity";
-import { DASHBOARD_LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
+import { LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
+import { selectCompactLeaderboardEntries } from "./leaderboardPresentation";
 import { AppSurface } from "../ui/AppSurface";
 import {
   AVATAR_SIZE,
@@ -569,7 +570,7 @@ function DashboardLeaderboardRow({
   const displayStreakDays =
     isCurrentUser && currentUserDailyStreak != null
       ? currentUserDailyStreak
-      : 0;
+      : Math.max(0, entry.dailyStreak ?? 0);
 
   return (
     <button
@@ -894,10 +895,7 @@ export const DashboardLeaderboardCard = React.memo(
       );
     const [isShowMePending, setIsShowMePending] = React.useState(false);
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-    const windowSize = Math.max(
-      1,
-      leaderboard?.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE,
-    );
+    const windowSize = Math.max(1, LEADERBOARD_WINDOW_SIZE);
 
     const mergeWindowIntoState = React.useCallback(
       (nextWindow: domain_UserLeaderboardResponse) => {
@@ -971,6 +969,11 @@ export const DashboardLeaderboardCard = React.memo(
         windowSize,
       ],
     );
+
+    React.useEffect(() => {
+      if (!isDialogOpen || totalParticipants <= 0) return;
+      void requestLeaderboardWindow(0);
+    }, [isDialogOpen, requestLeaderboardWindow, totalParticipants]);
 
     const handleRangeChanged = React.useCallback(
       ({ startIndex, endIndex }: ListRange) => {
@@ -1080,6 +1083,15 @@ export const DashboardLeaderboardCard = React.memo(
       return cachedEntries[currentUserEntryIndex] ?? null;
     }, [cachedEntries, currentUserEntryIndex]);
 
+    const compactEntries = React.useMemo(
+      () =>
+        selectCompactLeaderboardEntries(
+          leaderboard?.items ?? [],
+          currentUserTelegramId,
+        ),
+      [currentUserTelegramId, leaderboard?.items],
+    );
+
     // Prefetch current user's window for the compact dashboard card.
     React.useEffect(() => {
       if (
@@ -1152,7 +1164,7 @@ export const DashboardLeaderboardCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex min-h-[8.5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
+          className="self-start flex min-h-[12.5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[13rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div className="flex items-start justify-between gap-3">
@@ -1185,9 +1197,30 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-[3.5rem] flex-1 items-center">
-            {isLeaderboardLoading && totalParticipants === 0 ? (
-              <Skeleton className="h-14 w-full rounded-[1.15rem] border-0" />
+          <div className={cn("flex flex-1 flex-col justify-center", ROW_GAP)}>
+            {isLeaderboardLoading && compactEntries.length === 0 ? (
+              Array.from({ length: 3 }, (_, index) => (
+                <DashboardLeaderboardRowSkeleton
+                  key={`leaderboard-preview-skeleton-${index}`}
+                  isLast={index === 2}
+                />
+              ))
+            ) : compactEntries.length > 0 ? (
+              compactEntries.map((entry) => (
+                <div
+                  key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
+                  className={cn(
+                    "px-0",
+                  )}
+                >
+                  <DashboardLeaderboardRow
+                    entry={entry}
+                    compact
+                    className="w-full"
+                    {...sharedRowProps}
+                  />
+                </div>
+              ))
             ) : currentUserCardEntry ? (
               <DashboardLeaderboardRow
                 entry={currentUserCardEntry}
@@ -1241,9 +1274,16 @@ export const DashboardLeaderboardCard = React.memo(
                   ref={virtuosoRef}
                   className="h-full min-h-0 [scrollbar-gutter:stable]"
                   totalCount={totalParticipants}
+                  defaultItemHeight={80}
                   increaseViewportBy={LEADERBOARD_OVERSCAN}
                   overscan={LEADERBOARD_OVERSCAN}
                   components={{ List: LeaderboardVirtuosoList }}
+                  computeItemKey={(index) => {
+                    const entry = cachedEntries[index];
+                    return entry
+                      ? `${entry.rank ?? index + 1}-${String(entry.telegramId ?? "")}`
+                      : `leaderboard-skeleton-${index}`;
+                  }}
                   rangeChanged={handleRangeChanged}
                   itemContent={renderLeaderboardRow}
                 />
@@ -1442,7 +1482,7 @@ export const DashboardFriendsActivityCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex min-h-[8.5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
+          className="self-start flex min-h-[5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div className="flex items-start justify-between gap-3">
@@ -1455,11 +1495,6 @@ export const DashboardFriendsActivityCard = React.memo(
               >
                 Активность друзей
               </h2>
-              <p className="mt-0.5 px-1 text-[11px] text-text-muted narrow:text-[10px]">
-                {summaryFriendsTotal > 0
-                  ? `${summaryFriendsTotal} ${pluralizeFriends(summaryFriendsTotal)}`
-                  : "Добавьте друзей"}
-              </p>
             </div>
 
             <Button
@@ -1481,7 +1516,7 @@ export const DashboardFriendsActivityCard = React.memo(
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
               <Skeleton className="h-14 w-full rounded-[1.15rem] border-0" />
             ) : summaryEntries.length > 0 ? (
-                <div className="flex w-full items-center justify-between gap-3 rounded-[1.1rem] border border-border-subtle bg-bg-elevated/70 px-3 py-2.5 shadow-[var(--shadow-soft)]">
+                <div className="flex w-full items-center justify-between gap-3 rounded-[1.1rem] shadow-[var(--shadow-soft)]">
                   <FriendsAvatarStack entries={summaryEntries} />
                   <div className="min-w-0 text-right">
                     <div className="text-sm font-semibold text-text-primary narrow:text-[13px]">

@@ -15,8 +15,10 @@ import {
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
 import {
-  getVerseBadgeChromeClassName,
-  getVerseBadgeInteractiveChromeClassName,
+  getVerseSocialChromeClassName,
+  getVerseSocialInteractiveChromeClassName,
+  getVerseTagChromeClassName,
+  getVerseTagInteractiveChromeClassName,
 } from "@/app/components/verseCardBadgeChrome";
 import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
 import type { Verse } from "@/app/domain/verse";
@@ -105,9 +107,12 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
     isCatalogMode,
   });
   const previewChrome = colorConfig.previewChrome[displayTone ?? "learning"];
-  const badgeChromeClassName = getVerseBadgeChromeClassName(colorConfig);
-  const badgeInteractiveChromeClassName =
-    getVerseBadgeInteractiveChromeClassName(colorConfig);
+  const tagChromeClassName = getVerseTagChromeClassName(colorConfig);
+  const tagInteractiveChromeClassName =
+    getVerseTagInteractiveChromeClassName(colorConfig);
+  const socialChromeClassName = getVerseSocialChromeClassName(colorConfig);
+  const socialInteractiveChromeClassName =
+    getVerseSocialInteractiveChromeClassName(colorConfig);
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -219,7 +224,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               onClick={() => onOpenOwners?.(verse)}
               className={cn(
                 "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                badgeInteractiveChromeClassName,
+                socialInteractiveChromeClassName,
               )}
               aria-label={popularityBadge?.label ?? "Открыть список пользователей"}
             >
@@ -254,7 +259,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                badgeChromeClassName,
+                socialChromeClassName,
               )}
             >
               <popularityBadge.icon className="h-3.5 w-3.5" />
@@ -295,7 +300,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         onClick={() => onOpenTags(verse)}
                         className={cn(
                           "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                          badgeInteractiveChromeClassName,
+                          tagInteractiveChromeClassName,
                         )}
                         aria-label={`Открыть теги стиха ${verse.reference}`}
                       >
@@ -306,7 +311,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
                           "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                          badgeChromeClassName,
+                          tagChromeClassName,
                         )}
                       >
                         #{tag.title}
@@ -321,7 +326,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         onClick={() => onOpenTags(verse)}
                         className={cn(
                           "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                          badgeInteractiveChromeClassName,
+                          tagInteractiveChromeClassName,
                         )}
                         aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                       >
@@ -331,7 +336,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                       <span
                         className={cn(
                           "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
-                          badgeChromeClassName,
+                          tagChromeClassName,
                         )}
                       >
                         +{normalizedTags.length - 3}

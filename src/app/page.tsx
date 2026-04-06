@@ -25,7 +25,7 @@ const ALLOW_BROWSER_RUNTIME =
   process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ALLOW_BROWSER_RUNTIME === '1'
 
-const APP_VERSION_DISPLAY = '3.1'
+const APP_VERSION_DISPLAY = '4'
 
 function AppVersionCorner() {
   return (

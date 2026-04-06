@@ -1003,16 +1003,26 @@ export function VerseList({
                 <div
                   data-tour-filter={vm.filters.statusFilter}
                   data-tour-state="loading"
-                  className="relative flex h-full min-h-0 flex-col overflow-y-auto py-2"
-                  style={{
-                    paddingTop: `${listTopInset}px`,
-                    paddingBottom:
-                      listBottomInset > 0
-                        ? `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset}px + 0.5rem)`
-                        : "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
-                  }}
+                  className={cn(
+                    "relative flex h-full min-h-0 flex-col",
+                    isMyMode ? "overflow-hidden" : "overflow-y-auto py-2",
+                  )}
+                  style={
+                    isMyMode
+                      ? undefined
+                      : {
+                          paddingTop: `${listTopInset}px`,
+                          paddingBottom:
+                            listBottomInset > 0
+                              ? `calc(var(--app-bottom-nav-clearance, 0px) + ${listBottomInset}px + 0.5rem)`
+                              : "calc(var(--app-bottom-nav-clearance, 0px) + 0.5rem)",
+                        }
+                  }
                 >
-                  <VerseListSkeletonCards count={5} />
+                  <VerseListSkeletonCards
+                    count={5}
+                    mode={isMyMode ? "my" : "catalog"}
+                  />
                 </div>
               ) : null}
               {!vm.ui.isListLoading && vm.ui.isEmptyFiltered && !isMyMode ? (

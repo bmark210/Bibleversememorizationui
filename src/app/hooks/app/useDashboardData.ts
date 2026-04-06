@@ -8,7 +8,8 @@ import {
   type DashboardCompactFriendsActivityResponse,
 } from "@/api/services/friendsActivity";
 import {
-  DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+  DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
+  LEADERBOARD_WINDOW_SIZE,
   fetchDashboardLeaderboard,
 } from "@/api/services/leaderboard";
 import { fetchUserDashboardStats } from "@/api/services/userStats";
@@ -17,6 +18,7 @@ import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 type DashboardLeaderboardQuery = {
   offset?: number;
   limit?: number;
+  aroundCurrent?: boolean;
 };
 
 export function useDashboardData(telegramId: string | null) {
@@ -33,9 +35,10 @@ export function useDashboardData(telegramId: string | null) {
   const dashboardStatsRequestIdRef = useRef(0);
   const dashboardLeaderboardRequestIdRef = useRef(0);
   const dashboardFriendsActivityRequestIdRef = useRef(0);
-  const leaderboardQueryRef = useRef<DashboardLeaderboardQuery>({
+  const leaderboardPreviewQueryRef = useRef<DashboardLeaderboardQuery>({
     offset: 0,
-    limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+    limit: DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
+    aroundCurrent: true,
   });
 
   const dashboardFetchFailedRef = useRef({
@@ -51,9 +54,11 @@ export function useDashboardData(telegramId: string | null) {
       friendsActivity: false,
     };
     setDashboardFriendsActivity(null);
-    leaderboardQueryRef.current = {
+    setDashboardLeaderboard(null);
+    leaderboardPreviewQueryRef.current = {
       offset: 0,
-      limit: DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+      limit: DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
+      aroundCurrent: true,
     };
   }, [telegramId]);
 
@@ -91,30 +96,29 @@ export function useDashboardData(telegramId: string | null) {
   }, []);
 
   const loadDashboardLeaderboard = useCallback(
-    async (telegramIdValue: string, queryOverride?: DashboardLeaderboardQuery) => {
+    async (telegramIdValue: string) => {
       if (!telegramIdValue) return null;
-
-      if (queryOverride) {
-        leaderboardQueryRef.current = queryOverride;
-      }
 
       const requestId = ++dashboardLeaderboardRequestIdRef.current;
       setIsDashboardLeaderboardLoading(true);
 
-      const q = leaderboardQueryRef.current;
+      const q = leaderboardPreviewQueryRef.current;
 
       try {
         const nextLeaderboard = await fetchDashboardLeaderboard({
           telegramId: telegramIdValue,
           limit: q.limit,
           offset: q.offset,
+          aroundCurrent: q.aroundCurrent,
         });
         if (dashboardLeaderboardRequestIdRef.current === requestId) {
           dashboardFetchFailedRef.current.leaderboard = false;
           setDashboardLeaderboard(nextLeaderboard);
-          leaderboardQueryRef.current = {
+          leaderboardPreviewQueryRef.current = {
             offset: nextLeaderboard.offset ?? q.offset ?? 0,
-            limit: nextLeaderboard.limit ?? q.limit ?? DASHBOARD_LEADERBOARD_WINDOW_SIZE,
+            limit:
+              nextLeaderboard.limit ?? q.limit ?? DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
+            aroundCurrent: true,
           };
         }
         return nextLeaderboard;
@@ -164,11 +168,21 @@ export function useDashboardData(telegramId: string | null) {
   }, []);
 
   const handleLeaderboardWindowRequest = useCallback(
-    (query: DashboardLeaderboardQuery) => {
+    async (query: DashboardLeaderboardQuery) => {
       if (!telegramId) return Promise.resolve(null);
-      return loadDashboardLeaderboard(telegramId, query);
+      try {
+        return await fetchDashboardLeaderboard({
+          telegramId,
+          limit: query.limit ?? LEADERBOARD_WINDOW_SIZE,
+          offset: query.offset,
+          aroundCurrent: false,
+        });
+      } catch (error) {
+        console.error("Не удалось получить окно лидерборда:", error);
+        return null;
+      }
     },
-    [loadDashboardLeaderboard, telegramId]
+    [telegramId]
   );
 
   return {

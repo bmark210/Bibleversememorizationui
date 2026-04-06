@@ -418,7 +418,7 @@ test("list and gallery tags share one neutral color treatment", () => {
   assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
 });
 
-test("players pill shares the same chip chrome as tags in list and gallery", () => {
+test("players pill uses one shared social chrome in list and gallery", () => {
   const verseWithPopularity = createVerse({
     status: VerseStatus.LEARNING,
     tags: [{ id: "1", slug: "hope", title: "Надежда" }],
@@ -438,13 +438,13 @@ test("players pill shares the same chip chrome as tags in list and gallery", () 
   });
   const galleryHtml = renderGalleryCard(verseWithPopularity);
 
-  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
-  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
   assert.ok(listHtml.includes("У игроков: "));
   assert.ok(galleryHtml.includes("У игроков 8"));
 });
 
-test("catalog gallery chips use the same base chrome as list cards", () => {
+test("catalog gallery keeps the same tag and social chrome as list cards", () => {
   const verse = createVerse({
     status: "CATALOG",
     tags: [{ id: "1", slug: "hope", title: "Надежда" }],
@@ -466,7 +466,35 @@ test("catalog gallery chips use the same base chrome as list cards", () => {
   const galleryHtml = renderGalleryCard(verse, { sourceMode: "catalog" });
 
   assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
-  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
   assert.ok(listHtml.includes("У игроков: "));
   assert.ok(galleryHtml.includes("У игроков 8"));
+});
+
+test("tags keep a calmer chrome than the players pill in list and gallery", () => {
+  const verse = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verse, { withOwnersHandler: true });
+  const galleryHtml = renderGalleryCard(verse);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assert.notEqual(
+    VERSE_CARD_COLOR_CONFIG.tagClassName,
+    VERSE_CARD_COLOR_CONFIG.socialChipClassName,
+  );
 });

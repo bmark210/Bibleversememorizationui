@@ -62,14 +62,6 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
-function pluralizeDays(count: number) {
-  if (count % 10 === 1 && count % 100 !== 11) return 'день'
-  if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
-    return 'дня'
-  }
-  return 'дней'
-}
-
 export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
   return clampPercent(getVerseProgressPercent({
     flow: null,
@@ -157,6 +149,8 @@ export function Dashboard({
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
+  const reviewVerses =
+    dashboardStats?.reviewVerses ?? todaySummary.reviewVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
   const masteredVerses =
     dashboardStats?.masteredCount ?? todaySummary.masteredVerses
@@ -167,20 +161,16 @@ export function Dashboard({
     () =>
       [
         { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
-        { key: 'active', label: 'Активно', value: `${learningVerses + dueReviewVerses}`, tone: 'learning' as const },
-        { key: 'mastered', label: 'Выучено', value: `${masteredVerses}`, tone: 'review' as const },
         {
-          key: 'streak',
-          label: 'Серия',
-          value:
-            dailyStreak != null
-              ? `${dailyStreak} ${pluralizeDays(dailyStreak)}`
-              : null,
-          isLoading: isStatsPending,
-          tone: 'mastered' as const,
+          key: 'learning',
+          label: 'В изучении',
+          value: `${learningVerses}`,
+          tone: 'learning' as const,
         },
+        { key: 'review', label: 'В повторении', value: `${reviewVerses}`, tone: 'review' as const },
+        { key: 'mastered', label: 'Выучено', value: `${masteredVerses}`, tone: 'mastered' as const },
       ] as const,
-    [dailyStreak, dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp],
+    [isStatsPending, learningVerses, masteredVerses, reviewVerses, userXp],
   )
 
   if (isInitializingData) {

@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type bible_memory_db_internal_domain_UserLeaderboardEntry = {
     avatarUrl?: string;
+    dailyStreak?: number;
     name?: string;
     nickname?: string;
     rank?: number;

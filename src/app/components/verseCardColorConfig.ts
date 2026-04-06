@@ -46,6 +46,8 @@ export type VerseCardColorConfig = {
   waitingPillClassName: string;
   tagClassName: string;
   tagInteractiveClassName: string;
+  socialChipClassName: string;
+  socialChipInteractiveClassName: string;
   avatarFallbackClassName: string;
   avatarRingClassName: string;
   tones: Record<VerseCardTone, VerseCardTonePalette>;
@@ -76,9 +78,13 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
     "rounded-full border border-border-subtle/85 bg-bg-overlay/92 px-3 py-1.5 shadow-[var(--shadow-soft)] backdrop-blur-sm",
   waitingPillClassName: "border-border-subtle/85 bg-bg-overlay/92",
   tagClassName:
-    "border-border-subtle bg-bg-elevated/95 text-text-secondary shadow-[var(--shadow-soft)]",
+    "border-border-subtle/90 bg-bg-elevated/94 text-text-secondary shadow-[var(--shadow-soft)]",
   tagInteractiveClassName:
     "hover:border-border-default hover:bg-bg-surface hover:text-text-primary",
+  socialChipClassName:
+    "border-border-default/70 bg-bg-overlay/96 text-brand-primary shadow-[var(--shadow-soft)]",
+  socialChipInteractiveClassName:
+    "hover:border-border-default hover:bg-bg-surface hover:text-brand-primary",
   avatarFallbackClassName: "bg-bg-subtle text-text-secondary",
   avatarRingClassName: "border-bg-overlay",
   tones: {
