@@ -725,8 +725,10 @@ function DashboardLeaderboardRow({
 
 function FriendsAvatarStack({
   entries,
+  onOpenPlayerProfile,
 }: {
   entries: DashboardCompactFriendActivityEntry[];
+  onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
 }) {
   const MAX_SHOWN = 4;
   const visibleEntries = entries.slice(0, MAX_SHOWN);
@@ -738,14 +740,9 @@ function FriendsAvatarStack({
     <div className="flex items-center">
       {visibleEntries.map((entry, index) => {
         const name = entry.name?.trim() || "Друг";
-        return (
+        const avatar = (
           <Avatar
-            key={String(entry.telegramId ?? index)}
             className="h-9 w-9 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
-            style={{
-              marginLeft: index === 0 ? 0 : -10,
-              zIndex: MAX_SHOWN - index,
-            }}
           >
             {entry.avatarUrl ? (
               <AvatarImage src={entry.avatarUrl} alt={name} />
@@ -754,6 +751,36 @@ function FriendsAvatarStack({
               {getInitials(name)}
             </AvatarFallback>
           </Avatar>
+        );
+        return (
+          <div
+            key={String(entry.telegramId ?? index)}
+            style={{
+              marginLeft: index === 0 ? 0 : -10,
+              zIndex: MAX_SHOWN - index,
+            }}
+          >
+            {onOpenPlayerProfile ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenPlayerProfile({
+                    telegramId: String(entry.telegramId ?? ""),
+                    name,
+                    avatarUrl: entry.avatarUrl?.trim()
+                      ? entry.avatarUrl.trim()
+                      : null,
+                  })
+                }
+                className="block shrink-0 rounded-full"
+                aria-label={`Открыть профиль ${name}`}
+              >
+                {avatar}
+              </button>
+            ) : (
+              avatar
+            )}
+          </div>
         );
       })}
       {extraCount > 0 && (
@@ -832,6 +859,10 @@ function getLeaderboardWindowOffsetForIndex(
   );
 }
 
+function getLeaderboardWindowCacheKey(offset: number, limit: number) {
+  return `${Math.max(0, offset)}:${Math.max(1, limit)}`;
+}
+
 const LeaderboardVirtuosoList = React.forwardRef<
   HTMLDivElement,
   React.ComponentPropsWithoutRef<"div">
@@ -881,8 +912,8 @@ export const DashboardLeaderboardCard = React.memo(
       (s) => s.dailyStreak,
     );
     const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
-    const loadedOffsetsRef = React.useRef<Set<number>>(new Set());
-    const pendingOffsetsRef = React.useRef<Set<number>>(new Set());
+    const loadedOffsetsRef = React.useRef<Set<string>>(new Set());
+    const pendingOffsetsRef = React.useRef<Set<string>>(new Set());
     const [cachedEntries, setCachedEntries] = React.useState<
       Array<domain_UserLeaderboardEntry | null>
     >(() => (leaderboard ? mergeLeaderboardWindow([], leaderboard) : []));
@@ -904,8 +935,14 @@ export const DashboardLeaderboardCard = React.memo(
           nextWindow.totalParticipants ?? 0,
         );
         const resolvedOffset = Math.max(0, nextWindow.offset ?? 0);
+        const resolvedLimit = Math.max(
+          1,
+          nextWindow.limit ?? nextWindow.items?.length ?? 1,
+        );
 
-        loadedOffsetsRef.current.add(resolvedOffset);
+        loadedOffsetsRef.current.add(
+          getLeaderboardWindowCacheKey(resolvedOffset, resolvedLimit),
+        );
         setTotalParticipants(resolvedTotalParticipants);
         setCurrentUserSnapshot(nextWindow.currentUser ?? null);
         setCachedEntries((previous) =>
@@ -937,15 +974,19 @@ export const DashboardLeaderboardCard = React.memo(
           totalParticipants,
           windowSize,
         );
+        const requestKey = getLeaderboardWindowCacheKey(
+          resolvedOffset,
+          windowSize,
+        );
 
         if (
-          loadedOffsetsRef.current.has(resolvedOffset) ||
-          pendingOffsetsRef.current.has(resolvedOffset)
+          loadedOffsetsRef.current.has(requestKey) ||
+          pendingOffsetsRef.current.has(requestKey)
         ) {
           return null;
         }
 
-        pendingOffsetsRef.current.add(resolvedOffset);
+        pendingOffsetsRef.current.add(requestKey);
 
         try {
           const nextWindow = await onLeaderboardWindowRequest({
@@ -959,7 +1000,7 @@ export const DashboardLeaderboardCard = React.memo(
 
           return nextWindow;
         } finally {
-          pendingOffsetsRef.current.delete(resolvedOffset);
+          pendingOffsetsRef.current.delete(requestKey);
         }
       },
       [
@@ -1150,8 +1191,7 @@ export const DashboardLeaderboardCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex min-h-[12.5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[13rem] sm:p-3.5 transition-colors hover:border-border-default"
-          onClick={() => setIsDialogOpen(true)}
+          className="self-start flex min-h-[12.5rem] w-full flex-col gap-3 p-3 sm:min-h-[13rem] sm:p-3.5"
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0">
@@ -1583,8 +1623,7 @@ export const DashboardFriendsActivityCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex gap-2 min-h-[5rem] w-full cursor-pointer flex-col p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
-          onClick={() => setIsDialogOpen(true)}
+          className="self-start flex min-h-[5rem] w-full flex-col gap-2 p-3 sm:min-h-[9rem] sm:p-3.5"
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0">
@@ -1618,7 +1657,10 @@ export const DashboardFriendsActivityCard = React.memo(
               <Skeleton className="h-14 w-full rounded-[1.15rem] border-0" />
             ) : summaryEntries.length > 0 ? (
                 <div className="flex w-full items-center justify-between gap-3 rounded-[1.1rem] shadow-[var(--shadow-soft)]">
-                  <FriendsAvatarStack entries={summaryEntries} />
+                  <FriendsAvatarStack
+                    entries={summaryEntries}
+                    onOpenPlayerProfile={onOpenPlayerProfile}
+                  />
                   <div className="min-w-0 text-right">
                     <div className="text-sm font-semibold text-text-primary narrow:text-[13px]">
                       {summaryFriendsTotal} {pluralizeFriends(summaryFriendsTotal)}

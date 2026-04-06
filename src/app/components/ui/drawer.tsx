@@ -50,14 +50,17 @@ function DrawerContent({
   className,
   children,
   style,
+  overlayClassName,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+}: React.ComponentProps<typeof DrawerPrimitive.Content> & {
+  overlayClassName?: string;
+}) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const bottomInset = contentSafeAreaInset.bottom;
 
   return (
     <DrawerPortal data-slot="drawer-portal">
-      <DrawerOverlay />
+      <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(

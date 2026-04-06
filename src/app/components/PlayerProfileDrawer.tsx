@@ -244,7 +244,10 @@ export function PlayerProfileDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent
+        overlayClassName="z-[140]"
+        className="z-[141] rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
+      >
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16 border border-border/60 bg-background/70">
