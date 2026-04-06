@@ -63,7 +63,7 @@ export type VerseGalleryProps = {
   onToggleFocusMode?: () => void;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
-  onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
+  onDelete: (verse: Verse) => Promise<void>;
   onSelectTag: (slug: string) => void;
   onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */

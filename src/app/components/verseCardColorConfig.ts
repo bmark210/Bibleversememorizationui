@@ -1,4 +1,12 @@
-export type VerseCardTone = "my" | "queue" | "catalog" | "learning" | "review" | "mastered" | "stopped";
+export type VerseCardTone =
+  | "my"
+  | "queue"
+  | "catalog"
+  | "catalogPreview"
+  | "learning"
+  | "review"
+  | "mastered"
+  | "stopped";
 
 export type VerseCardStatusToneKey =
   | "learning"
@@ -26,6 +34,14 @@ export type VerseCardStatusPillPalette = {
   titleClassName: string;
 };
 
+export type VerseCardPreviewChromePalette = {
+  referenceClassName: string;
+  dividerClassName: string;
+  tagClassName: string;
+  tagInteractiveClassName: string;
+  metaPanelClassName: string;
+};
+
 export type VerseCardColorConfig = {
   surfaceBorderClassName: string;
   actionButtonClassName: string;
@@ -39,6 +55,7 @@ export type VerseCardColorConfig = {
   avatarFallbackClassName: string;
   avatarRingClassName: string;
   tones: Record<VerseCardTone, VerseCardTonePalette>;
+  previewChrome: Record<VerseCardTone, VerseCardPreviewChromePalette>;
   statusPills: Record<VerseCardStatusToneKey, VerseCardStatusPillPalette>;
   popularity: Record<
     VerseCardPopularityScope,
@@ -46,6 +63,26 @@ export type VerseCardColorConfig = {
       accentClassName: string;
     }
   >;
+};
+
+const DEFAULT_PREVIEW_CHROME: VerseCardPreviewChromePalette = {
+  referenceClassName: "",
+  dividerClassName: "",
+  tagClassName: "",
+  tagInteractiveClassName: "",
+  metaPanelClassName: "",
+};
+
+const CATALOG_PREVIEW_CHROME: VerseCardPreviewChromePalette = {
+  referenceClassName:
+    "!text-[#f1d6a7] [text-shadow:0_1px_0_rgba(0,0,0,0.16)]",
+  dividerClassName: "via-[#d3a66d]/72",
+  tagClassName:
+    "!border-[#d0a56f]/38 !bg-[#23170f]/94 !text-[#f0d7ae]",
+  tagInteractiveClassName:
+    "!hover:border-[#e0b57a]/54 !hover:bg-[#2f2116]/96 !hover:text-[#f6e2bf]",
+  metaPanelClassName:
+    "!border-[#d0a56f]/42 !bg-[#23170f]/94 !text-[#f0d7ae]",
 };
 
 export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
@@ -77,6 +114,16 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
       accentBorderClassName: "border-border-default/70",
       accentTextClassName: "text-brand-primary",
       progressClassName: "text-brand-primary",
+    },
+    catalogPreview: {
+      frameClassName: "bg-[#765942]/78",
+      surfaceClassName: "bg-[#31251c]",
+      surfaceTintClassName: "bg-[#684d36]/12",
+      glowClassName: "bg-[#8f6a45]/16",
+      lineClassName: "from-transparent via-[#c69a63]/78 to-transparent",
+      accentBorderClassName: "border-[#c69a63]/44",
+      accentTextClassName: "text-[#f0d8ae]",
+      progressClassName: "text-[#f0d8ae]",
     },
     queue: {
       frameClassName: "bg-status-queue",
@@ -138,6 +185,16 @@ export const VERSE_CARD_COLOR_CONFIG: VerseCardColorConfig = {
       accentTextClassName: "text-status-paused",
       progressClassName: "text-status-paused",
     },
+  },
+  previewChrome: {
+    catalog: CATALOG_PREVIEW_CHROME,
+    catalogPreview: CATALOG_PREVIEW_CHROME,
+    queue: DEFAULT_PREVIEW_CHROME,
+    my: DEFAULT_PREVIEW_CHROME,
+    learning: DEFAULT_PREVIEW_CHROME,
+    review: DEFAULT_PREVIEW_CHROME,
+    mastered: DEFAULT_PREVIEW_CHROME,
+    stopped: DEFAULT_PREVIEW_CHROME,
   },
   statusPills: {
     learning: {

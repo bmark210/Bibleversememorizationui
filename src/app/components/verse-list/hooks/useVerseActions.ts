@@ -1,18 +1,17 @@
 import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
 import {
-  formatToastXpDelta,
   resolveVerseActionToastKind,
   showVerseActionToast,
 } from '@/app/lib/semanticToast';
 import { UserVersesService } from '@/api/services/UserVersesService';
-import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
+import { deleteUserVerse } from '@/api/services/userVerseDelete';
 import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
 import { pickMutableVersePatchFromApiResponse, extractPromotedVerseIds } from '@/app/utils/versePatch';
-import { buildVerseDeletionXpFeedback } from '@/app/utils/verseXp';
+import { buildVerseDeletionFeedback } from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -334,13 +333,9 @@ export function useVerseActions({
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
-      let xpLoss = 0;
       let promotedVerseIds: string[] = [];
       try {
-        const del = await deleteUserVerseWithXp(telegramId, verse.externalVerseId);
-        if (del && del.xpDelta < 0) {
-          xpLoss = -del.xpDelta;
-        }
+        const del = await deleteUserVerse(telegramId, verse.externalVerseId);
         promotedVerseIds = extractPromotedVerseIds(del as unknown);
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
@@ -381,7 +376,6 @@ export function useVerseActions({
       }
       onVerseMutationCommitted?.();
       if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
-      return { xpLoss };
     },
     [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted, onSlotFreed]
   );
@@ -405,20 +399,15 @@ export function useVerseActions({
     markVersePending(deleteTargetVerse, true);
 
     try {
-      const result = await handleDeleteVerse(deleteTargetVerse);
+      await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
-      const xpLoss = result?.xpLoss ?? 0;
-      const feedback = buildVerseDeletionXpFeedback({
-        xpLoss,
+      const feedback = buildVerseDeletionFeedback({
         resetToCatalog: statusFilter === 'catalog',
       });
       showVerseActionToast({
         kind: 'delete',
         reference: deleteTargetVerse.reference,
-        meta:
-          statusFilter === 'catalog'
-            ? formatToastXpDelta(-xpLoss) ?? 'Сброшено в каталог'
-            : formatToastXpDelta(-xpLoss),
+        meta: statusFilter === 'catalog' ? feedback.title : null,
       });
       setAnnouncement(`${deleteTargetVerse.reference}: ${feedback.title}`);
       setDeleteTargetVerse(null);

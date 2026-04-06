@@ -11,14 +11,14 @@ import {
 test("catalog gallery keeps catalog tone and hides delete for catalog verses", () => {
   assert.equal(isCatalogGalleryMode("catalog"), true);
   assert.equal(isCatalogGalleryOwnedVerse("catalog", "CATALOG"), false);
-  assert.equal(getGalleryPreviewTone("catalog", "review"), "catalog");
+  assert.equal(getGalleryPreviewTone("catalog", "review"), "catalogPreview");
   assert.equal(shouldShowGalleryDelete("catalog", "CATALOG"), false);
 });
 
 test("catalog gallery treats owned verses as collection items without delete footer", () => {
   assert.equal(isCatalogGalleryOwnedVerse("catalog", VerseStatus.MY), true);
   assert.equal(isCatalogGalleryOwnedVerse("catalog", "REVIEW"), true);
-  assert.equal(getGalleryPreviewTone("catalog", "learning"), "catalog");
+  assert.equal(getGalleryPreviewTone("catalog", "learning"), "catalogPreview");
   assert.equal(shouldShowGalleryDelete("catalog", "REVIEW"), false);
 });
 

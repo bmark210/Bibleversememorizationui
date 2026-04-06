@@ -99,6 +99,34 @@ test("gallery cards do not render progress pill for catalog and my states", () =
   assert.ok(!myHtml.includes("В изучении"));
 });
 
+test("catalog gallery preview uses brighter chrome for reference tags and players pill", () => {
+  const html = renderGalleryCard(
+    createVerse({
+      status: "CATALOG",
+      tags: [
+        { id: "1", slug: "apologetics", title: "Апологетика" },
+        { id: "2", slug: "truth", title: "Истина" },
+      ],
+      popularityScope: "players",
+      popularityValue: 5,
+    }),
+    { sourceMode: "catalog" },
+  );
+
+  assertIncludesClassTokens(
+    html,
+    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.referenceClassName,
+  );
+  assertIncludesClassTokens(
+    html,
+    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.tagClassName,
+  );
+  assertIncludesClassTokens(
+    html,
+    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.metaPanelClassName,
+  );
+});
+
 test("my verses reuse the same owned collection presentation as catalog cards", () => {
   const myHtml = renderListCard(createVerse({ status: VerseStatus.MY }));
   const catalogOwnedHtml = renderGalleryCard(

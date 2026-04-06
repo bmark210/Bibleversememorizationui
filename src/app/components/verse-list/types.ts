@@ -119,7 +119,7 @@ export type VerseListController = {
     onClose: () => void;
     onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
     onVersePatched: (event: VersePatchEvent) => void;
-    onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
+    onDelete: (verse: Verse) => Promise<void>;
     onRequestMorePreviewVerses: () => Promise<boolean>;
   };
 };

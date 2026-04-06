@@ -95,6 +95,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   const isCatalogOwned = isCatalogGalleryOwnedVerse(sourceMode, preview.status);
   const displayTone = getGalleryPreviewTone(sourceMode, tone);
   const tonePalette = colorConfig.tones[displayTone ?? "learning"];
+  const previewChrome = colorConfig.previewChrome[displayTone ?? "learning"];
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -207,6 +208,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               className={cn(
                 "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] shadow-sm transition-colors",
                 colorConfig.metaPanelClassName,
+                previewChrome.metaPanelClassName,
                 colorConfig.actionButtonHoverClassName,
                 popularityBadge?.accentClassName,
               )}
@@ -244,6 +246,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
                 colorConfig.metaPanelClassName,
+                previewChrome.metaPanelClassName,
                 popularityBadge.accentClassName,
               )}
             >
@@ -259,13 +262,19 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
               isFocusMode ? "space-y-3" : "space-y-4",
             )}
           >
-            <h2 className="text-3xl sm:text-4xl font-serif text-brand-primary italic break-words [overflow-wrap:anywhere]">
+            <h2
+              className={cn(
+                "text-3xl sm:text-4xl font-serif text-brand-primary italic break-words [overflow-wrap:anywhere]",
+                previewChrome.referenceClassName,
+              )}
+            >
               {verse.reference}
             </h2>
             <div
               className={cn(
                 "mx-auto h-px w-16 bg-gradient-to-r",
                 tonePalette.lineClassName,
+                previewChrome.dividerClassName,
               )}
             />
             {!isFocusMode ? (
@@ -280,7 +289,9 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
                           colorConfig.tagClassName,
+                          previewChrome.tagClassName,
                           colorConfig.tagInteractiveClassName,
+                          previewChrome.tagInteractiveClassName,
                         )}
                         aria-label={`Открыть теги стиха ${verse.reference}`}
                       >
@@ -291,7 +302,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName
+                          colorConfig.tagClassName,
+                          previewChrome.tagClassName,
                         )}
                       >
                         #{tag.title}
@@ -307,7 +319,9 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
                           colorConfig.tagClassName,
+                          previewChrome.tagClassName,
                           colorConfig.tagInteractiveClassName,
+                          previewChrome.tagInteractiveClassName,
                         )}
                         aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                       >
@@ -317,7 +331,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                       <span
                         className={cn(
                           "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          colorConfig.tagClassName
+                          colorConfig.tagClassName,
+                          previewChrome.tagClassName,
                         )}
                       >
                         +{normalizedTags.length - 3}

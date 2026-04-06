@@ -19,7 +19,7 @@ export function getGalleryPreviewTone(
   sourceMode: VerseGallerySourceMode,
   tone: VerseCardPreviewTone | undefined
 ): VerseCardPreviewTone | undefined {
-  return isCatalogGalleryMode(sourceMode) ? "catalog" : tone;
+  return isCatalogGalleryMode(sourceMode) ? "catalogPreview" : tone;
 }
 
 export function shouldShowGalleryDelete(

@@ -15,9 +15,9 @@ import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { GALLERY_TOASTER_ID, TOAST_TOP_OFFSET_PX, toast } from "@/app/lib/toast";
 import {
-  formatToastXpDelta,
   showVerseActionToast,
 } from "@/app/lib/semanticToast";
+import { buildVerseDeletionFeedback } from "@/app/utils/verseXp";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   normalizeDisplayVerseStatus,
@@ -310,17 +310,16 @@ export function VerseGallery({
 
     try {
       setIsActionPending(true);
-      const result = await onDelete(previewActiveVerse);
-      const xpLoss =
-        result && typeof result === "object" && "xpLoss" in result
-          ? Number(result.xpLoss ?? 0)
-          : 0;
+      await onDelete(previewActiveVerse);
+      const feedback = buildVerseDeletionFeedback({
+        resetToCatalog: isCatalogSourceMode,
+      });
 
       haptic("success");
       showVerseActionToast({
         kind: "delete",
         reference: previewActiveVerse.reference,
-        meta: formatToastXpDelta(-xpLoss),
+        meta: isCatalogSourceMode ? feedback.title : null,
         toasterId: GALLERY_TOASTER_ID,
       });
 
