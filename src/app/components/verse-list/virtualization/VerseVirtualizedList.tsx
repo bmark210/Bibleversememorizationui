@@ -524,7 +524,7 @@ export function VerseVirtualizedList({
 
           return (
             <div
-              className="px-2 pb-3 sm:px-4"
+              className="px-3 pb-3 sm:px-4"
               data-tour="verse-list-row"
               data-tour-index={index}
               data-tour-verse-id={verse.externalVerseId}

@@ -103,7 +103,7 @@ function makeScrollSeekPlaceholder(
         : DEFAULT_ITEM_HEIGHT_ESTIMATE;
 
     return (
-      <div className="px-2 pb-3 sm:px-4" aria-hidden="true">
+      <div className="px-3 pb-3 sm:px-4" aria-hidden="true">
         <div
           className="rounded-2xl border border-border/60 bg-card/55 animate-pulse"
           style={{ minHeight: resolvedHeight }}
@@ -390,7 +390,7 @@ export function MyVersesSectionsLayout({
           itemContent={(_, row) => {
             if (row.kind === 'section') {
               return (
-                <div className="px-2 sm:px-4">
+                <div className="px-3 sm:px-4">
                   <SectionInlineHeader
                     sectionKey={row.sectionKey}
                     count={row.count}
@@ -401,7 +401,7 @@ export function MyVersesSectionsLayout({
 
             if (row.kind === 'learning-placeholders') {
               return (
-                <div className="space-y-2 px-2 pb-3 sm:px-4">
+                <div className="space-y-2 px-3 pb-3 sm:px-4">
                   <LearningSlotPlaceholders
                     filledCount={row.filledCount}
                     capacity={row.capacity}
@@ -412,7 +412,7 @@ export function MyVersesSectionsLayout({
             }
 
             return (
-              <div className="px-2 pb-3 sm:px-4">
+              <div className="px-3 pb-3 sm:px-4">
                 {renderVerseRow(row.verse)}
               </div>
             );

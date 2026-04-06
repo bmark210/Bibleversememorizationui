@@ -10,7 +10,7 @@ test("catalog skeleton keeps the same row wrapper inset as the virtualized list"
     <VerseListSkeletonCards count={2} mode="catalog" />,
   );
 
-  assert.ok(html.includes("px-2 pb-3 sm:px-4"));
+  assert.ok(html.includes("px-3 pb-3 sm:px-4"));
   assert.ok(html.includes(FILTER_VISUAL_THEME.catalog.cardClassName));
   assert.ok(!html.includes("border-b border-border/55 bg-background/92 backdrop-blur-xl"));
 });

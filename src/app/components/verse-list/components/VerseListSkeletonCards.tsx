@@ -48,7 +48,7 @@ function CatalogSkeletonStack({ count }: { count: number }) {
       {Array.from({ length: count }, (_, idx) => (
         <div
           key={`verse-list-skeleton-catalog-${idx}`}
-          className="px-2 pb-3 sm:px-4"
+          className="px-3 pb-3 sm:px-4"
         >
           <VerseCardSkeleton surfaceClassName={surfaceClassName} />
         </div>
@@ -131,7 +131,7 @@ function MyVersesSectionHeaderSkeleton() {
   const theme = STATUS_BOX_THEME.learning;
 
   return (
-    <div className="px-2 sm:px-4" aria-hidden="true">
+    <div className="px-3 sm:px-4" aria-hidden="true">
       <div className="flex items-center gap-2.5 px-1 pb-3 pt-4">
         <div
           className={cn(
@@ -159,7 +159,7 @@ function MyVersesSkeletonStack({ count }: { count: number }) {
         {Array.from({ length: count }, (_, idx) => (
           <div
             key={`verse-list-skeleton-my-${idx}`}
-            className="px-2 pb-3 sm:px-4"
+            className="px-3 pb-3 sm:px-4"
           >
             <VerseCardSkeleton surfaceClassName={surfaceClassName} />
           </div>
