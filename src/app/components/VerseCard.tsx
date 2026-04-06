@@ -394,7 +394,7 @@ export function VerseCard({
             )}
           />
         ) : null}
-        {isPreviewToneActive && (
+        {/* {isPreviewToneActive && (
           <>
             <div
               aria-hidden="true"
@@ -411,7 +411,7 @@ export function VerseCard({
               )}
             />
           </>
-        )}
+        )} */}
 
         {header ? <div className="mb-2 min-w-0 flex-shrink-0">{header}</div> : null}
 
