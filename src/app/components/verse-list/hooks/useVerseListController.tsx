@@ -29,7 +29,6 @@ import {
 import {
   parseStoredBookId,
   parseStoredSortBy,
-  parseStoredStatusFilter,
   VERSE_LIST_STORAGE_KEYS,
 } from "../storage";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
@@ -72,10 +71,6 @@ type UseVerseListControllerParams = {
   cardColorConfig?: VerseCardColorConfig;
 };
 
-function getDefaultStatusFilter(hasOwnVerses: boolean): VerseListStatusFilter {
-  return hasOwnVerses ? DEFAULT_VERSE_LIST_STATUS_FILTER : "catalog";
-}
-
 function getRootStatusFilter(filter: VerseListStatusFilter): "catalog" | "my" {
   return filter === "catalog" ? "catalog" : "my";
 }
@@ -84,16 +79,6 @@ function normalizeStatusFilterToRoot(
   filter: VerseListStatusFilter,
 ): VerseListStatusFilter {
   return getRootStatusFilter(filter);
-}
-
-function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
-  if (typeof window === "undefined") return null;
-
-  return (
-    parseStoredStatusFilter(
-      window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter),
-    ) ?? null
-  );
 }
 
 export function useVerseListController({
@@ -130,18 +115,12 @@ export function useVerseListController({
     initialTags,
     reloadVersion: verseListExternalSyncVersion,
   });
-  const [initialStoredStatusFilter] = useState<VerseListStatusFilter | null>(
-    () => {
-      if (reopenGalleryStatusFilter) return null;
-      return readInitialStoredStatusFilter();
-    },
-  );
   const [statusFilter, setStatusFilter] = useState<VerseListStatusFilter>(
     () => {
       if (disabled) return "catalog";
       if (reopenGalleryStatusFilter)
         return normalizeStatusFilterToRoot(reopenGalleryStatusFilter);
-      return normalizeStatusFilterToRoot(initialStoredStatusFilter ?? "my");
+      return DEFAULT_VERSE_LIST_STATUS_FILTER;
     },
   );
   const [hasOwnVerses, setHasOwnVerses] = useState<boolean | null>(() =>
@@ -182,7 +161,7 @@ export function useVerseListController({
   const { telegramId } = useTelegramId();
   const defaultStatusFilter = disabled
     ? "catalog"
-    : getDefaultStatusFilter(Boolean(hasOwnVerses));
+    : DEFAULT_VERSE_LIST_STATUS_FILTER;
   const shouldAutoSwitchToCatalog =
     !disabled &&
     hasOwnVerses === false &&
@@ -384,15 +363,6 @@ export function useVerseListController({
     if (statusFilter === normalizedReopenFilter) return;
     setStatusFilter(normalizedReopenFilter);
   }, [disabled, reopenGalleryStatusFilter, statusFilter]);
-
-  useEffect(() => {
-    if (disabled) return;
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      VERSE_LIST_STORAGE_KEYS.statusFilter,
-      statusFilter,
-    );
-  }, [disabled, statusFilter]);
 
   useEffect(() => {
     if (disabled) return;
