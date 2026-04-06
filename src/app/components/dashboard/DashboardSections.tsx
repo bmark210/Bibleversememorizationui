@@ -1562,10 +1562,10 @@ export const DashboardFriendsActivityCard = React.memo(
 
     const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
     const summaryEntries = friendsActivity?.entries ?? [];
-    const summaryActiveLast7Days = Math.max(
-      0,
-      friendsActivity?.activeLast7Days ?? 0,
-    );
+    // const summaryActiveLast7Days = Math.max(
+    //   0,
+    //   friendsActivity?.activeLast7Days ?? 0,
+    // );
     const modalEntries = cachedDialogEntries;
     const modalHasRecordedActivity = modalEntries.some(
       (entry) => entry != null && Boolean(entry.lastActiveAt),
@@ -1583,7 +1583,7 @@ export const DashboardFriendsActivityCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex min-h-[5rem] w-full cursor-pointer flex-col p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
+          className="self-start flex gap-2 min-h-[5rem] w-full cursor-pointer flex-col p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div className="flex items-start justify-between">
@@ -1613,7 +1613,7 @@ export const DashboardFriendsActivityCard = React.memo(
             </Button>
           </div>
 
-          <div className="flex min-h-[3.5rem] flex-1 items-center overflow-hidden">
+          <div className="flex min-h-fit flex-1 items-center overflow-hidden">
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
               <Skeleton className="h-14 w-full rounded-[1.15rem] border-0" />
             ) : summaryEntries.length > 0 ? (
@@ -1623,11 +1623,11 @@ export const DashboardFriendsActivityCard = React.memo(
                     <div className="text-sm font-semibold text-text-primary narrow:text-[13px]">
                       {summaryFriendsTotal} {pluralizeFriends(summaryFriendsTotal)}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-text-muted narrow:text-[10px]">
+                    {/* <div className="mt-0.5 text-[11px] text-text-muted narrow:text-[10px]">
                       {summaryActiveLast7Days > 0
                         ? `${summaryActiveLast7Days} активны за 7 дней`
                         : "Пока без свежей активности"}
-                    </div>
+                    </div> */}
                   </div>
                 </div>
             ) : (
