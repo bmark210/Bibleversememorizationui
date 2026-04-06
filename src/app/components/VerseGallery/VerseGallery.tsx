@@ -19,8 +19,9 @@ import {
   showVerseActionToast,
 } from "@/app/lib/semanticToast";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { getVerseDisplayStatus } from "@/shared/verseRules";
+import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryDeleteDrawer } from "./components/GalleryDeleteDrawer";
@@ -46,17 +47,7 @@ import {
   isCatalogGalleryOwnedVerse,
   shouldShowGalleryDelete,
 } from "./presentation";
-import type { TrainingMode } from "@/app/components/Training/types";
 import type { VerseGalleryProps } from "./types";
-
-function getTrainingLaunchMode(
-  status: ReturnType<typeof getVerseDisplayStatus>
-): TrainingMode | null {
-  if (status === "MASTERED") return "anchor";
-  if (status === "REVIEW") return "review";
-  if (status === VerseStatus.LEARNING) return "learning";
-  return null;
-}
 
 type PreviewStatusMutation = {
   nextStatus: VerseStatus;
@@ -78,7 +69,7 @@ function normalizeSelectedTagSlugs(
 }
 
 function getPreviewStatusMutation(
-  status: ReturnType<typeof getVerseDisplayStatus>,
+  status: DisplayVerseStatus,
   actionId: VerseCardActionId | null | undefined,
 ): PreviewStatusMutation | null {
   if (!actionId) return null;
@@ -424,9 +415,9 @@ export function VerseGallery({
   });
 
   const handleStartTraining = useEventCallback(() => {
-    if (!previewActiveVerse || !previewStatus) return;
+    if (!previewActiveVerse) return;
 
-    const launchMode = getTrainingLaunchMode(previewStatus);
+    const launchMode = getVerseTrainingLaunchMode(previewActiveVerse);
     if (!launchMode) return;
 
     onNavigateToTraining({

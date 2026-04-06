@@ -1,11 +1,6 @@
 import type { Verse } from "@/app/domain/verse";
 import {
-  getVerseNextAvailabilityAt,
-  isVerseAnchorEligible,
-  isVerseDueForTraining,
-  isVerseLearning,
-  isVerseMastered,
-  isVerseReview,
+  resolveVerseState,
 } from "@/shared/verseRules";
 import type { CoreTrainingMode } from "./types";
 
@@ -15,6 +10,8 @@ export type CoreTrainingCounts = {
   totalReviewCount: number;
   waitingReviewCount: number;
   masteredCount: number;
+  anchorEligibleCount: number;
+  flashcardCount: number;
   allCount: number;
   earliestWaitingReviewAt: Date | null;
 };
@@ -22,17 +19,17 @@ export type CoreTrainingCounts = {
 export function isDueReviewVerse(
   verse: Pick<Verse, "status" | "nextReviewAt" | "nextReview" | "flow">
 ) {
-  return isVerseDueForTraining(verse);
+  return resolveVerseState(verse).isDueForTraining;
 }
 
 export function isAnchorEligibleVerse(verse: Pick<Verse, "status" | "flow">) {
-  return isVerseAnchorEligible({
+  return resolveVerseState({
     ...verse,
     masteryLevel: 0,
     repetitions: 0,
     nextReviewAt: null,
     nextReview: null,
-  });
+  }).isAnchorEligible;
 }
 
 export function getAnchorEligibleVerseCount(allVerses: Verse[]) {
@@ -57,20 +54,22 @@ export function getCoreTrainingCountsFromVerses(
   let earliestWaitingReviewAt: Date | null = null;
 
   for (const verse of allVerses) {
-    if (isVerseLearning(verse)) {
+    const resolved = resolveVerseState(verse);
+
+    if (resolved.isLearning) {
       learningCount += 1;
       continue;
     }
 
-    if (isVerseReview(verse)) {
+    if (resolved.isReview) {
       totalReviewCount += 1;
 
-      if (isDueReviewVerse(verse)) {
+      if (resolved.isDueForTraining) {
         dueReviewCount += 1;
         continue;
       }
 
-      const nextReviewAt = getVerseNextAvailabilityAt(verse);
+      const nextReviewAt = resolved.nextAvailabilityAt;
       if (
         nextReviewAt &&
         (earliestWaitingReviewAt === null ||
@@ -81,10 +80,13 @@ export function getCoreTrainingCountsFromVerses(
       continue;
     }
 
-    if (isVerseMastered(verse)) {
+    if (resolved.isMastered) {
       masteredCount += 1;
     }
   }
+
+  const anchorEligibleCount = totalReviewCount + masteredCount;
+  const flashcardCount = learningCount + anchorEligibleCount;
 
   return {
     learningCount,
@@ -92,7 +94,9 @@ export function getCoreTrainingCountsFromVerses(
     totalReviewCount,
     waitingReviewCount: Math.max(0, totalReviewCount - dueReviewCount),
     masteredCount,
-    allCount: learningCount + totalReviewCount + masteredCount,
+    anchorEligibleCount,
+    flashcardCount,
+    allCount: flashcardCount,
     earliestWaitingReviewAt,
   };
 }
@@ -131,12 +135,14 @@ export function pickVersesForCoreModes(
   if (modes.length === 0) return [];
 
   return allVerses.filter((verse) => {
-    if (isVerseLearning(verse)) {
+    const resolved = resolveVerseState(verse);
+
+    if (resolved.isLearning) {
       return modes.includes("learning");
     }
 
-    if (isVerseReview(verse)) {
-      return modes.includes("review") && isDueReviewVerse(verse);
+    if (resolved.isReview) {
+      return modes.includes("review") && resolved.isDueForTraining;
     }
 
     return false;

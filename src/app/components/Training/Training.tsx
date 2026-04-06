@@ -10,7 +10,6 @@ import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/T
 import type {
   TrainingProps,
   TrainingView,
-  TrainingMode,
   CoreTrainingMode,
   TrainingScenario,
   AnchorModeGroup,
@@ -22,19 +21,10 @@ import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
-import type { Verse } from "@/app/domain/verse";
-import { getVerseDisplayStatus } from "@/shared/verseRules";
+import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
  
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
-
-/** Pick the training mode that best matches a verse's current status */
-function autoModeForVerse(verse: Verse): TrainingMode {
-  const status = getVerseDisplayStatus(verse);
-  if (status === "REVIEW") return "review";
-  if (status === "MASTERED") return "anchor";
-  return "learning";
-}
 
 function getInitialSubsetFilter(
   modes: CoreTrainingMode[]
@@ -97,12 +87,22 @@ export function Training({
     });
   }, [selectedScenario, selectedModes, selectedAnchorModes]);
 
+  const goToHub = useCallback(() => {
+    setView({ mode: "hub" });
+  }, []);
+
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
   useEffect(() => {
     if (!directLaunch || directLaunchConsumedRef.current) return;
     directLaunchConsumedRef.current = true;
 
-    const mode = directLaunch.preferredMode ?? autoModeForVerse(directLaunch.verse);
+    const mode =
+      directLaunch.preferredMode ?? getVerseTrainingLaunchMode(directLaunch.verse);
+
+    if (!mode) {
+      goToHub();
+      return;
+    }
 
     if (mode === "anchor") {
       setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS] });
@@ -123,7 +123,7 @@ export function Training({
         initialVerseExternalId: directLaunch.verse.externalVerseId,
       });
     }
-  }, [directLaunch, allVerses]);
+  }, [directLaunch, allVerses, goToHub]);
 
   // Reset consumed ref when directLaunch changes to a new value
   useEffect(() => {
@@ -131,10 +131,6 @@ export function Training({
       directLaunchConsumedRef.current = false;
     }
   }, [directLaunch]);
-
-  const goToHub = useCallback(() => {
-    setView({ mode: "hub" });
-  }, []);
 
   const handleExitSession = useCallback(() => {
     if (directLaunch && directLaunchConsumedRef.current) {

@@ -244,7 +244,7 @@ export function FlashcardSession({
 
         {/* Playing */}
         {phase === "playing" && currentCard && (() => {
-          const { visibleLabel, visibleContent, hiddenLabel, hiddenContent, HiddenIcon } =
+          const { visibleLabel, visibleContent, hiddenLabel, hiddenContent } =
             getCardSides(currentCard);
 
           return (

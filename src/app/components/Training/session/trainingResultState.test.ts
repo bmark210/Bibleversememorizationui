@@ -88,8 +88,8 @@ test("buildTrainingCommitToastPayload returns waiting review toast with xp and t
   const result = buildTrainingCommitToastPayload({
     verseKey: "verse-2",
     reference: "От Иоанна 1:29",
-    previousStatus: VerseStatus.REVIEW,
-    nextStatus: VerseStatus.REVIEW,
+    previousStatus: "REVIEW",
+    nextStatus: "REVIEW",
     previousModeId: TrainingModeId.FullRecall,
     nextModeId: TrainingModeId.FullRecall,
     nextReviewAt,
@@ -118,8 +118,8 @@ test("buildTrainingCommitToastPayload returns mastered toast", () => {
   const result = buildTrainingCommitToastPayload({
     verseKey: "verse-3",
     reference: "От Иоанна 1:29",
-    previousStatus: VerseStatus.REVIEW,
-    nextStatus: VerseStatus.MASTERED,
+    previousStatus: "REVIEW",
+    nextStatus: "MASTERED",
     previousModeId: TrainingModeId.FullRecall,
     nextModeId: TrainingModeId.FullRecall,
     nextReviewAt: null,

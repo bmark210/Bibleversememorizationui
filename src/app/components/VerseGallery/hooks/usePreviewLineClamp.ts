@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { RefObject } from 'react';
 import { buildFont, measureTextLayout } from '@/app/utils/textLayout';
 
@@ -66,11 +66,6 @@ export function usePreviewLineClamp(
 ): number {
   const [lineClamp, setLineClamp] = useState(INITIAL_LINE_CLAMP);
 
-  // Keep a stable ref so the ResizeObserver closure always reads fresh text
-  // without re-subscribing on every keystroke / verse change.
-  const verseTextRef = useRef(verseText);
-  verseTextRef.current = verseText;
-
   useEffect(() => {
     if (isFocusMode || typeof window === 'undefined') return;
 
@@ -98,7 +93,7 @@ export function usePreviewLineClamp(
       const font = buildFont(fontSizePx, FONT_FAMILY, FONT_WEIGHT);
       const textWidth = Math.max(80, containerWidth - BODY_PADDING_H);
       const { lineCount } = measureTextLayout(
-        `«${verseTextRef.current}»`,
+        `«${verseText}»`,
         font,
         textWidth,
         lineHeightPx,
@@ -136,7 +131,7 @@ export function usePreviewLineClamp(
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [isFocusMode, bodyRef]);
+  }, [bodyRef, isFocusMode, verseText]);
 
   return lineClamp;
 }

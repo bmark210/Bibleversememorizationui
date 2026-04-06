@@ -1,4 +1,3 @@
-import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   getDisplayStatusFromFlow,
   normalizeVerseFlow,
@@ -11,6 +10,7 @@ import {
   getDifficultyLevelByLetters,
   type VerseDifficultyLevel,
 } from "@/shared/verses/difficulty";
+import { resolveVerseState } from "@/shared/verseRules";
 
 /** Frontend verse model — matches the VerseCardDto shape returned by the API. */
 export type Verse = {
@@ -173,8 +173,8 @@ export function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
 }
 
 function isTrainingDashboardVerse(verse: Verse) {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  return status === VerseStatus.LEARNING || status === "REVIEW";
+  const resolved = resolveVerseState(verse);
+  return resolved.isLearning || resolved.isReview;
 }
 
 export function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {

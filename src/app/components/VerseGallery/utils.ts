@@ -1,4 +1,3 @@
-import { Pause, Play, Plus } from "lucide-react";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 export { clamp } from "@/shared/utils/clamp";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
@@ -10,10 +9,7 @@ import {
   toTrainingStageMasteryLevel,
 } from "@/shared/training/modeEngine";
 import {
-  getVerseDisplayStatus,
-  getVerseNextAvailabilityAt,
-  isVerseDueForTraining,
-  isVerseReview,
+  resolveVerseState,
 } from "@/shared/verseRules";
 import { chooseTrainingMode } from "@/modules/training/application/chooseTrainingMode";
 import { triggerHaptic } from "@/app/lib/haptics";
@@ -25,7 +21,6 @@ import type {
 } from "@/app/components/verse-gallery/TrainingCompletionToastCard";
 import type {
   HapticStyle,
-  GalleryStatusAction,
   ModeId,
   TrainingVerseState,
   TrainingSubsetFilter,
@@ -34,42 +29,6 @@ import type {
 
 export function haptic(style: HapticStyle) {
   triggerHaptic(style);
-}
-
-export function getGalleryStatusAction(status: DisplayVerseStatus): GalleryStatusAction | null {
-  if (status === "CATALOG") {
-    return {
-      nextStatus: VerseStatus.MY,
-      label: "Добавить в мои",
-      icon: Plus,
-      successMessage: "Добавлено в мои стихи",
-    };
-  }
-  if (status === VerseStatus.MY) {
-    return {
-      nextStatus: VerseStatus.LEARNING,
-      label: "Добавить в изучение",
-      icon: Plus,
-      successMessage: "Добавлено в изучение",
-    };
-  }
-  if (status === VerseStatus.LEARNING || status === "REVIEW") {
-    return {
-      nextStatus: VerseStatus.STOPPED,
-      label: "Поставить на паузу",
-      icon: Pause,
-      successMessage: "Пауза включена",
-    };
-  }
-  if (status === VerseStatus.STOPPED) {
-    return {
-      nextStatus: VerseStatus.LEARNING,
-      label: "Возобновить изучение",
-      icon: Play,
-      successMessage: "Возобновлено",
-    };
-  }
-  return null;
 }
 
 export function parseDate(value: unknown): Date | null {
@@ -96,6 +55,7 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
   if (!externalVerseId || !text) return null;
 
   const rawMasteryLevel = normalizeRawMasteryLevel(verse.masteryLevel);
+  const resolved = resolveVerseState(verse);
   const rawLastModeId = (verse as Record<string, unknown>).lastTrainingModeId;
   const lastModeId =
     typeof rawLastModeId === "number" && rawLastModeId >= 1 && rawLastModeId <= 8
@@ -109,7 +69,7 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
       ? String((verse as Record<string, unknown>).telegramId)
       : null,
     externalVerseId,
-    status: getVerseDisplayStatus(verse),
+    status: resolved.displayStatus,
     rawMasteryLevel,
     stageMasteryLevel: toStageMasteryLevel(rawMasteryLevel),
     repetitions: Math.max(0, Math.round(verse.repetitions ?? 0)),
@@ -119,18 +79,7 @@ export function toTrainingVerseState(verse: Verse): TrainingVerseState | null {
     ),
     lastModeId,
     lastReviewedAt: parseDate((verse as Record<string, unknown>).lastReviewedAt),
-    nextReviewAt: getVerseNextAvailabilityAt({
-      status: verse.status,
-      flow: verse.flow,
-      masteryLevel: verse.masteryLevel,
-      repetitions: verse.repetitions,
-      nextReviewAt:
-        ((verse as Record<string, unknown>).nextReviewAt as string | null | undefined) ??
-        null,
-      nextReview:
-        ((verse as Record<string, unknown>).nextReview as string | null | undefined) ??
-        null,
-    }),
+    nextReviewAt: resolved.nextAvailabilityAt,
   };
 }
 
@@ -143,25 +92,25 @@ function isTrainingDueVerse(
 }
 
 export function isTrainingEligibleVerse(verse: TrainingVerseState) {
-  return isVerseDueForTraining({
+  return resolveVerseState({
     status: verse.status,
     flow: verse.raw.flow,
     masteryLevel: verse.rawMasteryLevel,
     repetitions: verse.repetitions,
     nextReviewAt: verse.nextReviewAt?.toISOString() ?? null,
     nextReview: verse.nextReviewAt?.toISOString() ?? null,
-  });
+  }).isDueForTraining;
 }
 
 export function isTrainingReviewVerse(verse: Pick<TrainingVerseState, "status">) {
-  return isVerseReview({
+  return resolveVerseState({
     status: verse.status,
     flow: null,
     masteryLevel: 0,
     repetitions: 0,
     nextReviewAt: null,
     nextReview: null,
-  });
+  }).isReview;
 }
 
 export function matchesTrainingSubsetFilter(

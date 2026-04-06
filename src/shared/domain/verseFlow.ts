@@ -1,5 +1,8 @@
-import { VerseStatus } from "@/shared/domain/verseStatus";
-import type { DisplayVerseStatus } from "@/app/types/verseStatus";
+import {
+  VerseDisplayStatus,
+  VerseStatus,
+  type VerseDisplayStatus as VerseDisplayStatusType,
+} from "@/shared/domain/verseStatus";
 
 export const VerseAction = {
   ADD_TO_MY: "add_to_my",
@@ -39,79 +42,102 @@ export type VerseFlow = {
   progressPercent: number;
 };
 
+const FLOW_CODES = new Set<VerseFlowCode>(Object.values(VerseFlowCode));
+const FLOW_GROUPS = new Set<VerseFlow["group"]>([
+  "catalog",
+  "library",
+  "active",
+  "paused",
+  "complete",
+]);
+const FLOW_PHASES = new Set<VerseFlow["phase"]>([
+  "catalog",
+  "my",
+  "learning",
+  "review",
+  "mastered",
+]);
+const FLOW_AVAILABILITIES = new Set<VerseFlow["availability"]>([
+  "READY",
+  "WAITING",
+  "PAUSED",
+  "NONE",
+]);
+const FLOW_ACTIONS = new Set<VerseAction>(Object.values(VerseAction));
+
+function isVerseFlowCode(value: unknown): value is VerseFlowCode {
+  return typeof value === "string" && FLOW_CODES.has(value as VerseFlowCode);
+}
+
 export function normalizeVerseFlow(value: unknown): VerseFlow | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<VerseFlow> & { code?: unknown };
-  if (typeof raw.code !== "string") return null;
+  if (!isVerseFlowCode(raw.code)) return null;
 
   return {
-    code: raw.code as VerseFlowCode,
+    code: raw.code,
     group:
-      raw.group === "catalog" ||
-      raw.group === "library" ||
-      raw.group === "active" ||
-      raw.group === "paused" ||
-      raw.group === "complete"
-        ? raw.group
+      typeof raw.group === "string" && FLOW_GROUPS.has(raw.group as VerseFlow["group"])
+        ? (raw.group as VerseFlow["group"])
         : "library",
     phase:
-      raw.phase === "catalog" ||
-      raw.phase === "my" ||
-      raw.phase === "learning" ||
-      raw.phase === "review" ||
-      raw.phase === "mastered"
-        ? raw.phase
+      typeof raw.phase === "string" && FLOW_PHASES.has(raw.phase as VerseFlow["phase"])
+        ? (raw.phase as VerseFlow["phase"])
         : "my",
     availability:
-      raw.availability === "READY" ||
-      raw.availability === "WAITING" ||
-      raw.availability === "PAUSED" ||
-      raw.availability === "NONE"
-        ? raw.availability
+      typeof raw.availability === "string" &&
+      FLOW_AVAILABILITIES.has(raw.availability as VerseFlow["availability"])
+        ? (raw.availability as VerseFlow["availability"])
         : "NONE",
     allowedActions: Array.isArray(raw.allowedActions)
       ? raw.allowedActions.filter(
           (item): item is VerseAction =>
-            item === VerseAction.ADD_TO_MY ||
-            item === VerseAction.START_LEARNING ||
-            item === VerseAction.TRAIN ||
-            item === VerseAction.PAUSE ||
-            item === VerseAction.RESUME ||
-            item === VerseAction.ANCHOR,
+            typeof item === "string" && FLOW_ACTIONS.has(item as VerseAction),
         )
       : [],
-    remainingLearnings: Math.max(0, Math.round(Number(raw.remainingLearnings ?? 0))),
-    remainingReviews: Math.max(0, Math.round(Number(raw.remainingReviews ?? 0))),
+    remainingLearnings: Math.max(
+      0,
+      Math.round(Number(raw.remainingLearnings ?? 0)),
+    ),
+    remainingReviews: Math.max(
+      0,
+      Math.round(Number(raw.remainingReviews ?? 0)),
+    ),
     availableAt:
       typeof raw.availableAt === "string" && raw.availableAt.trim()
         ? raw.availableAt
         : null,
-    progressPercent: Math.max(0, Math.min(100, Math.round(Number(raw.progressPercent ?? 0)))),
+    progressPercent: Math.max(
+      0,
+      Math.min(100, Math.round(Number(raw.progressPercent ?? 0))),
+    ),
   };
 }
 
-export function getDisplayStatusFromFlow(flow: VerseFlow | null): DisplayVerseStatus | null {
+export function getDisplayStatusFromFlow(
+  flow: VerseFlow | null,
+): VerseDisplayStatusType | null {
   if (!flow) return null;
 
   switch (flow.code) {
     case VerseFlowCode.CATALOG:
-      return "CATALOG";
+      return VerseDisplayStatus.CATALOG;
     case VerseFlowCode.MY:
-      return VerseStatus.MY;
+      return VerseDisplayStatus.MY;
     case VerseFlowCode.QUEUE:
-      return VerseStatus.QUEUE;
+      return VerseDisplayStatus.QUEUE;
     case VerseFlowCode.LEARNING:
-      return VerseStatus.LEARNING;
+      return VerseDisplayStatus.LEARNING;
     case VerseFlowCode.REVIEW_DUE:
     case VerseFlowCode.REVIEW_WAITING:
-      return "REVIEW";
+      return VerseDisplayStatus.REVIEW;
     case VerseFlowCode.MASTERED:
-      return "MASTERED";
+      return VerseDisplayStatus.MASTERED;
     case VerseFlowCode.PAUSED_LEARNING:
     case VerseFlowCode.PAUSED_REVIEW:
     case VerseFlowCode.PAUSED_MASTERED:
       return VerseStatus.STOPPED;
     default:
-      return VerseStatus.MY;
+      return VerseDisplayStatus.MY;
   }
 }

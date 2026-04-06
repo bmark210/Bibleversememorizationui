@@ -10,8 +10,9 @@ import type { domain_Tag } from "@/api/models/domain_Tag";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
-  getVerseDisplayStatus,
+  getVerseTrainingLaunchMode,
   matchesVerseListFilter,
+  resolveVerseState,
 } from "@/shared/verseRules";
 import { toast } from "@/app/lib/toast";
 import {
@@ -93,15 +94,6 @@ function readInitialStoredStatusFilter(): VerseListStatusFilter | null {
       window.localStorage.getItem(VERSE_LIST_STORAGE_KEYS.statusFilter),
     ) ?? null
   );
-}
-
-function getTrainingLaunchMode(
-  status: ReturnType<typeof getVerseDisplayStatus>,
-) {
-  if (status === "MASTERED") return "anchor" as const;
-  if (status === "REVIEW") return "review" as const;
-  if (status === VerseStatus.LEARNING) return "learning" as const;
-  return null;
 }
 
 export function useVerseListController({
@@ -525,11 +517,11 @@ export function useVerseListController({
       if (!(matchesStatus && matchesBook && matchesSearch)) continue;
       filtered.push(verse);
 
-      const displayStatus = getVerseDisplayStatus(verse);
-      if (displayStatus === "REVIEW") review.push(verse);
-      else if (displayStatus === "MASTERED") mastered.push(verse);
-      else if (displayStatus === VerseStatus.LEARNING) learning.push(verse);
-      else if (displayStatus === VerseStatus.STOPPED) stopped.push(verse);
+      const resolved = resolveVerseState(verse);
+      if (resolved.isReview) review.push(verse);
+      else if (resolved.isMastered) mastered.push(verse);
+      else if (resolved.isLearning) learning.push(verse);
+      else if (resolved.isPaused) stopped.push(verse);
     }
 
     return {
@@ -607,7 +599,7 @@ export function useVerseListController({
         onEditQueuePosition={onEditQueuePosition}
         onRemoveFromQueue={onRemoveFromQueue}
         onStartTraining={(v) => {
-          const preferredMode = getTrainingLaunchMode(getVerseDisplayStatus(v));
+          const preferredMode = getVerseTrainingLaunchMode(v);
           if (!preferredMode || !onNavigateToTraining) return;
           onNavigateToTraining({
             verse: v,
@@ -619,7 +611,7 @@ export function useVerseListController({
           });
         }}
         onAddToLearning={(v) => {
-          const isCatalog = getVerseDisplayStatus(v) === "CATALOG";
+          const isCatalog = resolveVerseState(v).isCatalog;
           void actions.updateVerseStatus(
             v,
             isCatalog ? VerseStatus.MY : VerseStatus.LEARNING,

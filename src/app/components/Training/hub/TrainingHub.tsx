@@ -109,7 +109,7 @@ type AccentTheme = {
   ctaClassName: string;
 };
 
-const ANCHOR_MIN_REQUIRED = 0;
+const ANCHOR_MIN_REQUIRED = 1;
 
 const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
   "reference-v1": Link2,
@@ -253,20 +253,18 @@ export function TrainingHub({
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
   const practiceCount = counts.learningCount + counts.dueReviewCount;
-  const anchorTotalAvailableCount = useMemo(() => {
+  const anchorInteractiveCount = useMemo(() => {
     if (allVerses.length > 0) {
       return getAnchorEligibleVerseCount(allVerses);
     }
 
     return getCountForMode("anchor", counts);
   }, [allVerses, counts]);
-  const anchorAvailableCount = useMemo(() => {
-    if (allVerses.length > 0) {
-      return getAnchorEligibleVerseCount(allVerses);
-    }
-
-    return anchorTotalAvailableCount;
-  }, [allVerses, anchorTotalAvailableCount]);
+  const flashcardAvailableCount = counts.flashcardCount;
+  const anchorScenarioCount = Math.max(
+    anchorInteractiveCount,
+    flashcardAvailableCount,
+  );
   const corePresetStates = useMemo<CorePresetState[]>(
     () =>
       CORE_MODE_PRESETS.map((preset) => {
@@ -314,16 +312,16 @@ export function TrainingHub({
   );
   const currentCount =
     selectedScenario === "anchor"
-      ? anchorAvailableCount
+      ? selectedAnchorSubScenario === "flashcard"
+        ? flashcardAvailableCount
+        : anchorInteractiveCount
       : getCountForModes(selectedModes, counts);
   const currentWaitingReviewCount =
     selectedScenario === "anchor"
       ? 0
       : getWaitingReviewCountForCoreModes(selectedModes, counts);
   const anchorLocked =
-    selectedScenario === "anchor" &&
-    selectedAnchorSubScenario === "interactive" &&
-    anchorAvailableCount < ANCHOR_MIN_REQUIRED;
+    selectedScenario === "anchor" && currentCount < ANCHOR_MIN_REQUIRED;
   const reviewWaitingLocked =
     selectedScenario === "core" &&
     currentCount === 0 &&
@@ -359,7 +357,9 @@ export function TrainingHub({
   const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
   const lockedStartLabel =
     selectedScenario === "anchor"
-      ? "Закрепление пока недоступно"
+      ? selectedAnchorSubScenario === "flashcard"
+        ? "Карточки пока недоступны"
+        : "Закрепление пока недоступно"
       : reviewWaitingLocked
         ? selectedModes.length === 1 && selectedModes[0] === "review"
           ? "Повторение на ожидании"
@@ -367,10 +367,12 @@ export function TrainingHub({
         : "Практика пока недоступна";
   const lockedSummaryText =
     selectedScenario === "anchor"
-      ? getAnchorLockMessage({
-          currentCount: anchorAvailableCount,
-          minRequired: ANCHOR_MIN_REQUIRED,
-        })
+      ? selectedAnchorSubScenario === "flashcard"
+        ? getFlashcardLockMessage(flashcardAvailableCount)
+        : getAnchorLockMessage({
+            currentCount: anchorInteractiveCount,
+            minRequired: ANCHOR_MIN_REQUIRED,
+          })
       : reviewWaitingLocked
         ? getReviewWaitingMessage(
             currentWaitingReviewCount,
@@ -462,7 +464,7 @@ export function TrainingHub({
                     >
                       <ScenarioTabLabel
                         title={TRAINING_SCENARIO_LABELS.anchor}
-                        count={anchorTotalAvailableCount}
+                        count={anchorScenarioCount}
                         countClassName={SCENARIO_THEME.anchor.countClassName}
                       />
                     </TabsTrigger>
@@ -894,6 +896,12 @@ function getAnchorLockMessage(params: {
   const { currentCount, minRequired } = params;
 
   return `Нужно минимум ${minRequired} ${pluralVerses(minRequired)} в статусах повторения или выученных. Сейчас доступно: ${currentCount}.`;
+}
+
+function getFlashcardLockMessage(currentCount: number) {
+  if (currentCount > 0) return null;
+
+  return "Для карточек нужен хотя бы один стих в изучении, повторении или выученных.";
 }
 
 function getCoreLockMessage(selectedModes: CoreTrainingMode[]) {

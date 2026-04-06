@@ -7,10 +7,7 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
 import {
-  getVerseDisplayStatus,
-  getVerseResolvedProgress,
-  isVersePaused,
-  resolveVerseJourneyPhase,
+  resolveVerseState,
 } from "@/shared/verseRules";
 import {
   Drawer,
@@ -32,8 +29,7 @@ type StatusTone = {
   progressClassName: string;
 };
 
-function resolveCurrentPhase(verse: Verse): PhaseKey {
-  const phase = resolveVerseJourneyPhase(verse);
+function resolveCurrentPhase(phase: ReturnType<typeof resolveVerseState>["journeyPhase"]): PhaseKey {
   if (phase === "catalog" || phase === "my" || phase === "queue") {
     return "collection";
   }
@@ -170,16 +166,17 @@ export function VerseProgressDrawer({
   const progressModel = useMemo(() => {
     if (!verse) return null;
 
-    const phase = resolveCurrentPhase(verse);
-    const status = getVerseDisplayStatus(verse);
-    const isPaused = isVersePaused(verse);
+    const resolved = resolveVerseState(verse);
+    const phase = resolveCurrentPhase(resolved.journeyPhase);
+    const status = resolved.displayStatus;
+    const isPaused = resolved.isPaused;
     const {
       totalCompleted,
       totalRemaining,
       remainingLearnings,
       remainingRepeats,
       progressPercent,
-    } = getVerseResolvedProgress(verse);
+    } = resolved.progress;
 
     return {
       phase,

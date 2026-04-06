@@ -12,15 +12,16 @@ import {
 } from "lucide-react";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { normalizeVerseFlow, type VerseFlow } from "@/shared/domain/verseFlow";
+import {
+  normalizeVerseFlow,
+  type VerseAction,
+} from "@/shared/domain/verseFlow";
 import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { VerseStatusSummaryTone } from "@/app/components/VerseStatusSummary";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
-  getVerseDisplayStatus,
-  getVerseNextAvailabilityAt,
-  hasVerseAction,
-  isVerseWaitingReview,
+  resolveVerseState,
+  type ResolvedVerseState,
 } from "@/shared/verseRules";
 
 export type VerseCardActionId =
@@ -51,7 +52,7 @@ export type VerseCardActionModel = {
 
 type ResolveVerseCardActionModelParams = {
   status: DisplayVerseStatus;
-  flow?: VerseFlow | null;
+  flow?: unknown;
   nextReviewAt?: Date | null;
   isAnchorEligible?: boolean;
   now?: Date;
@@ -75,54 +76,37 @@ export function resolveVerseCardActionModel(
   } = params;
 
   const flow = normalizeVerseFlow(rawFlow);
-  const resolvedStatus = getVerseDisplayStatus({
-    status,
-    flow,
-    masteryLevel: 0,
-    repetitions: 0,
-    nextReviewAt:
-      isValidDate(nextReviewAt) ? nextReviewAt.toISOString() : flow?.availableAt ?? null,
-    nextReview:
-      isValidDate(nextReviewAt) ? nextReviewAt.toISOString() : flow?.availableAt ?? null,
-  });
-  const resolvedNextReviewAt =
-    isValidDate(nextReviewAt)
-      ? nextReviewAt
-      : getVerseNextAvailabilityAt({
-          status: resolvedStatus,
-          flow,
-          masteryLevel: 0,
-          repetitions: 0,
-          nextReviewAt: flow?.availableAt ?? null,
-          nextReview: flow?.availableAt ?? null,
-        });
-  const isNotYetDue = isVerseWaitingReview(
+  const resolved = resolveVerseState(
     {
-      status: resolvedStatus,
+      status,
       flow,
       masteryLevel: 0,
       repetitions: 0,
-      nextReviewAt: isValidDate(resolvedNextReviewAt)
-        ? resolvedNextReviewAt.toISOString()
-        : null,
-      nextReview: isValidDate(resolvedNextReviewAt)
-        ? resolvedNextReviewAt.toISOString()
-        : null,
+      nextReviewAt:
+        isValidDate(nextReviewAt)
+          ? nextReviewAt.toISOString()
+          : flow?.availableAt ?? null,
+      nextReview:
+        isValidDate(nextReviewAt)
+          ? nextReviewAt.toISOString()
+          : flow?.availableAt ?? null,
     },
     now,
   );
+  const resolvedStatus = resolved.displayStatus;
+  const resolvedNextReviewAt = resolved.nextAvailabilityAt;
+  const isNotYetDue = resolved.isWaitingReview;
   const waitingLabel = isNotYetDue
     ? formatVerseAvailabilityLabel(resolvedNextReviewAt, { now, timeZone })
     : null;
 
   return {
     primaryAction: getPrimaryAction({
-      status: resolvedStatus,
-      flow,
+      resolved,
       isNotYetDue,
       isAnchorEligible,
     }),
-    utilityAction: getUtilityAction({ status: resolvedStatus, flow }),
+    utilityAction: getUtilityAction(resolved),
     waitingLabel,
     statusTone: getStatusTone({ status: resolvedStatus, isNotYetDue }),
     showProgress:
@@ -134,72 +118,70 @@ export function resolveVerseCardActionModel(
 }
 
 function getPrimaryAction(params: {
-  status: DisplayVerseStatus;
-  flow: VerseFlow | null;
+  resolved: ResolvedVerseState;
   isNotYetDue: boolean;
   isAnchorEligible: boolean;
 }): VerseCardActionSpec | null {
-  const { status, flow, isNotYetDue, isAnchorEligible } = params;
+  const { resolved, isNotYetDue, isAnchorEligible } = params;
+  const { displayStatus: status, allowedActions } = resolved;
 
-  if (flow) {
-    if (hasVerseAction({ flow }, "add_to_my")) {
-      return {
-        id: "add-to-my",
-        label: "Добавить в мои",
-        ariaLabel: "Добавить стих в мои стихи",
-        title: "Добавить стих в мои стихи",
-        icon: Plus,
-        dataTour: "verse-card-add-button",
-      };
-    }
+  if (allowedActions.has("add_to_my")) {
+    return {
+      id: "add-to-my",
+      label: "Добавить в мои",
+      ariaLabel: "Добавить стих в мои стихи",
+      title: "Добавить стих в мои стихи",
+      icon: Plus,
+      dataTour: "verse-card-add-button",
+    };
+  }
 
-    if (hasVerseAction({ flow }, "start_learning")) {
-      return {
-        id: "start-learning",
-        label: "Начать изучение",
-        ariaLabel: "Начать изучение стиха",
-        title: "Начать изучение",
-        icon: Play,
-        dataTour: "verse-card-promote-button",
-      };
-    }
+  if (allowedActions.has("start_learning")) {
+    return {
+      id: "start-learning",
+      label: "Начать изучение",
+      ariaLabel: "Начать изучение стиха",
+      title: "Начать изучение",
+      icon: Play,
+      dataTour: "verse-card-promote-button",
+    };
+  }
 
-    if (hasVerseAction({ flow }, "resume")) {
-      return {
-        id: "resume",
-        label: "Возобновить",
-        ariaLabel: "Возобновить изучение стиха",
-        title: "Возобновить изучение",
-        icon: Play,
-      };
-    }
+  if (allowedActions.has("resume")) {
+    return {
+      id: "resume",
+      label: "Возобновить",
+      ariaLabel: "Возобновить изучение стиха",
+      title: "Возобновить изучение",
+      icon: Play,
+    };
+  }
 
-    if (hasVerseAction({ flow }, "anchor")) {
-      if (!isAnchorEligible) return null;
-      return {
-        id: "anchor",
-        label: "Закрепить",
-        ariaLabel: "Перейти к закреплению стиха",
-        title: "Перейти к закреплению",
-        icon: Anchor,
-      };
-    }
+  if (allowedActions.has("anchor")) {
+    if (!isAnchorEligible) return null;
+    return {
+      id: "anchor",
+      label: "Закрепить",
+      ariaLabel: "Перейти к закреплению стиха",
+      title: "Перейти к закреплению",
+      icon: Anchor,
+    };
+  }
 
-    if (hasVerseAction({ flow }, "train") && !isNotYetDue) {
-      return {
-        id: "train",
-        label: "Тренироваться",
-        ariaLabel:
-          status === "REVIEW"
-            ? "Перейти к повторению стиха"
-            : "Продолжить тренировку стиха",
-        title:
-          status === "REVIEW"
-            ? "Перейти к повторению"
-            : "Продолжить тренировку",
-        icon: Dumbbell,
-      };
-    }
+  if (allowedActions.has("train") && !isNotYetDue) {
+    return {
+      id: "train",
+      label: "Тренироваться",
+      ariaLabel:
+        status === "REVIEW"
+          ? "Перейти к повторению стиха"
+          : "Продолжить тренировку стиха",
+      title:
+        status === "REVIEW"
+          ? "Перейти к повторению"
+          : "Продолжить тренировку",
+      icon: Dumbbell,
+    };
   }
 
   if (status === "CATALOG") {
@@ -275,11 +257,11 @@ function getPrimaryAction(params: {
 }
 
 function getUtilityAction(params: {
-  status: DisplayVerseStatus;
-  flow: VerseFlow | null;
+  displayStatus: DisplayVerseStatus;
+  allowedActions: ReadonlySet<VerseAction>;
 }): VerseCardActionSpec | null {
-  const { status, flow } = params;
-  if (flow && !hasVerseAction({ flow }, "pause")) {
+  const { displayStatus: status, allowedActions } = params;
+  if (!allowedActions.has("pause")) {
     return null;
   }
 

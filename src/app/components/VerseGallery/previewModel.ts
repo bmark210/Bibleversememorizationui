@@ -15,8 +15,7 @@ import {
 } from "./utils";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
-  getVerseDisplayStatus,
-  getVerseProgressPercent,
+  resolveVerseState,
 } from "@/shared/verseRules";
 
 export type PreparedPreviewUser = {
@@ -227,7 +226,8 @@ export function getPreparedVersePreview(
     return cached;
   }
 
-  const status = getVerseDisplayStatus(verse);
+  const resolved = resolveVerseState(verse);
+  const status = resolved.displayStatus;
   const popularityValue =
     typeof verse.popularityValue === "number"
       ? Math.max(0, Math.round(verse.popularityValue))
@@ -247,7 +247,7 @@ export function getPreparedVersePreview(
       isAnchorEligible,
     }),
     tone: getPreviewTone(status),
-    totalProgressPercent: getVerseProgressPercent(verse),
+    totalProgressPercent: resolved.progress.progressPercent,
     normalizedTags: normalizeTags(verse),
     previewUsers: normalizePreviewUsers(verse),
     popularityValue,

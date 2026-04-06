@@ -2,12 +2,10 @@
 
 import { HelpCircle } from "lucide-react";
 import type { Verse } from "@/app/domain/verse";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
-import { VerseStatus } from "@/shared/domain/verseStatus";
-import { computeVerseProgressBreakdown } from "@/shared/training/verseTotalProgress";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import { cn } from "@/app/components/ui/utils";
 import { getTrainingModeShortLabel } from "./trainingModeMeta";
+import { resolveVerseState } from "@/shared/verseRules";
 
 type TrainingExerciseModeHeaderProps = {
   modeId: TrainingModeId;
@@ -24,11 +22,9 @@ function resolvePhaseChip(verse: Verse): {
   pillClass: string;
   progressPercent: number;
 } {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  const { progressPercent } = computeVerseProgressBreakdown(
-    verse.masteryLevel,
-    verse.repetitions,
-  );
+  const resolved = resolveVerseState(verse);
+  const status = resolved.displayStatus;
+  const progressPercent = resolved.progress.progressPercent;
 
   if (status === "MASTERED") {
     return {
@@ -38,7 +34,7 @@ function resolvePhaseChip(verse: Verse): {
       progressPercent,
     };
   }
-  if (status === VerseStatus.STOPPED) {
+  if (resolved.isPaused) {
     return {
       label: "Пауза",
       pillClass:

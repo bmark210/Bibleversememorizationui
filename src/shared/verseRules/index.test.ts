@@ -6,6 +6,7 @@ import {
   getVerseDisplayStatus,
   getVerseProgressPercent,
   getVerseResolvedProgress,
+  getVerseTrainingLaunchMode,
   isVerseDueForTraining,
   matchesVerseListFilter,
 } from "@/shared/verseRules";
@@ -73,4 +74,57 @@ test("resolved progress prefers backend flow values", () => {
     remainingRepeats: 3,
     progressPercent: 79,
   });
+});
+
+test("training launch mode follows resolved flow availability", () => {
+  assert.equal(
+    getVerseTrainingLaunchMode({
+      status: VerseStatus.LEARNING,
+      flow: normalizeVerseFlow({ code: "LEARNING" }),
+      masteryLevel: 2,
+      repetitions: 0,
+      nextReviewAt: null,
+      nextReview: null,
+    }),
+    "learning",
+  );
+
+  assert.equal(
+    getVerseTrainingLaunchMode({
+      status: VerseStatus.LEARNING,
+      flow: normalizeVerseFlow({ code: "REVIEW_DUE" }),
+      masteryLevel: 7,
+      repetitions: 1,
+      nextReviewAt: null,
+      nextReview: null,
+    }),
+    "review",
+  );
+
+  assert.equal(
+    getVerseTrainingLaunchMode({
+      status: VerseStatus.LEARNING,
+      flow: normalizeVerseFlow({
+        code: "REVIEW_WAITING",
+        availableAt: "2099-01-01T00:00:00.000Z",
+      }),
+      masteryLevel: 7,
+      repetitions: 1,
+      nextReviewAt: "2099-01-01T00:00:00.000Z",
+      nextReview: "2099-01-01T00:00:00.000Z",
+    }),
+    null,
+  );
+
+  assert.equal(
+    getVerseTrainingLaunchMode({
+      status: VerseStatus.LEARNING,
+      flow: normalizeVerseFlow({ code: "MASTERED" }),
+      masteryLevel: 7,
+      repetitions: 7,
+      nextReviewAt: null,
+      nextReview: null,
+    }),
+    "anchor",
+  );
 });

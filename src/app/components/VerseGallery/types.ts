@@ -16,13 +16,6 @@ export type Rating = TrainingModeRating;
 export type TrainingSubsetFilter = "learning" | "review" | "catalog";
 export type ModeId = TrainingModeId;
 
-export type GalleryStatusAction = {
-  nextStatus: VerseStatus;
-  label: string;
-  icon: LucideIcon;
-  successMessage: string;
-};
-
 export type VersePreviewOverride = Partial<
   Pick<Verse, "status" | "flow" | "masteryLevel" | "repetitions">
 > & {

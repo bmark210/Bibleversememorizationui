@@ -18,8 +18,8 @@ import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { resolveVerseState } from "@/shared/verseRules";
 import type { TrainingOrder } from "../types";
 import { useTrainingSession } from "./useTrainingSession";
 import { useHintState } from "@/app/components/training-session/modes/useHintState";
@@ -43,9 +43,9 @@ import type { TrainingModeInlineActionsProps } from "@/app/components/training-s
 function getSubsetCounts(verses: Verse[]) {
   return verses.reduce(
     (acc, verse) => {
-      const status = normalizeDisplayVerseStatus(verse.status);
-      if (status === "LEARNING") acc.learning += 1;
-      if (status === "REVIEW") acc.review += 1;
+      const resolved = resolveVerseState(verse);
+      if (resolved.isLearning) acc.learning += 1;
+      if (resolved.isReview) acc.review += 1;
       return acc;
     },
     { learning: 0, review: 0 }
@@ -75,10 +75,8 @@ function filterVersesBySubset(
 ): Verse[] {
   if (subsetFilter === "catalog") return verses;
   return verses.filter((verse) => {
-    const status = normalizeDisplayVerseStatus(verse.status);
-    return subsetFilter === "learning"
-      ? status === "LEARNING"
-      : status === "REVIEW";
+    const resolved = resolveVerseState(verse);
+    return subsetFilter === "learning" ? resolved.isLearning : resolved.isReview;
   });
 }
 
