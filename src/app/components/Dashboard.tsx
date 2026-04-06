@@ -182,7 +182,7 @@ export function Dashboard({
    
     <section
       className={cn(
-        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 content-start grid-cols-1 grid-rows-[auto_auto_auto] overflow-y-auto',
+        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-cols-1 grid-rows-[auto_auto_auto] overflow-y-auto',
         'gap-2 px-3 py-2 sm:gap-3 sm:py-3',
         'lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] lg:grid-rows-[auto_auto]',
         'sm:px-4 lg:px-5',

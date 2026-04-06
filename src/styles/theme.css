@@ -409,6 +409,24 @@ body[data-theme='dark'] {
     pointer-events: none;
   }
 
+  :root[data-app-booting='true'] [class*='backdrop-blur'],
+  :root[data-app-booting='true'] [class*='backdrop-blur-sm'],
+  :root[data-app-booting='true'] [class*='backdrop-blur-md'],
+  :root[data-app-booting='true'] [class*='backdrop-blur-lg'],
+  :root[data-app-booting='true'] [class*='backdrop-blur-xl'],
+  :root[data-app-booting='true'] [class*='backdrop-blur-2xl'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  :root[data-app-booting='true'] [data-slot='card'],
+  :root[data-app-booting='true'] [data-slot='drawer-content'],
+  :root[data-app-booting='true'] [data-slot='dialog-content'],
+  :root[data-app-booting='true'] [data-slot='alert-dialog-content'] {
+    background-color: rgba(var(--bg-elevated-rgb), 0.98) !important;
+    box-shadow: 0 12px 28px -22px rgba(var(--text-primary-rgb), 0.12) !important;
+  }
+
   /* body::after {
     content: '';
     position: fixed;

@@ -53,6 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   var theme=(stored==='light'||stored==='dark')?stored:(telegramTheme||'light');
   var root=document.documentElement;
   root.setAttribute('data-theme',theme);
+  root.setAttribute('data-app-booting','true');
   root.classList.remove('light','dark');
   root.classList.add(theme);
   root.style.colorScheme=theme;

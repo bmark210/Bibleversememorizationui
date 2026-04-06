@@ -90,6 +90,21 @@ export default function Page() {
     return () => window.cancelAnimationFrame(frameId)
   }, [showBootOverlay])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (showBootOverlay || !showAppContent) {
+      root.setAttribute('data-app-booting', 'true')
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      root.removeAttribute('data-app-booting')
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [showAppContent, showBootOverlay])
+
   if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === null) {
     return (
       <div className="relative min-h-screen bg-bg-app">
@@ -132,7 +147,7 @@ export default function Page() {
     <div className="relative min-h-screen">
       {mounted ? (
         <div
-        className={`transition-opacity duration-300 ease-out ${
+        className={`${
           showAppContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           aria-hidden={!showAppContent}
