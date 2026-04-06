@@ -2,10 +2,16 @@ import React from "react";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { SwipeableVerseCard } from "@/app/components/verse-list/components/SwipeableVerseCard";
 import { VersePreviewCard } from "@/app/components/VerseGallery/components/VersePreviewCard";
+import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewModel";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import {
+  OWNED_COLLECTION_BADGE_CLASS_NAME,
+  OWNED_COLLECTION_CARD_TONE,
+} from "@/app/components/verseStatusVisuals";
 
 function createVerse(
   overrides: Partial<Verse> & Pick<Verse, "status">,
@@ -35,28 +41,43 @@ function createVerse(
   };
 }
 
-function renderListCard(verse: Verse) {
+function renderListCard(
+  verse: Verse,
+  options?: { isCatalogMode?: boolean; withOwnersHandler?: boolean },
+) {
   return renderToStaticMarkup(
     <SwipeableVerseCard
       verse={verse}
       onOpen={() => {}}
+      onOpenOwners={options?.withOwnersHandler ? () => {} : undefined}
       onAddToLearning={() => {}}
       onStartTraining={() => {}}
       onPauseLearning={() => {}}
       onResumeLearning={() => {}}
+      isCatalogMode={options?.isCatalogMode}
     />,
   );
 }
 
-function renderGalleryCard(verse: Verse) {
+function renderGalleryCard(
+  verse: Verse,
+  options?: { sourceMode?: "my" | "catalog" },
+) {
   return renderToStaticMarkup(
     <VersePreviewCard
-      verse={verse}
+      preview={getPreparedVersePreview(verse)}
+      sourceMode={options?.sourceMode}
       isActionPending={false}
       onStartTraining={() => {}}
       onStatusAction={() => {}}
     />,
   );
+}
+
+function assertIncludesClassTokens(html: string, className: string) {
+  for (const token of className.split(" ").filter(Boolean)) {
+    assert.ok(html.includes(token), `Missing class token ${token}`);
+  }
 }
 
 test("list cards do not render progress pill for catalog and my states", () => {
@@ -77,6 +98,68 @@ test("gallery cards do not render progress pill for catalog and my states", () =
   assert.ok(!myHtml.includes("Показать путь прогресса стиха"));
   assert.ok(!catalogHtml.includes("В изучении"));
   assert.ok(!myHtml.includes("В изучении"));
+});
+
+test("catalog gallery preview keeps stronger reference chrome without overriding chip style", () => {
+  const html = renderGalleryCard(
+    createVerse({
+      status: "CATALOG",
+      tags: [
+        { id: "1", slug: "apologetics", title: "Апологетика" },
+        { id: "2", slug: "truth", title: "Истина" },
+      ],
+      popularityScope: "players",
+      popularityValue: 5,
+    }),
+    { sourceMode: "catalog" },
+  );
+
+  assertIncludesClassTokens(
+    html,
+    VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.referenceClassName,
+  );
+  assertIncludesClassTokens(
+    html,
+    VERSE_CARD_COLOR_CONFIG.tagClassName,
+  );
+});
+
+test("catalog actions in list and gallery use the collection accent tone", () => {
+  const catalogListHtml = renderListCard(
+    createVerse({ status: "CATALOG" }),
+    { isCatalogMode: true },
+  );
+  const catalogGalleryHtml = renderGalleryCard(
+    createVerse({ status: "CATALOG" }),
+    { sourceMode: "catalog" },
+  );
+
+  assertIncludesClassTokens(
+    catalogListHtml,
+    `${OWNED_COLLECTION_CARD_TONE.accentBorderClassName} ${OWNED_COLLECTION_CARD_TONE.accentTextClassName}`,
+  );
+  assertIncludesClassTokens(
+    catalogGalleryHtml,
+    `${OWNED_COLLECTION_CARD_TONE.accentBorderClassName} ${OWNED_COLLECTION_CARD_TONE.accentTextClassName}`,
+  );
+});
+
+test("my verses reuse the same owned collection presentation as catalog cards", () => {
+  const myHtml = renderListCard(createVerse({ status: VerseStatus.MY }));
+  const catalogOwnedHtml = renderGalleryCard(
+    createVerse({ status: VerseStatus.MY }),
+    { sourceMode: "catalog" },
+  );
+
+  assert.ok(myHtml.includes("В моих"));
+  assert.ok(myHtml.includes("Начать изучение"));
+  assert.ok(!myHtml.includes("Убрать из моих"));
+  assert.ok(myHtml.includes("bg-[#8c6a3b]/85"));
+  assert.ok(catalogOwnedHtml.includes("Убрать из моих"));
+  assertIncludesClassTokens(myHtml, OWNED_COLLECTION_BADGE_CLASS_NAME);
+  assert.ok(
+    catalogOwnedHtml.includes(OWNED_COLLECTION_BADGE_CLASS_NAME),
+  );
 });
 
 test("learning and review cards keep distinct status pills in list and gallery", () => {
@@ -120,14 +203,13 @@ test("list cards hide training CTA while gallery keeps it", () => {
   assert.ok(galleryHtml.includes("Тренироваться"));
 });
 
-test("gallery learning cards place pause inline next to training without visible label", () => {
+test("gallery learning cards keep the primary training CTA without assuming inline pause", () => {
   const galleryHtml = renderGalleryCard(
     createVerse({ status: VerseStatus.LEARNING, masteryLevel: 2 }),
   );
 
-  assert.ok(galleryHtml.includes('data-tour="verse-gallery-inline-utility"'));
   assert.ok(galleryHtml.includes("Тренироваться"));
-  assert.ok(!galleryHtml.includes(">Пауза<"));
+  assert.ok(!galleryHtml.includes('data-tour="verse-gallery-inline-utility"'));
 });
 
 test("waiting review shows waiting title and a separate next-step pill", () => {
@@ -152,8 +234,8 @@ test("waiting review shows waiting title and a separate next-step pill", () => {
   assert.ok(galleryHtml.includes("В ожидании"));
   assert.ok(!listHtml.includes("В изучении"));
   assert.ok(!galleryHtml.includes("В изучении"));
-  assert.match(listHtml, /Сегодня в|Завтра в|до /);
-  assert.match(galleryHtml, /Сегодня в|Завтра в|до /);
+  assert.match(listHtml, /Доступно сегодня в|Доступно завтра в|Доступно /);
+  assert.match(galleryHtml, /Доступно сегодня в|Доступно завтра в|Доступно /);
   assert.ok(!listHtml.includes("Ждёт повтора"));
   assert.ok(!galleryHtml.includes("Ждёт повтора"));
 });
@@ -168,4 +250,251 @@ test("stopped and mastered keep their own distinct pills", () => {
 
   assert.ok(stoppedHtml.includes("На паузе"));
   assert.ok(masteredHtml.includes("Выучен"));
+});
+
+test("list cards and gallery share the same icon and palette tokens for core statuses", () => {
+  const cases = [
+    {
+      verse: createVerse({ status: VerseStatus.LEARNING, masteryLevel: 2 }),
+      iconClass: "lucide-brain",
+      classTokens: [
+        "border-status-learning/25",
+        "bg-status-learning-soft",
+        "text-status-learning/85",
+        "text-status-learning",
+      ],
+    },
+    {
+      verse: createVerse({
+        status: "REVIEW",
+        masteryLevel: 7,
+        repetitions: 2,
+        nextReviewAt: "2000-01-01T00:00:00.000Z",
+      }),
+      iconClass: "lucide-refresh-cw",
+      classTokens: [
+        "border-status-review/25",
+        "bg-status-review-soft",
+        "text-status-review/85",
+        "text-status-review",
+      ],
+    },
+    {
+      verse: createVerse({ status: "MASTERED", masteryLevel: 7, repetitions: 7 }),
+      iconClass: "lucide-trophy",
+      classTokens: [
+        "border-status-mastered/25",
+        "bg-status-mastered-soft",
+        "text-status-mastered/85",
+        "text-status-mastered",
+      ],
+    },
+    {
+      verse: createVerse({ status: VerseStatus.STOPPED, masteryLevel: 4 }),
+      iconClass: "lucide-pause",
+      classTokens: [
+        "border-status-paused/25",
+        "bg-status-paused-soft",
+        "text-status-paused/85",
+        "text-status-paused",
+      ],
+    },
+  ];
+
+  for (const { verse, iconClass, classTokens } of cases) {
+    const listHtml = renderListCard(verse);
+    const galleryHtml = renderGalleryCard(verse);
+
+    assert.ok(listHtml.includes(iconClass));
+    assert.ok(galleryHtml.includes(iconClass));
+    assertIncludesClassTokens(listHtml, classTokens.join(" "));
+    assertIncludesClassTokens(galleryHtml, classTokens.join(" "));
+  }
+});
+
+test("list footer keeps status social badge and progress on one horizontal line", () => {
+  const html = renderListCard(
+    createVerse({
+      status: VerseStatus.LEARNING,
+      masteryLevel: 2,
+      popularityScope: "players",
+      popularityValue: 9,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+  );
+
+  const statusIndex = html.indexOf("В изучении");
+  const socialIndex = html.indexOf("lucide-users");
+  const progressIndex = html.indexOf('aria-label="Освоение ');
+
+  assert.notEqual(statusIndex, -1);
+  assert.notEqual(socialIndex, -1);
+  assert.notEqual(progressIndex, -1);
+  assert.ok(statusIndex < socialIndex);
+  assert.ok(socialIndex < progressIndex);
+  assert.ok(
+    html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+});
+
+test("catalog list cards keep the players pill left-aligned in the footer", () => {
+  const html = renderListCard(
+    createVerse({
+      status: "CATALOG",
+      popularityScope: "players",
+      popularityValue: 2,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+    { isCatalogMode: true, withOwnersHandler: true },
+  );
+
+  assert.ok(html.includes("У игроков: "));
+  assert.ok(html.includes("flex items-center justify-start pt-3"));
+  assert.ok(
+    !html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+});
+
+test("owned collection cards keep status left and players in the center row", () => {
+  const html = renderListCard(
+    createVerse({
+      status: VerseStatus.MY,
+      popularityScope: "players",
+      popularityValue: 3,
+      popularityPreviewUsers: [
+        {
+          telegramId: "1",
+          name: "User One",
+          avatarUrl: null,
+        },
+      ],
+    }),
+    { isCatalogMode: true, withOwnersHandler: true },
+  );
+
+  const socialIndex = html.indexOf("У игроков: ");
+  const badgeIndex = html.indexOf("В моих");
+
+  assert.notEqual(socialIndex, -1);
+  assert.notEqual(badgeIndex, -1);
+  assert.ok(badgeIndex < socialIndex);
+  assert.ok(
+    html.includes(
+      "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-3",
+    ),
+  );
+  assert.ok(!html.includes("space-y-2 pt-3"));
+});
+
+test("list and gallery tags share one neutral color treatment", () => {
+  const verseWithTags = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [
+      { id: "1", slug: "hope", title: "Надежда" },
+      { id: "2", slug: "faith", title: "Вера" },
+    ],
+  });
+
+  const listHtml = renderListCard(verseWithTags);
+  const galleryHtml = renderGalleryCard(verseWithTags);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+});
+
+test("players pill uses one shared social chrome in list and gallery", () => {
+  const verseWithPopularity = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verseWithPopularity, {
+    withOwnersHandler: true,
+  });
+  const galleryHtml = renderGalleryCard(verseWithPopularity);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assert.ok(listHtml.includes("У игроков: "));
+  assert.ok(galleryHtml.includes("У игроков 8"));
+});
+
+test("catalog gallery keeps the same tag and social chrome as list cards", () => {
+  const verse = createVerse({
+    status: "CATALOG",
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verse, {
+    isCatalogMode: true,
+    withOwnersHandler: true,
+  });
+  const galleryHtml = renderGalleryCard(verse, { sourceMode: "catalog" });
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assert.ok(listHtml.includes("У игроков: "));
+  assert.ok(galleryHtml.includes("У игроков 8"));
+});
+
+test("tags keep a calmer chrome than the players pill in list and gallery", () => {
+  const verse = createVerse({
+    status: VerseStatus.LEARNING,
+    tags: [{ id: "1", slug: "hope", title: "Надежда" }],
+    popularityScope: "players",
+    popularityValue: 8,
+    popularityPreviewUsers: [
+      {
+        telegramId: "1",
+        name: "User One",
+        avatarUrl: null,
+      },
+    ],
+  });
+
+  const listHtml = renderListCard(verse, { withOwnersHandler: true });
+  const galleryHtml = renderGalleryCard(verse);
+
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(listHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.tagClassName);
+  assertIncludesClassTokens(galleryHtml, VERSE_CARD_COLOR_CONFIG.socialChipClassName);
+  assert.notEqual(
+    VERSE_CARD_COLOR_CONFIG.tagClassName,
+    VERSE_CARD_COLOR_CONFIG.socialChipClassName,
+  );
 });

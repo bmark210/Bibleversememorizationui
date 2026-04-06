@@ -1,6 +1,6 @@
 import type { DragQuestion, TrainingVerse, TypeQuestion } from "../../types";
 import { shuffle, MAX_TYPING_ATTEMPTS } from "./builderUtils";
-import { normalizeIncipitText, extractWordTokens } from "../../services/validation";
+import { extractWordTokens } from "../../services/validation";
 import { matchesIncipitWithTolerance } from "../../services/validation";
 
 /**

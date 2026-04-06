@@ -1,6 +1,7 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VerseIdentityRef, VerseMutablePatch } from "@/app/types/verseSync";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import { normalizeVerseFlow } from "@/shared/domain/verseFlow";
 
 type VerseLikeIdentity = Pick<Verse, "id" | "externalVerseId">;
 
@@ -59,6 +60,10 @@ export function pickMutableVersePatchFromApiResponse(raw: unknown): VerseMutable
     patch.status = normalizeDisplayVerseStatus(responseRecord.status);
     hasPatchFields = true;
   }
+  if (hasOwn(responseRecord, "flow")) {
+    patch.flow = normalizeVerseFlow(responseRecord.flow);
+    hasPatchFields = true;
+  }
   if (hasOwn(responseRecord, "masteryLevel")) {
     patch.masteryLevel = readNullableNumber(responseRecord.masteryLevel);
     hasPatchFields = true;
@@ -95,4 +100,13 @@ export function mergeVersePatch<T extends Verse>(verse: T, patch: VerseMutablePa
     ...verse,
     ...patch,
   } as T;
+}
+
+/** Extracts the list of externalVerseIds auto-promoted from QUEUE → LEARNING,
+ *  as returned by the backend in the `promotedVerseIds` field. */
+export function extractPromotedVerseIds(raw: unknown): string[] {
+  if (!isRecord(raw)) return [];
+  const ids = raw.promotedVerseIds;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string => typeof id === 'string');
 }

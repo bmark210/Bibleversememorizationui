@@ -8,6 +8,7 @@ import type { internal_api_BooleanOKResponse } from '../models/internal_api_Bool
 import type { internal_api_CreateTagRequest } from '../models/internal_api_CreateTagRequest';
 import type { internal_api_UpdateTagRequest } from '../models/internal_api_UpdateTagRequest';
 import type { internal_api_VerseTagMutationRequest } from '../models/internal_api_VerseTagMutationRequest';
+import type { internal_api_VerseTagsPutRequest } from '../models/internal_api_VerseTagsPutRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -142,6 +143,31 @@ export class TagsService {
                 'externalVerseId': externalVerseId,
             },
             errors: {
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Replace verse tags (full sync)
+     * @param externalVerseId External verse ID
+     * @param request Tag slugs (empty clears all)
+     * @returns bible_memory_db_internal_domain_Tag OK
+     * @throws ApiError
+     */
+    public static replaceVerseTags(
+        externalVerseId: string,
+        request: internal_api_VerseTagsPutRequest,
+    ): CancelablePromise<Array<bible_memory_db_internal_domain_Tag>> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/verses/{externalVerseId}/tags',
+            path: {
+                'externalVerseId': externalVerseId,
+            },
+            body: request,
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
                 500: `Internal Server Error`,
             },
         });

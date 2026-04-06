@@ -6,17 +6,12 @@ test("core learning success produces positive XP popup with learning stage", () 
   const popup = buildTrainingProgressPopupPayload({
     reference: "Ин. 3:16",
     context: "core",
+    xpDelta: 10,
     before: {
       status: "LEARNING",
-      difficultyLevel: "EASY",
-      masteryLevel: 2,
-      repetitions: 0,
     },
     after: {
       status: "LEARNING",
-      difficultyLevel: "EASY",
-      masteryLevel: 3,
-      repetitions: 0,
     },
   });
 
@@ -30,17 +25,12 @@ test("review success keeps review stage and adds XP", () => {
   const popup = buildTrainingProgressPopupPayload({
     reference: "Рим. 8:28",
     context: "core",
+    xpDelta: 18,
     before: {
       status: "REVIEW",
-      difficultyLevel: "EASY",
-      masteryLevel: 7,
-      repetitions: 1,
     },
     after: {
       status: "REVIEW",
-      difficultyLevel: "EASY",
-      masteryLevel: 7,
-      repetitions: 2,
     },
   });
 
@@ -53,17 +43,12 @@ test("downgrade builds negative popup with lower stage", () => {
   const popup = buildTrainingProgressPopupPayload({
     reference: "Пс. 22:1",
     context: "core",
+    xpDelta: -10,
     before: {
       status: "LEARNING",
-      difficultyLevel: "EASY",
-      masteryLevel: 1,
-      repetitions: 0,
     },
     after: {
       status: "MY",
-      difficultyLevel: "EASY",
-      masteryLevel: 0,
-      repetitions: 0,
     },
   });
 
@@ -78,17 +63,12 @@ test("same stage without XP delta does not create popup", () => {
   const popup = buildTrainingProgressPopupPayload({
     reference: "Мф. 5:9",
     context: "core",
+    xpDelta: 0,
     before: {
       status: "MY",
-      difficultyLevel: "EASY",
-      masteryLevel: 0,
-      repetitions: 0,
     },
     after: {
       status: "MY",
-      difficultyLevel: "EASY",
-      masteryLevel: 0,
-      repetitions: 0,
     },
   });
 
@@ -100,23 +80,12 @@ test("anchor popup includes track detail and uses score delta for XP", () => {
     reference: "Флп. 4:13",
     context: "anchor",
     track: "reference",
+    xpDelta: 2,
     before: {
       status: "REVIEW",
-      difficultyLevel: "EASY",
-      masteryLevel: 7,
-      repetitions: 1,
-      referenceScore: 0,
-      incipitScore: 0,
-      contextScore: 0,
     },
     after: {
       status: "REVIEW",
-      difficultyLevel: "EASY",
-      masteryLevel: 7,
-      repetitions: 1,
-      referenceScore: 30,
-      incipitScore: 0,
-      contextScore: 0,
     },
   });
 
@@ -129,33 +98,23 @@ test("difficulty changes XP delta even with same progress delta", () => {
   const easyPopup = buildTrainingProgressPopupPayload({
     reference: "Иак. 1:5",
     context: "core",
+    xpDelta: 10,
     before: {
       status: "LEARNING",
-      difficultyLevel: "EASY",
-      masteryLevel: 1,
-      repetitions: 0,
     },
     after: {
       status: "LEARNING",
-      difficultyLevel: "EASY",
-      masteryLevel: 2,
-      repetitions: 0,
     },
   });
   const hardPopup = buildTrainingProgressPopupPayload({
     reference: "Иак. 1:5",
     context: "core",
+    xpDelta: 15,
     before: {
       status: "LEARNING",
-      difficultyLevel: "HARD",
-      masteryLevel: 1,
-      repetitions: 0,
     },
     after: {
       status: "LEARNING",
-      difficultyLevel: "HARD",
-      masteryLevel: 2,
-      repetitions: 0,
     },
   });
 

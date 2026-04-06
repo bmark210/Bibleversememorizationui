@@ -1,4 +1,4 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
@@ -10,10 +10,29 @@ export type TrainingScenario = "core" | "anchor";
 /** Training order — how to sort verses before session start */
 export type TrainingOrder = "updatedAt" | "bible" | "popularity";
 
+/** Sub-scenario within the Игры tab */
+export type AnchorSubScenario = "interactive" | "flashcard";
+
+/** Flashcard mode — which side to hide */
+export type FlashcardMode = "reference" | "verse";
+
+export const FLASHCARD_MODE_LABELS: Record<FlashcardMode, string> = {
+  reference: "Ссылка",
+  verse: "Стих",
+};
+
+export const FLASHCARD_MODE_DESCRIPTIONS: Record<FlashcardMode, string> = {
+  reference: "Текст → вспомни ссылку",
+  verse: "Ссылка → вспомни текст",
+};
+
+export const ALL_FLASHCARD_MODES: FlashcardMode[] = ["reference", "verse"];
+
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
   | { mode: "hub" }
   | { mode: "anchor"; anchorModes: AnchorModeGroup[] }
+  | { mode: "flashcard"; flashcardMode: FlashcardMode }
   | {
       mode: "verse-session";
       verses: Verse[];
@@ -60,7 +79,7 @@ export const TRAINING_MODE_LABELS: Record<TrainingMode, string> = {
 
 export const TRAINING_SCENARIO_LABELS: Record<TrainingScenario, string> = {
   core: "Практика",
-  anchor: "Закрепление",
+  anchor: "Игры",
 };
 
 /** Anchor mode groups — user-facing categories that map to TrainerModeId sets */

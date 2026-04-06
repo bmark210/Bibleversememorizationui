@@ -122,6 +122,7 @@ interface AddVerseDialogProps {
   onClose: () => void;
   mode?: 'verse' | 'tag';
   viewerTelegramId?: string | null;
+  adminAccessEnabled?: boolean;
   onAdd?: (verse: {
     externalVerseId: string;
     reference: string;
@@ -129,6 +130,7 @@ interface AddVerseDialogProps {
     replaceTags?: boolean;
   }) => Promise<void>;
   onCreateTag?: (title: string, slug: string) => Promise<void>;
+  onCatalogMutated?: () => void;
 }
 
 type SelectedVerse = {
@@ -155,8 +157,10 @@ export function AddVerseDialog({
   onClose,
   mode = 'verse',
   viewerTelegramId: viewerTelegramIdProp = null,
+  adminAccessEnabled = true,
   onAdd,
   onCreateTag,
+  onCatalogMutated,
 }: AddVerseDialogProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -240,7 +244,7 @@ export function AddVerseDialog({
   const canFetch = Boolean(isCanonicalBookSelected && selectedChapterNo && hasValidRange);
   const canSubmit = Boolean(selectedVerse && !submitting);
   const newTagSlug = slugify(newTagTitle);
-  const isAdmin = isAdminTelegramId(viewerTelegramId);
+  const hasAdminAccess = !adminAccessEnabled || isAdminTelegramId(viewerTelegramId);
 
   // ── Загружаем теги при открытии ───────────────────────────────────────────
 
@@ -288,11 +292,11 @@ export function AddVerseDialog({
   }, [open, viewerTelegramIdProp]);
 
   useEffect(() => {
-    if (isAdmin) return;
+    if (hasAdminAccess) return;
     setTagDeleteMode(false);
     setEditingTagId(null);
     setEditingTagTitle("");
-  }, [isAdmin]);
+  }, [hasAdminAccess]);
 
   // ── Загружаем количество стихов при выборе главы ────────────────────────────
 
@@ -330,7 +334,7 @@ export function AddVerseDialog({
   }, [translation, bookId, chapterNo]);
 
   useEffect(() => {
-    if (!open || !selectedVerse || !isAdmin || !viewerTelegramId) {
+    if (!open || !selectedVerse || !hasAdminAccess || !viewerTelegramId) {
       setAdminVerseSummary(null);
       setAdminVerseSummaryLoading(false);
       return;
@@ -375,7 +379,7 @@ export function AddVerseDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, selectedVerse, isAdmin, viewerTelegramId]);
+  }, [hasAdminAccess, open, selectedVerse, viewerTelegramId]);
 
   // ── Функции ──────────────────────────────────────────────────────────────────
 
@@ -405,12 +409,12 @@ export function AddVerseDialog({
   }, []);
 
   const beginTagRename = useCallback((tag: domain_Tag) => {
-    if (!isAdmin) return;
+    if (!hasAdminAccess) return;
     if (!tag.id) return;
     setEditingTagId(tag.id);
     setEditingTagTitle((tag.title ?? "").trim());
     setTagDeleteMode(false);
-  }, [isAdmin]);
+  }, [hasAdminAccess]);
 
   const cancelTagRename = useCallback(() => {
     setEditingTagId(null);
@@ -418,7 +422,7 @@ export function AddVerseDialog({
   }, []);
 
   const handleRenameTag = useCallback(async () => {
-    if (!isAdmin) {
+    if (!hasAdminAccess) {
       toast.error("Переименовывать теги может только администратор", {
         label: "Теги",
       });
@@ -462,6 +466,7 @@ export function AddVerseDialog({
 
       setEditingTagId(null);
       setEditingTagTitle("");
+      onCatalogMutated?.();
       toast.success("Название тега обновлено", {
         label: "Теги",
       });
@@ -472,10 +477,10 @@ export function AddVerseDialog({
     } finally {
       setSavingTagId(null);
     }
-  }, [editingTagId, editingTagTitle, isAdmin, viewerTelegramId]);
+  }, [editingTagId, editingTagTitle, hasAdminAccess, onCatalogMutated, viewerTelegramId]);
 
   const handleDeleteVerseFromCatalog = useCallback(async () => {
-    if (!selectedVerse || !isAdmin || !viewerTelegramId) return;
+    if (!selectedVerse || !hasAdminAccess || !viewerTelegramId) return;
     const { externalVerseId } = selectedVerse;
 
     const confirmed = window.confirm(
@@ -516,6 +521,7 @@ export function AddVerseDialog({
 
       setAdminVerseSummary(null);
       setSelectedTagSlugs(new Set());
+      onCatalogMutated?.();
       toast.success("Стих удалён из общей базы", {
         label: "База стихов",
       });
@@ -527,7 +533,7 @@ export function AddVerseDialog({
     } finally {
       setIsDeletingVerseFromCatalog(false);
     }
-  }, [isAdmin, selectedVerse, viewerTelegramId]);
+  }, [hasAdminAccess, onCatalogMutated, selectedVerse, viewerTelegramId]);
 
   const handleCreateTag = async () => {
     if (!newTagTitle.trim() || !newTagSlug || creatingTag) return;
@@ -548,6 +554,7 @@ export function AddVerseDialog({
       }
       setNewTagTitle("");
       setCreateTagMode(false);
+      onCatalogMutated?.();
     } catch {
       toast.error("Не удалось создать тег", {
         label: "Теги",
@@ -558,7 +565,7 @@ export function AddVerseDialog({
   };
 
   const handleDeleteTag = async (tag: domain_Tag) => {
-    if (!isAdmin) {
+    if (!hasAdminAccess) {
       toast.error("Удалять теги может только администратор", {
         label: "Теги",
       });
@@ -619,6 +626,7 @@ export function AddVerseDialog({
           return next;
         });
       }
+      onCatalogMutated?.();
       toast.success(`Тег «${tag.title}» удалён`, {
         label: "Теги",
       });
@@ -769,7 +777,7 @@ export function AddVerseDialog({
               Сбросить
             </button>
           )}
-          {!createTagMode && allTags.length > 0 && isAdmin && (
+          {!createTagMode && allTags.length > 0 && hasAdminAccess && (
             <button
               type="button"
               onClick={() => setTagDeleteMode((prev) => !prev)}
@@ -806,13 +814,13 @@ export function AddVerseDialog({
         </p>
       )}
 
-      {manageOnly && isAdmin && !createTagMode && !tagDeleteMode && allTags.length > 0 && (
+      {manageOnly && hasAdminAccess && !createTagMode && !tagDeleteMode && allTags.length > 0 && (
         <p className="px-4 text-[11px] text-muted-foreground/75">
           Нажмите на тег, чтобы переименовать
         </p>
       )}
 
-      {manageOnly && !isAdmin ? (
+      {manageOnly && !hasAdminAccess ? (
         <p className="px-4 text-[11px] text-muted-foreground/75">
           Создавать теги можно всем. Переименовывать и удалять теги может только администратор.
         </p>
@@ -867,7 +875,7 @@ export function AddVerseDialog({
               const canToggle = !manageOnly && !tagDeleteMode && Boolean(slug);
               const canRename =
                 manageOnly &&
-                isAdmin &&
+                hasAdminAccess &&
                 !tagDeleteMode &&
                 !createTagMode &&
                 Boolean(tag.id);
@@ -1076,7 +1084,7 @@ export function AddVerseDialog({
               <div className="space-y-2.5">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
                     <Input
                       id="search-query"
                       name="search-query"
@@ -1311,7 +1319,7 @@ export function AddVerseDialog({
 
             {/* ── Предпросмотр выбранного стиха ─────────────────────────────── */}
             {selectedVerse && (
-              <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/6 via-background/80 to-amber-500/10 dark:shadow-sm overflow-hidden">
+              <div className="overflow-hidden rounded-2xl border border-brand-primary/15 bg-gradient-to-br from-brand-primary/8 via-bg-elevated to-status-mastered-soft shadow-[var(--shadow-soft)]">
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
@@ -1339,7 +1347,7 @@ export function AddVerseDialog({
               </div>
             )}
 
-            {selectedVerse && isAdmin && (
+            {selectedVerse && hasAdminAccess && (
               <div className="rounded-2xl border border-destructive/25 bg-gradient-to-b from-background to-destructive/5 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -1395,9 +1403,9 @@ export function AddVerseDialog({
 
             {/* ── Теги ──────────────────────────────────────────────────────── */}
             {selectedVerse && !verseTagsLoaded && (
-              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                Не удалось синхронизировать текущие теги стиха. При сохранении будут добавлены только выбранные теги.
-              </p>
+                <p className="rounded-xl border border-state-warning/30 bg-state-warning/12 px-3 py-2 text-xs text-state-warning">
+                  Не удалось синхронизировать текущие теги стиха. При сохранении будут добавлены только выбранные теги.
+                </p>
             )}
             {selectedVerse && renderTagManager(false)}
           </div>

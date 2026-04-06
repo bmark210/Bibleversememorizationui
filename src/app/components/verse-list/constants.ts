@@ -1,19 +1,28 @@
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
-import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
-import { REPEAT_THRESHOLD_FOR_MASTERED, TRAINING_STAGE_MASTERY_MAX } from '@/shared/training/constants';
+import {
+  OWNED_COLLECTION_FILTER_THEME,
+  OWNED_COLLECTION_SECTION_THEME,
+} from "@/app/components/verseStatusVisuals";
+import {
+  getVerseDisplayStatus,
+  resolvePausedVerseKind,
+  resolveVerseJourneyPhase,
+  type PausedVerseKind,
+} from '@/shared/verseRules';
 
 export type VerseListStatusFilter =
   | "catalog"
-  | "friends"
   | "learning"
   | "review"
   | "mastered"
   | "stopped"
   | "my";
+
+export type MyVersesSectionKey = 'learning' | 'queue' | 'review' | 'mastered' | 'stopped' | 'my';
 export type VerseListSortBy = "updatedAt" | "bible" | "popularity";
-export type VerseStageVisualKey = VerseListStatusFilter;
-export type StoppedVerseStageKind = "progress" | "review" | "mastered";
+export type VerseStageVisualKey = VerseListStatusFilter | "queue";
+export type StoppedVerseStageKind = PausedVerseKind;
 
 export type FilterVisualTheme = {
   dotClassName: string;
@@ -29,135 +38,152 @@ export const AUTO_LOAD_BOTTOM_THRESHOLD_PX = 0;
 export const PREFETCH_ROWS = 6;
 // Minimum time to keep the list skeleton visible (initial fetch and load-more requests).
 export const LOAD_MORE_SKELETON_DELAY_MS = 250;
-export const STOPPED_REVIEW_MASTERY_THRESHOLD = TRAINING_STAGE_MASTERY_MAX;
-export const STOPPED_MASTERED_REPETITIONS_THRESHOLD = REPEAT_THRESHOLD_FOR_MASTERED;
-export const DEFAULT_VERSE_LIST_STATUS_FILTER: VerseListStatusFilter = "catalog";
+export const DEFAULT_VERSE_LIST_STATUS_FILTER: VerseListStatusFilter = "my";
 export const DEFAULT_VERSE_LIST_SORT_BY: VerseListSortBy = "bible";
 
 export const FILTER_VISUAL_THEME: Record<VerseListStatusFilter, FilterVisualTheme> = {
   catalog: {
-    dotClassName: 'bg-gray-400',
-    activeTabClassName: 'border-gray-500/30 bg-gray-500/14 text-gray-700 dark:text-gray-300',
-    currentBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
-    statusBadgeClassName: 'border-gray-500/25 bg-gray-500/10 text-gray-700 dark:text-gray-300',
-    cardClassName: 'bg-gradient-to-br from-gray-500/7 via-card to-card',
-  },
-  friends: {
-    dotClassName: 'bg-cyan-400',
-    activeTabClassName: 'border-cyan-500/30 bg-cyan-500/14 text-cyan-700 dark:text-cyan-300',
-    currentBadgeClassName:
-      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-    statusBadgeClassName:
-      'border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-    cardClassName: 'bg-gradient-to-br from-cyan-500/7 via-card to-card',
+    dotClassName: 'bg-text-muted',
+    activeTabClassName: 'border-border-default bg-bg-elevated text-text-secondary shadow-[var(--shadow-soft)]',
+    currentBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
+    statusBadgeClassName: 'border-border-default bg-bg-elevated text-text-secondary',
+    cardClassName: 'bg-gradient-to-br from-bg-subtle via-bg-surface to-bg-elevated',
   },
   learning: {
-    dotClassName: 'bg-emerald-400',
+    dotClassName: 'bg-status-learning',
     activeTabClassName:
-      'border-emerald-500/30 bg-emerald-500/14 text-emerald-700 dark:text-emerald-300',
+      'border-status-learning/30 bg-status-learning-soft text-status-learning shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      'border-status-learning/25 bg-status-learning-soft text-status-learning',
     statusBadgeClassName:
-      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    cardClassName: 'bg-gradient-to-br from-emerald-500/7 via-card to-card',
+      'border-status-learning/25 bg-status-learning-soft text-status-learning',
+    cardClassName: 'bg-gradient-to-br from-status-learning-soft via-bg-surface to-bg-elevated',
   },
   review: {
-    dotClassName: 'bg-violet-400',
+    dotClassName: 'bg-status-review',
     activeTabClassName:
-      'border-violet-500/30 bg-violet-500/14 text-violet-700 dark:text-violet-300',
+      'border-status-review/30 bg-status-review-soft text-status-review shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+      'border-status-review/25 bg-status-review-soft text-status-review',
     statusBadgeClassName:
-      'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300',
-    cardClassName: 'bg-gradient-to-br from-violet-500/9 via-card to-card',
+      'border-status-review/25 bg-status-review-soft text-status-review',
+    cardClassName: 'bg-gradient-to-br from-status-review-soft via-bg-surface to-bg-elevated',
   },
   mastered: {
-    dotClassName: 'bg-amber-400',
+    dotClassName: 'bg-status-mastered',
     activeTabClassName:
-      'border-amber-500/30 bg-amber-500/14 text-amber-800 dark:text-amber-300',
+      'border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+      'border-status-mastered/25 bg-status-mastered-soft text-status-mastered',
     statusBadgeClassName:
-      'border-amber-500/30 bg-amber-500/12 text-amber-800 dark:text-amber-300',
-    cardClassName:
-      'bg-gradient-to-br from-amber-400/14 via-card to-yellow-300/6',
+      'border-status-mastered/25 bg-status-mastered-soft text-status-mastered',
+    cardClassName: 'bg-gradient-to-br from-status-mastered-soft via-bg-surface to-bg-elevated',
   },
   stopped: {
-    dotClassName: 'bg-rose-400',
-    activeTabClassName: 'border-rose-500/30 bg-rose-500/14 text-rose-700 dark:text-rose-300',
+    dotClassName: 'bg-status-paused',
+    activeTabClassName: 'border-status-paused/30 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)]',
     currentBadgeClassName:
-      'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+      'border-status-paused/25 bg-status-paused-soft text-status-paused',
     statusBadgeClassName:
-      'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    cardClassName: 'bg-gradient-to-br from-rose-500/6 via-card to-card',
+      'border-status-paused/25 bg-status-paused-soft text-status-paused',
+    cardClassName: 'bg-gradient-to-br from-status-paused-soft via-bg-surface to-bg-elevated',
   },
   my: {
-    dotClassName: 'bg-sky-400',
-    activeTabClassName: 'border-sky-500/30 bg-sky-500/14 text-sky-700 dark:text-sky-300',
-    currentBadgeClassName:
-      'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    statusBadgeClassName:
-      'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    cardClassName: 'bg-gradient-to-br from-sky-500/13 via-card to-card',
+    ...OWNED_COLLECTION_FILTER_THEME,
   },
 };
 
+export type StatusBoxTheme = {
+  dotClass: string;
+  accentClass: string;
+  softBgClass: string;
+  tintBgClass: string;
+  borderClass: string;
+};
+
+export const STATUS_BOX_THEME: Record<MyVersesSectionKey, StatusBoxTheme> = {
+  learning: {
+    dotClass: 'bg-status-learning',
+    accentClass: 'text-status-learning',
+    softBgClass: 'bg-status-learning-soft',
+    tintBgClass: 'bg-status-learning-tint',
+    borderClass: 'border-status-learning/20',
+  },
+  queue: {
+    dotClass: 'bg-status-queue',
+    accentClass: 'text-status-queue',
+    softBgClass: 'bg-status-queue-soft',
+    tintBgClass: 'bg-status-queue-tint',
+    borderClass: 'border-status-queue/20',
+  },
+  review: {
+    dotClass: 'bg-status-review',
+    accentClass: 'text-status-review',
+    softBgClass: 'bg-status-review-soft',
+    tintBgClass: 'bg-status-review-tint',
+    borderClass: 'border-status-review/20',
+  },
+  mastered: {
+    dotClass: 'bg-status-mastered',
+    accentClass: 'text-status-mastered',
+    softBgClass: 'bg-status-mastered-soft',
+    tintBgClass: 'bg-status-mastered-tint',
+    borderClass: 'border-status-mastered/20',
+  },
+  stopped: {
+    dotClass: 'bg-status-paused',
+    accentClass: 'text-status-paused',
+    softBgClass: 'bg-status-paused-soft',
+    tintBgClass: 'bg-status-paused-tint',
+    borderClass: 'border-status-paused/20',
+  },
+  my: {
+    ...OWNED_COLLECTION_SECTION_THEME,
+  },
+};
+
+export const SECTION_META: Record<MyVersesSectionKey, { title: string; description: string }> = {
+  learning: { title: 'Изучение', description: 'Стихи, которые вы сейчас учите' },
+  queue: { title: 'В очереди', description: 'Ждут свободного слота' },
+  review: { title: 'Повторение', description: 'Интервальное повторение' },
+  mastered: { title: 'Выучены', description: 'Полностью заученные стихи' },
+  stopped: { title: 'На паузе', description: 'Изучение приостановлено' },
+  my: { title: 'В моих', description: 'Добавлены, но ещё не начаты' },
+};
+
 export function getStoppedVerseStageKind(
-  verse: Pick<Verse, 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'flow' | 'masteryLevel' | 'repetitions'>
 ): StoppedVerseStageKind {
-  const masteryLevel = Math.max(0, Number(verse.masteryLevel ?? 0));
-  const repetitions = Math.max(0, Number(verse.repetitions ?? 0));
-
-  if (masteryLevel < STOPPED_REVIEW_MASTERY_THRESHOLD) {
-    return 'progress';
-  }
-
-  if (repetitions >= STOPPED_MASTERED_REPETITIONS_THRESHOLD) {
-    return 'mastered';
-  }
-
-  return 'review';
+  return resolvePausedVerseKind(verse);
 }
 
 export function getVerseStageVisual(
-  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>
 ): {
   key: VerseStageVisualKey;
   label: string;
 } {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  if (status === "CATALOG") {
-    return { key: "catalog", label: "Каталог" };
-  }
+  const status = getVerseDisplayStatus(verse);
+  const phase = resolveVerseJourneyPhase(verse);
 
-  if (status === VerseStatus.MY) {
-    return { key: "my", label: "Мой" };
-  }
+  if (phase === 'catalog') return { key: 'catalog', label: 'Каталог' };
+  if (phase === 'queue') return { key: 'queue', label: 'В очереди' };
+  if (phase === 'my') return { key: 'my', label: 'Мой' };
 
   if (status === VerseStatus.STOPPED) {
     const stoppedKind = getStoppedVerseStageKind(verse);
-    if (stoppedKind === 'mastered') {
-      return { key: 'stopped', label: 'Выучено · пауза' };
-    }
-    if (stoppedKind === 'review') {
-      return { key: 'stopped', label: 'Повторение · пауза' };
-    }
+    if (stoppedKind === 'mastered') return { key: 'stopped', label: 'Выучено · пауза' };
+    if (stoppedKind === 'review') return { key: 'stopped', label: 'Повторение · пауза' };
     return { key: 'stopped', label: 'На паузе' };
   }
 
-  if (status === 'MASTERED') {
-    return { key: 'mastered', label: 'Выучено' };
-  }
-
-  if (status === 'REVIEW') {
-    return { key: 'review', label: 'Повторение' };
-  }
-
+  if (phase === 'mastered') return { key: 'mastered', label: 'Выучено' };
+  if (phase === 'review') return { key: 'review', label: 'Повторение' };
   return { key: 'learning', label: 'Изучение' };
 }
 
 export function getVerseCardLayoutSignature(
-  verse: Pick<Verse, 'status' | 'masteryLevel' | 'repetitions'>
+  verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>
 ):
   | 'catalog'
   | 'my'
@@ -166,21 +192,13 @@ export function getVerseCardLayoutSignature(
   | 'stopped-progress'
   | 'stopped-repeat'
   | 'stopped-mastered' {
-  const status = normalizeDisplayVerseStatus(verse.status);
+  const phase = resolveVerseJourneyPhase(verse);
+  const status = getVerseDisplayStatus(verse);
 
-  if (status === 'CATALOG') {
-    return 'catalog';
-  }
-
-  if (status === VerseStatus.MY) {
-    return 'my';
-  }
-
-  if (status === VerseStatus.LEARNING) {
-    return 'learning-progress';
-  }
-
-  if (status === 'REVIEW' || status === 'MASTERED') {
+  if (phase === 'catalog') return 'catalog';
+  if (phase === 'queue' || phase === 'my') return 'my';
+  if (phase === 'learning' && status !== VerseStatus.STOPPED) return 'learning-progress';
+  if ((phase === 'review' || phase === 'mastered') && status !== VerseStatus.STOPPED) {
     return 'review-pill';
   }
 

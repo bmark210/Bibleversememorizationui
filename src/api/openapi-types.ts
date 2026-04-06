@@ -181,6 +181,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{telegramId}/friends/activity/compact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get compact friends activity */
+        get: operations["listFriendsActivityCompact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{telegramId}/friends/{friendTelegramId}": {
         parameters: {
             query?: never;
@@ -287,6 +304,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{telegramId}/verses/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get verse queue
+         * @description Returns all verses waiting in queue, ordered by position. Also auto-promotes from queue if slots are free.
+         */
+        get: operations["getVerseQueue"];
+        put?: never;
+        /** Add verse to queue (body form) */
+        post: operations["addVerseToQueueBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{telegramId}/verses/reference-trainer": {
         parameters: {
             query?: never;
@@ -321,6 +359,26 @@ export interface paths {
          * @description Processes training results and awards XP based on outcomes and verse difficulty.
          */
         post: operations["saveReferenceTrainerSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{telegramId}/verses/replace-learning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Atomically replace an active learning verse
+         * @description Swaps one active LEARNING verse with another user verse without triggering queue auto-promotion.
+         */
+        post: operations["replaceLearningVerse"];
         delete?: never;
         options?: never;
         head?: never;
@@ -363,6 +421,34 @@ export interface paths {
         head?: never;
         /** Partially update verse progress */
         patch: operations["patchUserVerse"];
+        trace?: never;
+    };
+    "/api/users/{telegramId}/verses/{externalVerseId}/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add verse to queue
+         * @description Moves a verse from MY or STOPPED status into the learning queue.
+         */
+        post: operations["addVerseToQueue"];
+        /**
+         * Remove verse from queue
+         * @description Moves a verse from QUEUE back to MY status.
+         */
+        delete: operations["removeVerseFromQueue"];
+        options?: never;
+        head?: never;
+        /**
+         * Reorder verse in queue
+         * @description Moves a verse to a new queue position, shifting other items.
+         */
+        patch: operations["reorderVerseInQueue"];
         trace?: never;
     };
     "/api/users/{telegramId}/verses/{externalVerseId}/training-step": {
@@ -432,7 +518,8 @@ export interface paths {
         };
         /** List verse tags */
         get: operations["listVerseTags"];
-        put?: never;
+        /** Replace verse tags (full sync) */
+        put: operations["replaceVerseTags"];
         /** Attach tag to verse */
         post: operations["attachTagToVerse"];
         /** Remove tag from verse */
@@ -506,6 +593,21 @@ export interface components {
             telegramId: string;
             text: string;
         };
+        "bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry": {
+            avatarUrl?: string;
+            dailyStreak?: number;
+            lastActiveAt?: string;
+            name?: string;
+            telegramId?: string;
+        };
+        "bible-memory-db_internal_domain.DashboardCompactFriendsActivityResponse": {
+            activeLast7Days?: number;
+            entries?: components["schemas"]["bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry"][];
+            friendsTotal?: number;
+            generatedAt?: string;
+            limit?: number;
+            offset?: number;
+        };
         "bible-memory-db_internal_domain.DashboardFriendActivityEntry": {
             avatarUrl?: string;
             dailyStreak?: number;
@@ -575,6 +677,19 @@ export interface components {
             weeklyRepetitions?: number;
             xp?: number;
         };
+        "bible-memory-db_internal_domain.QueueResponse": {
+            freeSlots?: number;
+            items?: components["schemas"]["bible-memory-db_internal_domain.QueueVerseItem"][];
+            /** @description PromotedVerseIds contains any externalVerseIds auto-promoted during this request. */
+            promotedVerseIds?: string[];
+            totalCount?: number;
+        };
+        "bible-memory-db_internal_domain.QueueVerseItem": {
+            externalVerseId?: string;
+            queuePosition?: number;
+            reference?: string;
+            text?: string;
+        };
         "bible-memory-db_internal_domain.SocialPlayerListItem": {
             avatarUrl?: string;
             dailyStreak?: number;
@@ -608,8 +723,12 @@ export interface components {
         "bible-memory-db_internal_domain.TrainingStepHTTPResponse": {
             graduatedToReview?: boolean;
             nextTrainingModeId?: number;
+            newTotalXp?: number;
+            /** @description PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot. */
+            promotedVerseIds?: string[];
             reviewWasSuccessful?: boolean;
             userVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+            xpDelta?: number;
         };
         /** @enum {string} */
         "bible-memory-db_internal_domain.Translation": "NRT" | "SYNOD" | "RBS2" | "BTI";
@@ -633,13 +752,17 @@ export interface components {
         };
         "bible-memory-db_internal_domain.UserDashboardStats": {
             dailyStreak?: number;
+            /** @description DueReviewVerses: повторение, следующее повторение уже «наступило» — nextReviewAt == nil или <= now (REVIEW_DUE). */
             dueReviewVerses?: number;
+            /** @description LearningVerses are in active learning (not yet at mastery threshold for review phase). */
             learningVerses?: number;
             masteredCount?: number;
+            /** @description ReviewVerses: все стихи в фазе повторения (REVIEW_DUE ∪ REVIEW_WAITING). */
             reviewVerses?: number;
             stoppedVerses?: number;
             telegramId?: string;
             versesCount?: number;
+            /** @description WaitingReviewVerses: повторение, но следующее повторение только впереди — nextReviewAt > now (REVIEW_WAITING). */
             waitingReviewVerses?: number;
             xp?: number;
         };
@@ -651,6 +774,7 @@ export interface components {
         };
         "bible-memory-db_internal_domain.UserLeaderboardEntry": {
             avatarUrl?: string;
+            dailyStreak?: number;
             name?: string;
             nickname?: string;
             rank?: number;
@@ -662,9 +786,14 @@ export interface components {
         "bible-memory-db_internal_domain.UserLeaderboardResponse": {
             currentUser?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardCurrentUser"];
             items?: components["schemas"]["bible-memory-db_internal_domain.UserLeaderboardEntry"][];
+            limit?: number;
+            offset?: number;
             totalParticipants?: number;
         };
         "bible-memory-db_internal_domain.UserVerse": {
+            contextPromptReference?: string;
+            /** @description Context: соседний стих для режима «Контекст» закрепления. */
+            contextPromptText?: string;
             createdAt?: string;
             flow?: components["schemas"]["bible-memory-db_internal_domain.VerseFlow"];
             id?: number;
@@ -672,6 +801,7 @@ export interface components {
             lastTrainingModeId?: number;
             masteryLevel?: number;
             nextReviewAt?: string;
+            queuePosition?: number;
             reference?: string;
             repetitions?: number;
             reviewLapseStreak?: number;
@@ -720,7 +850,7 @@ export interface components {
         /** @enum {string} */
         "bible-memory-db_internal_domain.VerseDifficultyLevel": "EASY" | "MEDIUM" | "HARD" | "EXPERT";
         /** @enum {string} */
-        "bible-memory-db_internal_domain.VerseDisplayStatus": "MY" | "LEARNING" | "STOPPED" | "REVIEW" | "MASTERED" | "CATALOG";
+        "bible-memory-db_internal_domain.VerseDisplayStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "REVIEW" | "MASTERED" | "CATALOG";
         "bible-memory-db_internal_domain.VerseFlow": {
             allowedActions?: components["schemas"]["bible-memory-db_internal_domain.VerseAction"][];
             availability?: components["schemas"]["bible-memory-db_internal_domain.VerseFlowAvailability"];
@@ -735,7 +865,7 @@ export interface components {
         /** @enum {string} */
         "bible-memory-db_internal_domain.VerseFlowAvailability": "READY" | "WAITING" | "PAUSED" | "NONE";
         /** @enum {string} */
-        "bible-memory-db_internal_domain.VerseFlowCode": "CATALOG" | "MY" | "LEARNING" | "REVIEW_DUE" | "REVIEW_WAITING" | "MASTERED" | "PAUSED_LEARNING" | "PAUSED_REVIEW" | "PAUSED_MASTERED";
+        "bible-memory-db_internal_domain.VerseFlowCode": "CATALOG" | "MY" | "LEARNING" | "REVIEW_DUE" | "REVIEW_WAITING" | "MASTERED" | "PAUSED_LEARNING" | "PAUSED_REVIEW" | "PAUSED_MASTERED" | "QUEUE";
         /** @enum {string} */
         "bible-memory-db_internal_domain.VerseFlowGroup": "catalog" | "library" | "active" | "paused" | "complete";
         /** @enum {string} */
@@ -754,6 +884,7 @@ export interface components {
             popularityPreviewUsers?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityPreviewUser"][];
             popularityScope?: components["schemas"]["bible-memory-db_internal_domain.VersePopularityScope"];
             popularityValue?: number;
+            queuePosition?: number;
             reference?: string;
             repetitions?: number;
             reviewLapseStreak?: number;
@@ -775,7 +906,7 @@ export interface components {
         /** @enum {string} */
         "bible-memory-db_internal_domain.VersePopularityScope": "friends" | "players" | "self";
         /** @enum {string} */
-        "bible-memory-db_internal_domain.VerseStatus": "MY" | "LEARNING" | "STOPPED";
+        "bible-memory-db_internal_domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "DELETED";
         "bible-memory-db_internal_domain.VerseTagLinkResponse": {
             externalVerseId?: string;
             id?: string;
@@ -786,6 +917,9 @@ export interface components {
         };
         "internal_api.AddFriendRequest": {
             targetTelegramId?: string;
+        };
+        "internal_api.AddToQueueBody": {
+            externalVerseId?: string;
         };
         "internal_api.AnchorTrainingSessionResponse": {
             /** @description NewTotalXP is the user's total XP after this session. */
@@ -823,6 +957,17 @@ export interface components {
             /** @description Verses is the pool of user verses available for training. */
             verses?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"][];
         };
+        "internal_api.ReorderQueueBody": {
+            queuePosition?: number;
+        };
+        "internal_api.ReplaceLearningVerseRequest": {
+            activateExternalVerseId?: string;
+            pauseExternalVerseId?: string;
+        };
+        "internal_api.ReplaceLearningVerseResponse": {
+            activatedVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+            pausedVerse?: components["schemas"]["bible-memory-db_internal_domain.UserVerse"];
+        };
         "internal_api.UpdateTagRequest": {
             title?: string;
         };
@@ -837,6 +982,9 @@ export interface components {
         "internal_api.VerseTagMutationRequest": {
             tagId?: string;
             tagSlug?: string;
+        };
+        "internal_api.VerseTagsPutRequest": {
+            tagSlugs?: string[];
         };
         "internal_api.generateExerciseRequest": {
             mode?: string;
@@ -936,8 +1084,17 @@ export interface operations {
                     "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
-            /** @description Not Found */
-            404: {
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1269,8 +1426,12 @@ export interface operations {
             query?: {
                 /** @description Optional current user Telegram ID */
                 telegramId?: string;
+                /** @description Center returned window around current user rank */
+                aroundCurrent?: boolean;
                 /** @description Max items */
                 limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -1490,6 +1651,8 @@ export interface operations {
             query?: {
                 /** @description Max items */
                 limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
             };
             header?: never;
             path: {
@@ -1507,6 +1670,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["bible-memory-db_internal_domain.DashboardFriendsActivityResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    listFriendsActivityCompact: {
+        parameters: {
+            query?: {
+                /** @description Max items */
+                limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.DashboardCompactFriendsActivityResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1791,7 +2009,7 @@ export interface operations {
                 /** @description Sort direction */
                 order?: "asc" | "desc";
                 /** @description Semantic list filter */
-                filter?: "catalog" | "friends" | "my" | "learning" | "review" | "mastered" | "stopped";
+                filter?: "catalog" | "my" | "learning" | "review" | "mastered" | "stopped";
                 /** @description Bible book number filter */
                 bookId?: number;
                 /** @description Search in verse text or reference */
@@ -1887,6 +2105,89 @@ export interface operations {
             };
         };
     };
+    getVerseQueue: {
+        parameters: {
+            query?: {
+                /** @description Bible translation */
+                translation?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.QueueResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    addVerseToQueueBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Verse ID */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["internal_api.AddToQueueBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
     getReferenceTrainer: {
         parameters: {
             query?: {
@@ -1969,6 +2270,70 @@ export interface operations {
                 };
             };
             /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceLearningVerse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Replace payload */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["internal_api.ReplaceLearningVerseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ReplaceLearningVerseResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -2116,6 +2481,146 @@ export interface operations {
             };
         };
     };
+    addVerseToQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+                /** @description External verse ID */
+                externalVerseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    removeVerseFromQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+                /** @description External verse ID */
+                externalVerseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    reorderVerseInQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Telegram ID */
+                telegramId: string;
+                /** @description External verse ID */
+                externalVerseId: string;
+            };
+            cookie?: never;
+        };
+        /** @description New position */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["internal_api.ReorderQueueBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
     postUserVerseTrainingStep: {
         parameters: {
             query?: never;
@@ -2184,6 +2689,8 @@ export interface operations {
                 bookId?: number;
                 /** @description Comma-separated tag slugs */
                 tagSlugs?: string;
+                /** @description Search in verse text or reference */
+                search?: string;
                 /** @description Sort field */
                 orderBy?: string;
                 /** @description Sort direction */
@@ -2377,6 +2884,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"][];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceVerseTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description External verse ID */
+                externalVerseId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Tag slugs (empty clears all) */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["internal_api.VerseTagsPutRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bible-memory-db_internal_domain.Tag"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["internal_api.ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

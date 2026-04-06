@@ -22,6 +22,7 @@ export type bible_memory_db_internal_domain_VerseListItem = {
     popularityPreviewUsers?: Array<bible_memory_db_internal_domain_VersePopularityPreviewUser>;
     popularityScope?: bible_memory_db_internal_domain_VersePopularityScope;
     popularityValue?: number;
+    queuePosition?: number;
     reference?: string;
     repetitions?: number;
     reviewLapseStreak?: number;

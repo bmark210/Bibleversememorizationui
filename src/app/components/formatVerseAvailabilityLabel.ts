@@ -59,15 +59,15 @@ export function formatVerseAvailabilityLabel(
   const targetDayKey = getDateKey(date, timeZone);
 
   if (targetDayKey === currentDayKey) {
-    return `Сегодня в ${timeLabel}`;
+    return `Доступно сегодня в ${timeLabel}`;
   }
 
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const tomorrowDayKey = getDateKey(tomorrow, timeZone);
   if (targetDayKey === tomorrowDayKey) {
-    return `Завтра в ${timeLabel}`;
+    return `Доступно завтра в ${timeLabel}`;
   }
 
   const dayLabel = getDayLabel(date, timeZone);
-  return `до ${dayLabel} в ${timeLabel}`;
+  return `Доступно ${dayLabel} в ${timeLabel}`;
 }

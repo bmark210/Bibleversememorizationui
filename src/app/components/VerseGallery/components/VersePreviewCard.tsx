@@ -1,7 +1,6 @@
 import React from "react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Users } from "lucide-react";
-import { VerseStatus } from "@/shared/domain/verseStatus";
+import { useCallback, useMemo, useRef } from "react";
+import { BookMarked, Clock, Minus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -11,24 +10,47 @@ import {
   VerseStatusMetaPill,
   type VerseStatusSummaryTone,
 } from "@/app/components/VerseStatusSummary";
-import { resolveVerseCardActionModel } from "@/app/components/verseCardActionModel";
-import type { Verse } from "@/app/App";
-import { normalizeVerseStatus, parseDate, computeTotalProgressPercent } from "../utils";
-import type { VerseCardPreviewTone } from "@/app/components/VerseCard";
+import {
+  VERSE_CARD_COLOR_CONFIG,
+  type VerseCardColorConfig,
+} from "@/app/components/verseCardColorConfig";
+import {
+  getVerseSocialChromeClassName,
+  getVerseSocialInteractiveChromeClassName,
+  getVerseTagChromeClassName,
+  getVerseTagInteractiveChromeClassName,
+} from "@/app/components/verseCardBadgeChrome";
+import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
+import type { Verse } from "@/app/domain/verse";
+import { VerseStatus } from "@/shared/domain/verseStatus";
+import {
+  OWNED_COLLECTION_BADGE_CLASS_NAME,
+} from "@/app/components/verseStatusVisuals";
+import type { PreparedVersePreview } from "../previewModel";
+import type { VerseGallerySourceMode } from "../types";
+import { usePreviewLineClamp } from "../hooks/usePreviewLineClamp";
+import {
+  getGalleryPreviewTone,
+  isCatalogGalleryOwnedVerse,
+  isCatalogGalleryMode,
+} from "../presentation";
 
 type Props = {
-  verse: Verse;
+  preview: PreparedVersePreview;
+  sourceMode?: VerseGallerySourceMode;
   isActionPending: boolean;
   activeTagSlugs?: Set<string> | Iterable<string> | null;
-  isAnchorEligible?: boolean;
   isFocusMode?: boolean;
   onStartTraining: () => void;
   onStatusAction: () => void;
+  onCatalogRemove?: () => void;
   onUtilityAction?: () => void;
   onOpenProgress?: (verse: Verse) => void;
   onOpenTags?: (verse: Verse) => void;
   onOpenOwners?: (verse: Verse) => void;
+  onEditQueuePosition?: (verse: Verse) => void;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
+  colorConfig?: VerseCardColorConfig;
 };
 
 function getInitials(name: string) {
@@ -40,38 +62,57 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function VersePreviewCard({
-  verse,
+export const VersePreviewCard = React.memo(function VersePreviewCard({
+  preview,
+  sourceMode = "my",
   isActionPending,
   activeTagSlugs = null,
-  isAnchorEligible = false,
   isFocusMode = false,
   onStartTraining,
   onStatusAction,
+  onCatalogRemove,
   onUtilityAction,
   onOpenProgress,
   onOpenTags,
   onOpenOwners,
+  onEditQueuePosition,
   onVerticalSwipeStep,
+  colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: Props) {
   const previewBodyRef = useRef<HTMLDivElement>(null);
-  const previewTextRef = useRef<HTMLParagraphElement>(null);
-  const [lineClamp, setLineClamp] = useState(8);
-  const status = normalizeVerseStatus(verse.status);
-  const rawMasteryLevel = Number(verse.masteryLevel ?? 0);
-  const repetitionsCount = Math.max(0, Number(verse.repetitions ?? 0));
-  const totalProgressPercent = computeTotalProgressPercent(rawMasteryLevel, repetitionsCount);
-  const nextReviewAt = parseDate(
-    (verse as Record<string, unknown>).nextReviewAt ??
-      (verse as Record<string, unknown>).nextReview
+  // Replaces two getComputedStyle calls (forced reflows) with CSS-constant
+  // arithmetic + pretext font measurement — no DOM queries needed.
+  const lineClamp = usePreviewLineClamp(
+    // verse is not yet destructured here; access via preview directly
+    preview.verse.text,
+    isFocusMode,
+    previewBodyRef,
   );
-  const ctaModel = resolveVerseCardActionModel({
-    status,
-    flow: verse.flow,
-    nextReviewAt,
-    isAnchorEligible,
+  const {
+    verse,
+    actionModel,
+    tone,
+    totalProgressPercent,
+    normalizedTags,
+    previewUsers,
+    popularityValue,
+    popularityBadge,
+  } = preview;
+  const isCatalogMode = isCatalogGalleryMode(sourceMode);
+  const isCatalogOwned = isCatalogGalleryOwnedVerse(sourceMode, preview.status);
+  const displayTone = getGalleryPreviewTone(sourceMode, tone);
+  const tonePalette = colorConfig.tones[displayTone ?? "learning"];
+  const actionTonePalette = resolveVerseActionTonePalette(colorConfig, {
+    displayStatus: preview.status,
+    isCatalogMode,
   });
-  const isReviewStage = status === "REVIEW" || status === "MASTERED";
+  const previewChrome = colorConfig.previewChrome[displayTone ?? "learning"];
+  const tagChromeClassName = getVerseTagChromeClassName(colorConfig);
+  const tagInteractiveChromeClassName =
+    getVerseTagInteractiveChromeClassName(colorConfig);
+  const socialChromeClassName = getVerseSocialChromeClassName(colorConfig);
+  const socialInteractiveChromeClassName =
+    getVerseSocialInteractiveChromeClassName(colorConfig);
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
     // Fast path: already a Set (passed from VerseGallery).
@@ -85,92 +126,22 @@ export function VersePreviewCard({
     }
     return next;
   }, [activeTagSlugs]);
-  const normalizedTags = useMemo(() => {
-    if (!Array.isArray(verse.tags) || verse.tags.length === 0) return [];
-
-    const seen = new Set<string>();
-    return verse.tags.reduce<Array<{ id?: string; slug?: string; title: string }>>(
-      (acc, tag) => {
-        const title = String(tag?.title ?? "").trim();
-        if (!title) return acc;
-
-        const key = String(tag?.id ?? tag?.slug ?? title.toLowerCase());
-        if (seen.has(key)) return acc;
-        seen.add(key);
-
-        acc.push({
-          id: tag?.id,
-          slug: tag?.slug,
-          title,
-        });
-        return acc;
-      },
-      [],
-    );
-  }, [verse.tags]);
-  const previewUsers = useMemo(() => {
-    if (!Array.isArray(verse.popularityPreviewUsers)) return [];
-
-    const seen = new Set<string>();
-    return verse.popularityPreviewUsers
-      .reduce<Array<{ telegramId: string; name: string; avatarUrl: string | null }>>(
-        (acc, user) => {
-          const telegramId = String(user?.telegramId ?? "").trim();
-          const name = String(user?.name ?? "").trim();
-          if (!telegramId || !name || seen.has(telegramId)) return acc;
-          seen.add(telegramId);
-
-          acc.push({
-            telegramId,
-            name,
-            avatarUrl:
-              typeof user?.avatarUrl === "string" && user.avatarUrl.trim()
-                ? user.avatarUrl.trim()
-                : null,
-          });
-          return acc;
-        },
-        [],
-      )
-      .slice(0, 4);
-  }, [verse.popularityPreviewUsers]);
-
-  const tone: VerseCardPreviewTone | undefined =
-    status === "CATALOG"
-      ? "catalog"
-      : status === VerseStatus.MY
-        ? "my"
-        : status === VerseStatus.STOPPED
-          ? "stopped"
-          : status === "MASTERED"
-            ? "mastered"
-            : isReviewStage
-              ? "review"
-              : "learning";
-  const popularityValue =
-    typeof verse.popularityValue === "number"
-      ? Math.max(0, Math.round(verse.popularityValue))
-      : null;
-  const popularityBadge = (() => {
-    if (popularityValue == null) return null;
-    if (verse.popularityScope === "friends") {
-      return {
-        icon: Users,
-        label: `У друзей ${popularityValue}`,
-        className:
-          "border-cyan-500/35 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
-      };
+  const visibleTags = useMemo(() => {
+    if (normalizedTags.length <= 3 || activeTagSlugSet.size === 0) {
+      return normalizedTags.slice(0, 3);
     }
-    if (verse.popularityScope === "players") {
-      return {
-        icon: Users,
-        label: `У игроков ${popularityValue}`,
-        className:
-          "border-slate-500/35 bg-slate-500/12 text-slate-700 dark:text-slate-300",
-      };
-    }
-    return null;
-  })();
+
+    return [...normalizedTags]
+      .sort((left, right) => {
+        const leftSlug = String(left.slug ?? "").trim();
+        const rightSlug = String(right.slug ?? "").trim();
+        const leftActive = Boolean(leftSlug) && activeTagSlugSet.has(leftSlug);
+        const rightActive = Boolean(rightSlug) && activeTagSlugSet.has(rightSlug);
+        if (leftActive === rightActive) return 0;
+        return leftActive ? -1 : 1;
+      })
+      .slice(0, 3);
+  }, [activeTagSlugSet, normalizedTags]);
   const hasOwnersTrigger =
     Boolean(onOpenOwners) &&
     popularityBadge != null &&
@@ -178,16 +149,48 @@ export function VersePreviewCard({
     popularityValue > 0 &&
     (verse.popularityScope === "friends" || verse.popularityScope === "players");
 
-  const primaryAction = ctaModel.primaryAction;
-  const waitingActionLabel = ctaModel.waitingLabel;
-  const statusTone = ctaModel.statusTone;
-  const showFooter = !isFocusMode && ctaModel.showProgress && statusTone !== null;
+  const primaryAction = actionModel.primaryAction;
+  const waitingActionLabel = actionModel.waitingLabel;
+  const statusTone = actionModel.statusTone;
+  const showFooter =
+    !isFocusMode &&
+    !isCatalogMode &&
+    actionModel.showProgress &&
+    statusTone !== null;
   const inlineUtilityAction =
-    primaryAction?.id === "train" && ctaModel.utilityAction?.id === "pause"
-      ? ctaModel.utilityAction
+    !isCatalogMode &&
+    primaryAction?.id === "train" &&
+    actionModel.utilityAction?.id === "pause"
+      ? actionModel.utilityAction
       : null;
+  const primaryLabel = isCatalogMode
+    ? isCatalogOwned
+      ? "Убрать из моих"
+      : "Добавить в мои"
+    : primaryAction?.label ?? null;
+  const primaryAriaLabel = isCatalogMode
+    ? isCatalogOwned
+      ? `Убрать стих ${verse.reference} из моих`
+      : `Добавить стих ${verse.reference} в мои`
+    : primaryAction?.ariaLabel ?? undefined;
+  const primaryIcon = isCatalogMode
+    ? isCatalogOwned
+      ? Minus
+      : BookMarked
+    : primaryAction?.icon;
+  const PrimaryIcon = primaryIcon;
 
-  const handlePrimaryAction = () => {
+  const handlePrimaryAction = useCallback(() => {
+    if (isCatalogMode) {
+      if (isCatalogOwned) {
+        onCatalogRemove?.();
+        return;
+      }
+
+      onStatusAction();
+      return;
+    }
+
     if (!primaryAction) return;
 
     if (primaryAction.id === "train" || primaryAction.id === "anchor") {
@@ -196,68 +199,14 @@ export function VersePreviewCard({
     }
 
     onStatusAction();
-  };
-
-  useLayoutEffect(() => {
-    if (isFocusMode || typeof window === "undefined") return;
-
-    const bodyEl = previewBodyRef.current;
-    const textEl = previewTextRef.current;
-    if (!bodyEl || !textEl) return;
-
-    let rafId: number | null = null;
-
-    const updateLineClamp = () => {
-      const currentBodyEl = previewBodyRef.current;
-      const currentTextEl = previewTextRef.current;
-      if (!currentBodyEl || !currentTextEl) return;
-
-      const bodyStyle = window.getComputedStyle(currentBodyEl);
-      const textStyle = window.getComputedStyle(currentTextEl);
-      const paddingTop = Number.parseFloat(bodyStyle.paddingTop || "0") || 0;
-      const paddingBottom =
-        Number.parseFloat(bodyStyle.paddingBottom || "0") || 0;
-      const availableHeight = Math.max(
-        0,
-        currentBodyEl.clientHeight - paddingTop - paddingBottom,
-      );
-
-      let lineHeight = Number.parseFloat(textStyle.lineHeight || "");
-      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-        const fontSize = Number.parseFloat(textStyle.fontSize || "0") || 16;
-        lineHeight = fontSize * 1.625;
-      }
-
-      const nextClamp = Math.max(2, Math.floor(availableHeight / lineHeight));
-      setLineClamp((prev) => (prev === nextClamp ? prev : nextClamp));
-    };
-
-    const scheduleUpdate = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        updateLineClamp();
-      });
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => scheduleUpdate())
-        : null;
-
-    resizeObserver?.observe(bodyEl);
-    resizeObserver?.observe(textEl);
-    window.addEventListener("resize", scheduleUpdate, { passive: true });
-    scheduleUpdate();
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleUpdate);
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [isFocusMode, verse.text, showFooter]);
+  }, [
+    isCatalogMode,
+    isCatalogOwned,
+    onCatalogRemove,
+    onStartTraining,
+    onStatusAction,
+    primaryAction,
+  ]);
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden">
@@ -266,16 +215,16 @@ export function VersePreviewCard({
         minHeight="training"
         bodyScrollable={isFocusMode}
         onVerticalSwipeStep={isFocusMode ? onVerticalSwipeStep : undefined}
-        previewTone={tone}
+        previewTone={displayTone}
+        colorConfig={colorConfig}
         metaBadge={
           isFocusMode ? null : hasOwnersTrigger ? (
             <button
               type="button"
               onClick={() => onOpenOwners?.(verse)}
               className={cn(
-                "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] shadow-sm transition-colors hover:bg-muted/45",
-                "border-border/40 bg-muted/25 text-muted-foreground/70",
-                popularityBadge?.className,
+                "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                socialInteractiveChromeClassName,
               )}
               aria-label={popularityBadge?.label ?? "Открыть список пользователей"}
             >
@@ -284,12 +233,14 @@ export function VersePreviewCard({
                   {previewUsers.map((user) => (
                     <Avatar
                       key={user.telegramId}
-                      className="h-4 w-4 border border-background shadow-sm"
+                      className={cn("h-4 w-4 border shadow-sm", colorConfig.avatarRingClassName)}
                     >
                       {user.avatarUrl ? (
                         <AvatarImage src={user.avatarUrl} alt={user.name} />
                       ) : null}
-                      <AvatarFallback className="bg-secondary text-[8px] text-secondary-foreground">
+                      <AvatarFallback
+                        className={cn("text-[8px]", colorConfig.avatarFallbackClassName)}
+                      >
                         {getInitials(user.name)}
                       </AvatarFallback>
                     </Avatar>
@@ -307,8 +258,8 @@ export function VersePreviewCard({
           ) : popularityBadge && popularityValue && popularityValue > 0 ? (
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                popularityBadge.className
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                socialChromeClassName,
               )}
             >
               <popularityBadge.icon className="h-3.5 w-3.5" />
@@ -323,27 +274,33 @@ export function VersePreviewCard({
               isFocusMode ? "space-y-3" : "space-y-4",
             )}
           >
-            <h2 className="text-3xl sm:text-4xl font-serif text-primary/90 italic break-words [overflow-wrap:anywhere]">
+            <h2
+              className={cn(
+                "text-3xl sm:text-4xl font-serif text-brand-primary italic break-words [overflow-wrap:anywhere]",
+                previewChrome.referenceClassName,
+              )}
+            >
               {verse.reference}
             </h2>
-            <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+            <div
+              className={cn(
+                "mx-auto h-px w-16 bg-gradient-to-r",
+                tonePalette.lineClassName,
+                previewChrome.dividerClassName,
+              )}
+            />
             {!isFocusMode ? (
               normalizedTags.length > 0 ? (
                 <div className="flex flex-wrap items-center justify-center gap-1">
-                  {normalizedTags.slice(0, 3).map((tag, index) => {
-                    const slug = String(tag.slug ?? "").trim();
-                    const isActive = Boolean(slug) && activeTagSlugSet.has(slug);
-
+                  {visibleTags.map((tag, index) => {
                     return onOpenTags ? (
                       <button
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         type="button"
                         onClick={() => onOpenTags(verse)}
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                          isActive
-                            ? "border-primary/30 bg-primary/12 text-primary"
-                            : "border-border/60 bg-muted/35 text-muted-foreground hover:bg-muted/55",
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          tagInteractiveChromeClassName,
                         )}
                         aria-label={`Открыть теги стиха ${verse.reference}`}
                       >
@@ -353,10 +310,8 @@ export function VersePreviewCard({
                       <span
                         key={tag.id ?? tag.slug ?? `${tag.title}-${index}`}
                         className={cn(
-                          "inline-flex min-h-5 items-center rounded-full border px-3 py-0.5 text-[11px] font-medium tracking-wide",
-                          isActive
-                            ? "border-primary/30 bg-primary/12 text-primary"
-                            : "border-border/60 bg-muted/35 text-muted-foreground",
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          tagChromeClassName,
                         )}
                       >
                         #{tag.title}
@@ -369,13 +324,21 @@ export function VersePreviewCard({
                       <button
                         type="button"
                         onClick={() => onOpenTags(verse)}
-                        className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-muted/55"
+                        className={cn(
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          tagInteractiveChromeClassName,
+                        )}
                         aria-label={`Показать еще ${normalizedTags.length - 3} тегов`}
                       >
                         +{normalizedTags.length - 3}
                       </button>
                     ) : (
-                      <span className="inline-flex min-h-5 items-center rounded-full border border-border/60 bg-muted/35 px-3 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground">
+                      <span
+                        className={cn(
+                          "inline-flex min-h-6 items-center rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.01em]",
+                          tagChromeClassName,
+                        )}
+                      >
                         +{normalizedTags.length - 3}
                       </span>
                     )
@@ -396,13 +359,12 @@ export function VersePreviewCard({
             )}
           >
             <p
-              ref={previewTextRef}
               style={isFocusMode ? undefined : { WebkitLineClamp: lineClamp }}
               className={cn(
-                "font-verse w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
+              "font-verse w-full max-w-full italic text-center break-words [overflow-wrap:anywhere]",
                 isFocusMode
-                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-foreground/70"
-                  : "max-h-full text-[1.45rem] sm:text-[1.95rem] leading-[1.8] text-foreground/90 font-normal [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
+                  ? "whitespace-pre-wrap text-2xl sm:text-[2rem] leading-[1.9] text-text-secondary"
+                  : "max-h-full text-[1.45rem] sm:text-[1.95rem] leading-[1.8] text-text-primary/92 font-normal [display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden text-ellipsis",
               )}
             >
               «{verse.text}»
@@ -410,21 +372,25 @@ export function VersePreviewCard({
           </div>
         }
         centerAction={
-          primaryAction ? (
+          PrimaryIcon && primaryLabel ? (
             <div className="flex max-w-full items-center justify-center gap-2.5">
               <Button
                 data-tour="verse-gallery-primary-cta"
                 variant="secondary"
                 className={cn(
-                  "gap-2 max-w-full rounded-2xl border border-border/60 bg-background/78 text-foreground/88 shadow-lg backdrop-blur-sm hover:bg-muted/48",
+                  "gap-2 max-w-full rounded-2xl border shadow-lg backdrop-blur-sm",
+                  colorConfig.actionButtonClassName,
+                  colorConfig.actionButtonHoverClassName,
+                  actionTonePalette.accentBorderClassName,
+                  actionTonePalette.accentTextClassName,
                   inlineUtilityAction ? "min-w-[184px]" : "min-w-[200px]",
                 )}
                 onClick={handlePrimaryAction}
                 disabled={isActionPending}
-                aria-label={primaryAction.ariaLabel}
+                aria-label={primaryAriaLabel}
               >
-                <primaryAction.icon className="h-4 w-4" />
-                <span className="min-w-0 truncate">{primaryAction.label}</span>
+                <PrimaryIcon className="h-4 w-4" />
+                <span className="min-w-0 truncate">{primaryLabel}</span>
               </Button>
 
               {inlineUtilityAction ? (
@@ -433,7 +399,13 @@ export function VersePreviewCard({
                   data-tour="verse-gallery-inline-utility"
                   variant="secondary"
                   size="icon"
-                  className="h-10 w-10 shrink-0 rounded-2xl border border-border/60 bg-background/78 text-foreground/72 shadow-lg backdrop-blur-sm hover:bg-muted/48"
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-2xl border shadow-lg backdrop-blur-sm",
+                    colorConfig.actionButtonClassName,
+                    colorConfig.actionButtonHoverClassName,
+                    actionTonePalette.accentBorderClassName,
+                    actionTonePalette.accentTextClassName,
+                  )}
                   onClick={onUtilityAction}
                   disabled={isActionPending}
                   aria-label={inlineUtilityAction.ariaLabel}
@@ -443,17 +415,56 @@ export function VersePreviewCard({
                 </Button>
               ) : null}
             </div>
-          ) : waitingActionLabel ? (
+          ) : !isCatalogMode && waitingActionLabel ? (
             <div className="flex justify-center">
               <VerseStatusMetaPill
                 label={waitingActionLabel}
-                className="gap-2 rounded-2xl border-border/60 bg-background/72 px-4 py-3"
+                className={cn(
+                  "gap-2 rounded-2xl px-4 py-3",
+                  colorConfig.waitingPillClassName,
+                  actionTonePalette.accentBorderClassName,
+                )}
               />
             </div>
           ) : null
         }
         footer={
-          showFooter && statusTone ? (
+          isCatalogOwned ? (
+            <div className="flex justify-center">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold",
+                  OWNED_COLLECTION_BADGE_CLASS_NAME,
+                )}
+              >
+                <BookMarked className="h-3.5 w-3.5 shrink-0" />
+                <span>В моих</span>
+              </span>
+            </div>
+          ) : preview.status === VerseStatus.QUEUE ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => onEditQueuePosition?.(verse)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border border-status-queue/28 bg-status-queue-soft px-3 py-1.5 text-[12px] font-semibold text-status-queue',
+                  onEditQueuePosition
+                    ? 'cursor-pointer transition-opacity hover:opacity-75 active:scale-95'
+                    : 'cursor-default',
+                )}
+                aria-label="Изменить позицию в очереди"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span>В очереди</span>
+                {typeof verse.queuePosition === 'number' && verse.queuePosition > 0 && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span className="tabular-nums">#{verse.queuePosition}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : showFooter && statusTone ? (
             <button
               type="button"
               onClick={() => onOpenProgress?.(verse)}
@@ -463,6 +474,8 @@ export function VersePreviewCard({
               <StatusFooter
                 statusTone={statusTone}
                 totalProgressPercent={totalProgressPercent}
+                colorConfig={colorConfig}
+                progressClassName={tonePalette.progressClassName}
               />
             </button>
           ) : null
@@ -470,7 +483,7 @@ export function VersePreviewCard({
       />
     </div>
   );
-}
+});
 
 // ─── Status footer (CSS transitions, no motion.div) ──────────────────────────
 
@@ -479,15 +492,20 @@ type StatusTone = VerseStatusSummaryTone;
 function StatusFooter({
   statusTone,
   totalProgressPercent,
+  colorConfig,
+  progressClassName,
 }: {
   statusTone: StatusTone;
   totalProgressPercent: number;
+  colorConfig: VerseCardColorConfig;
+  progressClassName: string;
 }) {
   return (
     <VerseStatusSummary
       tone={statusTone}
       progressPercent={totalProgressPercent}
-      className="w-full justify-between"
+      className={colorConfig.summaryPanelClassName}
+      progressClassName={progressClassName}
     />
   );
 }

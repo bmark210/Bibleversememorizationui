@@ -125,7 +125,6 @@ export function buildIncipitTypeQuestion(
   if (verse.incipitWords.length < 2) return null;
   const prefixTokens = getIncipitPrefixTokens(verse);
   if (prefixTokens.length === 0) return null;
-  const compactUppercasePrefix = prefixTokens.join("").toUpperCase();
 
   return {
     id: `incipit-type-${order}-${verse.externalVerseId}`,

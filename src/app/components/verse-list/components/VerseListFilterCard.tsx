@@ -3,27 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
+  Search,
   ChevronDown,
   ChevronUp,
   History,
-  Pencil,
   TrendingUp,
+  X,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { Card } from '@/app/components/ui/card';
+import { Input } from '@/app/components/ui/input';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
 import type { domain_Tag } from '@/api/models/domain_Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
-  // FILTER_VISUAL_THEME,
-  type FilterVisualTheme,
   type VerseListSortBy,
-  type VerseListStatusFilter,
 } from '../constants';
 import { parseStoredBoolean, VERSE_LIST_STORAGE_KEYS } from '../storage';
 import type { VerseListBookOption } from '../bookOptions';
-import type { VerseListFilterOption, VerseListSortOption } from '../types';
+import type { VerseListSortOption } from '../types';
 
 function ScrollRow({
   children,
@@ -43,11 +41,6 @@ function ScrollRow({
     </div>
   );
 }
-
-const PANEL_TRANSITION = {
-  duration: 0.22,
-  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-};
 
 const TESTAMENT_GROUPS = [
   { key: 'old', label: 'Ветхий Завет' },
@@ -69,7 +62,7 @@ function SectionActionButton({
       aria-expanded={expanded}
       aria-controls={controls}
       onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:bg-background"
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-surface hover:text-text-primary"
     >
       <span>{expanded ? 'Свернуть' : 'Развернуть'}</span>
       {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -89,32 +82,18 @@ function ExpandableSectionBody({
   expandedContent: React.ReactNode;
 }) {
   return (
-    <AnimatePresence initial={false} mode="wait">
-      <motion.div
-        key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
-        id={controls}
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: 'auto', opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        transition={PANEL_TRANSITION}
-        className="overflow-hidden"
-      >
-        {expanded ? expandedContent : collapsedContent}
-      </motion.div>
-    </AnimatePresence>
+    <div
+      key={expanded ? `${controls}-expanded` : `${controls}-collapsed`}
+      id={controls}
+      className="overflow-hidden"
+    >
+      {expanded ? expandedContent : collapsedContent}
+    </div>
   );
 }
 
 export type VerseListFilterCardProps = {
-  totalVisible: number;
   totalCount: number;
-  currentFilterLabel: string;
-  currentFilterTheme: FilterVisualTheme;
-  statusFilter: VerseListStatusFilter;
-  defaultStatusFilter: VerseListStatusFilter;
-  filterOptions: VerseListFilterOption[];
-  hasFriends?: boolean;
-  onTabClick: (filter: VerseListStatusFilter, label: string) => void;
   selectedBookId: number | null;
   bookOptions: VerseListBookOption[];
   onBookChange: (bookId: number | null, label: string) => void;
@@ -130,52 +109,35 @@ export type VerseListFilterCardProps = {
   hasActiveTags?: boolean;
   onTagClick?: (slug: string) => void;
   onClearTags?: () => void;
-  onCreateTagDialogOpen?: () => void;
-  onDeleteTag?: (id: string, slug: string) => Promise<void>;
   presentation?: 'card' | 'drawer';
 };
-
-const ROOT_TABS = [
-  { key: 'catalog', label: 'Каталог' },
-  { key: 'friends', label: 'Друзья' },
-  { key: 'my', label: 'Мои стихи' },
-] as const;
 
 const ALL_BOOKS_LABEL = 'Все';
 
 function VerseListFilterSections({
-  statusFilter,
-  // filterOptions,
-  hasFriends = false,
-  onTabClick,
+  totalCount: _totalCount,
   selectedBookId,
   bookOptions,
   onBookChange,
   sortBy,
   sortOptions,
   onSortChange,
+  searchQuery = '',
+  onSearchChange,
   allTags = [],
   isLoadingTags = false,
   selectedTagSlugs = new Set(),
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-  onCreateTagDialogOpen,
-}: Omit<VerseListFilterCardProps, 'presentation'>) {
+  presentation: _presentation = 'card',
+}: VerseListFilterCardProps) {
   const deletingTagId = null;
   const [areBooksExpanded, setAreBooksExpanded] = useState(false);
   const [areTagsExpanded, setAreTagsExpanded] = useState(false);
   const booksPanelId = React.useId();
   const tagsPanelId = React.useId();
-  const activeRootTab: (typeof ROOT_TABS)[number]['key'] =
-    statusFilter === 'catalog'
-      ? 'catalog'
-      : statusFilter === 'friends'
-        ? 'friends'
-        : 'my';
-  const visibleRootTabs = hasFriends
-    ? ROOT_TABS
-    : ROOT_TABS.filter((tab) => tab.key !== 'friends');
+  const trimmedSearchQuery = searchQuery.trim();
   const selectedBook =
     selectedBookId == null
       ? null
@@ -202,8 +164,8 @@ function VerseListFilterSections({
             ? 'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors'
             : 'inline-flex min-h-9 items-center justify-center rounded-xl border px-1.5 py-2 text-[10px] font-medium leading-none transition-colors',
           isActive
-            ? 'border-primary/30 bg-primary/12 text-primary'
-            : 'border-border/55 bg-background/25 text-foreground/75 hover:bg-background/60',
+            ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+            : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
         )}
       >
         {layout === 'row' ? (
@@ -213,11 +175,11 @@ function VerseListFilterSections({
                 'h-1.5 w-1.5 rounded-full',
                 option.testament === 'old'
                   ? isActive
-                    ? 'bg-amber-500'
-                    : 'bg-amber-400/55'
+                    ? 'bg-status-mastered'
+                    : 'bg-status-mastered/55'
                   : isActive
-                    ? 'bg-sky-500'
-                    : 'bg-sky-400/55',
+                    ? 'bg-status-review'
+                    : 'bg-status-review/55',
               )}
             />
             <span>{option.shortLabel}</span>
@@ -237,15 +199,8 @@ function VerseListFilterSections({
     const tagKey = tag.id ?? (slug || `tag-${index}`);
 
     return (
-      <motion.div
+      <div
         key={tagKey}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{
-          delay: Math.min(index * 0.045, 0.32),
-          duration: 0.18,
-          ease: [0.22, 1, 0.36, 1],
-        }}
         className={cn(
           'group/tag',
           layout === 'row' ? 'relative first:ml-3 last:mr-3 shrink-0' : 'relative',
@@ -261,123 +216,69 @@ function VerseListFilterSections({
           className={cn(
             'inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors',
             isActive
-              ? 'border-primary/40 bg-primary/12 text-primary'
-              : 'border-border/60 bg-background/10 text-foreground/75 hover:bg-muted/60',
+              ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+              : 'border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-primary',
             !canToggle && 'pointer-events-none opacity-40',
           )}
         >
           <span
             className={cn(
               'text-[10px]',
-              isActive ? 'text-primary/55' : 'text-muted-foreground/45',
+              isActive ? 'text-brand-primary/55' : 'text-text-muted',
             )}
           >
             #
           </span>
           {tag.title}
         </button>
-      </motion.div>
+      </div>
     );
   };
 
   return (
     <div className="overflow-hidden pb-2">
-      <div data-tour="verse-list-filters-root-tabs" className="mt-2 px-3">
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-          Основной фильтр:{' '}
-          {activeRootTab === 'my'
-            ? 'Мои стихи'
-            : activeRootTab === 'friends'
-              ? 'Друзья'
-              : 'Общий'}
-        </div>
-        <div
-          role="tablist"
-          aria-label="Основной фильтр списка стихов"
-          className="grid gap-1 rounded-2xl border border-border/35 bg-primary/5 p-1"
-          style={{
-            gridTemplateColumns: `repeat(${visibleRootTabs.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {visibleRootTabs.map(({ key, label }) => {
-            const isActive = activeRootTab === key;
-            return (
+      {onSearchChange ? (
+        <div data-tour="verse-list-filters-search" className="mt-3 px-3">
+          <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              Поиск
+            </span>
+            {trimmedSearchQuery.length > 0 ? (
               <button
-                key={key}
                 type="button"
-                data-tour={`verse-filter-tab-${key}`}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() =>
-                  onTabClick(
-                    key === 'my' ? 'my' : key,
-                    key === 'my' ? 'Мои стихи' : label,
-                  )
-                }
-                className={cn(
-                  'flex min-h-8 items-center justify-center gap-1.5 rounded-xl px-3 py-1 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'border border-primary/30 bg-primary/12 text-primary'
-                    : 'text-muted-foreground',
-                )}
+                onClick={() => onSearchChange('')}
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
               >
-                <span>{label}</span>
+                Сбросить
               </button>
-            );
-          })}
+            ) : null}
+          </div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Найти в каталоге"
+              className="pr-11 pl-10"
+            />
+            {trimmedSearchQuery.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-surface hover:text-text-primary"
+                aria-label="Очистить поиск"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
-            {/* {isMyMode ? (
-              <div className="mt-3 px-3">
-                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-                  Доп фильтр
-                </div>
-                <div className="rounded-2xl border border-border/35 bg-primary/5 p-1">
-                  <div role="tablist" aria-label="Подфильтр моих стихов">
-                    <ScrollRow>
-                      {filterOptions.map((option) => {
-                        const isActive = statusFilter === option.key;
-                        const optionTheme = FILTER_VISUAL_THEME[option.key];
-                        return (
-                          <button
-                            key={option.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={isActive}
-                            onClick={() =>
-                              isActive
-                                ? onTabClick('my', 'Мои стихи')
-                                : onTabClick(option.key, option.label)
-                            }
-                            className={cn(
-                              'first:ml-1 last:mr-1 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium text-foreground/75 transition-colors',
-                              isActive
-                                ? optionTheme.activeTabClassName
-                                : 'text-muted-foreground hover:bg-background/60',
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                isActive
-                                  ? optionTheme.dotClassName
-                                  : 'bg-muted-foreground/35',
-                              )}
-                            />
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </ScrollRow>
-                  </div>
-                </div>
-              </div>
-            ) : null} */}
       <div data-tour="verse-list-filters-book" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
           <div className="min-w-0">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
               Книга: {selectedBook?.label ?? ALL_BOOKS_LABEL}
             </div>
           </div>
@@ -386,7 +287,7 @@ function VerseListFilterSections({
               <button
                 type="button"
                 onClick={() => onBookChange(null, ALL_BOOKS_LABEL)}
-                className="text-[11px] text-destructive transition-colors"
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
               >
                 Сбросить
               </button>
@@ -398,7 +299,7 @@ function VerseListFilterSections({
             />
           </div>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5 p-1">
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-subtle p-1">
           <ExpandableSectionBody
             expanded={areBooksExpanded}
             controls={booksPanelId}
@@ -410,16 +311,16 @@ function VerseListFilterSections({
                   className={cn(
                     'first:ml-1 last:mr-1 inline-flex min-h-8 shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
                     selectedBookId == null
-                      ? 'border-primary/30 bg-primary/12 text-primary'
-                      : 'border-border/55 bg-background/25 text-muted-foreground hover:bg-background/60',
+                      ? 'border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border-border-subtle bg-bg-elevated text-text-muted hover:border-brand-primary/15 hover:bg-bg-surface hover:text-text-secondary',
                   )}
                 >
                   <span
                     className={cn(
                       'h-1.5 w-1.5 rounded-full',
                       selectedBookId == null
-                        ? 'bg-primary/70'
-                        : 'bg-muted-foreground/35',
+                        ? 'bg-brand-primary/70'
+                        : 'bg-text-muted/45',
                     )}
                   />
                   Все
@@ -431,7 +332,7 @@ function VerseListFilterSections({
               <div className="space-y-3 px-2 py-2.5">
                 {bookGroups.map((group) => (
                   <div key={group.key} className="space-y-2">
-                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
                       {group.label}
                     </div>
                     <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
@@ -445,56 +346,9 @@ function VerseListFilterSections({
         </div>
       </div>
 
-
-      <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
-        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
-          Сортировка:{' '}
-          {sortBy === 'bible'
-            ? 'По канону библии'
-            : sortBy === 'popularity'
-              ? 'По популярности'
-              : 'По активности'}
-        </div>
-        <div className="rounded-xl border border-border/35 bg-primary/5 p-1.5">
-          <div
-            role="radiogroup"
-            aria-label="Сортировка стихов"
-            className="grid grid-cols-3 gap-1"
-          >
-            {sortOptions.map((option) => {
-              const isActive = sortBy === option.key;
-              const Icon =
-                option.key === 'bible'
-                  ? BookOpen
-                  : option.key === 'popularity'
-                    ? TrendingUp
-                    : History;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => onSortChange(option.key, option.label)}
-                  className={cn(
-                    'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
-                    isActive
-                      ? 'border border-primary/30 bg-primary/12 text-primary'
-                      : 'border border-transparent text-muted-foreground hover:bg-background/65',
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="truncate">{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       <div data-tour="verse-list-filters-tags" className="mt-3 px-3">
         <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/65">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
             {hasActiveTags
               ? `Темы: ${selectedTagSlugs.size}`
               : `Темы: все${allTags.length > 0 ? ` • ${allTags.length}` : ''}`}
@@ -504,19 +358,9 @@ function VerseListFilterSections({
               <button
                 type="button"
                 onClick={onClearTags}
-                className="text-[11px] text-destructive transition-colors"
+                className="text-[11px] text-state-error transition-colors hover:text-state-error/80"
               >
                 Сбросить
-              </button>
-            ) : null}
-            {onCreateTagDialogOpen ? (
-              <button
-                type="button"
-                onClick={onCreateTagDialogOpen}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-                <span className="hidden sm:inline">Редактировать</span>
               </button>
             ) : null}
             {allTags.length > 0 ? (
@@ -529,7 +373,7 @@ function VerseListFilterSections({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border/35 bg-primary/5">
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-subtle">
           {isLoadingTags ? (
             <div className="my-2.5 flex gap-2 px-3.5">
               {[56, 72, 48, 64].map((w) => (
@@ -558,10 +402,56 @@ function VerseListFilterSections({
               }
             />
           ) : (
-            <p className="px-3.5 py-2.5 text-xs italic text-muted-foreground/50 sm:px-4">
-              Нет тегов - создайте первый
+            <p className="px-3.5 py-2.5 text-xs italic text-text-muted sm:px-4">
+              Теги пока не созданы
             </p>
           )}
+        </div>
+      </div>
+
+      <div data-tour="verse-list-filters-sort" className="mt-3 px-3">
+        <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+          Сортировка:{' '}
+          {sortBy === 'bible'
+            ? 'По канону библии'
+            : sortBy === 'popularity'
+              ? 'По популярности'
+              : 'По активности'}
+        </div>
+        <div className="rounded-xl border border-border-subtle bg-bg-subtle p-1.5">
+          <div
+            role="radiogroup"
+            aria-label="Сортировка стихов"
+            className="grid grid-cols-3 gap-1"
+          >
+            {sortOptions.map((option) => {
+              const isActive = sortBy === option.key;
+              const Icon =
+                option.key === 'bible'
+                  ? BookOpen
+                  : option.key === 'popularity'
+                    ? TrendingUp
+                    : History;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  onClick={() => onSortChange(option.key, option.label)}
+                  className={cn(
+                    'inline-flex min-h-5 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium transition-colors',
+                    isActive
+                      ? 'border border-brand-primary/20 bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]'
+                      : 'border border-transparent text-text-muted hover:bg-bg-elevated hover:text-text-secondary',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="truncate">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -569,15 +459,7 @@ function VerseListFilterSections({
 }
 
 export function VerseListFilterCard({
-  totalVisible,
-  totalCount,
-  currentFilterLabel,
-  currentFilterTheme,
-  statusFilter,
-  defaultStatusFilter,
-  filterOptions,
-  hasFriends = false,
-  onTabClick,
+  totalCount: _totalCount,
   selectedBookId,
   bookOptions,
   onBookChange,
@@ -593,8 +475,6 @@ export function VerseListFilterCard({
   hasActiveTags = false,
   onTagClick,
   onClearTags,
-  onCreateTagDialogOpen,
-  onDeleteTag,
   presentation = 'card',
 }: VerseListFilterCardProps) {
   const isDrawerPresentation = presentation === 'drawer';
@@ -617,22 +497,13 @@ export function VerseListFilterCard({
 
   const trimmedSearchQuery = searchQuery.trim();
   const hasFiltersApplied =
-    statusFilter !== defaultStatusFilter ||
     selectedBookId !== null ||
     sortBy !== DEFAULT_VERSE_LIST_SORT_BY ||
     hasActiveTags ||
     trimmedSearchQuery.length > 0;
 
   const sharedProps = {
-    totalVisible,
-    totalCount,
-    currentFilterLabel,
-    currentFilterTheme,
-    statusFilter,
-    defaultStatusFilter,
-    filterOptions,
-    hasFriends,
-    onTabClick,
+    totalCount: _totalCount,
     selectedBookId,
     bookOptions,
     onBookChange,
@@ -648,15 +519,14 @@ export function VerseListFilterCard({
     hasActiveTags,
     onTagClick,
     onClearTags,
-    onCreateTagDialogOpen,
-    onDeleteTag,
+    presentation,
   };
 
   if (isDrawerPresentation) {
     return (
       <div
         data-tour="verse-list-filters-panel"
-        className="overflow-hidden rounded-[28px] border border-border/45 bg-card/45"
+        className="overflow-hidden rounded-[28px] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]"
       >
         <VerseListFilterSections {...sharedProps} />
       </div>
@@ -665,12 +535,12 @@ export function VerseListFilterCard({
 
   return (
     <div data-tour="verse-list-filters-panel" className="mb-3">
-      <Card className="gap-0 rounded-3xl border border-border/35 bg-card/50">
+      <Card className="gap-0 rounded-3xl border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
-            className="inline-flex items-center gap-2 text-[13px] text-muted-foreground"
+            className="inline-flex items-center gap-2 text-[13px] text-text-muted"
           >
             <span className="font-medium uppercase">Фильтры</span>
           </button>
@@ -684,8 +554,8 @@ export function VerseListFilterCard({
                 className={cn(
                   'rounded-lg px-2 py-1 text-[11px] font-medium transition-colors',
                   hasFiltersApplied
-                    ? 'bg-destructive/60 text-background dark:text-foreground/75'
-                    : 'text-muted-foreground hover:bg-background/60',
+                    ? 'bg-status-paused-soft text-status-paused'
+                    : 'text-text-muted hover:bg-bg-surface hover:text-text-secondary',
                 )}
               >
                 Сбросить
@@ -695,7 +565,7 @@ export function VerseListFilterCard({
               type="button"
               aria-expanded={!isCollapsed}
               onClick={() => setIsCollapsed((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/60"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-text-muted transition-colors hover:bg-bg-surface hover:text-text-secondary"
             >
               {isCollapsed ? (
                 <ChevronDown className="h-5 w-5" />
@@ -706,20 +576,11 @@ export function VerseListFilterCard({
           </div>
         </div>
 
-        <AnimatePresence initial={false}>
-          {!isCollapsed ? (
-            <motion.div
-              key="filters-content"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={PANEL_TRANSITION}
-              className="overflow-hidden"
-            >
-              <VerseListFilterSections {...sharedProps} />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {!isCollapsed ? (
+          <div className="overflow-hidden">
+            <VerseListFilterSections {...sharedProps} />
+          </div>
+        ) : null}
       </Card>
     </div>
   );

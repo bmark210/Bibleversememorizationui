@@ -2,18 +2,28 @@
 
 import { useMemo } from 'react'
 import { useTelegram } from '../contexts/TelegramContext'
-import { Verse } from '@/app/App'
-import { normalizeVerseFlow } from '@/shared/domain/verseFlow'
+import type { Verse } from '@/app/domain/verse'
 import type { domain_UserDashboardStats } from '@/api/models/domain_UserDashboardStats'
 import type { domain_UserLeaderboardResponse } from '@/api/models/domain_UserLeaderboardResponse'
-import { computeVerseTotalProgressPercent } from '@/shared/training/verseTotalProgress'
+import type { DashboardCompactFriendsActivityResponse } from '@/api/services/friendsActivity'
+import {
+  getVerseNextAvailabilityAt,
+  getVerseProgressPercent,
+  isVerseLearning,
+  isVerseMastered,
+  isVerseReview,
+} from '@/shared/verseRules'
 import { formatXp } from '@/shared/social/formatXp'
 import { useCurrentUserStatsStore } from '@/app/stores/currentUserStatsStore'
+import { cn } from './ui/utils'
 import {
+  DashboardFriendsActivityCard,
   DashboardLeaderboardCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from './dashboard/DashboardSections'
+
+/* ── Types ─────────────────────────────────────────────────────────── */
 
 interface DashboardProps {
   todayVerses: Array<Verse>
@@ -21,6 +31,8 @@ interface DashboardProps {
   isDashboardStatsLoading?: boolean
   dashboardLeaderboard?: domain_UserLeaderboardResponse | null
   isDashboardLeaderboardLoading?: boolean
+  dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null
+  isDashboardFriendsActivityLoading?: boolean
   currentTelegramId?: string | null
   currentUserAvatarUrl?: string | null
   onOpenTraining?: () => void
@@ -29,8 +41,10 @@ interface DashboardProps {
     name: string
     avatarUrl: string | null
   }) => void
-  onLeaderboardPageChange?: (page: number) => void
-  onLeaderboardJumpToMe?: () => void
+  onLeaderboardWindowRequest?: (query: {
+    offset?: number
+    limit?: number
+  }) => Promise<domain_UserLeaderboardResponse | null>
   isInitializingData?: boolean
 }
 
@@ -42,12 +56,18 @@ type TodayVersesSummary = {
   averageTrainingProgressPercent: number
 }
 
+/* ── Helpers ────────────────────────────────────────────────────────── */
+
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
 export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
-  return clampPercent(computeVerseTotalProgressPercent(masteryLevel, repetitions))
+  return clampPercent(getVerseProgressPercent({
+    flow: null,
+    masteryLevel,
+    repetitions,
+  }))
 }
 
 function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
@@ -55,33 +75,29 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
 
   const summary = todayVerses.reduce(
     (acc, verse) => {
-      const progress = toMasteryPercent(verse.masteryLevel, verse.repetitions)
-      const flow = normalizeVerseFlow(verse.flow)
+      const progress = getVerseProgressPercent(verse)
 
       acc.progressTotal += progress
 
-      if (flow?.code === 'LEARNING' || verse.status === 'LEARNING') {
+      if (isVerseLearning(verse)) {
         acc.learningVersesCount += 1
       }
 
-      if (
-        flow?.code === 'REVIEW_DUE' ||
-        flow?.code === 'REVIEW_WAITING' ||
-        verse.status === 'REVIEW'
-      ) {
+      if (isVerseReview(verse)) {
         acc.reviewVersesCount += 1
 
-        if (flow?.code === 'REVIEW_DUE' || !verse.nextReviewAt) {
+        const nextReviewAt = getVerseNextAvailabilityAt(verse)
+        if (!nextReviewAt) {
           acc.dueReviewCount += 1
         } else {
-          const nextReviewTime = new Date(verse.nextReviewAt).getTime()
+          const nextReviewTime = nextReviewAt.getTime()
           if (Number.isNaN(nextReviewTime) || nextReviewTime <= now) {
             acc.dueReviewCount += 1
           }
         }
       }
 
-      if (flow?.code === 'MASTERED' || verse.status === 'MASTERED') {
+      if (isVerseMastered(verse)) {
         acc.masteredVerses += 1
       }
 
@@ -93,7 +109,7 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
       dueReviewCount: 0,
       masteredVerses: 0,
       progressTotal: 0,
-    }
+    },
   )
 
   return {
@@ -108,110 +124,112 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
   }
 }
 
+/* ── Dashboard ─────────────────────────────────────────────────────── */
+
 export function Dashboard({
   todayVerses,
   dashboardStats = null,
   isDashboardStatsLoading = false,
   dashboardLeaderboard = null,
   isDashboardLeaderboardLoading = false,
+  dashboardFriendsActivity = null,
+  isDashboardFriendsActivityLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
   onOpenPlayerProfile,
-  onLeaderboardPageChange,
-  onLeaderboardJumpToMe,
+  onLeaderboardWindowRequest,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram()
   const todaySummary = useMemo(() => summarizeTodayVerses(todayVerses), [todayVerses])
   const isStatsPending = isDashboardStatsLoading && dashboardStats == null
-  const currentUserXp = useCurrentUserStatsStore((state) => state.xp)
-  const currentUserMasteredVerses = useCurrentUserStatsStore(
-    (state) => state.masteredVerses,
-  )
-  const currentUserDailyStreak = useCurrentUserStatsStore(
-    (state) => state.dailyStreak,
-  )
+  const currentUserXp = useCurrentUserStatsStore((s) => s.xp)
+  const currentUserDailyStreak = useCurrentUserStatsStore((s) => s.dailyStreak)
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount
+  const reviewVerses =
+    dashboardStats?.reviewVerses ?? todaySummary.reviewVersesCount
   const dueReviewVerses = dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount
-  const userXp = currentUserXp ?? dashboardStats?.xp ?? null
   const masteredVerses =
-    currentUserMasteredVerses ?? dashboardStats?.masteredCount ?? null
+    dashboardStats?.masteredCount ?? todaySummary.masteredVerses
+  const userXp = currentUserXp ?? dashboardStats?.xp ?? null
   const dailyStreak = currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null
 
   const statsCards = useMemo(
     () =>
       [
+        { key: 'xp', label: 'XP', value: userXp != null ? formatXp(userXp) : null, isLoading: isStatsPending, tone: 'neutral' as const },
         {
           key: 'learning',
-          label: 'Изучение',
+          label: 'В изучении',
           value: `${learningVerses}`,
           tone: 'learning' as const,
         },
-        {
-          key: 'review',
-          label: 'Повторение',
-          value: `${dueReviewVerses}`,
-          tone: 'review' as const,
-        },
-        {
-          key: 'xp',
-          label: 'XP',
-          value: userXp != null ? formatXp(userXp) : null,
-          isLoading: isStatsPending,
-          tone: 'neutral' as const,
-        },
-        {
-          key: 'mastered',
-          label: 'Выучено',
-          value: masteredVerses != null ? `${masteredVerses}` : null,
-          isLoading: isStatsPending,
-          tone: 'mastered' as const,
-        },
+        { key: 'review', label: 'В повторении', value: `${reviewVerses}`, tone: 'review' as const },
+        { key: 'mastered', label: 'Выучено', value: `${masteredVerses}`, tone: 'mastered' as const },
       ] as const,
-    [dueReviewVerses, isStatsPending, learningVerses, masteredVerses, userXp]
+    [isStatsPending, learningVerses, masteredVerses, reviewVerses, userXp],
   )
 
   if (isInitializingData) {
-    return <div className="min-h-[60vh]" />
+    return <div className="min-h-0 flex-1" />
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
-      <DashboardWelcomeSection
-        user={user}
-        currentUserAvatarUrl={currentUserAvatarUrl}
-        learningVersesCount={learningVerses}
-        dueReviewVerses={dueReviewVerses}
-        dailyStreak={dailyStreak}
-        onOpenTraining={onOpenTraining}
-        onOpenCurrentUserProfile={
-          currentTelegramId && onOpenPlayerProfile
-            ? () =>
-                onOpenPlayerProfile({
-                  telegramId: currentTelegramId,
-                  name: user?.firstName?.trim() || 'Вы',
-                  avatarUrl: currentUserAvatarUrl,
-                })
-            : undefined
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.85fr)]">
-        <DashboardTrainingStatsCard statsCards={statsCards} />
-        <div className="space-y-5">
-          <DashboardLeaderboardCard
-            leaderboard={dashboardLeaderboard}
-            isLeaderboardLoading={isDashboardLeaderboardLoading}
-            onOpenTraining={onOpenTraining}
-            onOpenPlayerProfile={onOpenPlayerProfile}
-            onLeaderboardPageChange={onLeaderboardPageChange}
-            onLeaderboardJumpToMe={onLeaderboardJumpToMe}
-          />
-        </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+   
+    <section
+      className={cn(
+        'mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-cols-1 grid-rows-[auto_auto_auto] overflow-y-auto',
+        'gap-2 px-3 py-2 sm:gap-3 sm:py-3',
+        'lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] lg:grid-rows-[auto_auto]',
+        'sm:px-4 lg:px-5',
+      )}
+    >
+      <div className="min-h-0 lg:col-start-1 lg:row-start-1">
+        <DashboardWelcomeSection
+          user={user}
+          currentUserAvatarUrl={currentUserAvatarUrl}
+          learningVersesCount={learningVerses}
+          dueReviewVerses={dueReviewVerses}
+          dailyStreak={dailyStreak}
+          onOpenTraining={onOpenTraining}
+          onOpenCurrentUserProfile={
+            currentTelegramId && onOpenPlayerProfile
+              ? () =>
+                  onOpenPlayerProfile({
+                    telegramId: currentTelegramId,
+                    name: user?.firstName?.trim() || 'Вы',
+                    avatarUrl: currentUserAvatarUrl,
+                  })
+              : undefined
+          }
+        />
       </div>
+
+      <div className="min-h-0 lg:col-start-2 lg:row-start-1">
+        <DashboardTrainingStatsCard statsCards={statsCards} />
+      </div>
+
+      <div className="grid min-h-0 grid-cols-1 gap-2 sm:gap-3 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(15rem,0.78fr)_minmax(18rem,1.22fr)] lg:items-start">
+        <DashboardLeaderboardCard
+          leaderboard={dashboardLeaderboard}
+          isLeaderboardLoading={isDashboardLeaderboardLoading}
+          onOpenTraining={onOpenTraining}
+          onOpenPlayerProfile={onOpenPlayerProfile}
+          onLeaderboardWindowRequest={onLeaderboardWindowRequest}
+        />
+        <DashboardFriendsActivityCard
+          friendsActivity={dashboardFriendsActivity}
+          isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+          currentTelegramId={currentTelegramId}
+          onOpenPlayerProfile={onOpenPlayerProfile}
+        />
+      </div>
+    </section>
+
     </div>
   )
 }

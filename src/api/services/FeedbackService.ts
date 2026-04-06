@@ -50,8 +50,8 @@ export class FeedbackService {
             body: request,
             errors: {
                 400: `Bad Request`,
-                404: `Not Found`,
                 429: `Too Many Requests`,
+                500: `Internal Server Error`,
             },
         });
     }

@@ -1,13 +1,17 @@
 import { useCallback, useState } from 'react';
 import { toast } from '@/app/lib/toast';
+import {
+  resolveVerseActionToastKind,
+  showVerseActionToast,
+} from '@/app/lib/semanticToast';
 import { UserVersesService } from '@/api/services/UserVersesService';
-import { deleteUserVerseWithXp } from '@/api/services/userVerseDelete';
-import { Verse } from '@/app/App';
+import { deleteUserVerse } from '@/api/services/userVerseDelete';
+import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from '@/shared/domain/verseStatus';
 import { normalizeDisplayVerseStatus } from '@/app/types/verseStatus';
 import type { VerseMutablePatch, VersePatchEvent } from '@/app/types/verseSync';
-import { pickMutableVersePatchFromApiResponse } from '@/app/utils/versePatch';
-import { buildVerseDeletionXpFeedback } from '@/app/utils/verseXp';
+import { pickMutableVersePatchFromApiResponse, extractPromotedVerseIds } from '@/app/utils/versePatch';
+import { buildVerseDeletionFeedback } from '@/app/utils/verseXp';
 import type { VerseListStatusFilter } from '../constants';
 import { haptic } from '../haptics';
 
@@ -15,10 +19,11 @@ type UseVerseActionsParams = {
   telegramId?: string;
   statusFilter: VerseListStatusFilter;
   matchesListFilter: (
-    verse: Pick<Verse, 'status' | 'masteryLevel'>,
+    verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
     filter: VerseListStatusFilter
   ) => boolean;
   resetAndFetchFirstPage: (telegramId: string, filter: VerseListStatusFilter) => Promise<void>;
+  refetchCurrentList: () => Promise<void>;
   setVerses: React.Dispatch<React.SetStateAction<Array<Verse>>>;
   setTotalCount: React.Dispatch<React.SetStateAction<number>>;
   setGalleryIndex: React.Dispatch<React.SetStateAction<number | null>>;
@@ -28,13 +33,17 @@ type UseVerseActionsParams = {
     options: {
       statusFilter: VerseListStatusFilter;
       matchesListFilter: (
-        verse: Pick<Verse, 'status' | 'masteryLevel'>,
+        verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
         filter: VerseListStatusFilter
       ) => boolean;
       adjustTotalCountOnFilterExit?: boolean;
     }
   ) => { didPatch: boolean; removedFromCurrentFilter: boolean };
   onVerseMutationCommitted?: () => void;
+  onLearningCapacityExceeded?: (verse: Verse) => void;
+  /** Called when a learning slot is freed and queue auto-promotion may have occurred.
+   *  promotedIds contains the externalVerseIds of verses moved QUEUE → LEARNING. */
+  onSlotFreed?: (promotedIds: string[]) => void;
 };
 
 function getErrorStatusCode(error: unknown): number | null {
@@ -57,46 +66,26 @@ function getErrorStatusCode(error: unknown): number | null {
   return Number.isFinite(parsedStatus) ? parsedStatus : null;
 }
 
+type ReplaceLearningVerseOutcome = 'success' | 'stale' | 'error';
+
 export function useVerseActions({
   telegramId,
   statusFilter,
   matchesListFilter,
   resetAndFetchFirstPage,
+  refetchCurrentList,
   setVerses,
   setTotalCount,
   setGalleryIndex,
   setAnnouncement,
   applyVersePatch,
   onVerseMutationCommitted,
+  onLearningCapacityExceeded,
+  onSlotFreed,
 }: UseVerseActionsParams) {
   const [pendingVerseKeys, setPendingVerseKeys] = useState<Set<string>>(() => new Set());
   const [deleteTargetVerse, setDeleteTargetVerse] = useState<Verse | null>(null);
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
-
-  const pushToast = useCallback((
-    message: string,
-    type: 'success' | 'error' | 'info',
-    options?: { description?: string }
-  ) => {
-    if (type === 'success') {
-      toast.success(message, {
-        description: options?.description,
-        label: 'Стихи',
-      });
-      return;
-    }
-    if (type === 'error') {
-      toast.error(message, {
-        description: options?.description,
-        label: 'Стихи',
-      });
-      return;
-    }
-    toast.info(message, {
-      description: options?.description,
-      label: 'Стихи',
-    });
-  }, []);
 
   const getVerseKey = useCallback((verse: Pick<Verse, 'id' | 'externalVerseId'>) => {
     return String(verse.externalVerseId ?? verse.id);
@@ -121,36 +110,13 @@ export function useVerseActions({
     [getVerseKey]
   );
 
-  const getStatusSuccessMessage = (prevStatusInput: Verse['status'], nextStatus: VerseStatus) => {
-    const prevStatus = normalizeDisplayVerseStatus(prevStatusInput);
-    if (prevStatus === 'CATALOG' && nextStatus === VerseStatus.MY) {
-      return 'Добавлено в мои стихи';
-    }
-    if (prevStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
-      return 'Добавлено в изучение';
-    }
-    if (prevStatus === VerseStatus.STOPPED && nextStatus === VerseStatus.LEARNING) {
-      return 'Возобновлено';
-    }
-    if (
-      (
-        prevStatus === VerseStatus.LEARNING ||
-        prevStatus === 'REVIEW' ||
-        prevStatus === 'MASTERED'
-      ) &&
-      nextStatus === VerseStatus.STOPPED
-    ) {
-      return 'Пауза включена';
-    }
-    return 'Статус обновлён';
-  };
-
   const patchVerseStatusOnServer = useCallback(
-    async (verse: Verse, status: VerseStatus): Promise<VerseMutablePatch> => {
+    async (verse: Verse, status: VerseStatus): Promise<{ patch: VerseMutablePatch; promotedVerseIds: string[] }> => {
       if (!telegramId) throw new Error('No telegramId');
       const response = await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, { status });
       const patch = pickMutableVersePatchFromApiResponse(response);
-      return patch ?? { status };
+      const promotedVerseIds = extractPromotedVerseIds(response);
+      return { patch: patch ?? { status: normalizeDisplayVerseStatus(status) }, promotedVerseIds };
     },
     [telegramId]
   );
@@ -170,12 +136,13 @@ export function useVerseActions({
       if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
         await addVerseToCollection(verse.externalVerseId);
       }
-      const patch = await patchVerseStatusOnServer(verse, status);
+      const { patch, promotedVerseIds } = await patchVerseStatusOnServer(verse, status);
       applyVersePatch(
         { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
         { statusFilter, matchesListFilter }
       );
       onVerseMutationCommitted?.();
+      if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
       return patch;
     },
     [
@@ -183,6 +150,7 @@ export function useVerseActions({
       applyVersePatch,
       matchesListFilter,
       onVerseMutationCommitted,
+      onSlotFreed,
       patchVerseStatusOnServer,
       statusFilter,
     ]
@@ -192,7 +160,9 @@ export function useVerseActions({
     async (verse: Verse, nextStatus: VerseStatus) => {
       if (!telegramId) {
         haptic('error');
-        pushToast('Ошибка — попробуйте ещё раз', 'error');
+        toast.error('Ошибка — попробуйте ещё раз', {
+          label: 'Стихи',
+        });
         return;
       }
 
@@ -205,41 +175,69 @@ export function useVerseActions({
         if (normalizeDisplayVerseStatus(verse.status) === 'CATALOG') {
           await addVerseToCollection(verse.externalVerseId);
         }
-        const patch = await patchVerseStatusOnServer(verse, nextStatus);
+        const { patch, promotedVerseIds } = await patchVerseStatusOnServer(verse, nextStatus);
         applyVersePatch(
           { target: { id: verse.id, externalVerseId: verse.externalVerseId }, patch },
           { statusFilter, matchesListFilter }
         );
         onVerseMutationCommitted?.();
         haptic('success');
-        const message = getStatusSuccessMessage(prevStatus, nextStatus);
-        pushToast(message, 'success');
+        const toastKind = resolveVerseActionToastKind(prevStatus, nextStatus);
+        const message =
+          toastKind === 'add-to-my'
+            ? 'Добавлено в мои стихи'
+            : toastKind === 'start-learning'
+              ? 'Добавлено в изучение'
+              : toastKind === 'resume'
+                ? 'Возобновлено'
+                : toastKind === 'pause'
+                  ? 'Пауза включена'
+                  : 'Статус обновлён';
+        if (toastKind) {
+          showVerseActionToast({
+            kind: toastKind,
+            reference: verse.reference,
+          });
+        } else {
+          toast.info(message, {
+            description: verse.reference,
+            label: 'Стихи',
+          });
+        }
+        if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
         setAnnouncement(`${verse.reference}: ${message}`);
       } catch (err) {
         console.error('Не удалось изменить статус стиха:', err);
-        if (telegramId) {
-          void resetAndFetchFirstPage(telegramId, statusFilter);
+        const statusCode = getErrorStatusCode(err);
+        if (statusCode === 422) {
+          haptic('warning');
+          onLearningCapacityExceeded?.(verse);
+        } else {
+          if (telegramId) {
+            void resetAndFetchFirstPage(telegramId, statusFilter);
+          }
+          haptic('error');
+          toast.error('Ошибка — попробуйте ещё раз', {
+            label: 'Стихи',
+          });
         }
-        haptic('error');
-        pushToast('Ошибка — попробуйте ещё раз', 'error');
       } finally {
         markVersePending(verse, false);
       }
     },
     [
       telegramId,
-      pushToast,
       markVersePending,
-      setVerses,
-      isSameVerse,
       matchesListFilter,
       statusFilter,
-      setTotalCount,
       addVerseToCollection,
       patchVerseStatusOnServer,
       setAnnouncement,
       resetAndFetchFirstPage,
       applyVersePatch,
+      onVerseMutationCommitted,
+      onLearningCapacityExceeded,
+      onSlotFreed,
     ]
   );
 
@@ -251,15 +249,94 @@ export function useVerseActions({
     [applyVersePatch, matchesListFilter, onVerseMutationCommitted, statusFilter]
   );
 
+  const replaceLearningVerse = useCallback(
+    async (activateVerse: Verse, pauseVerse: Verse): Promise<ReplaceLearningVerseOutcome> => {
+      if (!telegramId) {
+        return 'error';
+      }
+
+      const pendingVerses = isSameVerse(activateVerse, pauseVerse)
+        ? [activateVerse]
+        : [activateVerse, pauseVerse];
+
+      for (const verse of pendingVerses) {
+        markVersePending(verse, true);
+      }
+
+      try {
+        const response = await UserVersesService.replaceLearningVerse(telegramId, {
+          activateExternalVerseId: activateVerse.externalVerseId,
+          pauseExternalVerseId: pauseVerse.externalVerseId,
+        });
+
+        const activatedPatch =
+          pickMutableVersePatchFromApiResponse(response.activatedVerse) ?? {
+            status: VerseStatus.LEARNING,
+          };
+        const pausedPatch =
+          pickMutableVersePatchFromApiResponse(response.pausedVerse) ?? {
+            status: VerseStatus.STOPPED,
+          };
+
+        applyVersePatch(
+          {
+            target: { id: activateVerse.id, externalVerseId: activateVerse.externalVerseId },
+            patch: activatedPatch,
+          },
+          { statusFilter, matchesListFilter }
+        );
+        applyVersePatch(
+          {
+            target: { id: pauseVerse.id, externalVerseId: pauseVerse.externalVerseId },
+            patch: pausedPatch,
+          },
+          { statusFilter, matchesListFilter }
+        );
+        onVerseMutationCommitted?.();
+        setAnnouncement(`${activateVerse.reference}: добавлено в изучение вместо ${pauseVerse.reference}`);
+        haptic('success');
+        return 'success';
+      } catch (err) {
+        console.error('Не удалось заменить стих в изучении:', err);
+        const statusCode = getErrorStatusCode(err);
+        if (statusCode === 404 || statusCode === 409) {
+          try {
+            await refetchCurrentList();
+          } catch (refetchError) {
+            console.error('Не удалось обновить список после ошибки замены:', refetchError);
+          }
+          haptic('warning');
+          return 'stale';
+        }
+
+        haptic('error');
+        return 'error';
+      } finally {
+        for (const verse of pendingVerses) {
+          markVersePending(verse, false);
+        }
+      }
+    },
+    [
+      telegramId,
+      isSameVerse,
+      markVersePending,
+      applyVersePatch,
+      statusFilter,
+      matchesListFilter,
+      onVerseMutationCommitted,
+      setAnnouncement,
+      refetchCurrentList,
+    ]
+  );
+
   const handleDeleteVerse = useCallback(
     async (verse: Verse) => {
       if (!telegramId) return;
-      let xpLoss = 0;
+      let promotedVerseIds: string[] = [];
       try {
-        const del = await deleteUserVerseWithXp(telegramId, verse.externalVerseId);
-        if (del && del.xpDelta < 0) {
-          xpLoss = -del.xpDelta;
-        }
+        const del = await deleteUserVerse(telegramId, verse.externalVerseId);
+        promotedVerseIds = extractPromotedVerseIds(del as unknown);
       } catch (err: unknown) {
         // 404 = стих не был добавлен пользователем (каталог) — просто убираем из UI
         const statusCode = getErrorStatusCode(err);
@@ -273,6 +350,7 @@ export function useVerseActions({
               ? {
                   ...v,
                   status: 'CATALOG' as const,
+                  flow: null,
                   masteryLevel: 0,
                   repetitions: 0,
                   reviewLapseStreak: 0,
@@ -297,9 +375,9 @@ export function useVerseActions({
         });
       }
       onVerseMutationCommitted?.();
-      return { xpLoss };
+      if (promotedVerseIds.length > 0) onSlotFreed?.(promotedVerseIds);
     },
-    [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted]
+    [statusFilter, telegramId, setVerses, isSameVerse, setTotalCount, setGalleryIndex, onVerseMutationCommitted, onSlotFreed]
   );
 
   const confirmDeleteVerse = useCallback((verse: Verse) => {
@@ -311,7 +389,9 @@ export function useVerseActions({
     if (!deleteTargetVerse) return;
     if (!telegramId) {
       haptic('error');
-      pushToast('Ошибка — попробуйте ещё раз', 'error');
+      toast.error('Ошибка — попробуйте ещё раз', {
+        label: 'Стихи',
+      });
       return;
     }
 
@@ -319,19 +399,24 @@ export function useVerseActions({
     markVersePending(deleteTargetVerse, true);
 
     try {
-      const result = await handleDeleteVerse(deleteTargetVerse);
+      await handleDeleteVerse(deleteTargetVerse);
       haptic('success');
-      const feedback = buildVerseDeletionXpFeedback({
-        xpLoss: result?.xpLoss ?? 0,
+      const feedback = buildVerseDeletionFeedback({
         resetToCatalog: statusFilter === 'catalog',
       });
-      pushToast(feedback.title, 'success', { description: feedback.description });
+      showVerseActionToast({
+        kind: 'delete',
+        reference: deleteTargetVerse.reference,
+        meta: statusFilter === 'catalog' ? feedback.title : null,
+      });
       setAnnouncement(`${deleteTargetVerse.reference}: ${feedback.title}`);
       setDeleteTargetVerse(null);
     } catch (err) {
       console.error('Не удалось удалить стих:', err);
       haptic('error');
-      pushToast('Ошибка — попробуйте ещё раз', 'error');
+      toast.error('Ошибка — попробуйте ещё раз', {
+        label: 'Стихи',
+      });
     } finally {
       markVersePending(deleteTargetVerse, false);
       setIsDeleteSubmitting(false);
@@ -340,7 +425,6 @@ export function useVerseActions({
     deleteTargetVerse,
     telegramId,
     statusFilter,
-    pushToast,
     markVersePending,
     handleDeleteVerse,
     setAnnouncement,
@@ -357,6 +441,7 @@ export function useVerseActions({
     handleStatusChange,
     applyVersePatchedFromGallery,
     updateVerseStatus,
+    replaceLearningVerse,
     handleDeleteVerse,
     confirmDeleteVerse,
     handleConfirmDeleteVerse,

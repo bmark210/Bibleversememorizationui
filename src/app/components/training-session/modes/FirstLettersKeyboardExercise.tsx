@@ -1,31 +1,34 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
-import { TrainingRatingFooter } from './TrainingRatingFooter';
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
+import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { tokenizeFirstLetters } from './wordUtils';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
+import { useFlashTimeout } from './useFlashTimeout';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
-interface FirstLettersKeyboardExerciseProps {
+interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -68,23 +71,23 @@ function trimToMaxLetters(rawValue: string, maxLetters: number) {
 export function ModeFirstLettersKeyboardExercise({
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   hintState,
   onProgressChange,
-  isLateStageReview = false,
+  isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
-  const ratingStage = resolveTrainingRatingStage(verse.status);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [shakeInput, setShakeInput] = useState(false);
-  const [successFlash, setSuccessFlash] = useState(false);
-  const clearShakeTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const shakeFlash = useFlashTimeout<boolean>(240);
+  const successFlash = useFlashTimeout<boolean>();
   const mobileFocusTimeoutRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -96,18 +99,12 @@ export function ModeFirstLettersKeyboardExercise({
     setInputValue('');
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setShakeInput(false);
-    setSuccessFlash(false);
+    shakeFlash.clear();
+    successFlash.clear();
 
     return () => {
-      if (clearShakeTimeoutRef.current) {
-        window.clearTimeout(clearShakeTimeoutRef.current);
-        clearShakeTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
+      shakeFlash.cleanup();
+      successFlash.cleanup();
       if (mobileFocusTimeoutRef.current) {
         window.clearTimeout(mobileFocusTimeoutRef.current);
         mobileFocusTimeoutRef.current = null;
@@ -115,9 +112,12 @@ export function ModeFirstLettersKeyboardExercise({
     };
   }, [verse]);
 
-  useEffect(() => {
-    if (surrendered && !isCompleted) setIsCompleted(true);
-  }, [surrendered, isCompleted]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const expectedCompact = useMemo(
     () => expectedLetters.join(''),
@@ -129,6 +129,7 @@ export function ModeFirstLettersKeyboardExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: expectedLetters.length,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   useEffect(() => {
     onProgressChange?.(
@@ -144,17 +145,6 @@ export function ModeFirstLettersKeyboardExercise({
     );
   }, [completedUnits, expectedLetters.length, isCompleted, onProgressChange, surrendered]);
 
-  const triggerInputShake = () => {
-    setShakeInput(true);
-    if (clearShakeTimeoutRef.current) {
-      window.clearTimeout(clearShakeTimeoutRef.current);
-    }
-    clearShakeTimeoutRef.current = window.setTimeout(() => {
-      setShakeInput(false);
-      clearShakeTimeoutRef.current = null;
-    }, 240);
-  };
-
   const applyNextInputValue = (nextRaw: string) => {
     if (isCompleted || surrendered) return;
 
@@ -165,34 +155,29 @@ export function ModeFirstLettersKeyboardExercise({
     if (compact === expectedPrefix) {
       setInputValue(sanitized);
 
-      setSuccessFlash(true);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlash(false);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      successFlash.flash(true);
 
       if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
         setIsCompleted(true);
+        onExerciseResolved?.({
+          kind: 'success',
+          message: 'Последовательность букв введена верно.',
+        });
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetInput = nextMistakesSinceReset >= maxMistakes;
-    setMistakesSinceReset(shouldResetInput ? 0 : nextMistakesSinceReset);
+    setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetInput) {
-      setInputValue('');
-      toast.warning(
-        `Допущено ${maxMistakes} ошибок. Ввод сброшен.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
-      );
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'failure',
+        reason: 'max-mistakes',
+        message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
+      });
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
@@ -205,7 +190,7 @@ export function ModeFirstLettersKeyboardExercise({
       );
     }
 
-    triggerInputShake();
+    shakeFlash.flash(true);
   };
 
   const handleInputFocus = () => {
@@ -227,80 +212,77 @@ export function ModeFirstLettersKeyboardExercise({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-
-        <motion.div
-          animate={shakeInput ? { x: [-3, 3, -3, 3, 0] } : { x: 0 }}
-          transition={{ duration: 0.2 }}
-          className={`relative overflow-hidden rounded-2xl border bg-gradient-to-b from-background to-muted/20 p-2 transition-colors ${
-            shakeInput
-              ? 'border-destructive/60 bg-destructive/5'
-              : successFlash
-                ? 'border-emerald-500/60 bg-emerald-500/5'
-                : 'border-border/60'
-          }`}
+        <TrainingExerciseSection
+          title="Введите первые буквы"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge
+                tone={
+                  completedUnits === expectedLetters.length && expectedLetters.length > 0
+                    ? 'success'
+                    : 'neutral'
+                }
+              >
+                {completedUnits}/{expectedLetters.length}
+              </TrainingMetricBadge>
+              <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+                До сброса {remainingMistakes}
+              </TrainingMetricBadge>
+            </div>
+          }
+          className="min-h-0"
+          contentClassName="flex h-full flex-col gap-3 pb-1"
         >
+          <p
+            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
+            style={{ fontSize: `${fontSizes.sm}px` }}
+          >
+          </p>
+
           <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-primary/5 to-transparent"
-          />
-          <Textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={(event) => applyNextInputValue(event.target.value)}
-            onFocus={handleInputFocus}
-            placeholder="Введите первые буквы..."
-            disabled={isCompleted || surrendered}
-            data-swipe-through="true"
-            className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            style={{ fontSize: `${fontSizes.base}px` }}
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            enterKeyHint="done"
-          />
-        </motion.div>
+            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
+              shakeFlash.value === true
+                  ? 'border-destructive/60 bg-destructive/5'
+                  : successFlash.value === true
+                    ? 'border-status-learning/25 bg-status-learning-soft'
+                    : 'border-border/60'
+              }`}
+          >
+            <Textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(event) => applyNextInputValue(event.target.value)}
+              onFocus={handleInputFocus}
+              placeholder="Введите первые буквы..."
+              disabled={isCompleted || surrendered}
+              data-swipe-through="true"
+              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{ fontSize: `${fontSizes.base}px` }}
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="done"
+            />
+          </div>
+        </TrainingExerciseSection>
       </ScrollShadowContainer>
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="first-letters"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
-    </motion.div>
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
+
+    </div>
   );
 }

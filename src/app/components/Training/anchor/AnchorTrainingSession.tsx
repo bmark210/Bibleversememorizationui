@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
@@ -16,15 +15,14 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/app/components/ui/drawer";
 import { toast } from "@/app/lib/toast";
 import {
   coerceVerseDifficultyLevel,
@@ -75,20 +73,6 @@ const ANCHOR_SESSION_BATCH_SIZE = 10;
 const REFERENCE_TRAINER_POOL_LIMIT = 24;
 const TYPE_INPUT_READY_RATIO = 0.8;
 const TYPE_PREFIX_READY_RATIO = 0.8;
-
-const slideVariants = {
-  enter: { opacity: 0, scale: 0.97 },
-  center: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.97,
-    transition: { duration: 0.15, ease: "easeIn" as const },
-  },
-};
 
 // ---------------------------------------------------------------------------
 // mapToTrainingVerse
@@ -516,13 +500,6 @@ export function AnchorTrainingSession({
           telegramId: telegramIdValue,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
         });
-        if (response.verses.length === 0 && response.totalCount < response.minRequired) {
-          setErrorMessage(
-            `Недостаточно стихов на этапе повторения или выученных. Нужно минимум ${response.minRequired}, сейчас ${response.totalCount}.`
-          );
-          setVersePool([]);
-          return;
-        }
         const merged = response.verses
           .map(mapToTrainingVerse)
           .filter((verse): verse is TrainingVerse => verse !== null);
@@ -924,15 +901,15 @@ export function AnchorTrainingSession({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20">
+      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-bg-surface via-bg-app to-bg-subtle">
         <header
           id="anchor-session-header"
-          className="sticky top-0 z-10 shrink-0 overflow-hidden border-b border-border/40 bg-background/75 backdrop-blur-xl"
+          className="sticky top-0 z-10 shrink-0 overflow-hidden border-b border-border-subtle bg-bg-app/80 backdrop-blur-xl"
           style={{ paddingTop: `${topInset}px` }}
         >
           <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
             <div className="flex min-h-11 items-center justify-center">
-              <div className="truncate text-sm font-semibold text-primary">
+              <div className="truncate [font-family:var(--font-heading)] text-sm font-semibold tracking-[0.08em] text-brand-primary">
                 Закрепление
               </div>
             </div>
@@ -942,15 +919,15 @@ export function AnchorTrainingSession({
         {/* Accuracy bar + mode info */}
         {hasActiveQuestion && currentQuestion && (
           <div className="shrink-0 px-4 pt-2 pb-1 space-y-1.5">
-            <div className="h-1.5 w-full max-w-md mx-auto rounded-full overflow-hidden bg-rose-500/30 flex">
+            <div className="mx-auto flex h-1.5 w-full max-w-md overflow-hidden rounded-full bg-status-paused-soft">
               {answeredCount > 0 && (
                 <div
-                  className="bg-emerald-500/70 transition-[width] duration-300"
+                  className="bg-status-learning transition-[width] duration-300"
                   style={{ width: `${resultPercent}%` }}
                 />
               )}
             </div>
-            <p className="text-center text-[13px] text-muted-foreground/80">
+            <p className="text-center text-[13px] text-text-muted">
               {getAnchorModeShortLabel(currentQuestion.modeId)} · {currentQuestion.modeHint}
             </p>
           </div>
@@ -1022,16 +999,11 @@ export function AnchorTrainingSession({
 
           {/* Active question */}
           {hasActiveQuestion && currentQuestion && (
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                key={currentQuestion.id}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
-                tabIndex={-1}
-              >
+            <div
+              key={currentQuestion.id}
+              className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
+              tabIndex={-1}
+            >
                     {isAnswered ? (
                       /* ── Full-screen result after answer ── */
                       <ScrollShadowContainer
@@ -1044,12 +1016,12 @@ export function AnchorTrainingSession({
                           <div className="flex flex-col items-center gap-3">
                             <div
                               className={cn(
-                                "h-14 w-14 rounded-full flex items-center justify-center",
+                                "flex h-14 w-14 items-center justify-center rounded-full shadow-[var(--shadow-soft)]",
                                 lastAnswerCorrect
-                                  ? "bg-emerald-500/15"
+                                  ? "bg-status-learning-soft text-status-learning"
                                   : lastAnswerSkipped
-                                    ? "bg-muted/40"
-                                    : "bg-rose-500/15",
+                                    ? "bg-bg-subtle text-text-secondary"
+                                    : "bg-status-paused-soft text-status-paused",
                               )}
                             >
                               <span className="text-2xl">
@@ -1061,10 +1033,10 @@ export function AnchorTrainingSession({
                                 className={cn(
                                   "text-lg font-semibold",
                                   lastAnswerCorrect
-                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    ? "text-status-learning"
                                     : lastAnswerSkipped
-                                      ? "text-muted-foreground"
-                                      : "text-rose-600 dark:text-rose-300",
+                                      ? "text-text-secondary"
+                                      : "text-status-paused",
                                 )}
                               >
                                 {feedbackStatusLabel}
@@ -1072,12 +1044,12 @@ export function AnchorTrainingSession({
                               {typeMatchPercent !== null && (
                                 <span
                                   className={cn(
-                                    "text-sm font-semibold tabular-nums px-2.5 py-0.5 rounded-full",
+                                    "rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums shadow-[var(--shadow-soft)]",
                                     typeMatchPercent >= 85
-                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                      ? "bg-status-learning-soft text-status-learning"
                                       : typeMatchPercent >= 60
-                                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                                        : "bg-rose-500/15 text-rose-500 dark:text-rose-400",
+                                        ? "bg-status-mastered-soft text-status-mastered"
+                                        : "bg-status-paused-soft text-status-paused",
                                   )}
                                 >
                                   {typeMatchPercent}%
@@ -1087,9 +1059,9 @@ export function AnchorTrainingSession({
                           </div>
 
                           {/* Correct answer */}
-                          <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm space-y-3">
+                          <div className="space-y-3 rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
                             <p
-                              className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                              className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
                               style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
                             >
                               {currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice"
@@ -1098,8 +1070,8 @@ export function AnchorTrainingSession({
                             </p>
                             {showCorrectAnswer && (
                               <>
-                                <div className="h-px bg-border/30" />
-                                <p className="text-center text-sm font-medium text-foreground/70 leading-relaxed">
+                                <div className="h-px bg-border-subtle" />
+                                <p className="text-center text-sm font-medium leading-relaxed text-text-secondary">
                                   {currentQuestion.answerLabel}
                                 </p>
                               </>
@@ -1126,14 +1098,14 @@ export function AnchorTrainingSession({
                               shouldLiftTypeCard ? "py-1" : "py-3",
                             )}
                           >
-                            <div className="rounded-2xl border border-border/40 bg-card/50 px-5 py-4 shadow-sm backdrop-blur-sm">
+                            <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
                               {(currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice") && (
-                                <p className="text-center text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50 mb-2">
+                                <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-widest text-text-muted">
                                   Подсказка
                                 </p>
                               )}
                               <p
-                                className="whitespace-pre-line text-center font-serif italic leading-relaxed text-foreground/90"
+                                className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
                                 style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
                               >
                                 {currentQuestion.prompt}
@@ -1148,7 +1120,7 @@ export function AnchorTrainingSession({
                             "px-4 pb-2",
                             shouldLiftTypeCard
                               ? "flex-1 min-h-0"
-                              : "min-h-0 flex-1 basis-1/2 border-t border-border/30 pt-2",
+                              : "min-h-0 flex-1 basis-1/2 border-t border-border-subtle pt-2",
                           )}
                         >
                           <div className="w-full max-w-lg mx-auto">
@@ -1157,15 +1129,14 @@ export function AnchorTrainingSession({
                         </ScrollShadowContainer>
                       </>
                     )}
-              </motion.div>
-            </AnimatePresence>
+            </div>
           )}
         </div>
 
         {/* Footer */}
         <div
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
-          className="shrink-0 px-4 sm:px-6 z-40 border-t border-border/30 bg-background/60 backdrop-blur-xl pt-2"
+          className="z-40 shrink-0 border-t border-border-subtle bg-bg-app/80 px-4 pt-2 backdrop-blur-xl sm:px-6"
         >
           <div className="mx-auto w-full max-w-lg">
             {isAnswered ? (
@@ -1173,7 +1144,7 @@ export function AnchorTrainingSession({
                 /* More questions ahead */
                 <Button
                   type="button"
-                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  className="h-11 w-full rounded-[1.25rem] text-sm"
                   onClick={handleContinueAfterReveal}
                 >
                   Дальше
@@ -1182,7 +1153,7 @@ export function AnchorTrainingSession({
                 /* Last question — show results */
                 <Button
                   type="button"
-                  className="w-full h-11 rounded-2xl border border-primary/25 bg-primary/85 text-primary-foreground text-sm shadow-sm hover:bg-primary/90"
+                  className="h-11 w-full rounded-[1.25rem] text-sm"
                   onClick={showResultModal}
                 >
                   Завершить
@@ -1196,7 +1167,7 @@ export function AnchorTrainingSession({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-10 rounded-2xl border border-border/60 bg-muted/25 px-3 text-sm text-foreground/70 hover:bg-muted/40"
+                      className="h-10 rounded-[1.15rem] border-border-subtle bg-bg-subtle px-3 text-sm text-text-secondary hover:border-status-paused/20 hover:bg-status-paused-soft hover:text-status-paused"
                       onClick={handleSkipQuestion}
                       disabled={controlsLocked}
                     >
@@ -1205,7 +1176,7 @@ export function AnchorTrainingSession({
                   )}
                   <Button
                     variant="outline"
-                    className="h-10 rounded-2xl bg-background border border-border/60 w-fit px-3 text-sm text-foreground/75"
+                    className="h-10 w-fit rounded-[1.15rem] border-border-subtle bg-bg-elevated px-3 text-sm text-text-secondary hover:border-brand-primary/20 hover:bg-bg-surface hover:text-brand-primary"
                     onClick={requestClose}
                   >
                     Завершить
@@ -1217,79 +1188,82 @@ export function AnchorTrainingSession({
         </div>
       </div>
 
-      {/* Exit confirmation dialog */}
-      <AlertDialog
+      {/* Exit confirmation drawer */}
+      <Drawer
         open={isExitConfirmOpen}
         onOpenChange={(open) => { if (!open) setIsExitConfirmOpen(false); }}
       >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base text-foreground/90">
+        <DrawerContent>
+          <DrawerHeader className="pb-1">
+            <DrawerTitle className="text-base text-text-primary">
               Завершить сессию?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground/90">
+            </DrawerTitle>
+            <DrawerDescription className="text-sm text-text-secondary">
               Уже отправленные ответы сохранены. Текущая нерешённая карточка будет сброшена.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className="rounded-full border border-border/60 bg-muted/35 text-foreground/70"
-              onClick={() => setIsExitConfirmOpen(false)}
-            >
-              Остаться
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-white rounded-full border border-border/60"
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="flex-row gap-3 pt-2">
+            <DrawerClose asChild>
+              <Button
+                variant="outline"
+                className="h-12 flex-1 rounded-[1.25rem] border-border-subtle bg-bg-subtle text-sm font-medium text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated hover:text-brand-primary"
+              >
+                Остаться
+              </Button>
+            </DrawerClose>
+            <Button
+              className="h-12 flex-1 rounded-[1.25rem] border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft"
               onClick={showResultModal}
             >
               Выйти
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Result modal */}
-      <AlertDialog
+      {/* Result drawer */}
+      <Drawer
         open={isResultModalOpen}
         onOpenChange={(open) => { if (!open) onClose(); }}
       >
-        <AlertDialogContent className="rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-center text-base text-foreground/90">
+        <DrawerContent>
+          <DrawerHeader className="pb-1">
+            <DrawerTitle className="text-center text-base text-text-primary">
               Сессия завершена
-            </AlertDialogTitle>
-          </AlertDialogHeader>
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">Результаты сессии</DrawerDescription>
+          </DrawerHeader>
           <div className="space-y-4 py-2 text-center">
-            <p className="text-5xl font-semibold tabular-nums text-foreground/90">
+            <p className="text-5xl font-semibold tabular-nums text-text-primary">
               {resultPercent}%
             </p>
-            <p className="text-sm text-foreground/70">
+            <p className="text-sm text-text-secondary">
               {correctCount} из {answeredCount} верно
             </p>
-            <div className="h-2 w-full max-w-xs mx-auto rounded-full overflow-hidden bg-rose-500/30 flex">
+            <div className="mx-auto flex h-2 w-full max-w-xs overflow-hidden rounded-full bg-status-paused-soft">
               {answeredCount > 0 && (
                 <div
-                  className="bg-emerald-500/70 rounded-full"
+                  className="rounded-full bg-status-learning"
                   style={{ width: `${resultPercent}%` }}
                 />
               )}
             </div>
             {sessionXpRef.current > 0 && (
-              <p className="text-sm font-medium text-primary/85">
+              <p className="text-sm font-medium text-brand-primary">
                 +{sessionXpRef.current} XP
               </p>
             )}
           </div>
-          <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction
-              className="rounded-full border border-primary/25 bg-primary/85 px-8 text-primary-foreground hover:bg-primary/90"
+          <DrawerFooter>
+            <Button
+              className="h-12 w-full rounded-[1.25rem] text-sm font-medium"
               onClick={onClose}
             >
               Закрыть
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

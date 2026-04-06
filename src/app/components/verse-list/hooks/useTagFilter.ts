@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
-import { postTag } from '@/api/services/tagExtensions';
-import { publicApiUrl } from '@/lib/publicApiBase';
 import type { domain_Tag } from '@/api/models/domain_Tag';
-import type { Verse } from '@/app/App';
-import { getTelegramUserId } from '@/app/lib/telegramWebApp';
-import { isAdminTelegramId } from '@/lib/admins';
+import type { Verse } from "@/app/domain/verse";
 import { parseStoredTagSlugs, VERSE_LIST_STORAGE_KEYS } from '../storage';
 
 const TAG_TITLE_COLLATOR = new Intl.Collator(['ru', 'en'], {
@@ -21,11 +17,13 @@ const sortTagsByTitle = (tags: domain_Tag[]) =>
 type UseTagFilterParams = {
   disabled?: boolean;
   initialTags?: domain_Tag[];
+  reloadVersion?: number;
 };
 
 export function useTagFilter(params?: UseTagFilterParams) {
   const disabled = params?.disabled ?? false;
   const initialTags = params?.initialTags ?? [];
+  const reloadVersion = params?.reloadVersion ?? 0;
   const [allTags, setAllTags] = useState<domain_Tag[]>(() => sortTagsByTitle(initialTags));
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<Set<string>>(() => {
     if (disabled) return new Set();
@@ -51,11 +49,36 @@ export function useTagFilter(params?: UseTagFilterParams) {
     setIsLoadingTags(true);
     const req = TagsService.listTags();
     req
-      .then((tags) => setAllTags(sortTagsByTitle(tags)))
+      .then((tags) => {
+        const sortedTags = sortTagsByTitle(tags);
+        const availableSlugs = new Set(
+          sortedTags
+            .map((tag) => tag.slug ?? '')
+            .filter(Boolean)
+        );
+
+        setAllTags(sortedTags);
+        setSelectedTagSlugs((prev) => {
+          if (prev.size === 0) return prev;
+
+          let hasChanges = false;
+          const next = new Set<string>();
+
+          prev.forEach((slug) => {
+            if (availableSlugs.has(slug)) {
+              next.add(slug);
+            } else {
+              hasChanges = true;
+            }
+          });
+
+          return hasChanges ? next : prev;
+        });
+      })
       .catch(() => {})
       .finally(() => setIsLoadingTags(false));
     return () => req.cancel();
-  }, [disabled]);
+  }, [disabled, reloadVersion]);
 
   useEffect(() => {
     if (disabled) return;
@@ -91,71 +114,6 @@ export function useTagFilter(params?: UseTagFilterParams) {
     [selectedTagSlugs]
   );
 
-  const createTag = useCallback(async (title: string, slug: string) => {
-    if (disabled) {
-      setAllTags((prev) =>
-        sortTagsByTitle([
-          ...prev,
-          { id: `mock-${slug}`, slug, title } as domain_Tag,
-        ])
-      );
-      return;
-    }
-    const newTag = await postTag({ slug, title });
-    setAllTags((prev) => sortTagsByTitle([...prev, newTag]));
-  }, [disabled]);
-
-  const deleteTag = useCallback(async (id: string, slug: string) => {
-    if (disabled) {
-      setAllTags((prev) => prev.filter((t) => t.id !== id));
-      setSelectedTagSlugs((prev) => {
-        if (!prev.has(slug)) return prev;
-        const next = new Set(prev);
-        next.delete(slug);
-        return next;
-      });
-      return;
-    }
-    const telegramId =
-      getTelegramUserId()?.toString().trim() ||
-      window.localStorage.getItem('telegramId')?.trim() ||
-      '';
-
-    if (!isAdminTelegramId(telegramId)) {
-      throw new Error('Удалять теги может только администратор');
-    }
-
-    const res = await fetch(publicApiUrl(`/api/tags/${id}`), {
-      method: 'DELETE',
-      headers: {
-        'x-telegram-id': telegramId,
-      },
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => null)) as
-        | { error?: string; linksCount?: number }
-        | null;
-
-      if (res.status === 409) {
-        const linksCount = payload?.linksCount;
-        throw new Error(
-          typeof linksCount === 'number' && linksCount > 0
-            ? `Тег используется в ${linksCount} стихах`
-            : 'Тег нельзя удалить, пока он связан со стихами'
-        );
-      }
-
-      throw new Error(payload?.error || 'Не удалось удалить тег');
-    }
-    setAllTags((prev) => prev.filter((t) => t.id !== id));
-    setSelectedTagSlugs((prev) => {
-      if (!prev.has(slug)) return prev;
-      const next = new Set(prev);
-      next.delete(slug);
-      return next;
-    });
-  }, [disabled]);
-
   return {
     allTags,
     selectedTagSlugs,
@@ -164,7 +122,5 @@ export function useTagFilter(params?: UseTagFilterParams) {
     toggleTag,
     clearTags,
     matchesTagFilter,
-    createTag,
-    deleteTag,
   };
 }

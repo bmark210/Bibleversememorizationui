@@ -21,7 +21,7 @@ test("review success resets lapse streak and advances repetitions", () => {
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-27T10:00:00.000Z");
 });
 
-test("first hinted review keeps repetitions and accumulates one lapse strike", () => {
+test("hinted review always moves repetition to the next day without penalty", () => {
   const result = computeReviewResult({
     rating: 1,
     currentRepetitions: 3,
@@ -30,12 +30,12 @@ test("first hinted review keeps repetitions and accumulates one lapse strike", (
   });
 
   assert.equal(result.repetitions, 3);
-  assert.equal(result.reviewLapseStreak, 1);
+  assert.equal(result.reviewLapseStreak, 0);
   assert.equal(result.reviewWasSuccessful, false);
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-14T10:00:00.000Z");
 });
 
-test("second consecutive hinted review applies repetition penalty and resets lapse streak", () => {
+test("hinted review ignores stale lapse streak and still keeps repetitions", () => {
   const result = computeReviewResult({
     rating: 1,
     currentRepetitions: 3,
@@ -43,7 +43,7 @@ test("second consecutive hinted review applies repetition penalty and resets lap
     now: NOW,
   });
 
-  assert.equal(result.repetitions, 2);
+  assert.equal(result.repetitions, 3);
   assert.equal(result.reviewLapseStreak, 0);
   assert.equal(result.reviewWasSuccessful, false);
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-14T10:00:00.000Z");
@@ -77,7 +77,7 @@ test("late-stage review (reps 4+) forgot: no repetition penalty, 6h retry", () =
   assert.equal(result.nextReviewAt.toISOString(), "2026-03-13T16:00:00.000Z");
 });
 
-test("late-stage review (reps 4+) with hint: no repetition penalty, 6h retry", () => {
+test("late-stage review (reps 4+) with hint still uses next-day retry", () => {
   const result = computeReviewResult({
     rating: 1,
     currentRepetitions: 4,
@@ -88,7 +88,7 @@ test("late-stage review (reps 4+) with hint: no repetition penalty, 6h retry", (
   assert.equal(result.repetitions, 4, "repetitions should stay unchanged");
   assert.equal(result.reviewLapseStreak, 0);
   assert.equal(result.reviewWasSuccessful, false);
-  assert.equal(result.nextReviewAt.toISOString(), "2026-03-13T16:00:00.000Z");
+  assert.equal(result.nextReviewAt.toISOString(), "2026-03-14T10:00:00.000Z");
 });
 
 test("late-stage review (reps 4+) success still advances", () => {

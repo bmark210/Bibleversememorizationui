@@ -1,7 +1,7 @@
 import {
   Anchor,
   Brain,
-  CalendarClock,
+  Clock3,
   Dumbbell,
   Pause,
   Play,
@@ -12,9 +12,17 @@ import {
 } from "lucide-react";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { normalizeVerseFlow, type VerseFlow } from "@/shared/domain/verseFlow";
+import {
+  normalizeVerseFlow,
+  type VerseAction,
+} from "@/shared/domain/verseFlow";
 import { formatVerseAvailabilityLabel } from "@/app/components/formatVerseAvailabilityLabel";
 import type { VerseStatusSummaryTone } from "@/app/components/VerseStatusSummary";
+import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
+import {
+  resolveVerseState,
+  type ResolvedVerseState,
+} from "@/shared/verseRules";
 
 export type VerseCardActionId =
   | "add-to-my"
@@ -44,7 +52,7 @@ export type VerseCardActionModel = {
 
 type ResolveVerseCardActionModelParams = {
   status: DisplayVerseStatus;
-  flow?: VerseFlow | null;
+  flow?: unknown;
   nextReviewAt?: Date | null;
   isAnchorEligible?: boolean;
   now?: Date;
@@ -68,31 +76,113 @@ export function resolveVerseCardActionModel(
   } = params;
 
   const flow = normalizeVerseFlow(rawFlow);
-  const isNotYetDue =
-    flow?.code === "REVIEW_WAITING" ||
-    (status === "REVIEW" &&
-      isValidDate(nextReviewAt) &&
-      nextReviewAt.getTime() > now.getTime());
+  const resolved = resolveVerseState(
+    {
+      status,
+      flow,
+      masteryLevel: 0,
+      repetitions: 0,
+      nextReviewAt:
+        isValidDate(nextReviewAt)
+          ? nextReviewAt.toISOString()
+          : flow?.availableAt ?? null,
+      nextReview:
+        isValidDate(nextReviewAt)
+          ? nextReviewAt.toISOString()
+          : flow?.availableAt ?? null,
+    },
+    now,
+  );
+  const resolvedStatus = resolved.displayStatus;
+  const resolvedNextReviewAt = resolved.nextAvailabilityAt;
+  const isNotYetDue = resolved.isWaitingReview;
   const waitingLabel = isNotYetDue
-    ? formatVerseAvailabilityLabel(nextReviewAt, { now, timeZone })
+    ? formatVerseAvailabilityLabel(resolvedNextReviewAt, { now, timeZone })
     : null;
 
   return {
-    primaryAction: getPrimaryAction({ status, isNotYetDue, isAnchorEligible }),
-    utilityAction: getUtilityAction(status),
+    primaryAction: getPrimaryAction({
+      resolved,
+      isNotYetDue,
+      isAnchorEligible,
+    }),
+    utilityAction: getUtilityAction(resolved),
     waitingLabel,
-    statusTone: getStatusTone({ status, isNotYetDue }),
-    showProgress: status !== "CATALOG" && status !== VerseStatus.MY,
+    statusTone: getStatusTone({ status: resolvedStatus, isNotYetDue }),
+    showProgress:
+      resolvedStatus !== "CATALOG" &&
+      resolvedStatus !== VerseStatus.MY &&
+      resolvedStatus !== VerseStatus.QUEUE,
     isNotYetDue,
   };
 }
 
 function getPrimaryAction(params: {
-  status: DisplayVerseStatus;
+  resolved: ResolvedVerseState;
   isNotYetDue: boolean;
   isAnchorEligible: boolean;
 }): VerseCardActionSpec | null {
-  const { status, isNotYetDue, isAnchorEligible } = params;
+  const { resolved, isNotYetDue, isAnchorEligible } = params;
+  const { displayStatus: status, allowedActions } = resolved;
+
+  if (allowedActions.has("add_to_my")) {
+    return {
+      id: "add-to-my",
+      label: "Добавить в мои",
+      ariaLabel: "Добавить стих в мои стихи",
+      title: "Добавить стих в мои стихи",
+      icon: Plus,
+      dataTour: "verse-card-add-button",
+    };
+  }
+
+  if (allowedActions.has("start_learning")) {
+    return {
+      id: "start-learning",
+      label: "Начать изучение",
+      ariaLabel: "Начать изучение стиха",
+      title: "Начать изучение",
+      icon: Play,
+      dataTour: "verse-card-promote-button",
+    };
+  }
+
+  if (allowedActions.has("resume")) {
+    return {
+      id: "resume",
+      label: "Возобновить",
+      ariaLabel: "Возобновить изучение стиха",
+      title: "Возобновить изучение",
+      icon: Play,
+    };
+  }
+
+  if (allowedActions.has("anchor")) {
+    if (!isAnchorEligible) return null;
+    return {
+      id: "anchor",
+      label: "Закрепить",
+      ariaLabel: "Перейти к закреплению стиха",
+      title: "Перейти к закреплению",
+      icon: Anchor,
+    };
+  }
+
+  if (allowedActions.has("train") && !isNotYetDue) {
+    return {
+      id: "train",
+      label: "Тренироваться",
+      ariaLabel:
+        status === "REVIEW"
+          ? "Перейти к повторению стиха"
+          : "Продолжить тренировку стиха",
+      title:
+        status === "REVIEW"
+          ? "Перейти к повторению"
+          : "Продолжить тренировку",
+      icon: Dumbbell,
+    };
+  }
 
   if (status === "CATALOG") {
     return {
@@ -103,6 +193,11 @@ function getPrimaryAction(params: {
       icon: Plus,
       dataTour: "verse-card-add-button",
     };
+  }
+
+  if (status === VerseStatus.QUEUE) {
+    // Already queued — no CTA needed; the queue badge communicates the state
+    return null;
   }
 
   if (status === VerseStatus.MY) {
@@ -161,7 +256,15 @@ function getPrimaryAction(params: {
   return null;
 }
 
-function getUtilityAction(status: DisplayVerseStatus): VerseCardActionSpec | null {
+function getUtilityAction(params: {
+  displayStatus: DisplayVerseStatus;
+  allowedActions: ReadonlySet<VerseAction>;
+}): VerseCardActionSpec | null {
+  const { displayStatus: status, allowedActions } = params;
+  if (!allowedActions.has("pause")) {
+    return null;
+  }
+
   if (
     status === VerseStatus.LEARNING ||
     status === "REVIEW" ||
@@ -190,54 +293,45 @@ function getStatusTone(params: {
   }
 
   if (status === VerseStatus.STOPPED) {
+    const stoppedTone = VERSE_CARD_COLOR_CONFIG.statusPills.stopped;
     return {
       icon: Pause,
       title: "На паузе",
-      pillClassName: "border-rose-500/20 bg-rose-500/[0.08]",
-      iconClassName: "text-rose-700 dark:text-rose-300",
-      titleClassName: "text-rose-700/80 dark:text-rose-300/80",
+      ...stoppedTone,
     };
   }
 
   if (status === "MASTERED") {
+    const masteredTone = VERSE_CARD_COLOR_CONFIG.statusPills.mastered;
     return {
       icon: Trophy,
       title: "Выучен",
-      pillClassName: "border-amber-500/25 bg-amber-500/[0.08]",
-      iconClassName: "text-amber-800 dark:text-amber-300",
-      titleClassName: "text-amber-800/80 dark:text-amber-300/80",
+      ...masteredTone,
     };
   }
 
   if (status === VerseStatus.LEARNING) {
+    const learningTone = VERSE_CARD_COLOR_CONFIG.statusPills.learning;
     return {
       icon: Brain,
       title: "В изучении",
-      pillClassName: "border-emerald-500/20 bg-emerald-500/[0.08]",
-      iconClassName: "text-emerald-700 dark:text-emerald-300",
-      titleClassName: "text-emerald-700/80 dark:text-emerald-300/80",
+      ...learningTone,
     };
   }
 
   if (status === "REVIEW") {
-    const reviewTone = {
-      pillClassName: "border-violet-500/20 bg-violet-500/[0.08]",
-      iconClassName: "text-violet-700 dark:text-violet-300",
-      titleClassName: "text-violet-700/80 dark:text-violet-300/80",
-    } as const;
-
     if (isNotYetDue) {
       return {
-        icon: CalendarClock,
+        icon: Clock3,
         title: "В ожидании",
-        ...reviewTone,
+        ...VERSE_CARD_COLOR_CONFIG.statusPills.reviewWaiting,
       };
     }
 
     return {
       icon: RefreshCw,
       title: "Повторение",
-      ...reviewTone,
+      ...VERSE_CARD_COLOR_CONFIG.statusPills.review,
     };
   }
 

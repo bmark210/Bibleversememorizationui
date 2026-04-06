@@ -1,31 +1,31 @@
-import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
-import { UserVersesService } from "@/api/services/UserVersesService";
+import type { bible_memory_db_internal_domain_SocialPlayersPageResponse } from "@/api/models/bible_memory_db_internal_domain_SocialPlayersPageResponse";
+import { UserVersesService } from "./UserVersesService";
 
 export type VerseOwnersScope = "friends" | "players";
-
-export type VerseOwnersPage = {
-  items: Array<domain_SocialPlayerListItem>;
-  totalCount: number;
-};
+export type VerseOwnersPage = bible_memory_db_internal_domain_SocialPlayersPageResponse;
 
 export async function fetchVerseOwnersPage(
-  viewerTelegramId: string,
+  telegramId: string,
   externalVerseId: string,
   params: {
-    scope: VerseOwnersScope;
-    limit: number;
+    scope?: VerseOwnersScope;
+    limit?: number;
     startWith?: number;
-  }
+  } = {},
 ): Promise<VerseOwnersPage> {
-  const page = await UserVersesService.listVerseOwners(
-    viewerTelegramId,
+  const response = await UserVersesService.listVerseOwners(
+    telegramId,
     externalVerseId,
     params.scope,
-    params.limit,
-    params.startWith
+    params.limit ?? 20,
+    params.startWith,
   );
+
   return {
-    items: page.items ?? [],
-    totalCount: page.totalCount ?? (page.items?.length ?? 0),
+    ...response,
+    items: response.items ?? [],
+    limit: response.limit ?? params.limit ?? 20,
+    startWith: response.startWith ?? params.startWith ?? 0,
+    totalCount: response.totalCount ?? response.items?.length ?? 0,
   };
 }

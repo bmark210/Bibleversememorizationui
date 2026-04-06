@@ -12,6 +12,8 @@ export type { bible_memory_db_internal_domain_AnchorTrainingSessionInput } from 
 export type { bible_memory_db_internal_domain_CatalogVerseDeleteResponse } from './models/bible_memory_db_internal_domain_CatalogVerseDeleteResponse';
 export type { bible_memory_db_internal_domain_CatalogVersesPageResponse } from './models/bible_memory_db_internal_domain_CatalogVersesPageResponse';
 export type { bible_memory_db_internal_domain_CreateFeedbackInput } from './models/bible_memory_db_internal_domain_CreateFeedbackInput';
+export type { bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry } from './models/bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry';
+export type { bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse } from './models/bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse';
 export type { bible_memory_db_internal_domain_DashboardFriendActivityEntry } from './models/bible_memory_db_internal_domain_DashboardFriendActivityEntry';
 export type { bible_memory_db_internal_domain_DashboardFriendsActivityResponse } from './models/bible_memory_db_internal_domain_DashboardFriendsActivityResponse';
 export type { bible_memory_db_internal_domain_DashboardFriendsActivitySummary } from './models/bible_memory_db_internal_domain_DashboardFriendsActivitySummary';
@@ -21,6 +23,8 @@ export type { bible_memory_db_internal_domain_FeedbackPageResponse } from './mod
 export type { bible_memory_db_internal_domain_FriendPlayerListItem } from './models/bible_memory_db_internal_domain_FriendPlayerListItem';
 export type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from './models/bible_memory_db_internal_domain_FriendPlayersPageResponse';
 export type { bible_memory_db_internal_domain_PlayerProfile } from './models/bible_memory_db_internal_domain_PlayerProfile';
+export type { bible_memory_db_internal_domain_QueueResponse } from './models/bible_memory_db_internal_domain_QueueResponse';
+export type { bible_memory_db_internal_domain_QueueVerseItem } from './models/bible_memory_db_internal_domain_QueueVerseItem';
 export type { bible_memory_db_internal_domain_SocialPlayerListItem } from './models/bible_memory_db_internal_domain_SocialPlayerListItem';
 export type { bible_memory_db_internal_domain_SocialPlayersPageResponse } from './models/bible_memory_db_internal_domain_SocialPlayersPageResponse';
 export type { bible_memory_db_internal_domain_Tag } from './models/bible_memory_db_internal_domain_Tag';
@@ -54,6 +58,7 @@ export { bible_memory_db_internal_domain_VerseStatus } from './models/bible_memo
 export type { bible_memory_db_internal_domain_VerseTagLinkResponse } from './models/bible_memory_db_internal_domain_VerseTagLinkResponse';
 export type { internal_api_ActionStatusResponse } from './models/internal_api_ActionStatusResponse';
 export type { internal_api_AddFriendRequest } from './models/internal_api_AddFriendRequest';
+export type { internal_api_AddToQueueBody } from './models/internal_api_AddToQueueBody';
 export type { internal_api_AnchorTrainingSessionResponse } from './models/internal_api_AnchorTrainingSessionResponse';
 export type { internal_api_BooleanOKResponse } from './models/internal_api_BooleanOKResponse';
 export type { internal_api_CreateTagRequest } from './models/internal_api_CreateTagRequest';
@@ -64,14 +69,19 @@ export type { internal_api_HealthResponse } from './models/internal_api_HealthRe
 export type { internal_api_impostorWordData } from './models/internal_api_impostorWordData';
 export type { internal_api_PatchUserVerseRequest } from './models/internal_api_PatchUserVerseRequest';
 export type { internal_api_ReferenceTrainerResponse } from './models/internal_api_ReferenceTrainerResponse';
+export type { internal_api_ReorderQueueBody } from './models/internal_api_ReorderQueueBody';
+export type { internal_api_ReplaceLearningVerseRequest } from './models/internal_api_ReplaceLearningVerseRequest';
+export type { internal_api_ReplaceLearningVerseResponse } from './models/internal_api_ReplaceLearningVerseResponse';
 export type { internal_api_UpdateTagRequest } from './models/internal_api_UpdateTagRequest';
 export type { internal_api_UpsertUserVerseRequest } from './models/internal_api_UpsertUserVerseRequest';
 export type { internal_api_VerseTagMutationRequest } from './models/internal_api_VerseTagMutationRequest';
+export type { internal_api_VerseTagsPutRequest } from './models/internal_api_VerseTagsPutRequest';
 
 export { CatalogService } from './services/CatalogService';
 export { ExercisesService } from './services/ExercisesService';
 export { FeedbackService } from './services/FeedbackService';
 export { HealthService } from './services/HealthService';
+export { QueueService } from './services/QueueService';
 export { TagsService } from './services/TagsService';
 export { UsersService } from './services/UsersService';
 export { UserVersesService } from './services/UserVersesService';

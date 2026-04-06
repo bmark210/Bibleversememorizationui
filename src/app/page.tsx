@@ -1,5 +1,6 @@
 'use client'
 
+import '@/app/lib/apiClientInit'
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import App from './App'
@@ -23,6 +24,23 @@ const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
 const ALLOW_BROWSER_RUNTIME =
   process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ALLOW_BROWSER_RUNTIME === '1'
+
+const APP_VERSION_DISPLAY = '4'
+
+function AppVersionCorner() {
+  return (
+    <p
+      className="pointer-events-none fixed z-[100] select-none rounded-md px-2 py-1 text-[11px] tabular-nums text-foreground/80 backdrop-blur-sm"
+      style={{
+        top: 'max(1rem, env(safe-area-inset-top, 0px))',
+        right: 'max(1rem, env(safe-area-inset-right, 0px))',
+      }}
+      aria-label={`Версия ${APP_VERSION_DISPLAY}`}
+    >
+      v{APP_VERSION_DISPLAY}
+    </p>
+  )
+}
 
 export default function Page() {
   const BOOT_CONTENT_DELAY_MS = 450
@@ -72,30 +90,49 @@ export default function Page() {
     return () => window.cancelAnimationFrame(frameId)
   }, [showBootOverlay])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (showBootOverlay || !showAppContent) {
+      root.setAttribute('data-app-booting', 'true')
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      root.removeAttribute('data-app-booting')
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [showAppContent, showBootOverlay])
+
   if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === null) {
-    return <div className="min-h-screen bg-[#3e3428]" />
+    return (
+      <div className="relative min-h-screen bg-bg-app">
+        <AppVersionCorner />
+      </div>
+    )
   }
 
   if (!ALLOW_BROWSER_RUNTIME && isTelegramWebApp === false) {
     return (
-      <div className="min-h-screen bg-[#3e3428] text-[#f8f4ec] px-5 py-8 sm:px-6">
+      <div className="relative min-h-screen bg-bg-app px-5 py-8 text-text-primary sm:px-6">
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
-          <div className="w-full overflow-hidden rounded-3xl border border-[#f8f4ec]/20 bg-black/20 shadow-2xl backdrop-blur-sm">
+          <div className="w-full overflow-hidden rounded-[2rem] border border-border-subtle bg-bg-overlay shadow-[var(--shadow-floating)] backdrop-blur-2xl">
             <img
               src={TELEGRAM_BOT_PREVIEW_IMAGE_URL}
               alt="Bible Memory bot preview"
               className="h-72 w-full object-cover"
             />
             <div className="space-y-4 p-5">
-              <h1 className="text-xl font-semibold">Откройте приложение в Telegram</h1>
-              <p className="text-sm text-[#f8f4ec]/85">
+              <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary">Откройте приложение в Telegram</h1>
+              <p className="text-sm leading-relaxed text-text-secondary">
                 Браузерная версия отключена. Перейдите в Telegram-бота, чтобы продолжить.
               </p>
               <a
                 href={TELEGRAM_BOT_URL}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex w-full items-center justify-center rounded-xl bg-[#f8f4ec] px-4 py-2.5 text-sm font-semibold text-[#2c251d] transition hover:bg-white"
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-brand-primary bg-brand-primary px-4 py-3 text-sm font-semibold text-brand-primary-foreground transition hover:bg-brand-primary-hover"
               >
                 Перейти в @bible_memory_bot
               </a>
@@ -110,11 +147,11 @@ export default function Page() {
     <div className="relative min-h-screen">
       {mounted ? (
         <div
-          className={`transition-opacity duration-300 ease-out ${
-            showAppContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`${
+          showAppContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           aria-hidden={!showAppContent}
-        >
+          >
           <TelegramProvider>
             <App onInitialContentReady={() => setIsAppReady(true)} />
           </TelegramProvider>
@@ -124,15 +161,15 @@ export default function Page() {
 
       {showBootOverlay && (
         <div
-          className={`absolute inset-0 z-50 transition-opacity duration-300 ease-out ${
-            overlayDismissing ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        className={`absolute inset-0 z-50 transition-opacity duration-300 ease-out ${
+          overlayDismissing ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
           aria-hidden={overlayDismissing}
-        >
+          >
+          <AppVersionCorner />
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 bg-bg-app"
             style={{
-              backgroundColor: '#3e3428',
               animation: `boot-bg-fade ${BOOT_BG_FADE_MS}ms ease-out ${BOOT_BG_FADE_DELAY_MS}ms forwards`,
             }}
           />
@@ -141,15 +178,24 @@ export default function Page() {
               overlayDismissing ? 'opacity-0' : 'opacity-100'
             }`}
           >
-            <div className="w-full max-w-[220px] rounded-2xl border border-border/70 bg-gradient-to-r from-background via-background to-amber-500/5 px-4 py-3 shadow-lg backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold text-primary">Bible Memory</h1>
-            </div>
-              <div className="mt-2.5 relative h-2 overflow-hidden rounded-full bg-muted">
+            <div className="w-full max-w-[260px] rounded-[2rem] border border-border-subtle bg-bg-overlay px-5 py-4 shadow-[var(--shadow-floating)] backdrop-blur-2xl">
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-brand-primary/20 bg-status-mastered-soft">
+                  <BookOpen className="h-7 w-7 stroke-[1.8px] text-brand-primary" />
+                </div>
+                <div className="space-y-1 text-center">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+                    Sacred Memory
+                  </div>
+                  <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary">
+                    Bible Memory
+                  </h1>
+                </div>
+              </div>
+              <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-bg-subtle">
                 <div
                   aria-hidden="true"
-                  className="boot-progress-indicator absolute inset-y-0 rounded-full bg-primary/80 shadow-[0_0_10px_rgba(0,0,0,0.08)]"
+                  className="boot-progress-indicator absolute inset-y-0 rounded-full bg-brand-primary shadow-[var(--shadow-soft)]"
                 />
               </div>
             </div>

@@ -1,27 +1,36 @@
 import type { domain_CatalogVersesPageResponse } from "@/api/models/domain_CatalogVersesPageResponse";
-import { CatalogService } from "@/api/services/CatalogService";
+import { CatalogService } from "./CatalogService";
 
-export async function fetchCatalogVersesPage(params: {
+type FetchCatalogVersesPageParams = {
   telegramId?: string;
+  translation?: "NRT" | "SYNOD" | "RBS2" | "BTI";
   bookId?: number;
   tagSlugs?: string[];
-  orderBy: "bible" | "popularity" | "createdAt";
-  order: "asc" | "desc";
-  limit: number;
+  search?: string;
+  orderBy?: string;
+  order?: string;
+  limit?: number;
   startWith?: number;
-}): Promise<domain_CatalogVersesPageResponse> {
-  const tagSlugs =
-    params.tagSlugs && params.tagSlugs.length > 0
-      ? params.tagSlugs.join(",")
-      : undefined;
-  return CatalogService.listCatalogVerses(
+};
+
+export async function fetchCatalogVersesPage(
+  params: FetchCatalogVersesPageParams,
+): Promise<domain_CatalogVersesPageResponse> {
+  const response = await CatalogService.listCatalogVerses(
     params.telegramId,
-    undefined,
+    params.translation,
     params.bookId,
-    tagSlugs,
-    params.orderBy,
-    params.order,
-    params.limit,
-    params.startWith
+    params.tagSlugs?.filter(Boolean).join(",") || undefined,
+    params.search,
+    params.orderBy ?? "createdAt",
+    params.order ?? "desc",
+    params.limit ?? 20,
+    params.startWith,
   );
+
+  return {
+    ...response,
+    items: response.items ?? [],
+    totalCount: response.totalCount ?? response.items?.length ?? 0,
+  };
 }

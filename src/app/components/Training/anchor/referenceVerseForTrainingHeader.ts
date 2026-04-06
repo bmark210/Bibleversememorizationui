@@ -1,4 +1,4 @@
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { ReferenceVerse } from "./anchorTrainingTypes";
 
 /** Минимальный адаптер под {@link TrainingExerciseModeHeader} и прогресс % */

@@ -1,11 +1,5 @@
-import type { VerseStatus as ApiVerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { DISPLAY_STATUS_LABELS } from "@/shared/constants/ui";
-import {
-  computeSocialVerseXp,
-  type SocialVerseProgressRow,
-} from "@/shared/social/xp";
-import type { VerseDifficultyLevel } from "@/shared/verses/difficulty";
 const TRACK_LABELS: Record<SkillTrack, string> = {
   reference: "Ссылка",
   incipit: "Начало",
@@ -19,12 +13,6 @@ type TrainingProgressPopupContext = "core" | "anchor";
 
 export type TrainingProgressPopupVerseSnapshot = {
   status: DisplayVerseStatus;
-  difficultyLevel: VerseDifficultyLevel;
-  masteryLevel: number;
-  repetitions: number;
-  referenceScore?: number | null;
-  incipitScore?: number | null;
-  contextScore?: number | null;
 };
 
 export type TrainingProgressPopupPayload = {
@@ -46,26 +34,6 @@ const STAGE_RANK: Partial<Record<DisplayVerseStatus, number>> = {
   REVIEW: 3,
   MASTERED: 4,
 };
-
-function toSocialVerseStatus(status: DisplayVerseStatus): ApiVerseStatus {
-  if (status === "STOPPED") return "STOPPED";
-  if (status === "MY") return "MY";
-  return "LEARNING";
-}
-
-function toSocialVerseRow(
-  snapshot: TrainingProgressPopupVerseSnapshot
-): SocialVerseProgressRow {
-  return {
-    status: toSocialVerseStatus(snapshot.status),
-    difficultyLevel: snapshot.difficultyLevel,
-    masteryLevel: snapshot.masteryLevel,
-    repetitions: snapshot.repetitions,
-    referenceScore: snapshot.referenceScore,
-    incipitScore: snapshot.incipitScore,
-    contextScore: snapshot.contextScore,
-  };
-}
 
 function getStageRank(status: DisplayVerseStatus) {
   return STAGE_RANK[status] ?? 0;
@@ -102,11 +70,10 @@ export function buildTrainingProgressPopupPayload(params: {
   context: TrainingProgressPopupContext;
   before: TrainingProgressPopupVerseSnapshot;
   after: TrainingProgressPopupVerseSnapshot;
+  xpDelta: number;
   track?: SkillTrack;
 }): TrainingProgressPopupPayload | null {
-  const beforeXp = computeSocialVerseXp(toSocialVerseRow(params.before)).totalXp;
-  const afterXp = computeSocialVerseXp(toSocialVerseRow(params.after)).totalXp;
-  const xpDelta = afterXp - beforeXp;
+  const xpDelta = Math.trunc(params.xpDelta);
   const stageChanged = params.before.status !== params.after.status;
 
   if (xpDelta === 0 && !stageChanged) {

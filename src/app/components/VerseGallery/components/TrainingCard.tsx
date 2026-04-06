@@ -9,13 +9,15 @@ import {
 import {
   TrainingModeRenderer,
   type TrainingModeRendererHandle,
+  type TrainingModeInlineActionsProps,
 } from "@/app/components/training-session/TrainingModeRenderer";
+import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 import type { HintState } from "@/app/components/training-session/modes/useHintState";
 import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
 import { TrainingUiStateProvider } from "@/app/components/training-session/TrainingUiStateContext";
 import { MODE_PIPELINE } from "../constants";
-import type { TrainingVerseState, ModeId, Rating } from "../types";
-import { Verse } from "@/app/App";
+import type { TrainingVerseState, ModeId } from "../types";
+import { Verse } from "@/app/domain/verse";
 import { VerseProgressDrawer } from "@/app/components/VerseProgressDrawer";
 
 type Props = {
@@ -24,11 +26,13 @@ type Props = {
   modeId: ModeId;
   rendererRef: RefObject<TrainingModeRendererHandle | null>;
   onTrainingInteractionStart?: () => void;
-  onRate: (rating: Rating) => void | Promise<void>;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hideRatingFooter?: boolean;
   isLateStageReview?: boolean;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  exerciseRetryNonce?: number;
+  inlineExerciseActions?: TrainingModeInlineActionsProps;
 };
 
 function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
@@ -57,11 +61,13 @@ export const TrainingCard = memo(function TrainingCard({
   modeId,
   rendererRef,
   onTrainingInteractionStart,
-  onRate,
+  onExerciseResolved,
   hideRatingFooter = false,
   isLateStageReview: isLateStage = false,
   hintState,
   onProgressChange,
+  exerciseRetryNonce = 0,
+  inlineExerciseActions,
 }: Props) {
   const renderer = MODE_PIPELINE[modeId].renderer;
   const [progressDrawerOpen, setProgressDrawerOpen] = useState(false);
@@ -125,11 +131,13 @@ export const TrainingCard = memo(function TrainingCard({
             renderer={renderer}
             verse={verse}
             trainingModeId={modeId}
-            onRate={onRate}
+            onExerciseResolved={onExerciseResolved}
             isLateStageReview={isLateStage}
             hintState={hintState}
             onProgressChange={onProgressChange}
             onOpenVerseProgress={openVerseProgressDrawer}
+            exerciseInstanceKey={exerciseRetryNonce}
+            inlineExerciseActions={inlineExerciseActions}
           />
         </TrainingUiStateProvider>
       </div>

@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import type { VerseStatus } from '@/shared/domain/verseStatus';
 import type { FilterVisualTheme, VerseListSortBy, VerseListStatusFilter } from './constants';
 import type { AppendRevealRange } from './hooks/useVersePagination';
@@ -42,7 +42,6 @@ export type VerseListController = {
   ui: {
     announcement: string;
     isListLoading: boolean;
-    shouldReduceMotion: boolean;
     totalVisible: number;
     currentFilterLabel: string;
     currentFilterTheme: FilterVisualTheme;
@@ -68,8 +67,6 @@ export type VerseListController = {
     isLoadingTags: boolean;
     onTagClick: (slug: string) => void;
     onClearTags: () => void;
-    createTag: (title: string, slug: string) => Promise<void>;
-    deleteTag: (id: string, slug: string) => Promise<void>;
   };
   pagination: {
     verses: Verse[];
@@ -90,19 +87,23 @@ export type VerseListController = {
     pageSize: number;
     prefetchRows: number;
     renderVerseRow: (verse: Verse) => React.ReactNode;
+    renderCatalogRow: (verse: Verse) => React.ReactNode;
     getItemKey: (verse: Pick<Verse, 'id' | 'externalVerseId'>) => string;
     getItemLayoutSignature: (verse: Verse) => VerseCardLayoutSignature;
     onLoadMoreRows: (range: VerseListLoadRange) => Promise<void>;
     debugInfiniteScroll: DebugInfiniteScroll;
-  };
-  header: {
-    onAddVerseClick: () => void;
   };
   filterTabs: {
     onTabClick: (filter: VerseListStatusFilter, label: string) => void;
     onBookChange: (bookId: number | null, label: string) => void;
     onSortChange: (sortBy: VerseListSortBy, label: string) => void;
     onResetFilters: () => void;
+  };
+  refetch: {
+    refetchVerses: () => Promise<void>;
+  };
+  mutations: {
+    replaceLearningVerse: (activateVerse: Verse, pauseVerse: Verse) => Promise<'success' | 'stale' | 'error'>;
   };
   footerLoadState: {
     onRetryLoadMore: () => Promise<void>;
@@ -118,10 +119,7 @@ export type VerseListController = {
     onClose: () => void;
     onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
     onVersePatched: (event: VersePatchEvent) => void;
-    onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
+    onDelete: (verse: Verse) => Promise<void>;
     onRequestMorePreviewVerses: () => Promise<boolean>;
-  };
-  view: {
-    getRevealProps: (delay?: number) => Record<string, unknown>;
   };
 };

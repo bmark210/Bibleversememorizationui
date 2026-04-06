@@ -1,9 +1,3 @@
 import type { bible_memory_db_internal_domain_UserLeaderboardResponse } from "./bible_memory_db_internal_domain_UserLeaderboardResponse";
 
-/** Базовый ответ API + опциональные поля пагинации лидерборда */
-export type domain_UserLeaderboardResponse =
-  bible_memory_db_internal_domain_UserLeaderboardResponse & {
-    page?: number;
-    pageSize?: number;
-    totalPages?: number;
-  };
+export type domain_UserLeaderboardResponse = bible_memory_db_internal_domain_UserLeaderboardResponse;

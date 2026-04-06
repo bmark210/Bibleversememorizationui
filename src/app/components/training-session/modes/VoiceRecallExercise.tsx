@@ -7,16 +7,14 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
-import { TrainingRatingFooter } from './TrainingRatingFooter';
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { FixedBottomPanel } from './FixedBottomPanel';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExerciseSection';
+import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { similarityRatio } from '@/shared/utils/levenshtein';
 import { tokenizeWords } from './wordUtils';
@@ -27,11 +25,12 @@ import {
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { TrainingModeId } from '@/shared/training/modeEngine';
+import { useTrainingFontSize } from './useTrainingFontSize';
 
-interface VoiceRecallExerciseProps {
+interface VoiceRecallExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -76,8 +75,21 @@ function calculateTextMatchPercent(userText: string, targetText: string) {
   return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
-export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintState, onProgressChange, isLateStageReview = false, onOpenTutorial, onOpenVerseProgress }: VoiceRecallExerciseProps) {
+export function ModeVoiceRecallExercise({
+  verse,
+  trainingModeId,
+  onExerciseResolved,
+  hintState,
+  onProgressChange,
+  isLateStageReview: _isLateStageReview = false,
+  onOpenTutorial,
+  onOpenVerseProgress,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
+}: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
+  const fontSizes = useTrainingFontSize();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
 
@@ -92,7 +104,6 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const isSpeechSupported = speechCtor != null;
-  const ratingStage = resolveTrainingRatingStage(verse.status);
 
   const targetComparableText = useMemo(
     () => normalizeComparableText(verse.text),
@@ -115,8 +126,14 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
   }, [verse]);
 
   useEffect(() => {
-    if (surrendered && !isChecked) setIsChecked(true);
-  }, [surrendered, isChecked]);
+    if (surrendered && !isChecked) {
+      setIsChecked(true);
+      onExerciseResolved?.({
+        kind: 'revealed',
+        message: 'Правильный текст открыт. Оцените, насколько уверенно вы вспоминали стих.',
+      });
+    }
+  }, [isChecked, onExerciseResolved, surrendered]);
 
   const totalWords = useMemo(() => tokenizeWords(verse.text).length, [verse.text]);
   const completedWords = useMemo(
@@ -229,17 +246,21 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
 
     if (nextMatchPercent >= RECALL_THRESHOLD) {
       setIsChecked(true);
-      toast.success(`Совпадение ${nextMatchPercent}%. Отлично!`, {
-        toasterId: GALLERY_TOASTER_ID,
-        size: 'compact',
+      onExerciseResolved?.({
+        kind: 'success',
+        message: `Совпадение ${nextMatchPercent}%. Проверка пройдена.`,
+        matchPercent: nextMatchPercent,
       });
       return;
     }
 
+    setIsChecked(true);
     setTotalMistakes((prev) => prev + 1);
-    toast.warning(`Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`, {
-      toasterId: GALLERY_TOASTER_ID,
-      size: 'compact',
+    onExerciseResolved?.({
+      kind: 'failure',
+      reason: 'check-failed',
+      message: `Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`,
+      matchPercent: nextMatchPercent,
     });
   };
 
@@ -251,15 +272,21 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {totalMistakes > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {totalMistakes}
-        </span>
-      )}
-
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-3">
+        <TrainingExerciseSection
+          title="Управление записью"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge tone={isSpeechSupported ? 'neutral' : 'warning'}>
+                {isSpeechSupported ? 'Web Speech' : 'Ручной ввод'}
+              </TrainingMetricBadge>
+              {isListening ? (
+                <TrainingMetricBadge tone="warning">Слушаю</TrainingMetricBadge>
+              ) : null}
+            </div>
+          }
+          contentClassName="flex flex-col gap-3 pb-1"
+        >
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -275,79 +302,86 @@ export function ModeVoiceRecallExercise({ verse, trainingModeId, onRate, hintSta
               Очистить
             </Button>
           </div>
-        </div>
 
-        {!isSpeechSupported ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Браузер не поддерживает Web Speech API. Введите текст вручную.
+          {!isSpeechSupported ? (
+            <div className="rounded-xl border border-state-warning/30 bg-state-warning/12 px-3 py-2 text-sm text-state-warning">
+              Браузер не поддерживает Web Speech API. Введите текст вручную.
+            </div>
+          ) : null}
+
+          {recognitionError ? (
+            <div className="rounded-xl border border-state-error/30 bg-state-error/10 px-3 py-2 text-sm text-state-error">
+              {recognitionError}
+            </div>
+          ) : null}
+        </TrainingExerciseSection>
+
+        <TrainingExerciseSection
+          title="Распознанный текст"
+          meta={
+            <div className="flex items-center gap-1.5">
+              <TrainingMetricBadge
+                tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
+              >
+                {completedWords}/{totalWords}
+              </TrainingMetricBadge>
+              <TrainingMetricBadge>{`Порог ${RECALL_THRESHOLD}%`}</TrainingMetricBadge>
+              {totalMistakes > 0 ? (
+                <TrainingMetricBadge tone="warning">
+                  Проверок {totalMistakes}
+                </TrainingMetricBadge>
+              ) : null}
+            </div>
+          }
+          contentClassName="flex flex-col gap-3 pb-1"
+        >
+          <div className="rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)]">
+            <Textarea
+              value={transcript}
+              onChange={(event) => {
+                setTranscript(event.target.value);
+                if (matchPercent !== null) setMatchPercent(null);
+              }}
+              className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              style={{ fontSize: `${fontSizes.base}px` }}
+              placeholder="Здесь будет распознанный текст..."
+              disabled={isChecked || surrendered}
+            />
           </div>
-        ) : null}
 
-        {recognitionError ? (
-          <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {recognitionError}
-          </div>
-        ) : null}
-
-        <div className="rounded-2xl border border-border/60 bg-background/70 p-2">
-          <Textarea
-            value={transcript}
-            onChange={(event) => {
-              setTranscript(event.target.value);
-              if (matchPercent !== null) setMatchPercent(null);
-            }}
-            className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
-            placeholder="Здесь будет распознанный текст..."
-            disabled={isChecked || surrendered}
-          />
-        </div>
-
-        {matchPercent !== null && (
-          <div
-            className={`rounded-xl border px-3 py-2 text-sm ${
-              matchPercent === 100
-                ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : matchPercent >= RECALL_THRESHOLD
-                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'border-destructive/45 bg-destructive/10 text-destructive'
-            }`}
-          >
-            <p className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Процент соответствия</span>
-              <span className="font-semibold tabular-nums">{matchPercent}%</span>
-            </p>
-          </div>
-        )}
+          {matchPercent !== null && (
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm ${
+                matchPercent === 100
+                  ? 'border-status-learning/25 bg-status-learning-soft text-status-learning'
+                  : matchPercent >= RECALL_THRESHOLD
+                    ? 'border-state-warning/30 bg-state-warning/12 text-state-warning'
+                    : 'border-state-error/30 bg-state-error/10 text-state-error'
+              }`}
+            >
+              <p className="flex items-center justify-between gap-2">
+                <span className="text-text-muted">Процент соответствия</span>
+                <span className="font-semibold tabular-nums">{matchPercent}%</span>
+              </p>
+            </div>
+          )}
+        </TrainingExerciseSection>
       </ScrollShadowContainer>
 
+      <SplitExerciseActionRail
+        remainingMistakes={Math.max(0, totalMistakes)}
+        showRemainingMistakes={false}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
+
       <FixedBottomPanel visible={!isChecked}>
-        <Button type="button" className="w-full rounded-xl border border-border/60 bg-background/20 text-foreground/80" onClick={handleCheck}>
+        <Button type="button" className="w-full rounded-2xl" onClick={handleCheck}>
           Проверить
         </Button>
       </FixedBottomPanel>
 
-      {isChecked && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="voice-recall"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
     </div>
   );
 }

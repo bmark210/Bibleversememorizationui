@@ -9,6 +9,18 @@ export default [
   },
   {
     rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/app/App",
+              message:
+                "Не импортируйте из App — типы стиха: @/app/domain/verse, хуки: @/app/hooks/app/*.",
+            },
+          ],
+        },
+      ],
       "@next/next/no-img-element": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",

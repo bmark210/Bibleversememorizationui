@@ -1,6 +1,6 @@
 'use client'
 
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 
 export type TrainingModeRating = 0 | 1 | 2 | 3;
 

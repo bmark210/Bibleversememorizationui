@@ -2,23 +2,21 @@
 
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
-import { motion } from "motion/react";
 import {
   createVerticalTouchSwipeStart,
   getVerticalTouchSwipeStep,
   type VerticalTouchSwipeStart,
 } from "@/shared/ui/verticalTouchSwipe";
+import {
+  VERSE_CARD_COLOR_CONFIG,
+  type VerseCardColorConfig,
+  type VerseCardTone,
+} from "./verseCardColorConfig";
 
 import { cn } from "./ui/utils";
 
 type VerseCardMinHeight = "auto" | "preview" | "training";
-export type VerseCardPreviewTone =
-  | "my"
-  | "catalog"
-  | "learning"
-  | "review"
-  | "mastered"
-  | "stopped";
+export type VerseCardPreviewTone = VerseCardTone;
 
 export type VerseCardTag = {
   id?: string;
@@ -41,6 +39,7 @@ export interface VerseCardProps {
   tags?: VerseCardTag[];
   activeTagSlugs?: Iterable<string> | null;
   onVerticalSwipeStep?: (step: 1 | -1) => void;
+  colorConfig?: VerseCardColorConfig;
 }
 
 type CardTouchGestureContext = {
@@ -73,42 +72,6 @@ const MIN_HEIGHT_CLASS_BY_KIND: Record<VerseCardMinHeight, string> = {
   training: "h-[clamp(25rem,calc(100dvh-16rem),42rem)]",
 };
 
-const PREVIEW_TONE_CARD_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-gradient-to-br from-sky-500/8 via-card to-card",
-  catalog: "bg-gradient-to-br from-slate-500/6 via-card to-card",
-  learning: "bg-gradient-to-br from-emerald-500/8 via-card to-card",
-  review: "bg-gradient-to-br from-violet-500/10 via-card to-card",
-  mastered: "bg-gradient-to-br from-amber-400/14 via-card to-card",
-  stopped: "bg-gradient-to-br from-rose-500/8 via-card to-card",
-};
-
-const PREVIEW_TONE_FRAME_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-sky-500/28",
-  catalog: "bg-slate-500/24",
-  learning: "bg-emerald-500/26",
-  review: "bg-violet-500/30",
-  mastered: "bg-amber-500/34",
-  stopped: "bg-rose-500/26",
-};
-
-const PREVIEW_TONE_GLOW_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "bg-sky-500/18",
-  catalog: "bg-slate-500/12",
-  learning: "bg-emerald-500/16",
-  review: "bg-violet-500/18",
-  mastered: "bg-amber-400/22",
-  stopped: "bg-rose-500/16",
-};
-
-const PREVIEW_TONE_LINE_CLASS: Record<VerseCardPreviewTone, string> = {
-  my: "from-sky-500/0 via-sky-500/35 to-sky-500/0",
-  catalog: "from-slate-500/0 via-slate-500/25 to-slate-500/0",
-  learning: "from-emerald-500/0 via-emerald-500/35 to-emerald-500/0",
-  review: "from-violet-500/0 via-violet-500/35 to-violet-500/0",
-  mastered: "from-amber-500/0 via-amber-500/45 to-amber-500/0",
-  stopped: "from-rose-500/0 via-rose-500/35 to-rose-500/0",
-};
-
 export function VerseCard({
   isActive = true,
   header,
@@ -124,10 +87,11 @@ export function VerseCard({
   tags,
   activeTagSlugs = null,
   onVerticalSwipeStep,
+  colorConfig = VERSE_CARD_COLOR_CONFIG,
 }: VerseCardProps) {
-  const enableTapScale = !bodyScrollable;
   const isPreviewToneActive = Boolean(previewTone);
   const tone = previewTone ?? "learning";
+  const tonePalette = colorConfig.tones[tone];
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const touchGestureRef = useRef<CardTouchGestureContext | null>(null);
   const activeTagSlugSet = useMemo(() => {
@@ -397,15 +361,14 @@ export function VerseCard({
 
   return (
     <div className={cn("relative mx-auto w-full min-w-0 max-w-2xl select-none overflow-x-hidden", shellClassName)}>
-      <motion.div
-        whileTap={enableTapScale ? { scale: 0.985 } : undefined}
+      <div
         onTouchStart={onVerticalSwipeStep ? handleTouchStart : undefined}
         onTouchEnd={onVerticalSwipeStep ? handleTouchEnd : undefined}
         className={cn(
-          "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)]",
+          "relative z-10 w-full rounded-[3rem] p-[1px] overflow-hidden [backface-visibility:hidden] [transform:translateZ(0)] [contain:layout_style_paint]",
           "[-webkit-mask-image:-webkit-radial-gradient(white,black)] [mask-image:radial-gradient(white,black)]",
-          "shadow-[0_18px_45px_-20px_rgba(0,0,0,0.24)]",
-          isPreviewToneActive ? PREVIEW_TONE_FRAME_CLASS[tone] : "bg-border/50",
+          "shadow-[var(--shadow-elevated)]",
+          isPreviewToneActive ? tonePalette.frameClassName : "bg-border-default",
           onVerticalSwipeStep && "overscroll-none",
           "transition-[opacity,transform] duration-300",
           MIN_HEIGHT_CLASS_BY_KIND[minHeight],
@@ -414,31 +377,41 @@ export function VerseCard({
       >
         <div
           className={cn(
-            "relative h-full min-w-0 rounded-[calc(3rem-1px)] bg-card overflow-hidden overflow-x-hidden",
+            "relative h-full min-w-0 rounded-[calc(3rem-1px)] border bg-bg-elevated overflow-hidden overflow-x-hidden shadow-[var(--shadow-inset)]",
             "p-6 sm:p-10 flex flex-col",
             "transition-[opacity,transform] duration-300",
-            isPreviewToneActive && PREVIEW_TONE_CARD_CLASS[tone],
+            colorConfig.surfaceBorderClassName,
+            isPreviewToneActive && tonePalette.surfaceClassName,
             "[background-clip:padding-box]"
           )}
         >
-        {isPreviewToneActive && (
+        {isPreviewToneActive ? (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-0",
+              tonePalette.surfaceTintClassName
+            )}
+          />
+        ) : null}
+        {/* {isPreviewToneActive && (
           <>
             <div
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute left-10 right-10 top-0 h-px bg-gradient-to-r",
-                PREVIEW_TONE_LINE_CLASS[tone]
+                "pointer-events-none absolute left-10 right-10 top-0 h-[3px] bg-gradient-to-r",
+                tonePalette.lineClassName
               )}
             />
             <div
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute -top-10 left-1/2 h-24 w-[70%] -translate-x-1/2 rounded-full blur-3xl",
-                PREVIEW_TONE_GLOW_CLASS[tone]
+                tonePalette.glowClassName
               )}
             />
           </>
-        )}
+        )} */}
 
         {header ? <div className="mb-2 min-w-0 flex-shrink-0">{header}</div> : null}
 
@@ -458,7 +431,7 @@ export function VerseCard({
                     title={tag.title}
                     className={cn(
                       "inline-flex min-w-0 max-w-[min(44vw,11rem)] shrink items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide overflow-hidden",
-                      "border-border/60 bg-muted/35 text-muted-foreground"
+                      colorConfig.tagClassName
                     )}
                   >
                     <span className="block w-full truncate overflow-hidden">#{tag.title}</span>
@@ -469,7 +442,7 @@ export function VerseCard({
                     aria-label={`еще ${hiddenTagsCount} тегов`}
                     className={cn(
                       "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide",
-                      "border-border/60 bg-muted/35 text-muted-foreground"
+                      colorConfig.tagClassName
                     )}
                   >
                     +{hiddenTagsCount}
@@ -510,7 +483,7 @@ export function VerseCard({
 
         {footer ? <div className="mt-6 min-w-0 flex-shrink-0">{footer}</div> : null}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

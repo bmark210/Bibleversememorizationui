@@ -7,6 +7,7 @@ import {
   useImperativeHandle,
   useMemo,
   useState,
+  type ComponentType,
 } from 'react';
 import { ModeClickChunksExercise } from './modes/ClickChunksExercise';
 import { ModeClickWordsHintedExercise } from './modes/ClickWordsHintedExercise';
@@ -16,19 +17,20 @@ import { ModeFirstLettersKeyboardExercise } from './modes/FirstLettersKeyboardEx
 import { ModeFirstLettersTapExercise } from './modes/FirstLettersTapExercise';
 import { ModeFullRecallExercise } from './modes/FullRecallExercise';
 import { ModeVoiceRecallExercise } from './modes/VoiceRecallExercise';
-import type { TrainingModeRating } from './modes/types';
+import type { TrainingExerciseResolution } from './modes/exerciseResult';
 import type { HintState } from './modes/useHintState';
 import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../ui/alert-dialog';
-import { Verse } from '@/app/App';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '../ui/drawer';
+import { Button } from '../ui/button';
+import { Verse } from "@/app/domain/verse";
 import type { TrainingModeId } from '@/shared/training/modeEngine';
 
 export enum TrainingModeRendererKey {
@@ -123,15 +125,50 @@ const MODE_TUTORIALS: Record<TrainingModeRendererKey, ModeTutorialSpec> = {
   },
 };
 
+export interface TrainingModeInlineActionsProps {
+  showInlineQuickForgetAction?: boolean;
+  onRequestInlineQuickForget?: () => void;
+  inlineActionsDisabled?: boolean;
+}
+
+// Shared exercise props that every mode component accepts
+type ExerciseModeSharedProps = {
+  verse: Verse;
+  trainingModeId: TrainingModeId;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
+  isLateStageReview?: boolean;
+  hintState?: HintState;
+  onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
+  onOpenTutorial?: () => void;
+  onOpenVerseProgress?: () => void;
+} & TrainingModeInlineActionsProps;
+
+// Lookup map: renderer key → component
+const MODE_COMPONENT_MAP: Record<
+  TrainingModeRendererKey,
+  ComponentType<ExerciseModeSharedProps>
+> = {
+  [TrainingModeRendererKey.ChunksOrder]: ModeClickChunksExercise,
+  [TrainingModeRendererKey.OrderHints]: ModeClickWordsHintedExercise,
+  [TrainingModeRendererKey.Order]: ModeClickWordsExercise,
+  [TrainingModeRendererKey.LettersHints]: ModeFirstLettersHintedExercise,
+  [TrainingModeRendererKey.LettersTap]: ModeFirstLettersTapExercise,
+  [TrainingModeRendererKey.LettersType]: ModeFirstLettersKeyboardExercise,
+  [TrainingModeRendererKey.Typing]: ModeFullRecallExercise,
+  [TrainingModeRendererKey.VoiceTyping]: ModeVoiceRecallExercise,
+};
+
 interface TrainingModeRendererProps {
   renderer: TrainingModeRendererKey;
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: TrainingModeRating) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   isLateStageReview?: boolean;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   onOpenVerseProgress?: () => void;
+  exerciseInstanceKey?: string | number;
+  inlineExerciseActions?: TrainingModeInlineActionsProps;
 }
 
 export interface TrainingModeRendererHandle {
@@ -143,11 +180,13 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
   renderer,
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   isLateStageReview = false,
   hintState,
   onProgressChange,
   onOpenVerseProgress,
+  exerciseInstanceKey = 0,
+  inlineExerciseActions,
 }, ref) {
   const tutorial = useMemo(() => MODE_TUTORIALS[renderer], [renderer]);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -165,58 +204,39 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
     },
   }), [tutorial, tutorialOpen]);
 
-  const modeInstanceKey = `${renderer}:${verse.id}:${verse.status}:${verse.repetitions}:${verse.lastReviewedAt ?? ''}:${verse.nextReviewAt ?? ''}`;
+  const modeInstanceKey = `${renderer}:${verse.id}:${verse.status}:${verse.repetitions}:${verse.lastReviewedAt ?? ''}:${verse.nextReviewAt ?? ''}:${exerciseInstanceKey}`;
 
   const handleOpenTutorial = useCallback(() => {
     if (!tutorial) return;
     setTutorialOpen(true);
   }, [tutorial]);
 
-  const modeContent = (() => {
-  if (renderer === TrainingModeRendererKey.ChunksOrder) {
-    return <ModeClickChunksExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.LettersTap) {
-    return <ModeFirstLettersTapExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.LettersType) {
-    return <ModeFirstLettersKeyboardExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.OrderHints) {
-    return <ModeClickWordsHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.Order) {
-    return <ModeClickWordsExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.LettersHints) {
-    return <ModeFirstLettersHintedExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  if (renderer === TrainingModeRendererKey.VoiceTyping) {
-    return <ModeVoiceRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  }
-
-  return <ModeFullRecallExercise key={modeInstanceKey} verse={verse} trainingModeId={trainingModeId} onRate={onRate} isLateStageReview={isLateStageReview} hintState={hintState} onProgressChange={onProgressChange} onOpenTutorial={handleOpenTutorial} onOpenVerseProgress={onOpenVerseProgress} />;
-  })();
+  const ModeComponent = MODE_COMPONENT_MAP[renderer] ?? ModeFullRecallExercise;
 
   return (
     <>
-      {modeContent}
+      <ModeComponent
+        key={modeInstanceKey}
+        verse={verse}
+        trainingModeId={trainingModeId}
+        onExerciseResolved={onExerciseResolved}
+        isLateStageReview={isLateStageReview}
+        hintState={hintState}
+        onProgressChange={onProgressChange}
+        onOpenTutorial={handleOpenTutorial}
+        onOpenVerseProgress={onOpenVerseProgress}
+        {...inlineExerciseActions}
+      />
 
       {tutorial && (
-        <AlertDialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
-          <AlertDialogContent className="rounded-3xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{tutorial.title}</AlertDialogTitle>
-              <AlertDialogDescription>{tutorial.summary}</AlertDialogDescription>
-            </AlertDialogHeader>
+        <Drawer open={tutorialOpen} onOpenChange={setTutorialOpen}>
+          <DrawerContent>
+            <DrawerHeader className="pb-1">
+              <DrawerTitle className="text-base">{tutorial.title}</DrawerTitle>
+              <DrawerDescription>{tutorial.summary}</DrawerDescription>
+            </DrawerHeader>
 
-            <div className="space-y-2 text-sm text-foreground/90">
+            <div className="space-y-2 px-4 text-sm text-foreground/90">
               {tutorial.bullets.map((bullet, index) => (
                 <div key={index} className="flex gap-2">
                   <span className="mt-0.5 text-foreground/90">•</span>
@@ -225,19 +245,18 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
               ))}
             </div>
 
-            <AlertDialogFooter>
-              <AlertDialogAction
-                className="w-full sm:w-auto rounded-full border border-border/60 bg-muted/35 text-foreground/90"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTutorialOpen(false);
-                }}
-              >
-                Понятно, начать
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <DrawerFooter>
+              <DrawerClose asChild>
+                <Button
+                  className="w-full h-12 rounded-2xl border border-border/60 bg-muted/35 text-sm font-medium text-foreground/90"
+                  onClick={() => setTutorialOpen(false)}
+                >
+                  Понятно, начать
+                </Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       )}
     </>
   );

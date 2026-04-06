@@ -39,14 +39,14 @@ function getOutcomeCopy(
         "Этот стих завершил текущий цикл основной тренировки. После перехода дальше он больше не будет показан в этой сессии.",
       availabilityLabel: null,
       accentClasses: {
-        iconWrap: "border-amber-500/28 bg-amber-500/14",
-        icon: "text-amber-700 dark:text-amber-300",
-        title: "text-amber-800/90 dark:text-amber-200",
-        badge: "border-amber-500/28 bg-amber-500/12",
-        badgeText: "text-amber-800/85 dark:text-amber-300/90",
-        box: "border-amber-500/24 bg-amber-500/10",
-        boxLabel: "text-amber-800/70 dark:text-amber-300/75",
-        boxValue: "text-amber-800 dark:text-amber-200",
+        iconWrap: "border-status-mastered/28 bg-status-mastered-soft",
+        icon: "text-status-mastered",
+        title: "text-status-mastered/90",
+        badge: "border-status-mastered/28 bg-status-mastered-soft",
+        badgeText: "text-status-mastered/90",
+        box: "border-status-mastered/24 bg-status-mastered-soft",
+        boxLabel: "text-status-mastered/75",
+        boxValue: "text-status-mastered",
       },
     };
   }
@@ -59,14 +59,14 @@ function getOutcomeCopy(
         "Этап изучения завершен. Теперь этот стих временно ждет следующего окна повторения и не будет мешать текущей очереди.",
       availabilityLabel: "Следующее повторение",
       accentClasses: {
-        iconWrap: "border-violet-500/28 bg-violet-500/14",
-        icon: "text-violet-700 dark:text-violet-300",
-        title: "text-violet-800/90 dark:text-violet-200",
-        badge: "border-violet-500/24 bg-violet-500/12",
-        badgeText: "text-violet-800/85 dark:text-violet-300/90",
-        box: "border-violet-500/22 bg-violet-500/10",
-        boxLabel: "text-violet-800/70 dark:text-violet-300/75",
-        boxValue: "text-violet-800 dark:text-violet-200",
+        iconWrap: "border-status-review/28 bg-status-review-soft",
+        icon: "text-status-review",
+        title: "text-status-review/90",
+        badge: "border-status-review/24 bg-status-review-soft",
+        badgeText: "text-status-review/90",
+        box: "border-status-review/22 bg-status-review-soft",
+        boxLabel: "text-status-review/75",
+        boxValue: "text-status-review",
       },
     };
   }
@@ -79,14 +79,14 @@ function getOutcomeCopy(
         "Стих успешно прошел текущую попытку и теперь ожидает следующего окна повторения. После продолжения он исчезнет из активной очереди.",
       availabilityLabel: "Снова доступен",
       accentClasses: {
-        iconWrap: "border-violet-500/28 bg-violet-500/14",
-        icon: "text-violet-700 dark:text-violet-300",
-        title: "text-violet-800/90 dark:text-violet-200",
-        badge: "border-violet-500/24 bg-violet-500/12",
-        badgeText: "text-violet-800/85 dark:text-violet-300/90",
-        box: "border-violet-500/22 bg-violet-500/10",
-        boxLabel: "text-violet-800/70 dark:text-violet-300/75",
-        boxValue: "text-violet-800 dark:text-violet-200",
+        iconWrap: "border-status-review/28 bg-status-review-soft",
+        icon: "text-status-review",
+        title: "text-status-review/90",
+        badge: "border-status-review/24 bg-status-review-soft",
+        badgeText: "text-status-review/90",
+        box: "border-status-review/22 bg-status-review-soft",
+        boxLabel: "text-status-review/75",
+        boxValue: "text-status-review",
       },
     };
   }
@@ -98,14 +98,14 @@ function getOutcomeCopy(
       "Прогресс стихa не потерян, но перед новой попыткой нужен небольшой интервал ожидания. После продолжения карточка временно уйдет из текущей очереди.",
     availabilityLabel: "Следующая попытка",
     accentClasses: {
-      iconWrap: "border-violet-500/28 bg-violet-500/14",
-      icon: "text-violet-700 dark:text-violet-300",
-      title: "text-violet-800/90 dark:text-violet-200",
-      badge: "border-violet-500/24 bg-violet-500/12",
-      badgeText: "text-violet-800/85 dark:text-violet-300/90",
-      box: "border-violet-500/22 bg-violet-500/10",
-      boxLabel: "text-violet-800/70 dark:text-violet-300/75",
-      boxValue: "text-violet-800 dark:text-violet-200",
+      iconWrap: "border-status-review/28 bg-status-review-soft",
+      icon: "text-status-review",
+      title: "text-status-review/90",
+      badge: "border-status-review/24 bg-status-review-soft",
+      badgeText: "text-status-review/90",
+      box: "border-status-review/22 bg-status-review-soft",
+      boxLabel: "text-status-review/75",
+      boxValue: "text-status-review",
     },
   };
 }
@@ -200,21 +200,21 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
         previewTone={isReviewOutcome ? "review" : "mastered"}
         header={
           <div className="w-full min-w-0 flex-shrink-0 text-center space-y-3">
-            <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif break-words [overflow-wrap:anywhere]">
+            <h2 className="[font-family:var(--font-heading)] text-2xl sm:text-3xl italic text-brand-primary break-words [overflow-wrap:anywhere]">
               {trainingVerse.raw.reference}
             </h2>
-            <div className="w-16 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent mx-auto" />
+            <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-brand-primary to-transparent" />
             <div className="mx-auto flex flex-wrap items-center justify-center gap-2">
               <div
                 className={cn(
-                  "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 backdrop-blur-sm",
+                  "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 shadow-[var(--shadow-soft)] backdrop-blur-sm",
                   copy.accentClasses.badge
                 )}
               >
                 {outcome.kind === "mastered" ? (
-                  <CheckCircle2 className="size-4 text-amber-700 dark:text-amber-300" />
+                  <CheckCircle2 className="size-4 text-status-mastered" />
                 ) : (
-                  <Clock3 className="size-4 text-violet-700 dark:text-violet-300" />
+                  <Clock3 className="size-4 text-status-review" />
                 )}
                 <span
                   className={cn(
@@ -233,7 +233,7 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
             <div className="flex-shrink-0 space-y-4">
               <div
                 className={cn(
-                  "mx-auto flex size-14 items-center justify-center rounded-[1.5rem] border shadow-sm",
+                  "mx-auto flex size-14 items-center justify-center rounded-[1.5rem] border shadow-[var(--shadow-soft)]",
                   copy.accentClasses.iconWrap
                 )}
               >
@@ -251,7 +251,7 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
                 </h3>
                 <p
                   style={{ WebkitLineClamp: 4 }}
-                  className="mx-auto max-w-lg overflow-hidden text-ellipsis text-sm leading-relaxed text-foreground/70 [display:-webkit-box] [-webkit-box-orient:vertical]"
+                  className="mx-auto max-w-lg overflow-hidden text-ellipsis text-sm leading-relaxed text-text-secondary [display:-webkit-box] [-webkit-box-orient:vertical]"
                 >
                   {copy.description}
                 </p>
@@ -260,7 +260,7 @@ export const TrainingOutcomeCard = memo(function TrainingOutcomeCard({
               {availabilityText && copy.availabilityLabel ? (
                 <div
                   className={cn(
-                    "w-full rounded-[1.6rem] border px-4 py-3 shadow-sm",
+                    "w-full rounded-[1.6rem] border px-4 py-3 shadow-[var(--shadow-soft)]",
                     copy.accentClasses.box
                   )}
                 >

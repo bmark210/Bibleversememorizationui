@@ -1,1 +1,3 @@
-export type { bible_memory_db_internal_domain_CatalogVersesPageResponse as domain_CatalogVersesPageResponse } from "./bible_memory_db_internal_domain_CatalogVersesPageResponse";
+import type { bible_memory_db_internal_domain_CatalogVersesPageResponse } from "./bible_memory_db_internal_domain_CatalogVersesPageResponse";
+
+export type domain_CatalogVersesPageResponse = bible_memory_db_internal_domain_CatalogVersesPageResponse;

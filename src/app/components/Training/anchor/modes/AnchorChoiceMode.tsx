@@ -53,10 +53,10 @@ export function AnchorChoiceMode({
               className={cn(
                 "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-semibold tabular-nums transition-colors",
                 isAnswered && optionIsCorrect
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  ? "bg-status-learning-soft text-status-learning"
                   : isAnswered && optionIsSelected
-                    ? "bg-rose-500/15 text-rose-500 dark:text-rose-400"
-                    : "bg-foreground/[0.06] text-foreground/45 group-hover:bg-foreground/[0.1]",
+                    ? "bg-status-paused-soft text-status-paused"
+                    : "bg-bg-subtle text-text-muted group-hover:bg-bg-elevated",
               )}
               style={{ fontSize: `${badgePx}px` }}
             >

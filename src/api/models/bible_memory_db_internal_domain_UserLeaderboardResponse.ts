@@ -7,6 +7,8 @@ import type { bible_memory_db_internal_domain_UserLeaderboardEntry } from './bib
 export type bible_memory_db_internal_domain_UserLeaderboardResponse = {
     currentUser?: bible_memory_db_internal_domain_UserLeaderboardCurrentUser;
     items?: Array<bible_memory_db_internal_domain_UserLeaderboardEntry>;
+    limit?: number;
+    offset?: number;
     totalParticipants?: number;
 };
 

@@ -7,7 +7,7 @@ import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen p-6">
       <div className="text-sm text-muted-foreground">Загрузка документации…</div>
     </div>
   ),

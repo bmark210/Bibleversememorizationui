@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { CoreTrainingMode, TrainingMode } from "../types";
 import {
@@ -33,6 +33,8 @@ export function useTrainingHubState(params: {
       totalReviewCount,
       waitingReviewCount: Math.max(0, totalReviewCount - dueReviewCount),
       masteredCount,
+      anchorEligibleCount: totalReviewCount + masteredCount,
+      flashcardCount: learningCount + totalReviewCount + masteredCount,
       allCount: learningCount + totalReviewCount + masteredCount,
       earliestWaitingReviewAt: null,
     };
@@ -50,8 +52,7 @@ export function getCountForMode(
     case "review":
       return counts.dueReviewCount;
     case "anchor":
-      // Only REVIEW + MASTERED are eligible for anchor (no LEARNING)
-      return counts.totalReviewCount + counts.masteredCount;
+      return counts.anchorEligibleCount;
   }
 }
 
@@ -61,7 +62,7 @@ export function getCountForModes(
   counts: TrainingCounts
 ): number {
   if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
-    return counts.totalReviewCount + counts.masteredCount;
+    return counts.anchorEligibleCount;
   }
 
   return getCountForCoreModes(modes as CoreTrainingMode[], counts);

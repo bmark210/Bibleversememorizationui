@@ -12,7 +12,6 @@ export const VERSE_LIST_STORAGE_KEYS = {
 
 const STATUS_FILTER_VALUES: VerseListStatusFilter[] = [
   'catalog',
-  'friends',
   'learning',
   'review',
   'mastered',

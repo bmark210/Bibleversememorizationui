@@ -1,38 +1,30 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { TrainingHub } from "./hub/TrainingHub";
 import { AnchorSession } from "./anchor/AnchorSession";
+import { FlashcardSessionRoot } from "./flashcard/FlashcardSession.lazy";
 import { TrainingSession } from "./session/TrainingSession";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type {
   TrainingProps,
   TrainingView,
-  TrainingMode,
   CoreTrainingMode,
   TrainingScenario,
   AnchorModeGroup,
+  AnchorSubScenario,
+  FlashcardMode,
 } from "./types";
 import { ALL_ANCHOR_MODE_GROUPS } from "./types";
 import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
-import type { Verse } from "@/app/App";
-import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
+import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
  
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
-
-/** Pick the training mode that best matches a verse's current status */
-function autoModeForVerse(verse: Verse): TrainingMode {
-  const status = normalizeDisplayVerseStatus(verse.status);
-  if (status === "REVIEW") return "review";
-  if (status === "MASTERED") return "anchor";
-  return "learning";
-}
 
 function getInitialSubsetFilter(
   modes: CoreTrainingMode[]
@@ -81,6 +73,10 @@ export function Training({
   const [selectedAnchorModes, setSelectedAnchorModes] = useState<
     AnchorModeGroup[]
   >(initialHub.anchorModes);
+  const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] =
+    useState<AnchorSubScenario>("interactive");
+  const [selectedFlashcardMode, setSelectedFlashcardMode] =
+    useState<FlashcardMode>("reference");
   const directLaunchConsumedRef = useRef(false);
 
   useEffect(() => {
@@ -91,12 +87,22 @@ export function Training({
     });
   }, [selectedScenario, selectedModes, selectedAnchorModes]);
 
+  const goToHub = useCallback(() => {
+    setView({ mode: "hub" });
+  }, []);
+
   // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
   useEffect(() => {
     if (!directLaunch || directLaunchConsumedRef.current) return;
     directLaunchConsumedRef.current = true;
 
-    const mode = directLaunch.preferredMode ?? autoModeForVerse(directLaunch.verse);
+    const mode =
+      directLaunch.preferredMode ?? getVerseTrainingLaunchMode(directLaunch.verse);
+
+    if (!mode) {
+      goToHub();
+      return;
+    }
 
     if (mode === "anchor") {
       setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS] });
@@ -117,7 +123,7 @@ export function Training({
         initialVerseExternalId: directLaunch.verse.externalVerseId,
       });
     }
-  }, [directLaunch, allVerses]);
+  }, [directLaunch, allVerses, goToHub]);
 
   // Reset consumed ref when directLaunch changes to a new value
   useEffect(() => {
@@ -125,10 +131,6 @@ export function Training({
       directLaunchConsumedRef.current = false;
     }
   }, [directLaunch]);
-
-  const goToHub = useCallback(() => {
-    setView({ mode: "hub" });
-  }, []);
 
   const handleExitSession = useCallback(() => {
     if (directLaunch && directLaunchConsumedRef.current) {
@@ -145,6 +147,10 @@ export function Training({
 
     goToHub();
   }, [directLaunch, goToHub, onDirectLaunchExit]);
+
+  const handleStartFlashcard = useCallback(() => {
+    setView({ mode: "flashcard", flashcardMode: selectedFlashcardMode });
+  }, [selectedFlashcardMode]);
 
   const handleStart = useCallback(() => {
     if (selectedScenario === "anchor") {
@@ -176,7 +182,7 @@ export function Training({
     });
   }, [selectionVerses, selectedModes, selectedScenario]);
 
-  // Telegram back for core training only. Anchor mode handles back internally.
+  // Telegram back for core training only. Anchor and flashcard modes handle back internally.
   useTelegramBackButton({
     enabled: view.mode === "verse-session",
     onBack: handleExitSession,
@@ -197,16 +203,8 @@ export function Training({
 
   return (
     <div className="h-full">
-      <AnimatePresence mode="wait">
-        {view.mode === "hub" && (
-          <motion.div
-            key="hub"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="h-full overflow-hidden"
-          >
+      {view.mode === "hub" && (
+        <div className="h-full overflow-hidden">
             <TrainingHub
               allVerses={allVerses}
               dashboardStats={dashboardStats}
@@ -214,40 +212,42 @@ export function Training({
               selectedScenario={selectedScenario}
               selectedModes={selectedModes}
               selectedAnchorModes={selectedAnchorModes}
+              selectedAnchorSubScenario={selectedAnchorSubScenario}
+              selectedFlashcardMode={selectedFlashcardMode}
               onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
               onAnchorModesChange={setSelectedAnchorModes}
+              onAnchorSubScenarioChange={setSelectedAnchorSubScenario}
+              onFlashcardModeChange={setSelectedFlashcardMode}
               onStart={handleStart}
+              onStartFlashcard={handleStartFlashcard}
               onStartSelection={handleStartSelection}
             />
-          </motion.div>
-        )}
+        </div>
+      )}
 
-        {view.mode === "anchor" && (
-          <motion.div
-            key="anchor"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
+      {view.mode === "anchor" && (
+        <div>
             <AnchorSession
               telegramId={telegramId}
               anchorModes={view.anchorModes}
               onSessionCommitted={onVerseMutationCommitted}
               onClose={handleExitSession}
             />
-          </motion.div>
-        )}
+        </div>
+      )}
 
-        {view.mode === "verse-session" && (
-          <motion.div
-            key="verse-session"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
+      {view.mode === "flashcard" && (
+        <FlashcardSessionRoot
+          telegramId={telegramId}
+          flashcardMode={view.flashcardMode}
+          onSessionCommitted={onVerseMutationCommitted}
+          onClose={handleExitSession}
+        />
+      )}
+
+      {view.mode === "verse-session" && (
+        <div>
             <TrainingSession
               verses={view.verses}
               initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
@@ -257,9 +257,8 @@ export function Training({
               onVersePatched={onVersePatched}
               onMutationCommitted={onVerseMutationCommitted}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

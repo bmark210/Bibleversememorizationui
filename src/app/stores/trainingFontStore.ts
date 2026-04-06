@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 const TRAINING_FONT_SIZE_STORAGE_KEY = "training.font-size-preference";
 
-export type TrainingFontSize = "small" | "medium" | "large";
+export type TrainingFontSize = "small" | "medium" | "large" | "extra-large";
 
 type TrainingFontStore = {
   trainingFontSize: TrainingFontSize;
@@ -13,7 +13,12 @@ type TrainingFontStore = {
 };
 
 function isValidFontSize(value: string | null): value is TrainingFontSize {
-  return value === "small" || value === "medium" || value === "large";
+  return (
+    value === "small" ||
+    value === "medium" ||
+    value === "large" ||
+    value === "extra-large"
+  );
 }
 
 function readStoredTrainingFontSize(): TrainingFontSize {

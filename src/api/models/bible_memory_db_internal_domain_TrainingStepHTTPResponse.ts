@@ -6,7 +6,13 @@ import type { bible_memory_db_internal_domain_UserVerse } from './bible_memory_d
 export type bible_memory_db_internal_domain_TrainingStepHTTPResponse = {
     graduatedToReview?: boolean;
     nextTrainingModeId?: number;
+    newTotalXp?: number;
+    /**
+     * PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot.
+     */
+    promotedVerseIds?: Array<string>;
     reviewWasSuccessful?: boolean;
     userVerse?: bible_memory_db_internal_domain_UserVerse;
+    xpDelta?: number;
 };
 

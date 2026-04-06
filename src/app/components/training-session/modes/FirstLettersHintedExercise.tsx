@@ -1,26 +1,28 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useMemo, useState } from 'react';
 import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { swapArrayItems } from '@/shared/utils/swapArrayItems';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Button } from '@/app/components/ui/button';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import {
   getComparableFirstLetter,
   getWordMask,
-  getWordMaskWidth,
+  getWordMaskWidthWithFont,
   tokenizeWords,
 } from './wordUtils';
-import { TrainingRatingFooter } from './TrainingRatingFooter';
-import {
-  TrainingRatingButtons,
-  resolveTrainingRatingExcludeForget,
-  resolveTrainingRatingStage,
-} from './TrainingRatingButtons';
+import { buildFont } from '@/app/utils/textLayout';
+import type { TrainingExerciseResolution } from './exerciseResult';
+import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
+import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
+import {
+  getRemainingMistakesTone,
+  TrainingExerciseSection,
+  TrainingMetricBadge,
+} from './TrainingExerciseSection';
 import { WordSequenceField, type WordSequenceFieldItem } from './WordSequenceField';
 import type { HintState } from './useHintState';
 import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
@@ -29,16 +31,17 @@ import {
   getExerciseMaxMistakes,
   getHintedRevealCount,
 } from '@/modules/training/hints/exerciseDifficultyConfig';
-import {
-  useMeasuredChoiceBatch,
-  type MeasuredChoiceBatchItem,
-} from './useMeasuredChoiceBatch';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import {
+  getChoiceButtonFlashClassName,
+  useChoiceFlashFeedback,
+} from './useChoiceFlashFeedback';
+import { useSurrenderEffect } from './useSurrenderEffect';
 
-interface FirstLettersHintedExerciseProps {
+interface FirstLettersHintedExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
   trainingModeId: TrainingModeId;
-  onRate: (rating: 0 | 1 | 2 | 3) => void;
+  onExerciseResolved?: (result: TrainingExerciseResolution) => void;
   hintState?: HintState;
   onProgressChange?: (progress: ExerciseProgressSnapshot) => void;
   isLateStageReview?: boolean;
@@ -138,24 +141,29 @@ const LETTER_CHOICE_BUTTON_BASE_CLASS =
 export function ModeFirstLettersHintedExercise({
   verse,
   trainingModeId,
-  onRate,
+  onExerciseResolved,
   hintState,
   onProgressChange,
-  isLateStageReview = false,
+  isLateStageReview: _isLateStageReview = false,
   onOpenTutorial,
   onOpenVerseProgress,
+  showInlineQuickForgetAction = false,
+  onRequestInlineQuickForget,
+  inlineActionsDisabled = false,
 }: FirstLettersHintedExerciseProps) {
   const fontSizes = useTrainingFontSize();
-  const ratingStage = resolveTrainingRatingStage(verse.status);
+  const wordFont = buildFont(fontSizes.sm);
   const [slots, setSlots] = useState<WordSlot[]>([]);
   const [choiceOrder, setChoiceOrder] = useState<string[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [errorFlashLetter, setErrorFlashLetter] = useState<string | null>(null);
-  const [successFlashLetter, setSuccessFlashLetter] = useState<string | null>(null);
-  const clearFlashTimeoutRef = useRef<number | null>(null);
-  const clearSuccessFlashTimeoutRef = useRef<number | null>(null);
+  const {
+    clear: clearChoiceFlash,
+    flashError: flashChoiceError,
+    flashSuccess: flashChoiceSuccess,
+    getChoiceFlashKind,
+  } = useChoiceFlashFeedback<string>();
 
   const surrendered = hintState?.surrendered ?? false;
 
@@ -169,26 +177,15 @@ export function ModeFirstLettersHintedExercise({
     setSelectedCount(0);
     setMistakesSinceReset(0);
     setIsCompleted(false);
-    setErrorFlashLetter(null);
-    setSuccessFlashLetter(null);
+    clearChoiceFlash();
+  }, [clearChoiceFlash, verse]);
 
-    return () => {
-      if (clearFlashTimeoutRef.current) {
-        window.clearTimeout(clearFlashTimeoutRef.current);
-        clearFlashTimeoutRef.current = null;
-      }
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-        clearSuccessFlashTimeoutRef.current = null;
-      }
-    };
-  }, [verse]);
-
-  useEffect(() => {
-    if (surrendered && !isCompleted) {
-      setIsCompleted(true);
-    }
-  }, [surrendered, isCompleted]);
+  useSurrenderEffect({
+    surrendered,
+    isCompleted,
+    setIsCompleted,
+    onExerciseResolved,
+  });
 
   const hiddenSlots = useMemo(
     () => slots.filter((slot) => !slot.revealed),
@@ -208,6 +205,7 @@ export function ModeFirstLettersHintedExercise({
     difficultyLevel: verse.difficultyLevel,
     totalUnits: totalHidden,
   });
+  const remainingMistakes = Math.max(0, maxMistakes - mistakesSinceReset);
 
   useEffect(() => {
     onProgressChange?.(
@@ -233,14 +231,6 @@ export function ModeFirstLettersHintedExercise({
 
     return counts;
   }, [hiddenSlots, selectedCount]);
-
-  const availableLetters = useMemo(
-    () =>
-      choiceOrder.filter((letter) => (remainingCountByLetter.get(letter) ?? 0) > 0),
-    [choiceOrder, remainingCountByLetter]
-  );
-
-  const expectedFirstLetter = nextHiddenSlot?.firstLetter ?? null;
 
   const focusItemId = useMemo(() => {
     if (hiddenSlots.length === 0) return null;
@@ -275,11 +265,11 @@ export function ModeFirstLettersHintedExercise({
         return {
           id: slot.id,
           content: getWordMask(slot.text),
-          minWidth: getWordMaskWidth(slot.text),
+          minWidth: getWordMaskWidthWithFont(slot.text, wordFont),
           state: isActiveGap ? 'active-gap' : 'future-gap',
         };
       }),
-    [slots, hiddenIndexByOrder, selectedCount, isCompleted]
+    [slots, hiddenIndexByOrder, selectedCount, isCompleted, wordFont]
   );
 
   const handleLetterClick = (letter: string) => {
@@ -290,34 +280,29 @@ export function ModeFirstLettersHintedExercise({
       const next = selectedCount + 1;
       setSelectedCount(next);
 
-      setSuccessFlashLetter(letter);
-      if (clearSuccessFlashTimeoutRef.current) {
-        window.clearTimeout(clearSuccessFlashTimeoutRef.current);
-      }
-      clearSuccessFlashTimeoutRef.current = window.setTimeout(() => {
-        setSuccessFlashLetter(null);
-        clearSuccessFlashTimeoutRef.current = null;
-      }, 260);
+      flashChoiceSuccess(letter);
 
       if (next === totalHidden) {
         setIsCompleted(true);
+        onExerciseResolved?.({
+          kind: 'success',
+          message: 'Первые буквы выбраны верно.',
+        });
       }
       return;
     }
 
     const nextMistakesSinceReset = mistakesSinceReset + 1;
     const shouldResetSequence = nextMistakesSinceReset >= maxMistakes;
-    setMistakesSinceReset(shouldResetSequence ? 0 : nextMistakesSinceReset);
+    setMistakesSinceReset(nextMistakesSinceReset);
 
     if (shouldResetSequence) {
-      setSelectedCount(0);
-      toast.warning(
-        `Допущено ${maxMistakes} ошибок. Последовательность сброшена.`,
-        {
-          toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
-      );
+      setIsCompleted(true);
+      onExerciseResolved?.({
+        kind: 'failure',
+        reason: 'max-mistakes',
+        message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
+      });
     } else {
       toast.warning(
         `Неверная буква. До сброса: ${
@@ -330,60 +315,20 @@ export function ModeFirstLettersHintedExercise({
       );
     }
 
-    setErrorFlashLetter(letter);
-    if (clearFlashTimeoutRef.current) {
-      window.clearTimeout(clearFlashTimeoutRef.current);
-    }
-    clearFlashTimeoutRef.current = window.setTimeout(() => {
-      setErrorFlashLetter(null);
-      clearFlashTimeoutRef.current = null;
-    }, 260);
+    flashChoiceError(letter);
   };
 
-  const showChoices = !isCompleted && !surrendered && availableLetters.length > 0;
-  const availableLetterItems = useMemo<MeasuredChoiceBatchItem<string>[]>(
-    () => availableLetters.map((letter) => ({ key: letter, value: letter })),
-    [availableLetters]
-  );
-
-  const preferredExpectedIndex = useMemo(
-    () =>
-      Math.min(2 + (selectedCount % 3), Math.max(availableLetterItems.length - 1, 0)),
-    [availableLetterItems.length, selectedCount]
-  );
-
-  const {
-    containerRef: choicesContainerRef,
-    measureRef: measureChoicesRef,
-    measurementItems: measuredLetterItems,
-    displayedItems: displayedLetterItems,
-  } = useMeasuredChoiceBatch({
-    items: availableLetterItems,
-    enabled: showChoices,
-    requiredItemKey: expectedFirstLetter,
-    preferredRequiredIndex: preferredExpectedIndex,
-    dependencies: [fontSizes.level],
-  });
+  const showChoices = !isCompleted && !surrendered && choiceOrder.length > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-    >
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <TrainingExerciseModeHeader
         modeId={trainingModeId}
         verse={verse}
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      {mistakesSinceReset > 0 && (
-        <span className="absolute right-2 top-10 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white">
-          {maxMistakes - mistakesSinceReset}
-        </span>
-      )}
-
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
+      <div className="min-h-0 flex-1 basis-1/2 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Стих с пропусками"
@@ -396,84 +341,53 @@ export function ModeFirstLettersHintedExercise({
       </div>
 
       {showChoices && (
-        <div className="mt-2 min-h-0 flex-1 basis-1/2 flex flex-col overflow-hidden border-t border-border/60 pt-2">
-          <div className="mb-2 flex shrink-0 items-center text-xs text-muted-foreground">
-            <span>Варианты букв</span>
-          </div>
-          <div className="relative flex-1 min-h-0">
-            <div
-              ref={choicesContainerRef}
-              className="absolute inset-0 min-h-0 overflow-hidden"
-            >
-              <div className="flex flex-wrap content-start gap-1 py-1">
-                {displayedLetterItems.map(({ key, value: letter }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${
-                      errorFlashLetter === letter
-                        ? 'border-destructive text-destructive bg-destructive/10'
-                        : successFlashLetter === letter
-                          ? 'border-emerald-500 text-emerald-600 bg-emerald-500/10'
-                          : 'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5'
-                    }`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                    onClick={() => handleLetterClick(letter)}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
+        <TrainingExerciseSection
+          title="Варианты букв"
+          meta={
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
+          }
+          className="mt-2 min-h-0 flex-1 basis-1/2"
+          scrollable
+          contentClassName="flex flex-wrap content-start gap-1.5 px-0.5 pb-2.5 pt-0.5"
+        >
+          {choiceOrder.map((letter) => {
+            const remainingLetterCount = remainingCountByLetter.get(letter) ?? 0;
+            const isUsed = remainingLetterCount <= 0;
 
-            <div
-              aria-hidden="true"
-              className="pointer-events-none invisible absolute inset-x-0 top-0"
-            >
-              <div ref={measureChoicesRef} className="flex flex-wrap content-start gap-1 py-1">
-                {measuredLetterItems.map(({ key, value: letter }) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="outline"
-                    haptic={false}
-                    tabIndex={-1}
-                    data-choice-key={key}
-                    className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} border-border/70 bg-background/60`}
-                    style={{ fontSize: `${fontSizes.letter}px` }}
-                  >
-                    <span>{letter}</span>
-                  </Button>
-                ))}
+            return (
+              <div key={letter} className="min-w-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUsed}
+                  className={`${LETTER_CHOICE_BUTTON_BASE_CLASS} transition-colors ${getChoiceButtonFlashClassName({
+                    choiceKey: letter,
+                    disabled: isUsed,
+                    idleClassName:
+                      'border-border/70 bg-background/60 hover:border-primary/35 hover:bg-primary/5',
+                    getChoiceFlashKind,
+                  })}`}
+                  style={{ fontSize: `${fontSizes.letter}px` }}
+                  onClick={() => handleLetterClick(letter)}
+                >
+                  <span>{letter}</span>
+                </Button>
               </div>
-            </div>
-          </div>
-        </div>
+            );
+          })}
+        </TrainingExerciseSection>
       )}
 
-      {isCompleted && (
-        <div className="shrink-0 pt-3">
-          <TrainingRatingFooter>
-            <TrainingRatingButtons
-              stage={ratingStage}
-              mode="first-letters"
-              onRate={onRate}
-              ratingPolicy={hintState?.ratingPolicy}
-              allowEasySkip={false}
-              excludeForget={resolveTrainingRatingExcludeForget({
-                isLateStageReview,
-                ratingStage,
-                trainingModeId,
-                surrendered,
-              })}
-              currentTrainingModeId={trainingModeId}
-              lateStageReview={isLateStageReview}
-              disabled={false}
-            />
-          </TrainingRatingFooter>
-        </div>
-      )}
-    </motion.div>
+      <SplitExerciseActionRail
+        remainingMistakes={remainingMistakes}
+        showRemainingMistakes={false}
+        showQuickForgetAction={showInlineQuickForgetAction}
+        onRequestQuickForget={onRequestInlineQuickForget}
+        disabled={inlineActionsDisabled}
+      />
+
+    </div>
   );
 }

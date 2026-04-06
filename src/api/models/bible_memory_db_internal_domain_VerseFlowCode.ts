@@ -12,4 +12,5 @@ export enum bible_memory_db_internal_domain_VerseFlowCode {
     VerseFlowPausedLearning = 'PAUSED_LEARNING',
     VerseFlowPausedReview = 'PAUSED_REVIEW',
     VerseFlowPausedMastered = 'PAUSED_MASTERED',
+    VerseFlowQueue = 'QUEUE',
 }

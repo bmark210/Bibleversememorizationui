@@ -4,6 +4,8 @@
 /* eslint-disable */
 export enum bible_memory_db_internal_domain_VerseStatus {
     StatusMy = 'MY',
+    StatusQueue = 'QUEUE',
     StatusLearning = 'LEARNING',
     StatusStopped = 'STOPPED',
+    StatusDeleted = 'DELETED',
 }

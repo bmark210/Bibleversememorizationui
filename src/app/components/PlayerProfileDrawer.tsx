@@ -244,7 +244,10 @@ export function PlayerProfileDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent
+        overlayClassName="z-[140]"
+        className="z-[141] rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6"
+      >
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16 border border-border/60 bg-background/70">
@@ -270,9 +273,9 @@ export function PlayerProfileDrawer({
                     Ваш профиль
                   </span>
                 ) : profile?.isFriend ? (
-                  <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:text-emerald-300">
-                    В друзьях
-                  </span>
+                  <span className="inline-flex items-center rounded-full border border-status-learning/25 bg-status-learning-soft px-3 py-1 text-status-learning">
+                      В друзьях
+                    </span>
                 ) : profile ? (
                   <span className="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-foreground/62">
                     Можно добавить в друзья

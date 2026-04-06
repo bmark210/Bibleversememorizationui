@@ -4,7 +4,6 @@
  */
 
 import type { ModeStrategy } from "./types/modeRegistry";
-import type { TrainingVerse } from "./types";
 import { extractWordTokens } from "./services/validation";
 
 import {

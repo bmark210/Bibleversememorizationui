@@ -1,31 +1,71 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HintRatingPolicy } from "@/modules/training/hints/types";
-import { TrainingModeId } from "@/shared/training/modeEngine";
 import { resolveTrainingRatingButtonsConfig } from "./TrainingRatingButtons";
 
-test("learning rating buttons still show forgot when policy allows only rating 0", () => {
+function simplifyButtons(
+  buttons: ReturnType<typeof resolveTrainingRatingButtonsConfig>["buttons"]
+) {
+  return buttons.map((button) =>
+    button.kind === "retry"
+      ? { kind: button.kind, label: button.label }
+      : {
+          kind: button.kind,
+          rating: button.rating,
+          label: button.label,
+        }
+  );
+}
+
+test("success actions no longer show memorization title", () => {
+  const result = resolveTrainingRatingButtonsConfig({
+    stage: "learning",
+  });
+
+  assert.equal(result.title, null);
+});
+
+test("learning success actions are retry and continue", () => {
+  const result = resolveTrainingRatingButtonsConfig({
+    stage: "learning",
+  });
+
+  assert.deepEqual(simplifyButtons(result.buttons), [
+    { kind: "continue", rating: 2, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
+  ]);
+});
+
+test("learning continue falls back to capped non-forget rating", () => {
   const ratingPolicy: HintRatingPolicy = {
-    maxRating: 0,
-    allowedRatings: [0],
+    maxRating: 1,
+    allowedRatings: [0, 1],
     assisted: true,
   };
 
   const result = resolveTrainingRatingButtonsConfig({
     stage: "learning",
     ratingPolicy,
-    allowEasySkip: true,
-    excludeForget: false,
   });
 
-  assert.equal(result.title, "Оценка запоминания");
-  assert.deepEqual(
-    result.buttons.map(({ rating, label }) => ({ rating, label })),
-    [{ rating: 0, label: "Забыл" }]
-  );
+  assert.deepEqual(simplifyButtons(result.buttons), [
+    { kind: "continue", rating: 1, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
+  ]);
 });
 
-test("review rating buttons respect assisted cap without going empty", () => {
+test("review success actions are retry and continue", () => {
+  const result = resolveTrainingRatingButtonsConfig({
+    stage: "review",
+  });
+
+  assert.deepEqual(simplifyButtons(result.buttons), [
+    { kind: "continue", rating: 2, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
+  ]);
+});
+
+test("review continue respects assisted cap", () => {
   const ratingPolicy: HintRatingPolicy = {
     maxRating: 1,
     allowedRatings: [0, 1],
@@ -37,36 +77,8 @@ test("review rating buttons respect assisted cap without going empty", () => {
     ratingPolicy,
   });
 
-  assert.deepEqual(
-    result.buttons.map(({ rating, label }) => ({ rating, label })),
-    [{ rating: 1, label: "С подсказкой" }]
-  );
-});
-
-test("learning hides easy rating on late progress modes", () => {
-  const result = resolveTrainingRatingButtonsConfig({
-    stage: "learning",
-    allowEasySkip: true,
-    excludeForget: true,
-    currentTrainingModeId: TrainingModeId.FullRecall,
-  });
-
-  assert.deepEqual(
-    result.buttons.map(({ rating }) => rating),
-    [1, 2]
-  );
-});
-
-test("learning shows easy on first progress mode", () => {
-  const result = resolveTrainingRatingButtonsConfig({
-    stage: "learning",
-    allowEasySkip: true,
-    excludeForget: true,
-    currentTrainingModeId: TrainingModeId.ClickChunks,
-  });
-
-  assert.deepEqual(
-    result.buttons.map(({ rating }) => rating),
-    [1, 2, 3]
-  );
+  assert.deepEqual(simplifyButtons(result.buttons), [
+    { kind: "continue", rating: 1, label: "Далее" },
+    { kind: "retry", label: "Повторить ещё раз" },
+  ]);
 });

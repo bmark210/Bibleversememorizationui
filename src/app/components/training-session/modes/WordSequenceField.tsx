@@ -34,10 +34,10 @@ function isMaskedState(state: WordSequenceFieldItemState) {
   return state === 'active-gap' || state === 'future-gap';
 }
 
-function getItemClassName(state: WordSequenceFieldItemState) {
-  if (state === 'revealed') {
-    return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  }
+  function getItemClassName(state: WordSequenceFieldItemState) {
+    if (state === 'revealed') {
+      return 'border border-status-learning/25 bg-status-learning-soft text-status-learning';
+    }
 
   if (state === 'filled') {
     return 'border border-primary/20 bg-primary/10 text-foreground';
@@ -180,7 +180,7 @@ export function WordSequenceField({
       {/* Top shadow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-3 z-10 rounded-t-lg transition-opacity duration-200"
+        className="pointer-events-none absolute inset-x-3 z-10 transition-opacity duration-200"
         style={{
           top: 36,
           height: SHADOW_SIZE,
@@ -229,7 +229,7 @@ export function WordSequenceField({
       {/* Bottom shadow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-3 bottom-0 z-10 rounded-b-lg transition-opacity duration-200"
+        className="pointer-events-none absolute inset-x-3 bottom-0 z-10 transition-opacity duration-200"
         style={{
           height: SHADOW_SIZE,
           opacity: showBottomShadow ? 1 : 0,

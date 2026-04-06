@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse';
 import type { bible_memory_db_internal_domain_DashboardFriendsActivityResponse } from '../models/bible_memory_db_internal_domain_DashboardFriendsActivityResponse';
 import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from '../models/bible_memory_db_internal_domain_FriendPlayersPageResponse';
 import type { bible_memory_db_internal_domain_PlayerProfile } from '../models/bible_memory_db_internal_domain_PlayerProfile';
@@ -39,12 +40,16 @@ export class UsersService {
      * Get users leaderboard
      * @param telegramId Optional current user Telegram ID
      * @param limit Max items
+     * @param offset Pagination offset
+     * @param aroundCurrent Center returned window around current user rank
      * @returns bible_memory_db_internal_domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
     public static getLeaderboard(
         telegramId?: string,
         limit: number = 25,
+        offset?: number,
+        aroundCurrent?: boolean,
     ): CancelablePromise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -52,6 +57,8 @@ export class UsersService {
             query: {
                 'telegramId': telegramId,
                 'limit': limit,
+                'offset': offset,
+                'aroundCurrent': aroundCurrent,
             },
             errors: {
                 500: `Internal Server Error`,
@@ -173,6 +180,36 @@ export class UsersService {
             },
             query: {
                 'limit': limit,
+            },
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get compact friends activity
+     * @param telegramId Telegram ID
+     * @param limit Max items
+     * @param offset Pagination offset
+     * @returns bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse OK
+     * @throws ApiError
+     */
+    public static listFriendsActivityCompact(
+        telegramId: string,
+        limit: number = 12,
+        offset?: number,
+    ): CancelablePromise<bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/friends/activity/compact',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'limit': limit,
+                'offset': offset,
             },
             errors: {
                 400: `Bad Request`,

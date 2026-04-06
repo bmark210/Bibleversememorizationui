@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Check, Hash } from 'lucide-react';
-import type { Verse } from '@/app/App';
+import type { Verse } from "@/app/domain/verse";
 import { Badge } from '@/app/components/ui/badge';
 import { cn } from '@/app/components/ui/utils';
 import {
@@ -62,7 +62,7 @@ export function VerseTagsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-2xl backdrop-blur-xl sm:px-6">
+      <DrawerContent className="rounded-t-[32px] border-border/70 bg-card/95 px-4 shadow-2xl backdrop-blur-xl sm:px-6">
         <DrawerHeader className="px-0 pb-0 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

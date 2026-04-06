@@ -13,6 +13,8 @@ import type { bible_memory_db_internal_domain_VerseListItem } from '../models/bi
 import type { internal_api_AnchorTrainingSessionResponse } from '../models/internal_api_AnchorTrainingSessionResponse';
 import type { internal_api_PatchUserVerseRequest } from '../models/internal_api_PatchUserVerseRequest';
 import type { internal_api_ReferenceTrainerResponse } from '../models/internal_api_ReferenceTrainerResponse';
+import type { internal_api_ReplaceLearningVerseRequest } from '../models/internal_api_ReplaceLearningVerseRequest';
+import type { internal_api_ReplaceLearningVerseResponse } from '../models/internal_api_ReplaceLearningVerseResponse';
 import type { internal_api_UpsertUserVerseRequest } from '../models/internal_api_UpsertUserVerseRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -74,7 +76,7 @@ export class UserVersesService {
         status?: 'MY' | 'LEARNING' | 'STOPPED',
         orderBy?: 'createdAt' | 'updatedAt' | 'bible' | 'popularity',
         order?: 'asc' | 'desc',
-        filter?: 'catalog' | 'friends' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
+        filter?: 'catalog' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
         bookId?: number,
         search?: string,
         tagSlugs?: string,
@@ -181,6 +183,33 @@ export class UserVersesService {
             errors: {
                 400: `Invalid request`,
                 500: `Server error`,
+            },
+        });
+    }
+    /**
+     * Atomically replace an active learning verse
+     * Swaps one active LEARNING verse with another user verse without triggering queue auto-promotion.
+     * @param telegramId Telegram ID
+     * @param request Replace payload
+     * @returns internal_api_ReplaceLearningVerseResponse OK
+     * @throws ApiError
+     */
+    public static replaceLearningVerse(
+        telegramId: string,
+        request: internal_api_ReplaceLearningVerseRequest,
+    ): CancelablePromise<internal_api_ReplaceLearningVerseResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/{telegramId}/verses/replace-learning',
+            path: {
+                'telegramId': telegramId,
+            },
+            body: request,
+            errors: {
+                400: `Bad Request`,
+                404: `Not Found`,
+                409: `Conflict`,
+                500: `Internal Server Error`,
             },
         });
     }

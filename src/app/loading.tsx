@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6">
       {/* <div className="w-full max-w-sm space-y-3">
         <div className="h-4 w-40 rounded bg-muted/50 animate-pulse" />
         <div className="h-3 w-full rounded bg-muted/40 animate-pulse" />

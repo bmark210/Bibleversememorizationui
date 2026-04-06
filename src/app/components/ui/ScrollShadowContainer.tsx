@@ -19,6 +19,10 @@ interface ScrollShadowContainerProps
   scrollClassName?: string;
   /** Shadow height in px (default 28). */
   shadowSize?: number;
+  /** Optional cue rendered above bottom shadow while more content is available below. */
+  bottomCue?: ReactNode;
+  /** Extra classes for the optional bottom cue wrapper. */
+  bottomCueClassName?: string;
   /**
    * When true, native scroll is disabled (overflow:hidden).
    * Content is scrolled programmatically via swipe gestures
@@ -44,6 +48,8 @@ export function ScrollShadowContainer({
   className,
   scrollClassName,
   shadowSize = 28,
+  bottomCue,
+  bottomCueClassName,
   swipeOnly = false,
   ...rest
 }: ScrollShadowContainerProps) {
@@ -137,6 +143,21 @@ export function ScrollShadowContainer({
             "linear-gradient(to top, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
         }}
       />
+
+      {bottomCue ? (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-2 z-20 flex justify-center transition-all duration-200",
+            showBottomShadow
+              ? "translate-y-0 opacity-100"
+              : "translate-y-1 opacity-0",
+            bottomCueClassName
+          )}
+        >
+          {bottomCue}
+        </div>
+      ) : null}
     </div>
   );
 }

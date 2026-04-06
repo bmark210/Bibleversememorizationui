@@ -16,6 +16,7 @@ export class CatalogService {
      * @param translation Bible translation
      * @param bookId Bible book number filter
      * @param tagSlugs Comma-separated tag slugs
+     * @param search Search in verse text or reference
      * @param orderBy Sort field
      * @param order Sort direction
      * @param limit Max items
@@ -28,6 +29,7 @@ export class CatalogService {
         translation?: 'NRT' | 'SYNOD' | 'RBS2' | 'BTI',
         bookId?: number,
         tagSlugs?: string,
+        search?: string,
         orderBy: string = 'createdAt',
         order: string = 'desc',
         limit: number = 20,
@@ -41,6 +43,7 @@ export class CatalogService {
                 'translation': translation,
                 'bookId': bookId,
                 'tagSlugs': tagSlugs,
+                'search': search,
                 'orderBy': orderBy,
                 'order': order,
                 'limit': limit,

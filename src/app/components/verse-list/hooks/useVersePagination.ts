@@ -3,7 +3,7 @@ import type { domain_CatalogVersesPageResponse } from '@/api/models/domain_Catal
 import type { domain_UserVersesPageResponse } from '@/api/models/domain_UserVersesPageResponse';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { VerseListSortBy, VerseListStatusFilter } from '../constants';
 import type { VersePatchEvent } from '@/app/types/verseSync';
 import { isSameVerseByRef, mergeVersePatch } from '@/app/utils/versePatch';
@@ -145,6 +145,7 @@ export function useVersePagination({
           telegramId: id,
           bookId: bookId ?? undefined,
           tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
+          search: normalizedSearchQuery || undefined,
           orderBy:
             sortBy === 'bible'
               ? 'bible'
@@ -161,6 +162,10 @@ export function useVersePagination({
         };
       }
 
+      // "my" mode shows all verses in sectioned layout without a virtualized list,
+      // so fetch the maximum allowed page size to avoid needing pagination.
+      const effectiveLimit = filter === 'my' ? 100 : pageSize;
+
       const page = await fetchUserVersesPage({
         telegramId: id,
         orderBy:
@@ -174,7 +179,7 @@ export function useVersePagination({
         bookId: bookId ?? undefined,
         search: normalizedSearchQuery || undefined,
         tagSlugs: normalizedTagSlugs.length > 0 ? normalizedTagSlugs : undefined,
-        limit: pageSize,
+        limit: effectiveLimit,
         startWith: startWith ?? undefined,
       });
 
@@ -213,10 +218,10 @@ export function useVersePagination({
   const applyVersePatch = useCallback(
     (
       event: VersePatchEvent,
-      options: {
-        statusFilter: VerseListStatusFilter;
-        matchesListFilter: (
-          verse: Pick<Verse, 'status' | 'masteryLevel'>,
+    options: {
+      statusFilter: VerseListStatusFilter;
+      matchesListFilter: (
+          verse: Pick<Verse, 'status' | 'flow' | 'masteryLevel' | 'repetitions'>,
           filter: VerseListStatusFilter
         ) => boolean;
         adjustTotalCountOnFilterExit?: boolean;
@@ -240,8 +245,7 @@ export function useVersePagination({
           didPatch = true;
           changed = true;
 
-          const keep =
-            currentFilter === 'catalog' ? true : matchesListFilter(merged, currentFilter);
+          const keep = matchesListFilter(merged, currentFilter);
 
           if (keep) {
             next.push(merged);

@@ -6,11 +6,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
 import { Virtuoso, type ListRange } from 'react-virtuoso';
-import { Verse } from '@/app/App';
+import { Verse } from "@/app/domain/verse";
 import type { VerseListStatusFilter } from '../constants';
-import type { AppendRevealRange } from '../hooks/useVersePagination';
 import type { VerseListLoadRange } from '../types';
 
 type DebugInfiniteScroll = (event: string, payload?: Record<string, unknown>) => void;
@@ -21,10 +19,12 @@ const NOOP_DEBUG_INFINITE_SCROLL: DebugInfiniteScroll = () => {};
 type VerseVirtualizedListProps = {
   items: Array<Verse>;
   enableInfiniteLoader: boolean;
+  preferInternalScroll?: boolean;
+  topInset?: number;
+  bottomInset?: number;
   hasMoreItems: boolean;
   isFetchingMore: boolean;
   showDelayedLoadMoreSkeleton: boolean;
-  appendRevealRange: AppendRevealRange;
   onLoadMore: (range: VerseListLoadRange) => Promise<void> | void;
   renderRow: (verse: Verse) => React.ReactNode;
   getItemKey: (verse: Verse) => string;
@@ -34,7 +34,15 @@ type VerseVirtualizedListProps = {
   pageSize: number;
   prefetchRows: number;
   skeletonCount?: number;
+  footerNode?: React.ReactNode;
+  headerNode?: React.ReactNode;
   debugInfiniteScroll?: DebugInfiniteScroll;
+  /**
+   * Optional per-item height estimator (powered by @chenglou/pretext).
+   * When provided, ScrollSeek placeholders use pretext-computed heights
+   * instead of the global DEFAULT_ITEM_HEIGHT_ESTIMATE.
+   */
+  getItemHeightEstimate?: (verse: Verse) => number;
 };
 
 const DEFAULT_INLINE_SKELETON_COUNT = 4;
@@ -42,6 +50,11 @@ const DEFAULT_ITEM_HEIGHT_ESTIMATE = 176;
 const SCROLL_SEEK_ENTER_VELOCITY = 720;
 const SCROLL_SEEK_EXIT_VELOCITY = 140;
 const EXTERNAL_SCROLL_ACTIVATION_PX = 8;
+const MIN_CACHE_ITEMS_PER_SIDE = 4;
+const MAX_CACHE_ITEMS_PER_SIDE = 12;
+const EXTRA_BOTTOM_CACHE_ITEMS = 2;
+const MIN_CACHE_TOP_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 3;
+const MIN_CACHE_BOTTOM_PX = DEFAULT_ITEM_HEIGHT_ESTIMATE * 4;
 
 function isScrollableOverflow(value: string) {
   return value === 'auto' || value === 'scroll' || value === 'overlay';
@@ -75,12 +88,7 @@ function InlineLoadMoreSkeleton({
 
   return (
     <div className="w-full pt-1" aria-hidden="true">
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.16, ease: 'easeOut' }}
-        className="space-y-3 pointer-events-none"
-      >
+      <div className="space-y-3 pointer-events-none">
         {Array.from({ length: count }, (_, idx) => (
           <div
             key={`inline-load-skeleton-${idx}`}
@@ -97,7 +105,7 @@ function InlineLoadMoreSkeleton({
             </div>
           </div>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -114,13 +122,49 @@ function ScrollSeekItemPlaceholder({ height }: { height: number; index: number }
   );
 }
 
+/**
+ * Creates a ScrollSeek placeholder that uses pretext-computed per-item
+ * height estimates instead of the global constant.
+ * Called once per render when `getItemHeightEstimate` is provided.
+ */
+function makeSmartScrollSeekPlaceholder(
+  items: Array<Verse>,
+  getItemHeightEstimate: (verse: Verse) => number,
+) {
+  return function SmartScrollSeekPlaceholder({
+    height,
+    index,
+  }: {
+    height: number;
+    index: number;
+  }) {
+    const verse = items[index];
+    const resolvedHeight = verse
+      ? getItemHeightEstimate(verse)
+      : Number.isFinite(height) && height > 0
+        ? height
+        : DEFAULT_ITEM_HEIGHT_ESTIMATE;
+
+    return (
+      <div className="pb-3" aria-hidden="true">
+        <div
+          className="rounded-2xl border border-border/60 bg-card/55 animate-pulse"
+          style={{ minHeight: resolvedHeight }}
+        />
+      </div>
+    );
+  };
+}
+
 export function VerseVirtualizedList({
   items,
   enableInfiniteLoader,
+  preferInternalScroll = false,
+  topInset = 0,
+  bottomInset = 0,
   hasMoreItems,
   isFetchingMore,
   showDelayedLoadMoreSkeleton,
-  appendRevealRange,
   onLoadMore,
   renderRow,
   getItemKey,
@@ -130,9 +174,11 @@ export function VerseVirtualizedList({
   pageSize,
   prefetchRows,
   skeletonCount = DEFAULT_INLINE_SKELETON_COUNT,
+  footerNode,
+  headerNode,
   debugInfiniteScroll,
+  getItemHeightEstimate,
 }: VerseVirtualizedListProps) {
-  const shouldReduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoLoadTriggeredForItemsLengthRef = useRef<number | null>(null);
   const lastVisibleRangeRef = useRef<RangeLike | null>(null);
@@ -140,9 +186,48 @@ export function VerseVirtualizedList({
     null
   );
   const debug = debugInfiniteScroll ?? NOOP_DEBUG_INFINITE_SCROLL;
-  const usesExternalScrollParent = customScrollParent !== null;
+  const usesExternalScrollParent = !preferInternalScroll && customScrollParent !== null;
+  const normalizedTopInset = Math.max(0, Math.floor(topInset));
+  const normalizedBottomInset = Math.max(0, Math.floor(bottomInset));
+  const normalizedPrefetchRows = Math.max(0, prefetchRows);
+  const cachedRowsPerSide = Math.min(
+    MAX_CACHE_ITEMS_PER_SIDE,
+    Math.max(MIN_CACHE_ITEMS_PER_SIDE, normalizedPrefetchRows + 2),
+  );
+  const cachedBottomRows = Math.min(
+    MAX_CACHE_ITEMS_PER_SIDE + EXTRA_BOTTOM_CACHE_ITEMS,
+    cachedRowsPerSide + EXTRA_BOTTOM_CACHE_ITEMS,
+  );
+  const overscanTopPx = Math.max(
+    MIN_CACHE_TOP_PX,
+    cachedRowsPerSide * DEFAULT_ITEM_HEIGHT_ESTIMATE,
+  );
+  const overscanBottomPx = Math.max(
+    MIN_CACHE_BOTTOM_PX,
+    cachedBottomRows * DEFAULT_ITEM_HEIGHT_ESTIMATE,
+  );
+  const overscanPx = Math.max(overscanTopPx, overscanBottomPx);
+  const viewportCache = useMemo(
+    () => ({
+      top: overscanTopPx,
+      bottom: overscanBottomPx,
+    }),
+    [overscanBottomPx, overscanTopPx],
+  );
+  const overscanItemWindow = useMemo(
+    () => ({
+      top: cachedRowsPerSide,
+      bottom: cachedBottomRows,
+    }),
+    [cachedBottomRows, cachedRowsPerSide],
+  );
 
   useLayoutEffect(() => {
+    if (preferInternalScroll) {
+      setCustomScrollParent(null);
+      return;
+    }
+
     const resolveScrollParent = () => {
       setCustomScrollParent(findNearestScrollParent(containerRef.current));
     };
@@ -152,7 +237,7 @@ export function VerseVirtualizedList({
     return () => {
       window.removeEventListener('resize', resolveScrollParent);
     };
-  }, []);
+  }, [preferInternalScroll]);
 
   const maybeTriggerAutoLoadMore = useCallback(
     (range: RangeLike, source: AutoLoadSource) => {
@@ -161,7 +246,6 @@ export function VerseVirtualizedList({
       if (isFetchingMore) return;
       if (items.length === 0) return;
 
-      const normalizedPrefetchRows = Math.max(0, prefetchRows);
       const lastRealIndex = items.length - 1;
       const triggerIndex = Math.max(0, lastRealIndex - normalizedPrefetchRows);
       if (range.stopIndex < triggerIndex) return;
@@ -201,7 +285,7 @@ export function VerseVirtualizedList({
       items.length,
       onLoadMore,
       pageSize,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
     ]
   );
@@ -218,10 +302,7 @@ export function VerseVirtualizedList({
       const containerRect = container.getBoundingClientRect();
       const scrollParentRect = customScrollParent.getBoundingClientRect();
       const distanceToBottom = containerRect.bottom - scrollParentRect.bottom;
-      const bottomThresholdPx = Math.max(
-        280,
-        Math.max(1, prefetchRows) * DEFAULT_ITEM_HEIGHT_ESTIMATE,
-      );
+      const bottomThresholdPx = overscanBottomPx;
 
       debug('virtuoso-externalScroll', {
         scrollTop: customScrollParent.scrollTop,
@@ -253,7 +334,8 @@ export function VerseVirtualizedList({
     debug,
     items.length,
     maybeTriggerAutoLoadMore,
-    prefetchRows,
+    normalizedPrefetchRows,
+    overscanBottomPx,
     totalCount,
     usesExternalScrollParent,
   ]);
@@ -290,10 +372,10 @@ export function VerseVirtualizedList({
         range: visibleRange,
         listLength: items.length,
         totalCount,
-        prefetchRows,
+        prefetchRows: normalizedPrefetchRows,
         nearEnd:
           items.length > 0 &&
-          visibleRange.stopIndex >= Math.max(0, items.length - 1 - Math.max(0, prefetchRows)),
+          visibleRange.stopIndex >= Math.max(0, items.length - 1 - normalizedPrefetchRows),
       });
 
       if (usesExternalScrollParent) return;
@@ -303,7 +385,7 @@ export function VerseVirtualizedList({
       debug,
       items.length,
       maybeTriggerAutoLoadMore,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
       usesExternalScrollParent,
     ]
@@ -312,7 +394,7 @@ export function VerseVirtualizedList({
   const handleEndReached = useCallback(
     (index: number) => {
       const range: RangeLike = {
-        startIndex: Math.max(0, index - Math.max(0, prefetchRows)),
+        startIndex: Math.max(0, index - normalizedPrefetchRows),
         stopIndex: index,
       };
       lastVisibleRangeRef.current = range;
@@ -335,7 +417,7 @@ export function VerseVirtualizedList({
       isFetchingMore,
       items.length,
       maybeTriggerAutoLoadMore,
-      prefetchRows,
+      normalizedPrefetchRows,
       totalCount,
       usesExternalScrollParent,
     ]
@@ -348,21 +430,56 @@ export function VerseVirtualizedList({
   const shouldEnableScrollSeek = items.length > Math.max(80, pageSize * 3);
 
   const FooterComponent = useMemo(() => {
-    const VerseListVirtuosoFooter = () => (
-      <InlineLoadMoreSkeleton
-        count={inlineLoadSkeletonCount}
-        pulse={showDelayedLoadMoreSkeleton}
-      />
-    );
+    const VerseListVirtuosoFooter = () => {
+      const footerPaddingBottom =
+        normalizedBottomInset > 0
+          ? `calc(var(--app-bottom-nav-clearance, 0px) + ${normalizedBottomInset}px + 0.75rem)`
+          : 'calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)';
+
+      return (
+        <div style={{ paddingBottom: footerPaddingBottom }}>
+          {footerNode}
+          <div aria-hidden="true">
+            <InlineLoadMoreSkeleton
+              count={inlineLoadSkeletonCount}
+              pulse={showDelayedLoadMoreSkeleton}
+            />
+          </div>
+        </div>
+      );
+    };
     return VerseListVirtuosoFooter;
-  }, [inlineLoadSkeletonCount, showDelayedLoadMoreSkeleton]);
+  }, [footerNode, inlineLoadSkeletonCount, normalizedBottomInset, showDelayedLoadMoreSkeleton]);
+
+  const HeaderComponent = useMemo(() => {
+    const VerseListVirtuosoHeader = () => (
+      <>
+        {normalizedTopInset > 0 && (
+          <div aria-hidden="true" style={{ height: normalizedTopInset }} />
+        )}
+        {headerNode}
+      </>
+    );
+    return VerseListVirtuosoHeader;
+  }, [normalizedTopInset, headerNode]);
+
+  // When a pretext-based estimator is available, build a per-item-aware
+  // placeholder component; otherwise fall back to the global constant.
+  const SmartPlaceholder = useMemo(
+    () =>
+      getItemHeightEstimate
+        ? makeSmartScrollSeekPlaceholder(items, getItemHeightEstimate)
+        : ScrollSeekItemPlaceholder,
+    [getItemHeightEstimate, items],
+  );
 
   const virtuosoComponents = useMemo(
     () => ({
+      Header: HeaderComponent,
       Footer: FooterComponent,
-      ScrollSeekPlaceholder: ScrollSeekItemPlaceholder,
+      ScrollSeekPlaceholder: SmartPlaceholder,
     }),
-    [FooterComponent]
+    [FooterComponent, HeaderComponent, SmartPlaceholder]
   );
 
   if (items.length === 0) return null;
@@ -378,7 +495,9 @@ export function VerseVirtualizedList({
         data-tour="verse-list-virtualized"
         className={usesExternalScrollParent ? 'w-full' : 'h-full w-full'}
         style={usesExternalScrollParent ? undefined : { height: '100%' }}
-        customScrollParent={customScrollParent ?? undefined}
+        customScrollParent={
+          preferInternalScroll ? undefined : (customScrollParent ?? undefined)
+        }
         components={virtuosoComponents}
         computeItemKey={(_, verse) => getItemKey(verse)}
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
@@ -392,48 +511,25 @@ export function VerseVirtualizedList({
               }
             : undefined
         }
-        increaseViewportBy={{
-          top: 0,
-          bottom: Math.max(180, Math.max(0, prefetchRows) * 120),
-        }}
-        minOverscanItemCount={{
-          top: 1,
-          bottom: Math.max(2, Math.max(0, prefetchRows)),
-        }}
+        increaseViewportBy={viewportCache}
+        overscan={overscanPx}
+        minOverscanItemCount={overscanItemWindow}
         itemContent={(index, verse) => {
           const layoutSignature = getItemLayoutSignature(verse);
-          const itemKey = getItemKey(verse);
-          const shouldAnimateAppend =
-            !shouldReduceMotion &&
-            !!appendRevealRange &&
-            index >= appendRevealRange.start &&
-            index <= appendRevealRange.end;
-
           const content = (
-            <div style={{ marginTop: index === 0 ? '1rem' : '0' }} data-layout-signature={layoutSignature} className="h-full">
+            <div data-layout-signature={layoutSignature} className="h-full">
               {renderRow(verse)}
             </div>
           );
 
           return (
             <div
-              className="pb-3"
+              className="px-3 pb-3 sm:px-4"
               data-tour="verse-list-row"
               data-tour-index={index}
               data-tour-verse-id={verse.externalVerseId}
             >
-              {shouldAnimateAppend ? (
-                <motion.div
-                  key={`${itemKey}:${layoutSignature}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                >
-                  {content}
-                </motion.div>
-              ) : (
-                content
-              )}
+              {content}
             </div>
           );
         }}

@@ -4,26 +4,20 @@ import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
-import type { Verse } from "@/app/App";
+import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
 
 export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
 export type PanelMode = "preview" | "training";
 export type VerseGalleryLaunchMode = "preview" | "training";
+export type VerseGallerySourceMode = "catalog" | "my";
 export type Rating = TrainingModeRating;
 export type TrainingSubsetFilter = "learning" | "review" | "catalog";
 export type ModeId = TrainingModeId;
 
-export type GalleryStatusAction = {
-  nextStatus: VerseStatus;
-  label: string;
-  icon: LucideIcon;
-  successMessage: string;
-};
-
 export type VersePreviewOverride = Partial<
-  Pick<Verse, "status" | "masteryLevel" | "repetitions">
+  Pick<Verse, "status" | "flow" | "masteryLevel" | "repetitions">
 > & {
   lastReviewedAt?: string | Date | null;
   nextReviewAt?: string | Date | null;
@@ -62,17 +56,20 @@ export type PlayerProfilePreview = {
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
+  sourceMode?: VerseGallerySourceMode;
   activeTagSlugs?: Iterable<string> | null;
   viewerTelegramId?: string | null;
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
   onClose: () => void;
   onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
-  onDelete: (verse: Verse) => Promise<{ xpLoss: number } | void>;
+  onDelete: (verse: Verse) => Promise<void>;
   onSelectTag: (slug: string) => void;
   onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */
   onNavigateToTraining: (launch: DirectLaunchVerse) => void;
+  /** Open the queue position picker for the given verse */
+  onEditQueuePosition?: (verse: Verse) => void;
   /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */
   isAnchorEligible?: boolean;
   previewTotalCount?: number;
