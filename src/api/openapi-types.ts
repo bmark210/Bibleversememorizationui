@@ -901,7 +901,7 @@ export interface components {
         /** @enum {string} */
         "bible-memory-db_internal_domain.VersePopularityScope": "friends" | "players" | "self";
         /** @enum {string} */
-        "bible-memory-db_internal_domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED";
+        "bible-memory-db_internal_domain.VerseStatus": "MY" | "QUEUE" | "LEARNING" | "STOPPED" | "DELETED";
         "bible-memory-db_internal_domain.VerseTagLinkResponse": {
             externalVerseId?: string;
             id?: string;

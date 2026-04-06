@@ -1,14 +1,5 @@
 import React from "react";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/app/components/ui/drawer";
-import { Button } from "@/app/components/ui/button";
+import { VerseDeleteDrawer } from "@/app/components/VerseDeleteDrawer";
 
 type Props = {
   open: boolean;
@@ -24,34 +15,11 @@ export const GalleryDeleteDrawer = React.memo(function GalleryDeleteDrawer({
   onConfirm,
 }: Props) {
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader className="pb-1">
-          <DrawerTitle className="text-base text-foreground/90">
-            Удалить стих?
-          </DrawerTitle>
-          <DrawerDescription className="text-sm text-muted-foreground/80">
-            Это действие нельзя отменить. Стих будет удалён из вашей коллекции.
-          </DrawerDescription>
-        </DrawerHeader>
-        <DrawerFooter className="flex-row gap-3 pt-2">
-          <DrawerClose asChild>
-            <Button
-              variant="outline"
-              className="h-12 flex-1 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
-            >
-              Отмена
-            </Button>
-          </DrawerClose>
-            <Button
-              className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
-              disabled={isActionPending}
-              onClick={onConfirm}
-          >
-            Удалить
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+    <VerseDeleteDrawer
+      open={open}
+      isActionPending={isActionPending}
+      onOpenChange={onOpenChange}
+      onConfirm={onConfirm}
+    />
   );
 });

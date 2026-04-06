@@ -19,7 +19,10 @@ import {
   showVerseActionToast,
 } from "@/app/lib/semanticToast";
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
-import type { DisplayVerseStatus } from "@/app/types/verseStatus";
+import {
+  normalizeDisplayVerseStatus,
+  type DisplayVerseStatus,
+} from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
 
@@ -243,7 +246,7 @@ export function VerseGallery({
           Number(previewActiveVerse.masteryLevel ?? 0) >=
             TRAINING_STAGE_MASTERY_MAX
             ? "REVIEW"
-            : statusAction.nextStatus;
+            : normalizeDisplayVerseStatus(statusAction.nextStatus);
 
         setPreviewOverride(previewActiveVerse, { status: optimisticStatus });
 

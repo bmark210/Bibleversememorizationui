@@ -20,19 +20,13 @@ const MODE_CONFIG: Record<
   VerseListPrimaryFilterKey,
   {
     Icon: typeof LibraryBig;
-    countLabel: string;
-    activeTrigger: string;
   }
 > = {
   my: {
     Icon: LibraryBig,
-    countLabel: 'в моих',
-    activeTrigger: 'data-[state=active]:text-status-collection',
   },
   catalog: {
     Icon: BookPlus,
-    countLabel: 'в каталоге',
-    activeTrigger: 'data-[state=active]:text-brand-primary',
   },
 };
 
@@ -67,7 +61,7 @@ export function VerseListModeSwitch({
                 className={cn(
                   'h-full gap-2 rounded-none text-sm font-medium',
                   'data-[state=active]:border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none',
-                  cfg.activeTrigger,
+                  'data-[state=active]:text-brand-primary',
                 )}
               >
                 <Icon className="size-[18px]" />

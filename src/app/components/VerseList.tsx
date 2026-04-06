@@ -19,6 +19,7 @@ import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeleto
 import { VerseListModeSwitch } from "./verse-list/components/VerseListModeSwitch";
 import { VerseListReadingModeBar } from "./verse-list/components/VerseListReadingModeBar";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
+import { VerseDeleteDrawer } from "./VerseDeleteDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
 import { VerseProgressValue } from "@/app/components/VerseStatusSummary";
 import {
@@ -1056,7 +1057,6 @@ export function VerseList({
           <VerseListReadingModeBar
             isFocusMode={isFocusMode}
             onToggle={toggleFocusMode}
-            isMyVersesMode={isMyMode}
           />
           <VerseListModeSwitch
             activeMode={activeMode}
@@ -1121,6 +1121,19 @@ export function VerseList({
           verse={verseProgressTarget}
           open={isVerseProgressDrawerOpen}
           onOpenChange={handleVerseProgressOpenChange}
+        />
+
+        <VerseDeleteDrawer
+          open={vm.modal.deleteTargetVerse !== null}
+          isActionPending={vm.modal.isDeleteSubmitting}
+          onOpenChange={(open) => {
+            if (!open) {
+              vm.modal.setDeleteTargetVerse(null);
+            }
+          }}
+          onConfirm={() => {
+            void vm.modal.onConfirmDelete();
+          }}
         />
 
         {/* Queue position picker drawer */}

@@ -134,6 +134,10 @@ const SwipeableVerseCardComponent = ({
   });
   const visiblePrimaryAction =
     ctaModel.primaryAction?.id === "train" ? null : ctaModel.primaryAction;
+  const canRemoveFromMy =
+    !isCatalogMode &&
+    displayStatus === VerseStatus.MY &&
+    typeof onRemoveFromMy === "function";
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.currentTarget !== e.target) return;
@@ -279,6 +283,35 @@ const SwipeableVerseCardComponent = ({
           <X className="h-3.5 w-3.5 shrink-0" />
           <span className="max-w-[8rem] truncate text-[12px] font-medium">
             Убрать
+          </span>
+        </Button>
+      );
+    }
+
+    if (canRemoveFromMy) {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          title="Убрать из моих стихов"
+          aria-label={`Убрать ${verse.reference} из моих стихов`}
+          disabled={isPending}
+          className={cn(
+            "h-9 rounded-full px-3 text-[12px] font-medium",
+            colorConfig.actionButtonClassName,
+            colorConfig.actionButtonHoverClassName,
+            tonePalette.accentBorderClassName,
+            tonePalette.accentTextClassName,
+          )}
+          onClick={(e) => {
+            stopCardOpen(e);
+            onRemoveFromMy?.(verse);
+          }}
+        >
+          <Minus className="h-3.5 w-3.5 shrink-0" />
+          <span className="max-w-[8rem] truncate text-[12px] font-medium">
+            Убрать из моих
           </span>
         </Button>
       );

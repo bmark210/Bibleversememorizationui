@@ -17,7 +17,7 @@ export async function deleteUserVerseWithXp(
 
   return {
     ...response,
-    status: response.status ?? "deleted",
+    status: response.status ?? "DELETED",
     xp: response.xp ?? 0,
     xpDelta: response.xpDelta ?? 0,
   };

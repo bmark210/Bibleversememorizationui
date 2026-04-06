@@ -3,6 +3,7 @@ export const VerseStatus = {
   QUEUE: "QUEUE",
   LEARNING: "LEARNING",
   STOPPED: "STOPPED",
+  DELETED: "DELETED",
 } as const;
 
 export type VerseStatus = (typeof VerseStatus)[keyof typeof VerseStatus];
@@ -24,6 +25,9 @@ export function normalizeDisplayVerseStatus(
   value: unknown,
 ): VerseDisplayStatus {
   if (value === VerseDisplayStatus.CATALOG) return VerseDisplayStatus.CATALOG;
+  if (value === VerseStatus.DELETED || value === "DELETED") {
+    return VerseDisplayStatus.CATALOG;
+  }
   if (value === "WAITING" || value === VerseDisplayStatus.REVIEW) {
     return VerseDisplayStatus.REVIEW;
   }

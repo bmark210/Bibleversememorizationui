@@ -598,6 +598,7 @@ export function useVerseListController({
         onOpenTags={onOpenVerseTags}
         onEditQueuePosition={onEditQueuePosition}
         onRemoveFromQueue={onRemoveFromQueue}
+        onRemoveFromMy={(v) => actions.confirmDeleteVerse(v)}
         onStartTraining={(v) => {
           const preferredMode = getVerseTrainingLaunchMode(v);
           if (!preferredMode || !onNavigateToTraining) return;
@@ -634,6 +635,7 @@ export function useVerseListController({
       isAnchorEligible,
       isFocusMode,
       onEditQueuePosition,
+      actions.confirmDeleteVerse,
       onRemoveFromQueue,
       onNavigateToTraining,
       onOpenVerseOwners,

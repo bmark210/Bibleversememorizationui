@@ -117,7 +117,7 @@ export function useVerseActions({
       const response = await UserVersesService.patchUserVerse(telegramId, verse.externalVerseId, { status });
       const patch = pickMutableVersePatchFromApiResponse(response);
       const promotedVerseIds = extractPromotedVerseIds(response);
-      return { patch: patch ?? { status }, promotedVerseIds };
+      return { patch: patch ?? { status: normalizeDisplayVerseStatus(status) }, promotedVerseIds };
     },
     [telegramId]
   );

@@ -51,6 +51,22 @@ test("rules gracefully fall back when flow is absent", () => {
   assert.equal(matchesVerseListFilter(reviewVerse, "review"), true);
 });
 
+test("deleted raw status is normalized back to catalog semantics", () => {
+  const deletedVerse = {
+    status: VerseStatus.DELETED,
+    flow: null,
+    masteryLevel: 7,
+    repetitions: 7,
+    nextReviewAt: null,
+    nextReview: null,
+  };
+
+  assert.equal(getVerseDisplayStatus(deletedVerse), "CATALOG");
+  assert.equal(getVerseTrainingLaunchMode(deletedVerse), null);
+  assert.equal(matchesVerseListFilter(deletedVerse, "catalog"), true);
+  assert.equal(matchesVerseListFilter(deletedVerse, "my"), false);
+});
+
 test("resolved progress prefers backend flow values", () => {
   const verse = {
     status: VerseStatus.LEARNING,

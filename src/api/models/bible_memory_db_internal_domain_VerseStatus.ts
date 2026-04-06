@@ -7,4 +7,5 @@ export enum bible_memory_db_internal_domain_VerseStatus {
     StatusQueue = 'QUEUE',
     StatusLearning = 'LEARNING',
     StatusStopped = 'STOPPED',
+    StatusDeleted = 'DELETED',
 }
