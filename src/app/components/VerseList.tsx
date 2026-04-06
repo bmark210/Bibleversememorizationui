@@ -975,7 +975,7 @@ export function VerseList({
         <div className="relative min-h-0 flex-1">
           <div
             ref={filterOverlayRef}
-            className="pointer-events-none absolute inset-x-0 top-0 z-40"
+            className="pointer-events-none absolute inset-x-0 top-[-3] z-40"
           >
             {showCatalogFilters ? (
               <VerseListFiltersTrigger
@@ -1072,6 +1072,7 @@ export function VerseList({
             activeMode={activeMode}
             totalCount={vm.pagination.totalCount}
             onModeChange={handleModeChange}
+            className="mb-[-2px]"
           />
         </div>
 

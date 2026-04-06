@@ -178,7 +178,7 @@ function SectionJumpStrip({
   }, [activeSectionKey]);
 
   return (
-    <div className="shrink-0 border-b border-border/55 bg-background/92 backdrop-blur-xl">
+    <div className="shrink-0 border-b border-border/55 bg-bg-overlay backdrop-blur-xl">
       <div className="px-2 py-2 sm:px-4">
         <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-full gap-2">

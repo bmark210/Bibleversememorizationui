@@ -30,7 +30,7 @@ const APP_VERSION_DISPLAY = '4'
 function AppVersionCorner() {
   return (
     <p
-      className="pointer-events-none fixed z-[100] select-none rounded-md bg-background/35 px-2 py-1 text-[11px] tabular-nums text-foreground/80 backdrop-blur-sm"
+      className="pointer-events-none fixed z-[100] select-none rounded-md px-2 py-1 text-[11px] tabular-nums text-foreground/80 backdrop-blur-sm"
       style={{
         top: 'max(1rem, env(safe-area-inset-top, 0px))',
         right: 'max(1rem, env(safe-area-inset-right, 0px))',
