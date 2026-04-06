@@ -8,5 +8,7 @@ export type bible_memory_db_internal_domain_DashboardCompactFriendsActivityRespo
     entries?: Array<bible_memory_db_internal_domain_DashboardCompactFriendActivityEntry>;
     friendsTotal?: number;
     generatedAt?: string;
+    limit?: number;
+    offset?: number;
 };
 

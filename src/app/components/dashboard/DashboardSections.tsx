@@ -15,7 +15,7 @@ import type {
   DashboardCompactFriendsActivityResponse,
 } from "@/api/services/friendsActivity";
 import {
-  DASHBOARD_FRIENDS_ACTIVITY_LIMIT,
+  FRIENDS_ACTIVITY_WINDOW_SIZE,
   fetchDashboardFriendsActivity,
 } from "@/api/services/friendsActivity";
 import { LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
@@ -33,7 +33,7 @@ import {
   HERO_TEXT,
   RANK_BADGE,
   ROW_AVATAR,
-  ROW_DETAIL,
+  // ROW_DETAIL,
   ROW_GAP,
   ROW_NAME,
   ROW_PAD,
@@ -175,11 +175,11 @@ function leaderboardEntryXp(entry: domain_UserLeaderboardEntry): number {
   return Math.max(0, Math.round(entry.xp ?? entry.score ?? 0));
 }
 
-function leaderboardEntryWeeklyReps(
-  entry: domain_UserLeaderboardEntry,
-): number {
-  return Math.max(0, Math.round(entry.versesCount ?? entry.score ?? 0));
-}
+// function leaderboardEntryWeeklyReps(
+//   entry: domain_UserLeaderboardEntry,
+// ): number {
+//   return Math.max(0, Math.round(entry.versesCount ?? entry.score ?? 0));
+// }
 
 function getRankMarker(rank: number) {
   if (rank === 1) {
@@ -495,7 +495,7 @@ export const DashboardTrainingStatsCard = React.memo(
               <div
                 key={item.key}
                 className={cn(
-                  "rounded-[1.05rem] border px-3 py-2.5 shadow-[var(--shadow-soft)] sm:rounded-[1.2rem] sm:px-3.5 sm:py-3",
+                  "rounded-[1.05rem] border px-3 py-2 shadow-[var(--shadow-soft)] sm:rounded-[1.2rem] sm:px-3.5 sm:py-3",
                   tone.panelClassName,
                 )}
               >
@@ -550,7 +550,7 @@ function DashboardLeaderboardRow({
   entry,
   currentUserTelegramId,
   currentUserXp,
-  currentUserDailyStreak,
+  // currentUserDailyStreak,
   onOpenPlayerProfile,
   compact = false,
   className,
@@ -566,11 +566,11 @@ function DashboardLeaderboardRow({
     isCurrentUser && currentUserXp != null
       ? currentUserXp
       : leaderboardEntryXp(entry);
-  const displayVersesCount = leaderboardEntryWeeklyReps(entry);
-  const displayStreakDays =
-    isCurrentUser && currentUserDailyStreak != null
-      ? currentUserDailyStreak
-      : Math.max(0, entry.dailyStreak ?? 0);
+  // const displayVersesCount = leaderboardEntryWeeklyReps(entry);
+  // const displayStreakDays =
+  //   isCurrentUser && currentUserDailyStreak != null
+  //     ? currentUserDailyStreak
+  //     : Math.max(0, entry.dailyStreak ?? 0);
 
   return (
     <button
@@ -634,7 +634,7 @@ function DashboardLeaderboardRow({
         >
           {displayName}
         </div>
-        <div
+        {/* <div
           className={cn(
             "mt-0.5 line-clamp-1 text-text-muted",
             compact ? ROW_DETAIL : "text-xs",
@@ -642,7 +642,7 @@ function DashboardLeaderboardRow({
         >
           {displayVersesCount} {pluralizeVerses(displayVersesCount)} ·{" "}
           {displayStreakDays} дн. подряд
-        </div>
+        </div> */}
       </div>
 
       {/* XP */}
@@ -1116,20 +1116,6 @@ export const DashboardLeaderboardCard = React.memo(
     ]);
 
     const canShowMe = Boolean(currentUserSnapshot?.rank);
-    const leaderboardSummary =
-      totalParticipants > 0
-        ? currentUserSnapshot?.rank
-          ? `Ваше место #${currentUserSnapshot.rank} из ${totalParticipants}`
-          : `${totalParticipants} участников`
-        : "Общий рейтинг участников";
-    // const leaderSummary = leaderEntry
-    //   ? `${leaderboardEntryDisplayName(leaderEntry)} · ${formatXp(leaderboardEntryXp(leaderEntry))}`
-    //   : "Лидер появится после первых результатов";
-    // const placementSummary = currentUserSnapshot?.rank
-    //   ? `#${currentUserSnapshot.rank} из ${totalParticipants}`
-    //   : totalParticipants > 0
-    //     ? `${totalParticipants} участников`
-    //     : "Пока без участников";
 
     const renderLeaderboardRow = React.useCallback(
       (index: number) => {
@@ -1167,7 +1153,7 @@ export const DashboardLeaderboardCard = React.memo(
           className="self-start flex min-h-[12.5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[13rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
                 className={cn(
@@ -1177,9 +1163,6 @@ export const DashboardLeaderboardCard = React.memo(
               >
                 Таблица лидеров
               </h2>
-              <p className="mt-0.5 px-1 text-[11px] text-text-muted narrow:text-[10px]">
-                {leaderboardSummary}
-              </p>
             </div>
 
             <Button
@@ -1398,6 +1381,40 @@ function DashboardFriendsActivityRowSkeleton({
   );
 }
 
+const FRIENDS_ACTIVITY_OVERSCAN = 160;
+
+function createFriendsActivityCache(
+  totalFriends: number,
+  previous: Array<DashboardCompactFriendActivityEntry | null> = [],
+) {
+  if (totalFriends <= 0) {
+    return [] as Array<DashboardCompactFriendActivityEntry | null>;
+  }
+
+  return Array.from(
+    { length: totalFriends },
+    (_, index) => previous[index] ?? null,
+  );
+}
+
+function mergeFriendsActivityWindow(
+  previous: Array<DashboardCompactFriendActivityEntry | null>,
+  activity: DashboardCompactFriendsActivityResponse,
+) {
+  const totalFriends = Math.max(0, activity.friendsTotal ?? previous.length);
+  const next = createFriendsActivityCache(totalFriends, previous);
+  const offset = Math.max(0, activity.offset ?? 0);
+
+  (activity.entries ?? []).forEach((entry, index) => {
+    const targetIndex = offset + index;
+    if (targetIndex >= 0 && targetIndex < next.length) {
+      next[targetIndex] = entry;
+    }
+  });
+
+  return next;
+}
+
 export const DashboardFriendsActivityCard = React.memo(
   function DashboardFriendsActivityCard({
     friendsActivity = null,
@@ -1406,53 +1423,142 @@ export const DashboardFriendsActivityCard = React.memo(
     onOpenPlayerProfile,
   }: DashboardFriendsActivityCardProps) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-    const [dialogFriendsActivity, setDialogFriendsActivity] =
-      React.useState<DashboardCompactFriendsActivityResponse | null>(
-        friendsActivity,
-      );
-    const [isDialogFriendsActivityLoading, setIsDialogFriendsActivityLoading] =
-      React.useState(false);
+    const dialogVirtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+    const loadedOffsetsRef = React.useRef<Set<number>>(new Set());
+    const pendingOffsetsRef = React.useRef<Set<number>>(new Set());
+    const [pendingDialogRequestCount, setPendingDialogRequestCount] =
+      React.useState(0);
+    const [cachedDialogEntries, setCachedDialogEntries] = React.useState<
+      Array<DashboardCompactFriendActivityEntry | null>
+    >(() => (friendsActivity ? mergeFriendsActivityWindow([], friendsActivity) : []));
+    const [dialogFriendsTotal, setDialogFriendsTotal] = React.useState(
+      Math.max(0, friendsActivity?.friendsTotal ?? 0),
+    );
+    const friendsWindowSize = Math.max(1, FRIENDS_ACTIVITY_WINDOW_SIZE);
+    const isDialogFriendsActivityLoading = pendingDialogRequestCount > 0;
+
+    const mergeDialogWindowIntoState = React.useCallback(
+      (
+        nextWindow: DashboardCompactFriendsActivityResponse,
+        options?: { markLoaded?: boolean },
+      ) => {
+        const resolvedOffset = Math.max(0, nextWindow.offset ?? 0);
+        if (options?.markLoaded !== false) {
+          loadedOffsetsRef.current.add(resolvedOffset);
+        }
+        setDialogFriendsTotal(Math.max(0, nextWindow.friendsTotal ?? 0));
+        setCachedDialogEntries((previous) =>
+          mergeFriendsActivityWindow(previous, nextWindow),
+        );
+      },
+      [],
+    );
 
     React.useEffect(() => {
-      setDialogFriendsActivity(friendsActivity);
-    }, [friendsActivity]);
+      if (!friendsActivity) {
+        loadedOffsetsRef.current.clear();
+        pendingOffsetsRef.current.clear();
+        setPendingDialogRequestCount(0);
+        setCachedDialogEntries([]);
+        setDialogFriendsTotal(0);
+        return;
+      }
+
+      mergeDialogWindowIntoState(friendsActivity, { markLoaded: false });
+    }, [friendsActivity, mergeDialogWindowIntoState]);
+
+    const requestFriendsActivityWindow = React.useCallback(
+      async (requestedOffset: number) => {
+        if (!currentTelegramId) return null;
+
+        const resolvedOffset = clampLeaderboardOffset(
+          requestedOffset,
+          dialogFriendsTotal,
+          friendsWindowSize,
+        );
+
+        if (
+          loadedOffsetsRef.current.has(resolvedOffset) ||
+          pendingOffsetsRef.current.has(resolvedOffset)
+        ) {
+          return null;
+        }
+
+        pendingOffsetsRef.current.add(resolvedOffset);
+        setPendingDialogRequestCount((current) => current + 1);
+
+        try {
+          const nextWindow = await fetchDashboardFriendsActivity({
+            telegramId: currentTelegramId,
+            limit: friendsWindowSize,
+            offset: resolvedOffset,
+          });
+          mergeDialogWindowIntoState(nextWindow);
+          return nextWindow;
+        } catch (error) {
+          console.error(
+            "Не удалось загрузить окно активности друзей:",
+            error,
+          );
+          return null;
+        } finally {
+          pendingOffsetsRef.current.delete(resolvedOffset);
+          setPendingDialogRequestCount((current) => Math.max(0, current - 1));
+        }
+      },
+      [
+        currentTelegramId,
+        dialogFriendsTotal,
+        friendsWindowSize,
+        mergeDialogWindowIntoState,
+      ],
+    );
 
     React.useEffect(() => {
       if (!isDialogOpen || !currentTelegramId) return;
+      void requestFriendsActivityWindow(0);
+    }, [currentTelegramId, isDialogOpen, requestFriendsActivityWindow]);
 
-      let isCancelled = false;
-      const requestedLimit = Math.max(
-        friendsActivity?.friendsTotal ?? 0,
-        DASHBOARD_FRIENDS_ACTIVITY_LIMIT,
-      );
+    const handleFriendsActivityRangeChanged = React.useCallback(
+      ({ startIndex, endIndex }: ListRange) => {
+        if (dialogFriendsTotal <= 0) return;
 
-      setIsDialogFriendsActivityLoading(true);
+        const clampedStartIndex = Math.max(0, startIndex);
+        const clampedEndIndex = Math.max(
+          clampedStartIndex,
+          Math.min(dialogFriendsTotal - 1, endIndex),
+        );
 
-      void fetchDashboardFriendsActivity({
-        telegramId: currentTelegramId,
-        limit: requestedLimit,
-      })
-        .then((nextFriendsActivity) => {
-          if (!isCancelled) {
-            setDialogFriendsActivity(nextFriendsActivity);
-          }
-        })
-        .catch((error) => {
-          console.error(
-            "Не удалось загрузить полный список активности друзей:",
-            error,
-          );
-        })
-        .finally(() => {
-          if (!isCancelled) {
-            setIsDialogFriendsActivityLoading(false);
-          }
-        });
+        const firstOffset = getLeaderboardWindowOffsetForIndex(
+          clampedStartIndex,
+          dialogFriendsTotal,
+          friendsWindowSize,
+        );
+        const lastOffset = getLeaderboardWindowOffsetForIndex(
+          clampedEndIndex,
+          dialogFriendsTotal,
+          friendsWindowSize,
+        );
 
-      return () => {
-        isCancelled = true;
-      };
-    }, [currentTelegramId, friendsActivity?.friendsTotal, isDialogOpen]);
+        for (
+          let offset = firstOffset;
+          offset <= lastOffset;
+          offset += friendsWindowSize
+        ) {
+          void requestFriendsActivityWindow(offset);
+        }
+
+        const nextOffset = lastOffset + friendsWindowSize;
+        if (nextOffset < dialogFriendsTotal) {
+          void requestFriendsActivityWindow(nextOffset);
+        }
+      },
+      [
+        dialogFriendsTotal,
+        friendsWindowSize,
+        requestFriendsActivityWindow,
+      ],
+    );
 
     const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
     const summaryEntries = friendsActivity?.entries ?? [];
@@ -1460,23 +1566,18 @@ export const DashboardFriendsActivityCard = React.memo(
       0,
       friendsActivity?.activeLast7Days ?? 0,
     );
-    const modalFriendsActivity = dialogFriendsActivity ?? friendsActivity;
-    const modalFriendsTotal = Math.max(
-      0,
-      modalFriendsActivity?.friendsTotal ?? 0,
-    );
-    const modalEntries = modalFriendsActivity?.entries ?? [];
-    const modalHasRecordedActivity = modalEntries.some((entry) =>
-      Boolean(entry.lastActiveAt),
+    const modalEntries = cachedDialogEntries;
+    const modalHasRecordedActivity = modalEntries.some(
+      (entry) => entry != null && Boolean(entry.lastActiveAt),
     );
     const showNoFriends =
       !isDialogFriendsActivityLoading &&
       !isFriendsActivityLoading &&
-      modalFriendsTotal === 0;
+      dialogFriendsTotal === 0;
     const showNoActivity =
       !isDialogFriendsActivityLoading &&
       !isFriendsActivityLoading &&
-      modalFriendsTotal > 0 &&
+      dialogFriendsTotal > 0 &&
       !modalHasRecordedActivity;
 
     return (
@@ -1485,7 +1586,7 @@ export const DashboardFriendsActivityCard = React.memo(
           className="self-start flex min-h-[5rem] w-full cursor-pointer flex-col p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
                 className={cn(
@@ -1566,14 +1667,37 @@ export const DashboardFriendsActivityCard = React.memo(
                   </p>
                 </div>
               ) : (
-                <div className="h-full min-h-0 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
-                  <div>
-                    {modalEntries.map((entry, index) => (
+                <Virtuoso
+                  ref={dialogVirtuosoRef}
+                  className="h-full min-h-0 [scrollbar-gutter:stable]"
+                  totalCount={dialogFriendsTotal}
+                  defaultItemHeight={62}
+                  increaseViewportBy={FRIENDS_ACTIVITY_OVERSCAN}
+                  overscan={FRIENDS_ACTIVITY_OVERSCAN}
+                  components={{ List: LeaderboardVirtuosoList }}
+                  computeItemKey={(index) => {
+                    const entry = modalEntries[index];
+                    return entry
+                      ? `${String(entry.telegramId ?? "")}-${entry.lastActiveAt ?? "idle"}-dialog`
+                      : `friends-activity-skeleton-${index}`;
+                  }}
+                  rangeChanged={handleFriendsActivityRangeChanged}
+                  itemContent={(index) => {
+                    const entry = modalEntries[index];
+
+                    if (!entry) {
+                      return (
+                        <DashboardFriendsActivityRowSkeleton
+                          isLast={index === dialogFriendsTotal - 1}
+                        />
+                      );
+                    }
+
+                    return (
                       <div
-                        key={`${String(entry.telegramId ?? "")}-${entry.lastActiveAt ?? "idle"}-dialog`}
                         className={cn(
                           "px-0",
-                          index === modalEntries.length - 1 ? "pb-0" : "pb-2",
+                          index === dialogFriendsTotal - 1 ? "pb-0" : "pb-2",
                         )}
                       >
                         <DashboardFriendsActivityRow
@@ -1581,9 +1705,9 @@ export const DashboardFriendsActivityCard = React.memo(
                           onOpenPlayerProfile={onOpenPlayerProfile}
                         />
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    );
+                  }}
+                />
               )}
             </div>
           </div>

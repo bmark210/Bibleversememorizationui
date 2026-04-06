@@ -605,6 +605,8 @@ export interface components {
             entries?: components["schemas"]["bible-memory-db_internal_domain.DashboardCompactFriendActivityEntry"][];
             friendsTotal?: number;
             generatedAt?: string;
+            limit?: number;
+            offset?: number;
         };
         "bible-memory-db_internal_domain.DashboardFriendActivityEntry": {
             avatarUrl?: string;
@@ -1649,6 +1651,8 @@ export interface operations {
             query?: {
                 /** @description Max items */
                 limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
             };
             header?: never;
             path: {
@@ -1702,6 +1706,8 @@ export interface operations {
             query?: {
                 /** @description Max items */
                 limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
             };
             header?: never;
             path: {

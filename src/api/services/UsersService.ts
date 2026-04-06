@@ -192,12 +192,14 @@ export class UsersService {
      * Get compact friends activity
      * @param telegramId Telegram ID
      * @param limit Max items
+     * @param offset Pagination offset
      * @returns bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse OK
      * @throws ApiError
      */
     public static listFriendsActivityCompact(
         telegramId: string,
         limit: number = 12,
+        offset?: number,
     ): CancelablePromise<bible_memory_db_internal_domain_DashboardCompactFriendsActivityResponse> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -207,6 +209,7 @@ export class UsersService {
             },
             query: {
                 'limit': limit,
+                'offset': offset,
             },
             errors: {
                 400: `Bad Request`,
