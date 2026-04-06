@@ -18,6 +18,7 @@ import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
+import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
 import { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
@@ -78,6 +79,10 @@ const SwipeableVerseCardComponent = ({
   const tonePalette = usesOwnedCollectionPresentation
     ? OWNED_COLLECTION_CARD_TONE
     : colorConfig.tones[stageVisual.key];
+  const actionTonePalette = resolveVerseActionTonePalette(colorConfig, {
+    displayStatus,
+    isCatalogMode,
+  });
   const layoutSignature = getVerseCardLayoutSignature(verse);
   const totalProgressPercent = getVerseProgressPercent(verse);
   const popularityValue =
@@ -205,8 +210,8 @@ const SwipeableVerseCardComponent = ({
               "h-9 rounded-full px-3 text-[12px] font-medium",
               colorConfig.actionButtonClassName,
               colorConfig.actionButtonHoverClassName,
-              tonePalette.accentBorderClassName,
-              tonePalette.accentTextClassName,
+              actionTonePalette.accentBorderClassName,
+              actionTonePalette.accentTextClassName,
             )}
             onClick={(e) => {
               stopCardOpen(e);
@@ -233,8 +238,8 @@ const SwipeableVerseCardComponent = ({
             "h-9 rounded-full px-3 text-[12px] font-medium",
             colorConfig.actionButtonClassName,
             colorConfig.actionButtonHoverClassName,
-            tonePalette.accentBorderClassName,
-            tonePalette.accentTextClassName,
+            actionTonePalette.accentBorderClassName,
+            actionTonePalette.accentTextClassName,
           )}
           onClick={(e) => {
             stopCardOpen(e);
@@ -262,8 +267,8 @@ const SwipeableVerseCardComponent = ({
             "h-9 rounded-full px-3 text-[12px] font-medium",
             colorConfig.actionButtonClassName,
             colorConfig.actionButtonHoverClassName,
-            tonePalette.accentBorderClassName,
-            tonePalette.accentTextClassName,
+            actionTonePalette.accentBorderClassName,
+            actionTonePalette.accentTextClassName,
           )}
           onClick={(e) => {
             stopCardOpen(e);
@@ -300,8 +305,8 @@ const SwipeableVerseCardComponent = ({
               "h-9 rounded-full px-3 text-[12px] font-medium",
               colorConfig.actionButtonClassName,
               colorConfig.actionButtonHoverClassName,
-              tonePalette.accentBorderClassName,
-              tonePalette.accentTextClassName,
+              actionTonePalette.accentBorderClassName,
+              actionTonePalette.accentTextClassName,
             )}
             onClick={(e) => {
               stopCardOpen(e);
@@ -327,8 +332,8 @@ const SwipeableVerseCardComponent = ({
               "h-9 rounded-full px-3 text-[12px] font-medium",
               colorConfig.actionButtonClassName,
               colorConfig.actionButtonHoverClassName,
-              tonePalette.accentBorderClassName,
-              tonePalette.accentTextClassName,
+              actionTonePalette.accentBorderClassName,
+              actionTonePalette.accentTextClassName,
             )}
             onClick={(e) => {
               stopCardOpen(e);

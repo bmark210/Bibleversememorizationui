@@ -10,6 +10,7 @@ import { getPreparedVersePreview } from "@/app/components/VerseGallery/previewMo
 import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   OWNED_COLLECTION_BADGE_CLASS_NAME,
+  OWNED_COLLECTION_CARD_TONE,
 } from "@/app/components/verseStatusVisuals";
 
 function createVerse(
@@ -124,6 +125,26 @@ test("catalog gallery preview uses brighter chrome for reference tags and player
   assertIncludesClassTokens(
     html,
     VERSE_CARD_COLOR_CONFIG.previewChrome.catalog.metaPanelClassName,
+  );
+});
+
+test("catalog actions in list and gallery use the collection accent tone", () => {
+  const catalogListHtml = renderListCard(
+    createVerse({ status: "CATALOG" }),
+    { isCatalogMode: true },
+  );
+  const catalogGalleryHtml = renderGalleryCard(
+    createVerse({ status: "CATALOG" }),
+    { sourceMode: "catalog" },
+  );
+
+  assertIncludesClassTokens(
+    catalogListHtml,
+    `${OWNED_COLLECTION_CARD_TONE.accentBorderClassName} ${OWNED_COLLECTION_CARD_TONE.accentTextClassName}`,
+  );
+  assertIncludesClassTokens(
+    catalogGalleryHtml,
+    `${OWNED_COLLECTION_CARD_TONE.accentBorderClassName} ${OWNED_COLLECTION_CARD_TONE.accentTextClassName}`,
   );
 });
 

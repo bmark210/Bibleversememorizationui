@@ -14,6 +14,7 @@ import {
   VERSE_CARD_COLOR_CONFIG,
   type VerseCardColorConfig,
 } from "@/app/components/verseCardColorConfig";
+import { resolveVerseActionTonePalette } from "@/app/components/verseCardPresentation";
 import type { Verse } from "@/app/domain/verse";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
@@ -95,6 +96,10 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   const isCatalogOwned = isCatalogGalleryOwnedVerse(sourceMode, preview.status);
   const displayTone = getGalleryPreviewTone(sourceMode, tone);
   const tonePalette = colorConfig.tones[displayTone ?? "learning"];
+  const actionTonePalette = resolveVerseActionTonePalette(colorConfig, {
+    displayStatus: preview.status,
+    isCatalogMode,
+  });
   const previewChrome = colorConfig.previewChrome[displayTone ?? "learning"];
   const activeTagSlugSet = useMemo(() => {
     if (!activeTagSlugs) return new Set<string>();
@@ -377,8 +382,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                   "gap-2 max-w-full rounded-2xl border shadow-lg backdrop-blur-sm",
                   colorConfig.actionButtonClassName,
                   colorConfig.actionButtonHoverClassName,
-                  tonePalette.accentBorderClassName,
-                  tonePalette.accentTextClassName,
+                  actionTonePalette.accentBorderClassName,
+                  actionTonePalette.accentTextClassName,
                   inlineUtilityAction ? "min-w-[184px]" : "min-w-[200px]",
                 )}
                 onClick={handlePrimaryAction}
@@ -399,8 +404,8 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                     "h-10 w-10 shrink-0 rounded-2xl border shadow-lg backdrop-blur-sm",
                     colorConfig.actionButtonClassName,
                     colorConfig.actionButtonHoverClassName,
-                    tonePalette.accentBorderClassName,
-                    tonePalette.accentTextClassName,
+                    actionTonePalette.accentBorderClassName,
+                    actionTonePalette.accentTextClassName,
                   )}
                   onClick={onUtilityAction}
                   disabled={isActionPending}
@@ -418,7 +423,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
                 className={cn(
                   "gap-2 rounded-2xl px-4 py-3",
                   colorConfig.waitingPillClassName,
-                  tonePalette.accentBorderClassName,
+                  actionTonePalette.accentBorderClassName,
                 )}
               />
             </div>
