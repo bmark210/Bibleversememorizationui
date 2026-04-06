@@ -1482,7 +1482,7 @@ export const DashboardFriendsActivityCard = React.memo(
     return (
       <>
         <DashboardSurface
-          className="self-start flex min-h-[5rem] w-full cursor-pointer flex-col gap-3 p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
+          className="self-start flex min-h-[5rem] w-full cursor-pointer flex-col p-3 sm:min-h-[9rem] sm:p-3.5 transition-colors hover:border-border-default"
           onClick={() => setIsDialogOpen(true)}
         >
           <div className="flex items-start justify-between gap-3">
