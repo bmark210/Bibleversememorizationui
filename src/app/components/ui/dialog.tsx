@@ -5,6 +5,9 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { cn } from "./utils";
 
+const OVERLAY_CHROME =
+  "fixed inset-0 z-[80] bg-black/10 dark:bg-black/24 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0";
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -37,7 +40,7 @@ const DialogOverlay = React.forwardRef<
       ref={ref}
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-[80] bg-overlay-scrim backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        OVERLAY_CHROME,
         className
       )}
       {...props}
@@ -48,11 +51,14 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    overlayClassName?: string;
+    hideOverlay?: boolean;
+  }
+>(({ className, children, overlayClassName, hideOverlay = false, ...props }, ref) => {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      {!hideOverlay ? <DialogOverlay className={overlayClassName} /> : null}
       <DialogPrimitive.Content
         ref={ref}
         data-slot="dialog-content"

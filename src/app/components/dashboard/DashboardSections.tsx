@@ -269,7 +269,10 @@ function DashboardFullscreenDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!flex !flex-col inset-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 bg-bg-surface p-0 sm:inset-0 sm:top-0 sm:left-0 sm:h-[100dvh] sm:max-h-none sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:border-0 sm:p-0">
+      <DialogContent
+        hideOverlay
+        className="!flex !flex-col inset-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 bg-bg-surface p-0 sm:inset-0 sm:top-0 sm:left-0 sm:h-[100dvh] sm:max-h-none sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:border-0 sm:p-0"
+      >
         <DashboardFullscreenSafeHeader />
 
         <div className="flex min-h-0 flex-1 flex-col">

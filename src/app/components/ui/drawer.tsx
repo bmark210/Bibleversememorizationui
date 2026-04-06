@@ -6,10 +6,20 @@ import { Drawer as DrawerPrimitive } from "vaul";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { cn } from "./utils";
 
+const OVERLAY_CHROME =
+  "fixed inset-0 z-50 bg-black/10 dark:bg-black/24 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0";
+
 function Drawer({
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
+  return (
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      shouldScaleBackground={false}
+      setBackgroundColorOnScale={false}
+      {...props}
+    />
+  );
 }
 
 function DrawerTrigger({
@@ -38,7 +48,7 @@ function DrawerOverlay({
     <DrawerPrimitive.Overlay
       data-slot="drawer-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-overlay-scrim backdrop-blur-[2px]",
+        OVERLAY_CHROME,
         className,
       )}
       {...props}
