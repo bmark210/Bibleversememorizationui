@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, type CSSProperties } from "react";
+import { useEffect, useMemo } from "react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import {
   Bone,
@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import type { Verse } from "@/app/domain/verse";
 import type { bible_memory_db_internal_domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
-import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import {
@@ -49,10 +48,8 @@ import {
   ANCHOR_MODE_GROUP_LABELS,
   FLASHCARD_MODE_DESCRIPTIONS,
   FLASHCARD_MODE_LABELS,
-  TRAINING_SCENARIO_LABELS,
 } from "../types";
 import { Button } from "../../ui/button";
-import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { cn } from "../../ui/utils";
 
 interface TrainingHubProps {
@@ -81,7 +78,6 @@ type CoreModePreset = {
   label: string;
   modes: CoreTrainingMode[];
   icon: LucideIcon;
-  theme: AccentTheme;
 };
 
 type CorePresetState = CoreModePreset & {
@@ -90,23 +86,6 @@ type CorePresetState = CoreModePreset & {
   waitingReviewCount: number;
   startable: boolean;
   disabled: boolean;
-};
-
-
-type ScenarioTheme = {
-  triggerClassName: string;
-  countClassName: string;
-};
-
-type AccentTheme = {
-  checkedItemClassName: string;
-  checkedIconClassName: string;
-  checkedTitleClassName: string;
-  checkedSubtitleClassName: string;
-  checkedIndicatorClassName: string;
-  checkedDotClassName: string;
-  summaryClassName: string;
-  ctaClassName: string;
 };
 
 const ANCHOR_MIN_REQUIRED = 1;
@@ -123,96 +102,26 @@ const ANCHOR_MODE_GROUP_ICONS: Record<AnchorModeGroup, LucideIcon> = {
   "impostor-word": VenetianMask,
 };
 
-const SCENARIO_THEME: Record<TrainingScenario, ScenarioTheme> = {
-  core: {
-    triggerClassName:
-      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-status-learning/25 data-[state=active]:bg-status-learning-soft data-[state=active]:text-status-learning",
-    countClassName:
-      "group-data-[state=active]/tab:text-status-learning",
-  },
-  anchor: {
-    triggerClassName:
-      "group/tab h-auto rounded-[18px] border border-transparent px-3 py-3 text-text-secondary data-[state=active]:border-status-mastered/25 data-[state=active]:bg-status-mastered-soft data-[state=active]:text-status-mastered",
-    countClassName:
-      "group-data-[state=active]/tab:text-status-mastered",
-  },
-};
-
-const EMERALD_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-status-learning/30 data-[state=checked]:bg-status-learning-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-status-learning/20 group-data-[state=checked]/radio:bg-status-learning-soft group-data-[state=checked]/radio:text-status-learning",
-  checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-status-learning",
-  checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-status-learning/85",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-status-learning/30",
-  checkedDotClassName: "bg-status-learning",
-  summaryClassName: "text-status-learning",
-  ctaClassName:
-    "border-status-learning bg-status-learning text-text-inverse hover:bg-status-learning",
-};
-
-const VIOLET_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-status-review/30 data-[state=checked]:bg-status-review-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-status-review/20 group-data-[state=checked]/radio:bg-status-review-soft group-data-[state=checked]/radio:text-status-review",
-  checkedTitleClassName:
-    "group-data-[state=checked]/radio:text-status-review",
-  checkedSubtitleClassName:
-    "group-data-[state=checked]/radio:text-status-review/85",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-status-review/30",
-  checkedDotClassName: "bg-status-review",
-  summaryClassName: "text-status-review",
-  ctaClassName:
-    "border-status-review bg-status-review text-text-inverse hover:bg-status-review",
-};
-
-const PRIMARY_ACCENT: AccentTheme = {
-  checkedItemClassName:
-    "data-[state=checked]:border-brand-primary/25 data-[state=checked]:bg-status-mastered-soft data-[state=checked]:shadow-[var(--shadow-soft)]",
-  checkedIconClassName:
-    "group-data-[state=checked]/radio:border-brand-primary/15 group-data-[state=checked]/radio:bg-status-mastered-soft group-data-[state=checked]/radio:text-brand-primary",
-  checkedTitleClassName: "group-data-[state=checked]/radio:text-brand-primary",
-  checkedSubtitleClassName: "group-data-[state=checked]/radio:text-brand-primary/80",
-  checkedIndicatorClassName:
-    "group-data-[state=checked]/radio:border-brand-primary/25",
-  checkedDotClassName: "bg-brand-primary",
-  summaryClassName: "text-brand-primary",
-  ctaClassName:
-    "border-brand-primary bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary-hover hover:border-brand-primary-hover",
-};
-
-
 const CORE_MODE_PRESETS: CoreModePreset[] = [
   {
     id: "learning",
     label: "Изучение",
     modes: ["learning"],
     icon: Brain,
-    theme: EMERALD_ACCENT,
   },
   {
     id: "review",
     label: "Повторение",
     modes: ["review"],
     icon: Repeat,
-    theme: VIOLET_ACCENT,
   },
   {
     id: "mixed",
     label: "Все сразу",
     modes: ["learning", "review"],
     icon: Layers,
-    theme: PRIMARY_ACCENT,
   },
 ];
-
-const ANCHOR_ACCENT = PRIMARY_ACCENT;
 
 function matchesModes(
   current: CoreTrainingMode[],
@@ -246,7 +155,6 @@ export function TrainingHub({
   onStartFlashcard,
   onStartSelection,
 }: TrainingHubProps) {
-  const { contentSafeAreaInset } = useTelegramSafeArea();
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
   );
@@ -257,7 +165,6 @@ export function TrainingHub({
     if (allVerses.length > 0) {
       return getAnchorEligibleVerseCount(allVerses);
     }
-
     return getCountForMode("anchor", counts);
   }, [allVerses, counts]);
   const flashcardAvailableCount = counts.flashcardCount;
@@ -298,11 +205,6 @@ export function TrainingHub({
   );
   const activeCorePreset = selectedCorePreset ?? preferredCorePreset;
 
-  const currentAccentTheme =
-    selectedScenario === "anchor"
-      ? ANCHOR_ACCENT
-      : activeCorePreset.theme;
-
   const selectionCounts = useMemo(
     () =>
       selectionVerses && selectionVerses.length > 0
@@ -342,29 +244,32 @@ export function TrainingHub({
       ? 0
       : getWaitingReviewCountForCoreModes(selectedModes, selectionCounts);
   const selectionStartLocked = hasSelection && selectionAvailableCount === 0;
+
   const sessionSummary =
     selectedScenario === "anchor"
       ? selectedAnchorSubScenario === "flashcard"
         ? "Карточки"
-        : TRAINING_SCENARIO_LABELS.anchor
-      : `${TRAINING_SCENARIO_LABELS.core} · ${activeCorePreset.label}`;
+        : "Игры"
+      : `Практика · ${activeCorePreset.label}`;
+
   const startLabel =
     selectedScenario === "anchor"
       ? selectedAnchorSubScenario === "flashcard"
         ? "Начать карточки"
-        : "Начать закрепление"
+        : "Начать игры"
       : "Начать практику";
-  const stickyBottomOffset = contentSafeAreaInset.bottom + 94;
+
   const lockedStartLabel =
     selectedScenario === "anchor"
       ? selectedAnchorSubScenario === "flashcard"
         ? "Карточки пока недоступны"
-        : "Закрепление пока недоступно"
+        : "Игры пока недоступны"
       : reviewWaitingLocked
         ? selectedModes.length === 1 && selectedModes[0] === "review"
           ? "Повторение на ожидании"
           : "Практика на ожидании"
         : "Практика пока недоступна";
+
   const lockedSummaryText =
     selectedScenario === "anchor"
       ? selectedAnchorSubScenario === "flashcard"
@@ -400,459 +305,359 @@ export function TrainingHub({
     selectedScenario,
   ]);
 
-  const handleScenarioChange = (value: string) => {
-    const nextScenario = value as TrainingScenario;
-    triggerSelectionHaptic(nextScenario !== selectedScenario);
-    onScenarioChange(nextScenario);
+  const handleScenarioChange = (value: TrainingScenario) => {
+    triggerSelectionHaptic(value !== selectedScenario);
+    onScenarioChange(value);
   };
 
   const handleCorePresetChange = (value: string) => {
     const nextPreset = CORE_MODE_PRESETS.find((preset) => preset.id === value);
     if (!nextPreset) return;
-
     triggerSelectionHaptic(!matchesModes(selectedModes, nextPreset.modes));
     onModesChange(nextPreset.modes);
   };
 
   return (
-    <div
-        className={cn(
-          "mx-auto flex h-full w-full flex-col overflow-hidden",
-        )}
-        style={
-          {
-            "--training-hub-sticky-bottom": `${stickyBottomOffset}px`,
-          } as CSSProperties
-        }
-      >
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-4 pb-2">
-          {/* Fixed top: header + tabs */}
-          <div className="shrink-0">
-            <div className="flex flex-col gap-3">
-              {isTelegramFullscreen ? (null) : (
-                <header>
-                  <div className="flex items-center gap-2.5">
-                    <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary sm:text-3xl">
-                      Тренировка
-                    </h1>
-                  </div>
-                </header>
-              )}
-
-              <section data-tour="training-scenarios" className="rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-2.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:p-3">
-                <Tabs
-                  value={selectedScenario}
-                  onValueChange={handleScenarioChange}
-                  className="gap-4"
-                >
-                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-[22px] p-1">
-                    <TabsTrigger
-                      data-tour="training-scenario-core"
-                      value="core"
-                      className={SCENARIO_THEME.core.triggerClassName}
-                    >
-                      <ScenarioTabLabel
-                        title={TRAINING_SCENARIO_LABELS.core}
-                        count={practiceCount}
-                        countClassName={SCENARIO_THEME.core.countClassName}
-                      />
-                    </TabsTrigger>
-                    <TabsTrigger
-                      data-tour="training-scenario-anchor"
-                      value="anchor"
-                      className={SCENARIO_THEME.anchor.triggerClassName}
-                    >
-                      <ScenarioTabLabel
-                        title={TRAINING_SCENARIO_LABELS.anchor}
-                        count={anchorScenarioCount}
-                        countClassName={SCENARIO_THEME.anchor.countClassName}
-                      />
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </section>
-            </div>
-          </div>
-
-          {/* Mode list — scrollable middle section */}
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-[1.8rem] border border-border-subtle bg-bg-elevated px-3.5 pb-3.5 pt-3.5 shadow-[var(--shadow-soft)] backdrop-blur-2xl sm:px-4 sm:pb-4 sm:pt-4">
-            {selectedScenario === "core" ? (
-                <div data-tour="training-core-presets">
-                  <SectionLabel>Режим практики</SectionLabel>
-                  <RadioGroupPrimitive.Root
-                    value={activeCorePreset.id}
-                    onValueChange={handleCorePresetChange}
-                    aria-label="Режим практики"
-                    className="mt-2 grid gap-2 sm:grid-cols-3"
-                  >
-                    {corePresetStates.map((preset) => (
-                      <RadioCardOption
-                        key={preset.id}
-                        value={preset.id}
-                        title={preset.label}
-                        subtitle={getModeAvailabilityLabel(preset)}
-                        icon={preset.icon}
-                        theme={preset.theme}
-                        disabled={preset.disabled}
-                      />
-                    ))}
-                  </RadioGroupPrimitive.Root>
-                </div>
-              ) : (
-                <div data-tour="training-anchor-presets">
-                  {/* Sub-scenario switcher: Интерактивные | Карточки */}
-                  <div className="flex gap-1 rounded-2xl border border-border-subtle bg-bg-surface p-1">
-                    {(["interactive", "flashcard"] as AnchorSubScenario[]).map((sub) => {
-                      const isActive = selectedAnchorSubScenario === sub;
-                      const label = sub === "interactive" ? "Интерактивные" : "Карточки";
-                      return (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => {
-                            triggerHaptic(isActive ? "light" : "medium");
-                            onAnchorSubScenarioChange(sub);
-                          }}
-                          className={cn(
-                            "flex-1 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
-                            isActive
-                              ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
-                              : "text-text-muted hover:text-text-secondary",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Interactive modes */}
-                  {selectedAnchorSubScenario === "interactive" && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {ALL_ANCHOR_MODE_GROUPS.map((group) => {
-                        const isChecked = selectedAnchorModes.includes(group);
-                        const Icon = ANCHOR_MODE_GROUP_ICONS[group];
-                        return (
-                          <button
-                            key={group}
-                            type="button"
-                            aria-pressed={isChecked}
-                            onClick={() => {
-                              const next = isChecked
-                                ? selectedAnchorModes.filter((g) => g !== group)
-                                : [...selectedAnchorModes, group];
-                              if (next.length > 0) {
-                                triggerHaptic(isChecked ? "light" : "medium");
-                                onAnchorModesChange(next);
-                              }
-                            }}
-                            className={cn(
-                              "group flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
-                              "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
-                              isChecked
-                                ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)]"
-                                : "border-border-subtle bg-bg-surface text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                                isChecked
-                                  ? "border-status-mastered/30 bg-status-mastered-soft text-status-mastered"
-                                  : "border-border-subtle bg-bg-subtle text-text-muted group-hover:border-brand-primary/20 group-hover:text-text-secondary",
-                              )}
-                            >
-                              <Icon className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span
-                                className={cn(
-                                  "block text-[13px] font-semibold leading-tight tracking-tight",
-                                  isChecked ? "text-status-mastered" : "text-text-primary",
-                                )}
-                              >
-                                {ANCHOR_MODE_GROUP_LABELS[group]}
-                              </span>
-                            </span>
-                            <span
-                              className={cn(
-                                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                                isChecked
-                                  ? "border-status-mastered/40 bg-brand-primary text-brand-primary-foreground"
-                                  : "border-border-subtle bg-bg-subtle opacity-70",
-                              )}
-                              aria-hidden
-                            >
-                              {isChecked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Flashcard modes */}
-                  {selectedAnchorSubScenario === "flashcard" && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {ALL_FLASHCARD_MODES.map((fMode) => {
-                        const isSelected = selectedFlashcardMode === fMode;
-                        return (
-                          <button
-                            key={fMode}
-                            type="button"
-                            aria-pressed={isSelected}
-                            onClick={() => {
-                              triggerHaptic(isSelected ? "light" : "medium");
-                              onFlashcardModeChange(fMode);
-                            }}
-                            className={cn(
-                              "flex flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-all duration-150",
-                              "outline-none focus-visible:border-brand-primary/30 focus-visible:ring-[3px] focus-visible:ring-focus-ring",
-                              isSelected
-                                ? "border-brand-primary/30 bg-brand-primary/10 shadow-[var(--shadow-soft)]"
-                                : "border-border-subtle bg-bg-surface hover:border-brand-primary/20 hover:bg-bg-elevated",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "block text-[13px] font-semibold leading-tight tracking-tight",
-                                isSelected ? "text-brand-primary" : "text-text-primary",
-                              )}
-                            >
-                              {FLASHCARD_MODE_LABELS[fMode]}
-                            </span>
-                            <span className="block text-[11px] leading-snug text-text-muted">
-                              {FLASHCARD_MODE_DESCRIPTIONS[fMode]}
-                            </span>
-                            <span
-                              className={cn(
-                                "mt-1 flex h-4 w-4 items-center justify-center rounded-full border",
-                                isSelected
-                                  ? "border-brand-primary/40 bg-brand-primary"
-                                  : "border-border-subtle bg-bg-subtle",
-                              )}
-                              aria-hidden
-                            >
-                              {isSelected ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} /> : null}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {hasSelection && selectionVerses ? (
-              <section className="mt-3 flex items-center justify-between gap-3 rounded-[1.4rem] border border-border-subtle bg-bg-surface px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-xl">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary">
-                    Подборка
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    {getSelectionSummaryText({
-                      totalCount: selectionVerses.length,
-                      availableCount: selectionAvailableCount,
-                      waitingReviewCount: selectionWaitingReviewCount,
-                      selectedModes,
-                    })}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  haptic="medium"
-                  disabled={selectionStartLocked}
-                  onClick={onStartSelection}
-                  className="rounded-xl"
-                >
-                  Начать
-                </Button>
-              </section>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Bottom: start card — always pinned above navbar */}
-        <div
-          className={cn(
-            "shrink-0 mx-4 mb-2 rounded-[1.8rem] border border-border-subtle bg-bg-overlay p-3 shadow-[var(--shadow-floating)] backdrop-blur-2xl",
-            anchorLocked
-              ? "text-text-muted"
-              : currentAccentTheme.summaryClassName,
-          )}
-        >
-          <p
-            className={cn(
-              "mb-2.5 px-1 text-[13px] font-medium",
-              anchorLocked
-                ? "text-text-muted"
-                : currentAccentTheme.summaryClassName,
-            )}
-          >
-            {sessionSummary}
-          </p>
-
-          {startLocked ? (
-            <div className="space-y-2.5">
-              <Button
-                type="button"
-                size="lg"
-                disabled
-                className="h-12 w-full gap-2 rounded-2xl border border-border-subtle !bg-bg-surface px-5 text-sm font-medium text-text-muted shadow-none"
-              >
-                <Lock className="h-4 w-4" />
-                {lockedStartLabel}
-              </Button>
-              <p className="px-1 text-xs leading-relaxed text-text-secondary">
-                {lockedSummaryText}
-              </p>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              haptic="medium"
-              data-tour="training-start-button"
-              onClick={
-                selectedScenario === "anchor" && selectedAnchorSubScenario === "flashcard"
-                  ? onStartFlashcard
-                  : onStart
-              }
-              className={cn(
-                "h-12 w-full gap-2 rounded-2xl border px-5 text-sm font-medium !shadow-none",
-                currentAccentTheme.ctaClassName,
-              )}
-            >
-              <Play className="h-4 w-4" />
-              {startLabel}
-            </Button>
-          )}
-        </div>
-      </div>
-  );
-}
-
-function ScenarioTabLabel({
-  title,
-  count,
-  countClassName,
-  icon: Icon,
-}: {
-  title: string;
-  count?: number;
-  countClassName?: string;
-  icon?: LucideIcon;
-}) {
-  return (
-    <span className="flex w-full items-center justify-between gap-3">
-      <span className="truncate text-sm font-medium">{title}</span>
-      {Icon ? (
-        <Icon className={cn("h-3.5 w-3.5 text-text-muted shrink-0", countClassName)} strokeWidth={2} />
-      ) : count !== undefined ? (
-        <span
-          className={cn("text-xs font-medium text-text-muted shrink-0", countClassName)}
-        >
-          {count}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function RadioCardOption({
-  value,
-  title,
-  subtitle,
-  icon: Icon,
-  theme,
-  disabled = false,
-  compact = true,
-}: {
-  value: string;
-  title: string;
-  subtitle?: string;
-  icon: LucideIcon;
-  theme: AccentTheme;
-  disabled?: boolean;
-  compact?: boolean;
-}) {
-  return (
-    <RadioGroupPrimitive.Item
-      value={value}
-      disabled={disabled}
-      className={cn(
-        "group/radio w-full rounded-[22px] border border-border-subtle bg-bg-surface p-4 text-left transition-all duration-150 outline-none focus-visible:border-brand-primary focus-visible:ring-[3px] focus-visible:ring-focus-ring disabled:cursor-not-allowed",
-        !disabled && "hover:border-brand-primary/20 hover:bg-bg-elevated",
-        theme.checkedItemClassName,
-        disabled &&
-          "border-border-subtle bg-bg-subtle text-text-muted shadow-none",
-        compact && "px-3 py-3",
+    <div className="mx-auto flex h-full w-full flex-col overflow-hidden">
+      {/* Header */}
+      {!isTelegramFullscreen && (
+        <header className="shrink-0 px-5 pb-2 pt-4">
+          <h1 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-brand-primary">
+            Тренировка
+          </h1>
+        </header>
       )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span
-            data-slot="radio-card-icon"
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border-subtle bg-bg-subtle text-text-muted transition-colors",
-              theme.checkedIconClassName,
-              disabled &&
-                "border-border-subtle bg-bg-subtle text-text-muted",
-            )}
-          >
-            <Icon className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span
-              className={cn(
-                "block truncate text-sm font-medium text-text-primary",
-                theme.checkedTitleClassName,
-                disabled && "text-text-muted",
-              )}
-            >
-              {title}
-            </span>
-            {subtitle ? (
-              <span
+
+      {/* Segmented control: Практика | Игры */}
+      <div className="shrink-0 px-4 py-3">
+        <div
+          data-tour="training-scenarios"
+          className="flex gap-1 rounded-[18px] bg-bg-subtle p-1"
+        >
+          {(["core", "anchor"] as TrainingScenario[]).map((scenario) => {
+            const isActive = selectedScenario === scenario;
+            const label = scenario === "core" ? "Практика" : "Игры";
+            const count =
+              scenario === "core" ? practiceCount : anchorScenarioCount;
+            return (
+              <button
+                key={scenario}
+                type="button"
+                data-tour={`training-scenario-${scenario}`}
+                onClick={() => handleScenarioChange(scenario)}
                 className={cn(
-                  "mt-1 block text-xs leading-relaxed text-text-secondary",
-                  theme.checkedSubtitleClassName,
-                  disabled && "text-text-muted",
+                  "flex flex-1 items-center justify-between gap-2 rounded-[14px] px-4 py-2.5 text-sm font-medium transition-all duration-150",
+                  isActive
+                    ? "bg-bg-surface text-text-primary shadow-[var(--shadow-soft)]"
+                    : "text-text-muted hover:text-text-secondary",
                 )}
               >
-                {subtitle}
-              </span>
-            ) : null}
-          </span>
+                <span>{label}</span>
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      "text-xs font-medium tabular-nums transition-colors",
+                      isActive ? "text-brand-primary" : "text-text-muted",
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        <span
+      {/* Scrollable content */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+        {selectedScenario === "core" ? (
+          /* ── Practice modes ─────────────────────────────────── */
+          <RadioGroupPrimitive.Root
+            data-tour="training-core-presets"
+            value={activeCorePreset.id}
+            onValueChange={handleCorePresetChange}
+            aria-label="Режим практики"
+            className="overflow-hidden rounded-[22px] border border-border-subtle bg-bg-surface"
+          >
+            {corePresetStates.map((preset, index) => {
+              const Icon = preset.icon;
+              const isSelected = matchesModes(selectedModes, preset.modes);
+              return (
+                <RadioGroupPrimitive.Item
+                  key={preset.id}
+                  value={preset.id}
+                  disabled={preset.disabled}
+                  className={cn(
+                    "group/radio w-full text-left outline-none transition-colors duration-150",
+                    index > 0 && "border-t border-border-subtle",
+                    !preset.disabled && "hover:bg-bg-elevated",
+                    preset.disabled && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+                        isSelected
+                          ? "bg-brand-primary/10 text-brand-primary"
+                          : "bg-bg-subtle text-text-muted",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          "text-sm font-medium leading-snug",
+                          isSelected ? "text-text-primary" : "text-text-primary",
+                          preset.disabled && "text-text-muted",
+                        )}
+                      >
+                        {preset.label}
+                      </p>
+                      <p className="mt-0.5 text-xs leading-snug text-text-muted">
+                        {getModeAvailabilityLabel(preset)}
+                      </p>
+                    </div>
+
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        isSelected
+                          ? "border-brand-primary"
+                          : "border-border-default",
+                        preset.disabled && "opacity-40",
+                      )}
+                    >
+                      <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
+                        <span className="block h-2.5 w-2.5 rounded-full bg-brand-primary" />
+                      </RadioGroupPrimitive.Indicator>
+                    </span>
+                  </div>
+                </RadioGroupPrimitive.Item>
+              );
+            })}
+          </RadioGroupPrimitive.Root>
+        ) : (
+          /* ── Games / Anchor modes ───────────────────────────── */
+          <div
+            data-tour="training-anchor-presets"
+            className="flex flex-col gap-3"
+          >
+            {/* Sub-scenario switcher: Интерактивные | Карточки */}
+            <div className="flex gap-1 rounded-[18px] bg-bg-subtle p-1">
+              {(["interactive", "flashcard"] as AnchorSubScenario[]).map(
+                (sub) => {
+                  const isActive = selectedAnchorSubScenario === sub;
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(isActive ? "light" : "medium");
+                        onAnchorSubScenarioChange(sub);
+                      }}
+                      className={cn(
+                        "flex-1 rounded-[14px] py-2.5 text-sm font-medium transition-all duration-150",
+                        isActive
+                          ? "bg-bg-surface text-text-primary shadow-[var(--shadow-soft)]"
+                          : "text-text-muted hover:text-text-secondary",
+                      )}
+                    >
+                      {sub === "interactive" ? "Интерактивные" : "Карточки"}
+                    </button>
+                  );
+                },
+              )}
+            </div>
+
+            {/* Interactive modes list */}
+            {selectedAnchorSubScenario === "interactive" && (
+              <div className="overflow-hidden rounded-[22px] border border-border-subtle bg-bg-surface">
+                {ALL_ANCHOR_MODE_GROUPS.map((group, index) => {
+                  const isChecked = selectedAnchorModes.includes(group);
+                  const Icon = ANCHOR_MODE_GROUP_ICONS[group];
+                  return (
+                    <button
+                      key={group}
+                      type="button"
+                      aria-pressed={isChecked}
+                      onClick={() => {
+                        const next = isChecked
+                          ? selectedAnchorModes.filter((g) => g !== group)
+                          : [...selectedAnchorModes, group];
+                        if (next.length > 0) {
+                          triggerHaptic(isChecked ? "light" : "medium");
+                          onAnchorModesChange(next);
+                        }
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors duration-150",
+                        index > 0 && "border-t border-border-subtle",
+                        "hover:bg-bg-elevated focus-visible:bg-bg-elevated",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+                          isChecked
+                            ? "bg-brand-primary/10 text-brand-primary"
+                            : "bg-bg-subtle text-text-muted",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" strokeWidth={2} />
+                      </span>
+
+                      <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-text-primary">
+                        {ANCHOR_MODE_GROUP_LABELS[group]}
+                      </span>
+
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                          isChecked
+                            ? "border-brand-primary bg-brand-primary"
+                            : "border-border-default",
+                        )}
+                      >
+                        {isChecked && (
+                          <Check
+                            className="h-3 w-3 text-brand-primary-foreground"
+                            strokeWidth={3}
+                          />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Flashcard modes list */}
+            {selectedAnchorSubScenario === "flashcard" && (
+              <div className="overflow-hidden rounded-[22px] border border-border-subtle bg-bg-surface">
+                {ALL_FLASHCARD_MODES.map((fMode, index) => {
+                  const isSelected = selectedFlashcardMode === fMode;
+                  return (
+                    <button
+                      key={fMode}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => {
+                        triggerHaptic(isSelected ? "light" : "medium");
+                        onFlashcardModeChange(fMode);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors duration-150",
+                        index > 0 && "border-t border-border-subtle",
+                        "hover:bg-bg-elevated",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-snug text-text-primary">
+                          {FLASHCARD_MODE_LABELS[fMode]}
+                        </p>
+                        <p className="mt-0.5 text-xs leading-snug text-text-muted">
+                          {FLASHCARD_MODE_DESCRIPTIONS[fMode]}
+                        </p>
+                      </div>
+
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                          isSelected
+                            ? "border-brand-primary"
+                            : "border-border-default",
+                        )}
+                      >
+                        {isSelected && (
+                          <span className="block h-2.5 w-2.5 rounded-full bg-brand-primary" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Selection (подборка) row */}
+        {hasSelection && selectionVerses ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-[22px] border border-border-subtle bg-bg-surface px-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary">Подборка</p>
+              <p className="mt-0.5 text-xs text-text-muted">
+                {getSelectionSummaryText({
+                  totalCount: selectionVerses.length,
+                  availableCount: selectionAvailableCount,
+                  waitingReviewCount: selectionWaitingReviewCount,
+                  selectedModes,
+                })}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              haptic="medium"
+              disabled={selectionStartLocked}
+              onClick={onStartSelection}
+              className="shrink-0 rounded-xl"
+            >
+              Начать
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Bottom CTA */}
+      <div className="shrink-0 px-4 pb-3 pt-1">
+        <p
           className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-elevated",
-            theme.checkedIndicatorClassName,
-            disabled && "border-border-subtle bg-bg-subtle opacity-60",
+            "mb-2 px-1 text-xs leading-relaxed",
+            startLocked ? "text-text-muted" : "text-text-secondary",
           )}
         >
-          <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-            <span
-              className={cn("h-2 w-2 rounded-full", theme.checkedDotClassName)}
-            />
-          </RadioGroupPrimitive.Indicator>
-        </span>
-      </div>
-    </RadioGroupPrimitive.Item>
-  );
-}
+          {startLocked ? lockedSummaryText : sessionSummary}
+        </p>
 
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <div className="px-1 text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
-      {children}
+        {startLocked ? (
+          <Button
+            type="button"
+            size="lg"
+            disabled
+            className="h-12 w-full gap-2 rounded-2xl border border-border-subtle !bg-bg-surface text-sm font-medium text-text-muted shadow-none"
+          >
+            <Lock className="h-4 w-4" />
+            {lockedStartLabel}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="lg"
+            haptic="medium"
+            data-tour="training-start-button"
+            onClick={
+              selectedScenario === "anchor" &&
+              selectedAnchorSubScenario === "flashcard"
+                ? onStartFlashcard
+                : onStart
+            }
+            className="h-12 w-full gap-2 rounded-2xl border border-brand-primary bg-brand-primary text-sm font-medium text-brand-primary-foreground shadow-none hover:border-brand-primary-hover hover:bg-brand-primary-hover"
+          >
+            <Play className="h-4 w-4" />
+            {startLabel}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
+
+/* ── Helper functions ──────────────────────────────────────────────────── */
 
 function getModeAvailabilityLabel(preset: CorePresetState) {
   if (preset.availableCount > 0 && preset.waitingReviewCount > 0) {
@@ -894,13 +699,11 @@ function getAnchorLockMessage(params: {
   minRequired: number;
 }) {
   const { currentCount, minRequired } = params;
-
   return `Нужно минимум ${minRequired} ${pluralVerses(minRequired)} в статусах повторения или выученных. Сейчас доступно: ${currentCount}.`;
 }
 
 function getFlashcardLockMessage(currentCount: number) {
   if (currentCount > 0) return null;
-
   return "Для карточек нужен хотя бы один стих в изучении, повторении или выученных.";
 }
 
@@ -908,11 +711,9 @@ function getCoreLockMessage(selectedModes: CoreTrainingMode[]) {
   if (selectedModes.length === 1 && selectedModes[0] === "learning") {
     return "Для изучения пока нет стихов.";
   }
-
   if (selectedModes.length === 1 && selectedModes[0] === "review") {
     return "Для повторения пока нет стихов.";
   }
-
   return "Добавьте хотя бы один стих в изучение или дождитесь доступного повторения.";
 }
 
