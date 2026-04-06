@@ -23,6 +23,7 @@ import { cn } from "@/app/components/ui/utils";
 
 const loadVerseListModule = () => import("./components/VerseList");
 const loadProfileModule = () => import("./components/Profile");
+const loadCommunityModule = () => import("./components/Community");
 const loadTrainingModule = () => import("./components/Training");
 const loadDashboardModule = () => import("./components/Dashboard");
 const loadPlayerProfileDrawerModule = () => import("./components/PlayerProfileDrawer");
@@ -31,6 +32,7 @@ const ROOT_PAGE_MODULE_LOADERS: Record<AppRootPage, () => Promise<unknown>> = {
   dashboard: loadDashboardModule,
   verses: loadVerseListModule,
   training: loadTrainingModule,
+  community: loadCommunityModule,
   profile: loadProfileModule,
 };
 
@@ -38,6 +40,7 @@ const ROOT_PAGES: AppRootPage[] = [
   "dashboard",
   "verses",
   "training",
+  "community",
   "profile",
 ];
 
@@ -50,6 +53,13 @@ const VerseList = dynamic(() => loadVerseListModule().then((m) => m.VerseList), 
 const Profile = dynamic(() => loadProfileModule().then((m) => m.Profile), {
   loading: () => <div className="min-h-[60vh]" />,
 });
+
+const Community = dynamic(
+  () => loadCommunityModule().then((m) => m.Community),
+  {
+    loading: () => <div className="min-h-[60vh]" />,
+  }
+);
 
 const Training = dynamic(() => loadTrainingModule().then((m) => m.Training), {
   loading: () => <div className="min-h-[60vh]" />,
@@ -344,7 +354,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           isContentReady={!isBootstrapping}
           hideChrome={activeScreen === "training" && isTrainingSessionFullscreen}
           contentMode={
-            activeScreen === "dashboard"
+            activeScreen === "dashboard" || activeScreen === "community"
               ? "fit"
               : activeScreen === "training" || activeScreen === "verses"
                 ? "fit-strict"
@@ -428,6 +438,25 @@ export default function App({ onInitialContentReady }: AppProps) {
               </section>
             )}
 
+            {(shouldKeepRootPagesAlive || activeScreen === "community") && (
+              <section
+                aria-hidden={activeScreen !== "community"}
+                className={cn(
+                  "h-full min-h-0",
+                  activeScreen === "community"
+                    ? "relative"
+                    : "pointer-events-none absolute inset-0 overflow-hidden opacity-0",
+                )}
+              >
+                <Community
+                  telegramId={telegramId}
+                  onFriendsChanged={handleFriendsChanged}
+                  onOpenPlayerProfile={handleOpenPlayerProfile}
+                  friendsRefreshVersion={friendsRefreshVersion}
+                />
+              </section>
+            )}
+
             {(shouldKeepRootPagesAlive || activeScreen === "profile") && (
               <section
                 aria-hidden={activeScreen !== "profile"}
@@ -443,9 +472,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                   onToggleTheme={handleToggleTheme}
                   telegramId={telegramId}
                   currentUserAvatarUrl={currentUserAvatarUrl}
-                  onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
-                  friendsRefreshVersion={friendsRefreshVersion}
                 />
               </section>
             )}

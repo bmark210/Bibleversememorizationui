@@ -6,6 +6,7 @@ import {
   Dumbbell,
   LayoutDashboard,
   User,
+  Users,
 } from "lucide-react";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
@@ -27,6 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
   dashboard: "Главная",
   verses: "Стихи",
   training: "Тренировка",
+  community: "Сообщество",
   profile: "Профиль",
 };
 
@@ -34,6 +36,7 @@ const DEFAULT_NAV_ITEMS = [
   { id: "dashboard", label: "Главная", icon: LayoutDashboard },
   { id: "verses", label: "Стихи", icon: BookOpen },
   { id: "training", label: "Тренировка", icon: Dumbbell },
+  { id: "community", label: "Сообщество", icon: Users },
   { id: "profile", label: "Профиль", icon: User },
 ] as const;
 
@@ -59,6 +62,7 @@ export function Layout({
   const isFitContent = contentMode === "fit" || contentMode === "fit-strict";
   const isFitStrict = contentMode === "fit-strict";
   const navItems = DEFAULT_NAV_ITEMS;
+  const isExtendedNav = navItems.length > 4;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -264,8 +268,11 @@ export function Layout({
       >
         <nav
           style={{ paddingBottom: `${Math.max(bottomInset, 20)}px` }}
-          className="flex justify-around border border-border-subtle bg-bg-overlay px-2.5 py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:px-2 narrow:py-2"
->
+          className={cn(
+            "flex justify-around border border-border-subtle bg-bg-overlay py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:py-2",
+            isExtendedNav ? "px-1.5 narrow:px-1.5" : "px-2.5 narrow:px-2",
+          )}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -280,14 +287,24 @@ export function Layout({
                 onTouchStart={() => handleNavigateIntent(item.id)}
                 onClick={() => handleNavigateClick(item.id)}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] px-2.5 py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:px-2 narrow:py-1.5",
+                  "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:py-1.5",
+                  isExtendedNav
+                    ? "px-1.5 narrow:px-1"
+                    : "px-2.5 narrow:px-2",
                   isActive
                     ? "bg-bg-elevated border border-border text-brand-primary shadow-[var(--shadow-soft)]"
                     : "text-text-muted",
                 )}
               >
                 <Icon className="h-6 w-6 narrow:h-[1.1rem] narrow:w-[1.1rem]" />
-                <span className="text-xs font-medium narrow:text-[11px]">
+                <span
+                  className={cn(
+                    "max-w-full truncate font-medium leading-none",
+                    isExtendedNav
+                      ? "text-[10px] narrow:text-[9px]"
+                      : "text-xs narrow:text-[11px]",
+                  )}
+                >
                   {item.label}
                 </span>
               </button>
