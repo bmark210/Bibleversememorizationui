@@ -29,11 +29,9 @@ import {
   GRID_GAP,
   HEADING_MB,
   HEADING_TEXT,
-  HERO_SUBTITLE,
   HERO_TEXT,
   RANK_BADGE,
   ROW_AVATAR,
-  // ROW_DETAIL,
   ROW_GAP,
   ROW_NAME,
   ROW_PAD,
@@ -101,18 +99,6 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function pluralizeVerses(count: number) {
-  if (count % 10 === 1 && count % 100 !== 11) return "стих";
-  if (
-    count % 10 >= 2 &&
-    count % 10 <= 4 &&
-    (count % 100 < 10 || count % 100 >= 20)
-  ) {
-    return "стиха";
-  }
-  return "стихов";
 }
 
 function pluralizeDays(count: number) {
@@ -366,8 +352,6 @@ export const DashboardWelcomeSection = React.memo(
   function DashboardWelcomeSection({
     user,
     currentUserAvatarUrl,
-    learningVersesCount,
-    dueReviewVerses,
     onOpenTraining,
     onOpenCurrentUserProfile,
   }: DashboardWelcomeSectionProps) {
@@ -384,15 +368,6 @@ export const DashboardWelcomeSection = React.memo(
         setIsFirstAppVisit(false);
       }
     }, []);
-
-    const heroMessage =
-      dueReviewVerses > 0 && learningVersesCount > 0
-        ? `Сегодня: ${dueReviewVerses} к повторению • ${learningVersesCount} ${pluralizeVerses(learningVersesCount)} в изучении.`
-        : dueReviewVerses > 0
-          ? `Сегодня к повторению: ${dueReviewVerses} ${pluralizeVerses(dueReviewVerses)}.`
-          : learningVersesCount > 0
-            ? `В активной практике: ${learningVersesCount} ${pluralizeVerses(learningVersesCount)}.`
-            : "Откройте тренировку и выберите следующую сессию.";
 
     return (
       <DashboardSurface className="shrink-0 rounded-[1.7rem] sm:rounded-[1.9rem]">
@@ -442,15 +417,6 @@ export const DashboardWelcomeSection = React.memo(
                 С возвращением
               </h1>
             )}
-
-            <p
-              className={cn(
-                "mt-1.5 line-clamp-2 max-w-2xl text-text-secondary",
-                HERO_SUBTITLE,
-              )}
-            >
-              {heroMessage}
-            </p>
           </div>
 
           <Button
@@ -458,7 +424,7 @@ export const DashboardWelcomeSection = React.memo(
             size="lg"
             haptic="medium"
             onClick={onOpenTraining}
-            className={cn(CTA_BUTTON, "shadow-[var(--shadow-floating)]")}
+            className={cn(CTA_BUTTON, "shadow-[var(--shadow-floating)] mt-2")}
           >
             <Dumbbell className="h-4 w-4" />
             Тренировка
