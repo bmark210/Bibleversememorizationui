@@ -42,7 +42,6 @@ import { toast } from "@/app/lib/toast";
 import { isAdminTelegramId } from "@/lib/admins";
 import { publicApiUrl } from "@/lib/publicApiBase";
 import {
-  MAX_EXTERNAL_VERSE_RANGE_SIZE,
   formatParsedExternalVerseReference,
   toCanonicalExternalVerseId,
   type ParsedExternalVerseId,
@@ -224,23 +223,11 @@ export function AddVerseDialog({
   const selectedBookId = toInt(bookId);
   const selectedChapterNo = toInt(chapterNo);
   const verseStartValue = toInt(verseStartNo);
-  const verseEndValue = toInt(verseEndNo);
-  const effectiveVerseEndValue = verseEndValue ?? verseStartValue;
   const verseOptionsCount = verseCount ?? 176;
-  const maxVerseEndForStart =
-    verseStartValue === null
-      ? null
-      : Math.min(
-          verseOptionsCount,
-          verseStartValue + MAX_EXTERNAL_VERSE_RANGE_SIZE - 1
-        );
   const isCanonicalBookSelected =
     selectedBookId !== null && selectedBookId <= BibleBook.Revelation;
-  const hasValidRange =
-    verseStartValue !== null &&
-    effectiveVerseEndValue !== null &&
-    effectiveVerseEndValue >= verseStartValue &&
-    effectiveVerseEndValue - verseStartValue + 1 <= MAX_EXTERNAL_VERSE_RANGE_SIZE;
+  // Диапазоны отключены — достаточно выбрать один стих
+  const hasValidRange = verseStartValue !== null;
   const canFetch = Boolean(isCanonicalBookSelected && selectedChapterNo && hasValidRange);
   const canSubmit = Boolean(selectedVerse && !submitting);
   const newTagSlug = slugify(newTagTitle);
@@ -681,17 +668,10 @@ export function AddVerseDialog({
     const bid = toInt(bookId);
     const ch = toInt(chapterNo);
     const verseStart = toInt(verseStartNo);
-    const verseEnd = toInt(verseEndNo) ?? verseStart;
-    if (!bid || bid > BibleBook.Revelation || !ch || !verseStart || !verseEnd) {
-      setFetchError("Выберите каноническую книгу, главу и стих «от»");
-      return;
-    }
-    if (verseEnd < verseStart) {
-      setFetchError("Конец диапазона не может быть раньше начала.");
-      return;
-    }
-    if (verseEnd - verseStart + 1 > MAX_EXTERNAL_VERSE_RANGE_SIZE) {
-      setFetchError(`Диапазон может содержать максимум ${MAX_EXTERNAL_VERSE_RANGE_SIZE} стихов.`);
+    // Диапазоны отключены — всегда одиночный стих
+    const verseEnd = verseStart;
+    if (!bid || bid > BibleBook.Revelation || !ch || !verseStart) {
+      setFetchError("Выберите каноническую книгу, главу и стих");
       return;
     }
 
@@ -1227,7 +1207,7 @@ export function AddVerseDialog({
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                      Стих от
+                      Стих
                       {verseCountLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/60" />}
                     </Label>
                     <Select
@@ -1235,22 +1215,6 @@ export function AddVerseDialog({
                       value={verseStartNo}
                       onValueChange={(v) => {
                         setVerseStartNo(v);
-                        const nextStart = toInt(v);
-                        const nextEnd = toInt(verseEndNo);
-                        if (!nextStart) {
-                          setVerseEndNo("");
-                        } else if (nextEnd !== null) {
-                          const nextMaxEnd = Math.min(
-                            verseOptionsCount,
-                            nextStart + MAX_EXTERNAL_VERSE_RANGE_SIZE - 1
-                          );
-                          if (
-                            nextEnd < nextStart ||
-                            nextEnd > nextMaxEnd
-                          ) {
-                            setVerseEndNo("");
-                          }
-                        }
                         setSelectedVerse(null);
                         setVerseTagsLoaded(false);
                       }}
@@ -1267,38 +1231,7 @@ export function AddVerseDialog({
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">до (опц.)</Label>
-                    <Select
-                      name="verse-end-select"
-                      value={verseEndNo}
-                      onValueChange={(v) => {
-                        setVerseEndNo(v);
-                        setSelectedVerse(null);
-                        setVerseTagsLoaded(false);
-                      }}
-                      disabled={!chapterNo || verseStartValue === null}
-                    >
-                      <SelectTrigger className={SOFT_SELECT_TRIGGER_CLASS}>
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" className={SOFT_SELECT_CONTENT_CLASS}>
-                        {chapterNo && verseStartValue !== null && maxVerseEndForStart !== null &&
-                          Array.from(
-                            { length: Math.max(0, maxVerseEndForStart - verseStartValue + 1) },
-                            (_, i) => verseStartValue + i
-                          ).map((verseNo) => (
-                            <SelectItem key={verseNo} value={String(verseNo)}>
-                              {verseNo}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground/70">
-                  Можно выбрать до {MAX_EXTERNAL_VERSE_RANGE_SIZE} стихов в одном отрывке.
-                </p>
 
                 <Button
                   type="button"
@@ -1308,7 +1241,7 @@ export function AddVerseDialog({
                   className="w-full gap-2 rounded-xl bg-input-background text-foreground/75"
                 >
                   {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {fetchLoading ? "Загружаем..." : "Загрузить отрывок"}
+                  {fetchLoading ? "Загружаем..." : "Загрузить стих"}
                 </Button>
 
                 {fetchError && (
@@ -1323,7 +1256,7 @@ export function AddVerseDialog({
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-                      {selectedVerse.verseStart === selectedVerse.verseEnd ? "Выбранный стих" : "Выбранный отрывок"}
+                      Выбранный стих
                     </span>
                     <button
                       type="button"

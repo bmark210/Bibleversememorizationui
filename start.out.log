@@ -1,0 +1,10 @@
+
+> @figma/my-make-file@0.0.1 start
+> next start --hostname 0.0.0.0
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:4321
+  - Network:      http://0.0.0.0:4321
+
+ ✓ Starting...
+ ✓ Ready in 509ms

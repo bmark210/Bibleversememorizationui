@@ -1,11 +1,8 @@
 import { z } from "zod";
-import {
-  canonicalizeExternalVerseId,
-  MAX_EXTERNAL_VERSE_RANGE_SIZE,
-} from "@/shared/bible/externalVerseId";
+import { canonicalizeExternalVerseId } from "@/shared/bible/externalVerseId";
 
 const externalVerseIdValidationMessage =
-  `externalVerseId must be in format "book-chapter-verse" or "book-chapter-verseStart-verseEnd" with range up to ${MAX_EXTERNAL_VERSE_RANGE_SIZE} verses`;
+  `externalVerseId must be in format "book-chapter-verse" (single verse only, ranges are no longer supported)`;
 
 export const putVerseSchema = z.object({
   telegramId: z.string().trim().min(1, "telegramId is required"),

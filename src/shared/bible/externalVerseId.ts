@@ -1,4 +1,6 @@
-export const MAX_EXTERNAL_VERSE_RANGE_SIZE = 5;
+// MAX_EXTERNAL_VERSE_RANGE_SIZE = 1 запрещает создание диапазонов стихов.
+// Миграция 014 разбила все существующие диапазоны на отдельные стихи.
+export const MAX_EXTERNAL_VERSE_RANGE_SIZE = 1;
 
 export type ParsedExternalVerseId = {
   book: number;
