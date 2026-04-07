@@ -229,7 +229,6 @@ function DashboardFullscreenSafeHeader() {
 
   return (
     <div
-      aria-hidden="true"
       className="border-b border-border-subtle bg-bg-overlay/95 backdrop-blur-2xl"
       style={{ paddingTop: `${contentSafeAreaInset.top}px` }}
     >
@@ -276,6 +275,7 @@ function DashboardFullscreenDialog({
                     variant="outline"
                     size="sm"
                     className="h-10 rounded-full px-3 sm:px-4"
+                    autoFocus
                   >
                     <X className="h-4 w-4" />
                     <span className="hidden sm:inline">Закрыть</span>
@@ -894,7 +894,10 @@ export const DashboardLeaderboardCard = React.memo(
         leaderboard?.currentUser ?? null,
       );
     const [isShowMePending, setIsShowMePending] = React.useState(false);
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [isDialogOpen, setIsDialogOpenState] = React.useState(false);
+    const setIsDialogOpen = React.useCallback((open: boolean) => {
+      setIsDialogOpenState(open);
+    }, []);
     const windowSize = Math.max(1, LEADERBOARD_WINDOW_SIZE);
 
     const mergeWindowIntoState = React.useCallback(
@@ -1431,7 +1434,10 @@ export const DashboardFriendsActivityCard = React.memo(
     currentTelegramId = null,
     onOpenPlayerProfile,
   }: DashboardFriendsActivityCardProps) {
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [isDialogOpen, setIsDialogOpenState] = React.useState(false);
+    const setIsDialogOpen = React.useCallback((open: boolean) => {
+      setIsDialogOpenState(open);
+    }, []);
     const dialogVirtuosoRef = React.useRef<VirtuosoHandle | null>(null);
     const loadedOffsetsRef = React.useRef<Set<number>>(new Set());
     const pendingOffsetsRef = React.useRef<Set<number>>(new Set());
@@ -1613,6 +1619,7 @@ export const DashboardFriendsActivityCard = React.memo(
               className="h-8 w-8 shrink-0 rounded-full p-0"
               onClick={(e) => {
                 e.stopPropagation();
+                (document.activeElement as HTMLElement)?.blur();
                 setIsDialogOpen(true);
               }}
               aria-label="Открыть активность друзей"

@@ -366,6 +366,7 @@ export default function App({ onInitialContentReady }: AppProps) {
               <section
                 aria-busy={isBootstrapping}
                 aria-hidden={activeScreen !== "dashboard"}
+                {...(activeScreen !== "dashboard" ? ({ inert: "" } as unknown as React.HTMLAttributes<HTMLElement>) : {})}
                 className={cn(
                   "h-full min-h-0",
                   activeScreen === "dashboard"
@@ -394,6 +395,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             {(shouldKeepRootPagesAlive || activeScreen === "verses") && (
               <section
                 aria-hidden={activeScreen !== "verses"}
+                {...(activeScreen !== "verses" ? ({ inert: "" } as unknown as React.HTMLAttributes<HTMLElement>) : {})}
                 className={cn(
                   "h-full min-h-0",
                   activeScreen === "verses"
@@ -441,6 +443,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             {(shouldKeepRootPagesAlive || activeScreen === "community") && (
               <section
                 aria-hidden={activeScreen !== "community"}
+                {...(activeScreen !== "community" ? ({ inert: "" } as unknown as React.HTMLAttributes<HTMLElement>) : {})}
                 className={cn(
                   "h-full min-h-0",
                   activeScreen === "community"
@@ -460,6 +463,7 @@ export default function App({ onInitialContentReady }: AppProps) {
             {(shouldKeepRootPagesAlive || activeScreen === "profile") && (
               <section
                 aria-hidden={activeScreen !== "profile"}
+                {...(activeScreen !== "profile" ? ({ inert: "" } as unknown as React.HTMLAttributes<HTMLElement>) : {})}
                 className={cn(
                   "h-full min-h-0",
                   activeScreen === "profile"
