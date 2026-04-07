@@ -10,7 +10,7 @@ import {
   updateTrainingAttemptProgress,
 } from "./hintEngine";
 
-test("next_word assist in learning caps rating at 2, excludes Забыл", () => {
+test("next_word assist in learning caps rating at 0 (сложно only)", () => {
   const baseAttempt = createTrainingAttempt({
     key: "verse-1:7",
     modeId: TrainingModeId.FullRecall,
@@ -38,8 +38,8 @@ test("next_word assist in learning caps rating at 2, excludes Забыл", () =>
   assert.equal(result.content.kind, "content_reveal");
   assert.equal(result.content.variant, "next_word");
   assert.equal(result.content.text, "я");
-  assert.equal(result.attempt.ratingPolicy.maxRating, 2);
-  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [1, 2]);
+  assert.equal(result.attempt.ratingPolicy.maxRating, 0);
+  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [0]);
 });
 
 test("HARD difficulty allows 3 next_word uses", () => {
@@ -173,7 +173,7 @@ test("completed attempt rejects show verse because it is already awaiting rating
   });
 });
 
-test("show verse keeps attempt active and caps rating at 1", () => {
+test("show verse keeps attempt active and caps rating at 0 (any assist = сложно only)", () => {
   const attempt = createTrainingAttempt({
     key: "verse-1:3",
     modeId: TrainingModeId.ClickWordsNoHints,
@@ -191,8 +191,8 @@ test("show verse keeps attempt active and caps rating at 1", () => {
 
   assert.equal(result.attempt.status, "active");
   assert.equal(result.attempt.flowState, "active");
-  assert.equal(result.attempt.ratingPolicy.maxRating, 1);
-  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [0, 1]);
+  assert.equal(result.attempt.ratingPolicy.maxRating, 0);
+  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [0]);
   assert.equal(result.content.variant, "full_text_preview");
   assert.equal(result.content.durationSeconds, 12);
   assert.equal(result.content.text, "Все Писание богодухновенно и полезно");
@@ -256,7 +256,7 @@ test("show verse does not consume next_word assist slots", () => {
   assert.equal(nextWord.content.variant, "next_word");
 });
 
-test("review next_word assist caps rating at 1", () => {
+test("review next_word assist caps rating at 0 (сложно only)", () => {
   const baseAttempt = createTrainingAttempt({
     key: "verse-1:11",
     modeId: TrainingModeId.FullRecall,
@@ -282,6 +282,6 @@ test("review next_word assist caps rating at 1", () => {
   if (result.kind !== "applied") return;
 
   assert.equal(result.content.kind, "content_reveal");
-  assert.equal(result.attempt.ratingPolicy.maxRating, 1);
-  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [1]);
+  assert.equal(result.attempt.ratingPolicy.maxRating, 0);
+  assert.deepEqual(result.attempt.ratingPolicy.allowedRatings, [0]);
 });

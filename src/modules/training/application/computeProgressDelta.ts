@@ -3,7 +3,6 @@ import {
   MASTERY_MIN,
   RATING_MASTERY_DELTAS,
   REVIEW_FAIL_RETRY_MINUTES,
-  REVIEW_HINT_RETRY_MINUTES,
   REVIEW_INTERVALS_DAYS,
   REVIEW_REPETITIONS_MAX,
   MAINTENANCE_REVIEW_DAYS,
@@ -18,7 +17,7 @@ import { clamp } from "@/shared/utils/clamp";
 import { TrainingModeId } from "@/modules/training/domain/TrainingMode";
 import type { RatingValue } from "@/modules/training/domain/VerseProgress";
 
-const REVIEW_SUCCESS_RATING_MIN = 2;
+const REVIEW_SUCCESS_RATING_MIN = 1;
 
 function getScoreMultiplier(score: number): number {
   if (score >= 92) return 1.25;
@@ -139,15 +138,7 @@ export function computeReviewResult(
     };
   }
 
-  if (rating === 1) {
-    return {
-      repetitions,
-      reviewLapseStreak: 0,
-      nextReviewAt: new Date(now.getTime() + REVIEW_HINT_RETRY_MINUTES * 60 * 1000),
-      reviewWasSuccessful: false,
-    };
-  }
-
+  // rating === 0: сложно — failed review
   // Late-stage review (reps 4+): no repetition penalty, just 6h retry.
   // User has proven long-term retention — harsh rollback is demoralizing.
   if (repetitions >= REVIEW_LATE_STAGE_THRESHOLD) {

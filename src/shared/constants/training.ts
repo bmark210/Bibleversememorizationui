@@ -3,15 +3,13 @@ export const MASTERY_MIN = 0;
 export const REVIEW_REPETITIONS_MAX = 7;
 export const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60, 90] as const;
 export const REVIEW_FAIL_RETRY_MINUTES = 360;
-export const REVIEW_HINT_RETRY_MINUTES = 24 * 60;
 export const REVIEW_LAPSE_STREAK_THRESHOLD = 2;
-export const REVIEW_LAPSE_HINT_STRIKE = 1;
 export const REVIEW_LAPSE_FAIL_STRIKE = 2;
-export const REVIEW_LAPSE_HINT_REPETITION_PENALTY = 1;
 export const REVIEW_LAPSE_FAIL_REPETITION_PENALTY = 2;
 /** Repetitions 4+ are "late stage" — softer penalties, no hints, no "Забыл". */
 export const REVIEW_LATE_STAGE_THRESHOLD = 4;
-export const TRAINING_SCORE_BY_RATING = { 0: 35, 1: 60, 2: 84, 3: 96 } as const;
+// -1: забыл | 0: сложно | 1: далее
+export const TRAINING_SCORE_BY_RATING = { [-1]: 35, [0]: 60, [1]: 84 } as const;
 export const SPACED_REPETITION_MS_BY_STAGE = {
   0: 10 * 60 * 1000,
   1: 60 * 60 * 1000,
@@ -25,7 +23,8 @@ export const SPACED_REPETITION_MS_BY_STAGE = {
 export const REFERENCE_BIAS_THRESHOLD = 8;
 export const REFERENCE_POOL_SIZE = 12;
 export const RECALL_SIMILARITY_THRESHOLD = 0.8;
-export const RATING_MASTERY_DELTAS = { 0: -1, 1: 0, 2: 1, 3: 2 } as const;
+// -1: mastery-1, 0: mastery unchanged, 1: mastery+1
+export const RATING_MASTERY_DELTAS = { [-1]: -1, [0]: 0, [1]: 1 } as const;
 export const TRAINING_MODE_RESET_ERRORS = 5;
 export const TRAINING_MODE_ID_MIN = 1;
 export const TRAINING_MODE_ID_MAX = 8;

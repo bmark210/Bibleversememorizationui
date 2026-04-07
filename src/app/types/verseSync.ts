@@ -11,6 +11,7 @@ export type VerseMutablePatch = {
   masteryLevel?: number | null;
   repetitions?: number | null;
   reviewLapseStreak?: number | null;
+  lastTrainingModeId?: number | null;
   lastReviewedAt?: string | Date | null;
   nextReviewAt?: string | Date | null;
   updatedAt?: string | Date | null;

@@ -2,7 +2,6 @@ import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
   TRAINING_MODE_PROGRESS_ORDER,
   TrainingModeId,
-  isLearnEasyRatingAllowed,
 } from "@/shared/training/modeEngine";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { HintRatingPolicy } from "@/modules/training/hints/types";
@@ -30,7 +29,7 @@ export type TrainingResultState = {
   ratingStage: TrainingResultRatingStage;
   ratingPolicy: HintRatingPolicy | null;
   currentTrainingModeId: TrainingModeId | null;
-  allowEasySkip: boolean;
+
 };
 
 export type TrainingCommitToastKind =
@@ -154,7 +153,6 @@ export function buildExerciseResultState(params: {
       ratingStage,
       ratingPolicy: params.ratingPolicy ?? null,
       currentTrainingModeId,
-      allowEasySkip: false,
     };
   }
 
@@ -172,9 +170,6 @@ export function buildExerciseResultState(params: {
       ratingStage,
       ratingPolicy: params.ratingPolicy ?? null,
       currentTrainingModeId,
-      allowEasySkip:
-        ratingStage === "learning" &&
-        isLearnEasyRatingAllowed(currentTrainingModeId),
     };
   }
 
@@ -191,9 +186,6 @@ export function buildExerciseResultState(params: {
     ratingStage,
     ratingPolicy: params.ratingPolicy ?? null,
     currentTrainingModeId,
-    allowEasySkip:
-      ratingStage === "learning" &&
-      isLearnEasyRatingAllowed(currentTrainingModeId),
   };
 }
 

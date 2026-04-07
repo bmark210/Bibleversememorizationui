@@ -8,7 +8,6 @@ type CurrentTrainingModeParams = {
   status: string;
   masteryLevel: number;
   repetitionsCount: number;
-  lastTrainingModeId?: TrainingModeId | null;
 };
 
 export function getTrainingModeMeta(
@@ -22,13 +21,11 @@ export function getCurrentTrainingModeId({
   status,
   masteryLevel,
   repetitionsCount,
-  lastTrainingModeId = null,
 }: CurrentTrainingModeParams): TrainingModeId | null {
   if (status === VerseStatus.LEARNING || status === "REVIEW") {
     return chooseTrainingMode({
       masteryLevel,
       repetitions: repetitionsCount,
-      lastTrainingModeId,
     });
   }
 

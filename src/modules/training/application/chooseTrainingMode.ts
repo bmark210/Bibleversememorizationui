@@ -7,14 +7,12 @@ import { TrainingModeId } from "@/modules/training/domain/TrainingMode";
 export function chooseTrainingMode(params: {
   masteryLevel: number;
   repetitions: number;
-  lastTrainingModeId: TrainingModeId | null;
 }): TrainingModeId {
-  const { masteryLevel, repetitions, lastTrainingModeId } = params;
+  const { masteryLevel, repetitions } = params;
 
   return chooseTrainingModeId({
     rawMasteryLevel: masteryLevel,
     stageMasteryLevel: toTrainingStageMasteryLevel(masteryLevel),
     repetitions,
-    lastModeId: lastTrainingModeId,
   });
 }

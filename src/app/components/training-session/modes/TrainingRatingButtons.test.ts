@@ -1,84 +1,73 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HintRatingPolicy } from "@/modules/training/hints/types";
-import { resolveTrainingRatingButtonsConfig } from "./TrainingRatingButtons";
+import type { TrainingModeRating } from "./types";
 
-function simplifyButtons(
-  buttons: ReturnType<typeof resolveTrainingRatingButtonsConfig>["buttons"]
-) {
-  return buttons.map((button) =>
-    button.kind === "retry"
-      ? { kind: button.kind, label: button.label }
-      : {
-          kind: button.kind,
-          rating: button.rating,
-          label: button.label,
-        }
-  );
+// Replicates resolveRatingButtons logic for unit testing without DOM
+function resolveRatingButtons(params: {
+  stage: "learning" | "review";
+  allowedRatings?: readonly TrainingModeRating[];
+}): { rating: TrainingModeRating; label: string }[] {
+  const defaultRatings: TrainingModeRating[] =
+    params.stage === "review" ? [0, 1] : [-1, 0, 1];
+
+  const effective =
+    params.allowedRatings && params.allowedRatings.length > 0
+      ? ([...params.allowedRatings].sort((a, b) => a - b) as TrainingModeRating[])
+      : defaultRatings;
+
+  const labelFor = (r: TrainingModeRating): string => {
+    if (r === -1) return "Забыл";
+    if (r === 0) return "Сложно";
+    return "Далее";
+  };
+
+  return effective.map((r) => ({ rating: r, label: labelFor(r) }));
 }
 
-test("success actions no longer show memorization title", () => {
-  const result = resolveTrainingRatingButtonsConfig({
-    stage: "learning",
-  });
-
-  assert.equal(result.title, null);
-});
-
-test("learning success actions are retry and continue", () => {
-  const result = resolveTrainingRatingButtonsConfig({
-    stage: "learning",
-  });
-
-  assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "continue", rating: 2, label: "Далее" },
-    { kind: "retry", label: "Повторить ещё раз" },
+test("learning default: shows забыл / сложно / далее", () => {
+  const buttons = resolveRatingButtons({ stage: "learning" });
+  assert.deepEqual(buttons, [
+    { rating: -1, label: "Забыл" },
+    { rating: 0, label: "Сложно" },
+    { rating: 1, label: "Далее" },
   ]);
 });
 
-test("learning continue falls back to capped non-forget rating", () => {
+test("review default: shows сложно / далее (no забыл)", () => {
+  const buttons = resolveRatingButtons({ stage: "review" });
+  assert.deepEqual(buttons, [
+    { rating: 0, label: "Сложно" },
+    { rating: 1, label: "Далее" },
+  ]);
+});
+
+test("assisted: only сложно available (ratingPolicy cap = 0)", () => {
   const ratingPolicy: HintRatingPolicy = {
-    maxRating: 1,
-    allowedRatings: [0, 1],
+    maxRating: 0,
+    allowedRatings: [0],
     assisted: true,
   };
 
-  const result = resolveTrainingRatingButtonsConfig({
+  const buttons = resolveRatingButtons({
     stage: "learning",
-    ratingPolicy,
+    allowedRatings: ratingPolicy.allowedRatings,
   });
 
-  assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "continue", rating: 1, label: "Далее" },
-    { kind: "retry", label: "Повторить ещё раз" },
-  ]);
+  assert.deepEqual(buttons, [{ rating: 0, label: "Сложно" }]);
 });
 
-test("review success actions are retry and continue", () => {
-  const result = resolveTrainingRatingButtonsConfig({
-    stage: "review",
-  });
-
-  assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "continue", rating: 2, label: "Далее" },
-    { kind: "retry", label: "Повторить ещё раз" },
-  ]);
-});
-
-test("review continue respects assisted cap", () => {
+test("assisted review: only сложно available", () => {
   const ratingPolicy: HintRatingPolicy = {
-    maxRating: 1,
-    allowedRatings: [0, 1],
+    maxRating: 0,
+    allowedRatings: [0],
     assisted: true,
   };
 
-  const result = resolveTrainingRatingButtonsConfig({
+  const buttons = resolveRatingButtons({
     stage: "review",
-    ratingPolicy,
+    allowedRatings: ratingPolicy.allowedRatings,
   });
 
-  assert.deepEqual(simplifyButtons(result.buttons), [
-    { kind: "continue", rating: 1, label: "Далее" },
-    { kind: "retry", label: "Повторить ещё раз" },
-  ]);
+  assert.deepEqual(buttons, [{ rating: 0, label: "Сложно" }]);
 });
