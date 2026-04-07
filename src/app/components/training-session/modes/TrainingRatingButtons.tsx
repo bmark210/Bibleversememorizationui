@@ -5,124 +5,64 @@ import type { TrainingModeRating } from './types';
 import type { HintRatingPolicy } from '@/modules/training/hints/types';
 
 export type TrainingRatingStage = 'learning' | 'review';
-export type TrainingRatingMode =
-  | 'default'
-  | 'first-letters'
-  | 'full-recall'
-  | 'voice-recall';
 
 type TrainingRatingButtonsProps = {
   stage: TrainingRatingStage;
-  mode?: TrainingRatingMode;
   onRate: (rating: TrainingModeRating) => void;
   onRetryCurrentExercise?: () => void;
-  maxRating?: TrainingModeRating;
-  allowedRatings?: readonly TrainingModeRating[];
   ratingPolicy?: HintRatingPolicy;
-  allowEasySkip?: boolean;
-  excludeForget?: boolean;
-  lateStageReview?: boolean;
+  footerMode?: 'default' | 'retry-only';
   disabled?: boolean;
 };
 
-type RetryButtonMeta = {
-  kind: 'retry';
-  label: string;
-  className: string;
-};
+export type ResolvedTrainingRatingButton = { kind: 'rate'; rating: TrainingModeRating; label: string; className: string };
 
-type ContinueButtonMeta = {
-  kind: 'continue';
-  rating: TrainingModeRating;
-  label: string;
-  className: string;
-};
-
-export type ResolvedTrainingRatingButton =
-  | RetryButtonMeta
-  | ContinueButtonMeta;
-
-const RETRY_BUTTON_CLASS =
+const FORGET_BUTTON_CLASS =
+  'rounded-[1.15rem] border border-destructive/25 bg-destructive/10 p-3 text-destructive shadow-[var(--shadow-soft)] hover:bg-destructive/15';
+const HARD_BUTTON_CLASS =
   'rounded-[1.15rem] border border-status-paused/25 bg-status-paused-soft p-3 text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft';
 const CONTINUE_BUTTON_CLASS =
   'rounded-[1.15rem] border border-status-mastered/25 bg-status-mastered-soft p-3 text-status-mastered shadow-[var(--shadow-soft)] hover:bg-status-mastered-soft';
-
-function resolveAllowedContinueRatings(params: {
-  stage: TrainingRatingStage;
-  maxRating?: TrainingModeRating;
-  allowedRatings?: readonly TrainingModeRating[];
-  ratingPolicy?: HintRatingPolicy;
-}): TrainingModeRating[] {
-  const effectiveMaxRating = Math.min(params.ratingPolicy?.maxRating ?? params.maxRating ?? 3, 2);
-  const policyAllowedRatings = params.ratingPolicy?.allowedRatings ?? params.allowedRatings ?? null;
-  const ratingCeiling = params.stage === 'review' ? 2 : 2;
-
-  if (policyAllowedRatings && policyAllowedRatings.length > 0) {
-    const filtered = policyAllowedRatings.filter(
-      (rating): rating is TrainingModeRating =>
-        rating !== 0 && rating <= effectiveMaxRating && rating <= ratingCeiling
-    );
-    if (filtered.length > 0) {
-      return [...filtered].sort((left, right) => right - left);
-    }
-  }
-
-  if (effectiveMaxRating <= 1) {
-    return [1];
-  }
-
-  return [2, 1];
-}
-
-function resolveContinueRating(params: {
-  stage: TrainingRatingStage;
-  maxRating?: TrainingModeRating;
-  allowedRatings?: readonly TrainingModeRating[];
-  ratingPolicy?: HintRatingPolicy;
-}): TrainingModeRating {
-  return resolveAllowedContinueRatings(params)[0] ?? 1;
-}
+const RETRY_BUTTON_CLASS =
+  'rounded-[1.15rem] border border-status-paused/25 bg-status-paused-soft p-3 text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft';
 
 export function resolveTrainingRatingStage(status: string | null | undefined): TrainingRatingStage {
   const normalized = String(status ?? '').toUpperCase();
   return normalized === 'REVIEW' || normalized === 'MASTERED' ? 'review' : 'learning';
 }
 
-export function resolveTrainingRatingButtonsConfig(params: {
+function resolveRatingButtons(params: {
   stage: TrainingRatingStage;
-  maxRating?: TrainingModeRating;
   allowedRatings?: readonly TrainingModeRating[];
-  ratingPolicy?: HintRatingPolicy;
-  allowEasySkip?: boolean;
-  excludeForget?: boolean;
-  lateStageReview?: boolean;
-}): {
-  title: string | null;
-  buttons: ResolvedTrainingRatingButton[];
-} {
-  const continueRating = resolveContinueRating({
-    stage: params.stage,
-    maxRating: params.maxRating,
-    allowedRatings: params.allowedRatings,
-    ratingPolicy: params.ratingPolicy,
-  });
+}): ResolvedTrainingRatingButton[] {
+  const { stage, allowedRatings } = params;
 
-  return {
-    title: null,
-    buttons: [
-      {
-        kind: 'retry',
-        label: 'Повторить ещё раз',
-        className: RETRY_BUTTON_CLASS,
-      },
-      {
-        kind: 'continue',
-        rating: continueRating,
-        label: 'Далее',
-        className: CONTINUE_BUTTON_CLASS,
-      },
-    ],
+  // Default allowed ratings per stage
+  const defaultRatings: TrainingModeRating[] =
+    stage === 'review' ? [0, 1] : [-1, 0, 1];
+
+  const effective = allowedRatings && allowedRatings.length > 0
+    ? [...allowedRatings].sort((a, b) => a - b) as TrainingModeRating[]
+    : defaultRatings;
+
+  const labelFor = (r: TrainingModeRating): string => {
+    if (r === -1) return 'Забыл';
+    if (r === 0) return 'Сложно';
+    return 'Далее';
   };
+
+  const classFor = (r: TrainingModeRating): string => {
+    if (r === -1) return FORGET_BUTTON_CLASS;
+    if (r === 0) return HARD_BUTTON_CLASS;
+    return CONTINUE_BUTTON_CLASS;
+  };
+
+  return effective.map((r) => ({
+    kind: 'rate' as const,
+    rating: r,
+    label: labelFor(r),
+    className: classFor(r),
+  }));
 }
 
 function gridClassName(count: number): string {
@@ -133,59 +73,45 @@ function gridClassName(count: number): string {
 
 export function TrainingRatingButtons({
   stage,
-  mode: _mode = 'default',
   onRate,
   onRetryCurrentExercise,
-  maxRating = 3,
-  allowedRatings,
   ratingPolicy,
-  allowEasySkip: _allowEasySkip = true,
-  excludeForget: _excludeForget = false,
-  lateStageReview: _lateStageReview = false,
+  footerMode = 'default',
   disabled = false,
 }: TrainingRatingButtonsProps) {
-  const { buttons, title } = resolveTrainingRatingButtonsConfig({
+  if (footerMode === 'retry-only') {
+    return (
+      <div className="grid grid-cols-1 gap-3">
+        <Button
+          onClick={() => onRetryCurrentExercise?.()}
+          className={RETRY_BUTTON_CLASS}
+          size="lg"
+          disabled={disabled}
+        >
+          Повторить ещё раз
+        </Button>
+      </div>
+    );
+  }
+
+  const buttons = resolveRatingButtons({
     stage,
-    maxRating,
-    allowedRatings,
-    ratingPolicy,
+    allowedRatings: ratingPolicy?.allowedRatings,
   });
 
   return (
-    <div className="space-y-3">
-      {title ? (
-        <p className="text-sm text-muted-foreground text-center">{title}</p>
-      ) : null}
-
-      <div className={gridClassName(buttons.length)}>
-        {buttons.map((button) => {
-          if (button.kind === 'retry') {
-            return (
-              <Button
-                key={`${stage}-retry`}
-                onClick={() => onRetryCurrentExercise?.()}
-                className={button.className}
-                size="lg"
-                disabled={disabled}
-              >
-                {button.label}
-              </Button>
-            );
-          }
-
-          return (
-            <Button
-              key={`${stage}-${button.rating}`}
-              onClick={() => onRate(button.rating)}
-              className={button.className}
-              size="lg"
-              disabled={disabled}
-            >
-              {button.label}
-            </Button>
-          );
-        })}
-      </div>
+    <div className={gridClassName(buttons.length)}>
+      {buttons.map((button) => (
+        <Button
+          key={`${stage}-${button.rating}`}
+          onClick={() => onRate(button.rating)}
+          className={button.className}
+          size="lg"
+          disabled={disabled}
+        >
+          {button.label}
+        </Button>
+      ))}
     </div>
   );
 }

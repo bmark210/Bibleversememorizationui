@@ -430,8 +430,8 @@ export function TrainingSession({
 
   /* ── Rating commit ── */
   const handleResultRating = useCallback(
-    async (rating: 0 | 1 | 2 | 3) => {
-      if (!localResult || rating === 0) return;
+    async (rating: -1 | 0 | 1) => {
+      if (!localResult) return;
       const outcome = await session.handleRate(
         rating,
         hintHelpers.hintState.attempt
@@ -732,9 +732,6 @@ export function TrainingSession({
                   onRate={(rating) => void handleResultRating(rating)}
                   onRetryCurrentExercise={handleRetryCurrentExercise}
                   ratingPolicy={localResult.ratingPolicy}
-                  allowEasySkip={localResult.allowEasySkip}
-                  excludeForget
-                  lateStageReview={isLateStage}
                   disabled={session.isActionPending}
                 />
               ) : (

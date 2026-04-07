@@ -50,11 +50,11 @@ function tokenizeHintWords(text: string): string[] {
     .filter((word) => /[\p{L}\p{N}]/u.test(word));
 }
 
-function buildAllowedRatings(maxRating: TrainingModeRating): TrainingModeRating[] {
+function buildAllowedRatings(maxRating: TrainingModeRating, phase: TrainingAttemptPhase): TrainingModeRating[] {
   if (maxRating <= 0) return [0];
-  if (maxRating === 1) return [0, 1];
-  if (maxRating === 2) return [0, 1, 2];
-  return [0, 1, 2, 3];
+  // maxRating === 1: no assist used
+  if (phase === "review") return [0, 1];
+  return [-1, 0, 1];
 }
 
 function countAssistUsesByVariant(
@@ -78,26 +78,18 @@ function getAssistKindForVariant(variant: AssistVariant): AssistKind {
 }
 
 function getRatingCapForAssist(
-  phase: TrainingAttemptPhase,
-  assist: Pick<AssistDecision, "kind" | "variant">
+  _phase: TrainingAttemptPhase,
+  _assist: Pick<AssistDecision, "kind" | "variant">
 ): TrainingModeRating {
-  if (assist.variant === "full_text_preview") {
-    return 1;
-  }
-
-  if (phase === "review") {
-    return assist.kind === "full_reveal" ? 0 : 1;
-  }
-
-  if (assist.kind === "content_reveal") return 2;
+  // Any assist means user needed help — maximum is 0 (сложно), cannot claim "далее"
   return 0;
 }
 
 function resolveInitialRatingPolicy(phase: TrainingAttemptPhase): HintRatingPolicy {
-  const maxRating = phase === "review" ? 2 : 3;
+  const maxRating: TrainingModeRating = 1;
   return {
     maxRating,
-    allowedRatings: buildAllowedRatings(maxRating),
+    allowedRatings: buildAllowedRatings(maxRating, phase),
     assisted: false,
   };
 }
@@ -106,28 +98,11 @@ export function resolveHintRatingPolicy(params: {
   phase: TrainingAttemptPhase;
   assistHistory: readonly Pick<AssistDecision, "kind" | "variant">[];
 }): HintRatingPolicy {
-  let maxRating: TrainingModeRating = params.phase === "review" ? 2 : 3;
-
-  for (const assist of params.assistHistory) {
-    maxRating = Math.min(
-      maxRating,
-      getRatingCapForAssist(params.phase, assist)
-    ) as TrainingModeRating;
-  }
-
   const assisted = params.assistHistory.length > 0;
-  const usedVersePeek = params.assistHistory.some(
-    (assist) => assist.variant === "full_text_preview"
-  );
-  let allowedRatings = buildAllowedRatings(maxRating);
 
-  // Next-word hints exclude "Забыл" because they are a guided continuation.
-  // Temporary full-verse peek is explicitly rated as [0, 1].
-  if (usedVersePeek) {
-    allowedRatings = allowedRatings.filter((r) => r <= 1) as TrainingModeRating[];
-  } else if (assisted && maxRating > 0) {
-    allowedRatings = allowedRatings.filter((r) => r > 0) as TrainingModeRating[];
-  }
+  // Any assist caps rating to 0 (сложно) — user cannot claim "далее" after receiving help
+  const maxRating: TrainingModeRating = assisted ? 0 : 1;
+  const allowedRatings = buildAllowedRatings(maxRating, params.phase);
 
   return {
     maxRating,

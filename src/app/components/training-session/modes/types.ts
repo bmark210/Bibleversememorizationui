@@ -2,7 +2,8 @@
 
 import { Verse } from "@/app/domain/verse";
 
-export type TrainingModeRating = 0 | 1 | 2 | 3;
+// -1: забыл (forgot, learning only) | 0: сложно (hard/repeat) | 1: далее (continue/advance)
+export type TrainingModeRating = -1 | 0 | 1;
 
 export interface TrainingModeProps {
   verse: Verse;

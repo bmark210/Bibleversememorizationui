@@ -1,6 +1,7 @@
 import { TRAINING_STAGE_MASTERY_MAX } from './constants';
 
-export type TrainingModeRating = 0 | 1 | 2 | 3;
+// -1: забыл (forgot, learning only) | 0: сложно (hard/repeat) | 1: далее (continue/advance)
+export type TrainingModeRating = -1 | 0 | 1;
 
 export enum TrainingModeId {
   ClickChunks = 1,
@@ -35,24 +36,12 @@ export const REVIEW_TRAINING_MODE_ROTATION: TrainingModeId[] = [
   TrainingModeId.FullRecall,         // rep 6: day 90
 ];
 
-export const TRAINING_MODE_SHIFT_BY_RATING: Record<TrainingModeRating, number> = {
-  0: -1,
-  1: 0,
-  2: 1,
-  3: 2,
+// Mode shift matches rating: -1→mode-1, 0→same mode, 1→mode+1
+export const TRAINING_MODE_SHIFT_BY_RATING: Record<number, number> = {
+  [-1]: -1,
+  [0]: 0,
+  [1]: 1,
 };
-
-/** In learning, «Легко» (rating 3) only for modes with index < this in TRAINING_MODE_PROGRESS_ORDER (first 3 modes). */
-export const TRAINING_LEARN_EASY_MAX_EXCLUSIVE_INDEX = 3;
-
-export function isLearnEasyRatingAllowed(
-  modeId: TrainingModeId | null | undefined
-): boolean {
-  if (modeId == null) return true;
-  const idx = TRAINING_MODE_PROGRESS_ORDER.indexOf(modeId);
-  if (idx < 0) return false;
-  return idx < TRAINING_LEARN_EASY_MAX_EXCLUSIVE_INDEX;
-}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -125,43 +114,19 @@ export function getReviewModeByRepetition(repetitions: number): TrainingModeId {
   return getReviewModeAt(index);
 }
 
+// Mode is deterministic from mastery/repetitions — no lastModeId needed.
 export function chooseTrainingModeId(params: {
   rawMasteryLevel: number;
   stageMasteryLevel: number;
   repetitions: number;
-  lastModeId: TrainingModeId | null;
 }): TrainingModeId {
-  const { rawMasteryLevel, stageMasteryLevel, repetitions, lastModeId } = params;
+  const { rawMasteryLevel, stageMasteryLevel, repetitions } = params;
 
   if (isTrainingReviewRawMastery(rawMasteryLevel)) {
     return getReviewModeByRepetition(repetitions);
   }
 
-  const base = getBaseTrainingModeForMastery(stageMasteryLevel);
-  const baseIndex = TRAINING_MODE_PROGRESS_ORDER.indexOf(base);
-  if (baseIndex < 0) return base;
-
-  const candidates: TrainingModeId[] = [];
-  for (let distance = 0; distance < TRAINING_MODE_PROGRESS_ORDER.length; distance += 1) {
-    const left = baseIndex - distance;
-    const right = baseIndex + distance;
-
-    if (left >= 0) {
-      const leftMode = getProgressModeAt(left);
-      if (leftMode !== null && !candidates.includes(leftMode)) {
-        candidates.push(leftMode);
-      }
-    }
-
-    if (distance > 0 && right < TRAINING_MODE_PROGRESS_ORDER.length) {
-      const rightMode = getProgressModeAt(right);
-      if (rightMode !== null && !candidates.includes(rightMode)) {
-        candidates.push(rightMode);
-      }
-    }
-  }
-
-  return candidates.find((modeId) => modeId !== lastModeId) ?? base;
+  return getBaseTrainingModeForMastery(stageMasteryLevel);
 }
 
 export function getRemainingTrainingModesCount(params: {

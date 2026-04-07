@@ -221,6 +221,7 @@ export function useTrainingSession({
         },
         patch: {
           status: authoritative.status,
+          flow: authoritative.raw.flow ?? null,
           masteryLevel: authoritative.rawMasteryLevel,
           repetitions: authoritative.repetitions,
           reviewLapseStreak: authoritative.reviewLapseStreak,
@@ -293,7 +294,7 @@ export function useTrainingSession({
         const isLearningVerse = current.status === VerseStatus.LEARNING;
         const cappedRating = Math.min(
           rating,
-          attempt?.ratingPolicy.maxRating ?? (wasReviewExercise ? 2 : 3)
+          attempt?.ratingPolicy.maxRating ?? 1
         ) as Rating;
 
         const telegramId = current.telegramId ?? getTelegramId();
@@ -416,9 +417,12 @@ export function useTrainingSession({
   }, [isActionPending, trainingIndex, trainingModeId, trainingVerses]);
 
   const confirmQuickForget = useCallback((attempt?: TrainingAttempt | null) => {
+    const current = trainingVerses[trainingIndex];
+    const isReview = current ? isTrainingReviewVerse(current) : false;
     setQuickForgetConfirmStage(null);
-    void handleRate(0, attempt);
-  }, [handleRate]);
+    // -1 (забыл) for learning, 0 (сложно) for review (no -1 in review)
+    void handleRate(isReview ? 0 : -1, attempt);
+  }, [handleRate, trainingIndex, trainingVerses]);
 
   const cancelQuickForget = useCallback(() => {
     setQuickForgetConfirmStage(null);

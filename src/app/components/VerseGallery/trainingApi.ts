@@ -25,7 +25,6 @@ export async function persistTrainingVerseProgress(
   verse: TrainingVerseState,
   options?: {
     includeRepetitions?: boolean;
-    reviewRating?: 0 | 1 | 2 | 3;
   }
 ): Promise<domain_UserVerse | null> {
   const telegramId = verse.telegramId ?? getTelegramId();
@@ -37,7 +36,6 @@ export async function persistTrainingVerseProgress(
     lastReviewedAt: verse.lastReviewedAt?.toISOString(),
     nextReviewAt: verse.nextReviewAt?.toISOString(),
     status: patchStatusForTrainingVerse(verse),
-    ...(verse.lastModeId != null ? { lastTrainingModeId: verse.lastModeId } : {}),
   };
   const response = await UserVersesService.patchUserVerse(
     telegramId,
