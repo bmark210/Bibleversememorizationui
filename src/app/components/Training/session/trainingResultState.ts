@@ -29,7 +29,6 @@ export type TrainingResultState = {
   ratingStage: TrainingResultRatingStage;
   ratingPolicy: HintRatingPolicy | null;
   currentTrainingModeId: TrainingModeId | null;
-
 };
 
 export type TrainingCommitToastKind =

@@ -11,7 +11,7 @@ type TrainingRatingButtonsProps = {
   onRate: (rating: TrainingModeRating) => void;
   onRetryCurrentExercise?: () => void;
   ratingPolicy?: HintRatingPolicy;
-  footerMode?: 'default' | 'retry-only';
+  footerMode?: 'default' | 'retry-only' | 'result-actions';
   disabled?: boolean;
 };
 
@@ -89,6 +89,29 @@ export function TrainingRatingButtons({
           disabled={disabled}
         >
           Повторить ещё раз
+        </Button>
+      </div>
+    );
+  }
+
+  if (footerMode === 'result-actions') {
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          onClick={() => onRetryCurrentExercise?.()}
+          className={RETRY_BUTTON_CLASS}
+          size="lg"
+          disabled={disabled}
+        >
+          Повторить
+        </Button>
+        <Button
+          onClick={() => onRate(1)}
+          className={CONTINUE_BUTTON_CLASS}
+          size="lg"
+          disabled={disabled}
+        >
+          Далее
         </Button>
       </div>
     );

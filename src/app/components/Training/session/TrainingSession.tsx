@@ -732,6 +732,7 @@ export function TrainingSession({
                   onRate={(rating) => void handleResultRating(rating)}
                   onRetryCurrentExercise={handleRetryCurrentExercise}
                   ratingPolicy={localResult.ratingPolicy}
+                  footerMode="result-actions"
                   disabled={session.isActionPending}
                 />
               ) : (
