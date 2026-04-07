@@ -7,7 +7,7 @@
     "dev": "next dev --turbo --hostname 0.0.0.0 --port 3001",
     "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --turbo --hostname 0.0.0.0 --port 3001",
     "build": "next build",
-    "start": "next start --port 3001",
+    "start": "next start --port 3000",
     "lint": "eslint src/ --max-warnings 0",
     "generate-api": "tsx scripts/generate-openapi.ts && npx openapi-typescript-codegen --input openapi.json --output src/api --client axios && npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
     "generate-api:fetch": "tsx scripts/generate-openapi.ts",
