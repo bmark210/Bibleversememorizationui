@@ -31,6 +31,7 @@ import {
   searchHelloaoVerses,
   type HelloaoVerse,
 } from "@/shared/bible/helloao";
+import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
 import {
   fetchCatalogVersesPage,
   lookupCatalogVerses,
@@ -176,7 +177,9 @@ async function addVersesBatch(params: {
   boxId: string;
   externalVerseIds: string[];
 }) {
-  const ids = Array.from(new Set(params.externalVerseIds));
+  const ids = Array.from(new Set(params.externalVerseIds)).sort(
+    compareExternalVerseIdsCanonically,
+  );
   const results: Array<{ addedCount: number; skippedCount: number }> = [];
   for (const id of ids) {
     const r = await addVerseToTextBox(params.telegramId, params.boxId, {
@@ -1085,6 +1088,60 @@ export function BibleCatalogView({
           </DrawerHeader>
 
           <div className="mt-4 min-h-0 space-y-5 overflow-y-auto overscroll-contain pb-2">
+            {/* Visibility */}
+            <div>
+              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Видимость
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { key: "all" as const, label: "Все стихи" },
+                    { key: "popular" as const, label: "Только популярные" },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setDraftVisibility(option.key)}
+                    className={cn(
+                      "rounded-[1.15rem] border px-3 py-2.5 text-xs font-medium transition-colors",
+                      draftVisibility === option.key
+                        ? "border-brand-primary/30 bg-brand-primary/10 text-brand-primary"
+                        : "border-border-subtle bg-bg-elevated text-text-secondary hover:bg-bg-surface",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Book */}
+            <div>
+              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Книга
+              </p>
+              <Select
+                value={draftBookId !== null ? String(draftBookId) : "all"}
+                onValueChange={(v) =>
+                  setDraftBookId(v === "all" ? null : Number(v))
+                }
+              >
+                <SelectTrigger className="h-11 rounded-[1.15rem] border-border-subtle bg-bg-surface">
+                  <SelectValue placeholder="Все книги" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все книги</SelectItem>
+                  {books.map((book) => (
+                    <SelectItem key={book.id} value={String(book.id)}>
+                      {book.nameRu}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* ── Tags (collapsible) ─────────────────────────────────────── */}
             {(() => {
               const COLLAPSED_LIMIT = 8;
@@ -1227,78 +1284,6 @@ export function BibleCatalogView({
                 </div>
               );
             })()}
-
-            {/* Visibility */}
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Видимость
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { key: "all" as const, label: "Все стихи" },
-                    { key: "popular" as const, label: "Только популярные" },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => setDraftVisibility(option.key)}
-                    className={cn(
-                      "rounded-[1.15rem] border px-3 py-2.5 text-xs font-medium transition-colors",
-                      draftVisibility === option.key
-                        ? "border-brand-primary/30 bg-brand-primary/10 text-brand-primary"
-                        : "border-border-subtle bg-bg-elevated text-text-secondary hover:bg-bg-surface",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Book */}
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Книга
-              </p>
-              <Select
-                value={draftBookId !== null ? String(draftBookId) : "all"}
-                onValueChange={(v) =>
-                  setDraftBookId(v === "all" ? null : Number(v))
-                }
-              >
-                <SelectTrigger className="h-11 rounded-[1.15rem] border-border-subtle bg-bg-surface">
-                  <SelectValue placeholder="Все книги" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все книги</SelectItem>
-                  {books.map((book) => (
-                    <SelectItem key={book.id} value={String(book.id)}>
-                      {book.nameRu}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Info about search modes */}
-            <div className="rounded-[1.15rem] border border-border-subtle/60 bg-bg-subtle px-4 py-3">
-              <div className="flex items-start gap-2.5">
-                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-primary/60" />
-                <div className="space-y-1">
-                  <p className="text-[11px] font-medium text-text-secondary">
-                    Поиск по тексту ищет по всей Библии, если выбраны все стихи
-                  </p>
-                  <p className="text-[11px] text-text-muted">
-                    Популярные стихи определяются по наличию хотя бы одного тега
-                  </p>
-                  <p className="text-[11px] text-text-muted">
-                    Порядок всегда соответствует канону Библии
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <DrawerFooter className="px-0 pb-0 pt-4">

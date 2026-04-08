@@ -40,7 +40,7 @@ import type {
 } from "@/app/types/textBox";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { toast } from "@/app/lib/toast";
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
 import {
   buildTextBoxStats,
   buildTextBoxSummary,
@@ -73,22 +73,19 @@ type BoxEditorState =
   | { mode: "rename"; box: TextBoxSummary }
   | null;
 
-type GalleryState = { initialIndex: number; boxId: string; boxTitle: string } | null;
+type GalleryState = {
+  initialIndex: number;
+  boxId: string;
+  boxTitle: string;
+} | null;
 type LearningReplacementState = { pauseVerse: Verse } | null;
 
 function compareVersesCanonically(left: Verse, right: Verse) {
-  const a = parseExternalVerseId(left.externalVerseId, { allowRange: false });
-  const b = parseExternalVerseId(right.externalVerseId, { allowRange: false });
-
-  if (!a || !b) {
-    return left.reference.localeCompare(right.reference, "ru");
-  }
-
   return (
-    a.book - b.book ||
-    a.chapter - b.chapter ||
-    a.verseStart - b.verseStart ||
-    left.reference.localeCompare(right.reference, "ru")
+    compareExternalVerseIdsCanonically(
+      left.externalVerseId,
+      right.externalVerseId,
+    ) || left.reference.localeCompare(right.reference, "ru")
   );
 }
 
@@ -96,7 +93,9 @@ function sortVersesCanonically(verses: Verse[]) {
   return [...verses].sort(compareVersesCanonically);
 }
 
-function getBoxScope(box: Pick<TextBoxSummary, "id" | "title">): TrainingBoxScope {
+function getBoxScope(
+  box: Pick<TextBoxSummary, "id" | "title">,
+): TrainingBoxScope {
   return { boxId: box.id, boxTitle: box.title };
 }
 
@@ -109,7 +108,7 @@ function WorkspaceTabs({
 }) {
   return (
     <div className="flex rounded-[1.2rem] border border-border-subtle bg-bg-subtle p-1">
-      {[ 
+      {[
         { id: "catalog" as const, label: "Библия" },
         { id: "boxes" as const, label: "Мои тексты" },
       ].map((item) => {
@@ -121,7 +120,9 @@ function WorkspaceTabs({
             onClick={() => onChange(item.id)}
             className={cn(
               "flex-1 rounded-[0.95rem] px-3 py-2 text-sm font-medium transition-colors",
-              active ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]" : "text-text-secondary",
+              active
+                ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
+                : "text-text-secondary",
             )}
           >
             {item.label}
@@ -170,11 +171,20 @@ function TextBoxEditorDrawer({
         </div>
 
         <DrawerFooter className="px-0">
-          <Button type="button" className="rounded-[1.2rem]" disabled={isSubmitting || !titleValue.trim()} onClick={onSubmit}>
+          <Button
+            type="button"
+            className="rounded-[1.2rem]"
+            disabled={isSubmitting || !titleValue.trim()}
+            onClick={onSubmit}
+          >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {mode === "create" ? "Создать коробку" : "Сохранить"}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
             Отмена
           </Button>
         </DrawerFooter>
@@ -213,7 +223,9 @@ function BoxSettingsDrawer({
               (!box || box.isDefault) && "pointer-events-none opacity-50",
             )}
           >
-            <span className="text-sm font-medium text-text-primary">Переименовать</span>
+            <span className="text-sm font-medium text-text-primary">
+              Переименовать
+            </span>
             <MoreHorizontal className="h-4 w-4 text-text-muted" />
           </button>
 
@@ -223,16 +235,27 @@ function BoxSettingsDrawer({
             onClick={onDelete}
             className={cn(
               "flex w-full items-center justify-between rounded-[1.5rem] border border-state-error/20 bg-state-error/5 px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-state-error/10",
-              (!box || box.isDefault || isDeleting) && "pointer-events-none opacity-50",
+              (!box || box.isDefault || isDeleting) &&
+                "pointer-events-none opacity-50",
             )}
           >
-            <span className="text-sm font-medium text-state-error">Удалить коробку</span>
-            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin text-state-error" /> : <Trash2 className="h-4 w-4 text-state-error" />}
+            <span className="text-sm font-medium text-state-error">
+              Удалить коробку
+            </span>
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-state-error" />
+            ) : (
+              <Trash2 className="h-4 w-4 text-state-error" />
+            )}
           </button>
         </div>
 
         <DrawerFooter className="px-0">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
             Закрыть
           </Button>
         </DrawerFooter>
@@ -260,8 +283,11 @@ export function TextsScreen({
   const [isDeletingBox, setIsDeletingBox] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
-  const [replacementState, setReplacementState] = useState<LearningReplacementState>(null);
-  const [replacementSubmittingId, setReplacementSubmittingId] = useState<string | null>(null);
+  const [replacementState, setReplacementState] =
+    useState<LearningReplacementState>(null);
+  const [replacementSubmittingId, setReplacementSubmittingId] = useState<
+    string | null
+  >(null);
 
   const {
     boxes,
@@ -294,7 +320,9 @@ export function TextsScreen({
   );
   const replacementSections = useMemo(() => {
     const queueVerses = sortedBoxVerses
-      .filter((verse) => resolveTextVersePresentation(verse).label === "Очередь")
+      .filter(
+        (verse) => resolveTextVersePresentation(verse).label === "Очередь",
+      )
       .sort(
         (left, right) =>
           (left.queuePosition ?? Number.MAX_SAFE_INTEGER) -
@@ -316,7 +344,10 @@ export function TextsScreen({
   );
   const galleryInitialIndex = useMemo(() => {
     if (!galleryState) return 0;
-    return Math.min(galleryState.initialIndex, Math.max(0, sortedBoxVerses.length - 1));
+    return Math.min(
+      galleryState.initialIndex,
+      Math.max(0, sortedBoxVerses.length - 1),
+    );
   }, [galleryState, sortedBoxVerses.length]);
 
   useEffect(() => {
@@ -325,11 +356,17 @@ export function TextsScreen({
     setSelectedBoxId(reopenTextBoxId);
     void Promise.allSettled([refreshBoxes(), refreshSelectedBox()]);
     onReopenTextBoxHandled?.();
-  }, [onReopenTextBoxHandled, refreshBoxes, refreshSelectedBox, reopenTextBoxId]);
+  }, [
+    onReopenTextBoxHandled,
+    refreshBoxes,
+    refreshSelectedBox,
+    reopenTextBoxId,
+  ]);
 
   useEffect(() => {
     if (!selectedBoxId) return;
-    if (boxes.length === 0 || boxes.some((box) => box.id === selectedBoxId)) return;
+    if (boxes.length === 0 || boxes.some((box) => box.id === selectedBoxId))
+      return;
     setSelectedBoxId(null);
   }, [boxes, selectedBoxId]);
 
@@ -356,7 +393,8 @@ export function TextsScreen({
       return;
     }
     const stillExists = sortedBoxVerses.some(
-      (verse) => verse.externalVerseId === replacementState.pauseVerse.externalVerseId,
+      (verse) =>
+        verse.externalVerseId === replacementState.pauseVerse.externalVerseId,
     );
     if (!stillExists) {
       setReplacementState(null);
@@ -369,7 +407,12 @@ export function TextsScreen({
       refreshBoxes(),
       selectedBoxId ? refreshSelectedBox() : Promise.resolve(null),
     ]);
-  }, [refreshBoxes, refreshSelectedBox, selectedBoxId, verseListExternalSyncVersion]);
+  }, [
+    refreshBoxes,
+    refreshSelectedBox,
+    selectedBoxId,
+    verseListExternalSyncVersion,
+  ]);
 
   useTelegramBackButton({
     enabled: Boolean(selectedBoxId),
@@ -406,16 +449,25 @@ export function TextsScreen({
         const created = await createBox(nextTitle);
         setActiveTab("boxes");
         setSelectedBoxId(created.id);
-        toast.success("Коробка создана", { description: created.title, label: "Тексты" });
+        toast.success("Коробка создана", {
+          description: created.title,
+          label: "Тексты",
+        });
       } else {
         const updated = await renameBox(editorState.box.id, nextTitle);
         setSelectedBoxId((prev) => (prev === updated.id ? updated.id : prev));
-        toast.success("Название обновлено", { description: updated.title, label: "Тексты" });
+        toast.success("Название обновлено", {
+          description: updated.title,
+          label: "Тексты",
+        });
       }
       setEditorState(null);
       setEditorTitle("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось сохранить коробку", { label: "Тексты" });
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось сохранить коробку",
+        { label: "Тексты" },
+      );
     } finally {
       setIsEditorSubmitting(false);
     }
@@ -440,7 +492,10 @@ export function TextsScreen({
       setSettingsBox(null);
       toast.success("Коробка удалена", { description: title, label: "Тексты" });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось удалить коробку", { label: "Тексты" });
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось удалить коробку",
+        { label: "Тексты" },
+      );
     } finally {
       setIsDeletingBox(false);
     }
@@ -453,7 +508,11 @@ export function TextsScreen({
       if (!mutation) return;
       setBusyVerseId(verse.externalVerseId);
       try {
-        await patchVerseStatus(telegramId, verse.externalVerseId, mutation.nextStatus);
+        await patchVerseStatus(
+          telegramId,
+          verse.externalVerseId,
+          mutation.nextStatus,
+        );
         await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
         onVerseMutationCommitted?.();
         toast.success("Статус обновлен", {
@@ -461,12 +520,21 @@ export function TextsScreen({
           label: "Тексты",
         });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Не удалось обновить статус", { label: "Тексты" });
+        toast.error(
+          error instanceof Error ? error.message : "Не удалось обновить статус",
+          { label: "Тексты" },
+        );
       } finally {
         setBusyVerseId(null);
       }
     },
-    [onVerseMutationCommitted, refreshBoxes, refreshSelectedBox, selectedBoxId, telegramId],
+    [
+      onVerseMutationCommitted,
+      refreshBoxes,
+      refreshSelectedBox,
+      selectedBoxId,
+      telegramId,
+    ],
   );
 
   const handleRemoveVerse = useCallback(
@@ -474,17 +542,33 @@ export function TextsScreen({
       if (!telegramId || !selectedBoxId) return;
       setBusyVerseId(verse.externalVerseId);
       try {
-        await removeTextFromBox(telegramId, selectedBoxId, verse.externalVerseId);
+        await removeTextFromBox(
+          telegramId,
+          selectedBoxId,
+          verse.externalVerseId,
+        );
         await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
         onVerseMutationCommitted?.();
-        toast.success("Стих удален из коробки", { description: verse.reference, label: "Тексты" });
+        toast.success("Стих удален из коробки", {
+          description: verse.reference,
+          label: "Тексты",
+        });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Не удалось удалить стих", { label: "Тексты" });
+        toast.error(
+          error instanceof Error ? error.message : "Не удалось удалить стих",
+          { label: "Тексты" },
+        );
       } finally {
         setBusyVerseId(null);
       }
     },
-    [onVerseMutationCommitted, refreshBoxes, refreshSelectedBox, selectedBoxId, telegramId],
+    [
+      onVerseMutationCommitted,
+      refreshBoxes,
+      refreshSelectedBox,
+      selectedBoxId,
+      telegramId,
+    ],
   );
 
   const handleOpenReplacementDrawer = useCallback((verse: Verse) => {
@@ -518,9 +602,12 @@ export function TextsScreen({
           label: "Тексты",
         });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Не удалось заменить стих", {
-          label: "Тексты",
-        });
+        toast.error(
+          error instanceof Error ? error.message : "Не удалось заменить стих",
+          {
+            label: "Тексты",
+          },
+        );
       } finally {
         setBusyVerseId(null);
         setReplacementSubmittingId(null);
@@ -560,25 +647,51 @@ export function TextsScreen({
   const handleGalleryStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
       if (!telegramId || !galleryState) return;
-      await patchVerseStatus(telegramId, verse.externalVerseId, status as "LEARNING" | "STOPPED" | "QUEUE");
+      await patchVerseStatus(
+        telegramId,
+        verse.externalVerseId,
+        status as "LEARNING" | "STOPPED" | "QUEUE",
+      );
       await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
       onVerseMutationCommitted?.();
     },
-    [galleryState, onVerseMutationCommitted, refreshBoxes, refreshSelectedBox, telegramId],
+    [
+      galleryState,
+      onVerseMutationCommitted,
+      refreshBoxes,
+      refreshSelectedBox,
+      telegramId,
+    ],
   );
 
   const handleGalleryDelete = useCallback(
     async (verse: Verse) => {
       if (!telegramId || !galleryState) return;
-      await removeTextFromBox(telegramId, galleryState.boxId, verse.externalVerseId);
+      await removeTextFromBox(
+        telegramId,
+        galleryState.boxId,
+        verse.externalVerseId,
+      );
       await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
       onVerseMutationCommitted?.();
     },
-    [galleryState, onVerseMutationCommitted, refreshBoxes, refreshSelectedBox, telegramId],
+    [
+      galleryState,
+      onVerseMutationCommitted,
+      refreshBoxes,
+      refreshSelectedBox,
+      telegramId,
+    ],
   );
 
   const handleGalleryNavigateToTraining = useCallback(
-    ({ verse, preferredMode }: { verse: Verse; preferredMode?: "learning" | "review" | "anchor" }) => {
+    ({
+      verse,
+      preferredMode,
+    }: {
+      verse: Verse;
+      preferredMode?: "learning" | "review" | "anchor";
+    }) => {
       if (!onNavigateToTraining || !galleryState) return;
       if (!preferredMode) return;
       setGalleryState(null);
@@ -602,8 +715,14 @@ export function TextsScreen({
   const renderBoxesList = () => (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <p className="text-sm text-text-muted">{formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}</p>
-        <Button type="button" className="rounded-[1.2rem] px-4" onClick={openCreateDrawer}>
+        <p className="text-sm text-text-muted">
+          {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
+        </p>
+        <Button
+          type="button"
+          className="rounded-[1.2rem] px-4"
+          onClick={openCreateDrawer}
+        >
           <Plus className="h-4 w-4" />
           Новая коробка
         </Button>
@@ -619,7 +738,9 @@ export function TextsScreen({
             {boxesError}
           </TextSurfaceCard>
         ) : boxes.length === 0 ? (
-          <TextSurfaceCard className="p-5 text-sm text-text-secondary">Коробок пока нет</TextSurfaceCard>
+          <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+            Коробок пока нет
+          </TextSurfaceCard>
         ) : (
           <div className="space-y-3">
             {boxes.map((box) => (
@@ -667,14 +788,25 @@ export function TextsScreen({
                 {/* <p className="mt-3 text-[1rem] leading-7 text-text-secondary">{buildTextBoxSummary(visibleBox)}</p> */}
               </div>
 
-              <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={() => setSettingsBox(visibleBox)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                onClick={() => setSettingsBox(visibleBox)}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </div>
 
             <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               {/* <TextStatPills stats={buildTextBoxStats(visibleBox)} /> */}
-              <Button type="button" className="h-11 rounded-full px-5" disabled={visibleBox.stats.totalCount === 0} onClick={handleTrainBox}>
+              <Button
+                type="button"
+                className="h-11 rounded-full px-5"
+                disabled={visibleBox.stats.totalCount === 0}
+                onClick={handleTrainBox}
+              >
                 <Sparkles className="h-4 w-4" />
                 Тренировать
               </Button>
@@ -693,7 +825,9 @@ export function TextsScreen({
             {selectedBoxError}
           </TextSurfaceCard>
         ) : sortedBoxVerses.length === 0 ? (
-          <TextSurfaceCard className="p-5 text-sm text-text-secondary">Коробка пуста</TextSurfaceCard>
+          <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+            Коробка пуста
+          </TextSurfaceCard>
         ) : (
           <div className="space-y-3">
             {sortedBoxVerses.map((verse, verseIndex) => {
@@ -745,16 +879,20 @@ export function TextsScreen({
                         </Button>
                       ) : null}
                       <div className="flex-1 flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="rounded-full px-3 text-state-error hover:text-state-error"
-                        disabled={isBusy}
-                        onClick={() => void handleRemoveVerse(verse)}
-                      >
-                        {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full px-3 text-state-error hover:text-state-error"
+                          disabled={isBusy}
+                          onClick={() => void handleRemoveVerse(verse)}
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </>
                   }

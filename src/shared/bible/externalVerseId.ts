@@ -22,7 +22,7 @@ function toPositiveInteger(value: string): number | null {
 
 export function parseExternalVerseId(
   value: string | null | undefined,
-  options?: ParseExternalVerseIdOptions
+  options?: ParseExternalVerseIdOptions,
 ): ParsedExternalVerseId | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
@@ -62,11 +62,15 @@ export function isExternalVerseRange(parsed: ParsedExternalVerseId): boolean {
   return parsed.verseStart !== parsed.verseEnd;
 }
 
-export function getExternalVerseRangeSize(parsed: ParsedExternalVerseId): number {
+export function getExternalVerseRangeSize(
+  parsed: ParsedExternalVerseId,
+): number {
   return parsed.verseEnd - parsed.verseStart + 1;
 }
 
-export function toCanonicalExternalVerseId(parsed: ParsedExternalVerseId): string {
+export function toCanonicalExternalVerseId(
+  parsed: ParsedExternalVerseId,
+): string {
   if (parsed.verseStart === parsed.verseEnd) {
     return `${parsed.book}-${parsed.chapter}-${parsed.verseStart}`;
   }
@@ -75,15 +79,34 @@ export function toCanonicalExternalVerseId(parsed: ParsedExternalVerseId): strin
 
 export function canonicalizeExternalVerseId(
   value: string | null | undefined,
-  options?: ParseExternalVerseIdOptions
+  options?: ParseExternalVerseIdOptions,
 ): string | null {
   const parsed = parseExternalVerseId(value, options);
   if (!parsed) return null;
   return toCanonicalExternalVerseId(parsed);
 }
 
+export function compareExternalVerseIdsCanonically(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): number {
+  const leftParsed = parseExternalVerseId(left, { allowRange: false });
+  const rightParsed = parseExternalVerseId(right, { allowRange: false });
+
+  if (leftParsed && rightParsed) {
+    return (
+      leftParsed.book - rightParsed.book ||
+      leftParsed.chapter - rightParsed.chapter ||
+      leftParsed.verseStart - rightParsed.verseStart ||
+      leftParsed.verseEnd - rightParsed.verseEnd
+    );
+  }
+
+  return String(left ?? "").localeCompare(String(right ?? ""), "ru");
+}
+
 export function expandParsedExternalVerseNumbers(
-  parsed: ParsedExternalVerseId
+  parsed: ParsedExternalVerseId,
 ): number[] {
   const verses: number[] = [];
   for (let verse = parsed.verseStart; verse <= parsed.verseEnd; verse += 1) {
@@ -94,7 +117,7 @@ export function expandParsedExternalVerseNumbers(
 
 export function formatParsedExternalVerseReference(
   parsed: ParsedExternalVerseId,
-  bookName: string
+  bookName: string,
 ): string {
   if (parsed.verseStart === parsed.verseEnd) {
     return `${bookName} ${parsed.chapter}:${parsed.verseStart}`;

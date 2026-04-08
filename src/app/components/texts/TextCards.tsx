@@ -269,7 +269,7 @@ export function TextVerseCard({
   );
 }
 
-export function TextBoxCard({ box, summary, stats, onOpen, onOpenSettings }: TextBoxCardProps) {
+export function TextBoxCard({ box, summary, onOpen, onOpenSettings }: TextBoxCardProps) {
   return (
     <TextSurfaceCard>
       <div className="flex items-start justify-between gap-3">
@@ -287,10 +287,6 @@ export function TextBoxCard({ box, summary, stats, onOpen, onOpenSettings }: Tex
           </div>
 
           <p className="mt-3 text-[1rem] leading-7 text-text-secondary">{summary}</p>
-
-          <div className="mt-4">
-            <TextStatPills stats={stats} />
-          </div>
         </button>
 
         <Button
