@@ -1,7 +1,28 @@
 import { NEXT_PUBLIC_API_BASE_URL as DEFAULT_PUBLIC_API_BASE_URL } from "../../environment";
 
 function normalizeBaseUrl(value: string): string {
-  return value.replace(/\/+$/, "");
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed)) {
+    return `http://${trimmed}`;
+  }
+
+  if (/^[a-z0-9.-]+(?::\d+)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return trimmed;
 }
 
 /**
