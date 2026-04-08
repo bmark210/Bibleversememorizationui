@@ -20,9 +20,13 @@ import { ALL_ANCHOR_MODE_GROUPS } from "./types";
 import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
+  readChapterFilter,
+  writeChapterFilter,
 } from "./trainingHubPreferences";
 import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
+import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import type { ChapterFilter } from "@/app/types/chapter";
  
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
 
@@ -77,6 +81,9 @@ export function Training({
     useState<AnchorSubScenario>("interactive");
   const [selectedFlashcardMode, setSelectedFlashcardMode] =
     useState<FlashcardMode>("reference");
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>(
+    () => readChapterFilter(),
+  );
   const directLaunchConsumedRef = useRef(false);
 
   useEffect(() => {
@@ -86,6 +93,19 @@ export function Training({
       anchorModes: selectedAnchorModes,
     });
   }, [selectedScenario, selectedModes, selectedAnchorModes]);
+
+  const handleChapterFilterChange = useCallback((filter: ChapterFilter) => {
+    setChapterFilter(filter);
+    writeChapterFilter(filter);
+  }, []);
+
+  const effectiveVerses = useMemo(() => {
+    if (!chapterFilter) return allVerses;
+    return allVerses.filter((v) => {
+      const p = parseExternalVerseId(v.externalVerseId);
+      return p?.book === chapterFilter.bookId && p?.chapter === chapterFilter.chapterNo;
+    });
+  }, [allVerses, chapterFilter]);
 
   const goToHub = useCallback(() => {
     setView({ mode: "hub" });
@@ -157,16 +177,16 @@ export function Training({
       setView({ mode: "anchor", anchorModes: selectedAnchorModes });
       return;
     }
-    const selectedVerses = pickVersesForCoreModes(selectedModes, allVerses);
+    const selectedVerses = pickVersesForCoreModes(selectedModes, effectiveVerses);
     if (selectedVerses.length === 0) return;
-    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
+    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, effectiveVerses);
     setView({
       mode: "verse-session",
       verses,
       trainingModes: selectedModes,
       order: "updatedAt",
     });
-  }, [allVerses, selectedAnchorModes, selectedModes, selectedScenario]);
+  }, [effectiveVerses, selectedAnchorModes, selectedModes, selectedScenario]);
 
   const handleStartSelection = useCallback(() => {
     if (selectedScenario !== "core") return;
@@ -214,11 +234,13 @@ export function Training({
               selectedAnchorModes={selectedAnchorModes}
               selectedAnchorSubScenario={selectedAnchorSubScenario}
               selectedFlashcardMode={selectedFlashcardMode}
+              chapterFilter={chapterFilter}
               onScenarioChange={setSelectedScenario}
               onModesChange={setSelectedModes}
               onAnchorModesChange={setSelectedAnchorModes}
               onAnchorSubScenarioChange={setSelectedAnchorSubScenario}
               onFlashcardModeChange={setSelectedFlashcardMode}
+              onChapterFilterChange={handleChapterFilterChange}
               onStart={handleStart}
               onStartFlashcard={handleStartFlashcard}
               onStartSelection={handleStartSelection}

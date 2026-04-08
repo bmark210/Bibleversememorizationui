@@ -18,6 +18,11 @@ import { VerseTagsDrawer } from "./verse-list/components/VerseTagsDrawer";
 import { VerseListSkeletonCards } from "./verse-list/components/VerseListSkeletonCards";
 import { VerseListModeSwitch } from "./verse-list/components/VerseListModeSwitch";
 import { VerseListReadingModeBar } from "./verse-list/components/VerseListReadingModeBar";
+import {
+  VerseListViewToggle,
+  type VerseListPrimaryView,
+} from "./verse-list/components/VerseListViewToggle";
+import { ChaptersView } from "./chapters/ChaptersView";
 import { VerseOwnersDrawer } from "./VerseOwnersDrawer";
 import { VerseDeleteDrawer } from "./VerseDeleteDrawer";
 import { VerseProgressDrawer } from "./VerseProgressDrawer";
@@ -65,6 +70,7 @@ import {
   isVerseLearning,
   isVerseQueued,
 } from "@/shared/verseRules";
+import type { ChapterFilter } from "@/app/types/chapter";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -73,6 +79,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/app/lib/toast";
 
+const CHAPTER_FILTER_STORAGE_KEY = "training.chapterFilter";
 const LIST_OVERLAY_SPACER_GAP_PX = 12;
 const FIXED_LEARNING_SLOTS_CAPACITY = 5;
 
@@ -86,6 +93,7 @@ interface VerseListProps {
   verseListExternalSyncVersion?: number;
   onVerseMutationCommitted?: () => void;
   onNavigateToTraining?: (launch: DirectLaunchVerse) => void;
+  onNavigateToTrainingHub?: () => void;
   telegramId?: string | null;
   isAnchorEligible?: boolean;
   onFriendsChanged?: () => void;
@@ -103,11 +111,21 @@ export function VerseList({
   verseListExternalSyncVersion,
   onVerseMutationCommitted,
   onNavigateToTraining,
+  onNavigateToTrainingHub,
   telegramId = null,
   onOpenPlayerProfile,
   isAnchorEligible = false,
   onFriendsChanged,
 }: VerseListProps) {
+  const [primaryView, setPrimaryView] = useState<VerseListPrimaryView>(() => {
+    if (typeof window === "undefined") return "verses";
+    return (
+      (window.localStorage.getItem(
+        "verseList.primaryView",
+      ) as VerseListPrimaryView) ?? "verses"
+    );
+  });
+
   const [isFocusMode, setIsFocusMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return (
@@ -185,6 +203,11 @@ export function VerseList({
   const toggleFocusMode = useCallback(() => {
     setIsFocusMode((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("verseList.primaryView", primaryView);
+  }, [primaryView]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -456,6 +479,22 @@ export function VerseList({
       );
     },
     [vm.filterTabs.onTabClick],
+  );
+
+  const handleTrainChapter = useCallback(
+    ({ bookId, chapterNo }: { bookId: number; chapterNo: number }) => {
+      const filter: ChapterFilter = { bookId, chapterNo };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          CHAPTER_FILTER_STORAGE_KEY,
+          JSON.stringify(filter),
+        );
+      }
+      if (onNavigateToTrainingHub) {
+        onNavigateToTrainingHub();
+      }
+    },
+    [onNavigateToTrainingHub],
   );
 
   useEffect(() => {
@@ -973,6 +1012,13 @@ export function VerseList({
         </div>
 
         <div className="relative min-h-0 flex-1">
+          {primaryView === "chapters" ? (
+            <ChaptersView
+              telegramId={telegramId ?? ""}
+              onTrainChapter={handleTrainChapter}
+            />
+          ) : (
+          <>
           <div
             ref={filterOverlayRef}
             className="pointer-events-none absolute inset-x-0 top-[-3] z-40"
@@ -1061,18 +1107,28 @@ export function VerseList({
               ) : null}
             </div>
           </div>
+          </>
+          )}
         </div>
 
         <div className="relative shrink-0">
-          <VerseListReadingModeBar
-            isFocusMode={isFocusMode}
-            onToggle={toggleFocusMode}
-          />
-          <VerseListModeSwitch
-            activeMode={activeMode}
-            totalCount={vm.pagination.totalCount}
-            onModeChange={handleModeChange}
-            className="mb-[-2px]"
+          {primaryView === "verses" && (
+            <>
+              <VerseListReadingModeBar
+                isFocusMode={isFocusMode}
+                onToggle={toggleFocusMode}
+              />
+              <VerseListModeSwitch
+                activeMode={activeMode}
+                totalCount={vm.pagination.totalCount}
+                onModeChange={handleModeChange}
+                className="mb-[-2px]"
+              />
+            </>
+          )}
+          <VerseListViewToggle
+            activeView={primaryView}
+            onChange={setPrimaryView}
           />
         </div>
 

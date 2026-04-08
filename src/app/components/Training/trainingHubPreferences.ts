@@ -1,7 +1,9 @@
 import type { AnchorModeGroup, CoreTrainingMode, TrainingScenario } from "./types";
 import { ALL_ANCHOR_MODE_GROUPS } from "./types";
+import type { ChapterFilter } from "@/app/types/chapter";
 
 export const TRAINING_HUB_PREFERENCES_KEY = "training.hub-preferences";
+export const CHAPTER_FILTER_KEY = "training.chapterFilter";
 
 const PREFS_VERSION = 1 as const;
 
@@ -82,5 +84,43 @@ export function writeTrainingHubPreferences(prefs: TrainingHubPreferences): void
     );
   } catch {
     // ignore quota / private mode
+  }
+}
+
+export function readChapterFilter(): ChapterFilter {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CHAPTER_FILTER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "bookId" in parsed &&
+      "chapterNo" in parsed &&
+      typeof (parsed as Record<string, unknown>).bookId === "number" &&
+      typeof (parsed as Record<string, unknown>).chapterNo === "number"
+    ) {
+      return {
+        bookId: (parsed as { bookId: number; chapterNo: number }).bookId,
+        chapterNo: (parsed as { bookId: number; chapterNo: number }).chapterNo,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeChapterFilter(filter: ChapterFilter): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (filter === null) {
+      window.localStorage.removeItem(CHAPTER_FILTER_KEY);
+    } else {
+      window.localStorage.setItem(CHAPTER_FILTER_KEY, JSON.stringify(filter));
+    }
+  } catch {
+    // ignore
   }
 }

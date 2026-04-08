@@ -103,6 +103,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const push = useScreenStore((s) => s.push);
   const back = useScreenStore((s) => s.back);
   const navigateToTrainingWithVerse = useScreenStore((s) => s.navigateToTrainingWithVerse);
+  const navigateToTrainingHub = useScreenStore((s) => s.navigateToTrainingHub);
   const onDirectLaunchExit = useScreenStore((s) => s.onDirectLaunchExit);
   const onVerseListReturnHandled = useScreenStore((s) => s.onVerseListReturnHandled);
 
@@ -412,6 +413,7 @@ export default function App({ onInitialContentReady }: AppProps) {
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onNavigateToTraining={navigateToTrainingWithVerse}
+                  onNavigateToTrainingHub={navigateToTrainingHub}
                   telegramId={telegramId}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}

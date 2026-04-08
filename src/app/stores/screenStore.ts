@@ -20,6 +20,8 @@ interface ScreenStore {
   back: () => void
   /** Navigate to Training with a specific verse as direct launch */
   navigateToTrainingWithVerse: (launchOrVerse: DirectLaunchVerse | Verse) => void
+  /** Navigate to Training hub without a direct-launch verse */
+  navigateToTrainingHub: () => void
   /** Called when Training's direct-launch session ends */
   onDirectLaunchExit: (launch: DirectLaunchVerse) => void
   /** Called after VerseList consumes the pending return filter */
@@ -61,6 +63,11 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
   navigateToTrainingWithVerse: (launchOrVerse) => {
     const launch = toDirectLaunchPayload(launchOrVerse)
     set({ pendingVerseListReturn: null, trainingDirectLaunch: launch })
+    get().push('training')
+  },
+
+  navigateToTrainingHub: () => {
+    set({ pendingVerseListReturn: null, trainingDirectLaunch: null })
     get().push('training')
   },
 

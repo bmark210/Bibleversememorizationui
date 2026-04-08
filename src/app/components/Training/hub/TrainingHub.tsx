@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import type { Verse } from "@/app/domain/verse";
 import type { bible_memory_db_internal_domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
+import type { ChapterFilter } from "@/app/types/chapter";
+import { BIBLE_BOOKS, getBibleBookNameRu } from "@/app/types/bible";
+import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
 import { triggerHaptic } from "@/app/lib/haptics";
 import { useTelegramUiStore } from "@/app/stores/telegramUiStore";
 import {
@@ -61,11 +64,13 @@ interface TrainingHubProps {
   selectedAnchorModes: AnchorModeGroup[];
   selectedAnchorSubScenario: AnchorSubScenario;
   selectedFlashcardMode: FlashcardMode;
+  chapterFilter: ChapterFilter;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
   onAnchorModesChange: (modes: AnchorModeGroup[]) => void;
   onAnchorSubScenarioChange: (sub: AnchorSubScenario) => void;
   onFlashcardModeChange: (mode: FlashcardMode) => void;
+  onChapterFilterChange: (filter: ChapterFilter) => void;
   onStart: () => void;
   onStartFlashcard: () => void;
   onStartSelection: () => void;
@@ -146,17 +151,33 @@ export function TrainingHub({
   selectedAnchorModes,
   selectedAnchorSubScenario,
   selectedFlashcardMode,
+  chapterFilter,
   onScenarioChange,
   onModesChange,
   onAnchorModesChange,
   onAnchorSubScenarioChange,
   onFlashcardModeChange,
+  onChapterFilterChange,
   onStart,
   onStartFlashcard,
   onStartSelection,
 }: TrainingHubProps) {
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
+  );
+
+  // Chapter filter: compute verse count for the selected chapter
+  const chapterVerseCount = useMemo(() => {
+    if (!chapterFilter) return null;
+    return allVerses.filter((v) => {
+      const p = parseExternalVerseId(v.externalVerseId);
+      return p?.book === chapterFilter.bookId && p?.chapter === chapterFilter.chapterNo;
+    }).length;
+  }, [allVerses, chapterFilter]);
+
+  const canonicalBookIds = useMemo(
+    () => Object.keys(BIBLE_BOOKS).map(Number).filter((id) => id >= 1 && id <= 66).sort((a, b) => a - b),
+    [],
   );
 
   const counts = useTrainingHubState({ allVerses, dashboardStats });
@@ -580,6 +601,74 @@ export function TrainingHub({
                   );
                 })}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Chapter filter row — only for core scenario */}
+        {selectedScenario === "core" && (
+          <div className="mt-3 overflow-hidden rounded-[22px] border border-border-subtle bg-bg-surface">
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-sm font-medium text-text-primary">Глава</p>
+              {chapterFilter && (
+                <button
+                  type="button"
+                  onClick={() => onChapterFilterChange(null)}
+                  className="text-xs font-medium text-brand-primary"
+                >
+                  Сбросить
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 border-t border-border-subtle px-4 py-3">
+              <select
+                value={chapterFilter?.bookId ?? ""}
+                onChange={(e) => {
+                  const bookId = Number(e.target.value);
+                  if (!bookId) {
+                    onChapterFilterChange(null);
+                    return;
+                  }
+                  onChapterFilterChange({ bookId, chapterNo: 1 });
+                }}
+                className="flex-1 rounded-xl border border-border-subtle bg-bg-subtle px-3 py-2 text-sm text-text-primary outline-none"
+              >
+                <option value="">Все книги</option>
+                {canonicalBookIds.map((id) => (
+                  <option key={id} value={id}>
+                    {getBibleBookNameRu(id)}
+                  </option>
+                ))}
+              </select>
+
+              {chapterFilter && (
+                <select
+                  value={chapterFilter.chapterNo}
+                  onChange={(e) => {
+                    onChapterFilterChange({
+                      bookId: chapterFilter.bookId,
+                      chapterNo: Number(e.target.value),
+                    });
+                  }}
+                  className="w-24 rounded-xl border border-border-subtle bg-bg-subtle px-3 py-2 text-sm text-text-primary outline-none"
+                >
+                  {Array.from(
+                    { length: BIBLE_BOOKS[chapterFilter.bookId]?.chapters ?? 1 },
+                    (_, i) => i + 1,
+                  ).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {chapterFilter && chapterVerseCount !== null && (
+              <p className="border-t border-border-subtle px-4 py-2.5 text-xs text-text-muted">
+                {chapterVerseCount === 0
+                  ? "Нет изучаемых стихов в этой главе"
+                  : `${chapterVerseCount} ${pluralVerses(chapterVerseCount)} в выбранной главе`}
+              </p>
             )}
           </div>
         )}
