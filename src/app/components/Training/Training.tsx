@@ -19,7 +19,6 @@ import type {
   AnchorModeGroup,
   AnchorSubScenario,
   CoreTrainingMode,
-  FlashcardMode,
   TrainingProps,
   TrainingScenario,
   TrainingView,
@@ -70,8 +69,6 @@ export function Training({
   >(initialHub.anchorModes);
   const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] =
     useState<AnchorSubScenario>("interactive");
-  const [selectedFlashcardMode, setSelectedFlashcardMode] =
-    useState<FlashcardMode>("reference");
   const [view, setView] = useState<TrainingView | null>(null);
   const directLaunchKeyRef = useRef<string | null>(null);
 
@@ -227,10 +224,9 @@ export function Training({
     if (!activeScope) return;
     setView({
       mode: "flashcard",
-      flashcardMode: selectedFlashcardMode,
       scope: activeScope,
     });
-  }, [activeScope, selectedFlashcardMode]);
+  }, [activeScope]);
 
   useTelegramBackButton({
     enabled: view?.mode === "verse-session",
@@ -280,7 +276,6 @@ export function Training({
       <FlashcardSessionRoot
         telegramId={telegramId}
         boxId={view.scope.boxId}
-        flashcardMode={view.flashcardMode}
         onSessionCommitted={onVerseMutationCommitted}
         onClose={handleExitSession}
       />
@@ -309,12 +304,10 @@ export function Training({
       selectedModes={selectedModes}
       selectedAnchorModes={selectedAnchorModes}
       selectedAnchorSubScenario={selectedAnchorSubScenario}
-      selectedFlashcardMode={selectedFlashcardMode}
       onScenarioChange={setSelectedScenario}
       onModesChange={setSelectedModes}
       onAnchorModesChange={setSelectedAnchorModes}
       onAnchorSubScenarioChange={setSelectedAnchorSubScenario}
-      onFlashcardModeChange={setSelectedFlashcardMode}
       onStart={handleStart}
       onStartFlashcard={handleStartFlashcard}
       onRequestScopeChange={() => {

@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { FlashcardMode } from "../types";
 
 const FlashcardSessionDynamic = dynamic(
   () =>
@@ -14,7 +13,6 @@ const FlashcardSessionDynamic = dynamic(
 export type FlashcardSessionRootProps = {
   telegramId: string | null;
   boxId: string;
-  flashcardMode: FlashcardMode;
   onClose: () => void;
   onSessionCommitted?: () => void;
 };

@@ -40,7 +40,10 @@ type TextBoxCardProps = {
 const SURFACE_CARD_CLASS_NAME =
   "group relative overflow-hidden rounded-[2rem] border border-border-default/55 bg-bg-elevated p-5 shadow-[var(--shadow-soft)] before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-brand-primary/35 before:to-transparent before:content-[''] after:pointer-events-none after:absolute after:-right-12 after:top-[-3.5rem] after:h-28 after:w-28 after:rounded-full after:bg-brand-primary/8 after:blur-3xl after:content-['']";
 
-export function formatRussianCount(count: number, forms: [string, string, string]) {
+export function formatRussianCount(
+  count: number,
+  forms: [string, string, string],
+) {
   const abs = Math.abs(count) % 100;
   const tail = abs % 10;
   if (abs > 10 && abs < 20) return `${count} ${forms[2]}`;
@@ -50,7 +53,9 @@ export function formatRussianCount(count: number, forms: [string, string, string
 }
 
 export function buildTextBoxSummary(box: TextBoxSummary) {
-  const parts = [formatRussianCount(box.stats.totalCount, ["стих", "стиха", "стихов"])];
+  const parts = [
+    formatRussianCount(box.stats.totalCount, ["стих", "стиха", "стихов"]),
+  ];
 
   if (box.stats.queueCount > 0) {
     parts.push(`${box.stats.queueCount} в очереди`);
@@ -110,7 +115,13 @@ function normalizeVerseTags(tags?: Verse["tags"]): DisplayTag[] {
 }
 
 export function TextSurfaceCard({ children, className }: TextSurfaceCardProps) {
-  return <div className={cn(SURFACE_CARD_CLASS_NAME, "verse-card-appear", className)}>{children}</div>;
+  return (
+    <div
+      className={cn(SURFACE_CARD_CLASS_NAME, "verse-card-appear", className)}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function TextStatPills({ stats }: { stats: TextStatItem[] }) {
@@ -149,9 +160,7 @@ export function VerseTagPills({
   return (
     <div className={cn("mt-4 flex flex-wrap gap-2", className)}>
       {visible.map((tag, index) => {
-        const content = (
-          <span className="truncate">#{tag.title}</span>
-        );
+        const content = <span className="truncate">#{tag.title}</span>;
 
         if (onPress) {
           return (
@@ -247,9 +256,12 @@ export function TextVerseCard({
             <h3 className="min-w-0 truncate [font-family:var(--font-heading)] text-[1.45rem] font-semibold tracking-tight text-text-primary sm:text-[1.55rem]">
               {verse.reference}
             </h3>
-            <VerseStatePill label={stateLabel} toneClassName={stateToneClassName} />
+            <VerseStatePill
+              label={stateLabel}
+              toneClassName={stateToneClassName}
+            />
           </div>
-        
+
           <p
             className={cn(
               "mt-4 max-w-[34ch] whitespace-pre-line text-[1.05rem] leading-8 text-text-secondary sm:text-[1.12rem] sm:leading-8",
@@ -264,29 +276,37 @@ export function TextVerseCard({
         {primaryAction ? <div className="shrink-0">{primaryAction}</div> : null}
       </div>
 
-      {footerActions ? <div className="mt-5 flex flex-wrap gap-2">{footerActions}</div> : null}
+      {footerActions ? (
+        <div className="mt-5 flex flex-wrap gap-2">{footerActions}</div>
+      ) : null}
     </TextSurfaceCard>
   );
 }
 
-export function TextBoxCard({ box, summary, onOpen, onOpenSettings }: TextBoxCardProps) {
+export function TextBoxCard({
+  box,
+  summary,
+  onOpen,
+  onOpenSettings,
+}: TextBoxCardProps) {
   return (
     <TextSurfaceCard>
       <div className="flex items-start justify-between gap-3">
-        <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={onOpen}
+        >
           <div className="flex flex-wrap items-center gap-2.5">
             <BookOpen className="h-4 w-4 shrink-0 text-brand-primary" />
             <h3 className="truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.5rem]">
               {box.title}
             </h3>
-            {box.isDefault ? (
-              <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-[11px] font-semibold text-brand-primary shadow-[var(--shadow-soft)]">
-                Основная
-              </span>
-            ) : null}
           </div>
 
-          <p className="mt-3 text-[1rem] leading-7 text-text-secondary">{summary}</p>
+          <p className="mt-3 text-[1rem] leading-7 text-text-secondary">
+            {summary}
+          </p>
         </button>
 
         <Button

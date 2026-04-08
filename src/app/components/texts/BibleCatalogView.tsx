@@ -1339,7 +1339,6 @@ export function BibleCatalogView({
                   </p>
                   <p className="mt-0.5 text-xs text-text-muted">
                     {box.stats.totalCount} стихов
-                    {box.isDefault ? " · основная" : ""}
                   </p>
                 </div>
                 {busyBoxId === box.id ? (

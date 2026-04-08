@@ -216,11 +216,11 @@ function BoxSettingsDrawer({
         <div className="space-y-2 pb-2">
           <button
             type="button"
-            disabled={!box || box.isDefault}
+            disabled={!box}
             onClick={onRename}
             className={cn(
               "flex w-full items-center justify-between rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-bg-surface",
-              (!box || box.isDefault) && "pointer-events-none opacity-50",
+              !box && "pointer-events-none opacity-50",
             )}
           >
             <span className="text-sm font-medium text-text-primary">
@@ -231,12 +231,11 @@ function BoxSettingsDrawer({
 
           <button
             type="button"
-            disabled={!box || box.isDefault || isDeleting}
+            disabled={!box || isDeleting}
             onClick={onDelete}
             className={cn(
               "flex w-full items-center justify-between rounded-[1.5rem] border border-state-error/20 bg-state-error/5 px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-state-error/10",
-              (!box || box.isDefault || isDeleting) &&
-                "pointer-events-none opacity-50",
+              (!box || isDeleting) && "pointer-events-none opacity-50",
             )}
           >
             <span className="text-sm font-medium text-state-error">
@@ -779,11 +778,6 @@ export function TextsScreen({
                   <h2 className="truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]">
                     {visibleBoxTitle}
                   </h2>
-                  {visibleBox.isDefault ? (
-                    <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-[11px] font-semibold text-brand-primary shadow-[var(--shadow-soft)]">
-                      Основная
-                    </span>
-                  ) : null}
                 </div>
                 {/* <p className="mt-3 text-[1rem] leading-7 text-text-secondary">{buildTextBoxSummary(visibleBox)}</p> */}
               </div>

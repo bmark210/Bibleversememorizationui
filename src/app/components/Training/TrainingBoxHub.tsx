@@ -16,7 +16,6 @@ import type {
   AnchorModeGroup,
   AnchorSubScenario,
   CoreTrainingMode,
-  FlashcardMode,
   TrainingScenario,
 } from "./types";
 import type { Verse } from "@/app/domain/verse";
@@ -34,10 +33,15 @@ const CORE_PRESETS: Array<{
 ];
 
 function sameModes(left: CoreTrainingMode[], right: CoreTrainingMode[]) {
-  return left.length === right.length && right.every((mode) => left.includes(mode));
+  return (
+    left.length === right.length && right.every((mode) => left.includes(mode))
+  );
 }
 
-function buildTrainingHubStats(versesCount: number, counts: ReturnType<typeof getCoreTrainingCountsFromVerses>) {
+function buildTrainingHubStats(
+  versesCount: number,
+  counts: ReturnType<typeof getCoreTrainingCountsFromVerses>,
+) {
   return [
     { label: "Всего", value: versesCount },
     { label: "Изучение", value: counts.learningCount },
@@ -67,7 +71,9 @@ function ModeOption({
       onClick={onClick}
       className={cn(
         "w-full rounded-[1.45rem] border px-4 py-4 text-left transition-colors",
-        active ? "border-brand-primary/25 bg-bg-elevated" : "border-border-subtle bg-bg-base hover:bg-bg-elevated",
+        active
+          ? "border-brand-primary/25 bg-bg-elevated"
+          : "border-border-subtle bg-bg-base hover:bg-bg-elevated",
       )}
     >
       <div className="flex items-center justify-between gap-3">
@@ -76,7 +82,9 @@ function ModeOption({
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-text-primary">{label}</p>
+            <p className="truncate text-sm font-semibold text-text-primary">
+              {label}
+            </p>
             <p className="mt-0.5 text-xs text-text-muted">{value}</p>
           </div>
         </div>
@@ -92,12 +100,10 @@ export function TrainingBoxHub({
   selectedModes,
   selectedAnchorModes,
   selectedAnchorSubScenario,
-  selectedFlashcardMode,
   onScenarioChange,
   onModesChange,
   onAnchorModesChange,
   onAnchorSubScenarioChange,
-  onFlashcardModeChange,
   onStart,
   onStartFlashcard,
   onRequestScopeChange,
@@ -108,12 +114,10 @@ export function TrainingBoxHub({
   selectedModes: CoreTrainingMode[];
   selectedAnchorModes: AnchorModeGroup[];
   selectedAnchorSubScenario: AnchorSubScenario;
-  selectedFlashcardMode: FlashcardMode;
   onScenarioChange: (scenario: TrainingScenario) => void;
   onModesChange: (modes: CoreTrainingMode[]) => void;
   onAnchorModesChange: (modes: AnchorModeGroup[]) => void;
   onAnchorSubScenarioChange: (sub: AnchorSubScenario) => void;
-  onFlashcardModeChange: (mode: FlashcardMode) => void;
   onStart: () => void;
   onStartFlashcard: () => void;
   onRequestScopeChange: () => void;
@@ -142,7 +146,12 @@ export function TrainingBoxHub({
           </p>
         </div>
 
-        <Button type="button" variant="ghost" className="rounded-full px-3" onClick={onRequestScopeChange}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="rounded-full px-3"
+          onClick={onRequestScopeChange}
+        >
           Сменить
         </Button>
       </div>
@@ -165,7 +174,9 @@ export function TrainingBoxHub({
               onClick={() => onScenarioChange(item.id)}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-[0.95rem] px-3 py-2 text-sm font-medium transition-colors",
-                active ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]" : "text-text-secondary",
+                active
+                  ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
+                  : "text-text-secondary",
               )}
             >
               <Icon className="h-4 w-4" />
@@ -185,7 +196,11 @@ export function TrainingBoxHub({
                   <ModeOption
                     key={preset.id}
                     label={preset.label}
-                    value={formatRussianCount(count, ["стих", "стиха", "стихов"])}
+                    value={formatRussianCount(count, [
+                      "стих",
+                      "стиха",
+                      "стихов",
+                    ])}
                     icon={preset.icon}
                     active={sameModes(selectedModes, preset.modes)}
                     onClick={() => onModesChange(preset.modes)}
@@ -210,52 +225,49 @@ export function TrainingBoxHub({
             <div className="space-y-3">
               <ModeOption
                 label="Игры"
-                value={formatRussianCount(interactiveAnchorCount, ["стих", "стиха", "стихов"])}
+                value={formatRussianCount(interactiveAnchorCount, [
+                  "стих",
+                  "стиха",
+                  "стихов",
+                ])}
                 icon={Gamepad2}
                 active={selectedAnchorSubScenario === "interactive"}
                 onClick={() => {
                   onAnchorSubScenarioChange("interactive");
-                  onAnchorModesChange(selectedAnchorModes.length > 0 ? selectedAnchorModes : ["reference-v1"]);
+                  onAnchorModesChange(
+                    selectedAnchorModes.length > 0
+                      ? selectedAnchorModes
+                      : ["reference-v1"],
+                  );
                 }}
               />
               <ModeOption
                 label="Карточки"
-                value={formatRussianCount(flashcardCount, ["стих", "стиха", "стихов"])}
+                value={formatRussianCount(flashcardCount, [
+                  "стих",
+                  "стиха",
+                  "стихов",
+                ])}
                 icon={Layers}
                 active={selectedAnchorSubScenario === "flashcard"}
                 onClick={() => onAnchorSubScenarioChange("flashcard")}
               />
             </div>
 
-            {selectedAnchorSubScenario === "flashcard" ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[
-                  { id: "reference" as const, label: "Ссылка" },
-                  { id: "verse" as const, label: "Стих" },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => onFlashcardModeChange(option.id)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                      selectedFlashcardMode === option.id
-                        ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
-                        : "border-border-subtle bg-bg-surface/80 text-text-secondary",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
             <div className="mt-4 pt-1">
               <Button
                 type="button"
                 className="rounded-full px-5"
-                disabled={selectedAnchorSubScenario === "flashcard" ? !canStartFlashcard : !canStartAnchor}
-                onClick={selectedAnchorSubScenario === "flashcard" ? onStartFlashcard : onStart}
+                disabled={
+                  selectedAnchorSubScenario === "flashcard"
+                    ? !canStartFlashcard
+                    : !canStartAnchor
+                }
+                onClick={
+                  selectedAnchorSubScenario === "flashcard"
+                    ? onStartFlashcard
+                    : onStart
+                }
               >
                 Начать
               </Button>
@@ -266,4 +278,3 @@ export function TrainingBoxHub({
     </div>
   );
 }
-

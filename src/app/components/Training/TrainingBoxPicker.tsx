@@ -56,7 +56,9 @@ export function TrainingBoxPicker({
                 <button
                   key={box.id}
                   type="button"
-                  onClick={() => onSelect({ boxId: box.id, boxTitle: box.title })}
+                  onClick={() =>
+                    onSelect({ boxId: box.id, boxTitle: box.title })
+                  }
                   className="block w-full text-left"
                 >
                   <TextSurfaceCard
@@ -72,11 +74,6 @@ export function TrainingBoxPicker({
                           <h2 className="truncate [font-family:var(--font-heading)] text-[1.35rem] font-semibold tracking-tight text-text-primary">
                             {box.title}
                           </h2>
-                          {box.isDefault ? (
-                            <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-[11px] font-semibold text-brand-primary shadow-[var(--shadow-soft)]">
-                              Основная
-                            </span>
-                          ) : null}
                         </div>
                         <p className="mt-3 text-[0.98rem] leading-7 text-text-secondary">
                           {buildTextBoxSummary(box)}
@@ -97,4 +94,3 @@ export function TrainingBoxPicker({
     </div>
   );
 }
-

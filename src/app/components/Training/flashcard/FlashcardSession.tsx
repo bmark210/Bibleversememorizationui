@@ -8,60 +8,37 @@ import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { toast } from "@/app/lib/toast";
 import { triggerHaptic } from "@/app/lib/haptics";
-import type { FlashcardMode } from "../types";
 import {
   fetchFlashcardVerses,
   submitFlashcardSession,
   type FlashcardResult,
-  type FlashcardVerseItem,
 } from "./services/flashcardApi";
+import {
+  buildFlashcardSessionCards,
+  type FlashcardSessionCard,
+} from "./flashcardSessionModel";
 
 const FLASHCARD_POOL_LIMIT = 20;
-
-type CardStatus = "hidden" | "revealed" | "answered";
-
-type SessionCard = {
-  externalVerseId: string;
-  text: string;
-  reference: string;
-  status: CardStatus;
-  remembered: boolean | null;
-};
 
 type SessionPhase = "loading" | "playing" | "summary" | "error";
 
 export type FlashcardSessionProps = {
   telegramId: string | null;
   boxId: string;
-  flashcardMode: FlashcardMode;
   onClose: () => void;
   onSessionCommitted?: () => void;
 };
 
-function mapVerseItem(v: FlashcardVerseItem): SessionCard | null {
-  const externalVerseId =
-    v.verse?.externalVerseId ?? (v as { externalVerseId?: string }).externalVerseId;
-  if (!externalVerseId || !v.text || !v.reference) return null;
-  return {
-    externalVerseId,
-    text: v.text,
-    reference: v.reference,
-    status: "hidden",
-    remembered: null,
-  };
-}
-
 export function FlashcardSession({
   telegramId,
   boxId,
-  flashcardMode,
   onClose,
   onSessionCommitted,
 }: FlashcardSessionProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
 
   const [phase, setPhase] = useState<SessionPhase>("loading");
-  const [cards, setCards] = useState<SessionCard[]>([]);
+  const [cards, setCards] = useState<FlashcardSessionCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [xpAwarded, setXpAwarded] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -79,14 +56,14 @@ export function FlashcardSession({
         });
 
         if (!response.verses || response.verses.length === 0) {
-          setErrorMessage("Нет стихов для карточек. Добавьте хотя бы один стих.");
+          setErrorMessage(
+            "Нет стихов для карточек. Добавьте хотя бы один стих.",
+          );
           setPhase("error");
           return;
         }
 
-        const sessionCards = response.verses
-          .map(mapVerseItem)
-          .filter((c): c is SessionCard => c !== null);
+        const sessionCards = buildFlashcardSessionCards(response.verses);
 
         if (sessionCards.length === 0) {
           setErrorMessage("Не удалось загрузить тексты стихов.");
@@ -131,7 +108,7 @@ export function FlashcardSession({
       if (isLast) {
         const results: FlashcardResult[] = updatedCards.map((card) => ({
           externalVerseId: card.externalVerseId,
-          mode: flashcardMode,
+          mode: card.mode,
           remembered: card.remembered ?? false,
         }));
 
@@ -155,11 +132,11 @@ export function FlashcardSession({
         setCurrentIndex((i) => i + 1);
       }
     },
-    [boxId, cards, currentIndex, flashcardMode, telegramId, onSessionCommitted],
+    [boxId, cards, currentIndex, telegramId, onSessionCommitted],
   );
 
-  const getCardSides = (card: SessionCard) => {
-    if (flashcardMode === "reference") {
+  const getCardSides = (card: FlashcardSessionCard) => {
+    if (card.mode === "reference") {
       return {
         visibleLabel: "Стих",
         visibleContent: card.text,
@@ -202,9 +179,7 @@ export function FlashcardSession({
         </button>
 
         <div className="text-center">
-          <p className="text-sm font-semibold text-text-primary">
-            Карточки · {flashcardMode === "reference" ? "Ссылка" : "Стих"}
-          </p>
+          <p className="text-sm font-semibold text-text-primary">Карточки</p>
           {phase === "playing" && cards.length > 0 && (
             <p className="text-xs text-text-muted">
               {currentIndex + 1} / {cards.length}
@@ -247,93 +222,95 @@ export function FlashcardSession({
         )}
 
         {/* Playing */}
-        {phase === "playing" && currentCard && (() => {
-          const { visibleLabel, visibleContent, hiddenLabel, hiddenContent } =
-            getCardSides(currentCard);
+        {phase === "playing" &&
+          currentCard &&
+          (() => {
+            const { visibleLabel, visibleContent, hiddenLabel, hiddenContent } =
+              getCardSides(currentCard);
 
-          return (
-            <div className="py-2">
-              {/* Card */}
-              <div className="overflow-hidden rounded-[1.8rem] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]">
-                {/* Visible side */}
-                <div className="p-5">
-                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
-                    {visibleLabel}
-                  </p>
-                  <p className="text-[15px] leading-relaxed text-text-primary">
-                    {visibleContent}
-                  </p>
+            return (
+              <div className="py-2">
+                {/* Card */}
+                <div className="overflow-hidden rounded-[1.8rem] border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]">
+                  {/* Visible side */}
+                  <div className="p-5">
+                    <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                      {visibleLabel}
+                    </p>
+                    <p className="text-[15px] leading-relaxed text-text-primary">
+                      {visibleContent}
+                    </p>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="mx-5 h-px bg-border-subtle" />
+
+                  {/* Hidden side */}
+                  <div className="p-5">
+                    <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                      {hiddenLabel}
+                    </p>
+
+                    {currentCard.status === "hidden" ? (
+                      <button
+                        type="button"
+                        onClick={handleReveal}
+                        className={cn(
+                          "flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3.5",
+                          "border-border-subtle bg-bg-surface text-sm text-text-muted",
+                          "transition-all duration-150 hover:border-brand-primary/30 hover:bg-bg-elevated hover:text-text-secondary",
+                          "active:scale-[0.98]",
+                        )}
+                      >
+                        <Eye className="h-4 w-4 shrink-0" />
+                        Нажмите, чтобы открыть
+                      </button>
+                    ) : (
+                      <p className="text-[15px] leading-relaxed text-text-primary">
+                        {hiddenContent}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* Divider */}
-                <div className="mx-5 h-px bg-border-subtle" />
-
-                {/* Hidden side */}
-                <div className="p-5">
-                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
-                    {hiddenLabel}
-                  </p>
-
-                  {currentCard.status === "hidden" ? (
+                {/* Answer buttons */}
+                {currentCard.status === "revealed" && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={handleReveal}
+                      onClick={() => handleAnswer(false)}
                       className={cn(
-                        "flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3.5",
-                        "border-border-subtle bg-bg-surface text-sm text-text-muted",
-                        "transition-all duration-150 hover:border-brand-primary/30 hover:bg-bg-elevated hover:text-text-secondary",
-                        "active:scale-[0.98]",
+                        "flex h-12 items-center justify-center gap-1.5 rounded-2xl border px-4",
+                        "border-status-learning/30 bg-status-learning-soft text-status-learning",
+                        "text-sm font-medium transition-all duration-150 active:scale-[0.97]",
                       )}
                     >
-                      <Eye className="h-4 w-4 shrink-0" />
-                      Нажмите, чтобы открыть
+                      Не вспомнил
                     </button>
-                  ) : (
-                    <p className="text-[15px] leading-relaxed text-text-primary">
-                      {hiddenContent}
-                    </p>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAnswer(true)}
+                      className={cn(
+                        "flex h-12 items-center justify-center gap-1.5 rounded-2xl border px-4",
+                        "border-status-mastered/30 bg-status-mastered-soft text-status-mastered",
+                        "text-sm font-medium transition-all duration-150 active:scale-[0.97]",
+                      )}
+                    >
+                      <Check className="h-4 w-4" />
+                      Вспомнил
+                    </button>
+                  </div>
+                )}
+
+                {/* Hint */}
+                {currentCard.status === "hidden" && (
+                  <p className="mt-3 text-center text-[11px] text-text-muted">
+                    Сначала вспомните, потом откройте
+                  </p>
+                )}
               </div>
-
-              {/* Answer buttons */}
-              {currentCard.status === "revealed" && (
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleAnswer(false)}
-                    className={cn(
-                      "flex h-12 items-center justify-center gap-1.5 rounded-2xl border px-4",
-                      "border-status-learning/30 bg-status-learning-soft text-status-learning",
-                      "text-sm font-medium transition-all duration-150 active:scale-[0.97]",
-                    )}
-                  >
-                    Не вспомнил
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAnswer(true)}
-                    className={cn(
-                      "flex h-12 items-center justify-center gap-1.5 rounded-2xl border px-4",
-                      "border-status-mastered/30 bg-status-mastered-soft text-status-mastered",
-                      "text-sm font-medium transition-all duration-150 active:scale-[0.97]",
-                    )}
-                  >
-                    <Check className="h-4 w-4" />
-                    Вспомнил
-                  </button>
-                </div>
-              )}
-
-              {/* Hint */}
-              {currentCard.status === "hidden" && (
-                <p className="mt-3 text-center text-[11px] text-text-muted">
-                  Сначала вспомните, потом откройте
-                </p>
-              )}
-            </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* Summary */}
         {phase === "summary" && (
@@ -378,7 +355,8 @@ export function FlashcardSession({
                 <p className="text-lg font-bold text-text-primary">
                   {cards.length > 0
                     ? Math.round((rememberedCount / cards.length) * 100)
-                    : 0}%
+                    : 0}
+                  %
                 </p>
                 <p className="text-xs text-text-muted">Результат</p>
               </div>

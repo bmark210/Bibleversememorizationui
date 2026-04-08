@@ -31,7 +31,7 @@ export const ALL_FLASHCARD_MODES: FlashcardMode[] = ["reference", "verse"];
 export type TrainingView =
   | { mode: "hub"; scope: TrainingBoxScope }
   | { mode: "anchor"; anchorModes: AnchorModeGroup[]; scope: TrainingBoxScope }
-  | { mode: "flashcard"; flashcardMode: FlashcardMode; scope: TrainingBoxScope }
+  | { mode: "flashcard"; scope: TrainingBoxScope }
   | {
       mode: "verse-session";
       verses: Verse[];
@@ -122,4 +122,3 @@ export const TRAINING_ORDER_LABELS: Record<TrainingOrder, string> = {
   bible: "По канону",
   popularity: "По популярности",
 };
-
