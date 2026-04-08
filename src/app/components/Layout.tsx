@@ -1,13 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  BookOpen,
-  Dumbbell,
-  LayoutDashboard,
-  User,
-  Users,
-} from "lucide-react";
+import { BookOpen, Dumbbell, LayoutDashboard, User, Users } from "lucide-react";
 import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { triggerHaptic } from "../lib/haptics";
@@ -243,10 +237,10 @@ export function Layout({
           <div
             className={cn(
               "min-h-0",
-              isFitContent && !isFitStrict &&
+              isFitContent &&
+                !isFitStrict &&
                 "flex h-full flex-col overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:overflow-visible",
-              isFitStrict &&
-                "flex h-full flex-col overflow-hidden",
+              isFitStrict && "flex h-full flex-col overflow-hidden",
             )}
           >
             {children}
@@ -267,9 +261,9 @@ export function Layout({
         }`}
       >
         <nav
-          style={{ paddingBottom: `${Math.max(bottomInset, 20)}px` }}
+          style={{ paddingBottom: `${Math.max(bottomInset, 22)}px` }}
           className={cn(
-            "flex justify-around border border-border-subtle bg-bg-overlay py-2.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:py-2",
+            "flex justify-around border border-border-subtle bg-bg-overlay py-3.5 shadow-[var(--shadow-floating)] backdrop-blur-2xl narrow:py-2.5",
             isExtendedNav ? "px-1.5 narrow:px-1.5" : "px-2.5 narrow:px-2",
           )}
         >
@@ -287,22 +281,20 @@ export function Layout({
                 onTouchStart={() => handleNavigateIntent(item.id)}
                 onClick={() => handleNavigateClick(item.id)}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[1.2rem] py-2 transition-[background-color,color,box-shadow] narrow:gap-1 narrow:rounded-[1rem] narrow:py-1.5",
-                  isExtendedNav
-                    ? "px-1.5 narrow:px-1"
-                    : "px-2.5 narrow:px-2",
+                  "flex min-h-[4.4rem] min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[1.35rem] py-2.5 transition-[background-color,border-color,color,box-shadow,transform] narrow:min-h-[3.75rem] narrow:gap-1.5 narrow:rounded-[1.1rem] narrow:py-2",
+                  isExtendedNav ? "px-1.5 narrow:px-1" : "px-2.5 narrow:px-2",
                   isActive
-                    ? "bg-bg-elevated border border-border text-brand-primary shadow-[var(--shadow-soft)]"
-                    : "text-text-muted",
+                    ? "border border-border bg-bg-elevated text-brand-primary shadow-[var(--shadow-soft)]"
+                    : "border border-transparent text-text-muted",
                 )}
               >
-                <Icon className="h-6 w-6 narrow:h-[1.1rem] narrow:w-[1.1rem]" />
+                <Icon className="h-[1.55rem] w-[1.55rem] shrink-0 narrow:h-[1.22rem] narrow:w-[1.22rem]" />
                 <span
                   className={cn(
                     "max-w-full truncate font-medium leading-none",
                     isExtendedNav
-                      ? "text-[10px] narrow:text-[9px]"
-                      : "text-xs narrow:text-[11px]",
+                      ? "text-[11px] narrow:text-[9.5px]"
+                      : "text-[12.5px] narrow:text-[11px]",
                   )}
                 >
                   {item.label}

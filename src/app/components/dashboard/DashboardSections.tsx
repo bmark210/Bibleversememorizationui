@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowUpRight, Crown, Dumbbell, Medal, Trophy, X } from "lucide-react";
+import { ArrowUpRight, Crown, Medal, Trophy, X } from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
@@ -25,16 +25,11 @@ import { selectCompactLeaderboardEntries } from "./leaderboardPresentation";
 import { AppSurface } from "../ui/AppSurface";
 import {
   AVATAR_SIZE,
-  CTA_BUTTON,
   GRID_GAP,
   HEADING_MB,
   HEADING_TEXT,
   HERO_TEXT,
-  RANK_BADGE,
-  ROW_AVATAR,
   ROW_GAP,
-  ROW_NAME,
-  ROW_PAD,
   SECTION_GAP,
   SHOW_ME_BTN,
   STAT_LABEL,
@@ -196,7 +191,20 @@ function getRankMarker(rank: number) {
 
 /* ── DashboardSurface ─────────────────────────────────────────────── */
 
-const DashboardSurface = AppSurface;
+function DashboardSurface({
+  className,
+  ...props
+}: React.ComponentProps<typeof AppSurface>) {
+  return (
+    <AppSurface
+      className={cn(
+        "rounded-[1.8rem] p-4 narrow:px-3.5 narrow:py-3.5 sm:rounded-[1.95rem] sm:p-5 lg:p-5",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 function DashboardInfoTile({
   label,
@@ -210,14 +218,14 @@ function DashboardInfoTile({
   return (
     <div
       className={cn(
-        "rounded-[1.2rem] border border-border-subtle bg-bg-elevated/70 px-3 py-2 shadow-[var(--shadow-soft)]",
+        "rounded-[1.35rem] border border-border-subtle bg-bg-elevated/70 px-3.5 py-3 shadow-[var(--shadow-soft)] sm:rounded-[1.45rem] sm:px-4 sm:py-3.5",
         className,
       )}
     >
-      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-text-muted">
+      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-text-muted">
         {label}
       </div>
-      <div className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-text-primary sm:text-[15px]">
+      <div className="mt-1.5 line-clamp-2 text-[15px] font-semibold leading-snug text-text-primary sm:text-base">
         {value}
       </div>
     </div>
@@ -315,6 +323,7 @@ function WelcomeAvatar({
     <Avatar
       className={cn(
         AVATAR_SIZE,
+        "h-12 w-12 narrow:h-10 narrow:w-10 sm:h-12 sm:w-12",
         "border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)]",
       )}
     >
@@ -341,6 +350,7 @@ function WelcomeHeading({
       className={cn(
         "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
         HERO_TEXT,
+        "text-[clamp(2rem,6.8vw,2.9rem)] narrow:text-[clamp(1.7rem,7.6vw,2.2rem)]",
       )}
     >
       {isFirstAppVisit ? `Привет, ${firstName}` : `С возвращением`}
@@ -352,7 +362,6 @@ export const DashboardWelcomeSection = React.memo(
   function DashboardWelcomeSection({
     user,
     currentUserAvatarUrl,
-    onOpenTraining,
     onOpenCurrentUserProfile,
   }: DashboardWelcomeSectionProps) {
     const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
@@ -370,7 +379,7 @@ export const DashboardWelcomeSection = React.memo(
     }, []);
 
     return (
-      <DashboardSurface className="shrink-0 rounded-[1.7rem] sm:rounded-[1.9rem]">
+      <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
         <div
           className={cn(
             "flex flex-col lg:flex-row lg:items-center lg:justify-between",
@@ -383,7 +392,7 @@ export const DashboardWelcomeSection = React.memo(
                 <button
                   type="button"
                   onClick={onOpenCurrentUserProfile}
-                  className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px]"
+                  className="flex items-center gap-3.5 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
                   aria-label={`Открыть профиль ${user.firstName}`}
                 >
                   <WelcomeAvatar
@@ -396,7 +405,7 @@ export const DashboardWelcomeSection = React.memo(
                   />
                 </button>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3.5 sm:gap-4">
                   <WelcomeAvatar
                     currentUserAvatarUrl={currentUserAvatarUrl}
                     firstName={user.firstName}
@@ -418,17 +427,6 @@ export const DashboardWelcomeSection = React.memo(
               </h1>
             )}
           </div>
-
-          <Button
-            type="button"
-            size="lg"
-            haptic="medium"
-            onClick={onOpenTraining}
-            className={cn(CTA_BUTTON, "shadow-[var(--shadow-floating)] mt-2")}
-          >
-            <Dumbbell className="h-4 w-4" />
-            Тренировка
-          </Button>
         </div>
       </DashboardSurface>
     );
@@ -452,6 +450,7 @@ export const DashboardTrainingStatsCard = React.memo(
             "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
             HEADING_TEXT,
             HEADING_MB,
+            "text-[1.08rem] narrow:text-base sm:text-xl",
           )}
         >
           Моя статистика
@@ -464,7 +463,7 @@ export const DashboardTrainingStatsCard = React.memo(
               <div
                 key={item.key}
                 className={cn(
-                  "rounded-[1.05rem] border px-3 py-2 shadow-[var(--shadow-soft)] sm:rounded-[1.2rem] sm:px-3.5 sm:py-3",
+                  "rounded-[1.2rem] border px-3.5 py-3 shadow-[var(--shadow-soft)] sm:rounded-[1.35rem] sm:px-4 sm:py-3.5",
                   tone.panelClassName,
                 )}
               >
@@ -485,11 +484,11 @@ export const DashboardTrainingStatsCard = React.memo(
                   )}
                 >
                   {item.isLoading ? (
-                    <Skeleton className="h-8 w-16 rounded-xl border-0" />
+                    <Skeleton className="h-9 w-20 rounded-xl border-0" />
                   ) : item.value != null ? (
                     item.value
                   ) : (
-                    <span className="text-sm font-medium text-text-muted">
+                    <span className="text-[15px] font-medium text-text-muted">
                       Нет данных
                     </span>
                   )}
@@ -553,7 +552,9 @@ function DashboardLeaderboardRow({
       }
       className={cn(
         "flex w-full items-center gap-2.5 border text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color]",
-        compact ? ROW_PAD : "rounded-[1.35rem] px-3.5 py-3 sm:px-4",
+        compact
+          ? "rounded-[1.3rem] gap-3 px-3.5 py-2.5 narrow:gap-2.5 narrow:px-3 narrow:py-2.25"
+          : "rounded-[1.35rem] px-3.5 py-3 sm:px-4",
         isCurrentUser
           ? "border-brand-primary/20 bg-status-mastered-soft"
           : "border-border-subtle bg-bg-elevated hover:border-brand-primary/20 hover:bg-bg-surface",
@@ -565,23 +566,19 @@ function DashboardLeaderboardRow({
       <div
         className={cn(
           "flex shrink-0 items-center justify-center rounded-full border font-semibold",
-          compact ? RANK_BADGE : "h-8 w-8 text-xs",
+          "h-8 w-8 text-xs",
           rankMarker.className,
         )}
         aria-hidden="true"
       >
-        {RankIcon ? (
-          <RankIcon className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
-        ) : (
-          <span>#{rank}</span>
-        )}
+        {RankIcon ? <RankIcon className="h-4 w-4" /> : <span>#{rank}</span>}
       </div>
 
       {/* Avatar */}
       <Avatar
         className={cn(
           "shrink-0 border border-border-subtle bg-bg-surface",
-          compact ? ROW_AVATAR : "h-9 w-9",
+          "h-9 w-9",
         )}
       >
         {entry.avatarUrl ? (
@@ -596,8 +593,7 @@ function DashboardLeaderboardRow({
       <div className="min-w-0 flex-1">
         <div
           className={cn(
-            "truncate font-medium",
-            compact ? ROW_NAME : "text-sm",
+            "truncate text-sm font-medium",
             isCurrentUser ? "text-brand-primary" : "text-text-primary",
           )}
         >
@@ -615,12 +611,7 @@ function DashboardLeaderboardRow({
       </div>
 
       {/* XP */}
-      <div
-        className={cn(
-          "shrink-0 font-semibold text-text-primary",
-          compact ? ROW_NAME : "text-sm",
-        )}
-      >
+      <div className={cn("shrink-0 text-sm font-semibold text-text-primary")}>
         {formatXp(displayXp)}
       </div>
     </button>
@@ -651,7 +642,7 @@ function DashboardLeaderboardRow({
 //           name: displayName,
 //           avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
 //         });
-//       }} 
+//       }}
 //       className={cn(
 //         "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-2",
 //         isCurrentUser
@@ -710,9 +701,7 @@ function FriendsAvatarStack({
       {visibleEntries.map((entry, index) => {
         const name = entry.name?.trim() || "Друг";
         const avatar = (
-          <Avatar
-            className="h-9 w-9 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
-          >
+          <Avatar className="h-10 w-10 shrink-0 border-2 border-bg-overlay shadow-[var(--shadow-soft)] narrow:h-9 narrow:w-9">
             {entry.avatarUrl ? (
               <AvatarImage src={entry.avatarUrl} alt={name} />
             ) : null}
@@ -754,7 +743,7 @@ function FriendsAvatarStack({
       })}
       {extraCount > 0 && (
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-bg-overlay bg-bg-elevated text-[10px] font-semibold text-text-muted shadow-[var(--shadow-soft)] narrow:h-8 narrow:w-8"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-bg-overlay bg-bg-elevated text-[11px] font-semibold text-text-muted shadow-[var(--shadow-soft)] narrow:h-9 narrow:w-9"
           style={{ marginLeft: -10, zIndex: 0 }}
         >
           +{extraCount}
@@ -1162,9 +1151,7 @@ export const DashboardLeaderboardCard = React.memo(
 
     return (
       <>
-        <DashboardSurface
-          className="self-start flex min-h-[12.5rem] w-full flex-col gap-3 p-3 sm:min-h-[13rem] sm:p-3.5"
-        >
+        <DashboardSurface className="self-start flex min-h-[13.5rem] w-full flex-col gap-3.5 p-4 sm:min-h-[14rem] sm:p-5">
           <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
@@ -1181,14 +1168,14 @@ export const DashboardLeaderboardCard = React.memo(
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 w-8 shrink-0 rounded-full p-0"
+              className="h-9 w-9 shrink-0 rounded-full p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDialogOpen(true);
               }}
               aria-label="Открыть таблицу лидеров"
             >
-              <ArrowUpRight className="h-4 w-4" />
+              <ArrowUpRight className="h-[1.05rem] w-[1.05rem]" />
             </Button>
           </div>
 
@@ -1204,9 +1191,7 @@ export const DashboardLeaderboardCard = React.memo(
               compactEntries.map((entry) => (
                 <div
                   key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                  className={cn(
-                    "px-0",
-                  )}
+                  className={cn("px-0")}
                 >
                   <DashboardLeaderboardRow
                     entry={entry}
@@ -1445,7 +1430,9 @@ export const DashboardFriendsActivityCard = React.memo(
       React.useState(0);
     const [cachedDialogEntries, setCachedDialogEntries] = React.useState<
       Array<DashboardCompactFriendActivityEntry | null>
-    >(() => (friendsActivity ? mergeFriendsActivityWindow([], friendsActivity) : []));
+    >(() =>
+      friendsActivity ? mergeFriendsActivityWindow([], friendsActivity) : [],
+    );
     const [dialogFriendsTotal, setDialogFriendsTotal] = React.useState(
       Math.max(0, friendsActivity?.friendsTotal ?? 0),
     );
@@ -1511,10 +1498,7 @@ export const DashboardFriendsActivityCard = React.memo(
           mergeDialogWindowIntoState(nextWindow);
           return nextWindow;
         } catch (error) {
-          console.error(
-            "Не удалось загрузить окно активности друзей:",
-            error,
-          );
+          console.error("Не удалось загрузить окно активности друзей:", error);
           return null;
         } finally {
           pendingOffsetsRef.current.delete(resolvedOffset);
@@ -1568,11 +1552,7 @@ export const DashboardFriendsActivityCard = React.memo(
           void requestFriendsActivityWindow(nextOffset);
         }
       },
-      [
-        dialogFriendsTotal,
-        friendsWindowSize,
-        requestFriendsActivityWindow,
-      ],
+      [dialogFriendsTotal, friendsWindowSize, requestFriendsActivityWindow],
     );
 
     const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
@@ -1597,9 +1577,7 @@ export const DashboardFriendsActivityCard = React.memo(
 
     return (
       <>
-        <DashboardSurface
-          className="self-start flex min-h-[5rem] w-full flex-col gap-2 p-3 sm:min-h-[9rem] sm:p-3.5"
-        >
+        <DashboardSurface className="self-start flex min-h-[6.5rem] w-full flex-col gap-3 p-4 sm:min-h-[9.5rem] sm:p-5">
           <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
@@ -1616,7 +1594,7 @@ export const DashboardFriendsActivityCard = React.memo(
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 w-8 shrink-0 rounded-full p-0"
+              className="h-9 w-9 shrink-0 rounded-full p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 (document.activeElement as HTMLElement)?.blur();
@@ -1624,30 +1602,31 @@ export const DashboardFriendsActivityCard = React.memo(
               }}
               aria-label="Открыть активность друзей"
             >
-              <ArrowUpRight className="h-4 w-4" />
+              <ArrowUpRight className="h-[1.05rem] w-[1.05rem]" />
             </Button>
           </div>
 
           <div className="flex min-h-fit flex-1 items-center overflow-hidden">
             {isFriendsActivityLoading && summaryFriendsTotal === 0 ? (
-              <Skeleton className="h-14 w-full rounded-[1.15rem] border-0" />
+              <Skeleton className="h-16 w-full rounded-[1.2rem] border-0" />
             ) : summaryEntries.length > 0 ? (
-                <div className="flex w-full items-center justify-between gap-3 rounded-[1.1rem] shadow-[var(--shadow-soft)]">
-                  <FriendsAvatarStack
-                    entries={summaryEntries}
-                    onOpenPlayerProfile={onOpenPlayerProfile}
-                  />
-                  <div className="min-w-0 text-right">
-                    <div className="text-sm font-semibold text-text-primary narrow:text-[13px]">
-                      {summaryFriendsTotal} {pluralizeFriends(summaryFriendsTotal)}
-                    </div>
-                    {/* <div className="mt-0.5 text-[11px] text-text-muted narrow:text-[10px]">
+              <div className="flex w-full items-center justify-between gap-3.5 rounded-[1.25rem] shadow-[var(--shadow-soft)]">
+                <FriendsAvatarStack
+                  entries={summaryEntries}
+                  onOpenPlayerProfile={onOpenPlayerProfile}
+                />
+                <div className="min-w-0 text-right">
+                  <div className="text-base font-semibold text-text-primary narrow:text-[14px] sm:text-lg">
+                    {summaryFriendsTotal}{" "}
+                    {pluralizeFriends(summaryFriendsTotal)}
+                  </div>
+                  {/* <div className="mt-0.5 text-[11px] text-text-muted narrow:text-[10px]">
                       {summaryActiveLast7Days > 0
                         ? `${summaryActiveLast7Days} активны за 7 дней`
                         : "Пока без свежей активности"}
                     </div> */}
-                  </div>
                 </div>
+              </div>
             ) : (
               <DashboardInfoTile
                 label="Последний сигнал"
