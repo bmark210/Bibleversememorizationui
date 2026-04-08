@@ -17,6 +17,7 @@ export type Verse = {
   id?: string | number;
   externalVerseId: string;
   difficultyLevel: VerseDifficultyLevel;
+  isPopular?: boolean;
   status: DisplayVerseStatus;
   flow?: VerseFlow | null;
   masteryLevel: number;
@@ -54,8 +55,10 @@ export type AppVerseApiRecord = {
     externalVerseId?: string | null;
     difficultyLetters?: number | null;
     id?: string | null;
+    isPopular?: boolean | null;
   } | null;
   difficultyLevel?: VerseDifficultyLevel | null;
+  isPopular?: boolean | null;
   status?: string | null;
   flow?: unknown;
   masteryLevel?: number | null;
@@ -72,13 +75,11 @@ export type AppVerseApiRecord = {
   tags?: Array<{ id: string; slug: string; title: string }> | null;
   popularityScope?: "friends" | "players" | "self" | null;
   popularityValue?: number | null;
-  popularityPreviewUsers?:
-    | Array<{
-        telegramId?: string | null;
-        name?: string | null;
-        avatarUrl?: string | null;
-      }>
-    | null;
+  popularityPreviewUsers?: Array<{
+    telegramId?: string | null;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }> | null;
   text?: string | null;
   reference?: string | null;
   contextPromptText?: string | null;
@@ -93,19 +94,27 @@ function parseDateValue(value: unknown): Date | null {
 }
 
 export function sortByUpdatedAtDesc(a: Verse, b: Verse) {
-  const aUpdated = parseDateValue(a.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const bUpdated = parseDateValue(b.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const aUpdated =
+    parseDateValue(a.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bUpdated =
+    parseDateValue(b.updatedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aUpdated !== bUpdated) return bUpdated - aUpdated;
 
-  const aLast = parseDateValue(a.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const bLast = parseDateValue(b.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const aLast =
+    parseDateValue(a.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bLast =
+    parseDateValue(b.lastReviewedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aLast !== bLast) return bLast - aLast;
 
-  const aCreated = parseDateValue(a.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-  const bCreated = parseDateValue(b.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const aCreated =
+    parseDateValue(a.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+  const bCreated =
+    parseDateValue(b.createdAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
   if (aCreated !== bCreated) return bCreated - aCreated;
 
-  return String(a.externalVerseId ?? a.id).localeCompare(String(b.externalVerseId ?? b.id));
+  return String(a.externalVerseId ?? a.id).localeCompare(
+    String(b.externalVerseId ?? b.id),
+  );
 }
 
 export function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
@@ -116,19 +125,27 @@ export function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
   const difficultyLevel =
     verse.difficultyLevel != null
       ? coerceVerseDifficultyLevel(verse.difficultyLevel)
-      : getDifficultyLevelByLetters(verse.verse?.difficultyLetters ?? undefined);
+      : getDifficultyLevelByLetters(
+          verse.verse?.difficultyLetters ?? undefined,
+        );
   const flow = normalizeVerseFlow(verse.flow);
   const displayStatusFromFlow = getDisplayStatusFromFlow(flow);
   const nextReviewAt = verse.nextReviewAt ?? flow?.availableAt ?? null;
+  const isPopular =
+    verse.isPopular ?? verse.verse?.isPopular ?? (verse.tags ?? []).length > 0;
   return {
     id: verse.id ?? verse.verse?.id ?? undefined,
     externalVerseId,
     difficultyLevel,
+    isPopular: Boolean(isPopular),
     status: normalizeDisplayVerseStatus(displayStatusFromFlow ?? verse.status),
     flow,
     masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
     repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
-    reviewLapseStreak: Math.max(0, Math.round(Number(verse.reviewLapseStreak ?? 0))),
+    reviewLapseStreak: Math.max(
+      0,
+      Math.round(Number(verse.reviewLapseStreak ?? 0)),
+    ),
     referenceScore: Math.max(0, Math.round(Number(verse.referenceScore ?? 0))),
     incipitScore: Math.max(0, Math.round(Number(verse.incipitScore ?? 0))),
     contextScore: Math.max(0, Math.round(Number(verse.contextScore ?? 0))),
@@ -157,18 +174,25 @@ export function mapUserVerseToAppVerse(verse: AppVerseApiRecord): Verse {
         })
         .filter(
           (
-            user
+            user,
           ): user is {
             telegramId: string;
             name: string;
             avatarUrl: string | null;
-          } => user != null
+          } => user != null,
         ) ?? [],
     text: String(verse.text ?? ""),
     reference: String(verse.reference ?? verse.externalVerseId ?? ""),
-    contextPromptText: typeof verse.contextPromptText === "string" ? verse.contextPromptText : undefined,
-    contextPromptReference: typeof verse.contextPromptReference === "string" ? verse.contextPromptReference : undefined,
-    queuePosition: typeof verse.queuePosition === "number" ? verse.queuePosition : null,
+    contextPromptText:
+      typeof verse.contextPromptText === "string"
+        ? verse.contextPromptText
+        : undefined,
+    contextPromptReference:
+      typeof verse.contextPromptReference === "string"
+        ? verse.contextPromptReference
+        : undefined,
+    queuePosition:
+      typeof verse.queuePosition === "number" ? verse.queuePosition : null,
   };
 }
 
@@ -177,6 +201,8 @@ function isTrainingDashboardVerse(verse: Verse) {
   return resolved.isLearning || resolved.isReview;
 }
 
-export function pickTrainingDashboardVerses(allVerses: Array<Verse>): Array<Verse> {
+export function pickTrainingDashboardVerses(
+  allVerses: Array<Verse>,
+): Array<Verse> {
   return allVerses.filter(isTrainingDashboardVerse).sort(sortByUpdatedAtDesc);
 }
