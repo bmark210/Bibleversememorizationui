@@ -273,7 +273,7 @@ export function TextsScreen({
   onNavigateToTrainingBox,
   telegramId = null,
 }: TextsScreenProps) {
-  const [activeTab, setActiveTab] = useState<TextWorkspaceTab>("catalog");
+  const [activeTab, setActiveTab] = useState<TextWorkspaceTab>("boxes");
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<BoxEditorState>(null);
   const [editorTitle, setEditorTitle] = useState("");
@@ -759,8 +759,8 @@ export function TextsScreen({
   );
 
   const renderBoxDetail = () => (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="pb-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="min-w-0 pb-4">
         <button
           type="button"
           onClick={() => setSelectedBoxId(null)}
@@ -771,22 +771,22 @@ export function TextsScreen({
         </button>
 
         {visibleBox ? (
-          <TextSurfaceCard className="mt-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h2 className="truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]">
-                    {visibleBoxTitle}
-                  </h2>
-                </div>
-                {/* <p className="mt-3 text-[1rem] leading-7 text-text-secondary">{buildTextBoxSummary(visibleBox)}</p> */}
+          <TextSurfaceCard className="mt-3 min-w-0">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h2
+                  className="block w-full min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                  title={visibleBoxTitle}
+                >
+                  {visibleBoxTitle}
+                </h2>
               </div>
 
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="rounded-full"
+                className="shrink-0 rounded-full"
                 onClick={() => setSettingsBox(visibleBox)}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -908,7 +908,7 @@ export function TextsScreen({
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">
           {selectedBoxId ? (
             renderBoxDetail()
           ) : activeTab === "catalog" ? (
