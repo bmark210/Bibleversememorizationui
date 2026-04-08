@@ -2,35 +2,33 @@
 
 import { create } from 'zustand'
 import type { DirectLaunchVerse } from '@/app/components/Training/types'
-import type { Verse } from '@/app/domain/verse'
-import type { AppRootPage, PendingVerseListReturn } from '@/app/domain/appPages'
-import { toDirectLaunchPayload } from '@/app/utils/directLaunch'
+import type { AppRootPage, PendingTextBoxReturn } from '@/app/domain/appPages'
+import type { TrainingBoxScope } from '@/app/types/textBox'
 
 interface ScreenStore {
   active: AppRootPage
   history: AppRootPage[]
   trainingDirectLaunch: DirectLaunchVerse | null
-  pendingVerseListReturn: PendingVerseListReturn | null
+  trainingBoxScope: TrainingBoxScope | null
+  pendingTextBoxReturn: PendingTextBoxReturn | null
 
-  /** Root navigation — resets history, clears training state */
   go: (screen: AppRootPage) => void
-  /** Push on top of history stack (mobile-style sub-navigation) */
   push: (screen: AppRootPage) => void
-  /** Pop the history stack */
   back: () => void
-  /** Navigate to Training with a specific verse as direct launch */
-  navigateToTrainingWithVerse: (launchOrVerse: DirectLaunchVerse | Verse) => void
-  /** Called when Training's direct-launch session ends */
+  navigateToTrainingWithVerse: (launch: DirectLaunchVerse) => void
+  navigateToTrainingHub: () => void
+  navigateToTrainingBox: (scope: TrainingBoxScope) => void
+  setTrainingBoxScope: (scope: TrainingBoxScope | null) => void
   onDirectLaunchExit: (launch: DirectLaunchVerse) => void
-  /** Called after VerseList consumes the pending return filter */
-  onVerseListReturnHandled: () => void
+  onTextBoxReturnHandled: () => void
 }
 
 export const useScreenStore = create<ScreenStore>((set, get) => ({
   active: 'dashboard',
   history: [],
   trainingDirectLaunch: null,
-  pendingVerseListReturn: null,
+  trainingBoxScope: null,
+  pendingTextBoxReturn: null,
 
   go: (screen) =>
     set((s) => {
@@ -39,7 +37,8 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
         active: screen,
         history: [],
         trainingDirectLaunch: null,
-        pendingVerseListReturn: null,
+        trainingBoxScope: null,
+        pendingTextBoxReturn: null,
       }
     }),
 
@@ -58,35 +57,72 @@ export const useScreenStore = create<ScreenStore>((set, get) => ({
       }
     }),
 
-  navigateToTrainingWithVerse: (launchOrVerse) => {
-    const launch = toDirectLaunchPayload(launchOrVerse)
-    set({ pendingVerseListReturn: null, trainingDirectLaunch: launch })
+  navigateToTrainingWithVerse: (launch) => {
+    set({
+      pendingTextBoxReturn: null,
+      trainingBoxScope: launch.scope,
+      trainingDirectLaunch: launch,
+    })
     get().push('training')
   },
+
+  navigateToTrainingHub: () => {
+    set({
+      pendingTextBoxReturn: null,
+      trainingDirectLaunch: null,
+      trainingBoxScope: null,
+    })
+    get().push('training')
+  },
+
+  navigateToTrainingBox: (scope) => {
+    set({
+      pendingTextBoxReturn: null,
+      trainingDirectLaunch: null,
+      trainingBoxScope: scope,
+    })
+    get().push('training')
+  },
+
+  setTrainingBoxScope: (scope) => set({ trainingBoxScope: scope }),
 
   onDirectLaunchExit: (launch) => {
     const returnTarget = launch.returnTarget ?? { kind: 'training-hub' as const }
     set({ trainingDirectLaunch: null })
 
-    if (returnTarget.kind !== 'verse-list') return
+    if (returnTarget.kind !== 'text-box') return
 
-    const pending: PendingVerseListReturn = { statusFilter: returnTarget.statusFilter }
+    const pending: PendingTextBoxReturn = {
+      boxId: returnTarget.boxId,
+      boxTitle: returnTarget.boxTitle,
+    }
 
     set((s) => {
       if (s.active !== 'training') {
-        return { pendingVerseListReturn: pending, active: 'verses', history: [] }
+        return {
+          pendingTextBoxReturn: pending,
+          trainingBoxScope: { boxId: returnTarget.boxId, boxTitle: returnTarget.boxTitle },
+          active: 'verses',
+          history: [],
+        }
       }
       const prevPage = s.history.at(-1)
       if (prevPage === 'verses') {
         return {
-          pendingVerseListReturn: pending,
+          pendingTextBoxReturn: pending,
+          trainingBoxScope: { boxId: returnTarget.boxId, boxTitle: returnTarget.boxTitle },
           active: 'verses',
           history: s.history.slice(0, -1),
         }
       }
-      return { pendingVerseListReturn: pending, active: 'verses', history: [] }
+      return {
+        pendingTextBoxReturn: pending,
+        trainingBoxScope: { boxId: returnTarget.boxId, boxTitle: returnTarget.boxTitle },
+        active: 'verses',
+        history: [],
+      }
     })
   },
 
-  onVerseListReturnHandled: () => set({ pendingVerseListReturn: null }),
+  onTextBoxReturnHandled: () => set({ pendingTextBoxReturn: null }),
 }))

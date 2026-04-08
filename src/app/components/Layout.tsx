@@ -26,7 +26,7 @@ interface LayoutProps {
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Главная",
-  verses: "Стихи",
+  verses: "Библия",
   training: "Тренировка",
   community: "Сообщество",
   profile: "Профиль",
@@ -34,7 +34,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 const DEFAULT_NAV_ITEMS = [
   { id: "dashboard", label: "Главная", icon: LayoutDashboard },
-  { id: "verses", label: "Стихи", icon: BookOpen },
+  { id: "verses", label: "Тексты", icon: BookOpen },
   { id: "training", label: "Тренировка", icon: Dumbbell },
   { id: "community", label: "Сообщество", icon: Users },
   { id: "profile", label: "Профиль", icon: User },

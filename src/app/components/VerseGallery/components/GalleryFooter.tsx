@@ -25,11 +25,11 @@ type Props = {
 };
 
 const NAV_ICON_CLASS =
-  "h-11 w-11 shrink-0 rounded-xl text-foreground/75";
+  "h-11 w-11 shrink-0 rounded-full border-border-default/55 bg-bg-elevated text-text-secondary shadow-[var(--shadow-soft)]";
 const ICON_ACTION_CLASS =
-  "h-11 rounded-2xl !border !border-border/60 bg-muted/35 text-foreground/75 backdrop-blur-xl";
+  "h-11 rounded-full border-border-default/55 bg-bg-elevated px-4 text-text-secondary shadow-[var(--shadow-soft)]";
 const QUIET_DELETE_CLASS =
-  "h-11 rounded-2xl border-border/60 bg-muted/28 px-3 text-foreground/68 backdrop-blur-xl hover:bg-muted/42 hover:text-foreground/86";
+  "h-11 rounded-full border-border-default/55 bg-bg-elevated px-3 text-text-secondary shadow-[var(--shadow-soft)] hover:text-state-error";
 const FOOTER_VEIL_HEIGHT_PX = 104;
 
 function GalleryFooterComponent({
@@ -72,7 +72,7 @@ function GalleryFooterComponent({
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/82 to-transparent"
+        className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-app via-bg-app/82 to-transparent"
         style={{ top: -FOOTER_VEIL_HEIGHT_PX }}
       />
 

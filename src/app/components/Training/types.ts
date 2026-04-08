@@ -1,7 +1,6 @@
 import type { Verse } from "@/app/domain/verse";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import type { VersePatchEvent } from "@/app/types/verseSync";
-import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
+import type { TrainingBoxScope } from "@/app/types/textBox";
 
 /** Training mode — what kind of exercises to run */
 export type TrainingMode = "learning" | "review" | "anchor";
@@ -30,14 +29,15 @@ export const ALL_FLASHCARD_MODES: FlashcardMode[] = ["reference", "verse"];
 
 /** Internal view state machine for Training orchestrator */
 export type TrainingView =
-  | { mode: "hub" }
-  | { mode: "anchor"; anchorModes: AnchorModeGroup[] }
-  | { mode: "flashcard"; flashcardMode: FlashcardMode }
+  | { mode: "hub"; scope: TrainingBoxScope }
+  | { mode: "anchor"; anchorModes: AnchorModeGroup[]; scope: TrainingBoxScope }
+  | { mode: "flashcard"; flashcardMode: FlashcardMode; scope: TrainingBoxScope }
   | {
       mode: "verse-session";
       verses: Verse[];
       trainingModes: CoreTrainingMode[];
       order: TrainingOrder;
+      scope: TrainingBoxScope;
       initialVerseExternalId?: string | null;
     };
 
@@ -45,28 +45,27 @@ export type TrainingView =
 export type DirectLaunchReturnTarget =
   | { kind: "training-hub" }
   | {
-      kind: "verse-list";
-      statusFilter: VerseListStatusFilter;
+      kind: "text-box";
+      boxId: string;
+      boxTitle: string;
     };
 
 export interface DirectLaunchVerse {
   verse: Verse;
+  scope: TrainingBoxScope;
   preferredMode?: TrainingMode;
   returnTarget?: DirectLaunchReturnTarget;
 }
 
 export interface TrainingProps {
-  allVerses: Verse[];
-  isLoadingVerses?: boolean;
-  dashboardStats?: domain_UserDashboardStats | null;
   telegramId: string | null;
-  selectionVerses?: Verse[];
+  boxScope: TrainingBoxScope | null;
   /** If set, skip the Hub and start a training session immediately for this verse */
   directLaunch?: DirectLaunchVerse | null;
   /** Called when the direct-launch session ends, so the parent can clear state or navigate away */
   onDirectLaunchExit?: (launch: DirectLaunchVerse) => void;
+  onBoxScopeChange?: (scope: TrainingBoxScope | null) => void;
   onVersePatched: (event: VersePatchEvent) => void;
-  onRequestVerseSelection: () => void;
   onVerseMutationCommitted?: () => void;
   onSessionFullscreenChange?: (isFullscreen: boolean) => void;
 }

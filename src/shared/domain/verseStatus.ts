@@ -1,4 +1,6 @@
 export const VerseStatus = {
+  // Legacy compatibility: the backend no longer emits MY, but some older
+  // client code paths may still reference the symbolic key.
   MY: "MY",
   QUEUE: "QUEUE",
   LEARNING: "LEARNING",
@@ -40,10 +42,13 @@ export function normalizeDisplayVerseStatus(
   if (value === VerseStatus.STOPPED || value === "STOPPED") {
     return VerseDisplayStatus.STOPPED;
   }
+  if (value === VerseStatus.MY || value === "MY") {
+    return VerseDisplayStatus.QUEUE;
+  }
   if (value === VerseStatus.QUEUE || value === "QUEUE") {
     return VerseDisplayStatus.QUEUE;
   }
-  return VerseDisplayStatus.MY;
+  return VerseDisplayStatus.QUEUE;
 }
 
 export function isActiveLearningLikeStatus(

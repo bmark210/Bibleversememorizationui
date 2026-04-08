@@ -60,7 +60,6 @@ function getStatusLabel(
 ) {
   if (isPaused) return "На паузе";
   if (status === "CATALOG") return "Каталог";
-  if (status === VerseStatus.MY) return "Мой список";
   if (status === VerseStatus.QUEUE) return "В очереди";
   if (phase === "learning") return "В изучении";
   if (phase === "review") return "Повторение";
@@ -81,9 +80,6 @@ function getSubtitle(
   }
   if (status === "CATALOG") {
     return "Стих еще не добавлен в личную коллекцию.";
-  }
-  if (status === VerseStatus.MY) {
-    return "Стих уже в списке, но обучение еще не началось.";
   }
   if (status === VerseStatus.QUEUE) {
     return "Стих ожидает свободный слот изучения.";

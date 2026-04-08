@@ -95,11 +95,17 @@ export function resolveVerseActionToastKind(
 ): VerseActionToastKind | null {
   const previousStatus = normalizeDisplayVerseStatus(previousStatusInput);
 
-  if (previousStatus === "CATALOG" && nextStatus === VerseStatus.MY) {
+  if (
+    previousStatus === "CATALOG" &&
+    nextStatus === VerseStatus.QUEUE
+  ) {
     return "add-to-my";
   }
 
-  if (previousStatus === VerseStatus.MY && nextStatus === VerseStatus.LEARNING) {
+  if (
+    previousStatus === VerseStatus.QUEUE &&
+    nextStatus === VerseStatus.LEARNING
+  ) {
     return "start-learning";
   }
 
@@ -138,7 +144,7 @@ export function showVerseActionToast(params: {
         duration: params.duration,
         tone: "info",
         icon: Plus,
-        title: "Добавлено в мои стихи",
+        title: "Добавлено в очередь",
         reference: params.reference,
         meta: params.meta,
       });

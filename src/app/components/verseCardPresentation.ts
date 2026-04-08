@@ -17,7 +17,6 @@ export function resolveVerseActionToneKey({
   isCatalogMode = false,
 }: ResolveVerseActionToneParams): VerseCardTone {
   if (isCatalogMode) return "my";
-  if (displayStatus === VerseStatus.MY) return "my";
   if (displayStatus === VerseStatus.QUEUE) return "queue";
   if (displayStatus === VerseStatus.STOPPED) return "stopped";
   if (displayStatus === "MASTERED") return "mastered";

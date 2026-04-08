@@ -165,7 +165,6 @@ function normalizePreviewUsers(verse: Verse): PreparedPreviewUser[] {
 
 function getPreviewTone(status: DisplayVerseStatus): VerseCardPreviewTone | undefined {
   if (status === "CATALOG") return "catalog";
-  if (status === VerseStatus.MY) return "my";
   if (status === VerseStatus.QUEUE) return "queue";
   if (status === VerseStatus.STOPPED) return "stopped";
   if (status === "MASTERED") return "mastered";

@@ -1,38 +1,38 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { TrainingHub } from "./hub/TrainingHub";
+import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
+import { useTextBoxVerses } from "@/app/hooks/texts/useTextBoxVerses";
 import { AnchorSession } from "./anchor/AnchorSession";
 import { FlashcardSessionRoot } from "./flashcard/FlashcardSession.lazy";
+import { TrainingBoxHub } from "./TrainingBoxHub";
+import { TrainingBoxPicker } from "./TrainingBoxPicker";
 import { TrainingSession } from "./session/TrainingSession";
-import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
-import type {
-  TrainingProps,
-  TrainingView,
-  CoreTrainingMode,
-  TrainingScenario,
-  AnchorModeGroup,
-  AnchorSubScenario,
-  FlashcardMode,
-} from "./types";
-import { ALL_ANCHOR_MODE_GROUPS } from "./types";
+import { pickVersesForCoreModes } from "./coreTrainingAvailability";
 import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
 import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
-import { pickVersesForCoreModes } from "./coreTrainingAvailability";
- 
+import type {
+  AnchorModeGroup,
+  AnchorSubScenario,
+  CoreTrainingMode,
+  FlashcardMode,
+  TrainingProps,
+  TrainingScenario,
+  TrainingView,
+} from "./types";
+import { ALL_ANCHOR_MODE_GROUPS } from "./types";
+
 const CORE_SESSION_MODES: CoreTrainingMode[] = ["learning", "review"];
 
-function getInitialSubsetFilter(
-  modes: CoreTrainingMode[]
-): TrainingSubsetSelectValue {
+function getInitialSubsetFilter(modes: CoreTrainingMode[]) {
   if (modes.length === 1) {
     return modes[0];
   }
-  return "catalog";
+  return "catalog" as const;
 }
 
 function computeInitialHubSelections(): {
@@ -49,35 +49,31 @@ function computeInitialHubSelections(): {
 }
 
 export function Training({
-  allVerses,
-  isLoadingVerses = false,
-  dashboardStats,
   telegramId,
-  selectionVerses,
+  boxScope,
   directLaunch,
   onDirectLaunchExit,
+  onBoxScopeChange,
   onVersePatched,
   onVerseMutationCommitted,
   onSessionFullscreenChange,
 }: TrainingProps) {
-  const [view, setView] = useState<TrainingView>({ mode: "hub" });
-
   const initialHub = useMemo(() => computeInitialHubSelections(), []);
+  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(initialHub.scenario);
+  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(initialHub.coreModes);
+  const [selectedAnchorModes, setSelectedAnchorModes] = useState<AnchorModeGroup[]>(initialHub.anchorModes);
+  const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] = useState<AnchorSubScenario>("interactive");
+  const [selectedFlashcardMode, setSelectedFlashcardMode] = useState<FlashcardMode>("reference");
+  const [view, setView] = useState<TrainingView | null>(null);
+  const directLaunchKeyRef = useRef<string | null>(null);
 
-  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(
-    initialHub.scenario,
+  const { boxes, isLoading: isLoadingBoxes, error: boxesError } = useTextBoxes(telegramId);
+  const activeScope = directLaunch?.scope ?? boxScope ?? null;
+  const { verses: boxVerseItems, isLoading: isLoadingBoxVerses } = useTextBoxVerses(
+    telegramId,
+    activeScope?.boxId ?? null,
   );
-  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(
-    initialHub.coreModes,
-  );
-  const [selectedAnchorModes, setSelectedAnchorModes] = useState<
-    AnchorModeGroup[]
-  >(initialHub.anchorModes);
-  const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] =
-    useState<AnchorSubScenario>("interactive");
-  const [selectedFlashcardMode, setSelectedFlashcardMode] =
-    useState<FlashcardMode>("reference");
-  const directLaunchConsumedRef = useRef(false);
+  const allVerses = useMemo(() => boxVerseItems.map((item) => item.verse), [boxVerseItems]);
 
   useEffect(() => {
     writeTrainingHubPreferences({
@@ -85,180 +81,201 @@ export function Training({
       coreModes: selectedModes,
       anchorModes: selectedAnchorModes,
     });
-  }, [selectedScenario, selectedModes, selectedAnchorModes]);
+  }, [selectedAnchorModes, selectedModes, selectedScenario]);
+
+  useEffect(() => {
+    if (directLaunch?.scope) {
+      onBoxScopeChange?.(directLaunch.scope);
+    }
+  }, [directLaunch?.scope, onBoxScopeChange]);
+
+  useEffect(() => {
+    if (!activeScope) {
+      setView(null);
+      return;
+    }
+
+    setView((current) => {
+      if (!current || current.mode === "hub") {
+        return { mode: "hub", scope: activeScope };
+      }
+      return current;
+    });
+  }, [activeScope]);
 
   const goToHub = useCallback(() => {
-    setView({ mode: "hub" });
-  }, []);
+    if (!activeScope) {
+      setView(null);
+      return;
+    }
+    setView({ mode: "hub", scope: activeScope });
+  }, [activeScope]);
 
-  // ── Direct launch: skip Hub when a verse is passed directly ─────────────────
   useEffect(() => {
-    if (!directLaunch || directLaunchConsumedRef.current) return;
-    directLaunchConsumedRef.current = true;
+    if (!directLaunch || !activeScope || isLoadingBoxVerses) {
+      return;
+    }
 
-    const mode =
-      directLaunch.preferredMode ?? getVerseTrainingLaunchMode(directLaunch.verse);
+    const launchKey = `${activeScope.boxId}:${directLaunch.verse.externalVerseId}:${directLaunch.preferredMode ?? "auto"}`;
+    if (directLaunchKeyRef.current === launchKey) {
+      return;
+    }
+    directLaunchKeyRef.current = launchKey;
 
+    const mode = directLaunch.preferredMode ?? getVerseTrainingLaunchMode(directLaunch.verse);
     if (!mode) {
       goToHub();
       return;
     }
 
     if (mode === "anchor") {
-      setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS] });
-    } else {
-      // Build a verse list: put the target verse first, then add other eligible verses
-      const targetKey = `${directLaunch.verse.externalVerseId}`;
-      const eligibleVerses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
-      const otherVerses = eligibleVerses.filter(
-        (v) => v.externalVerseId !== targetKey,
-      );
-      const sessionVerses = [directLaunch.verse, ...otherVerses];
-
-      setView({
-        mode: "verse-session",
-        verses: sessionVerses,
-        trainingModes: CORE_SESSION_MODES,
-        order: "updatedAt",
-        initialVerseExternalId: directLaunch.verse.externalVerseId,
-      });
+      setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS], scope: activeScope });
+      return;
     }
-  }, [directLaunch, allVerses, goToHub]);
 
-  // Reset consumed ref when directLaunch changes to a new value
+    const eligibleVerses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
+    const otherVerses = eligibleVerses.filter(
+      (verse) => verse.externalVerseId !== directLaunch.verse.externalVerseId,
+    );
+    const targetVerse =
+      allVerses.find((verse) => verse.externalVerseId === directLaunch.verse.externalVerseId) ??
+      directLaunch.verse;
+
+    setView({
+      mode: "verse-session",
+      verses: [targetVerse, ...otherVerses],
+      trainingModes: CORE_SESSION_MODES,
+      order: "updatedAt",
+      scope: activeScope,
+      initialVerseExternalId: targetVerse.externalVerseId,
+    });
+  }, [activeScope, allVerses, directLaunch, goToHub, isLoadingBoxVerses]);
+
   useEffect(() => {
     if (!directLaunch) {
-      directLaunchConsumedRef.current = false;
+      directLaunchKeyRef.current = null;
     }
   }, [directLaunch]);
 
   const handleExitSession = useCallback(() => {
-    if (directLaunch && directLaunchConsumedRef.current) {
-      const returnTarget = directLaunch.returnTarget ?? {
-        kind: "training-hub" as const,
-      };
-
+    if (directLaunch) {
       onDirectLaunchExit?.(directLaunch);
-      // For verse-list return targets, parent navigation must handle exit flow.
-      if (returnTarget.kind === "verse-list") {
+      if ((directLaunch.returnTarget ?? { kind: "training-hub" as const }).kind === "text-box") {
         return;
       }
     }
-
     goToHub();
   }, [directLaunch, goToHub, onDirectLaunchExit]);
 
-  const handleStartFlashcard = useCallback(() => {
-    setView({ mode: "flashcard", flashcardMode: selectedFlashcardMode });
-  }, [selectedFlashcardMode]);
-
   const handleStart = useCallback(() => {
+    if (!activeScope) return;
+
     if (selectedScenario === "anchor") {
-      setView({ mode: "anchor", anchorModes: selectedAnchorModes });
+      setView({ mode: "anchor", anchorModes: selectedAnchorModes, scope: activeScope });
       return;
     }
+
     const selectedVerses = pickVersesForCoreModes(selectedModes, allVerses);
     if (selectedVerses.length === 0) return;
-    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
+
     setView({
       mode: "verse-session",
-      verses,
+      verses: pickVersesForCoreModes(CORE_SESSION_MODES, allVerses),
       trainingModes: selectedModes,
       order: "updatedAt",
+      scope: activeScope,
     });
-  }, [allVerses, selectedAnchorModes, selectedModes, selectedScenario]);
+  }, [activeScope, allVerses, selectedAnchorModes, selectedModes, selectedScenario]);
 
-  const handleStartSelection = useCallback(() => {
-    if (selectedScenario !== "core") return;
-    if (!selectionVerses || selectionVerses.length === 0) return;
-    const selectedVerses = pickVersesForCoreModes(selectedModes, selectionVerses);
-    if (selectedVerses.length === 0) return;
-    const verses = pickVersesForCoreModes(CORE_SESSION_MODES, selectionVerses);
-    setView({
-      mode: "verse-session",
-      verses,
-      trainingModes: selectedModes,
-      order: "updatedAt",
-    });
-  }, [selectionVerses, selectedModes, selectedScenario]);
+  const handleStartFlashcard = useCallback(() => {
+    if (!activeScope) return;
+    setView({ mode: "flashcard", flashcardMode: selectedFlashcardMode, scope: activeScope });
+  }, [activeScope, selectedFlashcardMode]);
 
-  // Telegram back for core training only. Anchor and flashcard modes handle back internally.
   useTelegramBackButton({
-    enabled: view.mode === "verse-session",
+    enabled: view?.mode === "verse-session",
     onBack: handleExitSession,
     priority: 50,
   });
 
   useEffect(() => {
-    onSessionFullscreenChange?.(view.mode !== "hub");
+    onSessionFullscreenChange?.(view !== null && view.mode !== "hub");
+    return () => onSessionFullscreenChange?.(false);
+  }, [onSessionFullscreenChange, view]);
 
-    return () => {
-      onSessionFullscreenChange?.(false);
-    };
-  }, [onSessionFullscreenChange, view.mode]);
+  if (!telegramId) {
+    return <div className="flex h-full items-center justify-center text-sm text-text-secondary">Требуется авторизация.</div>;
+  }
 
-  if (view.mode === "hub" && isLoadingVerses && allVerses.length === 0) {
-    return <div className="min-h-[60vh]" />;
+  if (!activeScope) {
+    return (
+      <TrainingBoxPicker
+        boxes={boxes}
+        isLoading={isLoadingBoxes}
+        error={boxesError}
+        onSelect={(scope) => onBoxScopeChange?.(scope)}
+      />
+    );
+  }
+
+  if (view?.mode === "anchor") {
+    return (
+      <AnchorSession
+        telegramId={telegramId}
+        boxId={view.scope.boxId}
+        anchorModes={view.anchorModes}
+        onSessionCommitted={onVerseMutationCommitted}
+        onClose={handleExitSession}
+      />
+    );
+  }
+
+  if (view?.mode === "flashcard") {
+    return (
+      <FlashcardSessionRoot
+        telegramId={telegramId}
+        boxId={view.scope.boxId}
+        flashcardMode={view.flashcardMode}
+        onSessionCommitted={onVerseMutationCommitted}
+        onClose={handleExitSession}
+      />
+    );
+  }
+
+  if (view?.mode === "verse-session") {
+    return (
+      <TrainingSession
+        verses={view.verses}
+        initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
+        initialOrder={view.order}
+        initialVerseExternalId={view.initialVerseExternalId}
+        onClose={handleExitSession}
+        onVersePatched={onVersePatched}
+        onMutationCommitted={onVerseMutationCommitted}
+      />
+    );
   }
 
   return (
-    <div className="h-full">
-      {view.mode === "hub" && (
-        <div className="h-full overflow-hidden">
-            <TrainingHub
-              allVerses={allVerses}
-              dashboardStats={dashboardStats}
-              selectionVerses={selectionVerses}
-              selectedScenario={selectedScenario}
-              selectedModes={selectedModes}
-              selectedAnchorModes={selectedAnchorModes}
-              selectedAnchorSubScenario={selectedAnchorSubScenario}
-              selectedFlashcardMode={selectedFlashcardMode}
-              onScenarioChange={setSelectedScenario}
-              onModesChange={setSelectedModes}
-              onAnchorModesChange={setSelectedAnchorModes}
-              onAnchorSubScenarioChange={setSelectedAnchorSubScenario}
-              onFlashcardModeChange={setSelectedFlashcardMode}
-              onStart={handleStart}
-              onStartFlashcard={handleStartFlashcard}
-              onStartSelection={handleStartSelection}
-            />
-        </div>
-      )}
-
-      {view.mode === "anchor" && (
-        <div>
-            <AnchorSession
-              telegramId={telegramId}
-              anchorModes={view.anchorModes}
-              onSessionCommitted={onVerseMutationCommitted}
-              onClose={handleExitSession}
-            />
-        </div>
-      )}
-
-      {view.mode === "flashcard" && (
-        <FlashcardSessionRoot
-          telegramId={telegramId}
-          flashcardMode={view.flashcardMode}
-          onSessionCommitted={onVerseMutationCommitted}
-          onClose={handleExitSession}
-        />
-      )}
-
-      {view.mode === "verse-session" && (
-        <div>
-            <TrainingSession
-              verses={view.verses}
-              initialSubsetFilter={getInitialSubsetFilter(view.trainingModes)}
-              initialOrder={view.order}
-              initialVerseExternalId={view.initialVerseExternalId}
-              onClose={handleExitSession}
-              onVersePatched={onVersePatched}
-              onMutationCommitted={onVerseMutationCommitted}
-            />
-        </div>
-      )}
-    </div>
+    <TrainingBoxHub
+      scope={activeScope}
+      verses={allVerses}
+      selectedScenario={selectedScenario}
+      selectedModes={selectedModes}
+      selectedAnchorModes={selectedAnchorModes}
+      selectedAnchorSubScenario={selectedAnchorSubScenario}
+      selectedFlashcardMode={selectedFlashcardMode}
+      onScenarioChange={setSelectedScenario}
+      onModesChange={setSelectedModes}
+      onAnchorModesChange={setSelectedAnchorModes}
+      onAnchorSubScenarioChange={setSelectedAnchorSubScenario}
+      onFlashcardModeChange={setSelectedFlashcardMode}
+      onStart={handleStart}
+      onStartFlashcard={handleStartFlashcard}
+      onRequestScopeChange={() => {
+        onBoxScopeChange?.(null);
+        setView(null);
+      }}
+    />
   );
 }

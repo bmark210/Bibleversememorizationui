@@ -1,13 +1,39 @@
 import { NEXT_PUBLIC_API_BASE_URL as DEFAULT_PUBLIC_API_BASE_URL } from "../../environment";
 
 function normalizeBaseUrl(value: string): string {
-  return value.replace(/\/+$/, "");
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed)) {
+    return `http://${trimmed}`;
+  }
+
+  if (/^[a-z0-9.-]+(?::\d+)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return trimmed;
 }
 
 /**
  * Возвращает базовый URL внешнего Go API.
- * По умолчанию URL берётся из `environment/dev.ts` или `environment/prod.ts`.
- * Для локальной разработки его можно переопределить через `NEXT_PUBLIC_API_BASE_URL`.
+ * Приоритет:
+ * 1. `NEXT_PUBLIC_API_BASE_URL`
+ * 2. локальный fallback из `environment/dev.ts`
+ * 3. пустая строка -> same-origin `/api`
+ *
+ * На hosted preview/prod сборках API base должен задаваться явно через
+ * `NEXT_PUBLIC_API_BASE_URL`, иначе запросы пойдут в same-origin.
  */
 export function getPublicApiBaseUrl(): string {
   const override = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();

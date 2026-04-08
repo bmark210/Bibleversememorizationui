@@ -16,9 +16,9 @@ export function getTelegramId(): string | null {
   return getTelegramUserId();
 }
 
-function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "MY" {
+function patchStatusForTrainingVerse(verse: TrainingVerseState): "LEARNING" | "STOPPED" | "QUEUE" {
   if (verse.status === VerseStatus.STOPPED) return "STOPPED";
-  return verse.rawMasteryLevel > 0 ? "LEARNING" : "MY";
+  return verse.rawMasteryLevel > 0 ? "LEARNING" : "QUEUE";
 }
 
 export async function persistTrainingVerseProgress(

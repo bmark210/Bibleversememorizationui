@@ -13,6 +13,7 @@ import { type VerseCardActionId } from "@/app/components/verseCardActionModel";
 import { VerseTagsDrawer } from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
+import type { Verse } from "@/app/domain/verse";
 import { GALLERY_TOASTER_ID, TOAST_TOP_OFFSET_PX, toast } from "@/app/lib/toast";
 import {
   showVerseActionToast,
@@ -25,6 +26,7 @@ import {
 } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
+import { resolveTextVersePresentation } from "@/app/components/texts/resolveTextVersePresentation";
 
 import { GalleryHeader } from "./components/GalleryHeader";
 import { GalleryDeleteDrawer } from "./components/GalleryDeleteDrawer";
@@ -79,25 +81,20 @@ function getPreviewStatusMutation(
 
   if (actionId === "add-to-my" && status === "CATALOG") {
     return {
-      nextStatus: VerseStatus.MY,
-    };
-  }
-
-  if (actionId === "start-learning" && status === VerseStatus.MY) {
-    return {
-      nextStatus: VerseStatus.LEARNING,
+      nextStatus: VerseStatus.QUEUE,
     };
   }
 
   if (actionId === "resume" && status === VerseStatus.STOPPED) {
     return {
-      nextStatus: VerseStatus.LEARNING,
+      nextStatus: VerseStatus.QUEUE,
     };
   }
 
   if (
     actionId === "pause" &&
-    (status === VerseStatus.LEARNING ||
+    (status === VerseStatus.QUEUE ||
+      status === VerseStatus.LEARNING ||
       status === "REVIEW" ||
       status === "MASTERED")
   ) {
@@ -106,6 +103,17 @@ function getPreviewStatusMutation(
     };
   }
 
+  return null;
+}
+
+function getScopedPreviewStatusMutation(previewVerse: Verse): PreviewStatusMutation | null {
+  const presentation = resolveTextVersePresentation(previewVerse);
+  if (presentation.actionKind === "pause") {
+    return { nextStatus: VerseStatus.STOPPED };
+  }
+  if (presentation.actionKind === "resume") {
+    return { nextStatus: VerseStatus.QUEUE };
+  }
   return null;
 }
 
@@ -129,6 +137,8 @@ export function VerseGallery({
   previewHasMore = false,
   previewIsLoadingMore = false,
   onRequestMorePreviewVerses,
+  primaryActionOverride = null,
+  showDeleteAction,
 }: VerseGalleryProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -232,11 +242,10 @@ export function VerseGallery({
     onClose();
   });
 
-  const handlePreviewStatusMutation = useEventCallback(
-    async (actionId: VerseCardActionId | null | undefined) => {
+  const applyPreviewStatusMutation = useEventCallback(
+    async (statusAction: PreviewStatusMutation | null) => {
       if (!previewActiveVerse || !previewStatus || isActionPending) return;
 
-      const statusAction = getPreviewStatusMutation(previewStatus, actionId);
       if (!statusAction) return;
 
       try {
@@ -264,14 +273,15 @@ export function VerseGallery({
 
         haptic("success");
         const actionToastKind =
-          statusAction.nextStatus === VerseStatus.MY
-            ? "add-to-my"
-            : statusAction.nextStatus === VerseStatus.LEARNING &&
-                previewStatus === VerseStatus.STOPPED
+          statusAction.nextStatus === VerseStatus.QUEUE
+            ? previewStatus === VerseStatus.STOPPED
               ? "resume"
-              : statusAction.nextStatus === VerseStatus.LEARNING
-                ? "start-learning"
-                : "pause";
+              : "add-to-my"
+            : statusAction.nextStatus === VerseStatus.LEARNING
+              ? previewStatus === VerseStatus.STOPPED
+                ? "resume"
+                : "start-learning"
+              : "pause";
 
         showVerseActionToast({
           kind: actionToastKind,
@@ -294,15 +304,24 @@ export function VerseGallery({
   );
 
   const handlePrimaryStatusAction = useEventCallback(() => {
-    if (isCatalogOwnedPreview) {
-      setIsDeleteDialogOpen(true);
+    if (isCatalogSourceMode) {
+      if (isCatalogOwnedPreview) {
+        setIsDeleteDialogOpen(true);
+        return;
+      }
+      void applyPreviewStatusMutation(
+        getPreviewStatusMutation(previewStatus, previewActionModel?.primaryAction?.id),
+      );
       return;
     }
-    void handlePreviewStatusMutation(previewActionModel?.primaryAction?.id);
+
+    if (!previewActiveVerse) return;
+    void applyPreviewStatusMutation(getScopedPreviewStatusMutation(previewActiveVerse));
   });
 
   const handleUtilityStatusAction = useEventCallback(() => {
-    void handlePreviewStatusMutation(previewActionModel?.utilityAction?.id);
+    if (!previewActiveVerse) return;
+    void applyPreviewStatusMutation(getScopedPreviewStatusMutation(previewActiveVerse));
   });
 
   const handleDelete = useEventCallback(async () => {
@@ -458,17 +477,17 @@ export function VerseGallery({
         role="dialog"
         aria-modal="true"
         aria-label="Просмотр стиха"
-        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-gradient-to-br from-background via-background to-muted/20 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-[radial-gradient(circle_at_top_right,rgba(var(--brand-primary-rgb),0.12),transparent_28%),linear-gradient(180deg,rgba(var(--bg-app-rgb),0.98),rgba(var(--bg-app-rgb),1))] backdrop-blur-sm"
       >
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {slideAnnouncement}
         </div>
 
-        <GalleryHeader
-          displayActive={displayActive}
-          displayTotal={displayTotal}
-          topInset={topInset}
-        />
+          <GalleryHeader
+            displayActive={displayActive}
+            displayTotal={displayTotal}
+            topInset={topInset}
+          />
 
         <div
           className="relative flex min-h-0 flex-1 flex-col overflow-visible px-4 sm:px-6"
@@ -492,6 +511,7 @@ export function VerseGallery({
               onStartTraining={handleStartTraining}
               onStatusAction={handlePrimaryStatusAction}
               onCatalogRemove={handleDeleteDialogOpen}
+              onDeleteRequest={handleDeleteDialogOpen}
               onUtilityAction={handleUtilityStatusAction}
               onOpenProgress={handleOpenProgress}
               onOpenTags={handleOpenTagsDrawer}
@@ -503,6 +523,7 @@ export function VerseGallery({
                   : undefined
               }
               colorConfig={VERSE_CARD_COLOR_CONFIG}
+              primaryActionOverride={primaryActionOverride}
             />
           </GallerySwipeSlide>
         </div>
@@ -513,10 +534,7 @@ export function VerseGallery({
           isFocusMode={isFocusMode}
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
-          showDelete={
-            previewStatus != null &&
-            shouldShowGalleryDelete(sourceMode, previewStatus)
-          }
+          showDelete={showDeleteAction ?? (previewStatus != null && shouldShowGalleryDelete(sourceMode, previewStatus))}
           bottomInset={contentSafeAreaInset.bottom}
           onClose={handleClose}
           onToggleFocusMode={onToggleFocusMode}

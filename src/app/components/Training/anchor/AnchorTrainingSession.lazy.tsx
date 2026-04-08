@@ -14,6 +14,7 @@ import type { AnchorModeGroup } from "../types";
 
 export type AnchorTrainingSessionRootProps = {
   telegramId: string | null;
+  boxId: string;
   anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;

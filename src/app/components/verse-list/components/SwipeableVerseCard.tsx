@@ -79,7 +79,7 @@ const SwipeableVerseCardComponent = ({
   const displayStatus = getVerseDisplayStatus(verse);
   const isOwnedInCatalog = isCatalogMode && displayStatus !== "CATALOG";
   const usesOwnedCollectionPresentation =
-    isOwnedInCatalog || (!isCatalogMode && displayStatus === VerseStatus.MY);
+    isOwnedInCatalog || (!isCatalogMode && displayStatus === VerseStatus.QUEUE);
   const stageVisual = getVerseStageVisual(verse);
   const tonePalette = usesOwnedCollectionPresentation
     ? OWNED_COLLECTION_CARD_TONE
@@ -212,8 +212,8 @@ const SwipeableVerseCardComponent = ({
             type="button"
             size="sm"
             variant="ghost"
-            title="Убрать из моих стихов"
-            aria-label={`Убрать ${verse.reference} из моих стихов`}
+            title="Убрать из текстов"
+            aria-label={`Убрать ${verse.reference} из текстов`}
             disabled={isPending}
             className={cn(
               "h-9 rounded-full px-3 text-[12px] font-medium",
@@ -229,7 +229,7 @@ const SwipeableVerseCardComponent = ({
           >
             <Minus className="h-3.5 w-3.5 shrink-0" />
             <span className="max-w-[8rem] truncate text-[12px] font-medium">
-              Убрать из моих
+              Убрать
             </span>
           </Button>
         );
@@ -240,8 +240,8 @@ const SwipeableVerseCardComponent = ({
           type="button"
           size="sm"
           variant="ghost"
-          title="Добавить в мои стихи"
-          aria-label={`Добавить ${verse.reference} в мои стихи`}
+          title="Добавить в очередь"
+          aria-label={`Добавить ${verse.reference} в очередь`}
           disabled={isPending}
           className={cn(
             "h-9 rounded-full px-3 text-[12px] font-medium",
@@ -257,7 +257,7 @@ const SwipeableVerseCardComponent = ({
         >
           <BookMarked className="h-3.5 w-3.5 shrink-0" />
           <span className="max-w-[8rem] truncate text-[12px] font-medium">
-            Добавить в мои
+            В очередь
           </span>
         </Button>
       );

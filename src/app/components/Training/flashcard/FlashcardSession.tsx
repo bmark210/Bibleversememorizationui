@@ -32,6 +32,7 @@ type SessionPhase = "loading" | "playing" | "summary" | "error";
 
 export type FlashcardSessionProps = {
   telegramId: string | null;
+  boxId: string;
   flashcardMode: FlashcardMode;
   onClose: () => void;
   onSessionCommitted?: () => void;
@@ -52,6 +53,7 @@ function mapVerseItem(v: FlashcardVerseItem): SessionCard | null {
 
 export function FlashcardSession({
   telegramId,
+  boxId,
   flashcardMode,
   onClose,
   onSessionCommitted,
@@ -72,6 +74,7 @@ export function FlashcardSession({
       try {
         const response = await fetchFlashcardVerses({
           telegramId,
+          boxId,
           limit: FLASHCARD_POOL_LIMIT,
         });
 
@@ -99,7 +102,7 @@ export function FlashcardSession({
         setPhase("error");
       }
     })();
-  }, [telegramId]);
+  }, [boxId, telegramId]);
 
   const currentCard = cards[currentIndex];
 
@@ -135,6 +138,7 @@ export function FlashcardSession({
         try {
           const response = await submitFlashcardSession({
             telegramId: telegramId ?? "",
+            boxId,
             results,
           });
           setXpAwarded(response.xpAwarded ?? 0);
@@ -151,7 +155,7 @@ export function FlashcardSession({
         setCurrentIndex((i) => i + 1);
       }
     },
-    [cards, currentIndex, flashcardMode, telegramId, onSessionCommitted],
+    [boxId, cards, currentIndex, flashcardMode, telegramId, onSessionCommitted],
   );
 
   const getCardSides = (card: SessionCard) => {

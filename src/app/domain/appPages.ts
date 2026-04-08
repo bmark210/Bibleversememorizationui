@@ -1,5 +1,3 @@
-import type { VerseListStatusFilter } from "@/app/components/verse-list/constants";
-
 export type AppRootPage =
   | "dashboard"
   | "verses"
@@ -7,8 +5,9 @@ export type AppRootPage =
   | "community"
   | "profile";
 
-export type PendingVerseListReturn = {
-  statusFilter: VerseListStatusFilter;
+export type PendingTextBoxReturn = {
+  boxId: string;
+  boxTitle: string;
 };
 
 export type PlayerProfilePreview = {
