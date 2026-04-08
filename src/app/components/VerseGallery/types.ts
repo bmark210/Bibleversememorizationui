@@ -7,7 +7,13 @@ import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
 
-export type HapticStyle = "light" | "medium" | "heavy" | "success" | "error" | "warning";
+export type HapticStyle =
+  | "light"
+  | "medium"
+  | "heavy"
+  | "success"
+  | "error"
+  | "warning";
 export type PanelMode = "preview" | "training";
 export type VerseGalleryLaunchMode = "preview" | "training";
 export type VerseGallerySourceMode = "catalog" | "my";
@@ -73,7 +79,10 @@ export type VerseGalleryProps = {
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
   onClose: () => void;
-  onStatusChange: (verse: Verse, status: VerseStatus) => Promise<VerseMutablePatch | void>;
+  onStatusChange: (
+    verse: Verse,
+    status: VerseStatus,
+  ) => Promise<VerseMutablePatch | void>;
   onDelete: (verse: Verse) => Promise<void>;
   onSelectTag: (slug: string) => void;
   onFriendsChanged?: () => void;
@@ -81,7 +90,7 @@ export type VerseGalleryProps = {
   onNavigateToTraining: (launch: LegacyDirectLaunchVerse) => void;
   /** Open the queue position picker for the given verse */
   onEditQueuePosition?: (verse: Verse) => void;
-  /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */
+  /** Whether the verse can participate in Games mode */
   isAnchorEligible?: boolean;
   previewTotalCount?: number;
   previewHasMore?: boolean;

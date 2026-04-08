@@ -1,7 +1,5 @@
 import type { Verse } from "@/app/domain/verse";
-import {
-  resolveVerseState,
-} from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules";
 import type { CoreTrainingMode } from "./types";
 
 export type CoreTrainingCounts = {
@@ -17,7 +15,7 @@ export type CoreTrainingCounts = {
 };
 
 export function isDueReviewVerse(
-  verse: Pick<Verse, "status" | "nextReviewAt" | "nextReview" | "flow">
+  verse: Pick<Verse, "status" | "nextReviewAt" | "nextReview" | "flow">,
 ) {
   return resolveVerseState(verse).isDueForTraining;
 }
@@ -45,7 +43,7 @@ export function getAnchorEligibleVerseCount(allVerses: Verse[]) {
 }
 
 export function getCoreTrainingCountsFromVerses(
-  allVerses: Verse[]
+  allVerses: Verse[],
 ): CoreTrainingCounts {
   let learningCount = 0;
   let dueReviewCount = 0;
@@ -85,8 +83,8 @@ export function getCoreTrainingCountsFromVerses(
     }
   }
 
-  const anchorEligibleCount = totalReviewCount + masteredCount;
-  const flashcardCount = learningCount + anchorEligibleCount;
+  const anchorEligibleCount = learningCount + totalReviewCount + masteredCount;
+  const flashcardCount = anchorEligibleCount;
 
   return {
     learningCount,
@@ -103,7 +101,7 @@ export function getCoreTrainingCountsFromVerses(
 
 export function getCountForCoreModes(
   modes: CoreTrainingMode[],
-  counts: Pick<CoreTrainingCounts, "learningCount" | "dueReviewCount">
+  counts: Pick<CoreTrainingCounts, "learningCount" | "dueReviewCount">,
 ) {
   let total = 0;
   if (modes.includes("learning")) total += counts.learningCount;
@@ -113,7 +111,7 @@ export function getCountForCoreModes(
 
 export function getSelectableCountForCoreModes(
   modes: CoreTrainingMode[],
-  counts: Pick<CoreTrainingCounts, "learningCount" | "totalReviewCount">
+  counts: Pick<CoreTrainingCounts, "learningCount" | "totalReviewCount">,
 ) {
   let total = 0;
   if (modes.includes("learning")) total += counts.learningCount;
@@ -123,14 +121,14 @@ export function getSelectableCountForCoreModes(
 
 export function getWaitingReviewCountForCoreModes(
   modes: CoreTrainingMode[],
-  counts: Pick<CoreTrainingCounts, "waitingReviewCount">
+  counts: Pick<CoreTrainingCounts, "waitingReviewCount">,
 ) {
   return modes.includes("review") ? counts.waitingReviewCount : 0;
 }
 
 export function pickVersesForCoreModes(
   modes: CoreTrainingMode[],
-  allVerses: Verse[]
+  allVerses: Verse[],
 ) {
   if (modes.length === 0) return [];
 

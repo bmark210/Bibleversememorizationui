@@ -22,10 +22,7 @@ import {
 
 export type VerseRulesSubject = Pick<Verse, "status" | "flow"> &
   Partial<
-    Pick<
-      Verse,
-      "masteryLevel" | "repetitions" | "nextReviewAt" | "nextReview"
-    >
+    Pick<Verse, "masteryLevel" | "repetitions" | "nextReviewAt" | "nextReview">
   >;
 
 export type VerseRulesListFilter =
@@ -142,8 +139,15 @@ function resolveJourneyPhaseFromValues(
   return "learning";
 }
 
-function resolveProgress(flow: VerseFlow | null, masteryLevel: number, repetitions: number) {
-  const totalCompleted = computeVerseTotalCompletedUnits(masteryLevel, repetitions);
+function resolveProgress(
+  flow: VerseFlow | null,
+  masteryLevel: number,
+  repetitions: number,
+) {
+  const totalCompleted = computeVerseTotalCompletedUnits(
+    masteryLevel,
+    repetitions,
+  );
   const fallbackRemainingLearnings = Math.max(
     0,
     TRAINING_STAGE_MASTERY_MAX - masteryLevel,
@@ -234,10 +238,12 @@ export function resolveVerseState(
   const isAnchorEligible =
     flow != null
       ? allowedActions.has(VerseAction.ANCHOR) ||
+        flow.code === VerseFlowCode.LEARNING ||
         flow.code === VerseFlowCode.REVIEW_DUE ||
         flow.code === VerseFlowCode.REVIEW_WAITING ||
         flow.code === VerseFlowCode.MASTERED
-      : displayStatus === VerseDisplayStatus.REVIEW ||
+      : displayStatus === VerseDisplayStatus.LEARNING ||
+        displayStatus === VerseDisplayStatus.REVIEW ||
         displayStatus === VerseDisplayStatus.MASTERED;
 
   return {

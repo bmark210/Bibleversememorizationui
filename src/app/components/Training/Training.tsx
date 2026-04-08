@@ -59,21 +59,34 @@ export function Training({
   onSessionFullscreenChange,
 }: TrainingProps) {
   const initialHub = useMemo(() => computeInitialHubSelections(), []);
-  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(initialHub.scenario);
-  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(initialHub.coreModes);
-  const [selectedAnchorModes, setSelectedAnchorModes] = useState<AnchorModeGroup[]>(initialHub.anchorModes);
-  const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] = useState<AnchorSubScenario>("interactive");
-  const [selectedFlashcardMode, setSelectedFlashcardMode] = useState<FlashcardMode>("reference");
+  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(
+    initialHub.scenario,
+  );
+  const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(
+    initialHub.coreModes,
+  );
+  const [selectedAnchorModes, setSelectedAnchorModes] = useState<
+    AnchorModeGroup[]
+  >(initialHub.anchorModes);
+  const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] =
+    useState<AnchorSubScenario>("interactive");
+  const [selectedFlashcardMode, setSelectedFlashcardMode] =
+    useState<FlashcardMode>("reference");
   const [view, setView] = useState<TrainingView | null>(null);
   const directLaunchKeyRef = useRef<string | null>(null);
 
-  const { boxes, isLoading: isLoadingBoxes, error: boxesError } = useTextBoxes(telegramId);
+  const {
+    boxes,
+    isLoading: isLoadingBoxes,
+    error: boxesError,
+  } = useTextBoxes(telegramId);
   const activeScope = directLaunch?.scope ?? boxScope ?? null;
-  const { verses: boxVerseItems, isLoading: isLoadingBoxVerses } = useTextBoxVerses(
-    telegramId,
-    activeScope?.boxId ?? null,
+  const { verses: boxVerseItems, isLoading: isLoadingBoxVerses } =
+    useTextBoxVerses(telegramId, activeScope?.boxId ?? null);
+  const allVerses = useMemo(
+    () => boxVerseItems.map((item) => item.verse),
+    [boxVerseItems],
   );
-  const allVerses = useMemo(() => boxVerseItems.map((item) => item.verse), [boxVerseItems]);
 
   useEffect(() => {
     writeTrainingHubPreferences({
@@ -122,30 +135,40 @@ export function Training({
     }
     directLaunchKeyRef.current = launchKey;
 
-    const mode = directLaunch.preferredMode ?? getVerseTrainingLaunchMode(directLaunch.verse);
+    const mode =
+      directLaunch.preferredMode ??
+      getVerseTrainingLaunchMode(directLaunch.verse);
     if (!mode) {
       goToHub();
       return;
     }
 
     if (mode === "anchor") {
-      setView({ mode: "anchor", anchorModes: [...ALL_ANCHOR_MODE_GROUPS], scope: activeScope });
+      setView({
+        mode: "anchor",
+        anchorModes: [...ALL_ANCHOR_MODE_GROUPS],
+        scope: activeScope,
+      });
       return;
     }
 
-    const eligibleVerses = pickVersesForCoreModes(CORE_SESSION_MODES, allVerses);
+    const eligibleVerses = pickVersesForCoreModes(
+      CORE_SESSION_MODES,
+      allVerses,
+    );
     const otherVerses = eligibleVerses.filter(
       (verse) => verse.externalVerseId !== directLaunch.verse.externalVerseId,
     );
     const targetVerse =
-      allVerses.find((verse) => verse.externalVerseId === directLaunch.verse.externalVerseId) ??
-      directLaunch.verse;
+      allVerses.find(
+        (verse) => verse.externalVerseId === directLaunch.verse.externalVerseId,
+      ) ?? directLaunch.verse;
 
     setView({
       mode: "verse-session",
       verses: [targetVerse, ...otherVerses],
       trainingModes: CORE_SESSION_MODES,
-      order: "updatedAt",
+      order: "bible",
       scope: activeScope,
       initialVerseExternalId: targetVerse.externalVerseId,
     });
@@ -160,7 +183,10 @@ export function Training({
   const handleExitSession = useCallback(() => {
     if (directLaunch) {
       onDirectLaunchExit?.(directLaunch);
-      if ((directLaunch.returnTarget ?? { kind: "training-hub" as const }).kind === "text-box") {
+      if (
+        (directLaunch.returnTarget ?? { kind: "training-hub" as const })
+          .kind === "text-box"
+      ) {
         return;
       }
     }
@@ -171,7 +197,11 @@ export function Training({
     if (!activeScope) return;
 
     if (selectedScenario === "anchor") {
-      setView({ mode: "anchor", anchorModes: selectedAnchorModes, scope: activeScope });
+      setView({
+        mode: "anchor",
+        anchorModes: selectedAnchorModes,
+        scope: activeScope,
+      });
       return;
     }
 
@@ -182,14 +212,24 @@ export function Training({
       mode: "verse-session",
       verses: pickVersesForCoreModes(CORE_SESSION_MODES, allVerses),
       trainingModes: selectedModes,
-      order: "updatedAt",
+      order: "bible",
       scope: activeScope,
     });
-  }, [activeScope, allVerses, selectedAnchorModes, selectedModes, selectedScenario]);
+  }, [
+    activeScope,
+    allVerses,
+    selectedAnchorModes,
+    selectedModes,
+    selectedScenario,
+  ]);
 
   const handleStartFlashcard = useCallback(() => {
     if (!activeScope) return;
-    setView({ mode: "flashcard", flashcardMode: selectedFlashcardMode, scope: activeScope });
+    setView({
+      mode: "flashcard",
+      flashcardMode: selectedFlashcardMode,
+      scope: activeScope,
+    });
   }, [activeScope, selectedFlashcardMode]);
 
   useTelegramBackButton({
@@ -204,7 +244,11 @@ export function Training({
   }, [onSessionFullscreenChange, view]);
 
   if (!telegramId) {
-    return <div className="flex h-full items-center justify-center text-sm text-text-secondary">Требуется авторизация.</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-text-secondary">
+        Требуется авторизация.
+      </div>
+    );
   }
 
   if (!activeScope) {
@@ -223,6 +267,7 @@ export function Training({
       <AnchorSession
         telegramId={telegramId}
         boxId={view.scope.boxId}
+        sourceVerses={allVerses}
         anchorModes={view.anchorModes}
         onSessionCommitted={onVerseMutationCommitted}
         onClose={handleExitSession}

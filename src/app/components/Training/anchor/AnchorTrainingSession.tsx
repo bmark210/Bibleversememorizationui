@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -32,7 +26,10 @@ import { AnchorTrainingModeRenderer } from "./AnchorTrainingModeRenderer";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { useTrainingFontSize } from "@/app/components/training-session/modes/useTrainingFontSize";
 import { getAnchorModeShortLabel } from "./anchorModeLabels";
-import { fetchAnchorVersesPool, submitAnchorSession } from "./services/sessionApi";
+import {
+  fetchAnchorVersesPool,
+  submitAnchorSession,
+} from "./services/sessionApi";
 import { generateImpostorWord, getAIAvailability } from "./services/aiService";
 import { MODE_STRATEGIES, pickWeightedStrategy } from "./modeRegistry";
 import type { TrainingVerse, DragQuestion } from "./types";
@@ -57,6 +54,7 @@ import {
   extractWordTokens,
   calculateTextMatchPercent,
 } from "./services/validation";
+import { resolveVerseState } from "@/shared/verseRules";
 
 import type { AnchorModeGroup } from "../types";
 import type { Verse } from "@/app/domain/verse";
@@ -64,6 +62,7 @@ import type { Verse } from "@/app/domain/verse";
 type AnchorTrainingSessionProps = {
   telegramId: string | null;
   boxId: string;
+  sourceVerses?: Verse[];
   anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;
@@ -79,7 +78,9 @@ const TYPE_PREFIX_READY_RATIO = 0.8;
 // mapToTrainingVerse
 // ---------------------------------------------------------------------------
 
-function mapToTrainingVerse(verse: Verse | Record<string, unknown>): TrainingVerse | null {
+function mapToTrainingVerse(
+  verse: Verse | Record<string, unknown>,
+): TrainingVerse | null {
   const enriched = verse as Verse & {
     text?: string | null;
     reference?: string | null;
@@ -96,7 +97,7 @@ function mapToTrainingVerse(verse: Verse | Record<string, unknown>): TrainingVer
   const externalVerseId = String(
     enriched.externalVerseId?.trim() ||
       enriched.verse?.externalVerseId?.trim() ||
-      ""
+      "",
   );
   const text = String(enriched.text ?? "").trim();
   const reference = String(enriched.reference ?? externalVerseId).trim();
@@ -104,13 +105,17 @@ function mapToTrainingVerse(verse: Verse | Record<string, unknown>): TrainingVer
 
   const parsedReference = parseReferenceParts(reference);
   const words = extractWordTokens(text);
-  const incipitLength = words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const incipitLength =
+    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
   const incipitWords = words.slice(0, incipitLength);
-  const endingLength = words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
+  const endingLength =
+    words.length >= 4 ? 4 : words.length >= 3 ? 3 : words.length;
   const endingWords = words.slice(-endingLength);
   const rawVerse = verse as Record<string, unknown>;
   const contextPromptText = String(rawVerse.contextPromptText ?? "").trim();
-  const contextPromptReference = String(rawVerse.contextPromptReference ?? "").trim();
+  const contextPromptReference = String(
+    rawVerse.contextPromptReference ?? "",
+  ).trim();
 
   const difficultyLevel =
     enriched.difficultyLevel != null
@@ -136,20 +141,31 @@ function mapToTrainingVerse(verse: Verse | Record<string, unknown>): TrainingVer
   };
 }
 
+function buildFallbackAnchorPool(sourceVerses: Verse[]): TrainingVerse[] {
+  return sourceVerses
+    .filter((verse) => resolveVerseState(verse).isAnchorEligible)
+    .map(mapToTrainingVerse)
+    .filter((verse): verse is TrainingVerse => verse !== null);
+}
+
 // ---------------------------------------------------------------------------
 // getTypeInputReadiness / evaluateTypeInput
 // ---------------------------------------------------------------------------
 
 function getTypeInputReadiness(
   question: TypeQuestion | null,
-  input: string
+  input: string,
 ): TypeInputReadiness {
   const raw = input.trim();
   if (!question || raw.length === 0) {
     return { canSubmit: false, remainingChars: 0 };
   }
 
-  if (question.modeId === "reference-type" || question.modeId === "context-reference-type" || question.modeId === "context-reference-choice") {
+  if (
+    question.modeId === "reference-type" ||
+    question.modeId === "context-reference-type" ||
+    question.modeId === "context-reference-choice"
+  ) {
     return { canSubmit: true, remainingChars: 0 };
   }
 
@@ -161,7 +177,7 @@ function getTypeInputReadiness(
 
     const minLength = Math.max(
       1,
-      Math.ceil(expectedLength * TYPE_PREFIX_READY_RATIO)
+      Math.ceil(expectedLength * TYPE_PREFIX_READY_RATIO),
     );
     const inputLength = Array.from(normalizedInput).length;
     const remainingChars = Math.max(0, minLength - inputLength);
@@ -178,7 +194,10 @@ function getTypeInputReadiness(
   const expectedLength = Array.from(expected).length;
   if (expectedLength === 0) return { canSubmit: true, remainingChars: 0 };
 
-  const minLength = Math.max(1, Math.ceil(expectedLength * TYPE_INPUT_READY_RATIO));
+  const minLength = Math.max(
+    1,
+    Math.ceil(expectedLength * TYPE_INPUT_READY_RATIO),
+  );
   const inputLength = Array.from(normalizedInput).length;
   const remainingChars = Math.max(0, minLength - inputLength);
   return { canSubmit: remainingChars === 0, remainingChars };
@@ -186,14 +205,17 @@ function getTypeInputReadiness(
 
 function evaluateTypeInput(
   question: TypeQuestion,
-  input: string
+  input: string,
 ): TypeInputEvaluation {
   if (question.modeId === "skeleton-verse") {
     return evaluateIncipitInput(input, question.verse.text);
   }
 
   if (question.modeId === "incipit-type") {
-    return evaluateCompactPrefixInput(input, getIncipitPrefixTokens(question.verse));
+    return evaluateCompactPrefixInput(
+      input,
+      getIncipitPrefixTokens(question.verse),
+    );
   }
 
   return {
@@ -207,7 +229,7 @@ function evaluateTypeInput(
 // ---------------------------------------------------------------------------
 
 function buildInitialQuestionSessionState(
-  questions: TrainerQuestion[]
+  questions: TrainerQuestion[],
 ): Record<string, QuestionSessionState> {
   return Object.fromEntries(
     questions.map((question) => [
@@ -217,7 +239,7 @@ function buildInitialQuestionSessionState(
         status: "pending",
         outcome: null,
       } satisfies QuestionSessionState,
-    ])
+    ]),
   );
 }
 
@@ -232,7 +254,7 @@ async function buildRandomSessionQuestions(
   if (pool.length === 0) return [];
 
   const uniquePool = Array.from(
-    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values()
+    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values(),
   );
 
   const allowedSet = allowedGroups ? new Set(allowedGroups) : null;
@@ -261,7 +283,7 @@ async function buildRandomSessionQuestions(
 
     // Filter strategies that can build for this verse
     const eligible = filteredStrategies.filter((s) =>
-      s.canBuild(verse, uniquePool, aiAvailable)
+      s.canBuild(verse, uniquePool, aiAvailable),
     );
     if (eligible.length === 0) continue;
 
@@ -316,7 +338,7 @@ function buildSyncSessionQuestions(
 ): TrainerQuestion[] {
   if (pool.length === 0) return [];
   const uniquePool = Array.from(
-    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values()
+    new Map(pool.map((v) => [v.externalVerseId, v] as const)).values(),
   );
   const allowedSet = allowedGroups ? new Set(allowedGroups) : null;
   const verseOrder = [...uniquePool];
@@ -335,7 +357,7 @@ function buildSyncSessionQuestions(
     if (questions.length >= targetCount) break;
     const order = questions.length;
     const eligible = clientStrategies.filter((s) =>
-      s.canBuild(verse, uniquePool, false)
+      s.canBuild(verse, uniquePool, false),
     );
     if (eligible.length === 0) continue;
     const candidates =
@@ -366,6 +388,7 @@ function buildSyncSessionQuestions(
 export function AnchorTrainingSession({
   telegramId,
   boxId,
+  sourceVerses = [],
   anchorModes,
   onSessionCommitted,
   onClose,
@@ -384,7 +407,9 @@ export function AnchorTrainingSession({
   const [questionStates, setQuestionStates] = useState<
     Record<string, QuestionSessionState>
   >({});
-  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(
+    null,
+  );
   const [currentPendingQuestionId, setCurrentPendingQuestionId] = useState<
     string | null
   >(null);
@@ -394,7 +419,9 @@ export function AnchorTrainingSession({
   const [typeMatchPercent, setTypeMatchPercent] = useState<number | null>(null);
   const [tapSequence, setTapSequence] = useState<string[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(
+    null,
+  );
   const [lastAnswerUsedTolerance, setLastAnswerUsedTolerance] = useState(false);
   const [lastAnswerSkipped, setLastAnswerSkipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -433,22 +460,24 @@ export function AnchorTrainingSession({
   }, []);
 
   const questionById = useMemo(
-    () => new Map(questions.map((question) => [question.id, question] as const)),
-    [questions]
+    () =>
+      new Map(questions.map((question) => [question.id, question] as const)),
+    [questions],
   );
   const pendingQuestions = useMemo(
     () =>
       questions.filter(
-        (question) => (questionStates[question.id]?.status ?? "pending") === "pending"
+        (question) =>
+          (questionStates[question.id]?.status ?? "pending") === "pending",
       ),
-    [questionStates, questions]
+    [questionStates, questions],
   );
   const pendingQuestionIds = useMemo(
     () => pendingQuestions.map((question) => question.id),
-    [pendingQuestions]
+    [pendingQuestions],
   );
   const currentQuestion = currentQuestionId
-    ? questionById.get(currentQuestionId) ?? null
+    ? (questionById.get(currentQuestionId) ?? null)
     : null;
   const results = useMemo(
     () =>
@@ -462,11 +491,11 @@ export function AnchorTrainingSession({
           },
         ];
       }),
-    [questionStates, questions]
+    [questionStates, questions],
   );
   const correctCount = useMemo(
     () => results.filter((result) => result.isCorrect).length,
-    [results]
+    [results],
   );
   const answeredCount = results.length;
   const resultPercent =
@@ -487,7 +516,10 @@ export function AnchorTrainingSession({
 
   const startSessionFromPool = useCallback(
     async (pool: TrainingVerse[]) => {
-      const nextQuestions = await buildRandomSessionQuestions(pool, anchorModes);
+      const nextQuestions = await buildRandomSessionQuestions(
+        pool,
+        anchorModes,
+      );
       const firstQuestionId = nextQuestions[0]?.id ?? null;
       setQuestions(nextQuestions);
       setQuestionStates(buildInitialQuestionSessionState(nextQuestions));
@@ -503,6 +535,7 @@ export function AnchorTrainingSession({
     async (telegramIdValue: string) => {
       setErrorMessage(null);
       setIsLoading(true);
+      const fallbackPool = buildFallbackAnchorPool(sourceVerses);
 
       try {
         const response = await fetchAnchorVersesPool({
@@ -510,12 +543,18 @@ export function AnchorTrainingSession({
           boxId,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
         });
-        const merged = response.verses
+        const remotePool = response.verses
           .map(mapToTrainingVerse)
           .filter((verse): verse is TrainingVerse => verse !== null);
-        setVersePool(merged);
-        await startSessionFromPool(merged);
+        const nextPool = remotePool.length > 0 ? remotePool : fallbackPool;
+        setVersePool(nextPool);
+        await startSessionFromPool(nextPool);
       } catch (error) {
+        if (fallbackPool.length > 0) {
+          setVersePool(fallbackPool);
+          await startSessionFromPool(fallbackPool);
+          return;
+        }
         console.error("Не удалось загрузить стихи для закрепления:", error);
         setErrorMessage("Не удалось загрузить стихи для закрепления.");
         toast.error("Не удалось загрузить закрепление", {
@@ -526,7 +565,7 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [boxId, startSessionFromPool],
+    [boxId, sourceVerses, startSessionFromPool],
   );
 
   useEffect(() => {
@@ -556,7 +595,8 @@ export function AnchorTrainingSession({
     }
 
     const fallbackPendingId =
-      currentPendingQuestionId && pendingQuestionIds.includes(currentPendingQuestionId)
+      currentPendingQuestionId &&
+      pendingQuestionIds.includes(currentPendingQuestionId)
         ? currentPendingQuestionId
         : pendingQuestionIds[0];
 
@@ -616,16 +656,23 @@ export function AnchorTrainingSession({
       const nextStatus: QuestionTerminalState = isCorrect ? "correct" : "wrong";
       const currentPendingOrderIndex = Math.max(
         0,
-        pendingQuestionIds.findIndex((questionId) => questionId === currentQuestion.id),
+        pendingQuestionIds.findIndex(
+          (questionId) => questionId === currentQuestion.id,
+        ),
       );
       const nextPendingQuestionIds = pendingQuestionIds.filter(
         (questionId) => questionId !== currentQuestion.id,
       );
       let nextPendingQuestionId =
         nextPendingQuestionIds.length > 0
-          ? nextPendingQuestionIds[
-              Math.min(currentPendingOrderIndex, nextPendingQuestionIds.length - 1)
-            ] ?? nextPendingQuestionIds[0] ?? null
+          ? (nextPendingQuestionIds[
+              Math.min(
+                currentPendingOrderIndex,
+                nextPendingQuestionIds.length - 1,
+              )
+            ] ??
+            nextPendingQuestionIds[0] ??
+            null)
           : null;
 
       if (nextPendingQuestionId === null) {
@@ -638,10 +685,12 @@ export function AnchorTrainingSession({
           }));
         let fresh = buildFresh();
         if (fresh.length === 0) {
-          fresh = buildSyncSessionQuestions(versePool, anchorModes).map((q) => ({
-            ...q,
-            id: `w${seq}r-${q.id}`,
-          }));
+          fresh = buildSyncSessionQuestions(versePool, anchorModes).map(
+            (q) => ({
+              ...q,
+              id: `w${seq}r-${q.id}`,
+            }),
+          );
         }
         if (fresh.length > 0) {
           setQuestions((prev) => [...prev, ...fresh]);
@@ -655,7 +704,9 @@ export function AnchorTrainingSession({
 
       setIsAnswered(true);
       setLastAnswerCorrect(isCorrect);
-      setLastAnswerUsedTolerance(Boolean(isCorrect && options?.acceptedWithTolerance));
+      setLastAnswerUsedTolerance(
+        Boolean(isCorrect && options?.acceptedWithTolerance),
+      );
       setLastAnswerSkipped(Boolean(options?.skipped));
       setQuestionStates((prev) => {
         const previousState = prev[currentQuestion.id];
@@ -745,7 +796,10 @@ export function AnchorTrainingSession({
     // Calculate match percent for full-text modes
     const isFullTextMode = currentQuestion.modeId === "skeleton-verse";
     if (isFullTextMode) {
-      const percent = calculateTextMatchPercent(input, currentQuestion.answerLabel);
+      const percent = calculateTextMatchPercent(
+        input,
+        currentQuestion.answerLabel,
+      );
       setTypeMatchPercent(percent);
     }
 
@@ -781,8 +835,7 @@ export function AnchorTrainingSession({
   }, [currentPendingQuestionId, isAnswered, resetAnswerState]);
 
   const isTypeMode = currentQuestion?.interaction === "type";
-  const isCompactTypeMode =
-    currentQuestion?.modeId === "incipit-type";
+  const isCompactTypeMode = currentQuestion?.modeId === "incipit-type";
   const typeInputReadiness =
     currentQuestion?.interaction === "type"
       ? getTypeInputReadiness(currentQuestion, typedAnswer)
@@ -839,11 +892,11 @@ export function AnchorTrainingSession({
     if (!isTypeMode || isAnswered) return;
     const t1 = window.setTimeout(
       () => inputRef.current?.focus({ preventScroll: true }),
-      50
+      50,
     );
     const t2 = window.setTimeout(
       () => inputRef.current?.focus({ preventScroll: true }),
-      250
+      250,
     );
     return () => {
       window.clearTimeout(t1);
@@ -854,7 +907,10 @@ export function AnchorTrainingSession({
   const selectedTapLabels =
     currentQuestion?.interaction === "tap"
       ? tapSequence
-          .map((id) => currentQuestion.options.find((option) => option.id === id)?.label)
+          .map(
+            (id) =>
+              currentQuestion.options.find((option) => option.id === id)?.label,
+          )
           .filter((value): value is string => Boolean(value))
       : [];
 
@@ -871,35 +927,42 @@ export function AnchorTrainingSession({
   }, [handleBackAction]);
 
   const hasActiveQuestion = Boolean(
-    telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length > 0 && currentQuestion,
+    telegramId &&
+    !isLoading &&
+    !errorMessage &&
+    versePool.length > 0 &&
+    questions.length > 0 &&
+    currentQuestion,
   );
 
-  const modeRenderer = currentQuestion && (currentQuestion.interaction !== "type" || !isAnswered) ? (
-    <AnchorTrainingModeRenderer
-      fontSizes={fontSizes}
-      question={currentQuestion}
-      selectedOption={selectedOption}
-      isAnswered={isAnswered}
-      controlsLocked={controlsLocked}
-      tapSequence={tapSequence}
-      selectedTapLabels={selectedTapLabels}
-      typedAnswer={typedAnswer}
-      typingAttempts={typingAttempts}
-      canSubmitTypeAnswer={canSubmitTypeAnswer}
-      isCompactTypeMode={Boolean(isCompactTypeMode)}
-      typeInputReadiness={typeInputReadiness}
-      inputRef={inputRef}
-      onChoiceSelect={handleChoiceSelect}
-      onTapSelect={handleTapSelect}
-      matchPercent={typeMatchPercent}
-      onTypedAnswerChange={(v: string) => {
-        setTypedAnswer(v);
-        if (v.trim()) setHasInteracted(true);
-      }}
-      onTypeSubmit={handleTypeSubmit}
-      onOrderSubmit={handleOrderSubmit}
-    />
-  ) : null;
+  const modeRenderer =
+    currentQuestion &&
+    (currentQuestion.interaction !== "type" || !isAnswered) ? (
+      <AnchorTrainingModeRenderer
+        fontSizes={fontSizes}
+        question={currentQuestion}
+        selectedOption={selectedOption}
+        isAnswered={isAnswered}
+        controlsLocked={controlsLocked}
+        tapSequence={tapSequence}
+        selectedTapLabels={selectedTapLabels}
+        typedAnswer={typedAnswer}
+        typingAttempts={typingAttempts}
+        canSubmitTypeAnswer={canSubmitTypeAnswer}
+        isCompactTypeMode={Boolean(isCompactTypeMode)}
+        typeInputReadiness={typeInputReadiness}
+        inputRef={inputRef}
+        onChoiceSelect={handleChoiceSelect}
+        onTapSelect={handleTapSelect}
+        matchPercent={typeMatchPercent}
+        onTypedAnswerChange={(v: string) => {
+          setTypedAnswer(v);
+          if (v.trim()) setHasInteracted(true);
+        }}
+        onTypeSubmit={handleTypeSubmit}
+        onOrderSubmit={handleOrderSubmit}
+      />
+    ) : null;
 
   const feedbackStatusLabel = lastAnswerSkipped
     ? "Пропущено"
@@ -940,7 +1003,8 @@ export function AnchorTrainingSession({
               )}
             </div>
             <p className="text-center text-[13px] text-text-muted">
-              {getAnchorModeShortLabel(currentQuestion.modeId)} · {currentQuestion.modeHint}
+              {getAnchorModeShortLabel(currentQuestion.modeId)} ·{" "}
+              {currentQuestion.modeHint}
             </p>
           </div>
         )}
@@ -991,23 +1055,30 @@ export function AnchorTrainingSession({
             </div>
           )}
 
-          {telegramId && !isLoading && !errorMessage && versePool.length === 0 && (
-            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
-              <AnchorTrainingStateCard
-                title="Нет стихов"
-                description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
-              />
-            </div>
-          )}
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length === 0 && (
+              <div className="flex flex-1 items-center justify-center min-h-0 px-4">
+                <AnchorTrainingStateCard
+                  title="Нет стихов"
+                  description="Нужны стихи в статусах Изучаемые, Повторяемые или Выученные."
+                />
+              </div>
+            )}
 
-          {telegramId && !isLoading && !errorMessage && versePool.length > 0 && questions.length === 0 && (
-            <div className="flex flex-1 items-center justify-center min-h-0 px-4">
-              <AnchorTrainingStateCard
-                title="Недостаточно стихов"
-                description="Для этого режима не хватает подходящих стихов."
-              />
-            </div>
-          )}
+          {telegramId &&
+            !isLoading &&
+            !errorMessage &&
+            versePool.length > 0 &&
+            questions.length === 0 && (
+              <div className="flex flex-1 items-center justify-center min-h-0 px-4">
+                <AnchorTrainingStateCard
+                  title="Недостаточно стихов"
+                  description="Для этого режима не хватает подходящих стихов."
+                />
+              </div>
+            )}
 
           {/* Active question */}
           {hasActiveQuestion && currentQuestion && (
@@ -1016,131 +1087,138 @@ export function AnchorTrainingSession({
               className="flex flex-1 min-h-0 min-w-0 flex-col focus-visible:outline-none"
               tabIndex={-1}
             >
-                    {isAnswered ? (
-                      /* ── Full-screen result after answer ── */
-                      <ScrollShadowContainer
-                        className="flex-1 min-h-0 px-4"
-                        scrollClassName="flex justify-center"
-                        shadowSize={24}
+              {isAnswered ? (
+                /* ── Full-screen result after answer ── */
+                <ScrollShadowContainer
+                  className="flex-1 min-h-0 px-4"
+                  scrollClassName="flex justify-center"
+                  shadowSize={24}
+                >
+                  <div className="w-full max-w-lg mx-auto my-auto py-6 space-y-5">
+                    {/* Status badge */}
+                    <div className="flex flex-col items-center gap-3">
+                      <div
+                        className={cn(
+                          "flex h-14 w-14 items-center justify-center rounded-full shadow-[var(--shadow-soft)]",
+                          lastAnswerCorrect
+                            ? "bg-status-learning-soft text-status-learning"
+                            : lastAnswerSkipped
+                              ? "bg-bg-subtle text-text-secondary"
+                              : "bg-status-paused-soft text-status-paused",
+                        )}
                       >
-                        <div className="w-full max-w-lg mx-auto my-auto py-6 space-y-5">
-                          {/* Status badge */}
-                          <div className="flex flex-col items-center gap-3">
-                            <div
-                              className={cn(
-                                "flex h-14 w-14 items-center justify-center rounded-full shadow-[var(--shadow-soft)]",
-                                lastAnswerCorrect
-                                  ? "bg-status-learning-soft text-status-learning"
-                                  : lastAnswerSkipped
-                                    ? "bg-bg-subtle text-text-secondary"
-                                    : "bg-status-paused-soft text-status-paused",
-                              )}
-                            >
-                              <span className="text-2xl">
-                                {lastAnswerCorrect ? "✓" : lastAnswerSkipped ? "—" : "✗"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "text-lg font-semibold",
-                                  lastAnswerCorrect
-                                    ? "text-status-learning"
-                                    : lastAnswerSkipped
-                                      ? "text-text-secondary"
-                                      : "text-status-paused",
-                                )}
-                              >
-                                {feedbackStatusLabel}
-                              </span>
-                              {typeMatchPercent !== null && (
-                                <span
-                                  className={cn(
-                                    "rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums shadow-[var(--shadow-soft)]",
-                                    typeMatchPercent >= 85
-                                      ? "bg-status-learning-soft text-status-learning"
-                                      : typeMatchPercent >= 60
-                                        ? "bg-status-mastered-soft text-status-mastered"
-                                        : "bg-status-paused-soft text-status-paused",
-                                  )}
-                                >
-                                  {typeMatchPercent}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Correct answer */}
-                          <div className="space-y-3 rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
-                            <p
-                              className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
-                              style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
-                            >
-                              {currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice"
-                                ? currentQuestion.verse.text
-                                : currentQuestion.prompt}
-                            </p>
-                            {showCorrectAnswer && (
-                              <>
-                                <div className="h-px bg-border-subtle" />
-                                <p className="text-center text-sm font-medium leading-relaxed text-text-secondary">
-                                  {currentQuestion.answerLabel}
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </ScrollShadowContainer>
-                    ) : (
-                      <>
-                        {/* ── Top half: prompt area ── */}
-                        <ScrollShadowContainer
+                        <span className="text-2xl">
+                          {lastAnswerCorrect
+                            ? "✓"
+                            : lastAnswerSkipped
+                              ? "—"
+                              : "✗"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
                           className={cn(
-                            "px-4",
-                            shouldLiftTypeCard
-                              ? "flex-none max-h-[22vh]"
-                              : "min-h-0 flex-1 basis-1/2",
+                            "text-lg font-semibold",
+                            lastAnswerCorrect
+                              ? "text-status-learning"
+                              : lastAnswerSkipped
+                                ? "text-text-secondary"
+                                : "text-status-paused",
                           )}
-                          scrollClassName="flex justify-center"
-                          shadowSize={24}
                         >
-                          <div
+                          {feedbackStatusLabel}
+                        </span>
+                        {typeMatchPercent !== null && (
+                          <span
                             className={cn(
-                              "w-full max-w-lg mx-auto my-auto",
-                              shouldLiftTypeCard ? "py-1" : "py-3",
+                              "rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums shadow-[var(--shadow-soft)]",
+                              typeMatchPercent >= 85
+                                ? "bg-status-learning-soft text-status-learning"
+                                : typeMatchPercent >= 60
+                                  ? "bg-status-mastered-soft text-status-mastered"
+                                  : "bg-status-paused-soft text-status-paused",
                             )}
                           >
-                            <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
-                              {(currentQuestion.modeId === "context-reference-type" || currentQuestion.modeId === "context-reference-choice") && (
-                                <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-widest text-text-muted">
-                                  Подсказка
-                                </p>
-                              )}
-                              <p
-                                className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
-                                style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
-                              >
-                                {currentQuestion.prompt}
-                              </p>
-                            </div>
-                          </div>
-                        </ScrollShadowContainer>
+                            {typeMatchPercent}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                        {/* ── Bottom half: interaction area ── */}
-                        <ScrollShadowContainer
-                          className={cn(
-                            "px-4 pb-2",
-                            shouldLiftTypeCard
-                              ? "flex-1 min-h-0"
-                              : "min-h-0 flex-1 basis-1/2 border-t border-border-subtle pt-2",
-                          )}
-                        >
-                          <div className="w-full max-w-lg mx-auto">
-                            {modeRenderer}
-                          </div>
-                        </ScrollShadowContainer>
-                      </>
+                    {/* Correct answer */}
+                    <div className="space-y-3 rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
+                      <p
+                        className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
+                        style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                      >
+                        {currentQuestion.modeId === "context-reference-type" ||
+                        currentQuestion.modeId === "context-reference-choice"
+                          ? currentQuestion.verse.text
+                          : currentQuestion.prompt}
+                      </p>
+                      {showCorrectAnswer && (
+                        <>
+                          <div className="h-px bg-border-subtle" />
+                          <p className="text-center text-sm font-medium leading-relaxed text-text-secondary">
+                            {currentQuestion.answerLabel}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </ScrollShadowContainer>
+              ) : (
+                <>
+                  {/* ── Top half: prompt area ── */}
+                  <ScrollShadowContainer
+                    className={cn(
+                      "px-4",
+                      shouldLiftTypeCard
+                        ? "flex-none max-h-[22vh]"
+                        : "min-h-0 flex-1 basis-1/2",
                     )}
+                    scrollClassName="flex justify-center"
+                    shadowSize={24}
+                  >
+                    <div
+                      className={cn(
+                        "w-full max-w-lg mx-auto my-auto",
+                        shouldLiftTypeCard ? "py-1" : "py-3",
+                      )}
+                    >
+                      <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
+                        {(currentQuestion.modeId === "context-reference-type" ||
+                          currentQuestion.modeId ===
+                            "context-reference-choice") && (
+                          <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-widest text-text-muted">
+                            Подсказка
+                          </p>
+                        )}
+                        <p
+                          className="whitespace-pre-line text-center [font-family:var(--font-heading)] italic leading-relaxed text-text-primary"
+                          style={{ fontSize: `${fontSizes.anchorPrompt}px` }}
+                        >
+                          {currentQuestion.prompt}
+                        </p>
+                      </div>
+                    </div>
+                  </ScrollShadowContainer>
+
+                  {/* ── Bottom half: interaction area ── */}
+                  <ScrollShadowContainer
+                    className={cn(
+                      "px-4 pb-2",
+                      shouldLiftTypeCard
+                        ? "flex-1 min-h-0"
+                        : "min-h-0 flex-1 basis-1/2 border-t border-border-subtle pt-2",
+                    )}
+                  >
+                    <div className="w-full max-w-lg mx-auto">
+                      {modeRenderer}
+                    </div>
+                  </ScrollShadowContainer>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1203,7 +1281,9 @@ export function AnchorTrainingSession({
       {/* Exit confirmation drawer */}
       <Drawer
         open={isExitConfirmOpen}
-        onOpenChange={(open) => { if (!open) setIsExitConfirmOpen(false); }}
+        onOpenChange={(open) => {
+          if (!open) setIsExitConfirmOpen(false);
+        }}
       >
         <DrawerContent>
           <DrawerHeader className="pb-1">
@@ -1211,7 +1291,8 @@ export function AnchorTrainingSession({
               Завершить сессию?
             </DrawerTitle>
             <DrawerDescription className="text-sm text-text-secondary">
-              Уже отправленные ответы сохранены. Текущая нерешённая карточка будет сброшена.
+              Уже отправленные ответы сохранены. Текущая нерешённая карточка
+              будет сброшена.
             </DrawerDescription>
           </DrawerHeader>
           <DrawerFooter className="flex-row gap-3 pt-2">
@@ -1236,14 +1317,18 @@ export function AnchorTrainingSession({
       {/* Result drawer */}
       <Drawer
         open={isResultModalOpen}
-        onOpenChange={(open) => { if (!open) onClose(); }}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
       >
         <DrawerContent>
           <DrawerHeader className="pb-1">
             <DrawerTitle className="text-center text-base text-text-primary">
               Сессия завершена
             </DrawerTitle>
-            <DrawerDescription className="sr-only">Результаты сессии</DrawerDescription>
+            <DrawerDescription className="sr-only">
+              Результаты сессии
+            </DrawerDescription>
           </DrawerHeader>
           <div className="space-y-4 py-2 text-center">
             <p className="text-5xl font-semibold tabular-nums text-text-primary">

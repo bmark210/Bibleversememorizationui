@@ -18,7 +18,7 @@ import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
 import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
-import { parseExternalVerseId } from "@/shared/bible/externalVerseId";
+import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
 import { resolveVerseState } from "@/shared/verseRules";
 import type { TrainingOrder } from "../types";
 import { useTrainingSession } from "./useTrainingSession";
@@ -48,7 +48,7 @@ function getSubsetCounts(verses: Verse[]) {
       if (resolved.isReview) acc.review += 1;
       return acc;
     },
-    { learning: 0, review: 0 }
+    { learning: 0, review: 0 },
   );
 }
 
@@ -63,7 +63,7 @@ function getSubsetOptions(verses: Verse[]): TrainingSubsetSelectValue[] {
 
 function resolveSubsetFilter(
   requested: TrainingSubsetSelectValue,
-  options: TrainingSubsetSelectValue[]
+  options: TrainingSubsetSelectValue[],
 ): TrainingSubsetSelectValue {
   if (options.includes(requested)) return requested;
   return options[0] ?? "catalog";
@@ -71,12 +71,14 @@ function resolveSubsetFilter(
 
 function filterVersesBySubset(
   verses: Verse[],
-  subsetFilter: TrainingSubsetSelectValue
+  subsetFilter: TrainingSubsetSelectValue,
 ): Verse[] {
   if (subsetFilter === "catalog") return verses;
   return verses.filter((verse) => {
     const resolved = resolveVerseState(verse);
-    return subsetFilter === "learning" ? resolved.isLearning : resolved.isReview;
+    return subsetFilter === "learning"
+      ? resolved.isLearning
+      : resolved.isReview;
   });
 }
 
@@ -90,24 +92,14 @@ function getActivityTimestampMs(verse: Verse) {
   return Math.max(
     getSafeTimestampMs(verse.updatedAt ?? null),
     getSafeTimestampMs(verse.lastReviewedAt),
-    getSafeTimestampMs(verse.createdAt ?? null)
+    getSafeTimestampMs(verse.createdAt ?? null),
   );
 }
 
 function compareCanonically(a: Verse, b: Verse) {
-  const parsedA = parseExternalVerseId(a.externalVerseId);
-  const parsedB = parseExternalVerseId(b.externalVerseId);
-  if (parsedA && parsedB) {
-    return (
-      parsedA.book - parsedB.book ||
-      parsedA.chapter - parsedB.chapter ||
-      parsedA.verseStart - parsedB.verseStart ||
-      parsedA.verseEnd - parsedB.verseEnd
-    );
-  }
-  return String(a.externalVerseId).localeCompare(
-    String(b.externalVerseId),
-    "ru"
+  return compareExternalVerseIdsCanonically(
+    a.externalVerseId,
+    b.externalVerseId,
   );
 }
 
@@ -172,12 +164,12 @@ export function TrainingSession({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [exerciseRetryNonce, setExerciseRetryNonce] = useState(0);
   const [localResult, setLocalResult] = useState<TrainingResultState | null>(
-    null
+    null,
   );
   const versePeekTimeoutRef = useRef<number | null>(null);
   const [subsetFilter, setSubsetFilter] = useState<TrainingSubsetSelectValue>(
     () =>
-      resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses))
+      resolveSubsetFilter(initialSubsetFilter, getSubsetOptions(sourceVerses)),
   );
   const [activeOrder, setActiveOrder] = useState<TrainingOrder>(initialOrder);
   const [assistDrawerOpen, setAssistDrawerOpen] = useState(false);
@@ -185,7 +177,7 @@ export function TrainingSession({
   /* ── Subset / order / session ── */
   const subsetOptions = useMemo(
     () => getSubsetOptions(sourceVerses),
-    [sourceVerses]
+    [sourceVerses],
   );
 
   useEffect(() => {
@@ -202,11 +194,11 @@ export function TrainingSession({
   const resolvedSubsetFilter = resolveSubsetFilter(subsetFilter, subsetOptions);
   const orderedSourceVerses = useMemo(
     () => sortVersesByOrder(sourceVerses, activeOrder),
-    [activeOrder, sourceVerses]
+    [activeOrder, sourceVerses],
   );
   const filteredVerses = useMemo(
     () => filterVersesBySubset(orderedSourceVerses, resolvedSubsetFilter),
-    [orderedSourceVerses, resolvedSubsetFilter]
+    [orderedSourceVerses, resolvedSubsetFilter],
   );
 
   const session = useTrainingSession({
@@ -246,7 +238,7 @@ export function TrainingSession({
       trainingActiveVerse
         ? getVerseIdentity(trainingActiveVerse.raw)
         : `empty:${resolvedSubsetFilter}:${activeOrder}`,
-    [trainingActiveVerse, resolvedSubsetFilter, activeOrder]
+    [trainingActiveVerse, resolvedSubsetFilter, activeOrder],
   );
 
   const hintAttemptKey = `${bodyKey}:${trainingModeId ?? "none"}:${exerciseRetryNonce}`;
@@ -261,9 +253,9 @@ export function TrainingSession({
     () =>
       isLateStageReview(
         hintAttemptPhase,
-        trainingActiveVerse?.repetitions ?? 0
+        trainingActiveVerse?.repetitions ?? 0,
       ),
-    [hintAttemptPhase, trainingActiveVerse?.repetitions]
+    [hintAttemptPhase, trainingActiveVerse?.repetitions],
   );
 
   const isHintableMode = Boolean(trainingModeId && trainingModeId >= 1);
@@ -298,11 +290,11 @@ export function TrainingSession({
     () =>
       Boolean(
         trainingActiveVerse &&
-          trainingModeId &&
-          trainingModeId > 1 &&
-          hintAttemptPhase === "learning" &&
-          !isShowingResultScreen &&
-          hintHelpers.hintState.flowState === "active"
+        trainingModeId &&
+        trainingModeId > 1 &&
+        hintAttemptPhase === "learning" &&
+        !isShowingResultScreen &&
+        hintHelpers.hintState.flowState === "active",
       ),
     [
       trainingActiveVerse,
@@ -310,10 +302,11 @@ export function TrainingSession({
       hintAttemptPhase,
       isShowingResultScreen,
       hintHelpers.hintState.flowState,
-    ]
+    ],
   );
 
-  const showAssistButton = isHintableMode && !isShowingResultScreen && !isLateStage;
+  const showAssistButton =
+    isHintableMode && !isShowingResultScreen && !isLateStage;
 
   /* ── Discardable attempt checks (memoized) ── */
   const hasDiscardableAttempt = useMemo(() => {
@@ -349,7 +342,7 @@ export function TrainingSession({
     (progress: ExerciseProgressSnapshot) => {
       hintHelpers.updateProgress(progress);
     },
-    [hintHelpers.updateProgress]
+    [hintHelpers.updateProgress],
   );
 
   const resetCurrentExercise = useCallback(() => {
@@ -360,7 +353,11 @@ export function TrainingSession({
     setHasInteractionStarted(false);
     setLocalResult(null);
     setExerciseRetryNonce((prev) => prev + 1);
-  }, [clearVersePeekTimeout, hintHelpers.dismissHintContent, hintHelpers.resetHints]);
+  }, [
+    clearVersePeekTimeout,
+    hintHelpers.dismissHintContent,
+    hintHelpers.resetHints,
+  ]);
 
   const handleRetryCurrentExercise = useCallback(() => {
     if (
@@ -371,7 +368,12 @@ export function TrainingSession({
       return;
     }
     resetCurrentExercise();
-  }, [pendingAction, resetCurrentExercise, session.isActionPending, session.quickForgetConfirmStage]);
+  }, [
+    pendingAction,
+    resetCurrentExercise,
+    session.isActionPending,
+    session.quickForgetConfirmStage,
+  ]);
 
   /* ── Hint attempt reset on key change ── */
   useEffect(() => {
@@ -416,7 +418,7 @@ export function TrainingSession({
           status: trainingActiveVerse.status,
           trainingModeId,
           ratingPolicy: hintHelpers.hintState.ratingPolicy,
-        })
+        }),
       );
     },
     [
@@ -425,7 +427,7 @@ export function TrainingSession({
       hintHelpers.hintState.ratingPolicy,
       trainingActiveVerse,
       trainingModeId,
-    ]
+    ],
   );
 
   /* ── Rating commit ── */
@@ -434,14 +436,14 @@ export function TrainingSession({
       if (!localResult) return;
       const outcome = await session.handleRate(
         rating,
-        hintHelpers.hintState.attempt
+        hintHelpers.hintState.attempt,
       );
       if (outcome === "continued") {
         resetCurrentExercise();
         setLocalResult(null);
       }
     },
-    [hintHelpers.hintState.attempt, localResult, resetCurrentExercise, session]
+    [hintHelpers.hintState.attempt, localResult, resetCurrentExercise, session],
   );
 
   /* ── Verse peek auto-dismiss ── */
@@ -486,12 +488,7 @@ export function TrainingSession({
 
       setPendingAction({ kind: "navigation", step });
     },
-    [
-      hasCorrectTrainingProgress,
-      isShowingResultScreen,
-      pendingAction,
-      session,
-    ]
+    [hasCorrectTrainingProgress, isShowingResultScreen, pendingAction, session],
   );
 
   /* ── Pending action confirm / cancel ── */
@@ -566,10 +563,7 @@ export function TrainingSession({
   /* ── Keyboard Escape ── */
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (
-        session.quickForgetConfirmStage !== null ||
-        pendingAction !== null
-      ) {
+      if (session.quickForgetConfirmStage !== null || pendingAction !== null) {
         return;
       }
       if (e.key === "Escape") {
@@ -610,7 +604,7 @@ export function TrainingSession({
       showQuickForgetAction,
       session.isActionPending,
       session.requestQuickForget,
-    ]
+    ],
   );
 
   const markInteractionStarted = useCallback(() => {
@@ -690,40 +684,38 @@ export function TrainingSession({
             className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
             tabIndex={-1}
           >
-              {localResult ? (
-                <TrainingResultScreen result={localResult} />
-              ) : trainingActiveVerse && trainingModeId ? (
-                <TrainingCard
-                  dataTour="training-session-card"
-                  trainingVerse={trainingActiveVerse}
-                  modeId={trainingModeId}
-                  rendererRef={session.rendererRef}
-                  onTrainingInteractionStart={markInteractionStarted}
-                  onExerciseResolved={handleExerciseResolved}
-                  hideRatingFooter
-                  isLateStageReview={isLateStage}
-                  hintState={isHintableMode ? hintHelpers.hintState : undefined}
-                  onProgressChange={
-                    isHintableMode ? handleProgressChange : undefined
-                  }
-                  exerciseRetryNonce={exerciseRetryNonce}
-                  inlineExerciseActions={inlineExerciseActions}
-                />
-              ) : (
-                <div className="flex min-h-0 flex-1 items-center justify-center">
-                  <p className="px-6 text-center text-sm text-foreground/55">
-                    Нет стихов для тренировки в выбранной комбинации фильтра и
-                    сортировки
-                  </p>
-                </div>
-              )}
+            {localResult ? (
+              <TrainingResultScreen result={localResult} />
+            ) : trainingActiveVerse && trainingModeId ? (
+              <TrainingCard
+                dataTour="training-session-card"
+                trainingVerse={trainingActiveVerse}
+                modeId={trainingModeId}
+                rendererRef={session.rendererRef}
+                onTrainingInteractionStart={markInteractionStarted}
+                onExerciseResolved={handleExerciseResolved}
+                hideRatingFooter
+                isLateStageReview={isLateStage}
+                hintState={isHintableMode ? hintHelpers.hintState : undefined}
+                onProgressChange={
+                  isHintableMode ? handleProgressChange : undefined
+                }
+                exerciseRetryNonce={exerciseRetryNonce}
+                inlineExerciseActions={inlineExerciseActions}
+              />
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <p className="px-6 text-center text-sm text-foreground/55">
+                  Нет стихов для тренировки в выбранной комбинации фильтра и
+                  сортировки
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* ── Footer ── */}
-        <div
-          className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative"
-        >
+        <div className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative">
           {localResult ? (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-3 py-3 sm:px-6">
               {localResult.footerMode === "rating-with-retry" ? (
@@ -764,28 +756,28 @@ export function TrainingSession({
 
         {/* ── Verse peek overlay (z-[55] to sit above main z-50 container) ── */}
         {activeVersePeek && !isShowingResultScreen ? (
-            <div
-              key={`${hintAttemptKey}:verse-peek`}
-              className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
-            >
-              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-state-warning/85">
-                  Полный стих на{" "}
-                  {activeVersePeek.durationSeconds ??
-                    hintHelpers.hintState.showVerseDurationSeconds}{" "}
-                  сек.
+          <div
+            key={`${hintAttemptKey}:verse-peek`}
+            className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
+          >
+            <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-state-warning/85">
+                Полный стих на{" "}
+                {activeVersePeek.durationSeconds ??
+                  hintHelpers.hintState.showVerseDurationSeconds}{" "}
+                сек.
+              </p>
+              {activeVerseRaw?.reference ? (
+                <p className="text-sm font-semibold text-foreground/70">
+                  {activeVerseRaw.reference}
                 </p>
-                {activeVerseRaw?.reference ? (
-                  <p className="text-sm font-semibold text-foreground/70">
-                    {activeVerseRaw.reference}
-                  </p>
-                ) : null}
-                <p className="whitespace-pre-line text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
-                  {activeVersePeek.text}
-                </p>
-              </div>
+              ) : null}
+              <p className="whitespace-pre-line text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
+                {activeVersePeek.text}
+              </p>
             </div>
-          ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* ── Quick Forget drawer ── */}
@@ -815,10 +807,10 @@ export function TrainingSession({
                 Отмена
               </Button>
             </DrawerClose>
-              <Button
-                className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft"
-                onClick={() =>
-                  session.confirmQuickForget(hintHelpers.hintState.attempt)
+            <Button
+              className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft"
+              onClick={() =>
+                session.confirmQuickForget(hintHelpers.hintState.attempt)
               }
             >
               Подтвердить

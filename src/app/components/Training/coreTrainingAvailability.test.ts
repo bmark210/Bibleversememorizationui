@@ -21,7 +21,7 @@ function buildVerse(overrides: Partial<Verse>): Verse {
   };
 }
 
-test("training counts distinguish interactive anchor and flashcard availability", () => {
+test("training counts expose games availability for all active verses", () => {
   const counts = getCoreTrainingCountsFromVerses([
     buildVerse({
       externalVerseId: "43-1-1",
@@ -61,7 +61,7 @@ test("training counts distinguish interactive anchor and flashcard availability"
   assert.equal(counts.totalReviewCount, 2);
   assert.equal(counts.waitingReviewCount, 1);
   assert.equal(counts.masteredCount, 1);
-  assert.equal(counts.anchorEligibleCount, 3);
+  assert.equal(counts.anchorEligibleCount, 4);
   assert.equal(counts.flashcardCount, 4);
   assert.equal(counts.allCount, 4);
   assert.equal(

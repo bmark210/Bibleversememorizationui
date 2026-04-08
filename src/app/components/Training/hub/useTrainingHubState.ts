@@ -33,7 +33,7 @@ export function useTrainingHubState(params: {
       totalReviewCount,
       waitingReviewCount: Math.max(0, totalReviewCount - dueReviewCount),
       masteredCount,
-      anchorEligibleCount: totalReviewCount + masteredCount,
+      anchorEligibleCount: learningCount + totalReviewCount + masteredCount,
       flashcardCount: learningCount + totalReviewCount + masteredCount,
       allCount: learningCount + totalReviewCount + masteredCount,
       earliestWaitingReviewAt: null,
@@ -44,7 +44,7 @@ export function useTrainingHubState(params: {
 /** How many verses are available for a given mode */
 export function getCountForMode(
   mode: TrainingMode,
-  counts: TrainingCounts
+  counts: TrainingCounts,
 ): number {
   switch (mode) {
     case "learning":
@@ -59,7 +59,7 @@ export function getCountForMode(
 /** Total count for a multi-mode selection (deduplicated) */
 export function getCountForModes(
   modes: CoreTrainingMode[] | TrainingMode[],
-  counts: TrainingCounts
+  counts: TrainingCounts,
 ): number {
   if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
     return counts.anchorEligibleCount;

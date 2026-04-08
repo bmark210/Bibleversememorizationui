@@ -11,15 +11,19 @@ const AnchorTrainingSession = dynamic(
 );
 
 import type { AnchorModeGroup } from "../types";
+import type { Verse } from "@/app/domain/verse";
 
 export type AnchorTrainingSessionRootProps = {
   telegramId: string | null;
   boxId: string;
+  sourceVerses?: Verse[];
   anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;
 };
 
-export function AnchorTrainingSessionRoot(props: AnchorTrainingSessionRootProps) {
+export function AnchorTrainingSessionRoot(
+  props: AnchorTrainingSessionRootProps,
+) {
   return <AnchorTrainingSession {...props} />;
 }
