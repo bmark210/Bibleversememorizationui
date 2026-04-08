@@ -90,6 +90,25 @@ export const getQueryString = (params: Record<string, any>): string => {
 };
 
 const getUrl = (config: OpenAPIConfig, options: ApiRequestOptions): string => {
+    if (!config.BASE) {
+        throw new Error('NEXT_PUBLIC_API_BASE_URL must be configured as an absolute external backend URL.');
+    }
+
+    if (typeof window !== 'undefined') {
+        try {
+            const apiOrigin = new URL(config.BASE).origin.replace(/\/+$/, '');
+            const appOrigin = window.location.origin.replace(/\/+$/, '');
+            if (apiOrigin === appOrigin) {
+                throw new Error('NEXT_PUBLIC_API_BASE_URL must point to the external backend service, not the frontend app URL.');
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('NEXT_PUBLIC_API_BASE_URL must be a valid absolute URL.');
+        }
+    }
+
     const encoder = config.ENCODE_PATH || encodeURI;
 
     const path = options.url

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { buildOpenAppKeyboard, sendTelegramMessage } from "@/lib/telegramBot";
 import { handleApiError } from "@/shared/errors/apiErrorHandler";
-import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+import { tryGetPublicApiBaseUrl } from "@/lib/publicApiBase";
 import { resolvePublicWebAppUrl } from "@/lib/serverWebAppUrl";
 
 type TelegramUpdate = {
@@ -54,9 +54,9 @@ async function upsertTelegramUserOnApi(params: {
   telegramId: string;
   name: string | null;
 }): Promise<void> {
-  const base = getPublicApiBaseUrl();
+  const base = tryGetPublicApiBaseUrl();
   if (!base) {
-    console.error("NEXT_PUBLIC_API_BASE_URL is not configured");
+    console.error("NEXT_PUBLIC_API_BASE_URL is missing or points to the frontend app URL");
     return;
   }
 
