@@ -1,4 +1,4 @@
 import { OpenAPI } from "@/api/core/OpenAPI";
-import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+import { tryGetPublicApiBaseUrl } from "@/lib/publicApiBase";
 
-OpenAPI.BASE = getPublicApiBaseUrl();
+OpenAPI.BASE = tryGetPublicApiBaseUrl() ?? "";

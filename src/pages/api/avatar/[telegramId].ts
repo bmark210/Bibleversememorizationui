@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+import { tryGetPublicApiBaseUrl } from "@/lib/publicApiBase";
 
 /**
  * GET /api/avatar/:telegramId
@@ -80,7 +80,7 @@ async function fetchBotApiImage(
 async function fetchRemoteAvatarFromApi(
   telegramId: string,
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
-  const base = getPublicApiBaseUrl();
+  const base = tryGetPublicApiBaseUrl();
   if (!base) return null;
 
   const userRes = await fetch(

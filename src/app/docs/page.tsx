@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import "swagger-ui-react/swagger-ui.css";
-import { getPublicApiBaseUrl } from "@/lib/publicApiBase";
+import { tryGetPublicApiBaseUrl } from "@/lib/publicApiBase";
 
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), {
   ssr: false,
@@ -13,13 +13,21 @@ const SwaggerUI = dynamic(() => import("swagger-ui-react"), {
   ),
 });
 
-const FALLBACK_API_BASE = "https://bible-memory-db-production.up.railway.app";
-
 export default function DocsPage() {
   const explicit = process.env.NEXT_PUBLIC_SWAGGER_URL?.trim();
-  const specUrl =
-    explicit ||
-    `${getPublicApiBaseUrl() || FALLBACK_API_BASE}/swagger/doc.json`;
+  const baseUrl = tryGetPublicApiBaseUrl();
+  const specUrl = explicit || (baseUrl ? `${baseUrl}/swagger/doc.json` : "");
+
+  if (!specUrl) {
+    return (
+      <div className="min-h-screen p-6">
+        <div className="text-sm text-muted-foreground">
+          Swagger URL is not configured. Set `NEXT_PUBLIC_SWAGGER_URL` or a valid external `NEXT_PUBLIC_API_BASE_URL`.
+        </div>
+      </div>
+    );
+  }
+
   return <SwaggerUI url={specUrl} />;
 }
 
