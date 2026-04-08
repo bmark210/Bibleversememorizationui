@@ -129,6 +129,22 @@ export function TrainingBoxHub({
   const canStartCore = currentCoreCount > 0;
   const canStartAnchor = interactiveAnchorCount > 0;
   const canStartFlashcard = flashcardCount > 0;
+  const canStartSelected =
+    selectedScenario === "core"
+      ? canStartCore
+      : selectedAnchorSubScenario === "flashcard"
+        ? canStartFlashcard
+        : canStartAnchor;
+  const handleStart = () => {
+    if (
+      selectedScenario === "anchor" &&
+      selectedAnchorSubScenario === "flashcard"
+    ) {
+      onStartFlashcard();
+    } else {
+      onStart();
+    }
+  };
   const stats = buildTrainingHubStats(verses.length, counts);
 
   return (
@@ -208,17 +224,6 @@ export function TrainingBoxHub({
                 );
               })}
             </div>
-
-            <div className="mt-4 pt-1">
-              <Button
-                type="button"
-                className="rounded-full px-5"
-                disabled={!canStartCore}
-                onClick={onStart}
-              >
-                Начать
-              </Button>
-            </div>
           </>
         ) : (
           <>
@@ -253,28 +258,20 @@ export function TrainingBoxHub({
                 onClick={() => onAnchorSubScenarioChange("flashcard")}
               />
             </div>
-
-            <div className="mt-4 pt-1">
-              <Button
-                type="button"
-                className="rounded-full px-5"
-                disabled={
-                  selectedAnchorSubScenario === "flashcard"
-                    ? !canStartFlashcard
-                    : !canStartAnchor
-                }
-                onClick={
-                  selectedAnchorSubScenario === "flashcard"
-                    ? onStartFlashcard
-                    : onStart
-                }
-              >
-                Начать
-              </Button>
-            </div>
           </>
         )}
       </TextSurfaceCard>
+
+      <div className="mt-4 w-full pt-1">
+        <Button
+          type="button"
+          className="w-full rounded-full px-5"
+          disabled={!canStartSelected}
+          onClick={handleStart}
+        >
+          Начать
+        </Button>
+      </div>
     </div>
   );
 }
