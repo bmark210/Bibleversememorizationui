@@ -6,8 +6,13 @@ function normalizeBaseUrl(value: string): string {
 
 /**
  * Возвращает базовый URL внешнего Go API.
- * По умолчанию URL берётся из `environment/dev.ts` или `environment/prod.ts`.
- * Для локальной разработки его можно переопределить через `NEXT_PUBLIC_API_BASE_URL`.
+ * Приоритет:
+ * 1. `NEXT_PUBLIC_API_BASE_URL`
+ * 2. локальный fallback из `environment/dev.ts`
+ * 3. пустая строка -> same-origin `/api`
+ *
+ * На hosted preview/prod сборках API base должен задаваться явно через
+ * `NEXT_PUBLIC_API_BASE_URL`, иначе запросы пойдут в same-origin.
  */
 export function getPublicApiBaseUrl(): string {
   const override = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
