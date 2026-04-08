@@ -89,6 +89,19 @@ export interface HelloaoSearchResponse {
   results: HelloaoVerse[];
 }
 
+export interface HelloaoListParams {
+  translation?: string;
+  page?: number;
+  limit?: number;
+  book?: BibleBook | "ot" | "nt";
+  signal?: AbortSignal;
+}
+
+export interface HelloaoListResponse {
+  total: number;
+  results: HelloaoVerse[];
+}
+
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw new DOMException("The operation was aborted.", "AbortError");
@@ -140,7 +153,9 @@ function normalizeTextContent(content: unknown): string {
   return normalizeWhitespace(extractTextFromHelloaoNode(content));
 }
 
-function normalizeChapterContentToMap(items: HelloaoChapterContentItem[] | undefined): Map<number, string> {
+function normalizeChapterContentToMap(
+  items: HelloaoChapterContentItem[] | undefined,
+): Map<number, string> {
   const result = new Map<number, string>();
   if (!Array.isArray(items)) return result;
 
@@ -183,7 +198,9 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return result.data;
 }
 
-async function getBooksEntry(translationInput?: string): Promise<BooksCacheEntry> {
+async function getBooksEntry(
+  translationInput?: string,
+): Promise<BooksCacheEntry> {
   const translation = normalizeTranslationInput(translationInput);
   const cached = booksCache.get(translation);
   if (cached && cached.expiresAt > Date.now()) {
@@ -226,14 +243,18 @@ async function getBooksEntry(translationInput?: string): Promise<BooksCacheEntry
   return promise;
 }
 
-function chapterCacheKey(translation: string, bookId: string, chapter: number): string {
+function chapterCacheKey(
+  translation: string,
+  bookId: string,
+  chapter: number,
+): string {
   return `${translation}|${bookId}|${chapter}`;
 }
 
 async function fetchChapterVerseMap(
   translationInput: string | undefined,
   bookId: string,
-  chapter: number
+  chapter: number,
 ): Promise<Map<number, string>> {
   const translation = normalizeTranslationInput(translationInput);
   const key = chapterCacheKey(translation, bookId, chapter);
@@ -268,24 +289,30 @@ async function fetchChapterVerseMap(
   return new Map(result);
 }
 
-export async function getHelloaoTranslations(signal?: AbortSignal): Promise<HelloaoTranslationInfo[]> {
+export async function getHelloaoTranslations(
+  signal?: AbortSignal,
+): Promise<HelloaoTranslationInfo[]> {
   throwIfAborted(signal);
   const payload = await fetchJson<HelloaoAvailableTranslationsPayload>(
     `${HELLOAO_API_BASE_URL}/available_translations.json`,
-    signal
+    signal,
   );
-  const items = Array.isArray(payload?.translations) ? payload.translations : [];
+  const items = Array.isArray(payload?.translations)
+    ? payload.translations
+    : [];
   return items;
 }
 
-export async function getHelloaoBooks(translation?: string): Promise<HelloaoBookInfo[]> {
+export async function getHelloaoBooks(
+  translation?: string,
+): Promise<HelloaoBookInfo[]> {
   const entry = await getBooksEntry(translation);
   return entry.books;
 }
 
 export async function resolveHelloaoBookIdByOrder(
   bookOrder: number,
-  translation?: string
+  translation?: string,
 ): Promise<string | null> {
   const entry = await getBooksEntry(translation);
   return entry.byOrder.get(bookOrder) ?? null;
@@ -299,13 +326,20 @@ export async function getHelloaoChapter(params: {
   const translation = normalizeTranslationInput(params.translation);
   const bookOrder = Number(params.book);
   const chapter = Number(params.chapter);
-  if (!Number.isFinite(bookOrder) || bookOrder <= 0 || !Number.isFinite(chapter) || chapter <= 0) {
+  if (
+    !Number.isFinite(bookOrder) ||
+    bookOrder <= 0 ||
+    !Number.isFinite(chapter) ||
+    chapter <= 0
+  ) {
     throw new Error("Invalid book or chapter");
   }
 
   const bookId = await resolveHelloaoBookIdByOrder(bookOrder, translation);
   if (!bookId) {
-    throw new Error(`Book ${bookOrder} is unavailable for translation ${translation}`);
+    throw new Error(
+      `Book ${bookOrder} is unavailable for translation ${translation}`,
+    );
   }
 
   const verseMap = await fetchChapterVerseMap(translation, bookId, chapter);
@@ -332,7 +366,9 @@ export async function getHelloaoVerse(params: {
     book: params.book,
     chapter: params.chapter,
   });
-  const verse = chapterVerses.find((item) => item.verse === Number(params.verse));
+  const verse = chapterVerses.find(
+    (item) => item.verse === Number(params.verse),
+  );
   if (!verse) {
     throw new Error("Verse not found");
   }
@@ -343,24 +379,41 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function matchesQuery(text: string, query: string, matchCase: boolean, matchWhole: boolean): boolean {
+function matchesQuery(
+  text: string,
+  query: string,
+  matchCase: boolean,
+  matchWhole: boolean,
+): boolean {
   if (query.length === 0) return true;
 
   if (!matchWhole) {
-    return matchCase ? text.includes(query) : text.toLowerCase().includes(query.toLowerCase());
+    return matchCase
+      ? text.includes(query)
+      : text.toLowerCase().includes(query.toLowerCase());
   }
 
   const escaped = escapeRegExp(query);
   const flags = `${matchCase ? "" : "i"}u`;
   try {
-    const regex = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, flags);
+    const regex = new RegExp(
+      `(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`,
+      flags,
+    );
     return regex.test(text);
   } catch {
-    return matchCase ? text.includes(query) : text.toLowerCase().includes(query.toLowerCase());
+    return matchCase
+      ? text.includes(query)
+      : text.toLowerCase().includes(query.toLowerCase());
   }
 }
 
-function highlightQuery(text: string, query: string, matchCase: boolean, matchWhole: boolean): string {
+function highlightQuery(
+  text: string,
+  query: string,
+  matchCase: boolean,
+  matchWhole: boolean,
+): string {
   if (!query) return text;
 
   const escaped = escapeRegExp(query);
@@ -369,7 +422,7 @@ function highlightQuery(text: string, query: string, matchCase: boolean, matchWh
     try {
       const regex = new RegExp(
         `(^|[^\\p{L}\\p{N}])(${escaped})(?=$|[^\\p{L}\\p{N}])`,
-        flags
+        flags,
       );
       return text.replace(regex, "$1<mark>$2</mark>");
     } catch {
@@ -381,14 +434,19 @@ function highlightQuery(text: string, query: string, matchCase: boolean, matchWh
   return text.replace(new RegExp(escaped, flags), "<mark>$&</mark>");
 }
 
-function filterByTestament(item: SearchVerseIndexItem, bookFilter: BibleBook | "ot" | "nt" | undefined): boolean {
+function filterByTestament(
+  item: SearchVerseIndexItem,
+  bookFilter: BibleBook | "ot" | "nt" | undefined,
+): boolean {
   if (!bookFilter) return true;
   if (bookFilter === "ot") return item.book >= 1 && item.book <= 39;
   if (bookFilter === "nt") return item.book >= 40 && item.book <= 66;
   return item.book === Number(bookFilter);
 }
 
-async function getSearchIndex(translationInput?: string): Promise<SearchVerseIndexItem[]> {
+async function getSearchIndex(
+  translationInput?: string,
+): Promise<SearchVerseIndexItem[]> {
   const translation = normalizeTranslationInput(translationInput);
   const cached = completeCache.get(translation);
   if (cached && cached.expiresAt > Date.now()) {
@@ -447,7 +505,9 @@ async function getSearchIndex(translationInput?: string): Promise<SearchVerseInd
   return promise;
 }
 
-export async function searchHelloaoVerses(params: HelloaoSearchParams): Promise<HelloaoSearchResponse> {
+export async function searchHelloaoVerses(
+  params: HelloaoSearchParams,
+): Promise<HelloaoSearchResponse> {
   const query = String(params.query ?? "").trim();
   if (!query) {
     return { exact_matches: 0, total: 0, results: [] };
@@ -488,6 +548,37 @@ export async function searchHelloaoVerses(params: HelloaoSearchParams): Promise<
   };
 }
 
+export async function listHelloaoVerses(
+  params: HelloaoListParams,
+): Promise<HelloaoListResponse> {
+  const translation = normalizeTranslationInput(params.translation);
+  const limit = Math.max(1, Math.min(100, Math.floor(params.limit ?? 20)));
+  const page = Math.max(1, Math.floor(params.page ?? 1));
+
+  throwIfAborted(params.signal);
+  const source = await getSearchIndex(translation);
+  throwIfAborted(params.signal);
+
+  const filtered = params.book
+    ? source.filter((item) => filterByTestament(item, params.book))
+    : source;
+  const total = filtered.length;
+  const start = (page - 1) * limit;
+  const pageItems = filtered.slice(start, start + limit);
+
+  return {
+    total,
+    results: pageItems.map((item, index) => ({
+      pk: start + index + 1,
+      translation,
+      book: item.book,
+      chapter: item.chapter,
+      verse: item.verse,
+      text: item.text,
+    })),
+  };
+}
+
 export async function getHelloaoChapterVerseMap(params: {
   translation?: string;
   book: number;
@@ -496,7 +587,12 @@ export async function getHelloaoChapterVerseMap(params: {
   const translation = normalizeTranslationInput(params.translation);
   const book = Number(params.book);
   const chapter = Number(params.chapter);
-  if (!Number.isFinite(book) || book <= 0 || !Number.isFinite(chapter) || chapter <= 0) {
+  if (
+    !Number.isFinite(book) ||
+    book <= 0 ||
+    !Number.isFinite(chapter) ||
+    chapter <= 0
+  ) {
     return new Map();
   }
 

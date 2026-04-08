@@ -769,14 +769,14 @@ export function TextsScreen({
 
   return (
     <>
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden px-4 pt-4 pb-4 sm:px-6">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 pt-4 pb-4 sm:px-6">
         {!selectedBoxId ? (
           <div className="mb-5 shrink-0">
             <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} />
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1">
           {selectedBoxId ? (
             renderBoxDetail()
           ) : activeTab === "catalog" ? (
