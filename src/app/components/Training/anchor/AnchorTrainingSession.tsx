@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import { normalizeDisplayVerseStatus } from "@/app/types/verseStatus";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
@@ -60,9 +59,11 @@ import {
 } from "./services/validation";
 
 import type { AnchorModeGroup } from "../types";
+import type { Verse } from "@/app/domain/verse";
 
 type AnchorTrainingSessionProps = {
   telegramId: string | null;
+  boxId: string;
   anchorModes?: AnchorModeGroup[];
   onSessionCommitted?: () => void;
   onClose: () => void;
@@ -78,12 +79,19 @@ const TYPE_PREFIX_READY_RATIO = 0.8;
 // mapToTrainingVerse
 // ---------------------------------------------------------------------------
 
-function mapToTrainingVerse(verse: domain_UserVerse): TrainingVerse | null {
-  const enriched = verse as domain_UserVerse & {
+function mapToTrainingVerse(verse: Verse | Record<string, unknown>): TrainingVerse | null {
+  const enriched = verse as Verse & {
     text?: string | null;
     reference?: string | null;
     externalVerseId?: string | null;
     difficultyLevel?: unknown;
+    verse?: {
+      externalVerseId?: string | null;
+      difficultyLetters?: number | null;
+    } | null;
+    status?: string | null;
+    masteryLevel?: number | null;
+    repetitions?: number | null;
   };
   const externalVerseId = String(
     enriched.externalVerseId?.trim() ||
@@ -113,10 +121,10 @@ function mapToTrainingVerse(verse: domain_UserVerse): TrainingVerse | null {
     externalVerseId,
     text,
     reference,
-    status: normalizeDisplayVerseStatus(verse.status),
+    status: normalizeDisplayVerseStatus(enriched.status),
     difficultyLevel,
-    masteryLevel: Math.max(0, Math.round(Number(verse.masteryLevel ?? 0))),
-    repetitions: Math.max(0, Math.round(Number(verse.repetitions ?? 0))),
+    masteryLevel: Math.max(0, Math.round(Number(enriched.masteryLevel ?? 0))),
+    repetitions: Math.max(0, Math.round(Number(enriched.repetitions ?? 0))),
     bookName: parsedReference?.bookName ?? "",
     chapterVerse: parsedReference?.chapterVerse ?? "",
     incipit: incipitWords.join(" "),
@@ -357,6 +365,7 @@ function buildSyncSessionQuestions(
 
 export function AnchorTrainingSession({
   telegramId,
+  boxId,
   anchorModes,
   onSessionCommitted,
   onClose,
@@ -365,7 +374,7 @@ export function AnchorTrainingSession({
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
   const fontSizes = useTrainingFontSize();
-  const initializedTelegramIdRef = useRef<string | null>(null);
+  const initializedScopeRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const batchSeqRef = useRef(0);
   const persistChainRef = useRef(Promise.resolve());
@@ -498,6 +507,7 @@ export function AnchorTrainingSession({
       try {
         const response = await fetchAnchorVersesPool({
           telegramId: telegramIdValue,
+          boxId,
           limit: REFERENCE_TRAINER_POOL_LIMIT,
         });
         const merged = response.verses
@@ -516,12 +526,12 @@ export function AnchorTrainingSession({
         setIsLoading(false);
       }
     },
-    [startSessionFromPool],
+    [boxId, startSessionFromPool],
   );
 
   useEffect(() => {
     if (!telegramId) {
-      initializedTelegramIdRef.current = null;
+      initializedScopeRef.current = null;
       setVersePool([]);
       setQuestions([]);
       setQuestionStates({});
@@ -530,10 +540,11 @@ export function AnchorTrainingSession({
       setErrorMessage(null);
       return;
     }
-    if (initializedTelegramIdRef.current === telegramId) return;
-    initializedTelegramIdRef.current = telegramId;
+    const scopeKey = `${telegramId}:${boxId}`;
+    if (initializedScopeRef.current === scopeKey) return;
+    initializedScopeRef.current = scopeKey;
     void loadVersePool(telegramId);
-  }, [loadVersePool, telegramId]);
+  }, [boxId, loadVersePool, telegramId]);
 
   useEffect(() => {
     if (isAnswered) return;
@@ -570,6 +581,7 @@ export function AnchorTrainingSession({
           try {
             const response = await submitAnchorSession({
               telegramId,
+              boxId,
               results: [result],
             });
             if (response?.xpAwarded) {
@@ -586,7 +598,7 @@ export function AnchorTrainingSession({
         })
         .catch(() => {});
     },
-    [onSessionCommitted, telegramId],
+    [boxId, onSessionCommitted, telegramId],
   );
 
   const finalizeAnswer = useCallback(

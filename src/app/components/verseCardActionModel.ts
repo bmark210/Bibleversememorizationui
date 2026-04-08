@@ -111,7 +111,6 @@ export function resolveVerseCardActionModel(
     statusTone: getStatusTone({ status: resolvedStatus, isNotYetDue }),
     showProgress:
       resolvedStatus !== "CATALOG" &&
-      resolvedStatus !== VerseStatus.MY &&
       resolvedStatus !== VerseStatus.QUEUE,
     isNotYetDue,
   };
@@ -128,9 +127,9 @@ function getPrimaryAction(params: {
   if (allowedActions.has("add_to_my")) {
     return {
       id: "add-to-my",
-      label: "Добавить в мои",
-      ariaLabel: "Добавить стих в мои стихи",
-      title: "Добавить стих в мои стихи",
+      label: "В очередь",
+      ariaLabel: "Добавить стих в очередь",
+      title: "Добавить стих в очередь",
       icon: Plus,
       dataTour: "verse-card-add-button",
     };
@@ -151,8 +150,8 @@ function getPrimaryAction(params: {
     return {
       id: "resume",
       label: "Возобновить",
-      ariaLabel: "Возобновить изучение стиха",
-      title: "Возобновить изучение",
+      ariaLabel: "Возобновить стих",
+      title: "Возобновить стих",
       icon: Play,
     };
   }
@@ -187,9 +186,9 @@ function getPrimaryAction(params: {
   if (status === "CATALOG") {
     return {
       id: "add-to-my",
-      label: "Добавить в мои",
-      ariaLabel: "Добавить стих в мои стихи",
-      title: "Добавить стих в мои стихи",
+      label: "В очередь",
+      ariaLabel: "Добавить стих в очередь",
+      title: "Добавить стих в очередь",
       icon: Plus,
       dataTour: "verse-card-add-button",
     };
@@ -200,23 +199,12 @@ function getPrimaryAction(params: {
     return null;
   }
 
-  if (status === VerseStatus.MY) {
-    return {
-      id: "start-learning",
-      label: "Начать изучение",
-      ariaLabel: "Начать изучение стиха",
-      title: "Начать изучение",
-      icon: Play,
-      dataTour: "verse-card-promote-button",
-    };
-  }
-
   if (status === VerseStatus.STOPPED) {
     return {
       id: "resume",
       label: "Возобновить",
-      ariaLabel: "Возобновить изучение стиха",
-      title: "Возобновить изучение",
+      ariaLabel: "Возобновить стих",
+      title: "Возобновить стих",
       icon: Play,
     };
   }
@@ -266,9 +254,9 @@ function getUtilityAction(params: {
   }
 
   if (
+    status === VerseStatus.QUEUE ||
     status === VerseStatus.LEARNING ||
-    status === "REVIEW" ||
-    status === "MASTERED"
+    status === "REVIEW"
   ) {
     return {
       id: "pause",
@@ -288,7 +276,7 @@ function getStatusTone(params: {
 }): VerseStatusSummaryTone | null {
   const { status, isNotYetDue } = params;
 
-  if (status === "CATALOG" || status === VerseStatus.MY) {
+  if (status === "CATALOG") {
     return null;
   }
 

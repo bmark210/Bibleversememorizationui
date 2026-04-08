@@ -3,7 +3,6 @@ import type { VerseStatus } from "@/shared/domain/verseStatus";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import type { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
-import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import type { Verse } from "@/app/domain/verse";
 import type { VerseMutablePatch } from "@/app/types/verseSync";
 import type { TrainingModeRating } from "@/app/components/training-session/modes/types";
@@ -53,6 +52,18 @@ export type PlayerProfilePreview = {
   avatarUrl: string | null;
 };
 
+type LegacyDirectLaunchVerse = {
+  verse: Verse;
+  preferredMode?: "learning" | "review" | "anchor";
+};
+
+export type VerseGalleryPrimaryActionOverride = {
+  label: string;
+  ariaLabel?: string;
+  icon: LucideIcon;
+  onClick: (verse: Verse) => void;
+};
+
 export type VerseGalleryProps = {
   verses: Verse[];
   initialIndex: number;
@@ -67,7 +78,7 @@ export type VerseGalleryProps = {
   onSelectTag: (slug: string) => void;
   onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */
-  onNavigateToTraining: (launch: DirectLaunchVerse) => void;
+  onNavigateToTraining: (launch: LegacyDirectLaunchVerse) => void;
   /** Open the queue position picker for the given verse */
   onEditQueuePosition?: (verse: Verse) => void;
   /** Whether the user has enough REVIEW + MASTERED verses to use anchor training */
@@ -76,4 +87,6 @@ export type VerseGalleryProps = {
   previewHasMore?: boolean;
   previewIsLoadingMore?: boolean;
   onRequestMorePreviewVerses?: () => Promise<boolean>;
+  primaryActionOverride?: VerseGalleryPrimaryActionOverride | null;
+  showDeleteAction?: boolean;
 };

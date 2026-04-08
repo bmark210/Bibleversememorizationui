@@ -116,7 +116,7 @@ function resolveJourneyPhaseFromValues(
     case VerseFlowCode.CATALOG:
       return "catalog";
     case VerseFlowCode.MY:
-      return "my";
+      return "queue";
     case VerseFlowCode.QUEUE:
       return "queue";
     case VerseFlowCode.LEARNING:
@@ -134,7 +134,7 @@ function resolveJourneyPhaseFromValues(
   }
 
   if (displayStatus === VerseDisplayStatus.CATALOG) return "catalog";
-  if (displayStatus === VerseDisplayStatus.MY) return "my";
+  if (displayStatus === VerseDisplayStatus.MY) return "queue";
   if (displayStatus === VerseDisplayStatus.QUEUE) return "queue";
   if (displayStatus === VerseDisplayStatus.STOPPED) return pausedKind;
   if (displayStatus === VerseDisplayStatus.REVIEW) return "review";
@@ -249,7 +249,7 @@ export function resolveVerseState(
     progress: resolveProgress(flow, masteryLevel, repetitions),
     allowedActions,
     isCatalog: displayStatus === VerseDisplayStatus.CATALOG,
-    isMy: displayStatus === VerseDisplayStatus.MY,
+    isMy: false,
     isQueued,
     isLearning,
     isReview,
@@ -278,7 +278,7 @@ export function hasVerseAction(
   action: VerseAction,
 ): boolean {
   return resolveVerseState({
-    status: VerseDisplayStatus.MY,
+    status: VerseDisplayStatus.QUEUE,
     flow: getVerseFlow(subject),
     masteryLevel: 0,
     repetitions: 0,
@@ -343,7 +343,7 @@ export function getVerseProgressPercent(
   subject: Pick<Verse, "flow" | "masteryLevel" | "repetitions">,
 ): number {
   return resolveVerseState({
-    status: VerseDisplayStatus.MY,
+    status: VerseDisplayStatus.QUEUE,
     flow: subject.flow,
     masteryLevel: subject.masteryLevel,
     repetitions: subject.repetitions,
@@ -360,7 +360,7 @@ export function getVerseResolvedProgress(
   progressPercent: number;
 } {
   return resolveVerseState({
-    status: VerseDisplayStatus.MY,
+    status: VerseDisplayStatus.QUEUE,
     flow: subject.flow,
     masteryLevel: subject.masteryLevel,
     repetitions: subject.repetitions,

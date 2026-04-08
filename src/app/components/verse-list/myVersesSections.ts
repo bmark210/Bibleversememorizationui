@@ -1,8 +1,6 @@
 import type { Verse } from "@/app/domain/verse";
 import type { MyVersesSectionKey } from "./constants";
-import { VerseStatus } from "@/shared/domain/verseStatus";
 import {
-  getVerseDisplayStatus,
   isVerseLearning,
   isVerseMastered,
   isVersePaused,
@@ -96,10 +94,6 @@ export function groupMyVersesBySection(
     if (isVerseMastered(verse)) {
       groups.mastered.push(verse);
       continue;
-    }
-
-    if (getVerseDisplayStatus(verse) === VerseStatus.MY) {
-      groups.my.push(verse);
     }
   }
 

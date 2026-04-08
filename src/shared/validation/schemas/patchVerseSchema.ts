@@ -47,7 +47,7 @@ export const patchVerseSchema = z
       ])
       .optional(),
     status: z
-      .enum([VerseStatus.MY, VerseStatus.LEARNING, VerseStatus.STOPPED])
+      .enum([VerseStatus.QUEUE, VerseStatus.LEARNING, VerseStatus.STOPPED])
       .optional(),
   })
   .strict();

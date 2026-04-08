@@ -123,7 +123,7 @@ export function getDisplayStatusFromFlow(
     case VerseFlowCode.CATALOG:
       return VerseDisplayStatus.CATALOG;
     case VerseFlowCode.MY:
-      return VerseDisplayStatus.MY;
+      return VerseDisplayStatus.QUEUE;
     case VerseFlowCode.QUEUE:
       return VerseDisplayStatus.QUEUE;
     case VerseFlowCode.LEARNING:
@@ -138,6 +138,6 @@ export function getDisplayStatusFromFlow(
     case VerseFlowCode.PAUSED_MASTERED:
       return VerseStatus.STOPPED;
     default:
-      return VerseDisplayStatus.MY;
+      return VerseDisplayStatus.QUEUE;
   }
 }

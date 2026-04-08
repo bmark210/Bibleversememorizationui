@@ -13,6 +13,7 @@ const FlashcardSessionDynamic = dynamic(
 
 export type FlashcardSessionRootProps = {
   telegramId: string | null;
+  boxId: string;
   flashcardMode: FlashcardMode;
   onClose: () => void;
   onSessionCommitted?: () => void;

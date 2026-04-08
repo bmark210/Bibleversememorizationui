@@ -1,11 +1,9 @@
 import type { AppVerseApiRecord, Verse } from "@/app/domain/verse";
 
-export type TextCatalogUnit = "verses" | "chapters";
 export type TextWorkspaceTab = "catalog" | "boxes";
 
 export type TextBoxStats = {
   totalCount: number;
-  myCount: number;
   learningCount: number;
   dueReviewCount: number;
   waitingReviewCount: number;
@@ -25,14 +23,10 @@ export type TextBoxSummary = {
 };
 
 export type TextBoxVerseRecord = {
-  sourceKind: "verse" | "chapter";
-  sourceKey: string;
   verse: AppVerseApiRecord;
 };
 
 export type TextBoxVerse = {
-  sourceKind: "verse" | "chapter";
-  sourceKey: string;
   verse: Verse;
 };
 
@@ -48,14 +42,16 @@ export type TextBoxVersesResponse = {
   totalCount: number;
 };
 
-export type ImportToBoxRequest = {
-  kind: "verse" | "chapter";
-  externalVerseId?: string;
-  bookId?: number;
-  chapterNo?: number;
+export type AddVerseToBoxRequest = {
+  externalVerseId: string;
 };
 
-export type ImportToBoxResult = {
+export type ReplaceLearningVerseInBoxRequest = {
+  activateExternalVerseId: string;
+  pauseExternalVerseId: string;
+};
+
+export type AddVerseToBoxResult = {
   addedCount: number;
   skippedCount: number;
 };
@@ -70,18 +66,12 @@ export type VerseStatusMutationResult = {
   promotedVerseIds?: string[];
 };
 
-export type TrainingScope =
-  | { type: "all" }
-  | { type: "box"; boxId: string; boxTitle: string }
-  | {
-      type: "chapter";
-      bookId: number;
-      chapterNo: number;
-      boxId?: string | null;
-      boxTitle?: string | null;
-    };
+export type TrainingBoxScope = {
+  boxId: string;
+  boxTitle: string;
+};
 
 export type TrainingSelectionPayload = {
-  scope: TrainingScope;
+  scope: TrainingBoxScope;
   verses: Verse[];
 };

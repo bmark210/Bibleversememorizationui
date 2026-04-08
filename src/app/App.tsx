@@ -86,7 +86,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [verseListExternalSyncVersion] = useState(0);
+  const [verseListExternalSyncVersion, setVerseListExternalSyncVersion] = useState(0);
   const [isTrainingSessionFullscreen, setIsTrainingSessionFullscreen] = useState(false);
   const [friendsRefreshVersion, setFriendsRefreshVersion] = useState(0);
   const [activePlayerProfile, setActivePlayerProfile] =
@@ -99,13 +99,15 @@ export default function App({ onInitialContentReady }: AppProps) {
   const activeScreen = useScreenStore((s) => s.active);
   const canGoBack = useScreenStore((s) => s.history.length > 0);
   const trainingDirectLaunch = useScreenStore((s) => s.trainingDirectLaunch);
-  const pendingVerseListReturn = useScreenStore((s) => s.pendingVerseListReturn);
+  const trainingBoxScope = useScreenStore((s) => s.trainingBoxScope);
+  const pendingTextBoxReturn = useScreenStore((s) => s.pendingTextBoxReturn);
   const push = useScreenStore((s) => s.push);
   const back = useScreenStore((s) => s.back);
   const navigateToTrainingWithVerse = useScreenStore((s) => s.navigateToTrainingWithVerse);
-  const navigateToTrainingHub = useScreenStore((s) => s.navigateToTrainingHub);
+  const navigateToTrainingBox = useScreenStore((s) => s.navigateToTrainingBox);
+  const setTrainingBoxScope = useScreenStore((s) => s.setTrainingBoxScope);
   const onDirectLaunchExit = useScreenStore((s) => s.onDirectLaunchExit);
-  const onVerseListReturnHandled = useScreenStore((s) => s.onVerseListReturnHandled);
+  const onTextBoxReturnHandled = useScreenStore((s) => s.onTextBoxReturnHandled);
 
   const availableRootPages = ROOT_PAGES;
 
@@ -130,9 +132,7 @@ export default function App({ onInitialContentReady }: AppProps) {
     verses,
     setVerses,
     hasLoadedTrainingVerses,
-    isTrainingVersesLoading,
     loadTrainingVersesForDashboard,
-    ensureTrainingVersesLoaded,
     scheduleTrainingVersePrefetch,
     trainingVersesPromiseRef,
     trainingVersesFetchFailedRef,
@@ -197,6 +197,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   const handleVerseListMutationCommitted = useCallback(() => {
     if (!telegramId) return;
 
+    setVerseListExternalSyncVersion((prev) => prev + 1);
+
     if (isTrainingSessionFullscreen) {
       pendingMutationRefetchRef.current = true;
       return;
@@ -251,11 +253,8 @@ export default function App({ onInitialContentReady }: AppProps) {
   }, []);
 
   const handleOpenTraining = useCallback(() => {
-    if (telegramId) {
-      void ensureTrainingVersesLoaded(telegramId);
-    }
     push("training");
-  }, [ensureTrainingVersesLoaded, push, telegramId]);
+  }, [push]);
 
   const prefetchRootPage = useCallback(async (page: AppRootPage) => {
     if (!availableRootPages.includes(page)) {
@@ -405,22 +404,14 @@ export default function App({ onInitialContentReady }: AppProps) {
                 )}
               >
                 <VerseList
-                  reopenGalleryVerseId={null}
-                  reopenGalleryStatusFilter={
-                    pendingVerseListReturn?.statusFilter ?? null
-                  }
-                  onReopenGalleryHandled={onVerseListReturnHandled}
+                  reopenTextBoxId={pendingTextBoxReturn?.boxId ?? null}
+                  reopenTextBoxTitle={pendingTextBoxReturn?.boxTitle ?? null}
+                  onReopenTextBoxHandled={onTextBoxReturnHandled}
                   verseListExternalSyncVersion={verseListExternalSyncVersion}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onNavigateToTraining={navigateToTrainingWithVerse}
-                  onNavigateToTrainingHub={navigateToTrainingHub}
+                  onNavigateToTrainingBox={navigateToTrainingBox}
                   telegramId={telegramId}
-                  onFriendsChanged={handleFriendsChanged}
-                  onOpenPlayerProfile={handleOpenPlayerProfile}
-                  isAnchorEligible={
-                    (dashboardStats?.reviewVerses ?? 0) >= 10 ||
-                    (dashboardStats?.masteredCount ?? 0) >= 10
-                  }
                 />
               </section>
             )}
@@ -428,14 +419,12 @@ export default function App({ onInitialContentReady }: AppProps) {
             {activeScreen === "training" && (
               <section className="relative h-full min-h-0">
                 <Training
-                  allVerses={verses}
-                  isLoadingVerses={isTrainingVersesLoading && !hasLoadedTrainingVerses}
-                  dashboardStats={dashboardStats}
                   telegramId={telegramId}
+                  boxScope={trainingBoxScope}
                   directLaunch={trainingDirectLaunch}
                   onDirectLaunchExit={onDirectLaunchExit}
+                  onBoxScopeChange={setTrainingBoxScope}
                   onVersePatched={handleTrainingVersePatched}
-                  onRequestVerseSelection={() => push("verses")}
                   onVerseMutationCommitted={handleVerseListMutationCommitted}
                   onSessionFullscreenChange={setIsTrainingSessionFullscreen}
                 />
