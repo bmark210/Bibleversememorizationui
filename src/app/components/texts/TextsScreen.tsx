@@ -109,7 +109,7 @@ function WorkspaceTabs({
   return (
     <div className="flex rounded-[1.2rem] border border-border-subtle bg-bg-subtle p-1">
       {[
-        { id: "catalog" as const, label: "Библия" },
+        { id: "catalog" as const, label: "Стихи" },
         { id: "boxes" as const, label: "Мои коробки" },
       ].map((item) => {
         const active = activeTab === item.id;
@@ -930,7 +930,7 @@ export function TextsScreen({
           type="button"
           className="fixed left-1/2 z-40 h-12 min-w-[13rem] -translate-x-1/2 rounded-full px-7 shadow-[var(--shadow-floating)]"
           style={{
-            bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)",
+            bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 1.75rem)",
           }}
           onClick={openCreateDrawer}
         >

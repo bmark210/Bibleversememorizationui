@@ -1068,7 +1068,7 @@ export function BibleCatalogView({
             variant="default"
             className="fixed left-1/2 z-40 h-12 min-w-0 max-w-[min(22rem,calc(100vw-2rem))] shrink -translate-x-1/2 rounded-full border-brand-primary/25 px-6 shadow-[var(--shadow-floating)] backdrop-blur-md sm:px-8"
             style={{
-              bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)",
+              bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 1.75rem)",
             }}
             disabled={boxes.length === 0 || !telegramId}
             onClick={() => setIsAddDrawerOpen(true)}

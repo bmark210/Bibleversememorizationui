@@ -67,7 +67,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   const minimalStateLabel = isCatalogMode
     ? isCatalogOwned
       ? "В текстах"
-      : "Библия"
+      : "Стихи"
     : presentation.label;
   const minimalStateToneClass = isCatalogMode
     ? isCatalogOwned
