@@ -112,7 +112,7 @@ export const TrainingCard = memo(function TrainingCard({
       className="flex h-full w-full min-w-0 flex-col overflow-hidden"
     >
       {/* Header: reference + minimal progress */}
-      <div className="shrink-0 pb-1.5 pt-2.5 sm:pt-4 text-center space-y-2">
+      <div className="shrink-0 py-1.5 sm:pt-4 text-center space-y-2">
         <h2 className="text-2xl sm:text-3xl italic text-primary/90 font-serif leading-tight">
           {trainingVerse.raw.reference}
         </h2>
