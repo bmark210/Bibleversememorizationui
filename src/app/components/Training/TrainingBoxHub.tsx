@@ -5,7 +5,6 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import {
   formatRussianCount,
-  TextStatPills,
   TextSurfaceCard,
 } from "@/app/components/texts/TextCards";
 import {
@@ -36,20 +35,6 @@ function sameModes(left: CoreTrainingMode[], right: CoreTrainingMode[]) {
   return (
     left.length === right.length && right.every((mode) => left.includes(mode))
   );
-}
-
-function buildTrainingHubStats(
-  versesCount: number,
-  counts: ReturnType<typeof getCoreTrainingCountsFromVerses>,
-) {
-  return [
-    { label: "Всего", value: versesCount },
-    { label: "Изучение", value: counts.learningCount },
-    { label: "Повтор", value: counts.dueReviewCount },
-    { label: "Ожидание", value: counts.waitingReviewCount },
-    { label: "Игры", value: counts.anchorEligibleCount },
-    { label: "Карточки", value: counts.flashcardCount },
-  ].filter((item) => item.value > 0 || item.label === "Всего");
 }
 
 function ModeOption({
@@ -145,7 +130,6 @@ export function TrainingBoxHub({
       onStart();
     }
   };
-  const stats = buildTrainingHubStats(verses.length, counts);
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pb-6 pt-4 sm:px-6">
@@ -171,10 +155,6 @@ export function TrainingBoxHub({
           Сменить
         </Button>
       </div>
-
-      <TextSurfaceCard className="p-4">
-        <TextStatPills stats={stats} />
-      </TextSurfaceCard>
 
       <div className="mt-4 flex gap-2 rounded-[1.25rem] border border-border-subtle bg-bg-subtle p-1">
         {[
