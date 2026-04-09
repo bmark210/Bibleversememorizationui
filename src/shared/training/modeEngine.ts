@@ -1,4 +1,4 @@
-import { TRAINING_STAGE_MASTERY_MAX } from './constants';
+import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/constants/training";
 
 // -1: забыл (forgot, learning only) | 0: сложно (hard/repeat) | 1: далее (continue/advance)
 export type TrainingModeRating = -1 | 0 | 1;

@@ -22,7 +22,7 @@ import { VERSE_CARD_COLOR_CONFIG } from "@/app/components/verseCardColorConfig";
 import {
   resolveVerseState,
   type ResolvedVerseState,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 
 export type VerseCardActionId =
   | "add-to-my"

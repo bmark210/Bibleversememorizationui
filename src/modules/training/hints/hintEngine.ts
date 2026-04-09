@@ -77,14 +77,6 @@ function getAssistKindForVariant(variant: AssistVariant): AssistKind {
   return "content_reveal";
 }
 
-function getRatingCapForAssist(
-  _phase: TrainingAttemptPhase,
-  _assist: Pick<AssistDecision, "kind" | "variant">
-): TrainingModeRating {
-  // Any assist means user needed help — maximum is 0 (сложно), cannot claim "далее"
-  return 0;
-}
-
 function resolveInitialRatingPolicy(phase: TrainingAttemptPhase): HintRatingPolicy {
   const maxRating: TrainingModeRating = 1;
   return {

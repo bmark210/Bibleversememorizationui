@@ -6,7 +6,7 @@ import {
   isVersePaused,
   isVerseQueued,
   isVerseReview,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 
 export type MyVersesSectionData = {
   key: MyVersesSectionKey;

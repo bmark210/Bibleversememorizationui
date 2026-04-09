@@ -1,5 +1,5 @@
 import type { Verse } from "@/app/domain/verse";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 import type { CoreTrainingMode } from "./types";
 
 export type CoreTrainingCounts = {

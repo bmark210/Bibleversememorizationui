@@ -1,7 +1,7 @@
 import { VerseStatus } from "@/shared/domain/verseStatus";
 export { clamp } from "@/shared/utils/clamp";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
-import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/training/constants";
+import { TRAINING_STAGE_MASTERY_MAX } from "@/shared/constants/training";
 import { computeVerseTotalProgressPercent } from "@/shared/training/verseTotalProgress";
 import {
   getTrainingModeByShiftInProgressOrder,
@@ -10,7 +10,7 @@ import {
 } from "@/shared/training/modeEngine";
 import {
   resolveVerseState,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 import { chooseTrainingMode } from "@/modules/training/application/chooseTrainingMode";
 import { triggerHaptic } from "@/app/lib/haptics";
 import type { Verse } from "@/app/domain/verse";

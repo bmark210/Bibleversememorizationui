@@ -5,6 +5,7 @@
 /* Runtime-calculated in Layout.tsx after measuring the mobile bottom nav. */
 :root {
   --app-bottom-nav-clearance: 0px;
+  --app-keyboard-offset: 0px;
 }
 
 html,

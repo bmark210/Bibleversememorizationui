@@ -25,7 +25,7 @@ import {
   type DisplayVerseStatus,
 } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
+import { getVerseTrainingLaunchMode } from "@/shared/verseRules/index";
 import { resolveTextVersePresentation } from "@/app/components/texts/resolveTextVersePresentation";
 
 import { GalleryHeader } from "./components/GalleryHeader";

@@ -9,7 +9,7 @@ import {
   resolvePausedVerseKind,
   resolveVerseJourneyPhase,
   type PausedVerseKind,
-} from '@/shared/verseRules';
+} from "@/shared/verseRules/index";
 
 export type VerseListStatusFilter =
   | "catalog"

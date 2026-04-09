@@ -5,7 +5,7 @@ import type { Verse } from "@/app/domain/verse";
 import type { TrainingModeId } from "@/shared/training/modeEngine";
 import { cn } from "@/app/components/ui/utils";
 import { getTrainingModeShortLabel } from "./trainingModeMeta";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 
 type TrainingExerciseModeHeaderProps = {
   modeId: TrainingModeId;

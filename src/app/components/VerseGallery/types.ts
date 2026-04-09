@@ -58,7 +58,7 @@ export type PlayerProfilePreview = {
   avatarUrl: string | null;
 };
 
-type LegacyDirectLaunchVerse = {
+type TrainingLaunchVerse = {
   verse: Verse;
   preferredMode?: "learning" | "review" | "anchor";
 };
@@ -87,7 +87,7 @@ export type VerseGalleryProps = {
   onSelectTag: (slug: string) => void;
   onFriendsChanged?: () => void;
   /** Navigate to the Training section to train the given verse */
-  onNavigateToTraining: (launch: LegacyDirectLaunchVerse) => void;
+  onNavigateToTraining: (launch: TrainingLaunchVerse) => void;
   /** Open the queue position picker for the given verse */
   onEditQueuePosition?: (verse: Verse) => void;
   /** Whether the verse can participate in Games mode */

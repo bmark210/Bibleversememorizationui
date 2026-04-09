@@ -3,7 +3,7 @@
 import type { Verse } from "@/app/domain/verse";
 import { VerseAction, VerseFlowCode } from "@/shared/domain/verseFlow";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 
 export type TextVerseActionKind = "pause" | "resume" | null;
 

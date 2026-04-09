@@ -16,7 +16,6 @@ import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
-import { similarityRatio } from '@/shared/utils/levenshtein';
 import { tokenizeWords } from './wordUtils';
 import {
   createExerciseProgressSnapshot,
@@ -26,6 +25,10 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import {
+  buildRecallResolution,
+  calculateRecallMatchPercent,
+} from "./recallEvaluation";
 import {
   TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
   TRAINING_ACTION_BUTTON_STRONG_CLASS,
@@ -77,10 +80,6 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
     SpeechRecognition?: SpeechRecognitionCtor;
   };
   return maybeWindow.SpeechRecognition ?? maybeWindow.webkitSpeechRecognition ?? null;
-}
-
-function calculateTextMatchPercent(userText: string, targetText: string) {
-  return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
 export function ModeVoiceRecallExercise({
@@ -249,27 +248,21 @@ export function ModeVoiceRecallExercise({
       return;
     }
 
-    const nextMatchPercent = calculateTextMatchPercent(comparable, targetComparableText);
+    const nextMatchPercent = calculateRecallMatchPercent(
+      comparable,
+      targetComparableText,
+    );
     setMatchPercent(nextMatchPercent);
-
-    if (nextMatchPercent >= RECALL_THRESHOLD) {
-      setIsChecked(true);
-      onExerciseResolved?.({
-        kind: 'success',
-        message: `Совпадение ${nextMatchPercent}%. Проверка пройдена.`,
-        matchPercent: nextMatchPercent,
-      });
-      return;
-    }
+    const resolution = buildRecallResolution({
+      matchPercent: nextMatchPercent,
+      recallThreshold: RECALL_THRESHOLD,
+    });
 
     setIsChecked(true);
-    setTotalMistakes((prev) => prev + 1);
-    onExerciseResolved?.({
-      kind: 'failure',
-      reason: 'check-failed',
-      message: `Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`,
-      matchPercent: nextMatchPercent,
-    });
+    if (resolution.kind !== "success") {
+      setTotalMistakes((prev) => prev + 1);
+    }
+    onExerciseResolved?.(resolution);
   };
 
   return (

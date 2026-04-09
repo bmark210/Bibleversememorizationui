@@ -199,7 +199,10 @@ export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
   const mobileFooter = (
     <div
       className="pointer-events-auto md:hidden fixed bottom-0 left-0 right-0 z-[120] border-t border-border backdrop-blur-xl bg-card/90"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
+      style={{
+        bottom: 'calc(0px - var(--app-keyboard-offset, 0px))',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+      }}
       onTouchStart={stopEventPropagation}
       onTouchMove={stopEventPropagation}
       onTouchEnd={stopEventPropagation}

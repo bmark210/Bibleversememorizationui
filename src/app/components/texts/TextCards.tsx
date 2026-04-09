@@ -154,22 +154,6 @@ export function TextSurfaceCard({ children, className }: TextSurfaceCardProps) {
   );
 }
 
-export function TextStatPills({ stats }: { stats: TextStatItem[] }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {stats.map((item) => (
-        <div
-          key={item.label}
-          className="inline-flex min-w-fit items-center rounded-full border border-border-subtle bg-bg-surface/80 px-3.5 py-1.5 text-[12px] font-medium text-text-secondary shadow-[var(--shadow-soft)]"
-        >
-          <span className="mr-1 text-text-primary">{item.value}</span>
-          {item.label}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function VerseTagPills({
   tags,
   limit = 3,

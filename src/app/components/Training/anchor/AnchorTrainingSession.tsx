@@ -54,7 +54,7 @@ import {
   extractWordTokens,
   calculateTextMatchPercent,
 } from "./services/validation";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 
 import type { AnchorModeGroup } from "../types";
 import type { Verse } from "@/app/domain/verse";

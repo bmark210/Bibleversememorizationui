@@ -15,7 +15,7 @@ import {
 } from "./utils";
 import {
   resolveVerseState,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 
 export type PreparedPreviewUser = {
   telegramId: string;

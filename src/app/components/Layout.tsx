@@ -62,15 +62,27 @@ export function Layout({
     if (typeof window === "undefined") return;
     const tg = getTelegramWebApp();
     const vv = window.visualViewport;
+    const rootStyle = document.documentElement.style;
+
+    const readKeyboardOffset = () => {
+      if (tg?.viewportStableHeight && tg?.viewportHeight) {
+        return Math.max(0, tg.viewportStableHeight - tg.viewportHeight);
+      }
+
+      if (vv) {
+        return Math.max(0, window.innerHeight - vv.height);
+      }
+
+      return 0;
+    };
 
     const check = () => {
-      // Telegram's viewportChanged is the most reliable source in Telegram WebApp
-      if (tg?.viewportStableHeight && tg?.viewportHeight) {
-        setIsKeyboardOpen(tg.viewportStableHeight - tg.viewportHeight > 100);
-        return;
-      }
-      // Fallback for browser/dev
-      if (vv) setIsKeyboardOpen(window.innerHeight - vv.height > 150);
+      const keyboardOffset = readKeyboardOffset();
+      rootStyle.setProperty(
+        "--app-keyboard-offset",
+        `${Math.round(keyboardOffset)}px`,
+      );
+      setIsKeyboardOpen(keyboardOffset > 100);
     };
 
     check();
@@ -79,6 +91,7 @@ export function Layout({
     return () => {
       vv?.removeEventListener("resize", check);
       tg?.offEvent?.("viewportChanged", check);
+      rootStyle.setProperty("--app-keyboard-offset", "0px");
     };
   }, []);
 
@@ -252,13 +265,14 @@ export function Layout({
       <div
         ref={mobileNavShellRef}
         data-tour="app-nav"
-        className={`md:hidden fixed bottom-0 left-0 right-0 transition-[opacity,transform] duration-300 ease-out ${
+        className={`md:hidden fixed left-0 right-0 transition-[bottom,opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady
             ? "opacity-0 translate-y-3 pointer-events-none"
             : isKeyboardOpen
               ? "opacity-0 translate-y-full pointer-events-none"
               : "opacity-100 translate-y-0"
         }`}
+        style={{ bottom: "calc(0px - var(--app-keyboard-offset, 0px))" }}
       >
         <nav
           style={{ paddingBottom: `${Math.max(bottomInset, 22)}px` }}

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
 import type { Verse } from "@/app/domain/verse";
-import { getVerseDisplayStatus, getVerseFlow } from "@/shared/verseRules";
+import { getVerseDisplayStatus, getVerseFlow } from "@/shared/verseRules/index";
 import {
   normalizeRawMasteryLevel,
   parseDate,

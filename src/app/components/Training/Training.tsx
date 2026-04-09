@@ -14,7 +14,7 @@ import {
   readTrainingHubPreferences,
   writeTrainingHubPreferences,
 } from "./trainingHubPreferences";
-import { getVerseTrainingLaunchMode } from "@/shared/verseRules";
+import { getVerseTrainingLaunchMode } from "@/shared/verseRules/index";
 import type {
   AnchorModeGroup,
   AnchorSubScenario,

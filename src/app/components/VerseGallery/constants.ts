@@ -2,7 +2,7 @@ import {
   REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
   TRAINING_SCORE_BY_RATING,
-} from "@/shared/training/constants";
+} from "@/shared/constants/training";
 import { TRAINING_MODE_SHIFT_BY_RATING } from "@/shared/training/modeEngine";
 import { TrainingModeRendererKey } from "@/app/components/training-session/TrainingModeRenderer";
 import { TrainingModeId } from "@/shared/training/modeEngine";

@@ -14,7 +14,7 @@ import {
 import {
   REPEAT_THRESHOLD_FOR_MASTERED,
   TRAINING_STAGE_MASTERY_MAX,
-} from "@/shared/training/constants";
+} from "@/shared/constants/training";
 import {
   computeVerseTotalCompletedUnits,
   computeVerseTotalProgressPercent,

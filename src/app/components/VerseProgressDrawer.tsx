@@ -5,10 +5,8 @@ import { Brain, Repeat } from "lucide-react";
 import type { Verse } from "@/app/domain/verse";
 import type { DisplayVerseStatus } from "@/app/types/verseStatus";
 import { VerseStatus } from "@/shared/domain/verseStatus";
-import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/training/constants";
-import {
-  resolveVerseState,
-} from "@/shared/verseRules";
+import { TOTAL_REPEATS_AND_STAGE_MASTERY_MAX } from "@/shared/constants/training";
+import { resolveVerseState } from "@/shared/verseRules/index";
 import {
   Drawer,
   DrawerContent,

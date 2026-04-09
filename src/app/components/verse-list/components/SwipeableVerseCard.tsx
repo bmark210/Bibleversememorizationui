@@ -33,7 +33,7 @@ import {
 import {
   getVerseDisplayStatus,
   getVerseProgressPercent,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 import { getVerseCardLayoutSignature, getVerseStageVisual } from "../constants";
 import { haptic } from "../haptics";
 

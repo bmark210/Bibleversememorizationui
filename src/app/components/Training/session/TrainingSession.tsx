@@ -19,7 +19,7 @@ import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/T
 import type { Verse } from "@/app/domain/verse";
 import type { VersePatchEvent } from "@/app/types/verseSync";
 import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 import type { TrainingOrder } from "../types";
 import { useTrainingSession } from "./useTrainingSession";
 import { useHintState } from "@/app/components/training-session/modes/useHintState";

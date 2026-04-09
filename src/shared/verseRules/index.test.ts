@@ -9,7 +9,7 @@ import {
   getVerseTrainingLaunchMode,
   isVerseDueForTraining,
   matchesVerseListFilter,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 
 test("flow is the primary source for display status", () => {
   assert.equal(

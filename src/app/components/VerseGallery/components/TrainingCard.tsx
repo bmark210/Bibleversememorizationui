@@ -35,7 +35,7 @@ type Props = {
   inlineExerciseActions?: TrainingModeInlineActionsProps;
 };
 
-function asLegacyVerseForRenderer(verse: TrainingVerseState): Verse {
+function mapTrainingVerseToRendererVerse(verse: TrainingVerseState): Verse {
   return {
     id: String(verse.key),
     externalVerseId: verse.externalVerseId,
@@ -76,7 +76,7 @@ export const TrainingCard = memo(function TrainingCard({
   }, []);
 
   const verse = useMemo(
-    () => asLegacyVerseForRenderer(trainingVerse),
+    () => mapTrainingVerseToRendererVerse(trainingVerse),
     [
       trainingVerse.key,
       trainingVerse.externalVerseId,

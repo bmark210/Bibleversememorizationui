@@ -12,7 +12,7 @@ import {
   isVerseLearning,
   isVerseMastered,
   isVerseReview,
-} from "@/shared/verseRules";
+} from "@/shared/verseRules/index";
 import { formatXp } from "@/shared/social/formatXp";
 import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
@@ -61,16 +61,6 @@ type TodayVersesSummary = {
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-export function toMasteryPercent(masteryLevel: number, repetitions = 0) {
-  return clampPercent(
-    getVerseProgressPercent({
-      flow: null,
-      masteryLevel,
-      repetitions,
-    }),
-  );
 }
 
 function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {

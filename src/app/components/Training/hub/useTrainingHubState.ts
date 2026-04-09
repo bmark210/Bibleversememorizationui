@@ -1,10 +1,8 @@
 import { useMemo } from "react";
 import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
-import type { CoreTrainingMode, TrainingMode } from "../types";
 import {
   getCoreTrainingCountsFromVerses,
-  getCountForCoreModes,
   type CoreTrainingCounts,
 } from "../coreTrainingAvailability";
 
@@ -39,31 +37,4 @@ export function useTrainingHubState(params: {
       earliestWaitingReviewAt: null,
     };
   }, [allVerses, dashboardStats]);
-}
-
-/** How many verses are available for a given mode */
-export function getCountForMode(
-  mode: TrainingMode,
-  counts: TrainingCounts,
-): number {
-  switch (mode) {
-    case "learning":
-      return counts.learningCount;
-    case "review":
-      return counts.dueReviewCount;
-    case "anchor":
-      return counts.anchorEligibleCount;
-  }
-}
-
-/** Total count for a multi-mode selection (deduplicated) */
-export function getCountForModes(
-  modes: CoreTrainingMode[] | TrainingMode[],
-  counts: TrainingCounts,
-): number {
-  if ((modes as TrainingMode[]).some((mode) => mode === "anchor")) {
-    return counts.anchorEligibleCount;
-  }
-
-  return getCountForCoreModes(modes as CoreTrainingMode[], counts);
 }

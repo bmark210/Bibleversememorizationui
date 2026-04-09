@@ -5,7 +5,6 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Verse } from "@/app/domain/verse";
 import { normalizeComparableText } from '@/shared/training/fullRecallTypingAssist';
 import { TrainingModeId } from '@/shared/training/modeEngine';
-import { similarityRatio } from '@/shared/utils/levenshtein';
 
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -15,6 +14,10 @@ import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExerciseSection';
 import type { TrainingExerciseResolution } from './exerciseResult';
+import {
+  buildRecallResolution,
+  calculateRecallMatchPercent,
+} from "./recallEvaluation";
 import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
 import type { HintState } from './useHintState';
 import { tokenizeWords } from './wordUtils';
@@ -42,10 +45,6 @@ interface TypingModeProps extends ExerciseInlineActionsProps {
   isLateStageReview?: boolean;
   onOpenTutorial?: () => void;
   onOpenVerseProgress?: () => void;
-}
-
-function calculateTextMatchPercent(userText: string, targetText: string) {
-  return Math.max(0, Math.min(100, Math.round(similarityRatio(userText, targetText) * 100)));
 }
 
 export function ModeFullRecallExercise({
@@ -166,33 +165,23 @@ export function ModeFullRecallExercise({
       return;
     }
 
-    const nextMatchPercent = calculateTextMatchPercent(
+    const nextMatchPercent = calculateRecallMatchPercent(
       typedComparableText,
       targetComparableText
     );
     setMatchPercent(nextMatchPercent);
-
-    if (nextMatchPercent >= RECALL_THRESHOLD) {
-      setIsCompleted(true);
-
-      successFlashState.flash(true);
-
-      onExerciseResolved?.({
-        kind: 'success',
-        message: `Совпадение ${nextMatchPercent}%. Проверка пройдена.`,
-        matchPercent: nextMatchPercent,
-      });
-      return;
-    }
+    const resolution = buildRecallResolution({
+      matchPercent: nextMatchPercent,
+      recallThreshold: RECALL_THRESHOLD,
+    });
 
     setIsCompleted(true);
-    setTotalMistakes((prev) => prev + 1);
-    onExerciseResolved?.({
-      kind: 'failure',
-      reason: 'check-failed',
-      message: `Совпадение ${nextMatchPercent}%. Попробуйте ещё раз.`,
-      matchPercent: nextMatchPercent,
-    });
+    if (resolution.kind === "success") {
+      successFlashState.flash(true);
+    } else {
+      setTotalMistakes((prev) => prev + 1);
+    }
+    onExerciseResolved?.(resolution);
   };
 
   return (

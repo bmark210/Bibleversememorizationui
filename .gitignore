@@ -19,3 +19,8 @@ node_modules
 openapi-oas3.json
 
 package-lock.json
+
+# Runtime logs / temp artifacts
+*.log
+*.err.log
+*.tsbuildinfo

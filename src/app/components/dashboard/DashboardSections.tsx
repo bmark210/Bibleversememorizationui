@@ -156,12 +156,6 @@ function leaderboardEntryXp(entry: domain_UserLeaderboardEntry): number {
   return Math.max(0, Math.round(entry.xp ?? entry.score ?? 0));
 }
 
-// function leaderboardEntryWeeklyReps(
-//   entry: domain_UserLeaderboardEntry,
-// ): number {
-//   return Math.max(0, Math.round(entry.versesCount ?? entry.score ?? 0));
-// }
-
 function getRankMarker(rank: number) {
   if (rank === 1) {
     return {
@@ -508,7 +502,6 @@ type DashboardLeaderboardRowProps = {
   entry: domain_UserLeaderboardEntry;
   currentUserTelegramId: string | null;
   currentUserXp: number | null;
-  currentUserDailyStreak: number | null;
   onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
   compact?: boolean;
   className?: string;
@@ -518,7 +511,6 @@ function DashboardLeaderboardRow({
   entry,
   currentUserTelegramId,
   currentUserXp,
-  // currentUserDailyStreak,
   onOpenPlayerProfile,
   compact = false,
   className,
@@ -534,11 +526,6 @@ function DashboardLeaderboardRow({
     isCurrentUser && currentUserXp != null
       ? currentUserXp
       : leaderboardEntryXp(entry);
-  // const displayVersesCount = leaderboardEntryWeeklyReps(entry);
-  // const displayStreakDays =
-  //   isCurrentUser && currentUserDailyStreak != null
-  //     ? currentUserDailyStreak
-  //     : Math.max(0, entry.dailyStreak ?? 0);
 
   return (
     <button
@@ -599,15 +586,6 @@ function DashboardLeaderboardRow({
         >
           {displayName}
         </div>
-        {/* <div
-          className={cn(
-            "mt-0.5 line-clamp-1 text-text-muted",
-            compact ? ROW_DETAIL : "text-xs",
-          )}
-        >
-          {displayVersesCount} {pluralizeVerses(displayVersesCount)} ·{" "}
-          {displayStreakDays} дн. подряд
-        </div> */}
       </div>
 
       {/* XP */}
@@ -617,69 +595,6 @@ function DashboardLeaderboardRow({
     </button>
   );
 }
-
-/* ── Leader Showcase (compact hero row for rank-1) ───────────────── */
-
-// function LeaderShowcase({
-//   entry,
-//   isCurrentUser,
-//   onOpenPlayerProfile,
-// }: {
-//   entry: domain_UserLeaderboardEntry;
-//   isCurrentUser: boolean;
-//   onOpenPlayerProfile?: (player: DashboardPlayerPreview) => void;
-// }) {
-//   const displayName = leaderboardEntryDisplayName(entry);
-//   const xp = leaderboardEntryXp(entry);
-
-//   return (
-//     <button
-//       type="button"
-//       onClick={(e) => {
-//         e.stopPropagation();
-//         onOpenPlayerProfile?.({
-//           telegramId: String(entry.telegramId ?? ""),
-//           name: displayName,
-//           avatarUrl: entry.avatarUrl?.trim() ? entry.avatarUrl.trim() : null,
-//         });
-//       }}
-//       className={cn(
-//         "flex w-full items-center gap-3.5 rounded-[1.3rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors narrow:gap-3 narrow:px-3.5 narrow:py-2",
-//         isCurrentUser
-//           ? "border-brand-primary/25 bg-status-mastered-soft hover:bg-status-mastered-soft/80"
-//           : "border-status-mastered/30 bg-status-mastered-soft/55 hover:bg-status-mastered-soft/75",
-//       )}
-//       aria-label={`Открыть профиль ${displayName}`}
-//     >
-//       <div className="relative shrink-0">
-//         <Avatar className="h-12 w-12 border-2 border-status-mastered/40 narrow:h-10 narrow:w-10">
-//           {entry.avatarUrl ? (
-//             <AvatarImage src={entry.avatarUrl} alt={displayName} />
-//           ) : null}
-//           <AvatarFallback className="bg-status-mastered-soft text-base font-bold text-status-mastered narrow:text-sm">
-//             {getInitials(displayName)}
-//           </AvatarFallback>
-//         </Avatar>
-//         <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-status-mastered/30 bg-bg-overlay">
-//           <Crown className="h-2.5 w-2.5 text-status-mastered" />
-//         </span>
-//       </div>
-
-//       <div className="min-w-0 flex-1">
-//         <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-status-mastered/70 narrow:text-[9px]">
-//           {isCurrentUser ? "Вы — лидер" : "Лидер"}
-//         </div>
-//         <div className="truncate text-[14px] font-semibold leading-tight text-status-mastered narrow:text-[13px]">
-//           {displayName}
-//         </div>
-//       </div>
-
-//       <div className="shrink-0 text-[15px] font-bold text-status-mastered narrow:text-[13px]">
-//         {formatXp(xp)}
-//       </div>
-//     </button>
-//   );
-// }
 
 /* ── Friends Avatar Stack (overlapping avatars preview) ──────────── */
 
@@ -866,9 +781,6 @@ export const DashboardLeaderboardCard = React.memo(
   }: DashboardLeaderboardCardProps) {
     const currentUserTelegramId = useCurrentUserStatsStore((s) => s.telegramId);
     const currentUserXp = useCurrentUserStatsStore((s) => s.xp);
-    const currentUserDailyStreak = useCurrentUserStatsStore(
-      (s) => s.dailyStreak,
-    );
     const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
     const loadedOffsetsRef = React.useRef<Set<string>>(new Set());
     const pendingOffsetsRef = React.useRef<Set<string>>(new Set());
@@ -1050,27 +962,8 @@ export const DashboardLeaderboardCard = React.memo(
     const sharedRowProps = {
       currentUserTelegramId,
       currentUserXp,
-      currentUserDailyStreak,
       onOpenPlayerProfile,
     };
-
-    // const leaderEntry = React.useMemo(
-    //   () =>
-    //     cachedEntries.find(
-    //       (entry): entry is domain_UserLeaderboardEntry => entry != null,
-    //     ) ??
-    //     leaderboard?.items?.[0] ??
-    //     null,
-    //   [cachedEntries, leaderboard],
-    // );
-
-    // const isLeaderCurrentUser = React.useMemo(
-    //   () =>
-    //     leaderEntry != null &&
-    //     currentUserTelegramId != null &&
-    //     String(leaderEntry.telegramId ?? "") === currentUserTelegramId,
-    //   [leaderEntry, currentUserTelegramId],
-    // );
 
     const currentUserEntryIndex = React.useMemo(() => {
       if (!currentUserTelegramId) return -1;
@@ -1557,10 +1450,6 @@ export const DashboardFriendsActivityCard = React.memo(
 
     const summaryFriendsTotal = Math.max(0, friendsActivity?.friendsTotal ?? 0);
     const summaryEntries = friendsActivity?.entries ?? [];
-    // const summaryActiveLast7Days = Math.max(
-    //   0,
-    //   friendsActivity?.activeLast7Days ?? 0,
-    // );
     const modalEntries = cachedDialogEntries;
     const modalHasRecordedActivity = modalEntries.some(
       (entry) => entry != null && Boolean(entry.lastActiveAt),
@@ -1620,11 +1509,6 @@ export const DashboardFriendsActivityCard = React.memo(
                     {summaryFriendsTotal}{" "}
                     {pluralizeFriends(summaryFriendsTotal)}
                   </div>
-                  {/* <div className="mt-0.5 text-[11px] text-text-muted narrow:text-[10px]">
-                      {summaryActiveLast7Days > 0
-                        ? `${summaryActiveLast7Days} активны за 7 дней`
-                        : "Пока без свежей активности"}
-                    </div> */}
                 </div>
               </div>
             ) : (

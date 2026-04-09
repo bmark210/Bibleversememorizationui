@@ -10,7 +10,7 @@ import {
   getDifficultyLevelByLetters,
   type VerseDifficultyLevel,
 } from "@/shared/verses/difficulty";
-import { resolveVerseState } from "@/shared/verseRules";
+import { resolveVerseState } from "@/shared/verseRules/index";
 
 /** Frontend verse model — matches the VerseCardDto shape returned by the API. */
 export type Verse = {
