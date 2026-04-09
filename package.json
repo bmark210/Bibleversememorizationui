@@ -17,7 +17,8 @@
     "generate-api:fetch": "tsx scripts/generate-openapi.ts",
     "generate-api:codegen": "npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
     "generate-api:types": "npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
-    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"
+    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts",
+    "dev:ngrok": "node scripts/dev-ngrok-setup.js"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.4",

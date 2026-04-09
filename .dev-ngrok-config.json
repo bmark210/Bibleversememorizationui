@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-04-09T23:34:59.266Z",
+  "status": "ready",
+  "ngrokUrl": "https://f5e1-2a03-f680-fe05-3675-90eb-3539-820f-339d.ngrok-free.app",
+  "miniAppUrl": "https://f5e1-2a03-f680-fe05-3675-90eb-3539-820f-339d.ngrok-free.app?tgWebAppStartParam=mock",
+  "shortenedUrl": "https://tinyurl.com/27knmk9e",
+  "telegramBot": "https://t.me/bible_memory_bot",
+  "apiPort": 3001
+}
