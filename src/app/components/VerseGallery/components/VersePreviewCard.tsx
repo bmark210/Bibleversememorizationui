@@ -49,7 +49,7 @@ export const VersePreviewCard = React.memo(function VersePreviewCard({
   onStatusAction,
   onCatalogRemove,
   onDeleteRequest,
-  onUtilityAction,
+  // onUtilityAction,
   onOpenProgress: _onOpenProgress,
   onOpenTags,
   onOpenOwners: _onOpenOwners,

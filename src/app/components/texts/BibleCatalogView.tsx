@@ -49,20 +49,13 @@ import {
   DrawerTitle,
 } from "@/app/components/ui/drawer";
 import { Input } from "@/app/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/app/components/ui/select";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { cn } from "@/app/components/ui/utils";
 import { toast } from "@/app/lib/toast";
 import {
+  BibleBook,
   getAllBibleBooks,
   formatVerseReference,
-  type BibleBook,
 } from "@/app/types/bible";
 import type { TextBoxSummary } from "@/app/types/textBox";
 import { formatRussianCount } from "./TextCards";
@@ -670,7 +663,14 @@ export function BibleCatalogView({
   onRefreshBoxes,
   onVerseMutationCommitted,
 }: BibleCatalogViewProps) {
-  const books = useMemo(() => getAllBibleBooks(), []);
+  /** Канонические книги (66), порядок как в синодальном издании — по id книги. */
+  const books = useMemo(
+    () =>
+      getAllBibleBooks()
+        .filter((b) => b.id <= BibleBook.Revelation)
+        .sort((a, b) => a.id - b.id),
+    [],
+  );
 
   // ── Applied filters ──────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState("");
@@ -686,6 +686,7 @@ export function BibleCatalogView({
   const [draftVisibility, setDraftVisibility] =
     useState<VisibilityFilter>("all");
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const [isBooksExpanded, setIsBooksExpanded] = useState(false);
 
   // ── Tags data ────────────────────────────────────────────────────────────
   const [allTags, setAllTags] = useState<domain_Tag[]>([]);
@@ -825,6 +826,7 @@ export function BibleCatalogView({
     setDraftBookId(selectedBookId);
     setDraftVisibility(visibility);
     setIsTagsExpanded(false);
+    setIsBooksExpanded(false);
     setIsFilterDrawerOpen(true);
   }, [selectedTagSlugs, selectedBookId, visibility]);
 
@@ -884,7 +886,11 @@ export function BibleCatalogView({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3">
+      <div
+        className={cn(
+          "flex h-full min-h-0 w-full flex-1 flex-col gap-3",
+        )}
+      >
       <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
         Добавление стихов
       </h1>
@@ -1046,22 +1052,34 @@ export function BibleCatalogView({
             />
           )}
         </div>
-
-        {/* ── Selection action bar ──────────────────────────────────────────── */}
-        {selectedCount > 0 && (
-          <div className="shrink-0 flex justify-center pb-1">
-            <Button
-              type="button"
-              className="rounded-full px-6 shadow-[var(--shadow-soft)]"
-              disabled={boxes.length === 0 || !telegramId}
-              onClick={() => setIsAddDrawerOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              {selectedCountLabel} · В коробку
-            </Button>
-          </div>
-        )}
       </div>
+
+      {selectedCount > 0 ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-x-0 z-[39] h-28 bg-gradient-to-t from-bg-base from-40% via-bg-base/75 to-transparent md:hidden"
+            style={{
+              bottom: "calc(var(--app-bottom-nav-clearance, 0px))",
+            }}
+          />
+          <Button
+            type="button"
+            variant="default"
+            className="fixed left-1/2 z-40 h-12 min-w-0 max-w-[min(22rem,calc(100vw-2rem))] shrink -translate-x-1/2 rounded-full border-brand-primary/25 px-6 shadow-[var(--shadow-floating)] backdrop-blur-md sm:px-8"
+            style={{
+              bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)",
+            }}
+            disabled={boxes.length === 0 || !telegramId}
+            onClick={() => setIsAddDrawerOpen(true)}
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-center">
+              {selectedCountLabel} · В коробку
+            </span>
+          </Button>
+        </>
+      ) : null}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* Filter Drawer                                                          */}
@@ -1120,30 +1138,142 @@ export function BibleCatalogView({
               </div>
             </div>
 
-            {/* Book */}
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Книга
-              </p>
-              <Select
-                value={draftBookId !== null ? String(draftBookId) : "all"}
-                onValueChange={(v) =>
-                  setDraftBookId(v === "all" ? null : Number(v))
-                }
-              >
-                <SelectTrigger className="h-11 rounded-[1.15rem] border-border-subtle bg-bg-surface">
-                  <SelectValue placeholder="Все книги" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все книги</SelectItem>
-                  {books.map((book) => (
-                    <SelectItem key={book.id} value={String(book.id)}>
-                      {book.nameRu}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Book (canonical, tag-style, collapsible) */}
+            {(() => {
+              const BOOKS_COLLAPSED_LIMIT = 12;
+              const selectedBook =
+                draftBookId != null
+                  ? books.find((b) => b.id === draftBookId)
+                  : undefined;
+              const orderedBooks =
+                selectedBook != null
+                  ? [
+                      selectedBook,
+                      ...books.filter((b) => b.id !== selectedBook.id),
+                    ]
+                  : books;
+              const hiddenCount = Math.max(
+                0,
+                orderedBooks.length - BOOKS_COLLAPSED_LIMIT,
+              );
+              const canCollapse = orderedBooks.length > BOOKS_COLLAPSED_LIMIT;
+
+              const bookPillClass = (isActive: boolean) =>
+                cn(
+                  "inline-flex items-center rounded-full border px-3 py-[5px] text-[12px] font-medium transition-all duration-150",
+                  isActive
+                    ? "border-brand-primary/35 bg-brand-primary/12 text-brand-primary shadow-[0_0_0_1px_rgba(var(--color-brand-primary-rgb,124,92,62),0.18)] shadow-[var(--shadow-soft)]"
+                    : "border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/25 hover:bg-bg-surface hover:text-text-primary",
+                );
+
+              return (
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      Книга
+                    </p>
+                    {draftBookId !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setDraftBookId(null)}
+                        className="text-[11px] font-medium text-state-error/80 transition-colors hover:text-state-error"
+                      >
+                        Сбросить
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDraftBookId(null)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-3 py-[5px] text-[12px] font-medium transition-all duration-150",
+                        draftBookId === null
+                          ? "border-brand-primary/35 bg-brand-primary/12 text-brand-primary shadow-[0_0_0_1px_rgba(var(--color-brand-primary-rgb,124,92,62),0.18)] shadow-[var(--shadow-soft)]"
+                          : "border-border-subtle bg-bg-elevated text-text-secondary hover:border-brand-primary/25 hover:bg-bg-surface hover:text-text-primary",
+                      )}
+                    >
+                      Все книги
+                    </button>
+                    {orderedBooks
+                      .slice(0, BOOKS_COLLAPSED_LIMIT)
+                      .map((book) => {
+                        const isActive = draftBookId === book.id;
+                        return (
+                          <button
+                            key={book.id}
+                            type="button"
+                            onClick={() =>
+                              setDraftBookId((prev) =>
+                                prev === book.id ? null : book.id,
+                              )
+                            }
+                            className={bookPillClass(isActive)}
+                          >
+                            {book.nameRu}
+                          </button>
+                        );
+                      })}
+                  </div>
+
+                  {canCollapse && (
+                    <>
+                      <div
+                        className={cn(
+                          "grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                          isBooksExpanded
+                            ? "grid-rows-[1fr]"
+                            : "grid-rows-[0fr]",
+                        )}
+                      >
+                        <div className="overflow-hidden">
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {orderedBooks
+                              .slice(BOOKS_COLLAPSED_LIMIT)
+                              .map((book) => {
+                                const isActive = draftBookId === book.id;
+                                return (
+                                  <button
+                                    key={book.id}
+                                    type="button"
+                                    onClick={() =>
+                                      setDraftBookId((prev) =>
+                                        prev === book.id ? null : book.id,
+                                      )
+                                    }
+                                    className={bookPillClass(isActive)}
+                                  >
+                                    {book.nameRu}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsBooksExpanded((v) => !v)}
+                        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-[1rem] border border-border-subtle/60 bg-bg-subtle py-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-surface hover:text-text-primary"
+                      >
+                        {isBooksExpanded ? (
+                          <>
+                            <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform duration-300" />
+                            Свернуть
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3.5 w-3.5 transition-transform duration-300" />
+                            Показать ещё {hiddenCount}
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── Tags (collapsible) ─────────────────────────────────────── */}
             {(() => {
