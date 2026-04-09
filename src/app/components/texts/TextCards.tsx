@@ -2,10 +2,15 @@
 
 import type { ReactNode } from "react";
 import { BookOpen, MoreHorizontal } from "lucide-react";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import type { Verse } from "@/app/domain/verse";
-import type { TextBoxSummary } from "@/app/types/textBox";
+import type { PublicTextBoxOwner, TextBoxSummary } from "@/app/types/textBox";
 
 type TextStatItem = {
   label: string;
@@ -19,8 +24,8 @@ type TextSurfaceCardProps = {
 
 type TextVerseCardProps = {
   verse: Verse;
-  stateLabel: string;
-  stateToneClassName: string;
+  stateLabel?: string;
+  stateToneClassName?: string;
   primaryAction?: ReactNode;
   footerActions?: ReactNode;
   className?: string;
@@ -31,11 +36,12 @@ type TextVerseCardProps = {
 };
 
 type TextBoxCardProps = {
-  box: TextBoxSummary;
+  box: Pick<TextBoxSummary, "title" | "visibility" | "stats">;
   summary: string;
   stats: TextStatItem[];
   onOpen: () => void;
-  onOpenSettings: () => void;
+  owner?: PublicTextBoxOwner | null;
+  onOpenSettings?: () => void;
 };
 
 const SURFACE_CARD_CLASS_NAME =
@@ -53,7 +59,7 @@ export function formatRussianCount(
   return `${count} ${forms[2]}`;
 }
 
-export function buildTextBoxSummary(box: TextBoxSummary) {
+export function buildTextBoxSummary(box: Pick<TextBoxSummary, "stats">) {
   const parts = [
     formatRussianCount(box.stats.totalCount, ["стих", "стиха", "стихов"]),
   ];
@@ -74,7 +80,9 @@ export function buildTextBoxSummary(box: TextBoxSummary) {
   return parts.join(" · ");
 }
 
-export function buildTextBoxStats(box: TextBoxSummary): TextStatItem[] {
+export function buildTextBoxStats(
+  box: Pick<TextBoxSummary, "stats">,
+): TextStatItem[] {
   return [
     { label: "Всего", value: box.stats.totalCount },
     { label: "Очередь", value: box.stats.queueCount },
@@ -113,6 +121,27 @@ function normalizeVerseTags(tags?: Verse["tags"]): DisplayTag[] {
   }
 
   return normalized;
+}
+
+function getOwnerDisplayName(owner?: PublicTextBoxOwner | null) {
+  const nickname = String(owner?.nickname ?? "").trim();
+  if (nickname) return nickname;
+
+  const name = String(owner?.name ?? "").trim();
+  if (name) return name;
+
+  return "Автор";
+}
+
+function getOwnerInitials(owner?: PublicTextBoxOwner | null) {
+  const parts = getOwnerDisplayName(owner)
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) return "A";
+  return parts.map((part) => part.charAt(0).toUpperCase()).join("");
 }
 
 export function TextSurfaceCard({ children, className }: TextSurfaceCardProps) {
@@ -209,9 +238,11 @@ export function VerseStatePill({
   label,
   toneClassName,
 }: {
-  label: string;
-  toneClassName: string;
+  label?: string;
+  toneClassName?: string;
 }) {
+  if (!label) return null;
+
   return (
     <span
       className={cn(
@@ -290,6 +321,7 @@ export function TextBoxCard({
   summary,
   onOpen,
   onOpenSettings,
+  owner,
 }: TextBoxCardProps) {
   return (
     <TextSurfaceCard>
@@ -304,23 +336,47 @@ export function TextBoxCard({
             <h3 className="truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.5rem]">
               {box.title}
             </h3>
+            {box.visibility === "public" ? (
+              <span className="inline-flex items-center rounded-full border border-brand-primary/15 bg-brand-primary/8 px-2.5 py-1 text-[11px] font-medium text-brand-primary/88">
+                Публичная
+              </span>
+            ) : null}
           </div>
 
           <p className="mt-3 text-[1rem] leading-7 text-text-secondary">
             {summary}
           </p>
+
+          {owner ? (
+            <div className="mt-4 flex items-center gap-2.5 text-sm text-text-muted">
+              <Avatar className="h-8 w-8 border border-border-subtle/70 bg-bg-surface">
+                {owner.avatarUrl ? (
+                  <AvatarImage
+                    src={owner.avatarUrl}
+                    alt={getOwnerDisplayName(owner)}
+                  />
+                ) : null}
+                <AvatarFallback className="text-[11px] font-semibold">
+                  {getOwnerInitials(owner)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate">{getOwnerDisplayName(owner)}</span>
+            </div>
+          ) : null}
         </button>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="relative z-10 mt-0.5 shrink-0 rounded-full text-text-muted hover:text-text-primary"
-          onClick={onOpenSettings}
-          aria-label={`Настройки коробки ${box.title}`}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        {onOpenSettings ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="relative z-10 mt-0.5 shrink-0 rounded-full text-text-muted hover:text-text-primary"
+            onClick={onOpenSettings}
+            aria-label={`Настройки коробки ${box.title}`}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        ) : null}
       </div>
     </TextSurfaceCard>
   );

@@ -7,7 +7,7 @@ import {
   fetchTextBoxes,
   updateTextBox,
 } from "@/api/services/textBoxes";
-import type { TextBoxSummary } from "@/app/types/textBox";
+import type { TextBoxSummary, TextBoxVisibility } from "@/app/types/textBox";
 
 export function useTextBoxes(telegramId: string | null, translation?: string) {
   const [boxes, setBoxes] = useState<TextBoxSummary[]>([]);
@@ -28,7 +28,8 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
       setBoxes(nextBoxes);
       return nextBoxes;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Не удалось загрузить коробки";
+      const message =
+        err instanceof Error ? err.message : "Не удалось загрузить коробки";
       setError(message);
       throw err;
     } finally {
@@ -40,25 +41,54 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     void refresh().catch(() => undefined);
   }, [refresh]);
 
-  const create = useCallback(async (title: string) => {
-    if (!telegramId) throw new Error("telegramId required");
-    const created = await createTextBox(telegramId, title, translation);
-    await refresh();
-    return created;
-  }, [refresh, telegramId, translation]);
+  const create = useCallback(
+    async (title: string) => {
+      if (!telegramId) throw new Error("telegramId required");
+      const created = await createTextBox(telegramId, title, translation);
+      await refresh();
+      return created;
+    },
+    [refresh, telegramId, translation],
+  );
 
-  const rename = useCallback(async (boxId: string, title: string) => {
-    if (!telegramId) throw new Error("telegramId required");
-    const updated = await updateTextBox(telegramId, boxId, title, translation);
-    await refresh();
-    return updated;
-  }, [refresh, telegramId, translation]);
+  const rename = useCallback(
+    async (boxId: string, title: string) => {
+      if (!telegramId) throw new Error("telegramId required");
+      const updated = await updateTextBox(
+        telegramId,
+        boxId,
+        { title },
+        translation,
+      );
+      await refresh();
+      return updated;
+    },
+    [refresh, telegramId, translation],
+  );
 
-  const remove = useCallback(async (boxId: string) => {
-    if (!telegramId) throw new Error("telegramId required");
-    await deleteTextBox(telegramId, boxId);
-    await refresh();
-  }, [refresh, telegramId]);
+  const setVisibility = useCallback(
+    async (boxId: string, visibility: TextBoxVisibility) => {
+      if (!telegramId) throw new Error("telegramId required");
+      const updated = await updateTextBox(
+        telegramId,
+        boxId,
+        { visibility },
+        translation,
+      );
+      await refresh();
+      return updated;
+    },
+    [refresh, telegramId, translation],
+  );
+
+  const remove = useCallback(
+    async (boxId: string) => {
+      if (!telegramId) throw new Error("telegramId required");
+      await deleteTextBox(telegramId, boxId);
+      await refresh();
+    },
+    [refresh, telegramId],
+  );
 
   return {
     boxes,
@@ -67,6 +97,7 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     refresh,
     create,
     rename,
+    setVisibility,
     remove,
   };
 }

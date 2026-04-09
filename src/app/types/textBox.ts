@@ -1,6 +1,7 @@
 import type { AppVerseApiRecord, Verse } from "@/app/domain/verse";
 
 export type TextWorkspaceTab = "catalog" | "boxes";
+export type TextBoxVisibility = "private" | "public";
 
 export type TextBoxStats = {
   totalCount: number;
@@ -17,9 +18,27 @@ export type TextBoxSummary = {
   telegramId: string;
   title: string;
   isDefault: boolean;
+  visibility: TextBoxVisibility;
   createdAt: string;
   updatedAt: string;
   stats: TextBoxStats;
+};
+
+export type PublicTextBoxOwner = {
+  telegramId: string;
+  name: string;
+  nickname: string;
+  avatarUrl: string | null;
+};
+
+export type PublicTextBoxSummary = {
+  id: string;
+  title: string;
+  visibility: TextBoxVisibility;
+  createdAt: string;
+  updatedAt: string;
+  stats: TextBoxStats;
+  owner: PublicTextBoxOwner;
 };
 
 export type TextBoxVerseRecord = {
@@ -40,6 +59,25 @@ export type TextBoxVersesResponse = {
   box: TextBoxSummary;
   items: TextBoxVerse[];
   totalCount: number;
+};
+
+export type PublicTextBoxDetailResponseRecord = {
+  box: PublicTextBoxSummary;
+  items: TextBoxVerseRecord[];
+  totalCount: number;
+};
+
+export type PublicTextBoxDetailResponse = {
+  box: PublicTextBoxSummary;
+  items: TextBoxVerse[];
+  totalCount: number;
+};
+
+export type PublicTextBoxesPageResponse = {
+  items: PublicTextBoxSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type AddVerseToBoxRequest = {

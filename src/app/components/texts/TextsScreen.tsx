@@ -17,6 +17,11 @@ import {
   removeTextFromBox,
   replaceLearningVerseInTextBox,
 } from "@/api/services/textBoxes";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
 import {
   Drawer,
@@ -30,11 +35,15 @@ import { cn } from "@/app/components/ui/utils";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { type Verse } from "@/app/domain/verse";
 import { VerseGallery } from "@/app/components/VerseGallery/VerseGallery";
+import { usePublicTextBoxes } from "@/app/hooks/texts/usePublicTextBoxes";
+import { usePublicTextBoxVerses } from "@/app/hooks/texts/usePublicTextBoxVerses";
 import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useTextBoxVerses } from "@/app/hooks/texts/useTextBoxVerses";
 import type { DirectLaunchVerse } from "@/app/components/Training/types";
 import type {
+  PublicTextBoxOwner,
   TextBoxSummary,
+  TextBoxVisibility,
   TextWorkspaceTab,
   TrainingBoxScope,
 } from "@/app/types/textBox";
@@ -83,6 +92,7 @@ type GalleryState = {
   boxTitle: string;
 } | null;
 type LearningReplacementState = { pauseVerse: Verse } | null;
+type BoxesViewMode = "mine" | "public";
 
 function compareVersesCanonically(left: Verse, right: Verse) {
   return (
@@ -103,6 +113,27 @@ function getBoxScope(
   return { boxId: box.id, boxTitle: box.title };
 }
 
+function getOwnerDisplayName(owner?: PublicTextBoxOwner | null) {
+  const nickname = String(owner?.nickname ?? "").trim();
+  if (nickname) return nickname;
+
+  const name = String(owner?.name ?? "").trim();
+  if (name) return name;
+
+  return "Автор";
+}
+
+function getOwnerInitials(owner?: PublicTextBoxOwner | null) {
+  const parts = getOwnerDisplayName(owner)
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) return "A";
+  return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+}
+
 function WorkspaceTabs({
   activeTab,
   onChange,
@@ -114,7 +145,7 @@ function WorkspaceTabs({
     <div className="flex rounded-[1.2rem] border border-border-subtle bg-bg-subtle p-1">
       {[
         { id: "catalog" as const, label: "Стихи" },
-        { id: "boxes" as const, label: "Мои коробки" },
+        { id: "boxes" as const, label: "Коробки" },
       ].map((item) => {
         const active = activeTab === item.id;
         return (
@@ -127,6 +158,39 @@ function WorkspaceTabs({
               active
                 ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
                 : "text-text-secondary",
+            )}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CompactSegmentedControl<T extends string>({
+  value,
+  items,
+  onChange,
+}: {
+  value: T;
+  items: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-full border border-border-subtle/80 bg-bg-subtle/70 p-1 shadow-[var(--shadow-soft)]">
+      {items.map((item) => {
+        const active = value === item.value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onChange(item.value)}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+              active
+                ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
+                : "text-text-secondary hover:text-text-primary",
             )}
           >
             {item.label}
@@ -200,15 +264,19 @@ function TextBoxEditorDrawer({
 function BoxSettingsDrawer({
   box,
   isDeleting,
+  isUpdatingVisibility,
   onOpenChange,
   onRename,
   onDelete,
+  onVisibilityChange,
 }: {
   box: TextBoxSummary | null;
   isDeleting: boolean;
+  isUpdatingVisibility: boolean;
   onOpenChange: (open: boolean) => void;
   onRename: () => void;
   onDelete: () => void;
+  onVisibilityChange: (visibility: TextBoxVisibility) => void;
 }) {
   return (
     <Drawer open={box !== null} onOpenChange={onOpenChange}>
@@ -217,7 +285,32 @@ function BoxSettingsDrawer({
           <DrawerTitle>{box?.title ?? "Коробка"}</DrawerTitle>
         </DrawerHeader>
 
-        <div className="space-y-2 pb-2">
+        <div className="space-y-3 pb-2">
+          <div className="rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 shadow-[var(--shadow-soft)]">
+            <div className="mb-3">
+              <div className="text-sm font-medium text-text-primary">
+                Видимость
+              </div>
+            </div>
+            <CompactSegmentedControl<TextBoxVisibility>
+              value={box?.visibility ?? "private"}
+              items={[
+                { value: "private", label: "Приватная" },
+                { value: "public", label: "Публичная" },
+              ]}
+              onChange={(visibility) => {
+                if (!box || isUpdatingVisibility) return;
+                onVisibilityChange(visibility);
+              }}
+            />
+            {isUpdatingVisibility ? (
+              <div className="mt-3 inline-flex items-center gap-2 text-xs text-text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Обновление
+              </div>
+            ) : null}
+          </div>
+
           <button
             type="button"
             disabled={!box}
@@ -235,11 +328,12 @@ function BoxSettingsDrawer({
 
           <button
             type="button"
-            disabled={!box || isDeleting}
+            disabled={!box || isDeleting || isUpdatingVisibility}
             onClick={onDelete}
             className={cn(
               "flex w-full items-center justify-between rounded-[1.5rem] border border-state-error/20 bg-state-error/5 px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-state-error/10",
-              (!box || isDeleting) && "pointer-events-none opacity-50",
+              (!box || isDeleting || isUpdatingVisibility) &&
+                "pointer-events-none opacity-50",
             )}
           >
             <span className="text-sm font-medium text-state-error">
@@ -278,12 +372,17 @@ export function TextsScreen({
   telegramId = null,
 }: TextsScreenProps) {
   const [activeTab, setActiveTab] = useState<TextWorkspaceTab>("boxes");
+  const [boxesViewMode, setBoxesViewMode] = useState<BoxesViewMode>("mine");
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [selectedPublicBoxId, setSelectedPublicBoxId] = useState<string | null>(
+    null,
+  );
   const [editorState, setEditorState] = useState<BoxEditorState>(null);
   const [editorTitle, setEditorTitle] = useState("");
   const [isEditorSubmitting, setIsEditorSubmitting] = useState(false);
   const [settingsBox, setSettingsBox] = useState<TextBoxSummary | null>(null);
   const [isDeletingBox, setIsDeletingBox] = useState(false);
+  const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
@@ -304,12 +403,28 @@ export function TextsScreen({
     refresh: refreshBoxes,
     create: createBox,
     rename: renameBox,
+    setVisibility: setBoxVisibility,
     remove: removeBox,
   } = useTextBoxes(telegramId);
+
+  const {
+    items: publicBoxes,
+    total: publicBoxesTotal,
+    isLoading: isLoadingPublicBoxes,
+    isLoadingMore: isLoadingMorePublicBoxes,
+    error: publicBoxesError,
+    refresh: refreshPublicBoxes,
+    loadMore: loadMorePublicBoxes,
+    hasMore: hasMorePublicBoxes,
+  } = usePublicTextBoxes();
 
   const selectedBox = useMemo(
     () => boxes.find((box) => box.id === selectedBoxId) ?? null,
     [boxes, selectedBoxId],
+  );
+  const selectedPublicBox = useMemo(
+    () => publicBoxes.find((box) => box.id === selectedPublicBoxId) ?? null,
+    [publicBoxes, selectedPublicBoxId],
   );
 
   const {
@@ -319,12 +434,25 @@ export function TextsScreen({
     error: selectedBoxError,
     refresh: refreshSelectedBox,
   } = useTextBoxVerses(telegramId, selectedBoxId);
+  const {
+    verses: publicBoxItems,
+    box: selectedPublicBoxFromApi,
+    isLoading: isLoadingSelectedPublicBox,
+    error: selectedPublicBoxError,
+    refresh: refreshSelectedPublicBox,
+  } = usePublicTextBoxVerses(selectedPublicBoxId);
 
   const visibleBox = selectedBox ?? selectedBoxFromApi ?? null;
   const visibleBoxTitle = visibleBox?.title ?? reopenTextBoxTitle ?? "Коробка";
+  const visiblePublicBox =
+    selectedPublicBox ?? selectedPublicBoxFromApi ?? null;
   const sortedBoxVerses = useMemo(
     () => sortVersesCanonically(selectedBoxItems.map((item) => item.verse)),
     [selectedBoxItems],
+  );
+  const sortedPublicBoxVerses = useMemo(
+    () => sortVersesCanonically(publicBoxItems.map((item) => item.verse)),
+    [publicBoxItems],
   );
   const replacementSections = useMemo(() => {
     const queueVerses = sortedBoxVerses
@@ -361,6 +489,8 @@ export function TextsScreen({
   useEffect(() => {
     if (!reopenTextBoxId) return;
     setActiveTab("boxes");
+    setBoxesViewMode("mine");
+    setSelectedPublicBoxId(null);
     setSelectedBoxId(reopenTextBoxId);
     void Promise.allSettled([refreshBoxes(), refreshSelectedBox()]);
     onReopenTextBoxHandled?.();
@@ -382,6 +512,11 @@ export function TextsScreen({
     if (!selectedBoxId) return;
     void Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
   }, [refreshBoxes, refreshSelectedBox, selectedBoxId]);
+
+  useEffect(() => {
+    if (!selectedPublicBoxId) return;
+    void Promise.allSettled([refreshSelectedPublicBox(), refreshPublicBoxes()]);
+  }, [refreshPublicBoxes, refreshSelectedPublicBox, selectedPublicBoxId]);
 
   useEffect(() => {
     if (!galleryState) return;
@@ -413,24 +548,51 @@ export function TextsScreen({
     if (verseListExternalSyncVersion <= 0) return;
     void Promise.allSettled([
       refreshBoxes(),
+      refreshPublicBoxes(),
       selectedBoxId ? refreshSelectedBox() : Promise.resolve(null),
+      selectedPublicBoxId ? refreshSelectedPublicBox() : Promise.resolve(null),
     ]);
   }, [
     refreshBoxes,
+    refreshPublicBoxes,
     refreshSelectedBox,
+    refreshSelectedPublicBox,
     selectedBoxId,
+    selectedPublicBoxId,
     verseListExternalSyncVersion,
   ]);
 
   useTelegramBackButton({
-    enabled: Boolean(selectedBoxId),
-    onBack: () => setSelectedBoxId(null),
+    enabled: Boolean(selectedBoxId || selectedPublicBoxId),
+    onBack: () => {
+      if (selectedPublicBoxId) {
+        setSelectedPublicBoxId(null);
+        return;
+      }
+      setSelectedBoxId(null);
+    },
     priority: 50,
   });
 
   const openCreateDrawer = useCallback(() => {
     setEditorTitle("");
     setEditorState({ mode: "create" });
+  }, []);
+
+  const handleWorkspaceTabChange = useCallback((tab: TextWorkspaceTab) => {
+    setActiveTab(tab);
+    if (tab !== "boxes") {
+      setSelectedBoxId(null);
+      setSelectedPublicBoxId(null);
+      setSettingsBox(null);
+    }
+  }, []);
+
+  const handleBoxesViewModeChange = useCallback((mode: BoxesViewMode) => {
+    setBoxesViewMode(mode);
+    setSelectedBoxId(null);
+    setSelectedPublicBoxId(null);
+    setSettingsBox(null);
   }, []);
 
   const openRenameDrawer = useCallback((box: TextBoxSummary) => {
@@ -456,6 +618,7 @@ export function TextsScreen({
       if (editorState.mode === "create") {
         const created = await createBox(nextTitle);
         setActiveTab("boxes");
+        setBoxesViewMode("mine");
         setSelectedBoxId(created.id);
         toast.success("Коробка создана", {
           description: created.title,
@@ -463,6 +626,7 @@ export function TextsScreen({
         });
       } else {
         const updated = await renameBox(editorState.box.id, nextTitle);
+        await refreshPublicBoxes();
         setSelectedBoxId((prev) => (prev === updated.id ? updated.id : prev));
         toast.success("Название обновлено", {
           description: updated.title,
@@ -479,13 +643,53 @@ export function TextsScreen({
     } finally {
       setIsEditorSubmitting(false);
     }
-  }, [createBox, editorState, editorTitle, renameBox, telegramId]);
+  }, [
+    createBox,
+    editorState,
+    editorTitle,
+    refreshPublicBoxes,
+    renameBox,
+    telegramId,
+  ]);
 
   const handleSettingsOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setSettingsBox(null);
+      setIsUpdatingBoxVisibility(false);
     }
   }, []);
+
+  const handleUpdateBoxVisibility = useCallback(
+    async (visibility: TextBoxVisibility) => {
+      if (!settingsBox || settingsBox.visibility === visibility) return;
+
+      setIsUpdatingBoxVisibility(true);
+      try {
+        const updated = await setBoxVisibility(settingsBox.id, visibility);
+        setSettingsBox(updated);
+        await refreshPublicBoxes();
+        toast.success(
+          visibility === "public"
+            ? "Коробка стала публичной"
+            : "Коробка стала приватной",
+          {
+            description: updated.title,
+            label: "Тексты",
+          },
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Не удалось обновить видимость коробки",
+          { label: "Тексты" },
+        );
+      } finally {
+        setIsUpdatingBoxVisibility(false);
+      }
+    },
+    [refreshPublicBoxes, setBoxVisibility, settingsBox],
+  );
 
   const handleDeleteBox = useCallback(async () => {
     if (!settingsBox) return;
@@ -494,6 +698,7 @@ export function TextsScreen({
       const boxId = settingsBox.id;
       const title = settingsBox.title;
       await removeBox(boxId);
+      await refreshPublicBoxes();
       if (selectedBoxId === boxId) {
         setSelectedBoxId(null);
       }
@@ -507,7 +712,7 @@ export function TextsScreen({
     } finally {
       setIsDeletingBox(false);
     }
-  }, [removeBox, selectedBoxId, settingsBox]);
+  }, [refreshPublicBoxes, removeBox, selectedBoxId, settingsBox]);
 
   const handlePatchVerse = useCallback(
     async (verse: Verse) => {
@@ -521,7 +726,11 @@ export function TextsScreen({
           verse.externalVerseId,
           mutation.nextStatus,
         );
-        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
+        await Promise.allSettled([
+          refreshSelectedBox(),
+          refreshBoxes(),
+          refreshPublicBoxes(),
+        ]);
         onVerseMutationCommitted?.();
         toast.success("Статус обновлен", {
           description: `${verse.reference} · ${mutation.label}`,
@@ -539,6 +748,7 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
+      refreshPublicBoxes,
       refreshSelectedBox,
       selectedBoxId,
       telegramId,
@@ -555,7 +765,11 @@ export function TextsScreen({
           selectedBoxId,
           verse.externalVerseId,
         );
-        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
+        await Promise.allSettled([
+          refreshSelectedBox(),
+          refreshBoxes(),
+          refreshPublicBoxes(),
+        ]);
         onVerseMutationCommitted?.();
         toast.success("Стих удален из коробки", {
           description: verse.reference,
@@ -573,6 +787,7 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
+      refreshPublicBoxes,
       refreshSelectedBox,
       selectedBoxId,
       telegramId,
@@ -602,7 +817,11 @@ export function TextsScreen({
           activateExternalVerseId: activateVerse.externalVerseId,
           pauseExternalVerseId: pauseVerse.externalVerseId,
         });
-        await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
+        await Promise.allSettled([
+          refreshSelectedBox(),
+          refreshBoxes(),
+          refreshPublicBoxes(),
+        ]);
         onVerseMutationCommitted?.();
         setReplacementState(null);
         toast.success("Стих заменен", {
@@ -624,6 +843,7 @@ export function TextsScreen({
     [
       onVerseMutationCommitted,
       refreshBoxes,
+      refreshPublicBoxes,
       refreshSelectedBox,
       replacementState,
       selectedBoxId,
@@ -675,6 +895,7 @@ export function TextsScreen({
     setGalleryState(null);
     setActiveTab("catalog");
     setSelectedBoxId(null);
+    setSelectedPublicBoxId(null);
     setPendingCatalogTagSlug(normalizedSlug);
   }, []);
 
@@ -690,13 +911,18 @@ export function TextsScreen({
         verse.externalVerseId,
         status as "LEARNING" | "STOPPED" | "QUEUE",
       );
-      await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
+      await Promise.allSettled([
+        refreshSelectedBox(),
+        refreshBoxes(),
+        refreshPublicBoxes(),
+      ]);
       onVerseMutationCommitted?.();
     },
     [
       galleryState,
       onVerseMutationCommitted,
       refreshBoxes,
+      refreshPublicBoxes,
       refreshSelectedBox,
       telegramId,
     ],
@@ -710,13 +936,18 @@ export function TextsScreen({
         galleryState.boxId,
         verse.externalVerseId,
       );
-      await Promise.allSettled([refreshSelectedBox(), refreshBoxes()]);
+      await Promise.allSettled([
+        refreshSelectedBox(),
+        refreshBoxes(),
+        refreshPublicBoxes(),
+      ]);
       onVerseMutationCommitted?.();
     },
     [
       galleryState,
       onVerseMutationCommitted,
       refreshBoxes,
+      refreshPublicBoxes,
       refreshSelectedBox,
       telegramId,
     ],
@@ -750,47 +981,108 @@ export function TextsScreen({
     [galleryState, onNavigateToTraining],
   );
 
-  const renderBoxesList = () => (
-    <div className="flex min-w-0 w-full flex-col min-h-0 flex-1 overflow-y-auto ">
-      <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
-        Настройка коробок
-      </h1>
-      <div className="flex items-center gap-4">
-        <p className="text-sm text-text-muted">
-          {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
-        </p>
-      </div>
+  const renderBoxesList = () => {
+    const isMineMode = boxesViewMode === "mine";
+    const countLabel = formatRussianCount(
+      isMineMode ? boxes.length : publicBoxesTotal,
+      ["коробка", "коробки", "коробок"],
+    );
 
-      <div className="py-4">
-        {isLoadingBoxes ? (
-          <div className="flex h-full items-center justify-center text-text-muted">
-            <Loader2 className="h-5 w-5 animate-spin" />
+    return (
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="my-2 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className=" [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+              {isMineMode ? "Мои коробки" : "Публичные коробки"}
+            </h1>
+            <p className="mt-2 text-sm text-text-muted">{countLabel}</p>
           </div>
-        ) : boxesError ? (
-          <TextSurfaceCard className="p-4 text-sm text-text-secondary">
-            {boxesError}
-          </TextSurfaceCard>
-        ) : boxes.length === 0 ? (
-          <TextSurfaceCard className="p-5 text-sm text-text-secondary">
-            Коробок пока нет
-          </TextSurfaceCard>
-        ) : (
-          <div className="space-y-3">
-            {boxes.map((box) => (
-              <TextBoxCard
-                key={box.id}
-                box={box}
-                summary={buildTextBoxSummary(box)}
-                stats={buildTextBoxStats(box)}
-                onOpen={() => setSelectedBoxId(box.id)}
-                onOpenSettings={() => setSettingsBox(box)}
-              />
-            ))}
-          </div>
-        )}
+
+          <CompactSegmentedControl<BoxesViewMode>
+            value={boxesViewMode}
+            items={[
+              { value: "mine", label: "Мои" },
+              { value: "public", label: "Публичные" },
+            ]}
+            onChange={handleBoxesViewModeChange}
+          />
+        </div>
+
+        <div className="py-4">
+          {isMineMode ? (
+            isLoadingBoxes ? (
+              <div className="flex h-full items-center justify-center text-text-muted">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : boxesError ? (
+              <TextSurfaceCard className="p-4 text-sm text-text-secondary">
+                {boxesError}
+              </TextSurfaceCard>
+            ) : boxes.length === 0 ? (
+              <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+                Коробок пока нет
+              </TextSurfaceCard>
+            ) : (
+              <div className="space-y-3">
+                {boxes.map((box) => (
+                  <TextBoxCard
+                    key={box.id}
+                    box={box}
+                    summary={buildTextBoxSummary(box)}
+                    stats={buildTextBoxStats(box)}
+                    onOpen={() => setSelectedBoxId(box.id)}
+                    onOpenSettings={() => setSettingsBox(box)}
+                  />
+                ))}
+              </div>
+            )
+          ) : isLoadingPublicBoxes ? (
+            <div className="flex h-full items-center justify-center text-text-muted">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : publicBoxesError ? (
+            <TextSurfaceCard className="p-4 text-sm text-text-secondary">
+              {publicBoxesError}
+            </TextSurfaceCard>
+          ) : publicBoxes.length === 0 ? (
+            <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+              Публичных коробок пока нет
+            </TextSurfaceCard>
+          ) : (
+            <div className="space-y-3">
+              {publicBoxes.map((box) => (
+                <TextBoxCard
+                  key={box.id}
+                  box={box}
+                  owner={box.owner}
+                  summary={buildTextBoxSummary(box)}
+                  stats={buildTextBoxStats(box)}
+                  onOpen={() => setSelectedPublicBoxId(box.id)}
+                />
+              ))}
+
+              {hasMorePublicBoxes ? (
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-full"
+                    disabled={isLoadingMorePublicBoxes}
+                    onClick={() => void loadMorePublicBoxes()}
+                  >
+                    {isLoadingMorePublicBoxes ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    Показать ещё
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderBoxDetail = () => (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -801,19 +1093,26 @@ export function TextsScreen({
           className="inline-flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
-          Мои коробки
+          Коробки
         </button>
 
         {visibleBox ? (
           <TextSurfaceCard className="mt-3 min-w-0">
             <div className="flex min-w-0 items-start gap-3">
               <div className="min-w-0 flex-1 overflow-hidden">
-                <h2
-                  className="block w-full min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
-                  title={visibleBoxTitle}
-                >
-                  {visibleBoxTitle}
-                </h2>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    title={visibleBoxTitle}
+                  >
+                    {visibleBoxTitle}
+                  </h2>
+                  {visibleBox.visibility === "public" ? (
+                    <span className="inline-flex items-center rounded-full border border-brand-primary/15 bg-brand-primary/8 px-2.5 py-1 text-[11px] font-medium text-brand-primary/88">
+                      Публичная
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <Button
@@ -934,27 +1233,113 @@ export function TextsScreen({
     </div>
   );
 
+  const renderPublicBoxDetail = () => (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="min-w-0 py-4">
+        <button
+          type="button"
+          onClick={() => setSelectedPublicBoxId(null)}
+          className="inline-flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Публичные коробки
+        </button>
+
+        {visiblePublicBox ? (
+          <TextSurfaceCard className="mt-3 min-w-0">
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    title={visiblePublicBox.title}
+                  >
+                    {visiblePublicBox.title}
+                  </h2>
+                  <span className="inline-flex items-center rounded-full border border-brand-primary/15 bg-brand-primary/8 px-2.5 py-1 text-[11px] font-medium text-brand-primary/88">
+                    Публичная
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-3 text-sm text-text-muted">
+                  <Avatar className="h-9 w-9 border border-border-subtle/70 bg-bg-surface">
+                    {visiblePublicBox.owner.avatarUrl ? (
+                      <AvatarImage
+                        src={visiblePublicBox.owner.avatarUrl}
+                        alt={getOwnerDisplayName(visiblePublicBox.owner)}
+                      />
+                    ) : null}
+                    <AvatarFallback className="text-[11px] font-semibold">
+                      {getOwnerInitials(visiblePublicBox.owner)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate">
+                    {getOwnerDisplayName(visiblePublicBox.owner)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </TextSurfaceCard>
+        ) : null}
+      </div>
+
+      <div>
+        {isLoadingSelectedPublicBox ? (
+          <div className="flex h-full items-center justify-center text-text-muted">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : selectedPublicBoxError ? (
+          <TextSurfaceCard className="p-4 text-sm text-text-secondary">
+            {selectedPublicBoxError}
+          </TextSurfaceCard>
+        ) : sortedPublicBoxVerses.length === 0 ? (
+          <TextSurfaceCard className="p-5 text-sm text-text-secondary">
+            Коробка пуста
+          </TextSurfaceCard>
+        ) : (
+          <div className="space-y-3">
+            {sortedPublicBoxVerses.map((verse) => (
+              <TextVerseCard
+                key={verse.externalVerseId}
+                verse={verse}
+                textClassName="line-clamp-4"
+                tags={verse.tags}
+                onTagsPress={() => handleOpenBoxVerseTagsDrawer(verse)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div
         className={cn(
           "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6",
-          !selectedBoxId && activeTab === "boxes",
+          !selectedBoxId && !selectedPublicBoxId && activeTab === "boxes",
         )}
       >
-        {!selectedBoxId ? (
+        {!selectedBoxId && !selectedPublicBoxId ? (
           <div className="mb-5 mt-4 shrink-0">
-            <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} />
+            <WorkspaceTabs
+              activeTab={activeTab}
+              onChange={handleWorkspaceTabChange}
+            />
           </div>
         ) : null}
 
         <div className="flex min-h-0 min-w-0 flex-1">
           {selectedBoxId ? (
             renderBoxDetail()
+          ) : selectedPublicBoxId ? (
+            renderPublicBoxDetail()
           ) : activeTab === "catalog" ? (
             <BibleCatalogView
               telegramId={telegramId}
               boxes={boxes}
+              onCreateBox={createBox}
               onRefreshBoxes={refreshBoxes}
               onVerseMutationCommitted={onVerseMutationCommitted}
               requestedTagSlug={pendingCatalogTagSlug}
@@ -966,7 +1351,10 @@ export function TextsScreen({
         </div>
       </div>
 
-      {!selectedBoxId && activeTab === "boxes" ? (
+      {!selectedBoxId &&
+      !selectedPublicBoxId &&
+      activeTab === "boxes" &&
+      boxesViewMode === "mine" ? (
         <Button
           type="button"
           className="fixed left-1/2 z-40 h-12 min-w-[13rem] -translate-x-1/2 rounded-full px-7 shadow-[var(--shadow-floating)]"
@@ -992,9 +1380,13 @@ export function TextsScreen({
       <BoxSettingsDrawer
         box={settingsBox}
         isDeleting={isDeletingBox}
+        isUpdatingVisibility={isUpdatingBoxVisibility}
         onOpenChange={handleSettingsOpenChange}
         onRename={() => settingsBox && openRenameDrawer(settingsBox)}
         onDelete={() => void handleDeleteBox()}
+        onVisibilityChange={(visibility) =>
+          void handleUpdateBoxVisibility(visibility)
+        }
       />
 
       <LearningReplacementDrawer

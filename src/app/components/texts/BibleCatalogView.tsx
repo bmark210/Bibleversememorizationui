@@ -69,6 +69,7 @@ import { formatRussianCount } from "./TextCards";
 type BibleCatalogViewProps = {
   telegramId: string | null;
   boxes: TextBoxSummary[];
+  onCreateBox?: (title: string) => Promise<TextBoxSummary>;
   onRefreshBoxes: () => Promise<unknown>;
   onVerseMutationCommitted?: () => void;
   requestedTagSlug?: string | null;
@@ -97,6 +98,7 @@ type VisibilityFilter = "all" | "popular";
 const SEARCH_DEBOUNCE_MS = 400;
 const HELLOAO_PAGE_SIZE = 40;
 const VIRTUOSO_VIEWPORT_PADDING_PX = 720;
+const CREATE_BOX_BUSY_KEY = "__create-box__";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -688,6 +690,7 @@ function VerseSkeleton() {
 export function BibleCatalogView({
   telegramId,
   boxes,
+  onCreateBox,
   onRefreshBoxes,
   onVerseMutationCommitted,
   requestedTagSlug = null,
@@ -726,6 +729,7 @@ export function BibleCatalogView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [busyBoxId, setBusyBoxId] = useState<string | null>(null);
+  const [newBoxTitle, setNewBoxTitle] = useState("");
   const [tagDrawerTarget, setTagDrawerTarget] =
     useState<VerseTagsDrawerTarget | null>(null);
 
@@ -791,6 +795,10 @@ export function BibleCatalogView({
     (selectedBookId !== null ? 1 : 0) +
     (visibility === "popular" ? 1 : 0);
   const selectedCount = selectedIds.size;
+  const selectedVerseIds = useMemo(
+    () => Array.from(selectedIds).sort(compareExternalVerseIdsCanonically),
+    [selectedIds],
+  );
   const selectedTagSlugSet = useMemo(
     () => new Set(selectedTagSlugs),
     [selectedTagSlugs],
@@ -846,6 +854,10 @@ export function BibleCatalogView({
     }),
     [VirtuosoFooter],
   );
+  const hasBoxes = boxes.length > 0;
+  const canCreateBox = Boolean(onCreateBox && telegramId);
+  const isCreatingBox = busyBoxId === CREATE_BOX_BUSY_KEY;
+  const isMutatingBoxSelection = busyBoxId !== null;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const toggleVerse = useCallback((id: string) => {
@@ -926,30 +938,36 @@ export function BibleCatalogView({
     onRequestedTagSlugHandled?.();
   }, [onRequestedTagSlugHandled, requestedTagSlug]);
 
-  const handleAddToBox = useCallback(
-    async (boxId: string) => {
-      if (!telegramId || selectedIds.size === 0) return;
-      setBusyBoxId(boxId);
+  useEffect(() => {
+    if (!isAddDrawerOpen) {
+      setNewBoxTitle("");
+    }
+  }, [isAddDrawerOpen]);
+
+  const handleCommitSelectionToBox = useCallback(
+    async (box: Pick<TextBoxSummary, "id" | "title">) => {
+      if (!telegramId || selectedVerseIds.length === 0) return;
+      setBusyBoxId(box.id);
       try {
         const result = await addVersesBatch({
           telegramId,
-          boxId,
-          externalVerseIds: Array.from(selectedIds),
+          boxId: box.id,
+          externalVerseIds: selectedVerseIds,
         });
-        const boxTitle = boxes.find((b) => b.id === boxId)?.title ?? "Коробка";
         if (result.addedCount > 0) {
           toast.success("Стихи добавлены", {
-            description: `${formatRussianCount(result.addedCount, ["стих", "стиха", "стихов"])} · ${boxTitle}`,
+            description: `${formatRussianCount(result.addedCount, ["стих", "стиха", "стихов"])} · ${box.title}`,
             label: "Тексты",
           });
         } else {
           toast.info("Стихи уже в коробке", {
-            description: boxTitle,
+            description: box.title,
             label: "Тексты",
           });
         }
         setSelectedIds(new Set());
         setIsAddDrawerOpen(false);
+        setNewBoxTitle("");
         await onRefreshBoxes();
         onVerseMutationCommitted?.();
       } catch (err) {
@@ -963,8 +981,41 @@ export function BibleCatalogView({
         setBusyBoxId(null);
       }
     },
-    [boxes, onRefreshBoxes, onVerseMutationCommitted, selectedIds, telegramId],
+    [onRefreshBoxes, onVerseMutationCommitted, selectedVerseIds, telegramId],
   );
+
+  const handleAddToBox = useCallback(
+    async (box: Pick<TextBoxSummary, "id" | "title">) => {
+      await handleCommitSelectionToBox(box);
+    },
+    [handleCommitSelectionToBox],
+  );
+
+  const handleCreateBoxAndAdd = useCallback(async () => {
+    const nextTitle = newBoxTitle.trim();
+    if (!onCreateBox || !telegramId || selectedVerseIds.length === 0) return;
+    if (!nextTitle) return;
+
+    setBusyBoxId(CREATE_BOX_BUSY_KEY);
+    try {
+      const created = await onCreateBox(nextTitle);
+      await handleCommitSelectionToBox(created);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось создать коробку",
+        {
+          label: "Тексты",
+        },
+      );
+      setBusyBoxId(null);
+    }
+  }, [
+    handleCommitSelectionToBox,
+    newBoxTitle,
+    onCreateBox,
+    selectedVerseIds.length,
+    telegramId,
+  ]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1150,7 +1201,7 @@ export function BibleCatalogView({
             style={{
               bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 1.75rem)",
             }}
-            disabled={boxes.length === 0 || !telegramId}
+            disabled={!telegramId}
             onClick={() => setIsAddDrawerOpen(true)}
           >
             <Plus className="h-4 w-4 shrink-0" />
@@ -1525,7 +1576,7 @@ export function BibleCatalogView({
       {/* Add to Box Drawer                                                      */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <Drawer open={isAddDrawerOpen} onOpenChange={setIsAddDrawerOpen}>
-        <DrawerContent className="px-4">
+        <DrawerContent className="px-4" style={{ maxHeight: "92svh" }}>
           <DrawerHeader className="px-0">
             <DrawerTitle>Добавить в коробку</DrawerTitle>
           </DrawerHeader>
@@ -1534,33 +1585,113 @@ export function BibleCatalogView({
             {selectedCountLabel}
           </p>
 
-          <div className="space-y-2 pb-2">
-            {boxes.map((box) => (
-              <button
-                key={box.id}
-                type="button"
-                onClick={() => void handleAddToBox(box.id)}
-                disabled={busyBoxId !== null}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-bg-surface",
-                  busyBoxId !== null && "pointer-events-none opacity-60",
-                )}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-text-primary">
-                    {box.title}
+          <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain pb-2">
+            {canCreateBox ? (
+              <div className="relative overflow-hidden rounded-[1.55rem] border border-border-default/60 bg-bg-elevated/95 px-4 py-4 shadow-[var(--shadow-soft)]">
+                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-brand-primary/35 to-transparent" />
+
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-semibold tracking-tight text-text-primary">
+                      Новая коробка
+                    </p>
+                    <p className="max-w-[18rem] text-xs leading-relaxed text-text-secondary">
+                      Создайте коробку и добавьте выбранные стихи одним
+                      действием.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-brand-primary/18 bg-brand-primary/10 px-2.5 py-1 text-[11px] font-medium text-brand-primary">
+                    {selectedCountLabel}
+                  </span>
+                </div>
+
+                <form
+                  className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCreateBoxAndAdd();
+                  }}
+                >
+                  <Input
+                    value={newBoxTitle}
+                    maxLength={80}
+                    placeholder="Название коробки"
+                    className="h-11 flex-1 rounded-[1.15rem] border-border-subtle bg-bg-surface shadow-none"
+                    disabled={isMutatingBoxSelection}
+                    onChange={(event) => setNewBoxTitle(event.target.value)}
+                  />
+                  <Button
+                    type="submit"
+                    className="h-11 rounded-[1.15rem] px-5 sm:w-auto"
+                    disabled={isMutatingBoxSelection || !newBoxTitle.trim()}
+                  >
+                    {isCreatingBox ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Создать
+                  </Button>
+                </form>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  {hasBoxes ? "Существующие коробки" : "Коробки"}
+                </p>
+                {hasBoxes ? (
+                  <span className="text-[11px] text-text-muted">
+                    {formatRussianCount(boxes.length, [
+                      "коробка",
+                      "коробки",
+                      "коробок",
+                    ])}
+                  </span>
+                ) : null}
+              </div>
+
+              {hasBoxes ? (
+                boxes.map((box) => (
+                  <button
+                    key={box.id}
+                    type="button"
+                    onClick={() => void handleAddToBox(box)}
+                    disabled={isMutatingBoxSelection}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-bg-surface",
+                      isMutatingBoxSelection &&
+                        "pointer-events-none opacity-60",
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-text-primary">
+                        {box.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-muted">
+                        {box.stats.totalCount} стихов
+                      </p>
+                    </div>
+                    {busyBoxId === box.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
+                    ) : (
+                      <Plus className="h-4 w-4 text-text-muted" />
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-border-subtle bg-bg-subtle px-4 py-5 text-center shadow-[var(--shadow-soft)]">
+                  <p className="text-sm font-medium text-text-primary">
+                    Коробок пока нет
                   </p>
-                  <p className="mt-0.5 text-xs text-text-muted">
-                    {box.stats.totalCount} стихов
+                  <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                    Создайте первую коробку выше и выбранные стихи сразу попадут
+                    в неё.
                   </p>
                 </div>
-                {busyBoxId === box.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
-                ) : (
-                  <Plus className="h-4 w-4 text-text-muted" />
-                )}
-              </button>
-            ))}
+              )}
+            </div>
           </div>
 
           <DrawerFooter className="px-0">
