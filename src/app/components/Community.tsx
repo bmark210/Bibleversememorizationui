@@ -48,9 +48,6 @@ const SUMMARY_TILE =
 const SUMMARY_TILE_LABEL =
   "text-[11px] uppercase tracking-[0.16em] text-text-muted transition-colors";
 
-const SUMMARY_TILE_VALUE =
-  "mt-2 text-[1.65rem] font-semibold leading-none tracking-tight";
-
 const ROW_ACTION_BUTTON =
   "h-8 w-8 shrink-0 rounded-full p-0 narrow:h-7.5 narrow:w-7.5";
 
@@ -633,16 +630,6 @@ export function Community({
               >
                 Мои друзья
               </div>
-              <div
-                className={cn(
-                  SUMMARY_TILE_VALUE,
-                  activeFriendsTab === "friends"
-                    ? "text-brand-primary"
-                    : "text-text-primary",
-                )}
-              >
-                {friendsTotal}
-              </div>
             </button>
 
             <button
@@ -663,16 +650,6 @@ export function Community({
                 )}
               >
                 Игроки
-              </div>
-              <div
-                className={cn(
-                  SUMMARY_TILE_VALUE,
-                  activeFriendsTab === "players"
-                    ? "text-brand-primary"
-                    : "text-text-primary",
-                )}
-              >
-                {playersTotal}
               </div>
             </button>
           </div>
