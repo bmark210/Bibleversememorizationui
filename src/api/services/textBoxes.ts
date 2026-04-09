@@ -236,6 +236,21 @@ export async function fetchPublicTextBoxDetail(
   return mapPublicTextBoxDetailResponse(payload);
 }
 
+export async function importPublicTextBox(
+  telegramId: string,
+  boxId: string,
+  translation?: string,
+): Promise<TextBoxSummary> {
+  const response = await fetch(
+    withTranslation(
+      `/api/users/${encodeURIComponent(telegramId)}/text-boxes/import-public/${encodeURIComponent(boxId)}`,
+      translation,
+    ),
+    { method: "POST" },
+  );
+  return parseApiResponse<TextBoxSummary>(response);
+}
+
 export async function deleteTextBox(
   telegramId: string,
   boxId: string,

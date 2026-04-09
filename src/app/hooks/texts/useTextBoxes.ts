@@ -5,6 +5,7 @@ import {
   createTextBox,
   deleteTextBox,
   fetchTextBoxes,
+  importPublicTextBox,
   updateTextBox,
 } from "@/api/services/textBoxes";
 import type { TextBoxSummary, TextBoxVisibility } from "@/app/types/textBox";
@@ -45,6 +46,20 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     async (title: string) => {
       if (!telegramId) throw new Error("telegramId required");
       const created = await createTextBox(telegramId, title, translation);
+      await refresh();
+      return created;
+    },
+    [refresh, telegramId, translation],
+  );
+
+  const importPublic = useCallback(
+    async (sourceBoxId: string) => {
+      if (!telegramId) throw new Error("telegramId required");
+      const created = await importPublicTextBox(
+        telegramId,
+        sourceBoxId,
+        translation,
+      );
       await refresh();
       return created;
     },
@@ -96,6 +111,7 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     error,
     refresh,
     create,
+    importPublic,
     rename,
     setVisibility,
     remove,

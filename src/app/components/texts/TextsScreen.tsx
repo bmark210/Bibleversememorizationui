@@ -383,6 +383,7 @@ export function TextsScreen({
   const [settingsBox, setSettingsBox] = useState<TextBoxSummary | null>(null);
   const [isDeletingBox, setIsDeletingBox] = useState(false);
   const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
+  const [isImportingPublicBox, setIsImportingPublicBox] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
@@ -402,6 +403,7 @@ export function TextsScreen({
     error: boxesError,
     refresh: refreshBoxes,
     create: createBox,
+    importPublic: importPublicBox,
     rename: renameBox,
     setVisibility: setBoxVisibility,
     remove: removeBox,
@@ -517,6 +519,12 @@ export function TextsScreen({
     if (!selectedPublicBoxId) return;
     void Promise.allSettled([refreshSelectedPublicBox(), refreshPublicBoxes()]);
   }, [refreshPublicBoxes, refreshSelectedPublicBox, selectedPublicBoxId]);
+
+  useEffect(() => {
+    if (!selectedPublicBoxId) {
+      setIsImportingPublicBox(false);
+    }
+  }, [selectedPublicBoxId]);
 
   useEffect(() => {
     if (!galleryState) return;
@@ -903,6 +911,30 @@ export function TextsScreen({
     setPendingCatalogTagSlug(null);
   }, []);
 
+  const handleImportPublicBox = useCallback(async () => {
+    if (!telegramId || !visiblePublicBox) return;
+
+    setIsImportingPublicBox(true);
+    try {
+      const created = await importPublicBox(visiblePublicBox.id);
+      setActiveTab("boxes");
+      setBoxesViewMode("mine");
+      setSelectedPublicBoxId(null);
+      setSelectedBoxId(created.id);
+      toast.success("Коробка добавлена", {
+        description: created.title,
+        label: "Тексты",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось добавить коробку",
+        { label: "Тексты" },
+      );
+    } finally {
+      setIsImportingPublicBox(false);
+    }
+  }, [importPublicBox, telegramId, visiblePublicBox]);
+
   const handleGalleryStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
       if (!telegramId || !galleryState) return;
@@ -1277,7 +1309,26 @@ export function TextsScreen({
                     {getOwnerDisplayName(visiblePublicBox.owner)}
                   </span>
                 </div>
+
+                <p className="mt-4 text-sm text-text-secondary">
+                  {buildTextBoxSummary(visiblePublicBox)}
+                </p>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-full px-5"
+                disabled={isImportingPublicBox || !telegramId}
+                onClick={() => void handleImportPublicBox()}
+              >
+                {isImportingPublicBox ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Добавить себе
+              </Button>
             </div>
           </TextSurfaceCard>
         ) : null}
