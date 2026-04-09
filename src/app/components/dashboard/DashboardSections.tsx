@@ -456,20 +456,20 @@ export const DashboardTrainingStatsCard = React.memo(
           Моя статистика
         </h3>
 
-        <div className={cn("grid grid-cols-2", GRID_GAP)}>
+        <div className={cn("grid grid-cols-3", GRID_GAP)}>
           {statsCards.map((item) => {
             const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
             return (
               <div
                 key={item.key}
                 className={cn(
-                  "rounded-[1.2rem] border px-3.5 py-3 shadow-[var(--shadow-soft)] sm:rounded-[1.35rem] sm:px-4 sm:py-3.5",
+                  "flex min-h-[3.8rem] flex-col justify-center rounded-[1.2rem] border px-2.5 py-3 text-start shadow-[var(--shadow-soft)] sm:min-h-[6.1rem] sm:rounded-[1.35rem] sm:px-3 sm:py-3.5",
                   tone.panelClassName,
                 )}
               >
                 <div
                   className={cn(
-                    "font-medium uppercase tracking-[0.15em]",
+                    "line-clamp-1 font-medium uppercase tracking-[0.15em]",
                     STAT_LABEL,
                     tone.labelClassName,
                   )}
@@ -478,13 +478,13 @@ export const DashboardTrainingStatsCard = React.memo(
                 </div>
                 <div
                   className={cn(
-                    "font-semibold leading-tight tracking-tight",
+                    "mt-1 font-semibold leading-tight tracking-tight",
                     STAT_VALUE,
                     tone.valueClassName,
                   )}
                 >
                   {item.isLoading ? (
-                    <Skeleton className="h-9 w-20 rounded-xl border-0" />
+                    <Skeleton className="mx-auto h-9 w-14 rounded-xl border-0 sm:w-16" />
                   ) : item.value != null ? (
                     item.value
                   ) : (

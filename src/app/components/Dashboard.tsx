@@ -14,6 +14,7 @@ import {
   isVerseReview,
 } from "@/shared/verseRules";
 import { formatXp } from "@/shared/social/formatXp";
+import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "./ui/utils";
 import {
@@ -144,6 +145,8 @@ export function Dashboard({
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram();
+  const { boxes, isLoading: isTextBoxesLoading } =
+    useTextBoxes(currentTelegramId);
   const todaySummary = useMemo(
     () => summarizeTodayVerses(todayVerses),
     [todayVerses],
@@ -154,15 +157,21 @@ export function Dashboard({
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount;
-  const reviewVerses =
-    dashboardStats?.reviewVerses ?? todaySummary.reviewVersesCount;
   const dueReviewVerses =
     dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount;
-  const masteredVerses =
-    dashboardStats?.masteredCount ?? todaySummary.masteredVerses;
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null;
   const dailyStreak =
     currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null;
+  const boxCount = currentTelegramId
+    ? isTextBoxesLoading
+      ? null
+      : boxes.length
+    : 0;
+  const totalVersesCount =
+    typeof dashboardStats?.versesCount === "number" &&
+    Number.isFinite(dashboardStats.versesCount)
+      ? Math.max(0, Math.round(dashboardStats.versesCount))
+      : null;
 
   const statsCards = useMemo(
     () =>
@@ -175,25 +184,28 @@ export function Dashboard({
           tone: "neutral" as const,
         },
         {
-          key: "learning",
-          label: "В изучении",
-          value: `${learningVerses}`,
+          key: "boxes",
+          label: "Коробки",
+          value: boxCount != null ? `${boxCount}` : null,
+          isLoading: currentTelegramId != null && isTextBoxesLoading,
           tone: "learning" as const,
         },
         {
-          key: "review",
-          label: "В повторении",
-          value: `${reviewVerses}`,
-          tone: "review" as const,
-        },
-        {
-          key: "mastered",
-          label: "Выучено",
-          value: `${masteredVerses}`,
+          key: "verses",
+          label: "Стихи",
+          value: totalVersesCount != null ? `${totalVersesCount}` : null,
+          isLoading: isStatsPending,
           tone: "mastered" as const,
         },
       ] as const,
-    [isStatsPending, learningVerses, masteredVerses, reviewVerses, userXp],
+    [
+      boxCount,
+      currentTelegramId,
+      isStatsPending,
+      isTextBoxesLoading,
+      totalVersesCount,
+      userXp,
+    ],
   );
 
   if (isInitializingData) {
