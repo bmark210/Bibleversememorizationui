@@ -134,6 +134,12 @@ function getOwnerInitials(owner?: PublicTextBoxOwner | null) {
   return parts.map((part) => part.charAt(0).toUpperCase()).join("");
 }
 
+function buildPublicTextBoxSummaryLabel(box: {
+  stats: { totalCount: number };
+}) {
+  return formatRussianCount(box.stats.totalCount, ["стих", "стиха", "стихов"]);
+}
+
 function WorkspaceTabs({
   activeTab,
   onChange,
@@ -1028,8 +1034,6 @@ export function TextsScreen({
               {isMineMode ? "Мои коробки" : "Публичные коробки"}
             </h1>
             <p className="mt-2 text-sm text-text-muted">{countLabel}</p>
-
-           
           </div>
 
           <CompactSegmentedControl<BoxesViewMode>
@@ -1040,18 +1044,18 @@ export function TextsScreen({
             ]}
             onChange={handleBoxesViewModeChange}
           />
-           {!selectedBoxId &&
-            !selectedPublicBoxId &&
-            activeTab === "boxes" &&
-            boxesViewMode === "mine" ? (
-              <Button
-                type="button"
-                className="rounded-full p-4 shadow-[var(--shadow-floating)]"
-                onClick={openCreateDrawer}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            ) : null}
+          {!selectedBoxId &&
+          !selectedPublicBoxId &&
+          activeTab === "boxes" &&
+          boxesViewMode === "mine" ? (
+            <Button
+              type="button"
+              className="rounded-full p-4 shadow-[var(--shadow-floating)]"
+              onClick={openCreateDrawer}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
 
         <div className="py-4">
@@ -1101,7 +1105,7 @@ export function TextsScreen({
                   key={box.id}
                   box={box}
                   owner={box.owner}
-                  summary={buildTextBoxSummary(box)}
+                  summary={buildPublicTextBoxSummaryLabel(box)}
                   stats={buildTextBoxStats(box)}
                   onOpen={() => setSelectedPublicBoxId(box.id)}
                 />
@@ -1325,7 +1329,7 @@ export function TextsScreen({
                 </div>
 
                 <p className="mt-4 text-sm text-text-secondary">
-                  {buildTextBoxSummary(visiblePublicBox)}
+                  {buildPublicTextBoxSummaryLabel(visiblePublicBox)}
                 </p>
               </div>
 
