@@ -712,17 +712,17 @@ export function TextsScreen({
   );
 
   const renderBoxesList = () => (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+    <div className="flex min-w-0 w-full flex-col min-h-0 flex-1 overflow-y-auto ">
       <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
         Настройка коробок
       </h1>
-      <div className="mb-4 flex items-center gap-4">
+      <div className="flex items-center gap-4">
         <p className="text-sm text-text-muted">
           {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-4">
+      <div className="py-4">
         {isLoadingBoxes ? (
           <div className="flex h-full items-center justify-center text-text-muted">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -900,8 +900,7 @@ export function TextsScreen({
         className={cn(
           "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6",
           !selectedBoxId &&
-            activeTab === "boxes" &&
-            "pb-[calc(var(--app-bottom-nav-clearance,0px)+5.25rem)]",
+            activeTab === "boxes"
         )}
       >
         {!selectedBoxId ? (
