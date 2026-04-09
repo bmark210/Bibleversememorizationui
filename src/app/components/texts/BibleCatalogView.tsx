@@ -885,6 +885,9 @@ export function BibleCatalogView({
   return (
     <>
       <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3">
+      <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+        Добавление стихов
+      </h1>
         {/* ── Search bar ───────────────────────────────────────────────────── */}
         <div className="shrink-0 flex items-center gap-2">
           <div className="relative flex-1">

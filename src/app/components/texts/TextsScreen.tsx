@@ -712,19 +712,14 @@ export function TextsScreen({
   );
 
   const renderBoxesList = () => (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+      <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+        Настройка коробок
+      </h1>
+      <div className="mb-4 flex items-center gap-4">
         <p className="text-sm text-text-muted">
           {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
         </p>
-        <Button
-          type="button"
-          className="rounded-[1.2rem] px-4"
-          onClick={openCreateDrawer}
-        >
-          <Plus className="h-4 w-4" />
-          Новая коробка
-        </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto py-4">
@@ -760,7 +755,7 @@ export function TextsScreen({
 
   const renderBoxDetail = () => (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="min-w-0 pb-4">
+      <div className="min-w-0 py-4">
         <button
           type="button"
           onClick={() => setSelectedBoxId(null)}
@@ -809,7 +804,7 @@ export function TextsScreen({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-4">
+      <div className="">
         {isLoadingSelectedBox ? (
           <div className="flex h-full items-center justify-center text-text-muted">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -901,9 +896,16 @@ export function TextsScreen({
 
   return (
     <>
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 pt-4 pb-4 sm:px-6">
+      <div
+        className={cn(
+          "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6",
+          !selectedBoxId &&
+            activeTab === "boxes" &&
+            "pb-[calc(var(--app-bottom-nav-clearance,0px)+5.25rem)]",
+        )}
+      >
         {!selectedBoxId ? (
-          <div className="mb-5 shrink-0">
+          <div className="mb-5 mt-4 shrink-0">
             <WorkspaceTabs activeTab={activeTab} onChange={setActiveTab} />
           </div>
         ) : null}
@@ -923,6 +925,20 @@ export function TextsScreen({
           )}
         </div>
       </div>
+
+      {!selectedBoxId && activeTab === "boxes" ? (
+        <Button
+          type="button"
+          className="fixed left-1/2 z-40 h-12 min-w-[13rem] -translate-x-1/2 rounded-full px-7 shadow-[var(--shadow-floating)]"
+          style={{
+            bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 0.75rem)",
+          }}
+          onClick={openCreateDrawer}
+        >
+          <Plus className="h-4 w-4" />
+          Новая коробка
+        </Button>
+      ) : null}
 
       <TextBoxEditorDrawer
         state={editorState}
