@@ -1028,6 +1028,8 @@ export function TextsScreen({
               {isMineMode ? "Мои коробки" : "Публичные коробки"}
             </h1>
             <p className="mt-2 text-sm text-text-muted">{countLabel}</p>
+
+           
           </div>
 
           <CompactSegmentedControl<BoxesViewMode>
@@ -1038,6 +1040,18 @@ export function TextsScreen({
             ]}
             onChange={handleBoxesViewModeChange}
           />
+           {!selectedBoxId &&
+            !selectedPublicBoxId &&
+            activeTab === "boxes" &&
+            boxesViewMode === "mine" ? (
+              <Button
+                type="button"
+                className="rounded-full p-4 shadow-[var(--shadow-floating)]"
+                onClick={openCreateDrawer}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            ) : null}
         </div>
 
         <div className="py-4">
@@ -1401,23 +1415,6 @@ export function TextsScreen({
           )}
         </div>
       </div>
-
-      {!selectedBoxId &&
-      !selectedPublicBoxId &&
-      activeTab === "boxes" &&
-      boxesViewMode === "mine" ? (
-        <Button
-          type="button"
-          className="fixed left-1/2 z-40 h-12 min-w-[13rem] -translate-x-1/2 rounded-full px-7 shadow-[var(--shadow-floating)]"
-          style={{
-            bottom: "calc(var(--app-bottom-nav-clearance, 0px) + 1.75rem)",
-          }}
-          onClick={openCreateDrawer}
-        >
-          <Plus className="h-4 w-4" />
-          Новая коробка
-        </Button>
-      ) : null}
 
       <TextBoxEditorDrawer
         state={editorState}
