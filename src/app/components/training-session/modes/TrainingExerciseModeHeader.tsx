@@ -21,6 +21,7 @@ function resolvePhaseChip(verse: Verse): {
   label: string;
   pillClass: string;
   progressPercent: number;
+  emphasisClass?: string;
 } {
   const resolved = resolveVerseState(verse);
   const status = resolved.displayStatus;
@@ -47,6 +48,7 @@ function resolvePhaseChip(verse: Verse): {
       label: "Повторение",
       pillClass:
         "border-status-review/25 bg-status-review-soft text-status-review",
+      emphasisClass: "ring-1 ring-status-review/30 ring-offset-1 ring-offset-bg-app",
       progressPercent,
     };
   }
@@ -70,6 +72,7 @@ export function TrainingExerciseModeHeader({
     label: phaseLabel,
     pillClass,
     progressPercent,
+    emphasisClass,
   } = resolvePhaseChip(verse);
 
   return (
@@ -80,17 +83,17 @@ export function TrainingExerciseModeHeader({
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        <span onClick={onOpenHelp} className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
+        <span onClick={onOpenHelp} className="truncate text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-text-secondary">
           {label}
         </span>
         {onOpenHelp ? (
           <button
             type="button"
             onClick={onOpenHelp}
-            className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-primary"
+            className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-primary"
             aria-label="Как проходить этот режим"
           >
-            <HelpCircle className="h-3.5 w-3.5" strokeWidth={2} />
+            <HelpCircle className="h-4 w-4" strokeWidth={2} />
           </button>
         ) : null}
       </div>
@@ -100,8 +103,9 @@ export function TrainingExerciseModeHeader({
             type="button"
             onClick={onOpenVerseProgress}
             className={cn(
-              "flex flex-row items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] transition-[opacity,transform] hover:opacity-92 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
+              "flex flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] transition-[opacity,transform] hover:opacity-92 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
               pillClass,
+              emphasisClass,
             )}
             aria-label="Подробный прогресс стиха"
           >
@@ -111,8 +115,9 @@ export function TrainingExerciseModeHeader({
         ) : (
           <span
             className={cn(
-              "flex flex-row items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]",
+              "flex flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em]",
               pillClass,
+              emphasisClass,
             )}
           >
             <span>{phaseLabel}</span>

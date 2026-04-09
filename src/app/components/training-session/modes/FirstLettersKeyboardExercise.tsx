@@ -221,7 +221,7 @@ export function ModeFirstLettersKeyboardExercise({
       />
       <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
         <TrainingExerciseSection
-          title="Введите первые буквы"
+          title="Первые буквы"
           meta={
             <div className="flex items-center gap-1.5">
               <TrainingMetricBadge

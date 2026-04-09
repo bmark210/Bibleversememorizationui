@@ -3,6 +3,7 @@
 import { Button } from "@/app/components/ui/button";
 import type { TrainingModeRating } from './types';
 import type { HintRatingPolicy } from '@/modules/training/hints/types';
+import { TRAINING_ACTION_BUTTON_STRONG_CLASS } from "../trainingActionTokens";
 
 export type TrainingRatingStage = 'learning' | 'review';
 
@@ -18,13 +19,13 @@ type TrainingRatingButtonsProps = {
 export type ResolvedTrainingRatingButton = { kind: 'rate'; rating: TrainingModeRating; label: string; className: string };
 
 const FORGET_BUTTON_CLASS =
-  'rounded-[1.15rem] border border-destructive/25 bg-destructive/10 p-3 text-destructive shadow-[var(--shadow-soft)] hover:bg-destructive/15';
+  `${TRAINING_ACTION_BUTTON_STRONG_CLASS} border border-destructive/25 bg-destructive/10 text-destructive shadow-[var(--shadow-soft)] hover:bg-destructive/15`;
 const HARD_BUTTON_CLASS =
-  'rounded-[1.15rem] border border-status-paused/25 bg-status-paused-soft p-3 text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft';
+  `${TRAINING_ACTION_BUTTON_STRONG_CLASS} border border-status-paused/25 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft`;
 const CONTINUE_BUTTON_CLASS =
-  'rounded-[1.15rem] border border-status-mastered/25 bg-status-mastered-soft p-3 text-status-mastered shadow-[var(--shadow-soft)] hover:bg-status-mastered-soft';
+  `${TRAINING_ACTION_BUTTON_STRONG_CLASS} border border-status-mastered/25 bg-status-mastered-soft text-status-mastered shadow-[var(--shadow-soft)] hover:bg-status-mastered-soft`;
 const RETRY_BUTTON_CLASS =
-  'rounded-[1.15rem] border border-status-paused/25 bg-status-paused-soft p-3 text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft';
+  `${TRAINING_ACTION_BUTTON_STRONG_CLASS} border border-status-paused/25 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)] hover:bg-status-paused-soft`;
 
 export function resolveTrainingRatingStage(status: string | null | undefined): TrainingRatingStage {
   const normalized = String(status ?? '').toUpperCase();

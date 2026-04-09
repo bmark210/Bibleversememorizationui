@@ -28,6 +28,10 @@ import {
   useChoiceFlashFeedback,
 } from './useChoiceFlashFeedback';
 import { useSurrenderEffect } from './useSurrenderEffect';
+import {
+  TRAINING_HALVES_GAP_CLASS,
+  TRAINING_SECTION_CONTENT_INSET_SM,
+} from '../trainingActionTokens';
 
 interface FirstLettersTapExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -369,9 +373,9 @@ export function ModeFirstLettersTapExercise({
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className="mt-2 min-h-0 flex-1 basis-1/2"
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-1 basis-1/2`}
           scrollable
-          contentClassName="flex flex-wrap content-start gap-2 px-0.5 pb-2.5 pt-0.5"
+          contentClassName={`flex flex-wrap content-start gap-2.5 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >
           {shuffledUniqueLetters.map((letter) => {
             const remainingLetterCount = remainingCountByLetter.get(letter) ?? 0;

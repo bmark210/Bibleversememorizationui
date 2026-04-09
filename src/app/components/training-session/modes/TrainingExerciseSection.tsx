@@ -5,10 +5,14 @@ import type { ReactNode } from 'react';
 
 import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { cn } from '@/app/components/ui/utils';
+import {
+  TRAINING_SECTION_INSET_MD,
+  TRAINING_STACK_GAP_SM,
+} from '../trainingActionTokens';
 
 export const TRAINING_SCROLL_BOTTOM_CUE = (
-  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted shadow-[var(--shadow-soft)] backdrop-blur-sm">
-    <ArrowDownIcon className="size-3" />
+  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted shadow-[var(--shadow-soft)] backdrop-blur-sm">
+    <ArrowDownIcon className="size-3.5" />
   </span>
 );
 
@@ -42,13 +46,13 @@ export function TrainingExerciseSection({
   return (
     <div
       className={cn(
-        'min-h-0 flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated px-3 pt-3 shadow-[var(--shadow-soft)]',
+        `min-h-0 flex flex-1 flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] ${TRAINING_SECTION_INSET_MD}`,
         className
       )}
     >
       <div
         className={cn(
-          'mb-2 flex shrink-0 items-center justify-between gap-2 text-xs text-text-muted',
+          `mb-3 flex shrink-0 items-center justify-between text-sm text-text-secondary ${TRAINING_STACK_GAP_SM}`,
           headerClassName
         )}
       >
@@ -106,7 +110,7 @@ export function TrainingMetricBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]',
+        'inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em]',
         METRIC_TONE_CLASSNAME[tone],
         className
       )}

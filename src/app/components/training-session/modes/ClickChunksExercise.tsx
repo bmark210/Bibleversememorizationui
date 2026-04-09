@@ -23,6 +23,10 @@ import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficu
 import { useTrainingFontSize } from './useTrainingFontSize';
 import { useFlashTimeout } from './useFlashTimeout';
 import { useSurrenderEffect } from './useSurrenderEffect';
+import {
+  TRAINING_HALVES_GAP_CLASS,
+  TRAINING_SECTION_CONTENT_INSET_SM,
+} from '../trainingActionTokens';
 
 interface ClickChunksExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -258,7 +262,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
         }
         className="mt-3 min-h-0 flex-1"
         scrollable
-        contentClassName="space-y-1.5 pb-1"
+        contentClassName="space-y-2 pb-2"
       >
         {selectedTokens.length > 0 ? (
           selectedTokens.map((token) => (
@@ -287,9 +291,9 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className="mt-2 min-h-0 flex-[1.1] my-2"
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1.1] my-2`}
           scrollable
-          contentClassName="grid grid-cols-1 gap-2 pb-1 min-[520px]:grid-cols-2"
+          contentClassName={`grid grid-cols-1 gap-2.5 min-[520px]:grid-cols-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >
             {remainingTokens.map((token) => (
               <Button

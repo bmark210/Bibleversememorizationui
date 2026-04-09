@@ -26,6 +26,12 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useFlashTimeout } from './useFlashTimeout';
 import { useSurrenderEffect } from './useSurrenderEffect';
+import {
+  TRAINING_ACTION_BUTTON_STRONG_CLASS,
+  TRAINING_SECTION_SPACING_SM,
+  TRAINING_STACK_GAP_SM,
+  TRAINING_STACK_GAP_MD,
+} from '../trainingActionTokens';
 
 interface TypingModeProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -197,11 +203,11 @@ export function ModeFullRecallExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
+      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName={TRAINING_SECTION_SPACING_SM} shadowSize={20}>
         <TrainingExerciseSection
           title="Введите стих целиком"
           meta={
-            <div className="flex items-center gap-1.5">
+            <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
               <TrainingMetricBadge
                 tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
               >
@@ -216,7 +222,7 @@ export function ModeFullRecallExercise({
             </div>
           }
           className="min-h-0"
-          contentClassName="flex h-full flex-col gap-3 pb-1"
+          contentClassName={`flex h-full flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
         >
           <div
             className={`relative flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)] transition-colors ${
@@ -254,7 +260,7 @@ export function ModeFullRecallExercise({
                     : 'border-state-error/30 bg-state-error/10 text-state-error'
               }`}
             >
-              <p className="flex items-center justify-between gap-2">
+              <p className={`flex items-center justify-between ${TRAINING_STACK_GAP_SM}`}>
                 <span className="text-text-muted">Процент соответствия</span>
                 <span className="font-semibold tabular-nums">{matchPercent}%</span>
               </p>
@@ -264,7 +270,7 @@ export function ModeFullRecallExercise({
           {!isCompleted && !surrendered ? (
             <Button
               type="button"
-              className="mb-2 w-full rounded-2xl"
+              className={`${TRAINING_ACTION_BUTTON_STRONG_CLASS} mb-2 w-full`}
               onClick={handleCheck}
             >
               Проверить

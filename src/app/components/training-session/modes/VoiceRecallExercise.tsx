@@ -26,6 +26,14 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseRecallThreshold } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { TrainingModeId } from '@/shared/training/modeEngine';
 import { useTrainingFontSize } from './useTrainingFontSize';
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_BUTTON_STRONG_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+  TRAINING_SECTION_SPACING_SM,
+  TRAINING_STACK_GAP_SM,
+  TRAINING_STACK_GAP_MD,
+} from '../trainingActionTokens';
 
 interface VoiceRecallExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -272,11 +280,11 @@ export function ModeVoiceRecallExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
+      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName={TRAINING_SECTION_SPACING_SM} shadowSize={20}>
         <TrainingExerciseSection
           title="Управление записью"
           meta={
-            <div className="flex items-center gap-1.5">
+            <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
               <TrainingMetricBadge tone={isSpeechSupported ? 'neutral' : 'warning'}>
                 {isSpeechSupported ? 'Web Speech' : 'Ручной ввод'}
               </TrainingMetricBadge>
@@ -285,20 +293,20 @@ export function ModeVoiceRecallExercise({
               ) : null}
             </div>
           }
-          contentClassName="flex flex-col gap-3 pb-1"
+          contentClassName={`flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
         >
-          <div className="flex flex-wrap gap-2">
+          <div className={`flex flex-wrap ${TRAINING_STACK_GAP_SM} ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
             <Button
               type="button"
               onClick={isListening ? handleStopListening : handleStartListening}
-              className="rounded-xl"
+              className={TRAINING_ACTION_BUTTON_MEDIUM_CLASS}
               variant={isListening ? 'secondary' : 'default'}
             >
-              {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+              {isListening ? <MicOff className="mr-2 h-4.5 w-4.5" /> : <Mic className="mr-2 h-4.5 w-4.5" />}
               {isListening ? 'Остановить запись' : 'Начать запись'}
             </Button>
-            <Button type="button" variant="outline" className="rounded-xl" onClick={handleResetTranscript}>
-              <RefreshCcw className="mr-2 h-4 w-4" />
+            <Button type="button" variant="outline" className={TRAINING_ACTION_BUTTON_MEDIUM_CLASS} onClick={handleResetTranscript}>
+              <RefreshCcw className="mr-2 h-4.5 w-4.5" />
               Очистить
             </Button>
           </div>
@@ -319,7 +327,7 @@ export function ModeVoiceRecallExercise({
         <TrainingExerciseSection
           title="Распознанный текст"
           meta={
-            <div className="flex items-center gap-1.5">
+            <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
               <TrainingMetricBadge
                 tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
               >
@@ -333,7 +341,7 @@ export function ModeVoiceRecallExercise({
               ) : null}
             </div>
           }
-          contentClassName="flex flex-col gap-3 pb-1"
+          contentClassName={`flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
         >
           <div className="rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)]">
             <Textarea
@@ -359,7 +367,7 @@ export function ModeVoiceRecallExercise({
                     : 'border-state-error/30 bg-state-error/10 text-state-error'
               }`}
             >
-              <p className="flex items-center justify-between gap-2">
+              <p className={`flex items-center justify-between ${TRAINING_STACK_GAP_SM}`}>
                 <span className="text-text-muted">Процент соответствия</span>
                 <span className="font-semibold tabular-nums">{matchPercent}%</span>
               </p>
@@ -377,7 +385,7 @@ export function ModeVoiceRecallExercise({
       />
 
       <FixedBottomPanel visible={!isChecked}>
-        <Button type="button" className="w-full rounded-2xl" onClick={handleCheck}>
+        <Button type="button" className={`${TRAINING_ACTION_BUTTON_STRONG_CLASS} w-full`} onClick={handleCheck}>
           Проверить
         </Button>
       </FixedBottomPanel>

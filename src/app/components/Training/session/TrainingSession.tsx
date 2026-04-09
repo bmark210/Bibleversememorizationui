@@ -37,6 +37,12 @@ import { TrainingConfirmDialog } from "./TrainingConfirmDialog";
 import { TrainingSessionActionFooter } from "./TrainingSessionActionFooter";
 import type { TrainingExerciseResolution } from "@/app/components/training-session/modes/exerciseResult";
 import type { TrainingModeInlineActionsProps } from "@/app/components/training-session/TrainingModeRenderer";
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_BUTTON_STRONG_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+  TRAINING_STACK_GAP_MD,
+} from "@/app/components/training-session/trainingActionTokens";
 
 /* ── Subset / ordering helpers ── */
 
@@ -658,15 +664,15 @@ export function TrainingSession({
         aria-modal="true"
         aria-label="Тренировка"
         data-tour="training-session-shell"
-        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20"
+        className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-none bg-gradient-to-br from-background via-background to-muted/20 text-[15px] sm:text-base"
       >
         {/* ── Header ── */}
         <div
           className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl z-40"
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-2.5 sm:px-6">
-            <p className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 uppercase text-sm font-semibold text-foreground/75">
+          <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-3 sm:px-6">
+            <p className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 uppercase text-base sm:text-lg font-semibold tracking-wide text-foreground/80">
               {`${session.trainingIndex + 1} / ${session.trainingVerseCount}`}
             </p>
           </div>
@@ -674,14 +680,14 @@ export function TrainingSession({
 
         {/* ── Body (carousel) ── */}
         <div
-          className="relative flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-6"
+          className="relative flex min-h-0 flex-1 flex-col px-3 py-3 sm:px-6 sm:py-4"
           role="region"
           aria-roledescription="carousel"
           aria-label="Карточки обучения"
         >
           <div
             key={`${resolvedSubsetFilter}:${activeOrder}:${bodyKey}`}
-            className="absolute inset-0 flex flex-col px-4 pb-0 pt-1 sm:px-6 focus-visible:outline-none"
+            className="absolute inset-0 flex flex-col px-3 py-4 sm:px-6 sm:pt-3 focus-visible:outline-none"
             tabIndex={-1}
           >
             {localResult ? (
@@ -705,7 +711,7 @@ export function TrainingSession({
               />
             ) : (
               <div className="flex min-h-0 flex-1 items-center justify-center">
-                <p className="px-6 text-center text-sm text-foreground/55">
+                <p className="px-6 text-center text-base leading-relaxed text-foreground/70">
                   Нет стихов для тренировки в выбранной комбинации фильтра и
                   сортировки
                 </p>
@@ -717,7 +723,10 @@ export function TrainingSession({
         {/* ── Footer ── */}
         <div className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative">
           {localResult ? (
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-3 py-3 sm:px-6">
+            <div
+              className={`mx-auto flex w-full max-w-3xl flex-col px-3 py-3 sm:px-6 ${TRAINING_STACK_GAP_MD}`}
+              style={{ paddingBottom: `${Math.max(20, bottomInset)}px` }}
+            >
               {localResult.footerMode === "rating-with-retry" ? (
                 <TrainingRatingButtons
                   stage={localResult.ratingStage}
@@ -730,7 +739,7 @@ export function TrainingSession({
               ) : (
                 <Button
                   type="button"
-                  className="mx-auto h-11 w-full max-w-lg rounded-2xl border border-primary/25 bg-primary/85 px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                  className="mx-auto h-12 w-full max-w-lg rounded-3xl border border-primary/25 bg-primary/85 px-5 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
                   onClick={handleRetryCurrentExercise}
                   disabled={session.isActionPending}
                 >
@@ -760,19 +769,19 @@ export function TrainingSession({
             key={`${hintAttemptKey}:verse-peek`}
             className="absolute inset-0 z-[55] flex items-center justify-center bg-background/88 px-6 py-8 backdrop-blur-md"
           >
-            <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-state-warning/85">
+            <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 rounded-[32px] border border-border/60 bg-background/92 px-6 py-8 text-center shadow-2xl backdrop-blur-xl sm:px-8 sm:py-10">
+              <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-state-warning/85">
                 Полный стих на{" "}
                 {activeVersePeek.durationSeconds ??
                   hintHelpers.hintState.showVerseDurationSeconds}{" "}
                 сек.
               </p>
               {activeVerseRaw?.reference ? (
-                <p className="text-sm font-semibold text-foreground/70">
+                <p className="text-base sm:text-lg font-semibold text-foreground/70">
                   {activeVerseRaw.reference}
                 </p>
               ) : null}
-              <p className="whitespace-pre-line text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
+              <p className="whitespace-pre-line text-2xl font-medium leading-relaxed text-foreground sm:text-3xl">
                 {activeVersePeek.text}
               </p>
             </div>
@@ -789,26 +798,26 @@ export function TrainingSession({
       >
         <DrawerContent>
           <DrawerHeader className="pb-1">
-            <DrawerTitle className="text-base text-foreground/90">
+            <DrawerTitle className="text-lg text-foreground/95">
               Отметить как «забыл»?
             </DrawerTitle>
-            <DrawerDescription className="text-sm text-muted-foreground/80">
+            <DrawerDescription className="text-base leading-relaxed text-muted-foreground/90">
               Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно
               правилам этапа изучения.
             </DrawerDescription>
           </DrawerHeader>
-          <DrawerFooter className="flex-row gap-3 pt-2">
+          <DrawerFooter className={`flex-row gap-3 pt-2 ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
             <DrawerClose asChild>
               <Button
                 variant="outline"
-                className="flex-1 h-12 rounded-2xl border-border/60 bg-muted/35 text-sm font-medium text-foreground/70"
+                className={`flex-1 border-border/60 bg-muted/35 text-foreground/80 ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`}
                 onClick={session.cancelQuickForget}
               >
                 Отмена
               </Button>
             </DrawerClose>
             <Button
-              className="h-12 flex-1 rounded-2xl border border-status-paused/25 bg-status-paused-soft text-sm font-semibold text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft"
+              className={`flex-1 border border-status-paused/25 bg-status-paused-soft text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft ${TRAINING_ACTION_BUTTON_STRONG_CLASS}`}
               onClick={() =>
                 session.confirmQuickForget(hintHelpers.hintState.attempt)
               }

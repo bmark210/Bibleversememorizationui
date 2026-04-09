@@ -4,6 +4,12 @@ import { Check, Eye, RotateCcw } from "lucide-react";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { cn } from "@/app/components/ui/utils";
 import type { TrainingResultState } from "./trainingResultState";
+import {
+  TRAINING_SECTION_SPACING_LG,
+  TRAINING_SECTION_SPACING_SM,
+  TRAINING_STACK_GAP_MD,
+  TRAINING_STACK_GAP_SM,
+} from "@/app/components/training-session/trainingActionTokens";
 
 type TrainingResultScreenProps = {
   result: TrainingResultState;
@@ -52,8 +58,8 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
       scrollClassName="flex justify-center"
       shadowSize={24}
     >
-      <div className="mx-auto my-auto w-full max-w-xl space-y-5 py-6">
-        <div className="flex flex-col items-center gap-3 text-center">
+      <div className={`mx-auto my-auto w-full max-w-xl py-8 ${TRAINING_SECTION_SPACING_LG}`}>
+        <div className={`flex flex-col items-center text-center ${TRAINING_STACK_GAP_MD}`}>
           <div
             className={cn(
               "flex h-16 w-16 items-center justify-center rounded-full",
@@ -62,20 +68,20 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
           >
             <ResultIcon className="h-8 w-8" />
           </div>
-          <div className="space-y-1">
-            <p className={cn("text-base font-semibold", toneClasses.status)}>
+          <div className={TRAINING_SECTION_SPACING_SM}>
+            <p className={cn("text-base sm:text-lg font-semibold", toneClasses.status)}>
               {result.statusLabel}
             </p>
             <h3 className="[font-family:var(--font-heading)] text-2xl font-semibold tracking-tight text-text-primary">
               {result.title}
             </h3>
           </div>
-          <p className="max-w-lg text-sm leading-relaxed text-text-secondary">
+          <p className="max-w-lg text-base leading-relaxed text-text-secondary">
             {result.description}
           </p>
         </div>
 
-        <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-sm">
+        <div className="rounded-[1.6rem] border border-border-subtle bg-bg-elevated px-5 py-5 shadow-[var(--shadow-soft)] backdrop-blur-sm">
           <p className="text-center [font-family:var(--font-heading)] text-2xl italic leading-relaxed text-brand-primary sm:text-3xl">
             {result.reference}
           </p>
@@ -88,17 +94,17 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
               toneClasses.box
             )}
           >
-            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+            <p className="text-center text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
               Правильный текст
             </p>
-            <p className="mt-3 whitespace-pre-line text-center text-sm leading-relaxed text-text-primary sm:text-base">
+            <p className="mt-3 whitespace-pre-line text-center text-base leading-relaxed text-text-primary">
               {result.verseText}
             </p>
           </div>
         ) : null}
 
         {result.matchPercent !== null ? (
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className={`flex flex-wrap items-center justify-center ${TRAINING_STACK_GAP_SM}`}>
             <span
               className={cn(
                 "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]",

@@ -1,8 +1,13 @@
 "use client";
 
 import React from "react";
-import { ArrowDown, ArrowUp, Lightbulb } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_ICON_BUTTON_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+} from "@/app/components/training-session/trainingActionTokens";
 
 type Props = {
   bottomInset: number;
@@ -34,18 +39,18 @@ export function TrainingSessionActionFooter({
       style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
       className="relative shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl"
     >
-      <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
+      <div className={`mx-auto flex w-full max-w-3xl items-center gap-2.5 ${TRAINING_ACTION_ROW_PADDING_CLASS} sm:px-6`}>
         <div className="flex flex-1 items-center justify-start gap-1.5">
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="h-11 w-11 rounded-xl text-foreground/75"
+            className={`${TRAINING_ACTION_ICON_BUTTON_CLASS} text-foreground/80`}
             disabled={!canNavigatePrev || isNavigationBlocked}
             onClick={onNavigatePrev}
             aria-label="Предыдущий стих"
           >
-            <ArrowUp className="h-5 w-5" />
+            <ArrowUp className="h-5.5 w-5.5" />
           </Button>
         </div>
 
@@ -54,19 +59,19 @@ export function TrainingSessionActionFooter({
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 rounded-xl border-state-warning/25 bg-state-warning/12 px-3 text-sm text-state-warning backdrop-blur-xl hover:border-state-warning/35 hover:bg-state-warning/16"
+                className={`${TRAINING_ACTION_BUTTON_MEDIUM_CLASS} border-state-warning/25 bg-state-warning/12 text-state-warning backdrop-blur-xl hover:border-state-warning/35 hover:bg-state-warning/16`}
                 onClick={onOpenAssistDrawer}
                 disabled={isActionPending}
               aria-label="Открыть подсказки"
             >
-              <Lightbulb className="mr-2 h-4 w-4" />
+              {/* <Lightbulb className="mr-2 h-4.5 w-4.5" /> */}
               Подсказки
             </Button>
           ) : null}
 
           <Button
             variant="outline"
-            className="h-11 rounded-xl border-border/60 bg-background/80 px-3 text-sm text-foreground/80 backdrop-blur-xl"
+            className={`${TRAINING_ACTION_BUTTON_MEDIUM_CLASS} border-border/60 bg-background/80 text-foreground/85 backdrop-blur-xl`}
             onClick={onRequestCloseSession}
             disabled={isActionPending}
           >
@@ -79,12 +84,12 @@ export function TrainingSessionActionFooter({
             type="button"
             variant="outline"
             size="icon"
-            className="h-11 w-11 rounded-xl text-foreground/75"
+            className={`${TRAINING_ACTION_ICON_BUTTON_CLASS} text-foreground/80`}
             disabled={!canNavigateNext || isNavigationBlocked}
             onClick={onNavigateNext}
             aria-label="Следующий стих"
           >
-            <ArrowDown className="h-4 w-4" />
+            <ArrowDown className="h-5 w-5" />
           </Button>
         </div>
       </div>

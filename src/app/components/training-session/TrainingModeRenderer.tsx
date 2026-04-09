@@ -32,6 +32,12 @@ import {
 import { Button } from '../ui/button';
 import { Verse } from "@/app/domain/verse";
 import type { TrainingModeId } from '@/shared/training/modeEngine';
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+  TRAINING_SECTION_SPACING_SM,
+  TRAINING_STACK_GAP_SM,
+} from './trainingActionTokens';
 
 export enum TrainingModeRendererKey {
   ChunksOrder = 'chunks-order',
@@ -232,23 +238,23 @@ const TrainingModeRendererComponent = forwardRef<TrainingModeRendererHandle, Tra
         <Drawer open={tutorialOpen} onOpenChange={setTutorialOpen}>
           <DrawerContent>
             <DrawerHeader className="pb-1">
-              <DrawerTitle className="text-base">{tutorial.title}</DrawerTitle>
-              <DrawerDescription>{tutorial.summary}</DrawerDescription>
+              <DrawerTitle className="text-lg sm:text-xl">{tutorial.title}</DrawerTitle>
+              <DrawerDescription className="text-base leading-relaxed">{tutorial.summary}</DrawerDescription>
             </DrawerHeader>
 
-            <div className="space-y-2 px-4 text-sm text-foreground/90">
+            <div className={`${TRAINING_SECTION_SPACING_SM} px-4 text-base leading-relaxed text-foreground/90`}>
               {tutorial.bullets.map((bullet, index) => (
-                <div key={index} className="flex gap-2">
-                  <span className="mt-0.5 text-foreground/90">•</span>
+                <div key={index} className={`flex ${TRAINING_STACK_GAP_SM}`}>
+                  <span className="mt-0.5 text-base text-foreground/90">•</span>
                   <span>{bullet}</span>
                 </div>
               ))}
             </div>
 
-            <DrawerFooter>
+            <DrawerFooter className={TRAINING_ACTION_ROW_PADDING_CLASS}>
               <DrawerClose asChild>
                 <Button
-                  className="w-full h-12 rounded-2xl border border-border/60 bg-muted/35 text-sm font-medium text-foreground/90"
+                  className={`w-full border border-border/60 bg-muted/35 text-foreground/90 ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`}
                   onClick={() => setTutorialOpen(false)}
                 >
                   Понятно, начать

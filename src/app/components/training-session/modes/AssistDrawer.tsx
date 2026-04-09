@@ -9,6 +9,12 @@ import {
 } from '@/app/components/ui/drawer';
 import { cn } from '@/app/components/ui/utils';
 import type { HintState } from './useHintState';
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+  TRAINING_SECTION_SPACING_SM,
+  TRAINING_STACK_GAP_SM,
+} from '../trainingActionTokens';
 
 interface AssistDrawerProps {
   open: boolean;
@@ -49,7 +55,7 @@ export function AssistDrawer({
           <DrawerTitle className="text-base">Помощь</DrawerTitle>
         </DrawerHeader>
 
-        <div className="space-y-3 px-4 pb-0">
+        <div className={`${TRAINING_SECTION_SPACING_SM} px-4 pb-2`}>
           {/* Active hint content */}
           {showInlineHint && activeHintContent && (
             <div
@@ -82,7 +88,7 @@ export function AssistDrawer({
           )}
 
           {/* Action buttons */}
-          <div className="space-y-2">
+          <div className={`${TRAINING_SECTION_SPACING_SM} ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
             {/* Progressive assist button */}
             {isActive && !surrendered && nextAssistPreview && (
               <button
@@ -90,7 +96,7 @@ export function AssistDrawer({
                 onClick={onRequestAssist}
                 disabled={budgetExhausted}
                 className={cn(
-                  'flex w-full items-center justify-center gap-2 rounded-[1.35rem] border px-4 py-3 text-sm font-medium shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow]',
+                  `flex w-full items-center justify-center border shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow] ${TRAINING_STACK_GAP_SM} ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`,
                   budgetExhausted
                     ? 'cursor-not-allowed border-border-subtle bg-bg-subtle text-text-muted'
                     : 'border-status-learning/25 bg-status-learning-soft text-status-learning hover:border-status-learning/35 hover:bg-status-learning-soft active:bg-status-learning-soft',
@@ -111,7 +117,7 @@ export function AssistDrawer({
                 onClick={onRequestShowVerse}
                 disabled={budgetExhausted || !canShowVerse}
                 className={cn(
-                  'flex w-full items-center justify-center gap-2 rounded-[1.35rem] border px-4 py-3 text-sm font-medium shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow]',
+                  `flex w-full items-center justify-center border shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow] ${TRAINING_STACK_GAP_SM} ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`,
                   budgetExhausted || !canShowVerse
                     ? 'cursor-not-allowed border-border-subtle bg-bg-subtle text-text-muted'
                     : 'border-status-mastered/25 bg-status-mastered-soft text-status-mastered hover:border-status-mastered/35 hover:bg-status-mastered-soft active:bg-status-mastered-soft',

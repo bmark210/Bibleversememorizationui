@@ -37,6 +37,11 @@ import {
   useChoiceFlashFeedback,
 } from "./useChoiceFlashFeedback";
 import { useSurrenderEffect } from "./useSurrenderEffect";
+import {
+  TRAINING_HALVES_GAP_CLASS,
+  TRAINING_SECTION_CONTENT_INSET_SM,
+  TRAINING_SECTION_INSET_SM,
+} from "../trainingActionTokens";
 
 interface ClickWordsHintedExerciseProps {
   verse: Verse;
@@ -149,12 +154,12 @@ function buildExercise(params: {
 const WORD_CHOICE_BUTTON_BASE_CLASS =
   "h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap";
 const CHOICES_SECTION_CLASS =
-  "mt-2 min-h-0 flex flex-1 basis-1/2 flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 px-3 pt-3";
+  `${TRAINING_HALVES_GAP_CLASS} min-h-0 flex flex-1 basis-1/2 flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 ${TRAINING_SECTION_INSET_SM}`;
 const CHOICES_HEADER_CLASS =
   "mb-2 flex shrink-0 items-center text-xs text-muted-foreground";
 const CHOICES_WRAPPER_CLASS = "min-h-0 flex-1";
 const CHOICES_LIST_CLASS =
-  "flex flex-wrap content-start gap-1.5 px-0.5 pb-2.5 pt-0.5";
+  `flex flex-wrap content-start gap-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`;
 const CHOICES_MISTAKE_BADGE_CLASS =
   "inline-flex items-center rounded-full border border-border/60 bg-background/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/65";
 const CHOICES_BOTTOM_CUE = (

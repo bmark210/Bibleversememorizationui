@@ -11,6 +11,10 @@ import {
 } from "@/app/components/ui/drawer";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
+import {
+  TRAINING_ACTION_BUTTON_MEDIUM_CLASS,
+  TRAINING_ACTION_ROW_PADDING_CLASS,
+} from "@/app/components/training-session/trainingActionTokens";
 
 type TrainingConfirmDialogProps = {
   open: boolean;
@@ -53,11 +57,11 @@ export function TrainingConfirmDialog({
           </DrawerDescription>
         </DrawerHeader>
 
-        <DrawerFooter className="flex-row gap-3 pt-2">
+        <DrawerFooter className={`flex-row gap-3 pt-2 ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
           <DrawerClose asChild>
             <Button
               variant="outline"
-              className="h-12 flex-1 rounded-2xl border-border-subtle bg-bg-subtle text-sm font-medium text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated hover:text-brand-primary"
+              className={`flex-1 border-border-subtle bg-bg-subtle text-text-secondary hover:border-brand-primary/20 hover:bg-bg-elevated hover:text-brand-primary ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`}
               onClick={onCancel}
             >
               {cancelLabel}
@@ -65,7 +69,7 @@ export function TrainingConfirmDialog({
           </DrawerClose>
           <Button
             className={cn(
-              "flex-1 h-12 rounded-2xl border text-sm font-medium",
+              `flex-1 border ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`,
               variant === "destructive"
                 ? "border-status-paused/25 bg-status-paused-soft text-status-paused shadow-[var(--shadow-soft)] hover:border-status-paused/35 hover:bg-status-paused-soft"
                 : "border-brand-primary bg-brand-primary text-brand-primary-foreground hover:border-brand-primary-hover hover:bg-brand-primary-hover",
