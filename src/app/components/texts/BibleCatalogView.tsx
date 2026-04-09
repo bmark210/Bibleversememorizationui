@@ -51,6 +51,10 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { cn } from "@/app/components/ui/utils";
+import {
+  VerseTagsDrawer,
+  type VerseTagsDrawerTarget,
+} from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { toast } from "@/app/lib/toast";
 import {
   BibleBook,
@@ -67,6 +71,8 @@ type BibleCatalogViewProps = {
   boxes: TextBoxSummary[];
   onRefreshBoxes: () => Promise<unknown>;
   onVerseMutationCommitted?: () => void;
+  requestedTagSlug?: string | null;
+  onRequestedTagSlugHandled?: () => void;
 };
 
 type VerseTag = { id?: string; slug?: string; title?: string };
@@ -538,28 +544,35 @@ function VerseCard({
   isSelected,
   searchQuery,
   onToggle,
+  onOpenTags,
 }: {
   verse: DisplayVerse;
   isSelected: boolean;
   searchQuery: string;
   onToggle: () => void;
+  onOpenTags: (verse: DisplayVerse) => void;
 }) {
   const hasHighlight = searchQuery.trim().length > 0;
 
   return (
-    <button
-      type="button"
-      onClick={onToggle}
+    <div
+      role="button"
+      tabIndex={0}
       aria-pressed={isSelected}
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onToggle();
+      }}
       className={cn(
-        "group w-full rounded-[1.5rem] border text-left transition-all duration-150",
+        "group w-full rounded-[1.5rem] border text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 focus-visible:ring-offset-0",
         isSelected
           ? "border-brand-primary/30 bg-brand-primary/8 shadow-[0_0_0_1px_rgba(var(--color-brand-primary-rgb,124,92,62),0.15)]"
           : "border-border-default/45 bg-bg-elevated hover:border-brand-primary/20 hover:bg-bg-surface",
       )}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        {/* Checkbox */}
         <span
           className={cn(
             "mt-[3px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150",
@@ -572,7 +585,6 @@ function VerseCard({
         </span>
 
         <div className="min-w-0 flex-1">
-          {/* Reference */}
           <p
             className={cn(
               "mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors",
@@ -582,7 +594,6 @@ function VerseCard({
             {verse.reference}
           </p>
 
-          {/* Verse text */}
           {hasHighlight ? (
             <HighlightedText
               text={verse.text}
@@ -602,34 +613,51 @@ function VerseCard({
               {verse.text}
             </p>
           )}
-
-          {/* Tags */}
           {verse.tags.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {verse.tags.slice(0, 4).map((tag, i) => (
-                <span
-                  key={tag.id ?? tag.slug ?? i}
-                  className={cn(
-                    "inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none transition-colors",
-                    isSelected
-                      ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary/75"
-                      : "border-border-subtle bg-bg-subtle text-text-muted",
-                  )}
-                >
-                  <span className="opacity-50">#</span>
-                  {tag.title}
-                </span>
-              ))}
-              {verse.tags.length > 4 && (
-                <span className="inline-flex items-center rounded-full border border-border-subtle bg-bg-subtle px-2 py-0.5 text-[10px] font-medium text-text-muted">
-                  +{verse.tags.length - 4}
-                </span>
-              )}
+            <div className="py-2">
+              <div className="flex flex-wrap gap-1.5">
+                {verse.tags.slice(0, 4).map((tag, i) => (
+                  <button
+                    key={tag.id ?? tag.slug ?? i}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenTags(verse);
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none transition-colors",
+                      isSelected
+                        ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary/75"
+                        : "border-border-subtle bg-bg-subtle text-text-muted hover:border-brand-primary/20 hover:bg-bg-surface hover:text-text-primary",
+                    )}
+                  >
+                    <span className="opacity-50">#</span>
+                    {tag.title}
+                  </button>
+                ))}
+                {verse.tags.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenTags(verse);
+                    }}
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors",
+                      isSelected
+                        ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary/75"
+                        : "border-border-subtle bg-bg-subtle text-text-muted hover:border-brand-primary/20 hover:bg-bg-surface hover:text-text-primary",
+                    )}
+                  >
+                    +{verse.tags.length - 4}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -662,6 +690,8 @@ export function BibleCatalogView({
   boxes,
   onRefreshBoxes,
   onVerseMutationCommitted,
+  requestedTagSlug = null,
+  onRequestedTagSlugHandled,
 }: BibleCatalogViewProps) {
   /** Канонические книги (66), порядок как в синодальном издании — по id книги. */
   const books = useMemo(
@@ -696,6 +726,8 @@ export function BibleCatalogView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [busyBoxId, setBusyBoxId] = useState<string | null>(null);
+  const [tagDrawerTarget, setTagDrawerTarget] =
+    useState<VerseTagsDrawerTarget | null>(null);
 
   // ── Search debounce ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -759,6 +791,10 @@ export function BibleCatalogView({
     (selectedBookId !== null ? 1 : 0) +
     (visibility === "popular" ? 1 : 0);
   const selectedCount = selectedIds.size;
+  const selectedTagSlugSet = useMemo(
+    () => new Set(selectedTagSlugs),
+    [selectedTagSlugs],
+  );
   const selectedCountLabel = formatRussianCount(selectedCount, [
     "стих",
     "стиха",
@@ -821,6 +857,38 @@ export function BibleCatalogView({
     });
   }, []);
 
+  const addTagSlugToFilters = useCallback((slug: string) => {
+    const normalizedSlug = slug.trim();
+    if (!normalizedSlug) return;
+
+    setSelectedTagSlugs((prev) =>
+      prev.includes(normalizedSlug) ? prev : [...prev, normalizedSlug],
+    );
+  }, []);
+
+  const handleOpenVerseTagsDrawer = useCallback((verse: DisplayVerse) => {
+    if (verse.tags.length === 0) return;
+
+    setTagDrawerTarget({
+      reference: verse.reference,
+      tags: verse.tags,
+    });
+  }, []);
+
+  const handleTagDrawerOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setTagDrawerTarget(null);
+    }
+  }, []);
+
+  const handleTagDrawerSelect = useCallback(
+    (slug: string) => {
+      addTagSlugToFilters(slug);
+      setTagDrawerTarget(null);
+    },
+    [addTagSlugToFilters],
+  );
+
   const openFilterDrawer = useCallback(() => {
     setDraftTagSlugs(new Set(selectedTagSlugs));
     setDraftBookId(selectedBookId);
@@ -842,6 +910,21 @@ export function BibleCatalogView({
     setDraftBookId(null);
     setDraftVisibility("all");
   }, []);
+
+  useEffect(() => {
+    const normalizedSlug = requestedTagSlug?.trim() ?? "";
+    if (!normalizedSlug) return;
+
+    setSearchInput("");
+    setDebouncedSearch("");
+    setSelectedBookId(null);
+    setVisibility("all");
+    setSelectedTagSlugs([normalizedSlug]);
+    setSelectedIds(new Set());
+    setTagDrawerTarget(null);
+    setIsFilterDrawerOpen(false);
+    onRequestedTagSlugHandled?.();
+  }, [onRequestedTagSlugHandled, requestedTagSlug]);
 
   const handleAddToBox = useCallback(
     async (boxId: string) => {
@@ -886,14 +969,10 @@ export function BibleCatalogView({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <div
-        className={cn(
-          "flex h-full min-h-0 w-full flex-1 flex-col gap-3",
-        )}
-      >
-      <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
-        Добавление стихов
-      </h1>
+      <div className={cn("flex h-full min-h-0 w-full flex-1 flex-col gap-3")}>
+        <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+          Добавление стихов
+        </h1>
         {/* ── Search bar ───────────────────────────────────────────────────── */}
         <div className="shrink-0 flex items-center gap-2">
           <div className="relative flex-1">
@@ -1046,6 +1125,7 @@ export function BibleCatalogView({
                     isSelected={selectedIds.has(verse.externalVerseId)}
                     searchQuery={searchHighlightQuery}
                     onToggle={() => toggleVerse(verse.externalVerseId)}
+                    onOpenTags={handleOpenVerseTagsDrawer}
                   />
                 </div>
               )}
@@ -1494,6 +1574,14 @@ export function BibleCatalogView({
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      <VerseTagsDrawer
+        target={tagDrawerTarget}
+        open={tagDrawerTarget !== null}
+        selectedTagSlugs={selectedTagSlugSet}
+        onOpenChange={handleTagDrawerOpenChange}
+        onSelectTag={handleTagDrawerSelect}
+      />
     </>
   );
 }

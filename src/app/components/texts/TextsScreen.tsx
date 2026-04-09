@@ -40,6 +40,10 @@ import type {
 } from "@/app/types/textBox";
 import { VerseStatus } from "@/shared/domain/verseStatus";
 import { toast } from "@/app/lib/toast";
+import {
+  VerseTagsDrawer,
+  type VerseTagsDrawerTarget,
+} from "@/app/components/verse-list/components/VerseTagsDrawer";
 import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerseId";
 import {
   buildTextBoxStats,
@@ -284,6 +288,11 @@ export function TextsScreen({
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
     useState<LearningReplacementState>(null);
+  const [boxTagDrawerTarget, setBoxTagDrawerTarget] =
+    useState<VerseTagsDrawerTarget | null>(null);
+  const [pendingCatalogTagSlug, setPendingCatalogTagSlug] = useState<
+    string | null
+  >(null);
   const [replacementSubmittingId, setReplacementSubmittingId] = useState<
     string | null
   >(null);
@@ -643,6 +652,36 @@ export function TextsScreen({
     setGalleryState(null);
   }, []);
 
+  const handleOpenBoxVerseTagsDrawer = useCallback((verse: Verse) => {
+    if (!verse.tags || verse.tags.length === 0) return;
+
+    setBoxTagDrawerTarget({
+      reference: verse.reference,
+      tags: verse.tags,
+    });
+  }, []);
+
+  const handleBoxTagDrawerOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setBoxTagDrawerTarget(null);
+    }
+  }, []);
+
+  const handleOpenCatalogForTag = useCallback((slug: string) => {
+    const normalizedSlug = slug.trim();
+    if (!normalizedSlug) return;
+
+    setBoxTagDrawerTarget(null);
+    setGalleryState(null);
+    setActiveTab("catalog");
+    setSelectedBoxId(null);
+    setPendingCatalogTagSlug(normalizedSlug);
+  }, []);
+
+  const handlePendingCatalogTagHandled = useCallback(() => {
+    setPendingCatalogTagSlug(null);
+  }, []);
+
   const handleGalleryStatusChange = useCallback(
     async (verse: Verse, status: VerseStatus) => {
       if (!telegramId || !galleryState) return;
@@ -835,6 +874,7 @@ export function TextsScreen({
                   textClassName="line-clamp-4"
                   tags={verse.tags}
                   onOpen={() => handleOpenBoxGallery(verseIndex)}
+                  onTagsPress={() => handleOpenBoxVerseTagsDrawer(verse)}
                   footerActions={
                     <>
                       {canReplace ? (
@@ -899,8 +939,7 @@ export function TextsScreen({
       <div
         className={cn(
           "mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 sm:px-6",
-          !selectedBoxId &&
-            activeTab === "boxes"
+          !selectedBoxId && activeTab === "boxes",
         )}
       >
         {!selectedBoxId ? (
@@ -918,6 +957,8 @@ export function TextsScreen({
               boxes={boxes}
               onRefreshBoxes={refreshBoxes}
               onVerseMutationCommitted={onVerseMutationCommitted}
+              requestedTagSlug={pendingCatalogTagSlug}
+              onRequestedTagSlugHandled={handlePendingCatalogTagHandled}
             />
           ) : (
             renderBoxesList()
@@ -973,7 +1014,7 @@ export function TextsScreen({
           onClose={handleGalleryClose}
           onStatusChange={handleGalleryStatusChange}
           onDelete={handleGalleryDelete}
-          onSelectTag={() => undefined}
+          onSelectTag={handleOpenCatalogForTag}
           onNavigateToTraining={handleGalleryNavigateToTraining}
           previewTotalCount={sortedBoxVerses.length}
           previewHasMore={false}
@@ -981,6 +1022,14 @@ export function TextsScreen({
           showDeleteAction={false}
         />
       ) : null}
+
+      <VerseTagsDrawer
+        target={boxTagDrawerTarget}
+        open={boxTagDrawerTarget !== null}
+        selectedTagSlugs={new Set()}
+        onOpenChange={handleBoxTagDrawerOpenChange}
+        onSelectTag={handleOpenCatalogForTag}
+      />
     </>
   );
 }

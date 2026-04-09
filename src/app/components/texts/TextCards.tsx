@@ -27,6 +27,7 @@ type TextVerseCardProps = {
   textClassName?: string;
   onOpen?: () => void;
   tags?: Verse["tags"];
+  onTagsPress?: () => void;
 };
 
 type TextBoxCardProps = {
@@ -233,6 +234,7 @@ export function TextVerseCard({
   textClassName,
   onOpen,
   tags,
+  onTagsPress,
 }: TextVerseCardProps) {
   const ContentTag = onOpen ? "button" : "div";
 
@@ -270,11 +272,11 @@ export function TextVerseCard({
           >
             {verse.text}
           </p>
-
-          <VerseTagPills tags={tags} />
         </ContentTag>
         {primaryAction ? <div className="shrink-0">{primaryAction}</div> : null}
       </div>
+
+      <VerseTagPills tags={tags} onPress={onTagsPress} />
 
       {footerActions ? (
         <div className="mt-5 flex flex-wrap gap-2">{footerActions}</div>

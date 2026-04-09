@@ -1,19 +1,25 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { Check, Hash } from 'lucide-react';
-import type { Verse } from "@/app/domain/verse";
-import { Badge } from '@/app/components/ui/badge';
-import { cn } from '@/app/components/ui/utils';
+import { useMemo } from "react";
+import { Check, Hash } from "lucide-react";
+import { Badge } from "@/app/components/ui/badge";
+import { cn } from "@/app/components/ui/utils";
 import {
   Drawer,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-} from '@/app/components/ui/drawer';
+} from "@/app/components/ui/drawer";
 
-type VerseTagsDrawerTarget = Pick<Verse, 'reference' | 'tags'>;
+export type VerseTagsDrawerTarget = {
+  reference: string;
+  tags?: Array<{
+    id?: string;
+    slug?: string;
+    title?: string | null;
+  }> | null;
+};
 
 type VerseTagsDrawerProps = {
   target: VerseTagsDrawerTarget | null;
@@ -43,7 +49,7 @@ export function VerseTagsDrawer({
     const next: NormalizedTag[] = [];
 
     for (const tag of target.tags) {
-      const title = String(tag?.title ?? '').trim();
+      const title = String(tag?.title ?? "").trim();
       if (!title) continue;
 
       const key = String(tag?.id ?? tag?.slug ?? title.toLowerCase());
@@ -71,8 +77,8 @@ export function VerseTagsDrawer({
               </DrawerTitle>
               <DrawerDescription className="mt-1 text-sm text-foreground/56">
                 {target?.reference
-                  ? `${target.reference} · нажмите на тег, чтобы добавить его в фильтр списка.`
-                  : 'Нажмите на тег, чтобы добавить его в фильтр списка.'}
+                  ? `${target.reference} · нажмите на тег, чтобы открыть стихи и применить фильтр по теме.`
+                  : "Нажмите на тег, чтобы открыть стихи и применить фильтр по теме."}
               </DrawerDescription>
             </div>
 
@@ -89,7 +95,7 @@ export function VerseTagsDrawer({
           {normalizedTags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {normalizedTags.map((tag) => {
-                const slug = String(tag.slug ?? '').trim();
+                const slug = String(tag.slug ?? "").trim();
                 const isActive = slug.length > 0 && selectedTagSlugs.has(slug);
                 const canSelect = slug.length > 0;
 
@@ -103,11 +109,11 @@ export function VerseTagsDrawer({
                       onSelectTag(slug);
                     }}
                     className={cn(
-                      'inline-flex min-h-10 items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors',
+                      "inline-flex min-h-10 items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors",
                       isActive
-                        ? 'border-primary/30 bg-primary/12 text-primary'
-                        : 'border-border/60 bg-background/55 text-foreground/78 hover:bg-background/80',
-                      !canSelect && 'cursor-not-allowed opacity-45',
+                        ? "border-primary/30 bg-primary/12 text-primary"
+                        : "border-border/60 bg-background/55 text-foreground/78 hover:bg-background/80",
+                      !canSelect && "cursor-not-allowed opacity-45",
                     )}
                   >
                     {isActive ? (
@@ -117,7 +123,9 @@ export function VerseTagsDrawer({
                     )}
                     <span>{tag.title}</span>
                     {isActive ? (
-                      <span className="text-[11px] text-primary/72">в фильтре</span>
+                      <span className="text-[11px] text-primary/72">
+                        в фильтре
+                      </span>
                     ) : null}
                   </button>
                 );
