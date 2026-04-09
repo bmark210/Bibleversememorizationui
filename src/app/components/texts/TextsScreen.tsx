@@ -1073,7 +1073,7 @@ export function TextsScreen({
                 Коробок пока нет
               </TextSurfaceCard>
             ) : (
-              <div className="space-y-3 mb-20">
+              <div className="space-y-3">
                 {boxes.map((box) => (
                   <TextBoxCard
                     key={box.id}
@@ -1366,7 +1366,7 @@ export function TextsScreen({
             Коробка пуста
           </TextSurfaceCard>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 pb-4">
             {sortedPublicBoxVerses.map((verse) => (
               <TextVerseCard
                 key={verse.externalVerseId}
