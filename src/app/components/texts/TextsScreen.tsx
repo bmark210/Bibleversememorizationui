@@ -110,7 +110,7 @@ function WorkspaceTabs({
     <div className="flex rounded-[1.2rem] border border-border-subtle bg-bg-subtle p-1">
       {[
         { id: "catalog" as const, label: "Библия" },
-        { id: "boxes" as const, label: "Мои тексты" },
+        { id: "boxes" as const, label: "Мои коробки" },
       ].map((item) => {
         const active = activeTab === item.id;
         return (
@@ -762,7 +762,7 @@ export function TextsScreen({
           className="inline-flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
-          Мои тексты
+          Мои коробки
         </button>
 
         {visibleBox ? (
