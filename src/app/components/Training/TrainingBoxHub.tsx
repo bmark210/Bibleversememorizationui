@@ -132,7 +132,7 @@ export function TrainingBoxHub({
   };
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pb-6 pt-4 sm:px-6">
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pt-4 sm:px-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -242,7 +242,7 @@ export function TrainingBoxHub({
         )}
       </TextSurfaceCard>
 
-      <div className="mt-4 w-full pt-1">
+      <div className="my-4 w-full pt-1">
         <Button
           type="button"
           className="w-full rounded-full px-5"

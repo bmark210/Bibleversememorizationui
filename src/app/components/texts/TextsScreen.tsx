@@ -1022,7 +1022,7 @@ export function TextsScreen({
 
     return (
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="my-2 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className=" [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
               {isMineMode ? "Мои коробки" : "Публичные коробки"}
@@ -1055,7 +1055,7 @@ export function TextsScreen({
                 Коробок пока нет
               </TextSurfaceCard>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 mb-20">
                 {boxes.map((box) => (
                   <TextBoxCard
                     key={box.id}
@@ -1188,7 +1188,7 @@ export function TextsScreen({
             Коробка пуста
           </TextSurfaceCard>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 mb-4">
             {sortedBoxVerses.map((verse, verseIndex) => {
               const presentation = resolveTextVersePresentation(verse);
               const mutation = getTextVerseStatusMutation(verse);
@@ -1266,7 +1266,7 @@ export function TextsScreen({
   );
 
   const renderPublicBoxDetail = () => (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col mb-4">
       <div className="min-w-0 py-4">
         <button
           type="button"

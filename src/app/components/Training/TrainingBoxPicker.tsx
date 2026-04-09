@@ -25,7 +25,7 @@ export function TrainingBoxPicker({
   onSelect,
 }: TrainingBoxPickerProps) {
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 pb-6 pt-4 sm:px-6">
+    <div className="mx-auto min-h-0 flex-1 overflow-y-auto py-4 flex h-full w-full max-w-3xl flex-col px-4 sm:px-6">
       <div className="mb-5 shrink-0">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
           {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
@@ -48,7 +48,7 @@ export function TrainingBoxPicker({
           Создайте коробку в разделе «Тексты».
         </TextSurfaceCard>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto py-1">
+        <div>
           <div className="space-y-3">
             {boxes.map((box) => {
               const isActive = selectedScope?.boxId === box.id;
