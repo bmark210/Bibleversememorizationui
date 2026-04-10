@@ -6,6 +6,8 @@
 :root {
   --app-bottom-nav-clearance: 0px;
   --app-keyboard-offset: 0px;
+  --app-stable-viewport-height: 100vh;
+  --app-visible-viewport-height: 100vh;
 }
 
 html,
@@ -28,6 +30,20 @@ body {
 
 .app-scroll::-webkit-scrollbar {
   display: none;
+}
+
+html[data-app-keyboard-open="true"] [data-hide-on-keyboard="collapse"] {
+  max-height: 0 !important;
+  min-height: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+html[data-app-keyboard-open="true"] [data-hide-on-keyboard="slide"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(calc(100% + 16px)) !important;
 }
 
 /* Утилиты для работы с Telegram Content Safe Area */

@@ -6,7 +6,6 @@ import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import {
   Drawer,
   DrawerClose,
@@ -55,6 +54,7 @@ import {
   calculateTextMatchPercent,
 } from "./services/validation";
 import { resolveVerseState } from "@/shared/verseRules/index";
+import { useAppViewportStore } from "@/app/stores/appViewportStore";
 
 import type { AnchorModeGroup } from "../types";
 import type { Verse } from "@/app/domain/verse";
@@ -429,35 +429,8 @@ export function AnchorTrainingSession({
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const sessionXpRef = useRef(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const tg = getTelegramWebApp();
-    const visualViewport = window.visualViewport;
-
-    const checkKeyboardState = () => {
-      if (tg?.viewportStableHeight && tg?.viewportHeight) {
-        setIsKeyboardOpen(tg.viewportStableHeight - tg.viewportHeight > 100);
-        return;
-      }
-
-      if (visualViewport) {
-        setIsKeyboardOpen(window.innerHeight - visualViewport.height > 150);
-      }
-    };
-
-    checkKeyboardState();
-    visualViewport?.addEventListener("resize", checkKeyboardState);
-    tg?.onEvent?.("viewportChanged", checkKeyboardState);
-
-    return () => {
-      visualViewport?.removeEventListener("resize", checkKeyboardState);
-      tg?.offEvent?.("viewportChanged", checkKeyboardState);
-    };
-  }, []);
 
   const questionById = useMemo(
     () =>
@@ -1225,8 +1198,14 @@ export function AnchorTrainingSession({
 
         {/* Footer */}
         <div
+          data-hide-on-keyboard="collapse"
           style={{ paddingBottom: `${Math.max(12, bottomInset)}px` }}
-          className="z-40 shrink-0 border-t border-border-subtle bg-bg-app/80 px-4 pt-2 backdrop-blur-xl sm:px-6"
+          className={cn(
+            "z-40 shrink-0 border-t border-border-subtle bg-bg-app/80 px-4 pt-2 backdrop-blur-xl transition-[max-height,opacity,padding] duration-200 sm:px-6",
+            isKeyboardOpen
+              ? "max-h-0 overflow-hidden border-transparent pt-0 opacity-0 pointer-events-none"
+              : "max-h-[200px] opacity-100",
+          )}
         >
           <div className="mx-auto w-full max-w-lg">
             {isAnswered ? (

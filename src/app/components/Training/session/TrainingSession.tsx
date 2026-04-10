@@ -13,7 +13,6 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { useTelegramBackButton } from "@/app/hooks/useTelegramBackButton";
-import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { TrainingCard } from "@/app/components/VerseGallery/components/TrainingCard";
 import { getVerseIdentity } from "@/app/components/VerseGallery/utils";
 import type { TrainingSubsetSelectValue } from "@/app/components/verse-gallery/TrainingSubsetSelect";
@@ -44,6 +43,7 @@ import {
   TRAINING_ACTION_ROW_PADDING_CLASS,
   TRAINING_STACK_GAP_MD,
 } from "@/app/components/training-session/trainingActionTokens";
+import { useAppViewportStore } from "@/app/stores/appViewportStore";
 
 /* ── Subset / ordering helpers ── */
 
@@ -164,35 +164,7 @@ export function TrainingSession({
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
-
-  /* ── Keyboard detection (iOS) ── */
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const tg = getTelegramWebApp();
-    const vv = window.visualViewport;
-
-    const checkKeyboardState = () => {
-      if (tg?.viewportStableHeight && tg?.viewportHeight) {
-        setIsKeyboardOpen(tg.viewportStableHeight - tg.viewportHeight > 100);
-        return;
-      }
-      if (vv) {
-        setIsKeyboardOpen(window.innerHeight - vv.height > 150);
-      }
-    };
-
-    checkKeyboardState();
-    vv?.addEventListener("resize", checkKeyboardState);
-    tg?.onEvent?.("viewportChanged", checkKeyboardState);
-
-    return () => {
-      vv?.removeEventListener("resize", checkKeyboardState);
-      tg?.offEvent?.("viewportChanged", checkKeyboardState);
-    };
-  }, []);
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
 
   /* ── UI state ── */
   const [direction, setDirection] = useState(0);
@@ -735,7 +707,10 @@ export function TrainingSession({
         </div>
 
         {/* ── Footer (hidden when iOS keyboard is open) ── */}
-        <div className={`shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative transition-[max-height,opacity] duration-200 ${isKeyboardOpen ? 'max-h-0 opacity-0 overflow-hidden pointer-events-none' : 'max-h-[200px] opacity-100'}`}>
+        <div
+          data-hide-on-keyboard="collapse"
+          className={`shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative transition-[max-height,opacity] duration-200 ${isKeyboardOpen ? 'max-h-0 opacity-0 overflow-hidden pointer-events-none' : 'max-h-[200px] opacity-100'}`}
+        >
           {localResult ? (
             <div
               className={`mx-auto flex w-full max-w-3xl flex-col px-3 py-3 sm:px-6 ${TRAINING_STACK_GAP_MD}`}

@@ -23,6 +23,7 @@ import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
 import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
 import { useFlashTimeout } from './useFlashTimeout';
 import { useSurrenderEffect } from './useSurrenderEffect';
+import { useAppViewportStore } from '@/app/stores/appViewportStore';
 
 interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -81,6 +82,7 @@ export function ModeFirstLettersKeyboardExercise({
   inlineActionsDisabled = false,
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
@@ -236,7 +238,11 @@ export function ModeFirstLettersKeyboardExercise({
             </TrainingMetricBadge>
           </div>
         }
-        className="mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        className={
+          isKeyboardOpen
+            ? "mt-3 min-h-0 flex-1"
+            : "mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        }
         contentClassName="flex h-full flex-col"
       >
         <div

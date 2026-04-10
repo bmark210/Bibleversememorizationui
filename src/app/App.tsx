@@ -15,6 +15,7 @@ import { useAppBootstrap } from "@/app/hooks/app/useAppBootstrap";
 import { useAppDataRefetchEffects } from "@/app/hooks/app/useAppDataRefetchEffects";
 import { useAppTheme } from "@/app/hooks/app/useAppTheme";
 import { useDashboardData } from "@/app/hooks/app/useDashboardData";
+import { useAppViewportSync } from "@/app/hooks/app/useAppViewportSync";
 import { useTelegramWebAppSetup } from "@/app/hooks/app/useTelegramWebAppSetup";
 import { useTrainingVersesPool } from "@/app/hooks/app/useTrainingVersesPool";
 import { cancelIdleTask, scheduleIdleTask } from "@/app/lib/idleTask";
@@ -139,6 +140,7 @@ export default function App({ onInitialContentReady }: AppProps) {
   } = useTrainingVersesPool(telegramId, activeScreen);
 
   useTelegramWebAppSetup();
+  useAppViewportSync();
 
   useAppBootstrap({
     setTelegramId,

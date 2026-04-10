@@ -30,10 +30,10 @@ import { useFlashTimeout } from './useFlashTimeout';
 import { useSurrenderEffect } from './useSurrenderEffect';
 import {
   TRAINING_ACTION_BUTTON_STRONG_CLASS,
-  TRAINING_SECTION_SPACING_SM,
   TRAINING_STACK_GAP_SM,
   TRAINING_STACK_GAP_MD,
 } from '../trainingActionTokens';
+import { useAppViewportStore } from '@/app/stores/appViewportStore';
 
 interface TypingModeProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -60,6 +60,7 @@ export function ModeFullRecallExercise({
   inlineActionsDisabled = false,
 }: TypingModeProps) {
   const fontSizes = useTrainingFontSize();
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const [userInput, setUserInput] = useState('');
   const [matchPercent, setMatchPercent] = useState<number | null>(null);
@@ -208,7 +209,11 @@ export function ModeFullRecallExercise({
             ) : null}
           </div>
         }
-        className="mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        className={
+          isKeyboardOpen
+            ? "mt-3 min-h-0 flex-1"
+            : "mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        }
         contentClassName="flex h-full flex-col"
       >
         <div
@@ -239,7 +244,14 @@ export function ModeFullRecallExercise({
       </TrainingExerciseSection>
 
       {/* Match percent + check button */}
-      <div className={`mt-4 flex shrink-0 flex-col ${TRAINING_STACK_GAP_MD}`}>
+      <div
+        data-hide-on-keyboard="collapse"
+        className={`mt-4 flex shrink-0 flex-col transition-[max-height,opacity,margin] duration-200 ${TRAINING_STACK_GAP_MD} ${
+          isKeyboardOpen
+            ? 'max-h-0 overflow-hidden opacity-0 pointer-events-none mt-0'
+            : 'max-h-40 opacity-100'
+        }`}
+      >
         {matchPercent !== null && (
           <div
             className={`rounded-xl border px-3 py-2 text-sm ${
@@ -256,6 +268,7 @@ export function ModeFullRecallExercise({
             </p>
           </div>
         )}
+      </div>
         {!isCompleted && !surrendered ? (
           <Button
             type="button"
@@ -265,7 +278,6 @@ export function ModeFullRecallExercise({
             Проверить
           </Button>
         ) : null}
-      </div>
 
       <SplitExerciseActionRail
         remainingMistakes={Math.max(0, totalMistakes)}

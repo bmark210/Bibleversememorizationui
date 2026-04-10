@@ -6,6 +6,7 @@ import {
   TRAINING_ACTION_BUTTON_STRONG_CLASS,
   TRAINING_ACTION_ROW_PADDING_CLASS,
 } from "../trainingActionTokens";
+import { useAppViewportStore } from "@/app/stores/appViewportStore";
 
 interface SplitExerciseActionRailProps {
   remainingMistakes: number;
@@ -34,6 +35,12 @@ export function SplitExerciseActionRail({
   onRequestQuickForget,
   disabled = false,
 }: SplitExerciseActionRailProps) {
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
+
+  if (isKeyboardOpen) {
+    return null;
+  }
+
   if (!showRemainingMistakes && !showQuickForgetAction) {
     return null;
   }
