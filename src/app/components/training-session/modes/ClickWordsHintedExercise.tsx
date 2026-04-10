@@ -40,7 +40,7 @@ import { useSurrenderEffect } from "./useSurrenderEffect";
 import {
   TRAINING_HALVES_GAP_CLASS,
   TRAINING_SECTION_CONTENT_INSET_SM,
-  TRAINING_SECTION_INSET_SM,
+  TRAINING_SECTION_INSET_MD,
 } from "../trainingActionTokens";
 
 interface ClickWordsHintedExerciseProps {
@@ -154,14 +154,14 @@ function buildExercise(params: {
 const WORD_CHOICE_BUTTON_BASE_CLASS =
   "h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap";
 const CHOICES_SECTION_CLASS =
-  `${TRAINING_HALVES_GAP_CLASS} min-h-0 flex flex-1 basis-1/2 flex-col overflow-hidden rounded-2xl border border-border/60 bg-background/70 ${TRAINING_SECTION_INSET_SM}`;
+  `${TRAINING_HALVES_GAP_CLASS} min-h-0 flex flex-[1_1_0] flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`;
 const CHOICES_HEADER_CLASS =
-  "mb-2 flex shrink-0 items-center text-xs text-muted-foreground";
+  "mb-3 flex shrink-0 items-center justify-between text-sm text-text-secondary";
 const CHOICES_WRAPPER_CLASS = "min-h-0 flex-1";
 const CHOICES_LIST_CLASS =
   `flex flex-wrap content-start gap-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`;
 const CHOICES_MISTAKE_BADGE_CLASS =
-  "inline-flex items-center rounded-full border border-border/60 bg-background/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/65";
+  "inline-flex items-center rounded-full border border-border-subtle bg-bg-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary";
 const CHOICES_BOTTOM_CUE = (
   <span className="rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/60 shadow-sm backdrop-blur-sm">
     <ArrowDownIcon className="size-3" />
@@ -375,7 +375,7 @@ export function ModeClickWordsHintedExercise({
         onOpenVerseProgress={onOpenVerseProgress}
       />
       {/* ── Top half: verse field ── */}
-      <div className="min-h-0 flex-1 basis-1/2 overflow-hidden">
+      <div className="min-h-0 flex-[1_1_0] mt-3 overflow-hidden">
         <WordSequenceField
           className="h-full"
           label="Стих с пропусками"

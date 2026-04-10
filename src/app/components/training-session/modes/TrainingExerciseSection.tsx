@@ -11,7 +11,7 @@ import {
 } from '../trainingActionTokens';
 
 export const TRAINING_SCROLL_BOTTOM_CUE = (
-  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted shadow-[var(--shadow-soft)] backdrop-blur-sm">
+  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted backdrop-blur-sm">
     <ArrowDownIcon className="size-3.5" />
   </span>
 );
@@ -46,7 +46,7 @@ export function TrainingExerciseSection({
   return (
     <div
       className={cn(
-        `min-h-0 flex flex-1 flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] ${TRAINING_SECTION_INSET_MD}`,
+        `min-h-0 flex flex-[1_1_0] flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`,
         className
       )}
     >

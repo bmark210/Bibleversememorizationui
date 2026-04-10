@@ -336,7 +336,7 @@ export function ModeVoiceRecallExercise({
           }
           contentClassName={`flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
         >
-          <div className="rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)]">
+          <div className="rounded-2xl border border-border/40 bg-bg-subtle p-2">
             <Textarea
               value={transcript}
               onChange={(event) => {

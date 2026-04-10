@@ -6,7 +6,6 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
-import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import {
@@ -219,61 +218,53 @@ export function ModeFirstLettersKeyboardExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <TrainingExerciseSection
-          title="Первые буквы"
-          meta={
-            <div className="flex items-center gap-1.5">
-              <TrainingMetricBadge
-                tone={
-                  completedUnits === expectedLetters.length && expectedLetters.length > 0
-                    ? 'success'
-                    : 'neutral'
-                }
-              >
-                {completedUnits}/{expectedLetters.length}
-              </TrainingMetricBadge>
-              <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
-                До сброса {remainingMistakes}
-              </TrainingMetricBadge>
-            </div>
-          }
-          className="min-h-0"
-          contentClassName="flex h-full flex-col gap-3 pb-1"
-        >
-          <p
-            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
-            style={{ fontSize: `${fontSizes.sm}px` }}
-          >
-          </p>
-
-          <div
-            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
-              shakeFlash.value === true
-                  ? 'border-destructive/60 bg-destructive/5'
-                  : successFlash.value === true
-                    ? 'border-status-learning/25 bg-status-learning-soft'
-                    : 'border-border/60'
-              }`}
-          >
-            <Textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(event) => applyNextInputValue(event.target.value)}
-              onFocus={handleInputFocus}
-              placeholder="Введите первые буквы..."
-              disabled={isCompleted || surrendered}
-              data-swipe-through="true"
-              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
-              style={{ fontSize: `${fontSizes.base}px` }}
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              enterKeyHint="done"
-            />
+      <TrainingExerciseSection
+        title="Первые буквы"
+        meta={
+          <div className="flex items-center gap-1.5">
+            <TrainingMetricBadge
+              tone={
+                completedUnits === expectedLetters.length && expectedLetters.length > 0
+                  ? 'success'
+                  : 'neutral'
+              }
+            >
+              {completedUnits}/{expectedLetters.length}
+            </TrainingMetricBadge>
+            <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
           </div>
-        </TrainingExerciseSection>
-      </ScrollShadowContainer>
+        }
+        className="mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        contentClassName="flex h-full flex-col"
+      >
+        <div
+          className={`flex flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
+            shakeFlash.value === true
+              ? 'border-state-error/50 bg-state-error/8'
+              : successFlash.value === true
+                ? 'border-status-learning/25 bg-status-learning-soft'
+                : 'border-border/40 bg-bg-subtle'
+          }`}
+        >
+          <Textarea
+            ref={inputRef}
+            value={inputValue}
+            onChange={(event) => applyNextInputValue(event.target.value)}
+            onFocus={handleInputFocus}
+            placeholder="Введите первые буквы..."
+            disabled={isCompleted || surrendered}
+            data-swipe-through="true"
+            className="flex-1 h-[8rem] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{ fontSize: `${fontSizes.base}px` }}
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="done"
+          />
+        </div>
+      </TrainingExerciseSection>
 
       <SplitExerciseActionRail
         remainingMistakes={remainingMistakes}

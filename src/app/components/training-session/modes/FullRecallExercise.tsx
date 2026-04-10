@@ -9,7 +9,6 @@ import { TrainingModeId } from '@/shared/training/modeEngine';
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useTrainingFontSize } from './useTrainingFontSize';
-import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
 import { TrainingExerciseSection, TrainingMetricBadge } from './TrainingExerciseSection';
@@ -192,81 +191,81 @@ export function ModeFullRecallExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName={TRAINING_SECTION_SPACING_SM} shadowSize={20}>
-        <TrainingExerciseSection
-          title="Введите стих целиком"
-          meta={
-            <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
-              <TrainingMetricBadge
-                tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
-              >
-                {completedWords}/{totalWords}
+      <TrainingExerciseSection
+        title="Введите стих целиком"
+        meta={
+          <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
+            <TrainingMetricBadge
+              tone={completedWords === totalWords && totalWords > 0 ? 'success' : 'neutral'}
+            >
+              {completedWords}/{totalWords}
+            </TrainingMetricBadge>
+            <TrainingMetricBadge>{`Порог ${RECALL_THRESHOLD}%`}</TrainingMetricBadge>
+            {totalMistakes > 0 ? (
+              <TrainingMetricBadge tone="warning">
+                Проверок {totalMistakes}
               </TrainingMetricBadge>
-              <TrainingMetricBadge>{`Порог ${RECALL_THRESHOLD}%`}</TrainingMetricBadge>
-              {totalMistakes > 0 ? (
-                <TrainingMetricBadge tone="warning">
-                  Проверок {totalMistakes}
-                </TrainingMetricBadge>
-              ) : null}
-            </div>
-          }
-          className="min-h-0"
-          contentClassName={`flex h-full flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
+            ) : null}
+          </div>
+        }
+        className="mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
+        contentClassName="flex h-full flex-col"
+      >
+        <div
+          className={`flex flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
+            shakeFlash.value === true
+              ? 'border-state-error/50 bg-state-error/8'
+              : successFlashState.value === true
+                ? 'border-status-learning/25 bg-status-learning-soft'
+                : 'border-border/40 bg-bg-subtle'
+          }`}
         >
+          <Textarea
+            ref={inputRef}
+            value={userInput}
+            onChange={(event) => handleInputChange(event.target.value)}
+            onFocus={handleInputFocus}
+            placeholder="Введите стих целиком..."
+            rows={5}
+            className="flex-1 min-h-[8rem] resize-none border-0 !bg-transparent p-4 leading-relaxed shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{ fontSize: `${fontSizes.base}px` }}
+            disabled={isCompleted || surrendered}
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="done"
+          />
+        </div>
+      </TrainingExerciseSection>
+
+      {/* Match percent + check button */}
+      <div className={`mt-4 flex shrink-0 flex-col ${TRAINING_STACK_GAP_MD}`}>
+        {matchPercent !== null && (
           <div
-            className={`relative flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated p-2 shadow-[var(--shadow-soft)] transition-colors ${
-              shakeFlash.value === true
-                ? 'border-state-error/50 bg-state-error/8'
-                : successFlashState.value === true
-                  ? 'border-status-learning/25 bg-status-learning-soft'
-                  : 'border-border-subtle'
+            className={`rounded-xl border px-3 py-2 text-sm ${
+              matchPercent === 100
+                ? 'border-status-learning/25 bg-status-learning-soft text-status-learning'
+                : matchPercent >= RECALL_THRESHOLD
+                  ? 'border-state-warning/30 bg-state-warning/12 text-state-warning'
+                  : 'border-state-error/30 bg-state-error/10 text-state-error'
             }`}
           >
-            <Textarea
-              ref={inputRef}
-              value={userInput}
-              onChange={(event) => handleInputChange(event.target.value)}
-              onFocus={handleInputFocus}
-              placeholder="Введите стих целиком..."
-              rows={5}
-              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 !bg-transparent p-4 leading-relaxed shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
-              style={{ fontSize: `${fontSizes.base}px` }}
-              disabled={isCompleted || surrendered}
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              enterKeyHint="done"
-            />
+            <p className={`flex items-center justify-between ${TRAINING_STACK_GAP_SM}`}>
+              <span className="text-text-muted">Процент соответствия</span>
+              <span className="font-semibold tabular-nums">{matchPercent}%</span>
+            </p>
           </div>
-
-          {matchPercent !== null && (
-            <div
-              className={`rounded-xl border px-3 py-2 text-sm ${
-                matchPercent === 100
-                  ? 'border-status-learning/25 bg-status-learning-soft text-status-learning'
-                  : matchPercent >= RECALL_THRESHOLD
-                    ? 'border-state-warning/30 bg-state-warning/12 text-state-warning'
-                    : 'border-state-error/30 bg-state-error/10 text-state-error'
-              }`}
-            >
-              <p className={`flex items-center justify-between ${TRAINING_STACK_GAP_SM}`}>
-                <span className="text-text-muted">Процент соответствия</span>
-                <span className="font-semibold tabular-nums">{matchPercent}%</span>
-              </p>
-            </div>
-          )}
-
-          {!isCompleted && !surrendered ? (
-            <Button
-              type="button"
-              className={`${TRAINING_ACTION_BUTTON_STRONG_CLASS} mb-2 w-full`}
-              onClick={handleCheck}
-            >
-              Проверить
-            </Button>
-          ) : null}
-        </TrainingExerciseSection>
-      </ScrollShadowContainer>
+        )}
+        {!isCompleted && !surrendered ? (
+          <Button
+            type="button"
+            className={`${TRAINING_ACTION_BUTTON_STRONG_CLASS} w-full`}
+            onClick={handleCheck}
+          >
+            Проверить
+          </Button>
+        ) : null}
+      </div>
 
       <SplitExerciseActionRail
         remainingMistakes={Math.max(0, totalMistakes)}

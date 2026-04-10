@@ -170,7 +170,7 @@ export function WordSequenceField({
 
   return (
     <div className={cn(
-      `relative flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/70 ${TRAINING_SECTION_INSET_SM}`,
+      `relative flex min-h-0 flex-col rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_SM}`,
       className
     )}>
       <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -187,7 +187,7 @@ export function WordSequenceField({
           height: SHADOW_SIZE,
           opacity: showTopShadow ? 1 : 0,
           background:
-            'linear-gradient(to bottom, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)',
+            'linear-gradient(to bottom, var(--color-bg-elevated, var(--color-background, hsl(0 0% 100%))) 0%, transparent 100%)',
         }}
       />
 
@@ -235,7 +235,7 @@ export function WordSequenceField({
           height: SHADOW_SIZE,
           opacity: showBottomShadow ? 1 : 0,
           background:
-            'linear-gradient(to top, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)',
+            'linear-gradient(to top, var(--color-bg-elevated, var(--color-background, hsl(0 0% 100%))) 0%, transparent 100%)',
         }}
       />
     </div>

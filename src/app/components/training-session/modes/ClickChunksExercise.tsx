@@ -260,7 +260,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
             {selectedCount}/{totalChunks}
           </TrainingMetricBadge>
         }
-        className="mt-3 min-h-0 flex-1"
+        className="mt-3 min-h-0 flex-[1_1_0]"
         scrollable
         contentClassName="space-y-2 pb-2"
       >
@@ -291,7 +291,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1.1] my-2`}
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1_1_0]`}
           scrollable
           contentClassName={`grid grid-cols-1 gap-2.5 min-[520px]:grid-cols-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >

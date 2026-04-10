@@ -325,7 +325,7 @@ export function ModeFirstLettersTapExercise({
             {selectedCount}/{total}
           </TrainingMetricBadge>
         }
-        className="mt-3 min-h-0 flex-1 basis-1/2"
+        className="mt-3 min-h-0 flex-[1_1_0]"
         contentClassName="h-full"
       >
         <div
@@ -373,7 +373,7 @@ export function ModeFirstLettersTapExercise({
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-1 basis-1/2`}
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1_1_0]`}
           scrollable
           contentClassName={`flex flex-wrap content-start gap-2.5 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >
