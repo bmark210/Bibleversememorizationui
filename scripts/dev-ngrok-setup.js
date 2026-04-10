@@ -107,7 +107,8 @@ async function main() {
   const devUrl = `${url}${devSuffix}`;
 
   console.log(`\n${C.B}📱 Ссылка для бота:${C.CL}   ${shortUrl}`);
-  console.log(`${C.B}🖥️  Ссылка для теста:${C.CL}  ${url}\n`);
+  console.log(`${C.B}🖥️  Ссылка для теста:${C.CL}  ${url}`);
+  console.log(`${C.B}🧪 Dev URL с мок-данными:${C.CL} ${devUrl}\n`);
 
   openBrowser(devUrl);
 }
