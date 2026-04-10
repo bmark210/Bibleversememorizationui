@@ -39,6 +39,7 @@ import {
   TRAINING_STACK_GAP_MD,
 } from '../trainingActionTokens';
 import { useAppViewportStore } from '@/app/stores/appViewportStore';
+import { TRAINING_FULL_TEXT_ENTRY_SECTION_STYLE } from './textEntryLayout';
 
 interface VoiceRecallExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -302,7 +303,7 @@ export function ModeVoiceRecallExercise({
       />
       <ScrollShadowContainer
         className="mt-3 flex-1"
-        scrollClassName={`${TRAINING_SECTION_SPACING_SM} ${isKeyboardOpen ? 'flex h-full flex-col' : ''}`}
+        scrollClassName={TRAINING_SECTION_SPACING_SM}
         shadowSize={20}
       >
         <TrainingExerciseSection
@@ -367,16 +368,17 @@ export function ModeVoiceRecallExercise({
               ) : null}
             </div>
           }
-          className={isKeyboardOpen ? 'flex-1' : undefined}
+          className="shrink-0"
+          style={TRAINING_FULL_TEXT_ENTRY_SECTION_STYLE}
           contentClassName={cn(
             `flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`,
-            isKeyboardOpen && 'min-h-0 flex-1 pb-0'
+            isKeyboardOpen && 'pb-0'
           )}
         >
           <div
             className={cn(
               'rounded-2xl border border-border/40 bg-bg-subtle p-2',
-              isKeyboardOpen && 'flex min-h-0 flex-1'
+              'flex min-h-0 flex-1'
             )}
           >
             <Textarea

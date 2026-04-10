@@ -34,6 +34,7 @@ import {
   TRAINING_STACK_GAP_MD,
 } from '../trainingActionTokens';
 import { useAppViewportStore } from '@/app/stores/appViewportStore';
+import { TRAINING_FULL_TEXT_ENTRY_SECTION_STYLE } from './textEntryLayout';
 
 interface TypingModeProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -209,11 +210,8 @@ export function ModeFullRecallExercise({
             ) : null}
           </div>
         }
-        className={
-          isKeyboardOpen
-            ? "mt-3 min-h-0 flex-1"
-            : "mt-3 min-h-0 h-[clamp(10rem,44svh,18rem)] shrink-0"
-        }
+        className="mt-3 min-h-0 shrink-0"
+        style={TRAINING_FULL_TEXT_ENTRY_SECTION_STYLE}
         contentClassName="flex h-full flex-col"
       >
         <div

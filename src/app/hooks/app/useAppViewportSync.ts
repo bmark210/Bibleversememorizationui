@@ -9,6 +9,12 @@ import { useAppViewportStore } from "@/app/stores/appViewportStore";
 
 const KEYBOARD_OPEN_THRESHOLD_PX = 100;
 const FOCUS_SETTLE_DELAY_MS = 120;
+const FULL_TEXT_ENTRY_HEIGHT_MIN_PX = 192;
+const FULL_TEXT_ENTRY_HEIGHT_MAX_PX = 248;
+const FULL_TEXT_ENTRY_HEIGHT_RATIO = 0.3;
+const COMPACT_TEXT_ENTRY_HEIGHT_MIN_PX = 160;
+const COMPACT_TEXT_ENTRY_HEIGHT_MAX_PX = 208;
+const COMPACT_TEXT_ENTRY_HEIGHT_RATIO = 0.24;
 
 const NON_TEXT_INPUT_TYPES = new Set([
   "button",
@@ -26,6 +32,10 @@ const NON_TEXT_INPUT_TYPES = new Set([
 function roundViewportValue(value: number | undefined | null) {
   if (!value || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.round(value));
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function isEditableElement(target: EventTarget | null) {
@@ -73,6 +83,16 @@ function syncRootViewportState(
   visibleViewportHeight: number,
 ) {
   const root = document.documentElement;
+  const fullTextEntryHeight = clampNumber(
+    Math.round(stableViewportHeight * FULL_TEXT_ENTRY_HEIGHT_RATIO),
+    FULL_TEXT_ENTRY_HEIGHT_MIN_PX,
+    FULL_TEXT_ENTRY_HEIGHT_MAX_PX,
+  );
+  const compactTextEntryHeight = clampNumber(
+    Math.round(stableViewportHeight * COMPACT_TEXT_ENTRY_HEIGHT_RATIO),
+    COMPACT_TEXT_ENTRY_HEIGHT_MIN_PX,
+    COMPACT_TEXT_ENTRY_HEIGHT_MAX_PX,
+  );
 
   root.dataset.appKeyboardOpen = isKeyboardOpen ? "true" : "false";
   root.style.setProperty("--app-keyboard-offset", `${keyboardOffset}px`);
@@ -84,6 +104,14 @@ function syncRootViewportState(
     "--app-visible-viewport-height",
     `${visibleViewportHeight}px`,
   );
+  root.style.setProperty(
+    "--app-training-text-entry-height",
+    `${fullTextEntryHeight}px`,
+  );
+  root.style.setProperty(
+    "--app-training-text-entry-compact-height",
+    `${compactTextEntryHeight}px`,
+  );
 }
 
 function resetRootViewportState() {
@@ -92,6 +120,8 @@ function resetRootViewportState() {
   root.style.setProperty("--app-keyboard-offset", "0px");
   root.style.removeProperty("--app-stable-viewport-height");
   root.style.removeProperty("--app-visible-viewport-height");
+  root.style.removeProperty("--app-training-text-entry-height");
+  root.style.removeProperty("--app-training-text-entry-compact-height");
 }
 
 export function useAppViewportSync() {

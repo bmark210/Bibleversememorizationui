@@ -1,7 +1,7 @@
 'use client'
 
 import { ArrowDownIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { cn } from '@/app/components/ui/utils';
@@ -21,6 +21,7 @@ interface TrainingExerciseSectionProps {
   meta?: ReactNode;
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
   headerClassName?: string;
   bodyClassName?: string;
   contentClassName?: string;
@@ -35,6 +36,7 @@ export function TrainingExerciseSection({
   meta,
   children,
   className,
+  style,
   headerClassName,
   bodyClassName,
   contentClassName,
@@ -43,12 +45,17 @@ export function TrainingExerciseSection({
   bottomCue = TRAINING_SCROLL_BOTTOM_CUE,
   scrollClassName,
 }: TrainingExerciseSectionProps) {
+  const hasFixedHeight =
+    style?.height != null || style?.minHeight != null || style?.maxHeight != null;
+
   return (
     <div
       className={cn(
-        `min-h-0 flex flex-[1_1_0] flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`,
+        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`,
+        hasFixedHeight ? 'flex-none shrink-0' : 'flex-[1_1_0]',
         className
       )}
+      style={style}
     >
       <div
         className={cn(

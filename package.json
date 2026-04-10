@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev:ngrok": "node scripts/dev-ngrok-setup.js",
-    "dev": "next dev --turbo --hostname 0.0.0.0 --port 3001",
-    "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --turbo --hostname 0.0.0.0 --port 3001",
+    "dev": "next dev --hostname 0.0.0.0 --port 3001",
+    "dev:turbo": "next dev --turbo --hostname 0.0.0.0 --port 3001",
+    "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --hostname 0.0.0.0 --port 3001",
+    "dev:prod-api:turbo": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --turbo --hostname 0.0.0.0 --port 3001",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "lint": "eslint src/ --max-warnings 0",
