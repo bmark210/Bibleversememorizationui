@@ -59,7 +59,7 @@ export function SplitExerciseActionRail({
     );
   }
 
-  return (
+  return ( 
     <div className={cn(
       "relative my-2 flex w-full max-w-xl items-center gap-2.5 rounded-2xl border border-border-subtle bg-bg-elevated text-sm shadow-[var(--shadow-soft)]",
       TRAINING_ACTION_ROW_PADDING_CLASS,

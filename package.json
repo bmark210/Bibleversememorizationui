@@ -4,8 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbo --hostname 0.0.0.0 --port 3001",
-    "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --turbo --hostname 0.0.0.0 --port 3001",
+    "dev:ngrok": "node scripts/dev-ngrok-setup.js",
+    "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "lint": "eslint src/ --max-warnings 0",
@@ -17,8 +18,7 @@
     "generate-api:fetch": "tsx scripts/generate-openapi.ts",
     "generate-api:codegen": "npx openapi-typescript-codegen --input openapi.json --output src/api --client axios",
     "generate-api:types": "npx openapi-typescript openapi-oas3.json -o src/api/openapi-types.ts",
-    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts",
-    "dev:ngrok": "node scripts/dev-ngrok-setup.js"
+    "telegram:webhook": "tsx scripts/register-telegram-webhook.ts"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.4",

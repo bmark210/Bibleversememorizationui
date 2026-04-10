@@ -1,9 +1,7 @@
 {
-  "timestamp": "2026-04-09T23:34:59.266Z",
-  "status": "ready",
-  "ngrokUrl": "https://f5e1-2a03-f680-fe05-3675-90eb-3539-820f-339d.ngrok-free.app",
-  "miniAppUrl": "https://f5e1-2a03-f680-fe05-3675-90eb-3539-820f-339d.ngrok-free.app?tgWebAppStartParam=mock",
-  "shortenedUrl": "https://tinyurl.com/27knmk9e",
-  "telegramBot": "https://t.me/bible_memory_bot",
-  "apiPort": 3001
+  "timestamp": "2026-04-10T10:26:03.750Z",
+  "ngrokUrl": "https://deft-margarete-invigoratedly.ngrok-free.dev",
+  "botUrl": "https://deft-margarete-invigoratedly.ngrok-free.dev",
+  "devUrl": "https://deft-margarete-invigoratedly.ngrok-free.dev?tgWebAppStartParam=mock#tgWebAppData=query_id%3DAAE13yY1AAAAADXfJjU1Js_c%26user%3D%257B%2522id%2522%253A891739957%252C%2522first_name%2522%253A%2522%25D0%259C%25D0%25B0%25D1%2580%25D0%25BA%2522%252C%2522last_name%2522%253A%2522%25D0%2591%25D0%25B0%25D0%25BB%25D1%2582%25D0%25B5%25D0%25BD%25D0%25BA%25D0%25BE%2522%252C%2522username%2522%253A%2522BaltenkoMark%2522%252C%2522language_code%2522%253A%2522ru%2522%252C%2522allows_write_to_pm%2522%253Atrue%252C%2522photo_url%2522%253A%2522https%253A%255C%252F%255C%252Ft.me%255C%252Fi%255C%252Fuserpic%255C%252F320%255C%252F_TQMTDI2tuSQqgwIkgmH7bh5HFjuJkKF9-1bSvCXGC8.svg%2522%257D%26auth_date%3D1775814019%26signature%3DTwki4DdMF97QAWJZjMNg61cxWLwlQvL3KLhhFcjZs5y7K4CvAj7RS5NI03S1Y3I5qEPTALG8z136R8oUlzjYAQ%26hash%3Dac44e4f18068880fa30f693182766a1f3c25bd34360130946299824b45c40074&tgWebAppVersion=9.6&tgWebAppPlatform=ios&tgWebAppThemeParams=%7B%22section_bg_color%22%3A%22%232c2c2c%22%2C%22bg_color%22%3A%22%232c2c2c%22%2C%22text_color%22%3A%22%23ffffff%22%7D",
+  "staticDomain": true
 }

@@ -36,6 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="ru"
       className={`${inter.variable} ${literata.variable}`}
+      suppressHydrationWarning
     >
       <head>
       <meta name="color-scheme" content="light dark" />

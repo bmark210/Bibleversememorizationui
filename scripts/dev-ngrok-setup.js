@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
-import https from 'https';
-import http from 'http';
+import { spawn, exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,279 +8,108 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 const ENV_FILE = path.resolve(ROOT_DIR, '.env.local');
-const CONFIG_OUTPUT = path.resolve(ROOT_DIR, '.dev-ngrok-config.json');
 
-// Загружаем .env.local
-function loadEnv() {
-  if (fs.existsSync(ENV_FILE)) {
-    const content = fs.readFileSync(ENV_FILE, 'utf-8');
-    content.split('\n').forEach((line) => {
-      const match = line.match(/^([^=]+)=(.*)$/);
-      if (match) {
-        const key = match[1].trim();
-        const value = match[2].trim();
-        if (key && !process.env[key]) {
-          process.env[key] = value;
-        }
-      }
-    });
-  }
+// ─── Загрузка окружения ──────────────────────────────────────────────────────
+const env = {};
+if (fs.existsSync(ENV_FILE)) {
+  fs.readFileSync(ENV_FILE, 'utf-8').split('\n').forEach(line => {
+    const m = line.match(/^([^=#][^=]*)=(.*)$/);
+    if (m) env[m[1].trim()] = m[2].trim();
+  });
 }
-
-loadEnv();
 
 const CONFIG = {
-  API_PORT: 3001,
-  NGROK_API_PORT: 4040,
-  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
+  PORT: 3000,
+  BOT_TOKEN: env.TELEGRAM_BOT_TOKEN || '',
   BOT_NAME: 'Bible Memory',
-  BOT_USERNAME: 'bible_memory_bot',
+  DOMAIN: (env.NGROK_DOMAIN || '').replace(/\/$/, '').replace(/^https?:\/\//, ''),
 };
 
-const TIMEOUTS = {
-  NGROK_CHECK_INITIAL: 1500,
-  NGROK_CHECK_INTERVAL: 500,
-  NGROK_MAX_ATTEMPTS: 30,
-  API_START_DELAY: 3000,
-};
+const C = { G: '\x1b[32m', Y: '\x1b[33m', R: '\x1b[31m', B: '\x1b[1m', CL: '\x1b[0m' };
+const log = (i, m) => console.log(`${C.B}[${new Date().toLocaleTimeString()}]${C.CL} ${i} ${m}`);
 
-const C = { R: '\x1b[0m', B: '\x1b[1m', G: '\x1b[32m', Y: '\x1b[33m', R_: '\x1b[31m', C_: '\x1b[36m' };
+// ─── Служебные функции ────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-function log(type, msg) {
-  const t = new Date().toLocaleTimeString('ru-RU', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const p = `[${t}]`;
-  const prefix = type === 'e' ? `${C.R_}${p} ❌${C.R}` : type === 's' ? `${C.G}${p} ✅${C.R}` : type === 'w' ? `${C.Y}${p} ⚠️ ${C.R}` : `${C.C_}${p} ℹ️ ${C.R}`;
-  console.log(`${prefix} ${msg}`);
-}
-
-function box(title, content) {
-  console.log(`\n${C.B}${C.G}┌${'─'.repeat(title.length + 4)}┐${C.R}`);
-  console.log(`${C.B}${C.G}│${C.R}  ${title}  ${C.B}${C.G}│${C.R}`);
-  console.log(`${C.B}${C.G}└${'─'.repeat(title.length + 4)}┘${C.R}\n${content}`);
-}
-
-function httpReq(opts, data = null) {
-  return new Promise((res, rej) => {
-    const client = opts.port === 443 ? https : http;
-    const req = client.request(opts, (r) => {
-      let body = '';
-      r.on('data', (c) => (body += c));
-      r.on('end', () => {
-        try {
-          res({ status: r.statusCode, data: JSON.parse(body) });
-        } catch {
-          res({ status: r.statusCode, data: body });
-        }
-      });
-    });
-    req.on('error', rej);
-    req.setTimeout(5000, () => {
-      req.destroy();
-      rej(new Error('Timeout'));
-    });
-    if (data) req.write(JSON.stringify(data));
-    req.end();
-  });
+async function killPort(port) {
+  log('🔧', `Очистка порта ${port}...`);
+  const cmd = process.platform === 'win32' 
+    ? `powershell -Command "Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }"`
+    : `fuser -k ${port}/tcp`;
+  return new Promise(r => spawn(cmd, { shell: true }).on('exit', r));
 }
 
 async function getNgrokUrl() {
-  log('i', 'Получаю ngrok URL...');
-  let attempts = 0;
-  const maxAttempts = TIMEOUTS.NGROK_MAX_ATTEMPTS;
-  await new Promise((r) => setTimeout(r, TIMEOUTS.NGROK_CHECK_INITIAL));
-
-  while (attempts < maxAttempts) {
+  for (let i = 0; i < 20; i++) {
     try {
-      const res = await httpReq({
-        hostname: 'localhost',
-        port: CONFIG.NGROK_API_PORT,
-        path: '/api/tunnels',
-        method: 'GET',
-      });
-      if (res.status === 200 && res.data.tunnels?.length > 0) {
-        const tunnel = res.data.tunnels.find((t) => t.public_url?.startsWith('https://'));
-        if (tunnel?.public_url) {
-          log('s', `ngrok URL: ${C.B}${tunnel.public_url}${C.R}`);
-          return tunnel.public_url;
-        }
-      }
-    } catch (e) {
-      // retry
-    }
-    attempts++;
-    if (attempts < maxAttempts) {
-      await new Promise((r) => setTimeout(r, TIMEOUTS.NGROK_CHECK_INTERVAL));
-    }
+      const res = await fetch('http://localhost:4040/api/tunnels');
+      const data = await res.json();
+      const url = data.tunnels?.[0]?.public_url;
+      if (url) return url;
+    } catch {}
+    await sleep(1000);
   }
-  throw new Error('Не удалось получить URL от ngrok');
+  throw new Error('ngrok не запустился');
 }
 
-async function shortenUrl(longUrl) {
-  log('i', 'Сокращаю URL через TinyURL...');
+async function shorten(url) {
+  log('🔗', 'Сокращение ссылки...');
   try {
-    const res = await httpReq({
-      hostname: 'tinyurl.com',
-      path: `/api-create.php?url=${encodeURIComponent(longUrl)}`,
-      method: 'GET',
-    });
-    if (res.status === 200 && typeof res.data === 'string') {
-      const shortUrl = res.data.trim();
-      if (shortUrl.startsWith('https://') || shortUrl.startsWith('http://')) {
-        log('s', `URL сокращён: ${C.B}${shortUrl}${C.R}`);
-        return shortUrl;
-      }
-    }
-    log('w', 'TinyURL недоступен, используется оригинальный URL');
-    return longUrl;
-  } catch (e) {
-    log('w', `Ошибка TinyURL, используется оригинальный URL`);
-    return longUrl;
+    const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
+    return await res.text();
+  } catch {
+    return url;
   }
 }
 
-async function updateBot(miniAppUrl) {
-  if (!CONFIG.TELEGRAM_BOT_TOKEN) {
-    log('w', 'TELEGRAM_BOT_TOKEN не установлен');
-    return false;
-  }
-  log('i', 'Обновляю бота...');
-  try {
-    const res = await httpReq(
-      {
-        hostname: 'api.telegram.org',
-        port: 443,
-        path: `/bot${CONFIG.TELEGRAM_BOT_TOKEN}/setChatMenuButton`,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      },
-      {
-        menu_button: {
-          type: 'web_app',
-          text: CONFIG.BOT_NAME,
-          web_app: { url: miniAppUrl },
-        },
-      }
-    );
-    if (res.status === 200 && res.data?.ok === true) {
-      log('s', 'Бот обновлён!');
-      return true;
-    } else {
-      log('e', `Ошибка Telegram: ${res.data?.description || 'Unknown'}`);
-      return false;
-    }
-  } catch (e) {
-    log('e', `Ошибка обновления бота: ${e.message}`);
-    return false;
-  }
-}
-
-const PROCESSES = [];
-
-function spawn_proc(cmd, args) {
-  return new Promise((res, rej) => {
-    log('i', `Запускаю: ${C.B}${cmd} ${args.join(' ')}${C.R}`);
-    const proc = spawn(cmd, args, {
-      stdio: 'inherit',
-      shell: true,
-      cwd: ROOT_DIR,
-    });
-    PROCESSES.push(proc);
-    proc.on('error', rej);
-    setTimeout(() => (proc.killed ? null : res(proc)), TIMEOUTS.API_START_DELAY);
+async function updateBot(url) {
+  if (!CONFIG.BOT_TOKEN) return log('⚠️', 'Токен бота не найден');
+  log('🤖', 'Обновление бота...');
+  const res = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/setChatMenuButton`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ menu_button: { type: 'web_app', text: CONFIG.BOT_NAME, web_app: { url } } })
   });
+  const data = await res.json();
+  if (data.ok) log('✅', 'Бот обновлен!');
 }
 
-async function cleanup() {
-  log('i', 'Останавливаю процессы...');
-  PROCESSES.forEach((p) => {
-    if (p && !p.killed) {
-      try {
-        process.kill(-p.pid);
-      } catch (e) {
-        // ignore
-      }
-    }
-  });
-  await new Promise((r) => setTimeout(r, 1000));
-  log('s', 'Готово');
+function openBrowser(url) {
+  const cmd = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  exec(`${cmd} "${url}"`);
 }
 
-function saveConfig(cfg) {
-  try {
-    fs.writeFileSync(CONFIG_OUTPUT, JSON.stringify(cfg, null, 2));
-  } catch (e) {
-    log('w', `Не удалось сохранить конфиг`);
-  }
-}
-
+// ─── Основной процесс ────────────────────────────────────────────────────────
 async function main() {
   console.clear();
-  console.log(`${C.B}${C.G}╔${'═'.repeat(70)}╗${C.R}`);
-  console.log(`${C.B}${C.G}║${C.R} 🚀 Bible Memory - Telegram Mini App Development${' '.repeat(10)}${C.B}${C.G}║${C.R}`);
-  console.log(`${C.B}${C.G}╚${'═'.repeat(70)}╝${C.R}\n`);
+  console.log(`${C.B}${C.G}🚀 Bible Memory — Professional Dev Mode${C.CL}\n`);
 
-  if (!CONFIG.TELEGRAM_BOT_TOKEN) {
-    log('e', 'TELEGRAM_BOT_TOKEN не установлен!');
-    log('i', 'Добавьте в .env.local: TELEGRAM_BOT_TOKEN=ваш_токен');
-    process.exit(1);
-  }
+  await killPort(CONFIG.PORT);
+  exec(process.platform === 'win32' ? 'taskkill /f /im ngrok.exe' : 'pkill -9 ngrok');
+  await sleep(1000);
 
-  try {
-    log('s', `Bot Token: ${CONFIG.TELEGRAM_BOT_TOKEN.substring(0, 20)}...`);
+  // Запуск API
+  log('▶️', 'Запуск API...');
+  spawn('npm run dev:prod-api', { shell: true, stdio: 'inherit', cwd: ROOT_DIR });
 
-    log('i', '▶ Запуск API...');
-    await spawn_proc('npm', ['run', 'dev:prod-api']);
-    log('s', `API готов: http://localhost:${CONFIG.API_PORT}`);
+  // Запуск ngrok
+  log('▶️', 'Запуск ngrok...');
+  const ngrokArgs = CONFIG.DOMAIN ? `http --domain ${CONFIG.DOMAIN} ${CONFIG.PORT}` : `http ${CONFIG.PORT}`;
+  spawn(`ngrok ${ngrokArgs}`, { shell: true, stdio: 'ignore' });
 
-    log('i', '▶ Запуск ngrok...');
-    await spawn_proc('ngrok', ['http', CONFIG.API_PORT.toString()]);
-    log('s', 'ngrok готов');
+  const url = await getNgrokUrl();
+  log('🌐', `ngrok: ${C.G}${url}${C.CL}`);
 
-    const ngrokUrl = await getNgrokUrl();
-    const miniAppUrl = `${ngrokUrl}?tgWebAppStartParam=mock`;
-    const shortenedUrl = await shortenUrl(miniAppUrl);
+  const shortUrl = await shorten(url);
+  await updateBot(shortUrl);
 
-    await updateBot(shortenedUrl);
+  const devSuffix = `?tgWebAppStartParam=mock#tgWebAppData=query_id%3DAAE13yY1AAAAADXfJjU1Js_c%26user%3D%257B%2522id%2522%253A891739957%252C%2522first_name%2522%253A%2522%25D0%259C%25D0%25B0%25D1%2580%25D0%25BA%2522%252C%2522last_name%2522%253A%2522%25D0%2591%25D0%25B0%25D0%25BB%25D1%2582%25D0%25B5%25D0%25BD%25D0%25BA%25D0%25BE%2522%252C%2522username%2522%253A%2522BaltenkoMark%2522%252C%2522language_code%2522%253A%2522ru%2522%252C%2522allows_write_to_pm%2522%253Atrue%252C%2522photo_url%2522%253A%2522https%253A%255C%252F%255C%252Ft.me%255C%252Fi%255C%252Fuserpic%255C%252F320%255C%252F_TQMTDI2tuSQqgwIkgmH7bh5HFjuJkKF9-1bSvCXGC8.svg%2522%257D%26auth_date%3D1775814019%26signature%3DTwki4DdMF97QAWJZjMNg61cxWLwlQvL3KLhhFcjZs5y7K4CvAj7RS5NI03S1Y3I5qEPTALG8z136R8oUlzjYAQ%26hash%3Dac44e4f18068880fa30f693182766a1f3c25bd34360130946299824b45c40074&tgWebAppVersion=9.6&tgWebAppPlatform=ios&tgWebAppThemeParams=%7B%22section_bg_color%22%3A%22%232c2c2c%22%2C%22bg_color%22%3A%22%232c2c2c%22%2C%22text_color%22%3A%22%23ffffff%22%7D`;
+  const devUrl = `${url}${devSuffix}`;
 
-    const cfg = {
-      timestamp: new Date().toISOString(),
-      status: 'ready',
-      ngrokUrl,
-      miniAppUrl,
-      shortenedUrl,
-      telegramBot: `https://t.me/${CONFIG.BOT_USERNAME}`,
-      apiPort: CONFIG.API_PORT,
-    };
+  console.log(`\n${C.B}📱 Ссылка для бота:${C.CL}   ${shortUrl}`);
+  console.log(`${C.B}🖥️  Ссылка для теста:${C.CL}  ${url}\n`);
 
-    saveConfig(cfg);
-
-    console.log('\n' + '═'.repeat(70));
-    console.log(`\n${C.B}${C.G}✨ ГОТОВО К РАЗРАБОТКЕ!${C.R}\n`);
-    console.log(`${C.B}📱 Mini App URL:${C.R}`);
-    console.log(`   ${C.B}${C.G}${shortenedUrl}${C.R}\n`);
-    console.log(`${C.B}🔗 Полный URL:${C.R}`);
-    console.log(`   ${shortenedUrl}\n`);
-    console.log(`${C.B}🤖 Telegram:${C.R}`);
-    console.log(`   https://t.me/${CONFIG.BOT_USERNAME}\n`);
-    console.log(`${C.B}${C.Y}⏹️  Ctrl+C для остановки${C.R}\n`);
-    console.log('═'.repeat(70) + '\n');
-  } catch (e) {
-    log('e', `Ошибка: ${e.message}`);
-    await cleanup();
-    process.exit(1);
-  }
+  openBrowser(devUrl);
 }
 
-process.on('SIGINT', async () => {
-  console.log('');
-  log('i', 'Остановка...');
-  await cleanup();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await cleanup();
-  process.exit(0);
-});
-
-main();
+main().catch(e => log('❌', e.message));
