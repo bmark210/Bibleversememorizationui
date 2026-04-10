@@ -19,7 +19,7 @@ export const TRAINING_SECTION_SPACING_SM = "space-y-3";
 export const TRAINING_SECTION_SPACING_MD = "space-y-4";
 export const TRAINING_SECTION_SPACING_LG = "space-y-6";
 
-export const TRAINING_SECTION_INSET_SM = "px-3 py-3";
+export const TRAINING_SECTION_INSET_SM = "px-3 pt-3";
 export const TRAINING_SECTION_INSET_MD = "px-4 pt-4 pb-3";
 export const TRAINING_SECTION_CONTENT_INSET_SM = "px-1 pb-3 pt-1";
 

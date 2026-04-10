@@ -329,7 +329,7 @@ export function ModeFirstLettersTapExercise({
         contentClassName="h-full"
       >
         <div
-          className="h-full min-h-0 overflow-y-auto overscroll-contain py-2 pr-1"
+          className="h-full min-h-0 overflow-y-auto overscroll-contain pt-2 pb-4 pr-1"
           role="group"
           aria-label="Последовательность букв"
         >
