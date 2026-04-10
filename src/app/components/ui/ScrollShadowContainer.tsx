@@ -17,6 +17,8 @@ interface ScrollShadowContainerProps
   className?: string;
   /** Extra classes on the inner scrollable div. */
   scrollClassName?: string;
+  /** Whether to render top/bottom fade shadows. */
+  showShadows?: boolean;
   /** Shadow height in px (default 28). */
   shadowSize?: number;
   /** Optional cue rendered above bottom shadow while more content is available below. */
@@ -47,6 +49,7 @@ export function ScrollShadowContainer({
   children,
   className,
   scrollClassName,
+  showShadows = true,
   shadowSize = 28,
   bottomCue,
   bottomCueClassName,
@@ -94,8 +97,8 @@ export function ScrollShadowContainer({
     return () => el.removeEventListener("scrollend", onScrollEnd);
   }, [swipeOnly, measure]);
 
-  const showTopShadow = !atTop;
-  const showBottomShadow = !atBottom;
+  const showTopShadow = showShadows && !atTop;
+  const showBottomShadow = showShadows && !atBottom;
 
   return (
     <div
@@ -103,16 +106,18 @@ export function ScrollShadowContainer({
       {...rest}
     >
       {/* Top shadow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-200"
-        style={{
-          height: shadowSize,
-          opacity: showTopShadow ? 1 : 0,
-          background:
-            "linear-gradient(to bottom, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
-        }}
-      />
+      {showShadows ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-200"
+          style={{
+            height: shadowSize,
+            opacity: showTopShadow ? 1 : 0,
+            background:
+              "linear-gradient(to bottom, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
+          }}
+        />
+      ) : null}
 
       {/* Scrollable content */}
       <div
@@ -133,16 +138,18 @@ export function ScrollShadowContainer({
       </div>
 
       {/* Bottom shadow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 transition-opacity duration-200"
-        style={{
-          height: shadowSize,
-          opacity: showBottomShadow ? 1 : 0,
-          background:
-            "linear-gradient(to top, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
-        }}
-      />
+      {showShadows ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 transition-opacity duration-200"
+          style={{
+            height: shadowSize,
+            opacity: showBottomShadow ? 1 : 0,
+            background:
+              "linear-gradient(to top, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
+          }}
+        />
+      ) : null}
 
       {bottomCue ? (
         <div

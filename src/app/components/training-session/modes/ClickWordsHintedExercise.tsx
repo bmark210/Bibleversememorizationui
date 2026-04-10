@@ -31,7 +31,6 @@ import {
   getHintedRevealCount,
 } from "@/modules/training/hints/exerciseDifficultyConfig";
 import { useTrainingFontSize } from "./useTrainingFontSize";
-import { ArrowDownIcon } from "lucide-react";
 import {
   getChoiceButtonFlashClassName,
   useChoiceFlashFeedback,
@@ -162,11 +161,6 @@ const CHOICES_LIST_CLASS =
   `flex flex-wrap content-start gap-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`;
 const CHOICES_MISTAKE_BADGE_CLASS =
   "inline-flex items-center rounded-full border border-border-subtle bg-bg-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary";
-const CHOICES_BOTTOM_CUE = (
-  <span className="rounded-full border border-border/50 bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/60 shadow-sm backdrop-blur-sm">
-    <ArrowDownIcon className="size-3" />
-  </span>
-);
 
 export function ModeClickWordsHintedExercise({
   verse,
@@ -400,8 +394,8 @@ export function ModeClickWordsHintedExercise({
             <ScrollShadowContainer
               className="min-h-0 h-full"
               scrollClassName="h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+              showShadows={false}
               shadowSize={40}
-              bottomCue={CHOICES_BOTTOM_CUE}
             >
               <div className={CHOICES_LIST_CLASS}>
                 {uniqueChoices.map((choice) => {

@@ -1065,6 +1065,7 @@ export function AnchorTrainingSession({
                 <ScrollShadowContainer
                   className="flex-1 min-h-0 px-4"
                   scrollClassName="flex justify-center"
+                  showShadows={false}
                   shadowSize={24}
                 >
                   <div className="w-full max-w-lg mx-auto my-auto py-6 space-y-5">
@@ -1151,6 +1152,7 @@ export function AnchorTrainingSession({
                         : "min-h-0 flex-1 basis-1/2",
                     )}
                     scrollClassName="flex justify-center"
+                    showShadows={false}
                     shadowSize={24}
                   >
                     <div
@@ -1185,6 +1187,7 @@ export function AnchorTrainingSession({
                         ? "flex-1 min-h-0"
                         : "min-h-0 flex-1 basis-1/2 border-t border-border-subtle pt-2",
                     )}
+                    showShadows={false}
                   >
                     <div className="w-full max-w-lg mx-auto">
                       {modeRenderer}

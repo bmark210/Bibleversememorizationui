@@ -1,6 +1,5 @@
 'use client'
 
-import { ArrowDownIcon } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
@@ -9,12 +8,6 @@ import {
   TRAINING_SECTION_INSET_MD,
   TRAINING_STACK_GAP_SM,
 } from '../trainingActionTokens';
-
-export const TRAINING_SCROLL_BOTTOM_CUE = (
-  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted backdrop-blur-sm">
-    <ArrowDownIcon className="size-3.5" />
-  </span>
-);
 
 interface TrainingExerciseSectionProps {
   title: ReactNode;
@@ -42,7 +35,7 @@ export function TrainingExerciseSection({
   contentClassName,
   scrollable = false,
   shadowSize = 40,
-  bottomCue = TRAINING_SCROLL_BOTTOM_CUE,
+  bottomCue,
   scrollClassName,
 }: TrainingExerciseSectionProps) {
   const hasFixedHeight =
@@ -75,6 +68,7 @@ export function TrainingExerciseSection({
               'h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]',
               scrollClassName
             )}
+            showShadows={false}
             shadowSize={shadowSize}
             bottomCue={bottomCue}
           >

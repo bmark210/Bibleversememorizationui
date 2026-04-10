@@ -304,6 +304,7 @@ export function ModeVoiceRecallExercise({
       <ScrollShadowContainer
         className="mt-3 flex-1"
         scrollClassName={TRAINING_SECTION_SPACING_SM}
+        showShadows={false}
         shadowSize={20}
       >
         <TrainingExerciseSection
