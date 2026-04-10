@@ -135,20 +135,6 @@ export const toast = {
   warning(message: ReactNode, options?: AppToastOptions) {
     return showToast("warning", message, options);
   },
-  loading(message: ReactNode, options?: AppToastOptions) {
-    const label = resolveLabel(options);
-    const data: ExternalToast = {
-      id: options?.id,
-      toasterId: options?.toasterId ?? APP_TOASTER_ID,
-      duration: options?.duration ?? Infinity,
-      closeButton: options?.closeButton ?? false,
-      icon: options?.icon,
-      className: options?.className,
-      style: options?.style,
-      description: renderToastDescription(options?.description, options?.meta),
-    };
-    return sonner.loading(renderToastTitle(message, label), data);
-  },
   dismiss(toastId?: string | number) {
     sonner.dismiss(toastId);
   },

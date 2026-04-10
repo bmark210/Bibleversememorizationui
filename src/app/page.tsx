@@ -8,6 +8,15 @@ import { TelegramProvider } from './contexts/TelegramContext'
 import { BookOpen } from 'lucide-react'
 import { getTelegramWebApp } from './lib/telegramWebApp'
 
+const TelegramDevPanel =
+  process.env.NODE_ENV === 'development'
+    ? dynamic(
+        () => import('./components/dev/TelegramDevPanel').then((module) => module.TelegramDevPanel),
+        { ssr: false }
+      )
+    : function EmptyTelegramDevPanel() {
+        return null
+      }
 
 const TELEGRAM_BOT_URL = 'https://t.me/bible_memory_bot'
 const TELEGRAM_BOT_PREVIEW_IMAGE_URL =
@@ -146,6 +155,7 @@ export default function Page() {
           <TelegramProvider>
             <App onInitialContentReady={() => setIsAppReady(true)} />
           </TelegramProvider>
+          <TelegramDevPanel />
         </div>
       ) : null}
 

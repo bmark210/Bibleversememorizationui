@@ -9,6 +9,7 @@ import { useTelegramUiStore } from "../stores/telegramUiStore";
 import { useScreenStore } from "../stores/screenStore";
 import { cn } from "./ui/utils";
 import type { AppRootPage } from "@/app/domain/appPages";
+
 interface LayoutProps {
   children: React.ReactNode;
   onNavigateIntent?: (page: string) => void;
@@ -176,10 +177,7 @@ export function Layout({
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
-
-
       {isTelegramFullscreen && !hideAppChrome ? (
-
         <header
           id="app-layout-header"
           className={`sticky top-0 z-10 overflow-hidden border-b border-border-subtle bg-bg-overlay shadow-[var(--shadow-soft)] backdrop-blur-2xl transition-[opacity,transform] duration-400 ease-out ${
