@@ -592,26 +592,10 @@ export function TrainingSession({
     pendingAction !== null;
 
   /* ── Stable inline actions object (memoized) ── */
+  // Quick-forget action moved into AssistDrawer; no inline actions needed.
   const inlineExerciseActions = useMemo<
     TrainingModeInlineActionsProps | undefined
-  >(
-    () =>
-      showQuickForgetAction
-        ? {
-            showInlineQuickForgetAction: true,
-            onRequestInlineQuickForget: () => {
-              setHasInteractionStarted(true);
-              session.requestQuickForget();
-            },
-            inlineActionsDisabled: session.isActionPending,
-          }
-        : undefined,
-    [
-      showQuickForgetAction,
-      session.isActionPending,
-      session.requestQuickForget,
-    ],
-  );
+  >(() => undefined, []);
 
   const markInteractionStarted = useCallback(() => {
     setHasInteractionStarted(true);
@@ -799,10 +783,10 @@ export function TrainingSession({
         <DrawerContent>
           <DrawerHeader className="pb-1">
             <DrawerTitle className="text-lg text-foreground/95">
-              Отметить как «забыл»?
+              Вы хотите перейти на предыдущий уровень этого стиха?
             </DrawerTitle>
             <DrawerDescription className="text-base leading-relaxed text-muted-foreground/90">
-              Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно
+              Текущий шаг стиха перейдет на предыдущий, уровень также снизиться согласно
               правилам этапа изучения.
             </DrawerDescription>
           </DrawerHeader>
@@ -852,6 +836,12 @@ export function TrainingSession({
           hintState={hintHelpers.hintState}
           onRequestAssist={handleRequestAssist}
           onRequestShowVerse={handleRequestShowVerse}
+          showQuickForgetAction={showQuickForgetAction}
+          onRequestQuickForget={() => {
+            setAssistDrawerOpen(false);
+            setHasInteractionStarted(true);
+            session.requestQuickForget();
+          }}
         />
       )}
     </>
