@@ -7,6 +7,7 @@ import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
 import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
+import { cn } from "@/app/components/ui/utils";
 import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
 import { FixedBottomPanel } from './FixedBottomPanel';
 import { SplitExerciseActionRail } from './SplitExerciseActionRail';
@@ -37,6 +38,7 @@ import {
   TRAINING_STACK_GAP_SM,
   TRAINING_STACK_GAP_MD,
 } from '../trainingActionTokens';
+import { useAppViewportStore } from '@/app/stores/appViewportStore';
 
 interface VoiceRecallExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -97,8 +99,11 @@ export function ModeVoiceRecallExercise({
 }: VoiceRecallExerciseProps) {
   const RECALL_THRESHOLD = getExerciseRecallThreshold(verse.difficultyLevel);
   const fontSizes = useTrainingFontSize();
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const mobileFocusTimeoutRef = useRef<number | null>(null);
 
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -127,6 +132,10 @@ export function ModeVoiceRecallExercise({
     finalTranscriptRef.current = '';
 
     return () => {
+      if (mobileFocusTimeoutRef.current) {
+        window.clearTimeout(mobileFocusTimeoutRef.current);
+        mobileFocusTimeoutRef.current = null;
+      }
       recognitionRef.current?.stop();
       recognitionRef.current = null;
     };
@@ -238,6 +247,24 @@ export function ModeVoiceRecallExercise({
     setMatchPercent(null);
   };
 
+  const handleInputFocus = () => {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
+
+    if (mobileFocusTimeoutRef.current) {
+      window.clearTimeout(mobileFocusTimeoutRef.current);
+    }
+
+    mobileFocusTimeoutRef.current = window.setTimeout(() => {
+      inputRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
+      mobileFocusTimeoutRef.current = null;
+    }, 140);
+  };
+
   const handleCheck = () => {
     const comparable = normalizeComparableText(transcript);
     if (!comparable || !targetComparableText) {
@@ -273,8 +300,13 @@ export function ModeVoiceRecallExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName={TRAINING_SECTION_SPACING_SM} shadowSize={20}>
+      <ScrollShadowContainer
+        className="mt-3 flex-1"
+        scrollClassName={`${TRAINING_SECTION_SPACING_SM} ${isKeyboardOpen ? 'flex h-full flex-col' : ''}`}
+        shadowSize={20}
+      >
         <TrainingExerciseSection
+          data-hide-on-keyboard="collapse"
           title="Управление записью"
           meta={
             <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
@@ -286,6 +318,7 @@ export function ModeVoiceRecallExercise({
               ) : null}
             </div>
           }
+          className={isKeyboardOpen ? 'max-h-0 min-h-0 border-transparent py-0' : undefined}
           contentClassName={`flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
         >
           <div className={`flex flex-wrap ${TRAINING_STACK_GAP_SM} ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
@@ -334,23 +367,40 @@ export function ModeVoiceRecallExercise({
               ) : null}
             </div>
           }
-          contentClassName={`flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`}
+          className={isKeyboardOpen ? 'flex-1' : undefined}
+          contentClassName={cn(
+            `flex flex-col pb-1 ${TRAINING_STACK_GAP_MD}`,
+            isKeyboardOpen && 'min-h-0 flex-1 pb-0'
+          )}
         >
-          <div className="rounded-2xl border border-border/40 bg-bg-subtle p-2">
+          <div
+            className={cn(
+              'rounded-2xl border border-border/40 bg-bg-subtle p-2',
+              isKeyboardOpen && 'flex min-h-0 flex-1'
+            )}
+          >
             <Textarea
+              ref={inputRef}
               value={transcript}
               onChange={(event) => {
                 setTranscript(event.target.value);
                 if (matchPercent !== null) setMatchPercent(null);
               }}
-              className="min-h-[clamp(7.5rem,24dvh,10rem)] resize-none border-0 bg-transparent leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              onFocus={handleInputFocus}
+              className={cn(
+                'resize-none border-0 bg-transparent leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
+                isKeyboardOpen
+                  ? 'flex-1 min-h-0'
+                  : 'min-h-[clamp(7.5rem,24dvh,10rem)]'
+              )}
               style={{ fontSize: `${fontSizes.base}px` }}
               placeholder="Здесь будет распознанный текст..."
               disabled={isChecked || surrendered}
+              data-swipe-through="true"
             />
           </div>
 
-          {matchPercent !== null && (
+          {matchPercent !== null && !isKeyboardOpen && (
             <div
               className={`rounded-xl border px-3 py-2 text-sm ${
                 matchPercent === 100
