@@ -43,7 +43,7 @@ export function TrainingExerciseSection({
   return (
     <div
       className={cn(
-        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated px-4 py-4`,
+        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated px-4 pt-4`,
         hasFixedHeight ? 'flex-none shrink-0' : 'flex-[1_1_0]',
         className
       )}

@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev:ngrok": "node scripts/dev-ngrok-setup.js",
+    "dev:tunnel": "node scripts/dev-ngrok-setup.js",
     "dev": "next dev --hostname 0.0.0.0 --port 3001",
     "dev:turbo": "next dev --turbo --hostname 0.0.0.0 --port 3001",
     "dev:prod-api": "cross-env NEXT_PUBLIC_API_BASE_URL=https://bible-memory-db-production.up.railway.app next dev --hostname 0.0.0.0 --port 3001",
@@ -67,6 +67,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9.39.3",
     "eslint-config-next": "^16.1.6",
+    "localtunnel": "^2.0.2",
     "openapi-typescript": "^7.13.0",
     "openapi-typescript-codegen": "^0.30.0",
     "swagger2openapi": "^7.0.8",

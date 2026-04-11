@@ -215,7 +215,7 @@ export function ModeFullRecallExercise({
         contentClassName="flex h-full flex-col"
       >
         <div
-          className={`flex flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
+          className={`flex flex-1 flex-col overflow-hidden rounded-2xl border mb-4 transition-colors ${
             shakeFlash.value === true
               ? 'border-state-error/50 bg-state-error/8'
               : successFlashState.value === true
