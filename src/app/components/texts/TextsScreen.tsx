@@ -1064,8 +1064,8 @@ export function TextsScreen({
           className="min-h-0 flex-1"
           scrollClassName="py-4"
           showShadows
-          topOnly
-          shadowStyle="inset"
+          shadowSize={56}
+          shadowStyle="mask"
         >
           {isMineMode ? (
             isLoadingBoxes ? (

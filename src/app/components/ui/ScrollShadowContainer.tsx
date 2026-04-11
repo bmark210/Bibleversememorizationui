@@ -39,8 +39,10 @@ interface ScrollShadowContainerProps
    * Shadow rendering style:
    * - "gradient" (default) — absolute div with background gradient overlay
    * - "inset" — inset box-shadow on the outer wrapper; color-agnostic, works on any background
+   * - "mask" — CSS mask-image on the inner scrollable div; best quality, works on any background,
+   *            no extra DOM nodes, used by top-tier apps (Linear, Notion, iOS)
    */
-  shadowStyle?: 'gradient' | 'inset';
+  shadowStyle?: 'gradient' | 'inset' | 'mask';
 }
 
 /**
@@ -114,6 +116,17 @@ export function ScrollShadowContainer({
   const showBottomShadow = showShadows && !topOnly && !atBottom;
 
   const isInset = shadowStyle === 'inset';
+  const isMask  = shadowStyle === 'mask';
+
+  // ── mask-image (applied to the inner scrollable div) ─────────────────────
+  // Fades content at scroll edges. Color-agnostic — works on any background.
+  let maskValue: string | undefined;
+  if (isMask && showShadows && (showTopShadow || showBottomShadow)) {
+    const s = shadowSize;
+    const topPart = showTopShadow    ? `transparent 0px, black ${s}px` : `black 0px`;
+    const botPart = showBottomShadow ? `black calc(100% - ${s}px), transparent 100%` : `black 100%`;
+    maskValue = `linear-gradient(to bottom, ${topPart}, ${botPart})`;
+  }
 
   return (
     <div
@@ -131,7 +144,7 @@ export function ScrollShadowContainer({
       {...rest}
     >
       {/* Top shadow — gradient mode only */}
-      {showShadows && !isInset ? (
+      {showShadows && !isInset && !isMask ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-200"
@@ -156,13 +169,14 @@ export function ScrollShadowContainer({
             : "overflow-y-auto overscroll-contain h-full",
           scrollClassName
         )}
+        style={maskValue ? { maskImage: maskValue, WebkitMaskImage: maskValue } : undefined}
         onScroll={handleScroll}
       >
         {children}
       </div>
 
       {/* Bottom shadow — gradient mode only */}
-      {showShadows && !topOnly && !isInset ? (
+      {showShadows && !topOnly && !isInset && !isMask ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 z-10 transition-opacity duration-200"

@@ -13,7 +13,7 @@
  *   Result:      only DB-backed verses that match semantic filters.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -685,6 +685,24 @@ function VerseSkeleton() {
   );
 }
 
+// ─── Scroll mask helper ───────────────────────────────────────────────────────
+
+/**
+ * Builds a CSS mask-image style that fades content at the scroll edges.
+ * Color-agnostic — works on any background.
+ */
+function buildScrollMask(
+  atTop: boolean,
+  atBottom: boolean,
+  size: number,
+): CSSProperties {
+  if (atTop && atBottom) return {};
+  const topPart   = atTop    ? `black 0px`             : `transparent 0px, black ${size}px`;
+  const botPart   = atBottom ? `black 100%`            : `black calc(100% - ${size}px), transparent 100%`;
+  const mask = `linear-gradient(to bottom, ${topPart}, ${botPart})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function BibleCatalogView({
@@ -707,6 +725,7 @@ export function BibleCatalogView({
 
   // ── Applied filters ──────────────────────────────────────────────────────
   const [verseListAtTop, setVerseListAtTop] = useState(true);
+  const [verseListAtBottom, setVerseListAtBottom] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
@@ -1141,12 +1160,8 @@ export function BibleCatalogView({
 
         {/* ── Verse list ────────────────────────────────────────────────────── */}
         <div
-          className="relative min-h-0 flex-1 transition-shadow duration-300"
-          style={{
-            boxShadow: verseListAtTop
-              ? 'none'
-              : 'inset 0 10px 14px -10px rgba(0,0,0,0.12)',
-          }}
+          className="relative min-h-0 flex-1"
+          style={buildScrollMask(verseListAtTop, verseListAtBottom, 52)}
         >
           {isLoading ? (
             <div className="space-y-2 pb-4">
@@ -1172,6 +1187,7 @@ export function BibleCatalogView({
               className="h-full w-full overscroll-contain [scrollbar-gutter:stable] bg-transparent"
               style={{ height: "100%" }}
               atTopStateChange={setVerseListAtTop}
+              atBottomStateChange={setVerseListAtBottom}
               endReached={() => {
                 if (hasMore && !isLoadingMore) {
                   void loadMore();

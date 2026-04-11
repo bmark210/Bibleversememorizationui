@@ -60,6 +60,15 @@ function isScrollableOverflow(value: string) {
   return value === 'auto' || value === 'scroll' || value === 'overlay';
 }
 
+/** Builds a CSS mask-image that fades scroll edges; color-agnostic. */
+function buildScrollMask(atTop: boolean, atBottom: boolean, size = 48): React.CSSProperties {
+  if (atTop && atBottom) return {};
+  const topPart = atTop    ? 'black 0px'                       : `transparent 0px, black ${size}px`;
+  const botPart = atBottom ? 'black 100%'                      : `black calc(100% - ${size}px), transparent 100%`;
+  const mask = `linear-gradient(to bottom, ${topPart}, ${botPart})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
 function findNearestScrollParent(element: HTMLElement | null) {
   let current = element?.parentElement ?? null;
 
@@ -483,6 +492,7 @@ export function VerseVirtualizedList({
   );
 
   const [atTop, setAtTop] = useState(true);
+  const [atBottom, setAtBottom] = useState(true);
 
   if (items.length === 0) return null;
 
@@ -490,10 +500,7 @@ export function VerseVirtualizedList({
     <div
       ref={containerRef}
       className={usesExternalScrollParent ? 'w-full relative' : 'h-full w-full relative'}
-      style={{
-        boxShadow: atTop ? 'none' : 'inset 0 10px 14px -10px rgba(0,0,0,0.12)',
-        transition: 'box-shadow 0.3s ease',
-      }}
+      style={buildScrollMask(atTop, atBottom, 48)}
     >
       <Virtuoso<Verse>
         key={`verse-virtuoso-${statusFilter}`}
@@ -510,6 +517,7 @@ export function VerseVirtualizedList({
         endReached={handleEndReached}
         rangeChanged={handleRangeChanged}
         atTopStateChange={setAtTop}
+        atBottomStateChange={setAtBottom}
         scrollSeekConfiguration={
           shouldEnableScrollSeek
             ? {
