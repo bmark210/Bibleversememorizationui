@@ -98,4 +98,6 @@ export type VerseGalleryProps = {
   onRequestMorePreviewVerses?: () => Promise<boolean>;
   primaryActionOverride?: VerseGalleryPrimaryActionOverride | null;
   showDeleteAction?: boolean;
+  /** Called when the user taps "Заменить" on a LEARNING verse */
+  onReplaceRequest?: (verse: Verse) => void;
 };

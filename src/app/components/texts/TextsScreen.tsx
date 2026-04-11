@@ -66,6 +66,7 @@ import {
 } from "./TextCards";
 import { BibleCatalogView } from "./BibleCatalogView";
 import { LearningReplacementDrawer } from "./LearningReplacementDrawer";
+import { VerseDeleteDrawer } from "@/app/components/VerseDeleteDrawer";
 import {
   getTextVerseStatusMutation,
   resolveTextVersePresentation,
@@ -392,6 +393,7 @@ export function TextsScreen({
   const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
   const [isImportingPublicBox, setIsImportingPublicBox] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
+  const [removeVerseTarget, setRemoveVerseTarget] = useState<Verse | null>(null);
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
     useState<LearningReplacementState>(null);
@@ -1160,7 +1162,7 @@ export function TextsScreen({
               <div className="min-w-0 flex-1 overflow-hidden">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2
-                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
                     title={visibleBoxTitle}
                   >
                     {visibleBoxTitle}
@@ -1271,7 +1273,7 @@ export function TextsScreen({
                           variant="ghost"
                           className="rounded-full px-3 text-state-error hover:text-state-error"
                           disabled={isBusy}
-                          onClick={() => void handleRemoveVerse(verse)}
+                          onClick={() => setRemoveVerseTarget(verse)}
                         >
                           {isBusy ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1309,7 +1311,7 @@ export function TextsScreen({
               <div className="min-w-0 flex-1 overflow-hidden">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2
-                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.7rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
+                    className="block min-w-0 truncate [font-family:var(--font-heading)] text-[1.4rem] font-semibold tracking-tight text-text-primary sm:text-[1.9rem]"
                     title={visiblePublicBox.title}
                   >
                     {visiblePublicBox.title}
@@ -1458,6 +1460,24 @@ export function TextsScreen({
         onOpenChange={handleReplacementDrawerOpenChange}
       />
 
+      <VerseDeleteDrawer
+        open={removeVerseTarget !== null}
+        isActionPending={
+          removeVerseTarget !== null &&
+          busyVerseId === removeVerseTarget.externalVerseId
+        }
+        onOpenChange={(open) => {
+          if (!open) setRemoveVerseTarget(null);
+        }}
+        onConfirm={() => {
+          if (removeVerseTarget) {
+            void handleRemoveVerse(removeVerseTarget).then(() =>
+              setRemoveVerseTarget(null),
+            );
+          }
+        }}
+      />
+
       {galleryState ? (
         <VerseGallery
           verses={sortedBoxVerses}
@@ -1472,6 +1492,9 @@ export function TextsScreen({
           previewHasMore={false}
           previewIsLoadingMore={false}
           showDeleteAction={false}
+          onReplaceRequest={
+            hasReplacementCandidates ? handleOpenReplacementDrawer : undefined
+          }
         />
       ) : null}
 

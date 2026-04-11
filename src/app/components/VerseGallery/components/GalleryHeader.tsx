@@ -20,7 +20,7 @@ export const GalleryHeader = React.memo(function GalleryHeader({
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-full bg-gradient-to-b from-bg-app/88 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-full "
         style={{ height: HEADER_VEIL_HEIGHT_PX }}
       />
 

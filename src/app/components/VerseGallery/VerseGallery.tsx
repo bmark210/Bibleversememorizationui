@@ -139,6 +139,7 @@ export function VerseGallery({
   onRequestMorePreviewVerses,
   primaryActionOverride = null,
   showDeleteAction,
+  onReplaceRequest,
 }: VerseGalleryProps) {
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
@@ -512,6 +513,11 @@ export function VerseGallery({
               onStatusAction={handlePrimaryStatusAction}
               onCatalogRemove={handleDeleteDialogOpen}
               onDeleteRequest={handleDeleteDialogOpen}
+              onReplaceRequest={
+                onReplaceRequest && previewActiveVerse
+                  ? () => onReplaceRequest(previewActiveVerse)
+                  : undefined
+              }
               onUtilityAction={handleUtilityStatusAction}
               onOpenProgress={handleOpenProgress}
               onOpenTags={handleOpenTagsDrawer}
