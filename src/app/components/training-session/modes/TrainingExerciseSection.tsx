@@ -69,6 +69,7 @@ export function TrainingExerciseSection({
             )}
             showShadows={true}
             shadowSize={shadowSize}
+            shadowBg="var(--color-bg-elevated)"
             bottomCue={bottomCue}
           >
             <div className={contentClassName}>{children}</div>

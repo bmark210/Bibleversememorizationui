@@ -583,7 +583,7 @@ function VerseCard({
               : "border-border-subtle/70 bg-transparent group-hover:border-brand-primary/50",
           )}
         >
-          {isSelected && <Check className="h-2.5 w-2.5 text-[color:#241b14]" />}
+          {isSelected && <Check className="h-2.5 w-2.5 text-background" />}
         </span>
 
         <div className="min-w-0 flex-1">
