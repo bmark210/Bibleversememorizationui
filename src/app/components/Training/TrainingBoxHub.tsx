@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Gamepad2, Layers, Repeat, Sparkles } from "lucide-react";
+import { Brain, Check, Gamepad2, Layers, Repeat, Dumbbell } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import {
@@ -55,23 +55,39 @@ function ModeOption({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-[1.45rem] border px-4 py-4 text-left transition-colors",
+        "w-full rounded-[1.45rem] border px-4 py-4 text-left transition-all duration-200",
         active
-          ? "border-brand-primary/25 bg-bg-elevated"
-          : "border-border-subtle bg-bg-base hover:bg-bg-elevated",
+          ? "border-brand-primary/50 bg-brand-primary/10 shadow-[var(--shadow-chip)]"
+          : "border-border-subtle bg-bg-base hover:border-brand-primary/20 hover:bg-bg-elevated",
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">
+          <div className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-200",
+            active
+              ? "bg-brand-primary/25 text-brand-primary"
+              : "bg-brand-primary/10 text-brand-primary/60"
+          )}>
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-text-primary">
+            <p className={cn(
+              "truncate text-sm font-semibold transition-colors duration-200",
+              active ? "text-text-primary" : "text-text-secondary"
+            )}>
               {label}
             </p>
             <p className="mt-0.5 text-xs text-text-muted">{value}</p>
           </div>
+        </div>
+        <div className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all duration-200",
+          active
+            ? "bg-brand-primary text-bg-base scale-100 opacity-100"
+            : "scale-75 opacity-0"
+        )}>
+          <Check className="h-3 w-3" strokeWidth={2.5} />
         </div>
       </div>
     </button>
@@ -158,7 +174,7 @@ export function TrainingBoxHub({
 
       <div className="mt-4 flex gap-2 rounded-[1.25rem] border border-border-subtle bg-bg-subtle p-1">
         {[
-          { id: "core" as const, label: "Практика", icon: Sparkles },
+          { id: "core" as const, label: "Практика", icon: Dumbbell },
           { id: "anchor" as const, label: "Игры", icon: Gamepad2 },
         ].map((item) => {
           const Icon = item.icon;
@@ -169,10 +185,10 @@ export function TrainingBoxHub({
               type="button"
               onClick={() => onScenarioChange(item.id)}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-[0.95rem] px-3 py-2 text-sm font-medium transition-colors",
+                "flex flex-1 items-center justify-center gap-2 rounded-[0.95rem] px-3 py-2 text-sm font-medium transition-all duration-200",
                 active
-                  ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
-                  : "text-text-secondary",
+                  ? "bg-bg-elevated text-brand-primary shadow-[var(--shadow-chip)]"
+                  : "text-text-secondary hover:text-text-primary",
               )}
             >
               <Icon className="h-4 w-4" />
@@ -182,7 +198,7 @@ export function TrainingBoxHub({
         })}
       </div>
 
-      <TextSurfaceCard className="mt-4 flex min-h-0 flex-1 flex-col p-4">
+      <TextSurfaceCard className="mt-4 flex min-h-0 flex-1 flex-col p-4 overflow-y-auto">
         {selectedScenario === "core" ? (
           <>
             <div className="space-y-3">

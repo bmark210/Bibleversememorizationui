@@ -19,6 +19,8 @@ interface ScrollShadowContainerProps
   scrollClassName?: string;
   /** Whether to render top/bottom fade shadows. */
   showShadows?: boolean;
+  /** When true — only the top shadow is rendered (no bottom shadow). */
+  topOnly?: boolean;
   /** Shadow height in px (default 28). */
   shadowSize?: number;
   /** Background colour for the fade gradient (defaults to bg-elevated → background). */
@@ -33,6 +35,12 @@ interface ScrollShadowContainerProps
    * handled by the parent swipe handler (handleSwipeScroll).
    */
   swipeOnly?: boolean;
+  /**
+   * Shadow rendering style:
+   * - "gradient" (default) — absolute div with background gradient overlay
+   * - "inset" — inset box-shadow on the outer wrapper; color-agnostic, works on any background
+   */
+  shadowStyle?: 'gradient' | 'inset';
 }
 
 /**
@@ -52,11 +60,13 @@ export function ScrollShadowContainer({
   className,
   scrollClassName,
   showShadows = true,
+  topOnly = false,
   shadowSize = 28,
-  shadowBg = 'var(--color-bg-elevated, var(--color-background, hsl(0 0% 100%)))',
+  shadowBg = 'var(--bg-app)',
   bottomCue,
   bottomCueClassName,
   swipeOnly = false,
+  shadowStyle = 'gradient',
   ...rest
 }: ScrollShadowContainerProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -101,15 +111,27 @@ export function ScrollShadowContainer({
   }, [swipeOnly, measure]);
 
   const showTopShadow = showShadows && !atTop;
-  const showBottomShadow = showShadows && !atBottom;
+  const showBottomShadow = showShadows && !topOnly && !atBottom;
+
+  const isInset = shadowStyle === 'inset';
 
   return (
     <div
       className={cn("relative min-h-0", className)}
+      style={
+        isInset
+          ? {
+              boxShadow: showTopShadow
+                ? 'inset 0 10px 14px -10px rgba(0,0,0,0.12)'
+                : 'inset 0 10px 14px -10px rgba(0,0,0,0)',
+              transition: 'box-shadow 0.3s ease',
+            }
+          : undefined
+      }
       {...rest}
     >
-      {/* Top shadow */}
-      {showShadows ? (
+      {/* Top shadow — gradient mode only */}
+      {showShadows && !isInset ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-200"
@@ -139,8 +161,8 @@ export function ScrollShadowContainer({
         {children}
       </div>
 
-      {/* Bottom shadow */}
-      {showShadows ? (
+      {/* Bottom shadow — gradient mode only */}
+      {showShadows && !topOnly && !isInset ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 z-10 transition-opacity duration-200"

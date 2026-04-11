@@ -9,7 +9,7 @@ import {
   Pause,
   Play,
   Plus,
-  Sparkles,
+  Dumbbell,
   Trash2,
 } from "lucide-react";
 import {
@@ -23,6 +23,7 @@ import {
   AvatarImage,
 } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
+import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
 import {
   Drawer,
   DrawerContent,
@@ -1027,13 +1028,12 @@ export function TextsScreen({
     );
 
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className=" [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+          <div className="w-full">
+            <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
               {isMineMode ? "Мои коробки" : "Публичные коробки"}
             </h1>
-            <p className="mt-2 text-sm text-text-muted">{countLabel}</p>
           </div>
 
           <CompactSegmentedControl<BoxesViewMode>
@@ -1058,7 +1058,15 @@ export function TextsScreen({
           ) : null}
         </div>
 
-        <div className="py-4">
+        <p className="my-2 px-2 text-sm text-text-muted">{countLabel}</p>
+
+        <ScrollShadowContainer
+          className="min-h-0 flex-1"
+          scrollClassName="py-4"
+          showShadows
+          topOnly
+          shadowStyle="inset"
+        >
           {isMineMode ? (
             isLoadingBoxes ? (
               <div className="flex h-full items-center justify-center text-text-muted">
@@ -1073,7 +1081,7 @@ export function TextsScreen({
                 Коробок пока нет
               </TextSurfaceCard>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 !bg-transparent">
                 {boxes.map((box) => (
                   <TextBoxCard
                     key={box.id}
@@ -1099,7 +1107,7 @@ export function TextsScreen({
               Публичных коробок пока нет
             </TextSurfaceCard>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 !bg-transparent">
               {publicBoxes.map((box) => (
                 <TextBoxCard
                   key={box.id}
@@ -1129,7 +1137,7 @@ export function TextsScreen({
               ) : null}
             </div>
           )}
-        </div>
+        </ScrollShadowContainer>
       </div>
     );
   };
@@ -1184,7 +1192,7 @@ export function TextsScreen({
                 disabled={visibleBox.stats.totalCount === 0}
                 onClick={handleTrainBox}
               >
-                <Sparkles className="h-4 w-4" />
+                <Dumbbell className="h-4 w-4" />
                 Тренировать
               </Button>
             </div>
@@ -1391,7 +1399,7 @@ export function TextsScreen({
         )}
       >
         {!selectedBoxId && !selectedPublicBoxId ? (
-          <div className="mb-5 mt-4 shrink-0">
+          <div className="mb-2 mt-4 shrink-0">
             <WorkspaceTabs
               activeTab={activeTab}
               onChange={handleWorkspaceTabChange}

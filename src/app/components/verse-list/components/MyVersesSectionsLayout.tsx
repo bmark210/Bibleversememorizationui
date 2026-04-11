@@ -157,10 +157,12 @@ function SectionJumpStrip({
   activeSectionKey,
   onJump,
   rows,
+  scrolled,
 }: {
   activeSectionKey: MyVersesSectionKey | null;
   onJump: (sectionIndex: number) => void;
   rows: ReturnType<typeof buildMyVersesVirtualModel>['navItems'];
+  scrolled: boolean;
 }) {
   const buttonRefs = useRef<Partial<Record<MyVersesSectionKey, HTMLButtonElement | null>>>(
     {},
@@ -178,7 +180,14 @@ function SectionJumpStrip({
   }, [activeSectionKey]);
 
   return (
-    <div className="shrink-0 border-b border-border/55 bg-bg-overlay backdrop-blur-xl">
+    <div
+      className={cn(
+        'shrink-0 border-b bg-bg-overlay backdrop-blur-xl transition-[border-color,box-shadow] duration-300',
+        scrolled
+          ? 'border-border/60 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.10)]'
+          : 'border-border/30 shadow-none',
+      )}
+    >
       <div className="px-2 py-2 sm:px-4">
         <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-full gap-2">
@@ -262,6 +271,7 @@ export function MyVersesSectionsLayout({
     [learningCapacity, sections],
   );
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [atTop, setAtTop] = useState(true);
 
   useEffect(() => {
     const maxIndex = Math.max(0, navItems.length - 1);
@@ -363,9 +373,10 @@ export function MyVersesSectionsLayout({
         activeSectionKey={activeSectionKey}
         onJump={handleJumpToSection}
         rows={navItems}
+        scrolled={!atTop}
       />
 
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
         <Virtuoso<MyVersesVirtualRow>
           ref={virtuosoRef}
           data={rows}
@@ -374,6 +385,7 @@ export function MyVersesSectionsLayout({
           components={virtuosoComponents}
           computeItemKey={(_, row) => row.rowKey}
           defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
+          atTopStateChange={setAtTop}
           rangeChanged={handleRangeChanged}
           scrollSeekConfiguration={
             shouldEnableScrollSeek

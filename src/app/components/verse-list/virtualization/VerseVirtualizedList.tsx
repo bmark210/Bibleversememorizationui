@@ -482,12 +482,18 @@ export function VerseVirtualizedList({
     [FooterComponent, HeaderComponent, SmartPlaceholder]
   );
 
+  const [atTop, setAtTop] = useState(true);
+
   if (items.length === 0) return null;
 
   return (
     <div
       ref={containerRef}
-      className={usesExternalScrollParent ? 'w-full' : 'h-full w-full'}
+      className={usesExternalScrollParent ? 'w-full relative' : 'h-full w-full relative'}
+      style={{
+        boxShadow: atTop ? 'none' : 'inset 0 10px 14px -10px rgba(0,0,0,0.12)',
+        transition: 'box-shadow 0.3s ease',
+      }}
     >
       <Virtuoso<Verse>
         key={`verse-virtuoso-${statusFilter}`}
@@ -503,6 +509,7 @@ export function VerseVirtualizedList({
         defaultItemHeight={DEFAULT_ITEM_HEIGHT_ESTIMATE}
         endReached={handleEndReached}
         rangeChanged={handleRangeChanged}
+        atTopStateChange={setAtTop}
         scrollSeekConfiguration={
           shouldEnableScrollSeek
             ? {
