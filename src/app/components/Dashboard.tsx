@@ -5,8 +5,6 @@ import { useTelegram } from "../contexts/TelegramContext";
 import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import {
-  getVerseNextAvailabilityAt,
-  getVerseProgressPercent,
   isVerseLearning,
   isVerseMastered,
   isVerseReview,
@@ -15,7 +13,7 @@ import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "./ui/utils";
 import {
-  DashboardFocusCard,
+  DashboardStreakCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from "./dashboard/DashboardSections";
@@ -40,42 +38,20 @@ interface DashboardProps {
 type TodayVersesSummary = {
   learningVersesCount: number;
   reviewVersesCount: number;
-  dueReviewCount: number;
   masteredVerses: number;
-  averageTrainingProgressPercent: number;
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────── */
 
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
 function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
-  const now = Date.now();
-
   const summary = todayVerses.reduce(
     (acc, verse) => {
-      const progress = getVerseProgressPercent(verse);
-
-      acc.progressTotal += progress;
-
       if (isVerseLearning(verse)) {
         acc.learningVersesCount += 1;
       }
 
       if (isVerseReview(verse)) {
         acc.reviewVersesCount += 1;
-
-        const nextReviewAt = getVerseNextAvailabilityAt(verse);
-        if (!nextReviewAt) {
-          acc.dueReviewCount += 1;
-        } else {
-          const nextReviewTime = nextReviewAt.getTime();
-          if (Number.isNaN(nextReviewTime) || nextReviewTime <= now) {
-            acc.dueReviewCount += 1;
-          }
-        }
       }
 
       if (isVerseMastered(verse)) {
@@ -87,21 +63,14 @@ function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
     {
       learningVersesCount: 0,
       reviewVersesCount: 0,
-      dueReviewCount: 0,
       masteredVerses: 0,
-      progressTotal: 0,
     },
   );
 
   return {
     learningVersesCount: summary.learningVersesCount,
     reviewVersesCount: summary.reviewVersesCount,
-    dueReviewCount: summary.dueReviewCount,
     masteredVerses: summary.masteredVerses,
-    averageTrainingProgressPercent:
-      todayVerses.length > 0
-        ? clampPercent(summary.progressTotal / todayVerses.length)
-        : 0,
   };
 }
 
@@ -130,8 +99,6 @@ export function Dashboard({
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount;
   const reviewVerses =
     dashboardStats?.reviewVerses ?? todaySummary.reviewVersesCount;
-  const dueReviewVerses =
-    dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount;
   const masteredVersesCount =
     dashboardStats?.masteredCount ?? todaySummary.masteredVerses;
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null;
@@ -152,6 +119,7 @@ export function Dashboard({
           key: "learning",
           label: "Изучаю",
           value: `${Math.max(0, Math.round(learningVerses))}`,
+          isLoading: isStatsPending,
           tone: "learning" as const,
         },
         {
@@ -169,13 +137,7 @@ export function Dashboard({
           tone: "mastered" as const,
         },
       ] as const,
-    [
-      isStatsPending,
-      learningVerses,
-      masteredVersesCount,
-      reviewVerses,
-      userXp,
-    ],
+    [isStatsPending, learningVerses, masteredVersesCount, reviewVerses, userXp],
   );
 
   if (isInitializingData) {
@@ -196,9 +158,6 @@ export function Dashboard({
           <DashboardWelcomeSection
             user={user}
             currentUserAvatarUrl={currentUserAvatarUrl}
-            learningVersesCount={learningVerses}
-            dueReviewVerses={dueReviewVerses}
-            dailyStreak={dailyStreak}
             onOpenTraining={onOpenTraining}
             onOpenCurrentUserProfile={
               currentTelegramId && onOpenPlayerProfile
@@ -214,12 +173,7 @@ export function Dashboard({
         </div>
 
         <div className="min-h-0 lg:col-start-2 lg:row-start-1">
-          <DashboardFocusCard
-            learningVersesCount={learningVerses}
-            dueReviewVerses={dueReviewVerses}
-            dailyStreak={dailyStreak}
-            onOpenTraining={onOpenTraining}
-          />
+          <DashboardStreakCard dailyStreak={dailyStreak} />
         </div>
 
         <div className="min-h-0 lg:col-span-2 lg:row-start-2">
