@@ -260,7 +260,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
             {selectedCount}/{totalChunks}
           </TrainingMetricBadge>
         }
-        className="mt-3 min-h-0 flex-1"
+        className="mt-3 min-h-0 flex-[1_1_0]"
         scrollable
         contentClassName="space-y-2 pb-2"
       >
@@ -268,7 +268,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
           selectedTokens.map((token) => (
             <div
               key={token.id}
-              className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 leading-relaxed text-foreground/90"
+              className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 leading-relaxed text-foreground/90 shadow-[var(--shadow-chip)]"
               style={{ fontSize: `${fontSizes.sm}px` }}
             >
               {token.text}
@@ -291,7 +291,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1.1] my-2`}
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1_1_0]`}
           scrollable
           contentClassName={`grid grid-cols-1 gap-2.5 min-[520px]:grid-cols-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >
@@ -300,7 +300,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
                 key={token.id}
                 type="button"
                 variant="outline"
-                className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
+                className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors shadow-[var(--shadow-chip)] ${
                   errorFlash.value === token.id
                       ? 'border-destructive text-destructive bg-destructive/10'
                       : successFlash.value === token.id

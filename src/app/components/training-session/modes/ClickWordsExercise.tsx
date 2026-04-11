@@ -121,7 +121,7 @@ function initClickWordsExercise(text: string) {
 }
 
 const WORD_CHOICE_BUTTON_BASE_CLASS =
-  'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
+  'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap shadow-[var(--shadow-chip)]';
 
 export function ModeClickWordsExercise({
   verse,
@@ -287,7 +287,7 @@ export function ModeClickWordsExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <div className="mt-3 min-h-0 flex-1 basis-1/2 overflow-hidden">
+      <div className="mt-3 min-h-0 flex-[1_1_0] overflow-hidden">
         <WordSequenceField
           className="h-full"
           label={isCompleted ? 'Собранный стих' : 'Стих для сборки'}
@@ -306,7 +306,7 @@ export function ModeClickWordsExercise({
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-1 basis-1/2`}
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1_1_0]`}
           scrollable
           contentClassName={`flex flex-wrap content-start gap-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >

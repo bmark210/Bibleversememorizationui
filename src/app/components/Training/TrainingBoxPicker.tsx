@@ -30,7 +30,7 @@ export function TrainingBoxPicker({
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
           {formatRussianCount(boxes.length, ["коробка", "коробки", "коробок"])}
         </p>
-        <h1 className="mt-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+        <h1 className="mt-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
           Выберите коробку
         </h1>
       </div>

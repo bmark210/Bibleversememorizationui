@@ -22,7 +22,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
-  Sparkles,
+  Dumbbell,
   X,
 } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
@@ -706,6 +706,7 @@ export function BibleCatalogView({
   );
 
   // ── Applied filters ──────────────────────────────────────────────────────
+  const [verseListAtTop, setVerseListAtTop] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
@@ -1021,7 +1022,7 @@ export function BibleCatalogView({
   return (
     <>
       <div className={cn("flex h-full min-h-0 w-full flex-1 flex-col gap-3")}>
-        <h1 className="my-2 [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+        <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
           Добавление стихов
         </h1>
         {/* ── Search bar ───────────────────────────────────────────────────── */}
@@ -1078,7 +1079,7 @@ export function BibleCatalogView({
                 onClick={() => setVisibility("all")}
                 className="inline-flex items-center gap-1.5 rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2.5 py-1 text-[11px] font-medium text-brand-primary transition-colors hover:bg-brand-primary/15"
               >
-                <Sparkles className="h-3 w-3 shrink-0" />
+                <Dumbbell className="h-3 w-3 shrink-0" />
                 Только популярные
                 <X className="h-3 w-3 shrink-0" />
               </button>
@@ -1117,8 +1118,8 @@ export function BibleCatalogView({
         )}
 
         {/* ── Mode / results label ──────────────────────────────────────────── */}
-        {!isLoading && (
-          <div className="shrink-0 flex items-center justify-between gap-2">
+        {!isLoading ? (
+          <div className="px-1 shrink-0 flex items-center justify-between gap-2">
             <p className="text-[11px] font-medium text-text-muted">
               {isLoadingIndex
                 ? "Загружается индекс Библии…"
@@ -1132,10 +1133,21 @@ export function BibleCatalogView({
               </p>
             )}
           </div>
+        ) : (
+          <>
+          <p className="text-[11px] font-medium text-text-muted">{""}</p>
+          </>
         )}
 
         {/* ── Verse list ────────────────────────────────────────────────────── */}
-        <div className="min-h-0 flex-1">
+        <div
+          className="relative min-h-0 flex-1 transition-shadow duration-300"
+          style={{
+            boxShadow: verseListAtTop
+              ? 'none'
+              : 'inset 0 10px 14px -10px rgba(0,0,0,0.12)',
+          }}
+        >
           {isLoading ? (
             <div className="space-y-2 pb-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -1157,8 +1169,9 @@ export function BibleCatalogView({
             <Virtuoso
               key={virtuosoKey}
               data={verses}
-              className="h-full w-full overscroll-contain [scrollbar-gutter:stable]"
+              className="h-full w-full overscroll-contain [scrollbar-gutter:stable] bg-transparent"
               style={{ height: "100%" }}
+              atTopStateChange={setVerseListAtTop}
               endReached={() => {
                 if (hasMore && !isLoadingMore) {
                   void loadMore();

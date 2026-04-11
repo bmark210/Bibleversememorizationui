@@ -56,6 +56,7 @@ export function TrainingResultScreen({ result }: TrainingResultScreenProps) {
     <ScrollShadowContainer
       className="flex-1 min-h-0 px-4"
       scrollClassName="flex justify-center"
+      showShadows={false}
       shadowSize={24}
     >
       <div className={`mx-auto my-auto w-full max-w-xl py-8 ${TRAINING_SECTION_SPACING_LG}`}>

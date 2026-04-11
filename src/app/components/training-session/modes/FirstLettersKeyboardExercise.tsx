@@ -1,29 +1,29 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { GALLERY_TOASTER_ID, toast } from '@/app/lib/toast';
-import { TrainingModeId } from '@/shared/training/modeEngine';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GALLERY_TOASTER_ID, toast } from "@/app/lib/toast";
+import { TrainingModeId } from "@/shared/training/modeEngine";
 
 import { Textarea } from "@/app/components/ui/textarea";
-import { useTrainingFontSize } from './useTrainingFontSize';
-import { ScrollShadowContainer } from "@/app/components/ui/ScrollShadowContainer";
-import { TrainingExerciseModeHeader } from './TrainingExerciseModeHeader';
-import { SplitExerciseActionRail } from './SplitExerciseActionRail';
+import { useTrainingFontSize } from "./useTrainingFontSize";
+import { TrainingExerciseModeHeader } from "./TrainingExerciseModeHeader";
+import { SplitExerciseActionRail } from "./SplitExerciseActionRail";
 import {
   getRemainingMistakesTone,
   TrainingExerciseSection,
   TrainingMetricBadge,
-} from './TrainingExerciseSection';
-import type { TrainingExerciseResolution } from './exerciseResult';
-import type { ExerciseInlineActionsProps } from './exerciseInlineActions';
-import type { HintState } from './useHintState';
+} from "./TrainingExerciseSection";
+import type { TrainingExerciseResolution } from "./exerciseResult";
+import type { ExerciseInlineActionsProps } from "./exerciseInlineActions";
+import type { HintState } from "./useHintState";
 import { Verse } from "@/app/domain/verse";
-import { tokenizeFirstLetters } from './wordUtils';
-import { createExerciseProgressSnapshot } from '@/modules/training/hints/exerciseProgress';
-import type { ExerciseProgressSnapshot } from '@/modules/training/hints/types';
-import { getExerciseMaxMistakes } from '@/modules/training/hints/exerciseDifficultyConfig';
-import { useFlashTimeout } from './useFlashTimeout';
-import { useSurrenderEffect } from './useSurrenderEffect';
+import { tokenizeFirstLetters } from "./wordUtils";
+import { createExerciseProgressSnapshot } from "@/modules/training/hints/exerciseProgress";
+import type { ExerciseProgressSnapshot } from "@/modules/training/hints/types";
+import { getExerciseMaxMistakes } from "@/modules/training/hints/exerciseDifficultyConfig";
+import { useFlashTimeout } from "./useFlashTimeout";
+import { useSurrenderEffect } from "./useSurrenderEffect";
+import { TRAINING_COMPACT_TEXT_ENTRY_SECTION_STYLE } from "./textEntryLayout";
 
 interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
   verse: Verse;
@@ -37,22 +37,20 @@ interface FirstLettersKeyboardExerciseProps extends ExerciseInlineActionsProps {
 }
 
 function normalizeComparableLetter(value: string) {
-  return value.toLowerCase().replace(/ё/g, 'е');
+  return value.toLowerCase().replace(/ё/g, "е");
 }
 
 function sanitizeInput(value: string) {
-  return value
-    .replace(/[^\p{L}\p{N}\s]+/gu, '')
-    .replace(/[ \t]+/g, ' ');
+  return value.replace(/[^\p{L}\p{N}\s]+/gu, "").replace(/[ \t]+/g, " ");
 }
 
 function compactLetters(value: string) {
-  return normalizeComparableLetter(value).replace(/[^\p{L}\p{N}]+/gu, '');
+  return normalizeComparableLetter(value).replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
 function trimToMaxLetters(rawValue: string, maxLetters: number) {
   let lettersSeen = 0;
-  let out = '';
+  let out = "";
   for (const ch of rawValue) {
     const isLetterLike = /[\p{L}\p{N}]/u.test(ch);
     if (isLetterLike) {
@@ -83,7 +81,7 @@ export function ModeFirstLettersKeyboardExercise({
 }: FirstLettersKeyboardExerciseProps) {
   const fontSizes = useTrainingFontSize();
   const [expectedLetters, setExpectedLetters] = useState<string[]>([]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [mistakesSinceReset, setMistakesSinceReset] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const shakeFlash = useFlashTimeout<boolean>(240);
@@ -96,7 +94,7 @@ export function ModeFirstLettersKeyboardExercise({
   useEffect(() => {
     const letters = tokenizeFirstLetters(verse.text);
     setExpectedLetters(letters);
-    setInputValue('');
+    setInputValue("");
     setMistakesSinceReset(0);
     setIsCompleted(false);
     shakeFlash.clear();
@@ -120,8 +118,8 @@ export function ModeFirstLettersKeyboardExercise({
   });
 
   const expectedCompact = useMemo(
-    () => expectedLetters.join(''),
-    [expectedLetters]
+    () => expectedLetters.join(""),
+    [expectedLetters],
   );
   const completedUnits = compactLetters(inputValue).length;
   const maxMistakes = getExerciseMaxMistakes({
@@ -134,21 +132,30 @@ export function ModeFirstLettersKeyboardExercise({
   useEffect(() => {
     onProgressChange?.(
       createExerciseProgressSnapshot({
-        kind: 'first-letters-typing',
-        unitType: 'letter',
+        kind: "first-letters-typing",
+        unitType: "letter",
         expectedIndex:
           completedUnits < expectedLetters.length ? completedUnits : null,
         completedCount: completedUnits,
         totalCount: expectedLetters.length,
         isCompleted: isCompleted || surrendered,
-      })
+      }),
     );
-  }, [completedUnits, expectedLetters.length, isCompleted, onProgressChange, surrendered]);
+  }, [
+    completedUnits,
+    expectedLetters.length,
+    isCompleted,
+    onProgressChange,
+    surrendered,
+  ]);
 
   const applyNextInputValue = (nextRaw: string) => {
     if (isCompleted || surrendered) return;
 
-    const sanitized = trimToMaxLetters(sanitizeInput(nextRaw), expectedCompact.length);
+    const sanitized = trimToMaxLetters(
+      sanitizeInput(nextRaw),
+      expectedCompact.length,
+    );
     const compact = compactLetters(sanitized);
     const expectedPrefix = expectedCompact.slice(0, compact.length);
 
@@ -157,11 +164,14 @@ export function ModeFirstLettersKeyboardExercise({
 
       successFlash.flash(true);
 
-      if (compact.length === expectedCompact.length && expectedCompact.length > 0) {
+      if (
+        compact.length === expectedCompact.length &&
+        expectedCompact.length > 0
+      ) {
         setIsCompleted(true);
         onExerciseResolved?.({
-          kind: 'success',
-          message: 'Последовательность букв введена верно.',
+          kind: "success",
+          message: "Последовательность букв введена верно.",
         });
       }
       return;
@@ -174,19 +184,17 @@ export function ModeFirstLettersKeyboardExercise({
     if (shouldResetInput) {
       setIsCompleted(true);
       onExerciseResolved?.({
-        kind: 'failure',
-        reason: 'max-mistakes',
+        kind: "failure",
+        reason: "max-mistakes",
         message: `Допущено ${maxMistakes} ошибок. Попробуйте ещё раз.`,
       });
     } else {
       toast.warning(
-        `Неверная буква. До сброса: ${
-          maxMistakes - nextMistakesSinceReset
-        }.`,
+        `Неверная буква. До сброса: ${maxMistakes - nextMistakesSinceReset}.`,
         {
           toasterId: GALLERY_TOASTER_ID,
-          size: 'compact',
-        }
+          size: "compact",
+        },
       );
     }
 
@@ -194,8 +202,8 @@ export function ModeFirstLettersKeyboardExercise({
   };
 
   const handleInputFocus = () => {
-    if (typeof window === 'undefined') return;
-    if (!window.matchMedia('(max-width: 767px)').matches) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
 
     if (mobileFocusTimeoutRef.current) {
       window.clearTimeout(mobileFocusTimeoutRef.current);
@@ -203,9 +211,9 @@ export function ModeFirstLettersKeyboardExercise({
 
     mobileFocusTimeoutRef.current = window.setTimeout(() => {
       inputRef.current?.scrollIntoView({
-        block: 'center',
-        inline: 'nearest',
-        behavior: 'smooth',
+        block: "center",
+        inline: "nearest",
+        behavior: "smooth",
       });
       mobileFocusTimeoutRef.current = null;
     }, 140);
@@ -219,61 +227,58 @@ export function ModeFirstLettersKeyboardExercise({
         onOpenHelp={onOpenTutorial}
         onOpenVerseProgress={onOpenVerseProgress}
       />
-      <ScrollShadowContainer className="mt-3 flex-1" scrollClassName="space-y-3" shadowSize={20}>
-        <TrainingExerciseSection
-          title="Первые буквы"
-          meta={
-            <div className="flex items-center gap-1.5">
-              <TrainingMetricBadge
-                tone={
-                  completedUnits === expectedLetters.length && expectedLetters.length > 0
-                    ? 'success'
-                    : 'neutral'
-                }
-              >
-                {completedUnits}/{expectedLetters.length}
-              </TrainingMetricBadge>
-              <TrainingMetricBadge tone={getRemainingMistakesTone(remainingMistakes)}>
-                До сброса {remainingMistakes}
-              </TrainingMetricBadge>
-            </div>
-          }
-          className="min-h-0"
-          contentClassName="flex h-full flex-col gap-3 pb-1"
-        >
-          <p
-            className="max-w-2xl text-sm leading-relaxed text-muted-foreground"
-            style={{ fontSize: `${fontSizes.sm}px` }}
-          >
-          </p>
-
-          <div
-            className={`relative flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background/70 p-2 mb-2 transition-colors ${
-              shakeFlash.value === true
-                  ? 'border-destructive/60 bg-destructive/5'
-                  : successFlash.value === true
-                    ? 'border-status-learning/25 bg-status-learning-soft'
-                    : 'border-border/60'
-              }`}
-          >
-            <Textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(event) => applyNextInputValue(event.target.value)}
-              onFocus={handleInputFocus}
-              placeholder="Введите первые буквы..."
-              disabled={isCompleted || surrendered}
-              data-swipe-through="true"
-              className="relative min-h-[clamp(7.5rem,24dvh,10rem)] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
-              style={{ fontSize: `${fontSizes.base}px` }}
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              enterKeyHint="done"
-            />
+      <TrainingExerciseSection
+        headerClassName="mb-4"
+        title="Первые буквы"
+        meta={
+          <div className="flex items-center gap-1.5">
+            <TrainingMetricBadge
+              tone={
+                completedUnits === expectedLetters.length &&
+                expectedLetters.length > 0
+                  ? "success"
+                  : "neutral"
+              }
+            >
+              {completedUnits}/{expectedLetters.length}
+            </TrainingMetricBadge>
+            <TrainingMetricBadge
+              tone={getRemainingMistakesTone(remainingMistakes)}
+            >
+              До сброса {remainingMistakes}
+            </TrainingMetricBadge>
           </div>
-        </TrainingExerciseSection>
-      </ScrollShadowContainer>
+        }
+        className="mt-3 min-h-0 shrink-0"
+        style={TRAINING_COMPACT_TEXT_ENTRY_SECTION_STYLE}
+        contentClassName="flex h-full flex-col"
+      >
+        <div
+          className={`flex flex-1 flex-col overflow-hidden rounded-2xl border mb-4 transition-colors ${
+            shakeFlash.value === true
+              ? "border-state-error/50 bg-state-error/8"
+              : successFlash.value === true
+                ? "border-status-learning/25 bg-status-learning-soft"
+                : "border-border/40 bg-bg-subtle"
+          }`}
+        >
+          <Textarea
+            ref={inputRef}
+            value={inputValue}
+            onChange={(event) => applyNextInputValue(event.target.value)}
+            onFocus={handleInputFocus}
+            placeholder="Введите первые буквы..."
+            disabled={isCompleted || surrendered}
+            data-swipe-through="true"
+            className="flex-1 h-[8rem] placeholder:tracking-[0.08em] font-sans resize-none border-0 !bg-transparent p-4 uppercase placeholder:normal-case tracking-[0.16em] shadow-none !focus-visible:ring-0 focus-visible:ring-offset-0"
+            style={{ fontSize: `${fontSizes.base}px` }}
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="done"
+          />
+        </div>
+      </TrainingExerciseSection>
 
       <SplitExerciseActionRail
         remainingMistakes={remainingMistakes}
@@ -282,7 +287,6 @@ export function ModeFirstLettersKeyboardExercise({
         onRequestQuickForget={onRequestInlineQuickForget}
         disabled={inlineActionsDisabled}
       />
-
     </div>
   );
 }

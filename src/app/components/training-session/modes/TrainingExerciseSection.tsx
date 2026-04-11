@@ -1,26 +1,19 @@
 'use client'
 
-import { ArrowDownIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { cn } from '@/app/components/ui/utils';
 import {
-  TRAINING_SECTION_INSET_MD,
   TRAINING_STACK_GAP_SM,
 } from '../trainingActionTokens';
-
-export const TRAINING_SCROLL_BOTTOM_CUE = (
-  <span className="rounded-full border border-border-subtle bg-bg-elevated px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted shadow-[var(--shadow-soft)] backdrop-blur-sm">
-    <ArrowDownIcon className="size-3.5" />
-  </span>
-);
 
 interface TrainingExerciseSectionProps {
   title: ReactNode;
   meta?: ReactNode;
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
   headerClassName?: string;
   bodyClassName?: string;
   contentClassName?: string;
@@ -35,24 +28,30 @@ export function TrainingExerciseSection({
   meta,
   children,
   className,
+  style,
   headerClassName,
   bodyClassName,
   contentClassName,
   scrollable = false,
-  shadowSize = 40,
-  bottomCue = TRAINING_SCROLL_BOTTOM_CUE,
+  shadowSize = 16,
+  bottomCue,
   scrollClassName,
 }: TrainingExerciseSectionProps) {
+  const hasFixedHeight =
+    style?.height != null || style?.minHeight != null || style?.maxHeight != null;
+
   return (
     <div
       className={cn(
-        `min-h-0 flex flex-1 flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated shadow-[var(--shadow-soft)] ${TRAINING_SECTION_INSET_MD}`,
+        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated px-3 pt-3`,
+        hasFixedHeight ? 'flex-none shrink-0' : 'flex-[1_1_0]',
         className
       )}
+      style={style}
     >
       <div
         className={cn(
-          `mb-3 flex shrink-0 items-center justify-between text-sm text-text-secondary ${TRAINING_STACK_GAP_SM}`,
+          `pb-2 flex shrink-0 items-center justify-between text-sm text-text-secondary ${TRAINING_STACK_GAP_SM}`,
           headerClassName
         )}
       >
@@ -68,6 +67,7 @@ export function TrainingExerciseSection({
               'h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]',
               scrollClassName
             )}
+            showShadows={true}
             shadowSize={shadowSize}
             bottomCue={bottomCue}
           >

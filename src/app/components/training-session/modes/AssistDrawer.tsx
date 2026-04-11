@@ -1,6 +1,6 @@
 'use client'
 
-import { Lightbulb, Flag } from 'lucide-react';
+import { Lightbulb, Flag, TrendingDown } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -22,6 +22,8 @@ interface AssistDrawerProps {
   hintState: HintState;
   onRequestAssist: () => void;
   onRequestShowVerse: () => void;
+  showQuickForgetAction?: boolean;
+  onRequestQuickForget?: () => void;
 }
 
 export function AssistDrawer({
@@ -30,6 +32,8 @@ export function AssistDrawer({
   hintState,
   onRequestAssist,
   onRequestShowVerse,
+  showQuickForgetAction = false,
+  onRequestQuickForget,
 }: AssistDrawerProps) {
   const {
     activeHintContent,
@@ -48,14 +52,17 @@ export function AssistDrawer({
   const showInlineHint =
     activeHintContent && activeHintContent.variant !== 'full_text_preview';
 
+  const hasHintContent = isActive && !surrendered;
+  const showForgetSection = showQuickForgetAction && isActive && !surrendered;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader className="pb-2">
-          <DrawerTitle className="text-base">Помощь</DrawerTitle>
+          <DrawerTitle className="text-base">Подсказки</DrawerTitle>
         </DrawerHeader>
 
-        <div className={`${TRAINING_SECTION_SPACING_SM} px-4 pb-2`}>
+        <div className={`${TRAINING_SECTION_SPACING_SM} px-4 pb-4`}>
           {/* Active hint content */}
           {showInlineHint && activeHintContent && (
             <div
@@ -74,7 +81,7 @@ export function AssistDrawer({
           )}
 
           {/* Daily hint budget badge */}
-          {isActive && !surrendered && (
+          {hasHintContent && (
             <p className={cn(
               'text-center text-xs font-medium',
               budgetExhausted
@@ -90,7 +97,7 @@ export function AssistDrawer({
           {/* Action buttons */}
           <div className={`${TRAINING_SECTION_SPACING_SM} ${TRAINING_ACTION_ROW_PADDING_CLASS}`}>
             {/* Progressive assist button */}
-            {isActive && !surrendered && nextAssistPreview && (
+            {hasHintContent && nextAssistPreview && (
               <button
                 type="button"
                 onClick={onRequestAssist}
@@ -111,7 +118,7 @@ export function AssistDrawer({
             )}
 
             {/* One-time full verse preview */}
-            {isActive && !surrendered && (
+            {hasHintContent && (
               <button
                 type="button"
                 onClick={onRequestShowVerse}
@@ -129,6 +136,24 @@ export function AssistDrawer({
                   (на {showVerseDurationSeconds} сек.)
                 </span>
               </button>
+            )}
+
+            {/* Separator + Forgot action */}
+            {showForgetSection && (
+              <>
+                <div className="border-t border-border/30 pt-1" />
+                <button
+                  type="button"
+                  onClick={onRequestQuickForget}
+                  className={cn(
+                    `flex w-full items-center justify-center border shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow] ${TRAINING_STACK_GAP_SM} ${TRAINING_ACTION_BUTTON_MEDIUM_CLASS}`,
+                    'border-status-paused/25 bg-status-paused-soft text-status-paused hover:border-status-paused/35 hover:bg-status-paused-soft active:bg-status-paused-soft',
+                  )}
+                >
+                  <TrendingDown className="h-4 w-4" />
+                  На уровень назад
+                </button>
+              </>
             )}
           </div>
         </div>

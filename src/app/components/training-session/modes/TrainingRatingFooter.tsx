@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTrainingUiState } from '../TrainingUiStateContext';
+import { useAppViewportStore } from '@/app/stores/appViewportStore';
 
 interface TrainingRatingFooterProps {
   children: ReactNode;
@@ -48,6 +49,7 @@ function stopEventPropagation(event: { stopPropagation: () => void }) {
 
 export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
   const { hideRatingFooter } = useTrainingUiState();
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const desktopFooterRef = useRef<HTMLDivElement | null>(null);
   const [desktopFooterRect, setDesktopFooterRect] = useState<FooterRect | null>(null);
 
@@ -198,6 +200,7 @@ export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
 
   const mobileFooter = (
     <div
+      data-hide-on-keyboard="slide"
       className="pointer-events-auto md:hidden fixed bottom-0 left-0 right-0 z-[120] border-t border-border backdrop-blur-xl bg-card/90"
       style={{
         bottom: 'calc(0px - var(--app-keyboard-offset, 0px))',
@@ -211,7 +214,7 @@ export function TrainingRatingFooter({ children }: TrainingRatingFooterProps) {
     </div>
   );
 
-  if (hideRatingFooter) return null;
+  if (hideRatingFooter || isKeyboardOpen) return null;
 
   return (
     <>

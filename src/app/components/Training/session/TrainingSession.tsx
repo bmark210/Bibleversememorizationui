@@ -43,6 +43,7 @@ import {
   TRAINING_ACTION_ROW_PADDING_CLASS,
   TRAINING_STACK_GAP_MD,
 } from "@/app/components/training-session/trainingActionTokens";
+import { useAppViewportStore } from "@/app/stores/appViewportStore";
 
 /* ── Subset / ordering helpers ── */
 
@@ -163,6 +164,7 @@ export function TrainingSession({
   const { contentSafeAreaInset } = useTelegramSafeArea();
   const topInset = contentSafeAreaInset.top;
   const bottomInset = contentSafeAreaInset.bottom;
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
 
   /* ── UI state ── */
   const [direction, setDirection] = useState(0);
@@ -592,26 +594,10 @@ export function TrainingSession({
     pendingAction !== null;
 
   /* ── Stable inline actions object (memoized) ── */
+  // Quick-forget action moved into AssistDrawer; no inline actions needed.
   const inlineExerciseActions = useMemo<
     TrainingModeInlineActionsProps | undefined
-  >(
-    () =>
-      showQuickForgetAction
-        ? {
-            showInlineQuickForgetAction: true,
-            onRequestInlineQuickForget: () => {
-              setHasInteractionStarted(true);
-              session.requestQuickForget();
-            },
-            inlineActionsDisabled: session.isActionPending,
-          }
-        : undefined,
-    [
-      showQuickForgetAction,
-      session.isActionPending,
-      session.requestQuickForget,
-    ],
-  );
+  >(() => undefined, []);
 
   const markInteractionStarted = useCallback(() => {
     setHasInteractionStarted(true);
@@ -668,10 +654,10 @@ export function TrainingSession({
       >
         {/* ── Header ── */}
         <div
-          className="shrink-0 border-b border-border/40 bg-background/75 backdrop-blur-xl z-40"
+          className="shrink-0 bg-background/75 backdrop-blur-xl z-40"
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-4xl items-center justify-center px-4 sm:px-6">
             <p className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 uppercase text-base sm:text-lg font-semibold tracking-wide text-foreground/80">
               {`${session.trainingIndex + 1} / ${session.trainingVerseCount}`}
             </p>
@@ -687,7 +673,7 @@ export function TrainingSession({
         >
           <div
             key={`${resolvedSubsetFilter}:${activeOrder}:${bodyKey}`}
-            className="absolute inset-0 flex flex-col px-3 py-4 sm:px-6 sm:pt-3 focus-visible:outline-none"
+            className="absolute inset-0 flex flex-col px-3 pt-2 pb-4 sm:px-6 sm:pt-3 focus-visible:outline-none"
             tabIndex={-1}
           >
             {localResult ? (
@@ -720,8 +706,11 @@ export function TrainingSession({
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative">
+        {/* ── Footer (hidden when iOS keyboard is open) ── */}
+        <div
+          data-hide-on-keyboard="collapse"
+          className={`shrink-0 border-t border-border/30 bg-card/90 backdrop-blur-xl relative transition-[max-height,opacity] duration-200 ${isKeyboardOpen ? 'max-h-0 opacity-0 overflow-hidden pointer-events-none' : 'max-h-[200px] opacity-100'}`}
+        >
           {localResult ? (
             <div
               className={`mx-auto flex w-full max-w-3xl flex-col px-3 py-3 sm:px-6 ${TRAINING_STACK_GAP_MD}`}
@@ -799,10 +788,10 @@ export function TrainingSession({
         <DrawerContent>
           <DrawerHeader className="pb-1">
             <DrawerTitle className="text-lg text-foreground/95">
-              Отметить как «забыл»?
+              Вы хотите перейти на предыдущий уровень этого стиха?
             </DrawerTitle>
             <DrawerDescription className="text-base leading-relaxed text-muted-foreground/90">
-              Текущий шаг будет засчитан как «Забыл» и рейтинг снизится согласно
+              Текущий шаг стиха перейдет на предыдущий, уровень также снизиться согласно
               правилам этапа изучения.
             </DrawerDescription>
           </DrawerHeader>
@@ -852,6 +841,12 @@ export function TrainingSession({
           hintState={hintHelpers.hintState}
           onRequestAssist={handleRequestAssist}
           onRequestShowVerse={handleRequestShowVerse}
+          showQuickForgetAction={showQuickForgetAction}
+          onRequestQuickForget={() => {
+            setAssistDrawerOpen(false);
+            setHasInteractionStarted(true);
+            session.requestQuickForget();
+          }}
         />
       )}
     </>

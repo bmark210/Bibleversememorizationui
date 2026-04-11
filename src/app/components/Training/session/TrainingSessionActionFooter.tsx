@@ -64,8 +64,7 @@ export function TrainingSessionActionFooter({
                 disabled={isActionPending}
               aria-label="Открыть подсказки"
             >
-              {/* <Lightbulb className="mr-2 h-4.5 w-4.5" /> */}
-              Подсказки
+              Забыл
             </Button>
           ) : null}
 

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { BookOpen, Dumbbell, LayoutDashboard, User, Users } from "lucide-react";
-import { getTelegramWebApp } from "@/app/lib/telegramWebApp";
 import { useTelegramSafeArea } from "../hooks/useTelegramSafeArea";
 import { triggerHaptic } from "../lib/haptics";
+import { useAppViewportStore } from "../stores/appViewportStore";
 import { useTelegramUiStore } from "../stores/telegramUiStore";
 import { useScreenStore } from "../stores/screenStore";
 import { cn } from "./ui/utils";
@@ -43,10 +43,10 @@ export function Layout({
 }: LayoutProps) {
   const { active: currentPage, go } = useScreenStore();
   const { contentSafeAreaInset } = useTelegramSafeArea();
+  const isKeyboardOpen = useAppViewportStore((state) => state.isKeyboardOpen);
   const isTelegramFullscreen = useTelegramUiStore(
     (state) => state.isTelegramFullscreen,
   );
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [bottomNavClearance, setBottomNavClearance] = useState(0);
   const mobileNavShellRef = React.useRef<HTMLDivElement | null>(null);
   const topInset = contentSafeAreaInset.top;
@@ -57,43 +57,6 @@ export function Layout({
   const isFitStrict = contentMode === "fit-strict";
   const navItems = DEFAULT_NAV_ITEMS;
   const isExtendedNav = navItems.length > 4;
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tg = getTelegramWebApp();
-    const vv = window.visualViewport;
-    const rootStyle = document.documentElement.style;
-
-    const readKeyboardOffset = () => {
-      if (tg?.viewportStableHeight && tg?.viewportHeight) {
-        return Math.max(0, tg.viewportStableHeight - tg.viewportHeight);
-      }
-
-      if (vv) {
-        return Math.max(0, window.innerHeight - vv.height);
-      }
-
-      return 0;
-    };
-
-    const check = () => {
-      const keyboardOffset = readKeyboardOffset();
-      rootStyle.setProperty(
-        "--app-keyboard-offset",
-        `${Math.round(keyboardOffset)}px`,
-      );
-      setIsKeyboardOpen(keyboardOffset > 100);
-    };
-
-    check();
-    vv?.addEventListener("resize", check);
-    tg?.onEvent?.("viewportChanged", check);
-    return () => {
-      vv?.removeEventListener("resize", check);
-      tg?.offEvent?.("viewportChanged", check);
-      rootStyle.setProperty("--app-keyboard-offset", "0px");
-    };
-  }, []);
 
   React.useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -185,7 +148,7 @@ export function Layout({
           }`}
           style={{ paddingTop: `${topInset}px` }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-2">
             <div className="flex min-h-10 items-center justify-center">
               <div className="truncate [font-family:var(--font-heading)] text-sm font-semibold tracking-[0.08em] uppercase text-brand-primary">
                 {pageTitle}
@@ -264,6 +227,7 @@ export function Layout({
       {/* Mobile Bottom Navigation */}
       <div
         ref={mobileNavShellRef}
+        data-hide-on-keyboard="slide"
         data-tour="app-nav"
         className={`md:hidden fixed left-0 right-0 transition-[bottom,opacity,transform] duration-300 ease-out ${
           hideAppChrome || !isContentReady

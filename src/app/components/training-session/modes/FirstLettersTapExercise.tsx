@@ -73,7 +73,7 @@ function shuffleTokens(letters: string[]): LetterToken[] {
 
 const LETTER_GRID_GAP = 8;
 const LETTER_CHOICE_BUTTON_BASE_CLASS =
-  'h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4';
+  'h-auto min-h-11 min-w-12 justify-center rounded-lg px-3 py-1.5 font-mono uppercase leading-4 shadow-[var(--shadow-chip)]';
 
 function getAutoGridColumns(
   width: number,
@@ -325,11 +325,11 @@ export function ModeFirstLettersTapExercise({
             {selectedCount}/{total}
           </TrainingMetricBadge>
         }
-        className="mt-3 min-h-0 flex-1 basis-1/2"
+        className="mt-3 min-h-0 flex-[1_1_0]"
         contentClassName="h-full"
       >
         <div
-          className="h-full min-h-0 overflow-y-auto overscroll-contain py-2 pr-1"
+          className="h-full min-h-0 overflow-y-auto overscroll-contain pt-2 pb-4 pr-1"
           role="group"
           aria-label="Последовательность букв"
         >
@@ -373,7 +373,7 @@ export function ModeFirstLettersTapExercise({
               До сброса {remainingMistakes}
             </TrainingMetricBadge>
           }
-          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-1 basis-1/2`}
+          className={`${TRAINING_HALVES_GAP_CLASS} min-h-0 flex-[1_1_0]`}
           scrollable
           contentClassName={`flex flex-wrap content-start gap-2.5 ${TRAINING_SECTION_CONTENT_INSET_SM}`}
         >
