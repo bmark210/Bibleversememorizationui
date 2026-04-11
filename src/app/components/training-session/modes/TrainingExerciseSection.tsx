@@ -5,7 +5,6 @@ import type { CSSProperties, ReactNode } from 'react';
 import { ScrollShadowContainer } from '@/app/components/ui/ScrollShadowContainer';
 import { cn } from '@/app/components/ui/utils';
 import {
-  TRAINING_SECTION_INSET_MD,
   TRAINING_STACK_GAP_SM,
 } from '../trainingActionTokens';
 
