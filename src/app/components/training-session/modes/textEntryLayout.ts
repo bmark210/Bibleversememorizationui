@@ -5,5 +5,5 @@ export const TRAINING_FULL_TEXT_ENTRY_SECTION_STYLE: CSSProperties = {
 };
 
 export const TRAINING_COMPACT_TEXT_ENTRY_SECTION_STYLE: CSSProperties = {
-  height: "var(--app-training-text-entry-compact-height, 11.5rem)",
+  height: "var(--app-training-text-entry-compact-height, 14rem)",
 };

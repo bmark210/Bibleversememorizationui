@@ -44,7 +44,7 @@ export function TrainingExerciseSection({
   return (
     <div
       className={cn(
-        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`,
+        `min-h-0 flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated px-4 py-4`,
         hasFixedHeight ? 'flex-none shrink-0' : 'flex-[1_1_0]',
         className
       )}
@@ -52,7 +52,7 @@ export function TrainingExerciseSection({
     >
       <div
         className={cn(
-          `mb-3 flex shrink-0 items-center justify-between text-sm text-text-secondary ${TRAINING_STACK_GAP_SM}`,
+          `pb-4 flex shrink-0 items-center justify-between text-sm text-text-secondary ${TRAINING_STACK_GAP_SM}`,
           headerClassName
         )}
       >
