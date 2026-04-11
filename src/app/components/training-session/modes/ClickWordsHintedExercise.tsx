@@ -151,11 +151,11 @@ function buildExercise(params: {
 }
 
 const WORD_CHOICE_BUTTON_BASE_CLASS =
-  "h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap";
+  "h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap shadow-[var(--shadow-chip)]";
 const CHOICES_SECTION_CLASS =
   `${TRAINING_HALVES_GAP_CLASS} min-h-0 flex flex-[1_1_0] flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-elevated ${TRAINING_SECTION_INSET_MD}`;
 const CHOICES_HEADER_CLASS =
-  "mb-3 flex shrink-0 items-center justify-between text-sm text-text-secondary";
+  "mb-2 flex shrink-0 items-center justify-between text-sm text-text-secondary";
 const CHOICES_WRAPPER_CLASS = "min-h-0 flex-1";
 const CHOICES_LIST_CLASS =
   `flex flex-wrap content-start gap-2 ${TRAINING_SECTION_CONTENT_INSET_SM}`;
@@ -394,7 +394,7 @@ export function ModeClickWordsHintedExercise({
             <ScrollShadowContainer
               className="min-h-0 h-full"
               scrollClassName="h-full overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
-              showShadows={false}
+              showShadows={true}
               shadowSize={40}
             >
               <div className={CHOICES_LIST_CLASS}>

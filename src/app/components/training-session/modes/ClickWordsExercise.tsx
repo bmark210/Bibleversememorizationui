@@ -121,7 +121,7 @@ function initClickWordsExercise(text: string) {
 }
 
 const WORD_CHOICE_BUTTON_BASE_CLASS =
-  'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap';
+  'h-auto max-w-full min-w-0 justify-start rounded-lg px-3 py-2 leading-5 text-left whitespace-nowrap shadow-[var(--shadow-chip)]';
 
 export function ModeClickWordsExercise({
   verse,

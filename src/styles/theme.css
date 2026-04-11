@@ -85,6 +85,10 @@ body[data-theme='light'] {
     0 32px 72px -34px rgba(80, 56, 28, 0.28),
     0 18px 32px -18px rgba(80, 56, 28, 0.16);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-chip:
+    0 1px 2px rgba(80, 56, 28, 0.1),
+    0 2px 5px rgba(80, 56, 28, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 
   --hero-glow-primary: rgba(200, 169, 107, 0.2);
   --hero-glow-secondary: rgba(111, 125, 78, 0.11);
@@ -196,6 +200,10 @@ body[data-theme='dark'] {
     0 40px 92px -40px rgba(0, 0, 0, 0.72),
     0 22px 40px -18px rgba(0, 0, 0, 0.42);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-chip:
+    0 1px 3px rgba(0, 0, 0, 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
 
   --hero-glow-primary: rgba(200, 169, 107, 0.18);
   --hero-glow-secondary: rgba(119, 123, 89, 0.1);

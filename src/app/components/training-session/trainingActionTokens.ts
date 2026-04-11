@@ -20,7 +20,7 @@ export const TRAINING_SECTION_SPACING_MD = "space-y-4";
 export const TRAINING_SECTION_SPACING_LG = "space-y-6";
 
 export const TRAINING_SECTION_INSET_SM = "px-3 pt-3";
-export const TRAINING_SECTION_INSET_MD = "px-4 pt-4";
-export const TRAINING_SECTION_CONTENT_INSET_SM = "px-1 py-3";
+export const TRAINING_SECTION_INSET_MD = "px-3 pt-3";
+export const TRAINING_SECTION_CONTENT_INSET_SM = "px-1 pt-2 pb-2";
 
 export const TRAINING_HALVES_GAP_CLASS = "mt-4";

@@ -268,7 +268,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
           selectedTokens.map((token) => (
             <div
               key={token.id}
-              className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 leading-relaxed text-foreground/90"
+              className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 leading-relaxed text-foreground/90 shadow-[var(--shadow-chip)]"
               style={{ fontSize: `${fontSizes.sm}px` }}
             >
               {token.text}
@@ -300,7 +300,7 @@ export function ModeClickChunksExercise({ verse, trainingModeId, onExerciseResol
                 key={token.id}
                 type="button"
                 variant="outline"
-                className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors ${
+                className={`h-auto w-full justify-start whitespace-normal rounded-xl px-3 py-2 text-left leading-relaxed transition-colors shadow-[var(--shadow-chip)] ${
                   errorFlash.value === token.id
                       ? 'border-destructive text-destructive bg-destructive/10'
                       : successFlash.value === token.id

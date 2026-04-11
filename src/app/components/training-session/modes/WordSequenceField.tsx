@@ -196,7 +196,7 @@ export function WordSequenceField({
         data-scroll-shadow="true"
         data-at-top={atTop}
         data-at-bottom={atBottom}
-        className="h-full overflow-y-auto overscroll-contain pt-2 pb-4 pr-1 touch-pan-y [-webkit-overflow-scrolling:touch]"
+        className="h-full overflow-y-auto overscroll-contain pt-2 pb-4 touch-pan-y [-webkit-overflow-scrolling:touch]"
         onScroll={handleScroll}
         role="group"
         aria-label="Поле ввода стиха"
@@ -207,7 +207,7 @@ export function WordSequenceField({
               key={item.id}
               ref={setItemRef(item.id)}
               className={cn(
-                'inline-flex items-center justify-center rounded-md px-2 py-1 whitespace-nowrap transition-colors',
+                'inline-flex items-center justify-center rounded-md px-2 py-1 whitespace-nowrap transition-colors shadow-[var(--shadow-chip)]',
                 getItemClassName(item.state)
               )}
               style={{

@@ -21,6 +21,8 @@ interface ScrollShadowContainerProps
   showShadows?: boolean;
   /** Shadow height in px (default 28). */
   shadowSize?: number;
+  /** Background colour for the fade gradient (defaults to bg-elevated → background). */
+  shadowBg?: string;
   /** Optional cue rendered above bottom shadow while more content is available below. */
   bottomCue?: ReactNode;
   /** Extra classes for the optional bottom cue wrapper. */
@@ -51,6 +53,7 @@ export function ScrollShadowContainer({
   scrollClassName,
   showShadows = true,
   shadowSize = 28,
+  shadowBg = 'var(--color-bg-elevated, var(--color-background, hsl(0 0% 100%)))',
   bottomCue,
   bottomCueClassName,
   swipeOnly = false,
@@ -113,8 +116,7 @@ export function ScrollShadowContainer({
           style={{
             height: shadowSize,
             opacity: showTopShadow ? 1 : 0,
-            background:
-              "linear-gradient(to bottom, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
+            background: `linear-gradient(to bottom, ${shadowBg} 0%, transparent 100%)`,
           }}
         />
       ) : null}
@@ -145,8 +147,7 @@ export function ScrollShadowContainer({
           style={{
             height: shadowSize,
             opacity: showBottomShadow ? 1 : 0,
-            background:
-              "linear-gradient(to top, var(--color-background, hsl(0 0% 100%)) 0%, transparent 100%)",
+            background: `linear-gradient(to top, ${shadowBg} 0%, transparent 100%)`,
           }}
         />
       ) : null}

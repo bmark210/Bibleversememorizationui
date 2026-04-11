@@ -195,6 +195,7 @@ export function ModeFullRecallExercise({
       />
       <TrainingExerciseSection
         title="Введите стих целиком"
+        headerClassName="mb-4"
         meta={
           <div className={`flex items-center ${TRAINING_STACK_GAP_SM}`}>
             <TrainingMetricBadge
