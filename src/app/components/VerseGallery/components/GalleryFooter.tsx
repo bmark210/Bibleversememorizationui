@@ -1,13 +1,11 @@
 import React, {
   memo,
-  useCallback,
   useMemo,
   type Ref,
 } from "react";
-import { ChevronDown, ChevronUp, Eye, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
-import { haptic } from "@/app/components/VerseGallery/utils";
 
 type Props = {
   isActionPending: boolean;
@@ -28,8 +26,6 @@ const NAV_ICON_CLASS =
   "h-11 w-11 shrink-0 rounded-full border-border-default/55 bg-bg-elevated text-text-secondary shadow-[var(--shadow-soft)]";
 const ICON_ACTION_CLASS =
   "h-11 rounded-full border-border-default/55 bg-bg-elevated px-4 text-text-secondary shadow-[var(--shadow-soft)]";
-const QUIET_DELETE_CLASS =
-  "h-11 rounded-full border-border-default/55 bg-bg-elevated px-3 text-text-secondary shadow-[var(--shadow-soft)] hover:text-state-error";
 const FOOTER_VEIL_HEIGHT_PX = 104;
 
 function GalleryFooterComponent({
@@ -37,13 +33,11 @@ function GalleryFooterComponent({
   isFocusMode = false,
   canGoPrev = false,
   canGoNext = false,
-  showDelete = true,
   bottomInset = 0,
   onClose,
   onToggleFocusMode,
   onGoPrev,
   onGoNext,
-  onDeleteRequest,
   closeButtonRef,
 }: Props) {
   /** Как safe-area в Layout: инсет от Telegram + небольшой минимум на десктопе без inset. */
@@ -53,12 +47,6 @@ function GalleryFooterComponent({
     }),
     [bottomInset],
   );
-
-  const handleDeleteClick = useCallback(() => {
-    if (isActionPending) return;
-    haptic("warning");
-    onDeleteRequest();
-  }, [isActionPending, onDeleteRequest]);
 
   const prevDisabled =
     isActionPending || !canGoPrev || typeof onGoPrev !== "function";
@@ -90,28 +78,6 @@ function GalleryFooterComponent({
         </Button>
 
         <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-center gap-2">
-          {showDelete ? (
-            <Button
-              type="button"
-              variant="outline"
-              className={cn(
-                QUIET_DELETE_CLASS,
-                "shrink-0 gap-2 text-foreground/62 hover:text-destructive",
-              )}
-              haptic={false}
-              onClick={handleDeleteClick}
-              disabled={isActionPending}
-              aria-label="Удалить стих"
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          ) : (
-            <div
-              className="h-11 w-11 shrink-0"
-              aria-hidden
-            />
-          )}
-
           {onToggleFocusMode ? (
             <Button
               type="button"
