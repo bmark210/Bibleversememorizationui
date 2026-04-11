@@ -14,7 +14,6 @@ import {
   isVerseReview,
 } from "@/shared/verseRules/index";
 import { formatXp } from "@/shared/social/formatXp";
-import { useTextBoxes } from "@/app/hooks/texts/useTextBoxes";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "./ui/utils";
 import {
@@ -135,8 +134,6 @@ export function Dashboard({
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram();
-  const { boxes, isLoading: isTextBoxesLoading } =
-    useTextBoxes(currentTelegramId);
   const todaySummary = useMemo(
     () => summarizeTodayVerses(todayVerses),
     [todayVerses],
@@ -147,21 +144,15 @@ export function Dashboard({
 
   const learningVerses =
     dashboardStats?.learningVerses ?? todaySummary.learningVersesCount;
+  const reviewVerses =
+    dashboardStats?.reviewVerses ?? todaySummary.reviewVersesCount;
   const dueReviewVerses =
     dashboardStats?.dueReviewVerses ?? todaySummary.dueReviewCount;
+  const masteredVersesCount =
+    dashboardStats?.masteredCount ?? todaySummary.masteredVerses;
   const userXp = currentUserXp ?? dashboardStats?.xp ?? null;
   const dailyStreak =
     currentUserDailyStreak ?? dashboardStats?.dailyStreak ?? null;
-  const boxCount = currentTelegramId
-    ? isTextBoxesLoading
-      ? null
-      : boxes.length
-    : 0;
-  const totalVersesCount =
-    typeof dashboardStats?.versesCount === "number" &&
-    Number.isFinite(dashboardStats.versesCount)
-      ? Math.max(0, Math.round(dashboardStats.versesCount))
-      : null;
 
   const statsCards = useMemo(
     () =>
@@ -174,26 +165,31 @@ export function Dashboard({
           tone: "neutral" as const,
         },
         {
-          key: "boxes",
-          label: "Коробки",
-          value: boxCount != null ? `${boxCount}` : null,
-          isLoading: currentTelegramId != null && isTextBoxesLoading,
+          key: "learning",
+          label: "Изучаю",
+          value: `${Math.max(0, Math.round(learningVerses))}`,
           tone: "learning" as const,
         },
         {
-          key: "verses",
-          label: "Стихи",
-          value: totalVersesCount != null ? `${totalVersesCount}` : null,
+          key: "review",
+          label: "Повторяю",
+          value: `${Math.max(0, Math.round(reviewVerses))}`,
+          isLoading: isStatsPending,
+          tone: "review" as const,
+        },
+        {
+          key: "mastered",
+          label: "Выученные",
+          value: `${Math.max(0, Math.round(masteredVersesCount))}`,
           isLoading: isStatsPending,
           tone: "mastered" as const,
         },
       ] as const,
     [
-      boxCount,
-      currentTelegramId,
       isStatsPending,
-      isTextBoxesLoading,
-      totalVersesCount,
+      learningVerses,
+      masteredVersesCount,
+      reviewVerses,
       userXp,
     ],
   );
@@ -237,7 +233,7 @@ export function Dashboard({
           <DashboardTrainingStatsCard statsCards={statsCards} />
         </div>
 
-        <div className="grid min-h-0 grid-cols-1 gap-3 sm:gap-4 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(15rem,0.78fr)_minmax(18rem,1.22fr)] lg:items-start">
+        <div className="grid min-h-0 grid-cols-1 gap-3 sm:gap-4 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(13.5rem,0.64fr)_minmax(18rem,1.36fr)] lg:items-start">
           <DashboardLeaderboardCard
             leaderboard={dashboardLeaderboard}
             isLeaderboardLoading={isDashboardLeaderboardLoading}

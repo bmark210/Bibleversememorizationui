@@ -21,7 +21,6 @@ import {
 import { LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
-import { selectCompactLeaderboardEntries } from "./leaderboardPresentation";
 import { AppSurface } from "../ui/AppSurface";
 import {
   AVATAR_SIZE,
@@ -450,7 +449,7 @@ export const DashboardTrainingStatsCard = React.memo(
           Моя статистика
         </h3>
 
-        <div className={cn("grid grid-cols-3", GRID_GAP)}>
+        <div className={cn("grid grid-cols-2 sm:grid-cols-4", GRID_GAP)}>
           {statsCards.map((item) => {
             const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
             return (
@@ -965,52 +964,27 @@ export const DashboardLeaderboardCard = React.memo(
       onOpenPlayerProfile,
     };
 
-    const currentUserEntryIndex = React.useMemo(() => {
-      if (!currentUserTelegramId) return -1;
-      return cachedEntries.findIndex(
-        (e): e is domain_UserLeaderboardEntry =>
-          e != null && String(e.telegramId ?? "") === currentUserTelegramId,
-      );
-    }, [cachedEntries, currentUserTelegramId]);
-
-    const currentUserCardEntry = React.useMemo(() => {
-      if (currentUserEntryIndex < 0) return null;
-      return cachedEntries[currentUserEntryIndex] ?? null;
-    }, [cachedEntries, currentUserEntryIndex]);
-
-    const compactEntries = React.useMemo(
-      () =>
-        selectCompactLeaderboardEntries(
-          leaderboard?.items ?? [],
-          currentUserTelegramId,
-        ),
-      [currentUserTelegramId, leaderboard?.items],
-    );
-
-    // Prefetch current user's window for the compact dashboard card.
-    React.useEffect(() => {
-      if (
-        !currentUserSnapshot?.rank ||
-        currentUserEntryIndex >= 0 ||
-        totalParticipants <= 0
-      )
-        return;
-      void requestLeaderboardWindow(
-        getLeaderboardWindowOffsetForIndex(
-          Math.max(0, currentUserSnapshot.rank - 1),
-          totalParticipants,
-          windowSize,
-        ),
-      );
-    }, [
-      currentUserEntryIndex,
-      currentUserSnapshot?.rank,
-      requestLeaderboardWindow,
-      totalParticipants,
-      windowSize,
-    ]);
-
     const canShowMe = Boolean(currentUserSnapshot?.rank);
+    const currentUserRank =
+      typeof currentUserSnapshot?.rank === "number" &&
+      Number.isFinite(currentUserSnapshot.rank) &&
+      currentUserSnapshot.rank > 0
+        ? Math.max(1, Math.round(currentUserSnapshot.rank))
+        : null;
+    const previewParticipantsTotal = currentUserRank
+      ? Math.max(totalParticipants, currentUserRank)
+      : Math.max(0, totalParticipants);
+    const previewTopPercent =
+      currentUserRank && previewParticipantsTotal > 0
+        ? Math.max(
+            1,
+            Math.ceil((currentUserRank / previewParticipantsTotal) * 100),
+          )
+        : null;
+    const previewRankMarker = currentUserRank
+      ? getRankMarker(currentUserRank)
+      : null;
+    const PreviewRankIcon = previewRankMarker?.icon ?? null;
 
     const renderLeaderboardRow = React.useCallback(
       (index: number) => {
@@ -1044,7 +1018,7 @@ export const DashboardLeaderboardCard = React.memo(
 
     return (
       <>
-        <DashboardSurface className="self-start flex min-h-[13.5rem] w-full flex-col gap-3.5 p-4 sm:min-h-[14rem] sm:p-5">
+        <DashboardSurface className="self-start flex min-h-[10rem] w-full flex-col gap-3 p-4 sm:min-h-[10.5rem] sm:p-5">
           <div className="flex items-start justify-between">
             <div className="min-w-0">
               <h2
@@ -1072,51 +1046,77 @@ export const DashboardLeaderboardCard = React.memo(
             </Button>
           </div>
 
-          <div className={cn("flex flex-1 flex-col justify-center", ROW_GAP)}>
-            {isLeaderboardLoading && compactEntries.length === 0 ? (
-              Array.from({ length: 3 }, (_, index) => (
-                <DashboardLeaderboardRowSkeleton
-                  key={`leaderboard-preview-skeleton-${index}`}
-                  isLast={index === 2}
-                />
-              ))
-            ) : compactEntries.length > 0 ? (
-              compactEntries.map((entry) => (
-                <div
-                  key={`${entry.rank ?? 0}-${String(entry.telegramId ?? "") || leaderboardEntryDisplayName(entry)}`}
-                  className={cn("px-0")}
-                >
-                  <DashboardLeaderboardRow
-                    entry={entry}
-                    compact
-                    className="w-full"
-                    {...sharedRowProps}
-                  />
+          <div className="flex flex-1 items-end border-t border-border-subtle/80 pt-3.5 sm:pt-4">
+            {isLeaderboardLoading && currentUserRank == null ? (
+              <div className="flex w-full items-end justify-between gap-3">
+                <div className="min-w-0 space-y-2.5">
+                  <Skeleton className="h-3 w-24 rounded-full border-0" />
+                  <Skeleton className="h-11 w-24 rounded-[1rem] border-0" />
+                  <Skeleton className="h-4 w-28 rounded-full border-0" />
                 </div>
-              ))
-            ) : currentUserCardEntry ? (
-              <DashboardLeaderboardRow
-                entry={currentUserCardEntry}
-                compact
-                className="w-full"
-                {...sharedRowProps}
-              />
-            ) : currentUserSnapshot?.rank ? (
-              <DashboardInfoTile
-                label="Ваше место"
-                value={`#${currentUserSnapshot.rank} из ${Math.max(totalParticipants, currentUserSnapshot.rank)}`}
-                className="w-full border-brand-primary/15 bg-status-mastered-soft/45"
-              />
+                <Skeleton className="h-8 w-20 rounded-full border-0" />
+              </div>
+            ) : currentUserRank ? (
+              <div className="flex w-full items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {PreviewRankIcon ? (
+                      <div
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                          previewRankMarker?.className,
+                        )}
+                        aria-hidden="true"
+                      >
+                        <PreviewRankIcon className="h-3.5 w-3.5" />
+                      </div>
+                    ) : null}
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+                      Ваше место
+                    </span>
+                  </div>
+
+                  <div className="mt-2">
+                    <div className="[font-family:var(--font-heading)] text-[clamp(2.15rem,9vw,3rem)] font-semibold leading-none tracking-tight text-text-primary">
+                      #{currentUserRank}
+                    </div>
+                    <div className="mt-1.5 text-sm text-text-muted">
+                      из {previewParticipantsTotal} участников
+                    </div>
+                  </div>
+                </div>
+
+                {previewTopPercent ? (
+                  <div className="shrink-0 rounded-full border border-brand-primary/15 bg-status-mastered-soft px-3 py-1.5 text-xs font-semibold text-brand-primary">
+                    Топ {previewTopPercent}%
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <DashboardInfoTile
-                label="Рейтинг"
-                value={
-                  totalParticipants > 0
-                    ? `${totalParticipants} участников`
-                    : "Пока без участников"
-                }
-                className="flex flex-col justify-center flex-1"
-              />
+              <div className="flex w-full flex-col justify-center">
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+                  Ваше место
+                </div>
+                <div className="mt-2 text-lg font-semibold leading-tight text-text-primary">
+                  Пока вне таблицы
+                </div>
+                <div className="mt-1.5 text-sm leading-relaxed text-text-muted">
+                  {previewParticipantsTotal > 0
+                    ? `Сейчас в рейтинге ${previewParticipantsTotal} участников.`
+                    : "Рейтинг появится после первых результатов."}
+                </div>
+                {onOpenTraining ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenTraining}
+                    className="mt-3 h-9 w-fit rounded-full px-4 text-xs"
+                  >
+                    Открыть тренировку
+                  </Button>
+                ) : null}
+              </div>
             )}
           </div>
         </DashboardSurface>
