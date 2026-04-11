@@ -33,7 +33,7 @@ export function TrainingExerciseSection({
   bodyClassName,
   contentClassName,
   scrollable = false,
-  shadowSize = 40,
+  shadowSize = 16,
   bottomCue,
   scrollClassName,
 }: TrainingExerciseSectionProps) {
