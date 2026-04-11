@@ -1,7 +1,13 @@
 "use client";
 
 import React from "react";
-import { ArrowUpRight, Crown, Medal, Trophy, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Crown,
+  Medal,
+  Trophy,
+  X,
+} from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import { useTelegramSafeArea } from "@/app/hooks/useTelegramSafeArea";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
@@ -29,7 +35,6 @@ import {
   HEADING_TEXT,
   HERO_TEXT,
   ROW_GAP,
-  SECTION_GAP,
   SHOW_ME_BTN,
   STAT_LABEL,
   STAT_VALUE,
@@ -343,7 +348,7 @@ function WelcomeHeading({
       className={cn(
         "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
         HERO_TEXT,
-        "text-[clamp(2rem,6.8vw,2.9rem)] narrow:text-[clamp(1.7rem,7.6vw,2.2rem)]",
+        "text-[clamp(1.55rem,5vw,2rem)] narrow:text-[1.5rem]",
       )}
     >
       {isFirstAppVisit ? `Привет, ${firstName}` : `С возвращением`}
@@ -355,6 +360,9 @@ export const DashboardWelcomeSection = React.memo(
   function DashboardWelcomeSection({
     user,
     currentUserAvatarUrl,
+    learningVersesCount,
+    dueReviewVerses,
+    dailyStreak,
     onOpenCurrentUserProfile,
   }: DashboardWelcomeSectionProps) {
     const [isFirstAppVisit, setIsFirstAppVisit] = React.useState(false);
@@ -371,55 +379,81 @@ export const DashboardWelcomeSection = React.memo(
       }
     }, []);
 
+    const streakValue = Math.max(0, dailyStreak ?? 0);
+    const summaryText =
+      dueReviewVerses > 0
+        ? `К повторению: ${dueReviewVerses}`
+        : learningVersesCount > 0
+          ? `В изучении: ${learningVersesCount}`
+          : "Очередь спокойная";
+    const streakText =
+      streakValue > 0 ? `Серия ${streakValue} ${pluralizeDays(streakValue)}` : null;
+
     return (
       <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
-        <div
-          className={cn(
-            "flex flex-col lg:flex-row lg:items-center lg:justify-between",
-            SECTION_GAP,
-          )}
-        >
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {user ? (
               onOpenCurrentUserProfile ? (
                 <button
                   type="button"
                   onClick={onOpenCurrentUserProfile}
-                  className="flex items-center gap-3.5 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
+                  className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
                   aria-label={`Открыть профиль ${user.firstName}`}
                 >
                   <WelcomeAvatar
                     currentUserAvatarUrl={currentUserAvatarUrl}
                     firstName={user.firstName}
                   />
-                  <WelcomeHeading
-                    isFirstAppVisit={isFirstAppVisit}
-                    firstName={user.firstName}
-                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading
+                      isFirstAppVisit={isFirstAppVisit}
+                      firstName={user.firstName}
+                    />
+                    <p className="mt-1 text-sm text-text-secondary sm:text-[15px]">
+                      {summaryText}
+                    </p>
+                  </div>
                 </button>
               ) : (
-                <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <WelcomeAvatar
                     currentUserAvatarUrl={currentUserAvatarUrl}
                     firstName={user.firstName}
                   />
-                  <WelcomeHeading
-                    isFirstAppVisit={isFirstAppVisit}
-                    firstName={user.firstName}
-                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading
+                      isFirstAppVisit={isFirstAppVisit}
+                      firstName={user.firstName}
+                    />
+                    <p className="mt-1 text-sm text-text-secondary sm:text-[15px]">
+                      {summaryText}
+                    </p>
+                  </div>
                 </div>
               )
             ) : (
-              <h1
-                className={cn(
-                  "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
-                  HERO_TEXT,
-                )}
-              >
-                С возвращением
-              </h1>
+              <div>
+                <h1
+                  className={cn(
+                    "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
+                    HERO_TEXT,
+                  )}
+                >
+                  С возвращением
+                </h1>
+                <p className="mt-1 text-sm text-text-secondary sm:text-[15px]">
+                  Держите ритм обучения.
+                </p>
+              </div>
             )}
           </div>
+
+          {streakText ? (
+            <div className="shrink-0 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-secondary shadow-[var(--shadow-soft)]">
+              {streakText}
+            </div>
+          ) : null}
         </div>
       </DashboardSurface>
     );
@@ -494,6 +528,73 @@ export const DashboardTrainingStatsCard = React.memo(
     );
   },
 );
+
+/* ── Personal Focus Card ──────────────────────────────────────────── */
+
+type DashboardFocusCardProps = {
+  learningVersesCount: number;
+  dueReviewVerses: number;
+  dailyStreak?: number | null;
+  onOpenTraining?: () => void;
+};
+
+export const DashboardFocusCard = React.memo(function DashboardFocusCard({
+  learningVersesCount,
+  dueReviewVerses,
+  dailyStreak,
+  onOpenTraining,
+}: DashboardFocusCardProps) {
+  const streakValue = Math.max(0, dailyStreak ?? 0);
+  const hasDueReview = dueReviewVerses > 0;
+  const hasLearning = learningVersesCount > 0;
+  const heading = hasDueReview
+    ? `${dueReviewVerses} к повторению`
+    : hasLearning
+      ? `${learningVersesCount} в изучении`
+      : "Новый тренировочный цикл";
+  const supportingText = hasDueReview
+    ? "Сначала закройте повторение."
+    : hasLearning
+      ? "Можно продолжить текущий цикл."
+      : "Можно начать новый стих.";
+  const primaryLabel = hasDueReview || hasLearning ? "Продолжить" : "Начать";
+
+  return (
+    <DashboardSurface className="shrink-0">
+      <div className="flex h-full flex-col">
+        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+          На сегодня
+        </div>
+        <h3 className="mt-2 [font-family:var(--font-heading)] text-[1.35rem] font-semibold leading-tight tracking-tight text-text-primary sm:text-[1.6rem]">
+          {heading}
+        </h3>
+
+        <p className="mt-2 text-sm leading-relaxed text-text-secondary sm:text-[15px]">
+          {supportingText}
+        </p>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="text-xs text-text-muted">
+            {streakValue > 0
+              ? `Серия ${streakValue} ${pluralizeDays(streakValue)}`
+              : "Без активной серии"}
+          </div>
+
+          {onOpenTraining ? (
+            <Button
+              type="button"
+              onClick={onOpenTraining}
+              className="h-10 rounded-full px-4 text-sm font-semibold"
+            >
+              {primaryLabel}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </DashboardSurface>
+  );
+});
+DashboardFocusCard.displayName = "DashboardFocusCard";
 
 /* ── Leaderboard Row ──────────────────────────────────────────────── */
 

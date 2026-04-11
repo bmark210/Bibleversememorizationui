@@ -380,15 +380,10 @@ export default function App({ onInitialContentReady }: AppProps) {
                   todayVerses={verses}
                   dashboardStats={dashboardStats}
                   isDashboardStatsLoading={isDashboardStatsLoading}
-                  dashboardLeaderboard={dashboardLeaderboard}
-                  isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
-                  dashboardFriendsActivity={dashboardFriendsActivity}
-                  isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
                   currentTelegramId={telegramId}
                   currentUserAvatarUrl={currentUserAvatarUrl}
                   onOpenTraining={handleOpenTraining}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
-                  onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
                   isInitializingData={isBootstrapping}
                 />
               </section>
@@ -446,6 +441,12 @@ export default function App({ onInitialContentReady }: AppProps) {
               >
                 <Community
                   telegramId={telegramId}
+                  dashboardLeaderboard={dashboardLeaderboard}
+                  isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
+                  dashboardFriendsActivity={dashboardFriendsActivity}
+                  isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
+                  onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
+                  onOpenTraining={handleOpenTraining}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
                   friendsRefreshVersion={friendsRefreshVersion}

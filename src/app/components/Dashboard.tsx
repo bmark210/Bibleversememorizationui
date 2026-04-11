@@ -4,8 +4,6 @@ import { useMemo } from "react";
 import { useTelegram } from "../contexts/TelegramContext";
 import type { Verse } from "@/app/domain/verse";
 import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
-import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
-import type { DashboardCompactFriendsActivityResponse } from "@/api/services/friendsActivity";
 import {
   getVerseNextAvailabilityAt,
   getVerseProgressPercent,
@@ -17,8 +15,7 @@ import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { cn } from "./ui/utils";
 import {
-  DashboardFriendsActivityCard,
-  DashboardLeaderboardCard,
+  DashboardFocusCard,
   DashboardTrainingStatsCard,
   DashboardWelcomeSection,
 } from "./dashboard/DashboardSections";
@@ -29,10 +26,6 @@ interface DashboardProps {
   todayVerses: Array<Verse>;
   dashboardStats?: domain_UserDashboardStats | null;
   isDashboardStatsLoading?: boolean;
-  dashboardLeaderboard?: domain_UserLeaderboardResponse | null;
-  isDashboardLeaderboardLoading?: boolean;
-  dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null;
-  isDashboardFriendsActivityLoading?: boolean;
   currentTelegramId?: string | null;
   currentUserAvatarUrl?: string | null;
   onOpenTraining?: () => void;
@@ -41,10 +34,6 @@ interface DashboardProps {
     name: string;
     avatarUrl: string | null;
   }) => void;
-  onLeaderboardWindowRequest?: (query: {
-    offset?: number;
-    limit?: number;
-  }) => Promise<domain_UserLeaderboardResponse | null>;
   isInitializingData?: boolean;
 }
 
@@ -122,15 +111,10 @@ export function Dashboard({
   todayVerses,
   dashboardStats = null,
   isDashboardStatsLoading = false,
-  dashboardLeaderboard = null,
-  isDashboardLeaderboardLoading = false,
-  dashboardFriendsActivity = null,
-  isDashboardFriendsActivityLoading = false,
   currentTelegramId = null,
   currentUserAvatarUrl = null,
   onOpenTraining,
   onOpenPlayerProfile,
-  onLeaderboardWindowRequest,
   isInitializingData = false,
 }: DashboardProps) {
   const { user } = useTelegram();
@@ -230,23 +214,16 @@ export function Dashboard({
         </div>
 
         <div className="min-h-0 lg:col-start-2 lg:row-start-1">
-          <DashboardTrainingStatsCard statsCards={statsCards} />
+          <DashboardFocusCard
+            learningVersesCount={learningVerses}
+            dueReviewVerses={dueReviewVerses}
+            dailyStreak={dailyStreak}
+            onOpenTraining={onOpenTraining}
+          />
         </div>
 
-        <div className="grid min-h-0 grid-cols-1 gap-3 sm:gap-4 lg:col-span-2 lg:row-start-2 lg:grid-cols-[minmax(13.5rem,0.64fr)_minmax(18rem,1.36fr)] lg:items-start">
-          <DashboardLeaderboardCard
-            leaderboard={dashboardLeaderboard}
-            isLeaderboardLoading={isDashboardLeaderboardLoading}
-            onOpenTraining={onOpenTraining}
-            onOpenPlayerProfile={onOpenPlayerProfile}
-            onLeaderboardWindowRequest={onLeaderboardWindowRequest}
-          />
-          <DashboardFriendsActivityCard
-            friendsActivity={dashboardFriendsActivity}
-            isFriendsActivityLoading={isDashboardFriendsActivityLoading}
-            currentTelegramId={currentTelegramId}
-            onOpenPlayerProfile={onOpenPlayerProfile}
-          />
+        <div className="min-h-0 lg:col-span-2 lg:row-start-2">
+          <DashboardTrainingStatsCard statsCards={statsCards} />
         </div>
       </section>
     </div>

@@ -9,17 +9,23 @@ import {
 } from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
 import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
+import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import {
   addFriend,
   fetchFriendsPage,
   fetchPlayersPage,
   removeFriend,
 } from "@/api/services/friends";
+import type { DashboardCompactFriendsActivityResponse } from "@/api/services/friendsActivity";
 import { toast } from "@/app/lib/toast";
 import { AppSurface } from "./ui/AppSurface";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import {
+  DashboardFriendsActivityCard,
+  DashboardLeaderboardCard,
+} from "./dashboard/DashboardSections";
 import {
   PAGE_COMPACT_PADDING,
   ROW_AVATAR,
@@ -42,12 +48,6 @@ const COMMUNITY_OVERSCAN = 220;
 const PAGE_SHELL =
   "mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-[auto_auto] short-phone:overflow-visible";
 
-const SUMMARY_TILE =
-  "group relative overflow-hidden rounded-[1.35rem] border px-4 py-3 text-left shadow-[var(--shadow-soft)] transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-px";
-
-const SUMMARY_TILE_LABEL =
-  "text-[11px] uppercase tracking-[0.16em] text-text-muted transition-colors";
-
 const ROW_ACTION_BUTTON =
   "h-8 w-8 shrink-0 rounded-full p-0 narrow:h-7.5 narrow:w-7.5";
 
@@ -61,6 +61,15 @@ type CommunityListState = {
 
 interface CommunityProps {
   telegramId?: string | null;
+  dashboardLeaderboard?: domain_UserLeaderboardResponse | null;
+  isDashboardLeaderboardLoading?: boolean;
+  dashboardFriendsActivity?: DashboardCompactFriendsActivityResponse | null;
+  isDashboardFriendsActivityLoading?: boolean;
+  onLeaderboardWindowRequest?: (query: {
+    offset?: number;
+    limit?: number;
+  }) => Promise<domain_UserLeaderboardResponse | null>;
+  onOpenTraining?: () => void;
   onFriendsChanged?: () => void;
   onOpenPlayerProfile?: (player: {
     telegramId: string;
@@ -279,6 +288,12 @@ function CommunityListRow({
 
 export function Community({
   telegramId = null,
+  dashboardLeaderboard = null,
+  isDashboardLeaderboardLoading = false,
+  dashboardFriendsActivity = null,
+  isDashboardFriendsActivityLoading = false,
+  onLeaderboardWindowRequest,
+  onOpenTraining,
   onFriendsChanged,
   onOpenPlayerProfile,
   friendsRefreshVersion = 0,
@@ -606,59 +621,9 @@ export function Community({
 
   return (
     <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
-      <AppSurface className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(var(--accent-gold-rgb),0.16),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(var(--accent-olive-rgb),0.12),transparent_45%)]" />
-
-        <div className="relative grid gap-3">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveFriendsTab("friends")}
-              className={cn(
-                SUMMARY_TILE,
-                activeFriendsTab === "friends"
-                  ? "border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-floating)]"
-                  : "border-border-subtle bg-bg-elevated text-text-primary hover:border-brand-primary/15 hover:bg-bg-surface",
-              )}
-            >
-              <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div
-                className={cn(
-                  SUMMARY_TILE_LABEL,
-                  activeFriendsTab === "friends" && "text-brand-primary/80",
-                )}
-              >
-                Мои друзья
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFriendsTab("players")}
-              className={cn(
-                SUMMARY_TILE,
-                activeFriendsTab === "players"
-                  ? "border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-floating)]"
-                  : "border-border-subtle bg-bg-elevated text-text-primary hover:border-brand-primary/15 hover:bg-bg-surface",
-              )}
-            >
-              <div className="absolute inset-y-0 left-0 w-1 rounded-l-[1.35rem] bg-brand-primary/40 opacity-0 transition-opacity group-hover:opacity-70" />
-              <div
-                className={cn(
-                  SUMMARY_TILE_LABEL,
-                  activeFriendsTab === "players" && "text-brand-primary/80",
-                )}
-              >
-                Игроки
-              </div>
-            </button>
-          </div>
-        </div>
-      </AppSurface>
-
       <AppSurface
         data-tour="profile-friends"
-        className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 short-phone:h-auto short-phone:grid-rows-none"
+        className="grid h-full min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)] gap-3 short-phone:h-auto short-phone:grid-rows-none"
       >
         {!canManageFriends ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.25rem] border border-dashed border-border-subtle bg-bg-elevated px-4 py-6 text-sm text-text-secondary">
@@ -668,7 +633,10 @@ export function Community({
           <>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-text-primary">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Сообщество
+                </div>
+                <div className="mt-1 text-sm font-semibold text-text-primary">
                   {activeListTitle}
                 </div>
               </div>
@@ -677,6 +645,65 @@ export function Community({
                 <Users className="h-3.5 w-3.5 text-brand-primary" />
                 {activeCount}
               </div>
+            </div>
+
+            <div className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(13.5rem,0.64fr)_minmax(18rem,1.36fr)] lg:items-start">
+              <DashboardLeaderboardCard
+                leaderboard={dashboardLeaderboard}
+                isLeaderboardLoading={isDashboardLeaderboardLoading}
+                onOpenTraining={onOpenTraining}
+                onOpenPlayerProfile={onOpenPlayerProfile}
+                onLeaderboardWindowRequest={onLeaderboardWindowRequest}
+              />
+              <DashboardFriendsActivityCard
+                friendsActivity={dashboardFriendsActivity}
+                isFriendsActivityLoading={isDashboardFriendsActivityLoading}
+                currentTelegramId={telegramId}
+                onOpenPlayerProfile={onOpenPlayerProfile}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {([
+                {
+                  key: "friends",
+                  label: "Мои друзья",
+                  count: friendsTotal,
+                },
+                {
+                  key: "players",
+                  label: "Игроки",
+                  count: playersTotal,
+                },
+              ] as const).map((tab) => {
+                const isActive = activeFriendsTab === tab.key;
+
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveFriendsTab(tab.key)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-[background-color,border-color,color]",
+                      isActive
+                        ? "border-brand-primary/20 bg-status-mastered-soft text-brand-primary"
+                        : "border-border-subtle bg-bg-elevated text-text-secondary hover:bg-bg-surface hover:text-text-primary",
+                    )}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        isActive
+                          ? "bg-brand-primary/10 text-brand-primary"
+                          : "bg-bg-subtle text-text-muted",
+                      )}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="relative">
