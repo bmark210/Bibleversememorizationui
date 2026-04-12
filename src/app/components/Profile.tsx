@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, Moon } from "lucide-react";
+import { Moon } from "lucide-react";
 import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
 import { useTelegram } from "../contexts/TelegramContext";
 import { Feedback } from "./Feedback";
@@ -103,13 +103,13 @@ export function Profile({
       </AppSurface>
 
       {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
-      <AppSurface className="flex flex-[3] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
         <div className={cn(SECTION_LABEL, "mb-4 mt-2")}>Настройки</div>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-hidden">
+        <div className="grid grid-rows-2 gap-3 flex-1">
 
           {/* Theme row */}
-          <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-[1.1rem]">
+          <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-2">
             <div className="flex items-center gap-3.5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
                 <Moon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
@@ -125,15 +125,14 @@ export function Profile({
           </div>
 
           {/* Font size list — fills ALL remaining space evenly */}
-          <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
+          <div className="flex flex-col flex-1 overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
 
             <div className="shrink-0 border-b border-border-subtle px-4 py-[0.875rem]">
               <div className="text-base font-medium text-text-primary leading-none">Шрифт тренировки</div>
-              <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">Размер текста стиха</div>
             </div>
 
             {/* Each row claims equal share via flex-1 */}
-            <div className="flex flex-1 flex-col divide-y divide-border-subtle overflow-auto">
+            <div className="flex flex-1 divide-x divide-border-subtle">
               {FONT_OPTIONS.map((opt) => {
                 const active = trainingFontSize === opt.value;
                 return (
@@ -159,18 +158,18 @@ export function Profile({
                       Аа
                     </span>
 
-                    <span className={cn(
+                    {/* <span className={cn(
                       "flex-1 text-left text-base font-medium",
                       active ? "text-brand-primary" : "text-text-primary",
                     )}>
                       {opt.label}
-                    </span>
+                    </span> */}
 
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                    {/* <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                       {active
                         ? <Check className="h-4 w-4 text-brand-primary" strokeWidth={2.5} />
                         : null}
-                    </span>
+                    </span> */}
                   </button>
                 );
               })}
@@ -181,11 +180,10 @@ export function Profile({
       </AppSurface>
 
       {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
-      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+      <AppSurface className="flex flex-[2.3] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
         <div className={cn(SECTION_LABEL, "mb-3 mt-2")}>Обратная связь</div>
         <Feedback telegramId={telegramId} />
       </AppSurface>
-
     </section>
   );
 }
