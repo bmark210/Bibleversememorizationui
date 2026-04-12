@@ -725,7 +725,7 @@ export function BibleCatalogView({
 
   // ── Applied filters ──────────────────────────────────────────────────────
   const [verseListAtTop, setVerseListAtTop] = useState(true);
-  const [verseListAtBottom, setVerseListAtBottom] = useState(true);
+  const [, setVerseListAtBottom] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);

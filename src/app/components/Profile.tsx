@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Moon, Type } from "lucide-react";
+import { Check, Moon } from "lucide-react";
 import { useTrainingFontStore } from "@/app/stores/trainingFontStore";
 import { useTelegram } from "../contexts/TelegramContext";
 import { Feedback } from "./Feedback";
@@ -13,15 +13,14 @@ import { cn } from "./ui/utils";
 
 type Theme = "light" | "dark";
 
-const PAGE_SHELL = "mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col";
+const PAGE_SHELL  = "mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-3";
 const SECTION_LABEL = "text-[10.5px] font-semibold uppercase tracking-[0.16em] text-text-muted";
-const DIVIDER = "border-t border-border-subtle mx-[-1rem] sm:mx-[-1.25rem]";
 
 const FONT_OPTIONS = [
-  { value: "small",       preview: 13 },
-  { value: "medium",      preview: 16 },
-  { value: "large",       preview: 19 },
-  { value: "extra-large", preview: 23 },
+  { value: "small",       preview: 16, label: "Малый"         },
+  { value: "medium",      preview: 20, label: "Средний"       },
+  { value: "large",       preview: 24, label: "Крупный"       },
+  { value: "extra-large", preview: 28, label: "Очень крупный" },
 ] as const;
 
 interface ProfileProps {
@@ -37,12 +36,7 @@ interface ProfileProps {
 }
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 }
 
 export function Profile({
@@ -57,13 +51,10 @@ export function Profile({
   const { trainingFontSize, setTrainingFontSize } = useTrainingFontStore();
 
   const profileName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
-    "Пользователь";
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "Пользователь";
   const usernameLabel = user?.username
     ? `@${user.username}`
-    : telegramId
-      ? `ID ${telegramId}`
-      : "Telegram";
+    : telegramId ? `ID ${telegramId}` : "Telegram";
   const canOpenProfile = Boolean(telegramId && onOpenPlayerProfile);
 
   const handleOpenProfile = React.useCallback(() => {
@@ -81,9 +72,7 @@ export function Profile({
   );
 
   return (
-    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, "overflow-y-auto overscroll-contain")}>
-      <div className="flex flex-1 flex-col gap-3">
-
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, "overflow-y-auto")}>
         {/* ── User card ─────────────────────────────────────────────── */}
         <AppSurface className="p-4 sm:p-5">
           {canOpenProfile ? (
@@ -95,102 +84,105 @@ export function Profile({
             >
               {avatarEl}
               <div className="min-w-0">
-                <div className="truncate text-lg font-semibold text-text-primary leading-snug">
-                  {profileName}
-                </div>
-                <div className="truncate text-sm text-text-muted mt-0.5">
-                  {usernameLabel}
-                </div>
+                <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+                <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
               </div>
             </button>
           ) : (
             <div className="flex items-center gap-4">
               {avatarEl}
               <div className="min-w-0">
-                <div className="truncate text-lg font-semibold text-text-primary leading-snug">
-                  {profileName}
-                </div>
-                <div className="truncate text-sm text-text-muted mt-0.5">
-                  {usernameLabel}
-                </div>
+                <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+                <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
               </div>
             </div>
           )}
         </AppSurface>
 
-        {/* ── Settings ──────────────────────────────────────────────── */}
-        <AppSurface className="px-4 sm:px-5 py-4 sm:py-5">
-          <div className={cn(SECTION_LABEL, "mb-4 mt-2")}>Настройки</div>
+        {/* ── Settings — grows to fill available space ───────────────── */}
+        <AppSurface className="flex flex-1 flex-col px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+          <div className={cn(SECTION_LABEL, "mb-4")}>Настройки</div>
 
-          {/* Theme row */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-bg-subtle border border-border-subtle text-text-secondary">
-              <Moon className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-              <div>
-                <div className="text-[0.9375rem] font-medium text-text-primary leading-snug">
-                  Тёмная тема
+          <div className="flex flex-1 flex-col gap-3">
+
+            {/* Theme toggle */}
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-[1.1rem]">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
+                  <Moon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
                 </div>
-                <div className="text-xs text-text-muted mt-0.5">
-                  {theme === "dark" ? "Включена" : "Выключена"}
+                <div>
+                  <div className="text-base font-medium text-text-primary leading-none">Тёмная тема</div>
+                  <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">
+                    {theme === "dark" ? "Включена" : "Выключена"}
+                  </div>
                 </div>
               </div>
-              <Switch
-                checked={theme === "dark"}
-                onCheckedChange={onToggleTheme}
-                aria-label="Тёмная тема"
-              />
+              <Switch checked={theme === "dark"} onCheckedChange={onToggleTheme} aria-label="Тёмная тема" />
             </div>
-          </div>
 
-          <div className={cn(DIVIDER, "my-4")} />
+            {/* Font size list — fills remaining space */}
+            <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
 
-          {/* Font row */}
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-bg-subtle border border-border-subtle text-text-secondary">
-              <Type className="h-4 w-4" strokeWidth={1.75} />
-            </div>
-            <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-              <div>
-                <div className="text-[0.9375rem] font-medium text-text-primary leading-snug">
-                  Шрифт тренировки
-                </div>
-                <div className="text-xs text-text-muted mt-0.5">Размер текста стиха</div>
+              {/* Header */}
+              <div className="border-b border-border-subtle px-4 py-[0.875rem]">
+                <div className="text-base font-medium text-text-primary leading-none">Шрифт тренировки</div>
+                <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">Размер текста стиха</div>
               </div>
-              <div className="flex items-center gap-1.5">
-                {FONT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setTrainingFontSize(opt.value)}
-                    aria-label={`Шрифт ${opt.value}`}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full transition-[background-color,color,box-shadow]",
-                      trainingFontSize === opt.value
-                        ? "border border-brand-primary/20 bg-status-mastered-soft text-brand-primary shadow-[var(--shadow-soft)]"
-                        : "bg-bg-subtle text-text-secondary hover:bg-bg-surface hover:text-text-primary",
-                    )}
-                  >
-                    <span style={{ fontSize: opt.preview }} className="font-serif leading-none">
-                      Аа
-                    </span>
-                  </button>
-                ))}
+
+              {/* Rows — each takes equal share of remaining height */}
+              <div className="flex flex-1 flex-col divide-y divide-border-subtle">
+                {FONT_OPTIONS.map((opt) => {
+                  const active = trainingFontSize === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTrainingFontSize(opt.value)}
+                      aria-label={`Шрифт: ${opt.label}`}
+                      className={cn(
+                        "flex flex-1 items-center gap-4 px-4 transition-colors min-h-[2.5rem]",
+                        active
+                          ? "bg-status-mastered-soft/35"
+                          : "hover:bg-bg-surface/40 active:bg-bg-surface/60",
+                      )}
+                    >
+                      <span
+                        style={{ fontSize: opt.preview }}
+                        className={cn(
+                          "w-10 shrink-0 text-center font-serif leading-none",
+                          active ? "text-brand-primary" : "text-text-secondary",
+                        )}
+                      >
+                        Аа
+                      </span>
+
+                      <span className={cn(
+                        "flex-1 text-left text-base font-medium",
+                        active ? "text-brand-primary" : "text-text-primary",
+                      )}>
+                        {opt.label}
+                      </span>
+
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                        {active
+                          ? <Check className="h-4 w-4 text-brand-primary" strokeWidth={2.5} />
+                          : null}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
           </div>
         </AppSurface>
 
         {/* ── Feedback ──────────────────────────────────────────────── */}
-        <AppSurface className="flex flex-1 flex-col px-4 sm:px-5 py-4 sm:py-5">
-          <div className={cn(SECTION_LABEL, "mb-4 mt-2")}>Обратная связь</div>
-          <div className="flex flex-1 flex-col">
-            <Feedback telegramId={telegramId} />
-          </div>
+        <AppSurface className="flex flex-col px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+          <div className={cn(SECTION_LABEL, "mb-4")}>Обратная связь</div>
+          <Feedback telegramId={telegramId} />
         </AppSurface>
-
-      </div>
     </section>
   );
 }
