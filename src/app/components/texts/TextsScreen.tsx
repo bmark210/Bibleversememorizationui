@@ -16,7 +16,7 @@ import {
   patchVerseStatus,
   removeTextFromBox,
   replaceLearningVerseInTextBox,
-} from "../../../api/services/textBoxes";
+} from "@/api/services/textBoxes";
 import {
   Avatar,
   AvatarFallback,
@@ -393,7 +393,9 @@ export function TextsScreen({
   const [isUpdatingBoxVisibility, setIsUpdatingBoxVisibility] = useState(false);
   const [isImportingPublicBox, setIsImportingPublicBox] = useState(false);
   const [busyVerseId, setBusyVerseId] = useState<string | null>(null);
-  const [removeVerseTarget, setRemoveVerseTarget] = useState<Verse | null>(null);
+  const [removeVerseTarget, setRemoveVerseTarget] = useState<Verse | null>(
+    null,
+  );
   const [galleryState, setGalleryState] = useState<GalleryState>(null);
   const [replacementState, setReplacementState] =
     useState<LearningReplacementState>(null);
@@ -1030,14 +1032,13 @@ export function TextsScreen({
     );
 
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-3">
+        <div className="w-full">
+          <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
+            {isMineMode ? "Мои коробки" : "Публичные коробки"}
+          </h1>
+        </div>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="w-full">
-            <h1 className="my-2 [font-family:var(--font-heading)] text-[1.5rem] font-semibold tracking-tight text-text-primary sm:text-[2.25rem]">
-              {isMineMode ? "Мои коробки" : "Публичные коробки"}
-            </h1>
-          </div>
-
           <CompactSegmentedControl<BoxesViewMode>
             value={boxesViewMode}
             items={[
@@ -1046,26 +1047,28 @@ export function TextsScreen({
             ]}
             onChange={handleBoxesViewModeChange}
           />
-          {!selectedBoxId &&
-          !selectedPublicBoxId &&
-          activeTab === "boxes" &&
-          boxesViewMode === "mine" ? (
-            <Button
-              type="button"
-              className="rounded-full p-4 shadow-[var(--shadow-floating)]"
-              onClick={openCreateDrawer}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          ) : null}
+          <div className="">
+            {!selectedBoxId &&
+            !selectedPublicBoxId &&
+            activeTab === "boxes" &&
+            boxesViewMode === "mine" ? (
+              <Button
+                type="button"
+                className="rounded-full p-4 shadow-[var(--shadow-floating)]"
+                onClick={openCreateDrawer}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <p className="my-2 px-2 text-sm text-text-muted">{countLabel}</p>
+        <p className="text-[11px] font-medium text-text-muted">{countLabel}</p>
 
         <ScrollShadowContainer
           className="min-h-0 flex-1"
-          scrollClassName="py-4"
           showShadows
+          topOnly
           shadowSize={56}
           shadowStyle="mask"
         >
@@ -1492,9 +1495,6 @@ export function TextsScreen({
           previewHasMore={false}
           previewIsLoadingMore={false}
           showDeleteAction={false}
-          onReplaceRequest={
-            hasReplacementCandidates ? handleOpenReplacementDrawer : undefined
-          }
         />
       ) : null}
 

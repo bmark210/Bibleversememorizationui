@@ -132,7 +132,7 @@ function saveConfig(data) {
 // ─── Запуск процессов ────────────────────────────────────────────────────────
 function startNextJs() {
   step('Запуск Next.js...');
-  return spawn(`npx next dev --hostname 0.0.0.0 --port ${PORT} --turbo`, {
+  return spawn(`npx next dev --hostname 0.0.0.0 --port ${PORT}`, {
     shell: true,
     stdio: 'inherit',
     cwd: ROOT,

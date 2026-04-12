@@ -1137,8 +1137,8 @@ export function BibleCatalogView({
         )}
 
         {/* ── Mode / results label ──────────────────────────────────────────── */}
+        <div className="shrink-0 flex items-center justify-between gap-2">
         {!isLoading ? (
-          <div className="px-1 shrink-0 flex items-center justify-between gap-2">
             <p className="text-[11px] font-medium text-text-muted">
               {isLoadingIndex
                 ? "Загружается индекс Библии…"
@@ -1146,22 +1146,23 @@ export function BibleCatalogView({
                   ? `${modeLabel} · ${formatRussianCount(totalCount, ["результат", "результата", "результатов"])}`
                   : modeLabel}
             </p>
-            {selectedCount > 0 && (
-              <p className="text-[11px] font-semibold text-brand-primary">
-                Выбрано {selectedCountLabel}
-              </p>
-            )}
-          </div>
-        ) : (
-          <>
-          <p className="text-[11px] font-medium text-text-muted">{""}</p>
+          ) : (
+            <>
+            <p className="text-[11px] font-medium text-text-muted" style={{ whiteSpace: "pre" }}> </p>
+       
           </>
         )}
+        {selectedCount > 0 && (
+          <p className="text-[11px] font-semibold text-brand-primary">
+            Выбрано {selectedCountLabel}
+          </p>
+        )}
+        </div>
 
         {/* ── Verse list ────────────────────────────────────────────────────── */}
         <div
           className="relative min-h-0 flex-1"
-          style={buildScrollMask(verseListAtTop, verseListAtBottom, 52)}
+          style={buildScrollMask(verseListAtTop, true, 52)}
         >
           {isLoading ? (
             <div className="space-y-2 pb-4">
