@@ -3,65 +3,81 @@
 import React from "react";
 import { Send } from "lucide-react";
 import { useTelegram } from "../contexts/TelegramContext";
-import { openTelegramLink } from "@/app/hooks/useTelegramWebApp";
+import {
+  FEEDBACK_EMAIL,
+  MAX_FEEDBACK_LENGTH,
+} from "@/app/lib/feedbackConfig";
 import { toast } from "@/app/lib/toast";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { cn } from "./ui/utils";
 
-const FEEDBACK_EMAIL = "markbaltenko@gmail.com";
-const MAX_LENGTH = 500;
-
 type FeedbackProps = { telegramId?: string | null };
-
-function buildMailto(params: {
-  text: string;
-  telegramId?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  username?: string | null;
-}) {
-  const displayName = [params.firstName, params.lastName].filter(Boolean).join(" ").trim();
-  const body = [
-    params.text,
-    "",
-    "---",
-    displayName        ? `Имя: ${displayName}`            : null,
-    params.username    ? `Username: @${params.username}`  : null,
-    params.telegramId  ? `Telegram ID: ${params.telegramId}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Bible Memory — отзыв")}&body=${encodeURIComponent(body)}`;
-}
 
 export function Feedback({ telegramId = null }: FeedbackProps) {
   const { user } = useTelegram();
   const [text, setText] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const trimmed = text.trim();
-  const remaining = MAX_LENGTH - text.length;
-  const canSubmit = trimmed.length > 0 && text.length <= MAX_LENGTH;
+  const remaining = MAX_FEEDBACK_LENGTH - text.length;
+  const canSubmit =
+    !isSubmitting &&
+    trimmed.length > 0 &&
+    text.length <= MAX_FEEDBACK_LENGTH;
 
-  const handleSubmit = React.useCallback(() => {
+  const handleSubmit = React.useCallback(async () => {
     if (!trimmed) {
       toast.warning("Введите сообщение", { label: "Обратная связь" });
       return;
     }
-    openTelegramLink(
-      buildMailto({
-        text: trimmed,
-        telegramId,
-        firstName: user?.firstName,
-        lastName: user?.lastName,
-        username: user?.username,
-      }),
-    );
-    toast.success("Письмо подготовлено", {
-      label: "Обратная связь",
-      description: FEEDBACK_EMAIL,
-    });
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: trimmed,
+          telegramId,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          username: user?.username,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; recipient?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.message ??
+            "Не удалось отправить сообщение. Попробуйте ещё раз.",
+        );
+      }
+
+      setText("");
+      toast.success("Сообщение отправлено", {
+        label: "Обратная связь",
+        description: payload?.recipient ?? FEEDBACK_EMAIL,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось отправить сообщение. Попробуйте ещё раз.";
+      console.error("Не удалось отправить сообщение", error);
+      toast.error(message, {
+        label: "Обратная связь",
+        description: FEEDBACK_EMAIL,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [telegramId, trimmed, user]);
 
   return (
@@ -71,7 +87,8 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Баг, неудобство или идея — любые мысли приветствуются…"
-        maxLength={MAX_LENGTH}
+        maxLength={MAX_FEEDBACK_LENGTH}
+        disabled={isSubmitting}
         className="flex-1 h-full min-h-0 rounded-[1.25rem] border-border-subtle bg-bg-surface shadow-none resize-none"
       />
 
@@ -82,12 +99,12 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
 
         <Button
           type="button"
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           disabled={!canSubmit}
           className="h-10 rounded-full px-4 gap-1.5"
         >
           <Send className="h-3.5 w-3.5" />
-          Отправить
+          {isSubmitting ? "Отправляем..." : "Отправить"}
         </Button>
       </div>
     </div>
