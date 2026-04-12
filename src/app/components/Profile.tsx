@@ -157,19 +157,6 @@ export function Profile({
                     >
                       Аа
                     </span>
-
-                    {/* <span className={cn(
-                      "flex-1 text-left text-base font-medium",
-                      active ? "text-brand-primary" : "text-text-primary",
-                    )}>
-                      {opt.label}
-                    </span> */}
-
-                    {/* <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                      {active
-                        ? <Check className="h-4 w-4 text-brand-primary" strokeWidth={2.5} />
-                        : null}
-                    </span> */}
                   </button>
                 );
               })}

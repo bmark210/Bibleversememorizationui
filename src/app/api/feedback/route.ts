@@ -12,8 +12,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${FEEDBACK_FORMSUBMIT_FORM_ID}`;
-const FEEDBACK_REQUEST_TIMEOUT_MS = 10_000;
+const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/${FEEDBACK_FORMSUBMIT_FORM_ID}`;
+const FEEDBACK_REQUEST_TIMEOUT_MS = 35_000;
 
 const feedbackSchema = z.object({
   message: z.string().trim().min(1).max(MAX_FEEDBACK_LENGTH),
@@ -217,7 +217,33 @@ function resolveRequestOrigin(request: Request) {
       })()
     : null;
 
-  return originHeader || refererOrigin || requestUrl.origin;
+  const resolvedOrigin = originHeader || refererOrigin || requestUrl.origin;
+  const resolvedUrl = new URL(resolvedOrigin);
+  const hostname = resolvedUrl.hostname.toLowerCase();
+  const isLocalhostOrigin =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0";
+
+  if (!isLocalhostOrigin) {
+    return resolvedOrigin;
+  }
+
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (publicAppUrl) {
+    return publicAppUrl;
+  }
+
+  const activeNgrokAccount = process.env.NGROK_ACTIVE_ACCOUNT?.trim();
+  const ngrokDomain = activeNgrokAccount
+    ? process.env[`NGROK_DOMAIN_${activeNgrokAccount}`]?.trim()
+    : null;
+
+  if (ngrokDomain) {
+    return `https://${ngrokDomain}`;
+  }
+
+  return resolvedOrigin;
 }
 
 export async function POST(request: Request) {
@@ -237,7 +263,6 @@ export async function POST(request: Request) {
     const response = await fetch(FORMSUBMIT_ENDPOINT, {
       method: "POST",
       headers: {
-        Accept: "application/json",
         Origin: requestOrigin,
         Referer: `${requestOrigin}/`,
       },
@@ -262,23 +287,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = (await response.json().catch(() => null)) as
-      | { success?: boolean | string; message?: string }
-      | null;
+    const providerBody = await response.text().catch(() => "");
+    const normalizedBody = providerBody.toLowerCase();
     const isSuccess =
-      result?.success === true || result?.success === "true";
+      normalizedBody.includes("the form was submitted successfully") ||
+      normalizedBody.includes("<h1>thanks!</h1>");
 
     if (!isSuccess) {
-      const providerMessage = String(result?.message ?? "").trim();
-      const requiresActivation = providerMessage
-        .toLowerCase()
-        .includes("activation");
+      const requiresActivation = normalizedBody.includes("activation");
+      const isLocalFileError = normalizedBody.includes("make sure you open this page through a web server");
 
       return NextResponse.json(
         {
           message: requiresActivation
             ? "Почтовый адрес ещё не активирован в FormSubmit. На почту уже отправлено письмо с ссылкой Activate Form. Откройте его и активируйте форму."
-            : providerMessage ||
+            : isLocalFileError
+              ? "Сервис отправки отклонил запрос. Проверьте адрес формы и попробуйте ещё раз."
+              :
               "Сервис отправки не подтвердил доставку. Попробуйте ещё раз.",
         },
         { status: requiresActivation ? 424 : 502 },

@@ -461,7 +461,7 @@ export const DashboardTrainingStatsCard = React.memo(
               "shrink-0 [font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
               HEADING_TEXT,
               HEADING_MB,
-              "text-[1.08rem] narrow:text-base sm:text-xl",
+              "text-[1.08rem] narrow:text-base sm:text-xl pb-2",
             )}
           >
             Статистика
@@ -537,7 +537,7 @@ export const DashboardStreakCard = React.memo(function DashboardStreakCard({
       : "Начните сегодня и соберите свою первую серию.";
 
   return (
-    <DashboardSurface className="relative flex min-h-[10rem] flex-col justify-between overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.96),rgba(var(--accent-bronze-rgb),0.08))] sm:min-h-[10.75rem] sm:rounded-[2rem]">
+    <DashboardSurface className="relative flex min-h-[9rem] flex-col justify-between overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.96),rgba(var(--accent-bronze-rgb),0.08))] sm:min-h-[10.75rem] sm:rounded-[2rem]">
       <div className="pointer-events-none absolute -bottom-18 left-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-bronze-rgb),0.16)_0%,transparent_74%)]" />
 
       <div className="relative text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
