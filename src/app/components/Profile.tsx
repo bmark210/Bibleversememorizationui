@@ -104,9 +104,9 @@ export function Profile({
 
       {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
       <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-        <div className={cn(SECTION_LABEL, "mb-4 mt-2")}>Настройки</div>
+        <div className={cn(SECTION_LABEL, "mb-2 mt-2")}>Настройки</div>
 
-        <div className="grid grid-rows-2 gap-3 flex-1">
+        <div className="h-full grid grid-rows-[1fr_1fr] gap-3">
 
           {/* Theme row */}
           <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-2">
@@ -180,8 +180,8 @@ export function Profile({
       </AppSurface>
 
       {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
-      <AppSurface className="flex flex-[2.3] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-        <div className={cn(SECTION_LABEL, "mb-3 mt-2")}>Обратная связь</div>
+      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+        <div className={cn(SECTION_LABEL, "mb-2 mt-2")}>Обратная связь</div>
         <Feedback telegramId={telegramId} />
       </AppSurface>
     </section>
