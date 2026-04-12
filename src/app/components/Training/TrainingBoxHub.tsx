@@ -146,7 +146,7 @@ export function TrainingBoxHub({
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
             Коробка
           </p>
-          <h1 className="mt-2 truncate [font-family:var(--font-heading)] text-[2rem] font-semibold tracking-tight text-text-primary sm:text-[2.2rem]">
+          <h1 className="mt-2 truncate [font-family:var(--font-heading)] text-[1.8rem] font-semibold tracking-tight text-text-primary sm:text-[2.2rem]">
             {scope.boxTitle}
           </h1>
           <p className="mt-2 text-sm text-text-secondary">

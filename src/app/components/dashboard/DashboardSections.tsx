@@ -4,8 +4,8 @@ import React from "react";
 import {
   ArrowUpRight,
   Crown,
+  Dumbbell,
   Medal,
-  Play,
   Trophy,
   X,
 } from "lucide-react";
@@ -43,24 +43,32 @@ import { cn } from "../ui/utils";
 const STAT_TONE_STYLES = {
   neutral: {
     panelClassName: "border-border-subtle bg-bg-elevated",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--brand-primary-rgb),0.16)_0%,transparent_72%)]",
     labelClassName: "text-text-muted",
     valueClassName: "text-text-primary",
   },
   learning: {
     panelClassName:
       "border-status-learning/25 bg-status-learning-soft text-status-learning",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--accent-olive-rgb),0.2)_0%,transparent_72%)]",
     labelClassName: "text-status-learning/80",
     valueClassName: "text-status-learning",
   },
   review: {
     panelClassName:
       "border-status-review/25 bg-status-review-soft text-status-review",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--state-info-rgb),0.18)_0%,transparent_72%)]",
     labelClassName: "text-status-review/80",
     valueClassName: "text-status-review",
   },
   mastered: {
     panelClassName:
       "border-status-mastered/30 bg-status-mastered-soft text-status-mastered",
+    accentClassName:
+      "bg-[radial-gradient(circle,rgba(var(--accent-gold-rgb),0.22)_0%,transparent_72%)]",
     labelClassName: "text-status-mastered/80",
     valueClassName: "text-status-mastered",
   },
@@ -361,56 +369,69 @@ export const DashboardWelcomeSection = React.memo(
     onOpenTraining,
   }: DashboardWelcomeSectionProps) {
     return (
-      <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
-        <div className="flex h-full flex-col gap-4 sm:gap-5">
-          {user ? (
-            onOpenCurrentUserProfile ? (
-              <button
-                type="button"
-                onClick={onOpenCurrentUserProfile}
-                className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
-                aria-label={`Открыть профиль ${user.firstName}`}
-              >
-                <WelcomeAvatar
-                  currentUserAvatarUrl={currentUserAvatarUrl}
-                  firstName={user.firstName}
-                />
-                <div className="min-w-0">
-                  <WelcomeHeading firstName={user.firstName} />
+      <DashboardSurface className="relative flex min-h-[13rem] flex-col overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.95),rgba(var(--accent-gold-rgb),0.08))] sm:min-h-[13.75rem] sm:rounded-[2rem]">
+        {/* <div className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-gold-rgb),0.24)_0%,transparent_68%)]" /> */}
+      <div className="pointer-events-none absolute -right-8 -top-14 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-bronze-rgb),0.16)_0%,transparent_74%)]" />
+        
+        
+        <div className="pointer-events-none absolute -bottom-16 left-[-1.75rem] h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-olive-rgb),0.14)_0%,transparent_72%)]" />
+
+        <div className="relative flex flex-1 flex-col">
+          {/* Top: avatar + name */}
+          <div className="shrink-0">
+            {user ? (
+              onOpenCurrentUserProfile ? (
+                <button
+                  type="button"
+                  onClick={onOpenCurrentUserProfile}
+                  className="flex items-center gap-3 text-left transition-[opacity,transform] hover:opacity-95 hover:translate-x-[1px] sm:gap-4"
+                  aria-label={`Открыть профиль ${user.firstName}`}
+                >
+                  <WelcomeAvatar
+                    currentUserAvatarUrl={currentUserAvatarUrl}
+                    firstName={user.firstName}
+                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading firstName={user.firstName} />
+                  </div>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <WelcomeAvatar
+                    currentUserAvatarUrl={currentUserAvatarUrl}
+                    firstName={user.firstName}
+                  />
+                  <div className="min-w-0">
+                    <WelcomeHeading firstName={user.firstName} />
+                  </div>
                 </div>
-              </button>
+              )
             ) : (
-              <div className="flex items-center gap-3 sm:gap-4">
-                <WelcomeAvatar
-                  currentUserAvatarUrl={currentUserAvatarUrl}
-                  firstName={user.firstName}
-                />
-                <div className="min-w-0">
-                  <WelcomeHeading firstName={user.firstName} />
-                </div>
-              </div>
-            )
-          ) : (
-            <h1
-              className={cn(
-                "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
-                HERO_TEXT,
-                "text-[clamp(1.55rem,5vw,2rem)] narrow:text-[1.5rem]",
-              )}
-            >
-              Главная
-            </h1>
-          )}
+              <h1
+                className={cn(
+                  "[font-family:var(--font-heading)] font-semibold tracking-tight text-brand-primary",
+                  HERO_TEXT,
+                  "text-[clamp(1.55rem,5vw,2rem)] narrow:text-[1.5rem]",
+                )}
+              >
+                Главная
+              </h1>
+            )}
+          </div>
 
-          <WelcomeSubtitle hasUser={Boolean(user)} />
+          {/* Middle: subtitle grows to fill available space */}
+          <div className="flex flex-1 items-center py-3 sm:py-4">
+            <WelcomeSubtitle hasUser={Boolean(user)} />
+          </div>
 
+          {/* Bottom: CTA */}
           {onOpenTraining ? (
             <Button
               type="button"
               onClick={onOpenTraining}
-              className="h-14 w-full rounded-[1.25rem] px-5 text-[15px] font-semibold shadow-[var(--shadow-soft)] sm:w-fit sm:min-w-[13rem] sm:px-6"
+              className="h-12 w-full rounded-[1.25rem] px-5 text-[15px] font-semibold shadow-[var(--shadow-elevated)] sm:w-fit sm:min-w-[13rem] sm:px-6"
             >
-              <Play className="mr-2 h-4 w-4 fill-current" />
+              <Dumbbell className="mr-2 h-4 w-4 fill-current" />
               Тренироваться
             </Button>
           ) : null}
@@ -431,58 +452,69 @@ export const DashboardTrainingStatsCard = React.memo(
     statsCards,
   }: DashboardTrainingStatsCardProps) {
     return (
-      <DashboardSurface className="shrink-0">
-        <h3
-          className={cn(
-            "[font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
-            HEADING_TEXT,
-            HEADING_MB,
-            "text-[1.08rem] narrow:text-base sm:text-xl",
-          )}
-        >
-          Статистика
-        </h3>
+      <DashboardSurface className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(var(--bg-elevated-rgb),0.98),rgba(var(--bg-surface-rgb),0.88))] sm:rounded-[2rem]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(var(--accent-gold-rgb),0.08),transparent)]" />
 
-        <div className={cn("grid grid-cols-2 sm:grid-cols-4", GRID_GAP)}>
-          {statsCards.map((item) => {
-            const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
-            return (
-              <div
-                key={item.key}
-                className={cn(
-                  "flex min-h-[5.25rem] flex-col justify-center rounded-[1.35rem] border px-3 py-3.5 text-start shadow-[var(--shadow-soft)] sm:min-h-[6.8rem] sm:rounded-[1.45rem] sm:px-3.5 sm:py-4",
-                  tone.panelClassName,
-                )}
-              >
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <h3
+            className={cn(
+              "shrink-0 [font-family:var(--font-heading)] font-semibold tracking-tight text-text-primary",
+              HEADING_TEXT,
+              HEADING_MB,
+              "text-[1.08rem] narrow:text-base sm:text-xl",
+            )}
+          >
+            Статистика
+          </h3>
+
+          {/* Grid fills remaining card space; cells stretch evenly */}
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 auto-rows-fr grid-cols-2",
+              GRID_GAP,
+            )}
+          >
+            {statsCards.map((item) => {
+              const tone = STAT_TONE_STYLES[item.tone ?? "neutral"];
+              return (
                 <div
+                  key={item.key}
                   className={cn(
-                    "line-clamp-1 font-medium uppercase tracking-[0.15em]",
-                    STAT_LABEL,
-                    tone.labelClassName,
+                    "relative flex h-full min-h-[3rem] flex-col justify-between overflow-hidden rounded-[1.45rem] border px-4 py-4 text-start shadow-[var(--shadow-soft)] sm:min-h-[9rem] sm:rounded-[1.55rem]",
+                    tone.panelClassName,
                   )}
                 >
-                  {item.label}
+                  <div
+                    className={cn(
+                      "relative line-clamp-2 max-w-[8rem] font-medium uppercase tracking-[0.16em]",
+                      STAT_LABEL,
+                      tone.labelClassName,
+                    )}
+                  >
+                    {item.label}
+                  </div>
+
+                  <div
+                    className={cn(
+                      "relative mt-4 font-semibold leading-[0.95] tracking-tight",
+                      STAT_VALUE,
+                      tone.valueClassName,
+                    )}
+                  >
+                    {item.isLoading ? (
+                      <Skeleton className="h-10 w-16 rounded-xl border-0 sm:w-20" />
+                    ) : item.value != null ? (
+                      item.value
+                    ) : (
+                      <span className="text-[15px] font-medium text-text-muted">
+                        Нет данных
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    "mt-1.5 font-semibold leading-tight tracking-tight",
-                    STAT_VALUE,
-                    tone.valueClassName,
-                  )}
-                >
-                  {item.isLoading ? (
-                    <Skeleton className="mx-auto h-10 w-16 rounded-xl border-0 sm:w-20" />
-                  ) : item.value != null ? (
-                    item.value
-                  ) : (
-                    <span className="text-[15px] font-medium text-text-muted">
-                      Нет данных
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </DashboardSurface>
     );
@@ -505,20 +537,20 @@ export const DashboardStreakCard = React.memo(function DashboardStreakCard({
       : "Начните сегодня и соберите свою первую серию.";
 
   return (
-    <DashboardSurface className="shrink-0 rounded-[1.9rem] sm:rounded-[2rem]">
-      <div className="flex h-full flex-col justify-between gap-3 sm:gap-4">
-        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
-          Серия подряд
-        </div>
+    <DashboardSurface className="relative flex min-h-[10rem] flex-col justify-between overflow-hidden rounded-[1.9rem] bg-[linear-gradient(145deg,rgba(var(--bg-elevated-rgb),0.96),rgba(var(--accent-bronze-rgb),0.08))] sm:min-h-[10.75rem] sm:rounded-[2rem]">
+      <div className="pointer-events-none absolute -bottom-18 left-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(var(--accent-bronze-rgb),0.16)_0%,transparent_74%)]" />
 
-        <div>
-          <div className="text-[clamp(1.85rem,6vw,2.7rem)] font-semibold leading-none tracking-tight text-brand-primary">
-            {streakDays} {pluralizeDays(streakDays)}
-          </div>
-          <p className="mt-2.5 max-w-[22rem] text-sm leading-relaxed text-text-secondary sm:text-[15px]">
-            {streakCopy}
-          </p>
+      <div className="relative text-[11px] font-medium uppercase tracking-[0.18em] text-text-muted">
+        Серия подряд
+      </div>
+
+      <div className="relative">
+        <div className="text-[clamp(1.85rem,6vw,2.7rem)] font-semibold leading-none tracking-tight text-brand-primary">
+          {streakDays} {pluralizeDays(streakDays)}
         </div>
+        <p className="mt-2.5 max-w-[22rem] text-sm leading-relaxed text-text-secondary sm:text-[15px]">
+          {streakCopy}
+        </p>
       </div>
     </DashboardSurface>
   );

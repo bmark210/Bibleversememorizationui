@@ -1086,7 +1086,7 @@ export function TextsScreen({
                 Коробок пока нет
               </TextSurfaceCard>
             ) : (
-              <div className="space-y-3 !bg-transparent">
+              <div className="space-y-3 mb-4">
                 {boxes.map((box) => (
                   <TextBoxCard
                     key={box.id}
@@ -1112,7 +1112,7 @@ export function TextsScreen({
               Публичных коробок пока нет
             </TextSurfaceCard>
           ) : (
-            <div className="space-y-3 !bg-transparent">
+            <div className="space-y-3 mb-4">
               {publicBoxes.map((box) => (
                 <TextBoxCard
                   key={box.id}

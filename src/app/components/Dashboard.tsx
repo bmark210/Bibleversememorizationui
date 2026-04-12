@@ -41,6 +41,9 @@ type TodayVersesSummary = {
   masteredVerses: number;
 };
 
+const DASHBOARD_PAGE_SHELL =
+  "mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[auto_auto_minmax(0,1fr)] gap-3 overflow-hidden px-3.5 py-3 sm:gap-4 sm:px-4 sm:py-4 lg:px-5 short-phone:h-auto short-phone:min-h-full short-phone:grid-rows-none short-phone:overflow-visible";
+
 /* ── Helpers ────────────────────────────────────────────────────────── */
 
 function summarizeTodayVerses(todayVerses: Verse[]): TodayVersesSummary {
@@ -146,15 +149,9 @@ export function Dashboard({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <section
-        className={cn(
-          "mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-cols-1 grid-rows-[auto_auto_auto] overflow-y-auto",
-          "gap-3 px-3.5 py-3 sm:gap-4 sm:px-4 sm:py-4",
-          "lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] lg:grid-rows-[auto_auto]",
-          "lg:px-5",
-        )}
-      >
-        <div className="min-h-0 lg:col-start-1 lg:row-start-1">
+      <section className={cn(DASHBOARD_PAGE_SHELL)}>
+        {/* Welcome */}
+        <div className="shrink-0">
           <DashboardWelcomeSection
             user={user}
             currentUserAvatarUrl={currentUserAvatarUrl}
@@ -172,11 +169,13 @@ export function Dashboard({
           />
         </div>
 
-        <div className="min-h-0 lg:col-start-2 lg:row-start-1">
+        {/* Streak */}
+        <div className="shrink-0">
           <DashboardStreakCard dailyStreak={dailyStreak} />
         </div>
 
-        <div className="min-h-0 lg:col-span-2 lg:row-start-2">
+        {/* Stats — largest block */}
+        <div className="flex min-h-0 flex-col">
           <DashboardTrainingStatsCard statsCards={statsCards} />
         </div>
       </section>

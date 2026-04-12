@@ -104,7 +104,7 @@ export function Profile({
 
       {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
       <AppSurface className="flex flex-[3] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-        <div className={cn(SECTION_LABEL, "mb-4")}>Настройки</div>
+        <div className={cn(SECTION_LABEL, "mb-4 mt-2")}>Настройки</div>
 
         <div className="flex flex-1 flex-col gap-3 overflow-hidden">
 
@@ -133,7 +133,7 @@ export function Profile({
             </div>
 
             {/* Each row claims equal share via flex-1 */}
-            <div className="flex flex-1 flex-col divide-y divide-border-subtle overflow-hidden">
+            <div className="flex flex-1 flex-col divide-y divide-border-subtle overflow-auto">
               {FONT_OPTIONS.map((opt) => {
                 const active = trainingFontSize === opt.value;
                 return (
@@ -143,7 +143,7 @@ export function Profile({
                     onClick={() => setTrainingFontSize(opt.value)}
                     aria-label={`Шрифт: ${opt.label}`}
                     className={cn(
-                      "flex flex-1 items-center gap-4 px-4 transition-colors",
+                      "flex flex-1 items-center gap-4 px-4 py-2 transition-colors",
                       active
                         ? "bg-status-mastered-soft/35"
                         : "hover:bg-bg-surface/40 active:bg-bg-surface/60",
@@ -182,7 +182,7 @@ export function Profile({
 
       {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
       <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-        <div className={cn(SECTION_LABEL, "mb-3")}>Обратная связь</div>
+        <div className={cn(SECTION_LABEL, "mb-3 mt-2")}>Обратная связь</div>
         <Feedback telegramId={telegramId} />
       </AppSurface>
 
