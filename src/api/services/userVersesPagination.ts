@@ -1,5 +1,5 @@
-import type { bible_memory_db_internal_domain_UserVersesPageResponse } from "../models/bible_memory_db_internal_domain_UserVersesPageResponse";
-import type { bible_memory_db_internal_domain_VerseListItem } from "../models/bible_memory_db_internal_domain_VerseListItem";
+import type { domain_UserVersesPageResponse } from "../models/domain_UserVersesPageResponse";
+import type { domain_VerseListItem } from "../models/domain_VerseListItem";
 import { UserVersesService } from "./UserVersesService";
 
 export type FetchUserVersesPageParams = {
@@ -30,7 +30,7 @@ function normalizeTagSlugs(
 
 export async function fetchUserVersesPage(
   params: FetchUserVersesPageParams,
-): Promise<bible_memory_db_internal_domain_UserVersesPageResponse> {
+): Promise<domain_UserVersesPageResponse> {
   return UserVersesService.listUserVerses(
     params.telegramId,
     params.status,
@@ -51,8 +51,8 @@ const ALL_VERSES_PAGE_SIZE = 100;
 /** Загружает все стихи пользователя (filter `my`) постранично. */
 export async function fetchAllUserVerses(params: {
   telegramId: string;
-}): Promise<bible_memory_db_internal_domain_VerseListItem[]> {
-  const all: bible_memory_db_internal_domain_VerseListItem[] = [];
+}): Promise<domain_VerseListItem[]> {
+  const all: domain_VerseListItem[] = [];
   let startWith = 0;
 
   for (;;) {

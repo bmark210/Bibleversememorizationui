@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Verse } from "@/app/domain/verse";
-import type { bible_memory_db_internal_domain_UserDashboardStats as domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
+import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
 import {
   getCoreTrainingCountsFromVerses,
   type CoreTrainingCounts,

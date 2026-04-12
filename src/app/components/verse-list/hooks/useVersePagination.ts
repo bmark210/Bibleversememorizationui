@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { bible_memory_db_internal_domain_CatalogVersesPageResponse as domain_CatalogVersesPageResponse } from '@/api/models/bible_memory_db_internal_domain_CatalogVersesPageResponse';
-import type { bible_memory_db_internal_domain_UserVersesPageResponse as domain_UserVersesPageResponse } from '@/api/models/bible_memory_db_internal_domain_UserVersesPageResponse';
+import type { domain_CatalogVersesPageResponse } from '@/api/models/domain_CatalogVersesPageResponse';
+import type { domain_UserVersesPageResponse } from '@/api/models/domain_UserVersesPageResponse';
 import { fetchUserVersesPage } from '@/api/services/userVersesPagination';
 import { fetchCatalogVersesPage } from '@/api/services/catalogVersesPagination';
 import { Verse } from "@/app/domain/verse";

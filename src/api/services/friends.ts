@@ -1,16 +1,14 @@
-import type { bible_memory_db_internal_domain_FriendPlayerListItem } from "../models/bible_memory_db_internal_domain_FriendPlayerListItem";
-import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from "../models/bible_memory_db_internal_domain_FriendPlayersPageResponse";
+import type { domain_FriendPlayerListItem } from "../models/domain_FriendPlayerListItem";
+import type { domain_FriendPlayersPageResponse } from "../models/domain_FriendPlayersPageResponse";
 import { UsersService } from "./UsersService";
 
-export type domain_FriendPlayerListItem =
-  bible_memory_db_internal_domain_FriendPlayerListItem;
-export type domain_FriendPlayersPageResponse =
-  bible_memory_db_internal_domain_FriendPlayersPageResponse;
+export type { domain_FriendPlayerListItem };
+export type { domain_FriendPlayersPageResponse };
 
 export async function fetchFriendsPage(
   telegramId: string,
   params: { search?: string; limit: number; startWith: number },
-): Promise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
+): Promise<domain_FriendPlayersPageResponse> {
   return UsersService.listFriends(
     telegramId,
     params.search,
@@ -22,7 +20,7 @@ export async function fetchFriendsPage(
 export async function fetchPlayersPage(
   telegramId: string,
   params: { search?: string; limit: number; startWith: number },
-): Promise<bible_memory_db_internal_domain_FriendPlayersPageResponse> {
+): Promise<domain_FriendPlayersPageResponse> {
   return UsersService.listPlayers(
     telegramId,
     params.search,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TagsService } from '@/api/services/TagsService';
-import type { bible_memory_db_internal_domain_Tag as domain_Tag } from '@/api/models/bible_memory_db_internal_domain_Tag';
+import type { domain_Tag } from '@/api/models/domain_Tag';
 import type { Verse } from "@/app/domain/verse";
 import { parseStoredTagSlugs, VERSE_LIST_STORAGE_KEYS } from '../storage';
 

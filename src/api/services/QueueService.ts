@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { bible_memory_db_internal_domain_QueueResponse } from '../models/bible_memory_db_internal_domain_QueueResponse';
-import type { internal_api_AddToQueueBody } from '../models/internal_api_AddToQueueBody';
-import type { internal_api_ReorderQueueBody } from '../models/internal_api_ReorderQueueBody';
+import type { api_AddToQueueBody } from '../models/api_AddToQueueBody';
+import type { api_ReorderQueueBody } from '../models/api_ReorderQueueBody';
+import type { domain_QueueResponse } from '../models/domain_QueueResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -14,13 +14,13 @@ export class QueueService {
      * Returns all verses waiting in queue, ordered by position. Also auto-promotes from queue if slots are free.
      * @param telegramId Telegram ID
      * @param translation Bible translation
-     * @returns bible_memory_db_internal_domain_QueueResponse OK
+     * @returns domain_QueueResponse OK
      * @throws ApiError
      */
     public static getVerseQueue(
         telegramId: string,
         translation?: string,
-    ): CancelablePromise<bible_memory_db_internal_domain_QueueResponse> {
+    ): CancelablePromise<domain_QueueResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/{telegramId}/verses/queue',
@@ -45,7 +45,7 @@ export class QueueService {
      */
     public static addVerseToQueueBody(
         telegramId: string,
-        request: internal_api_AddToQueueBody,
+        request: api_AddToQueueBody,
     ): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -121,7 +121,7 @@ export class QueueService {
     public static reorderVerseInQueue(
         telegramId: string,
         externalVerseId: string,
-        request: internal_api_ReorderQueueBody,
+        request: api_ReorderQueueBody,
     ): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'PATCH',

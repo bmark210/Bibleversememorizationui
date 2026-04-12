@@ -1,13 +1,8 @@
-import type { bible_memory_db_internal_domain_AnchorTrainingSessionInput } from "@/api/models/bible_memory_db_internal_domain_AnchorTrainingSessionInput";
-import type { bible_memory_db_internal_domain_AnchorTrainingResult } from "@/api/models/bible_memory_db_internal_domain_AnchorTrainingResult";
-import type { bible_memory_db_internal_domain_FlashcardSessionInput } from "@/api/models/bible_memory_db_internal_domain_FlashcardSessionInput";
-import type { bible_memory_db_internal_domain_FlashcardSessionResult } from "@/api/models/bible_memory_db_internal_domain_FlashcardSessionResult";
-import type { internal_api_FlashcardResponse } from "@/api/models/internal_api_FlashcardResponse";
-import type { internal_api_FlashcardSessionResponse } from "@/api/models/internal_api_FlashcardSessionResponse";
-import type { internal_api_ReferenceTrainerResponse } from "@/api/models/internal_api_ReferenceTrainerResponse";
-import type { internal_api_ReplaceLearningVerseResponse } from "@/api/models/internal_api_ReplaceLearningVerseResponse";
-import { OpenAPI } from "@/api/core/OpenAPI";
-import { request } from "@/api/core/request";
+import type { domain_AnchorTrainingResult } from "@/api/models/domain_AnchorTrainingResult";
+import type { domain_AnchorTrainingSessionInput } from "@/api/models/domain_AnchorTrainingSessionInput";
+import type { domain_FlashcardSessionInput } from "@/api/models/domain_FlashcardSessionInput";
+import type { domain_FlashcardSessionResult } from "@/api/models/domain_FlashcardSessionResult";
+import { TextBoxesService } from "@/api/services/TextBoxesService";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import type {
   AddVerseToBoxRequest,
@@ -21,21 +16,13 @@ import type {
   TextBoxVisibility,
 } from "@/app/types/textBox";
 
-function translationQuery(translation?: string): Record<string, string> | undefined {
-  if (!translation) return undefined;
-  return { translation };
-}
+// ── Text Box CRUD ─────────────────────────────────────────────────────────────
 
 export async function fetchTextBoxes(
   telegramId: string,
   translation?: string,
 ): Promise<TextBoxSummary[]> {
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/users/{telegramId}/text-boxes",
-    path: { telegramId },
-    query: translationQuery(translation),
-  });
+  return TextBoxesService.listTextBoxes(telegramId, translation) as Promise<TextBoxSummary[]>;
 }
 
 export async function createTextBox(
@@ -43,16 +30,11 @@ export async function createTextBox(
   title: string,
   translation?: string,
 ): Promise<TextBoxSummary> {
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes",
-    path: { telegramId },
-    query: translationQuery(translation),
-    body: {
-      title,
-      visibility: "private" satisfies TextBoxVisibility,
-    },
-  });
+  return TextBoxesService.createTextBox(
+    telegramId,
+    { title, visibility: "private" satisfies TextBoxVisibility },
+    translation,
+  ) as Promise<TextBoxSummary>;
 }
 
 export async function updateTextBox(
@@ -61,24 +43,19 @@ export async function updateTextBox(
   patch: { title?: string; visibility?: TextBoxVisibility },
   translation?: string,
 ): Promise<TextBoxSummary> {
-  return request(OpenAPI, {
-    method: "PATCH",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}",
-    path: { telegramId, boxId },
-    query: translationQuery(translation),
-    body: patch,
-  });
+  return TextBoxesService.updateTextBox(
+    telegramId,
+    boxId,
+    patch,
+    translation,
+  ) as Promise<TextBoxSummary>;
 }
 
 export async function deleteTextBox(
   telegramId: string,
   boxId: string,
 ): Promise<void> {
-  await request(OpenAPI, {
-    method: "DELETE",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}",
-    path: { telegramId, boxId },
-  });
+  await TextBoxesService.deleteTextBox(telegramId, boxId);
 }
 
 export async function importPublicTextBox(
@@ -86,80 +63,71 @@ export async function importPublicTextBox(
   sourceBoxId: string,
   translation?: string,
 ): Promise<TextBoxSummary> {
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes/import-public/{boxId}",
-    path: { telegramId, boxId: sourceBoxId },
-    query: translationQuery(translation),
-  });
+  return TextBoxesService.importPublicTextBox(
+    telegramId,
+    sourceBoxId,
+    translation,
+  ) as Promise<TextBoxSummary>;
 }
+
+// ── Public Boxes ──────────────────────────────────────────────────────────────
 
 export async function fetchPublicTextBoxes(params: {
   translation?: string;
   limit: number;
   offset: number;
 }): Promise<PublicTextBoxesPageResponse> {
-  const { translation, limit, offset } = params;
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/text-boxes/public",
-    query: {
-      limit,
-      offset,
-      ...translationQuery(translation),
-    },
-  });
+  return TextBoxesService.listPublicTextBoxes(
+    params.translation,
+    params.limit,
+    params.offset,
+  ) as Promise<PublicTextBoxesPageResponse>;
 }
 
 export async function fetchPublicTextBoxDetail(
   boxId: string,
   translation?: string,
 ): Promise<PublicTextBoxDetailResponse> {
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/text-boxes/public/{boxId}",
-    path: { boxId },
-    query: translationQuery(translation),
-  });
+  return TextBoxesService.getPublicTextBox(
+    boxId,
+    translation,
+  ) as Promise<PublicTextBoxDetailResponse>;
 }
+
+// ── Box Verses ────────────────────────────────────────────────────────────────
 
 export async function fetchTextBoxVerses(
   telegramId: string,
   boxId: string,
   translation?: string,
 ): Promise<TextBoxVersesResponse> {
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/verses",
-    path: { telegramId, boxId },
-    query: translationQuery(translation),
-  });
+  return TextBoxesService.listTextBoxVerses(
+    telegramId,
+    boxId,
+    translation,
+  ) as Promise<TextBoxVersesResponse>;
 }
 
 export async function addVerseToTextBox(
   telegramId: string,
   boxId: string,
   body: AddVerseToBoxRequest,
+  translation?: string,
 ): Promise<AddVerseToBoxResult> {
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/verses",
-    path: { telegramId, boxId },
-    body,
-  });
+  return TextBoxesService.addVerseToTextBox(
+    telegramId,
+    boxId,
+    { externalVerseId: body.externalVerseId },
+    translation,
+  ) as Promise<AddVerseToBoxResult>;
 }
 
 export async function replaceLearningVerseInTextBox(
   telegramId: string,
   boxId: string,
   body: ReplaceLearningVerseInBoxRequest,
-): Promise<internal_api_ReplaceLearningVerseResponse> {
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/replace-learning",
-    path: { telegramId, boxId },
-    body,
-  });
+) {
+  return TextBoxesService.replaceLearningVerseInTextBox(telegramId, boxId, body);
 }
 
 export async function removeTextFromBox(
@@ -167,12 +135,14 @@ export async function removeTextFromBox(
   boxId: string,
   externalVerseId: string,
 ): Promise<RemoveTextFromBoxResult> {
-  return request(OpenAPI, {
-    method: "DELETE",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/verses/{externalVerseId}",
-    path: { telegramId, boxId, externalVerseId },
-  });
+  return TextBoxesService.removeVerseFromTextBox(
+    telegramId,
+    boxId,
+    externalVerseId,
+  ) as Promise<RemoveTextFromBoxResult>;
 }
+
+// ── Verse Status ──────────────────────────────────────────────────────────────
 
 export async function patchVerseStatus(
   telegramId: string,
@@ -184,9 +154,15 @@ export async function patchVerseStatus(
   });
 }
 
-export type FlashcardResult = bible_memory_db_internal_domain_FlashcardSessionResult;
-export type FlashcardVersesResponse = internal_api_FlashcardResponse;
-export type TrainingSessionXPResponse = internal_api_FlashcardSessionResponse;
+// ── Flashcard Training ────────────────────────────────────────────────────────
+
+export type FlashcardResult = domain_FlashcardSessionResult;
+export type FlashcardVersesResponse = Awaited<
+  ReturnType<typeof TextBoxesService.getTextBoxFlashcard>
+>;
+export type TrainingSessionXPResponse = Awaited<
+  ReturnType<typeof TextBoxesService.textBoxFlashcardSession>
+>;
 
 export async function fetchTextBoxFlashcardVerses(params: {
   telegramId: string;
@@ -194,65 +170,54 @@ export async function fetchTextBoxFlashcardVerses(params: {
   limit?: number;
   translation?: string;
 }): Promise<FlashcardVersesResponse> {
-  const { telegramId, boxId, limit, translation } = params;
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/training/flashcard",
-    path: { telegramId, boxId },
-    query: {
-      ...(limit != null ? { limit } : {}),
-      ...translationQuery(translation),
-    },
-  });
+  return TextBoxesService.getTextBoxFlashcard(
+    params.telegramId,
+    params.boxId,
+    params.limit,
+    params.translation,
+  );
 }
 
 export async function submitTextBoxFlashcardSession(params: {
   telegramId: string;
   boxId: string;
-  results: FlashcardResult[];
+  results: domain_FlashcardSessionResult[];
 }): Promise<TrainingSessionXPResponse> {
-  const body: bible_memory_db_internal_domain_FlashcardSessionInput = {
-    results: params.results,
-  };
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/training/flashcard/session",
-    path: { telegramId: params.telegramId, boxId: params.boxId },
+  const body: domain_FlashcardSessionInput = { results: params.results };
+  return TextBoxesService.textBoxFlashcardSession(
+    params.telegramId,
+    params.boxId,
     body,
-  });
+  );
 }
 
-export type AnchorTrainingResult = bible_memory_db_internal_domain_AnchorTrainingResult;
+// ── Reference Trainer ─────────────────────────────────────────────────────────
+
+export type AnchorTrainingResult = domain_AnchorTrainingResult;
 
 export async function fetchTextBoxReferenceTrainer(
   telegramId: string,
   boxId: string,
   limit?: number,
   translation?: "NRT" | "SYNOD" | "RBS2" | "BTI",
-): Promise<internal_api_ReferenceTrainerResponse> {
-  return request(OpenAPI, {
-    method: "GET",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/training/reference-trainer",
-    path: { telegramId, boxId },
-    query: {
-      ...(limit != null ? { limit } : {}),
-      ...translationQuery(translation),
-    },
-  });
+) {
+  return TextBoxesService.getTextBoxReferenceTrainer(
+    telegramId,
+    boxId,
+    limit,
+    translation,
+  );
 }
 
 export async function submitTextBoxReferenceTrainerSession(params: {
   telegramId: string;
   boxId: string;
-  results: AnchorTrainingResult[];
-}): Promise<TrainingSessionXPResponse> {
-  const body: bible_memory_db_internal_domain_AnchorTrainingSessionInput = {
-    results: params.results,
-  };
-  return request(OpenAPI, {
-    method: "POST",
-    url: "/api/users/{telegramId}/text-boxes/{boxId}/training/reference-trainer/session",
-    path: { telegramId: params.telegramId, boxId: params.boxId },
+  results: domain_AnchorTrainingResult[];
+}) {
+  const body: domain_AnchorTrainingSessionInput = { results: params.results };
+  return TextBoxesService.textBoxReferenceTrainerSession(
+    params.telegramId,
+    params.boxId,
     body,
-  });
+  );
 }

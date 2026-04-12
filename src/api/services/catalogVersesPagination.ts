@@ -1,6 +1,6 @@
-import type { bible_memory_db_internal_domain_CatalogVerseLookupResponse } from "@/api/models/bible_memory_db_internal_domain_CatalogVerseLookupResponse";
-import type { bible_memory_db_internal_domain_CatalogVersesPageResponse } from "@/api/models/bible_memory_db_internal_domain_CatalogVersesPageResponse";
-import type { internal_api_LookupCatalogVersesRequest } from "@/api/models/internal_api_LookupCatalogVersesRequest";
+import type { domain_CatalogVerseLookupResponse } from "@/api/models/domain_CatalogVerseLookupResponse";
+import type { domain_CatalogVersesPageResponse } from "@/api/models/domain_CatalogVersesPageResponse";
+import type { api_LookupCatalogVersesRequest } from "@/api/models/api_LookupCatalogVersesRequest";
 import { CatalogService } from "@/api/services/CatalogService";
 
 export type FetchCatalogVersesPageParams = {
@@ -31,7 +31,7 @@ function normalizeTagSlugs(
 
 export async function fetchCatalogVersesPage(
   params: FetchCatalogVersesPageParams,
-): Promise<bible_memory_db_internal_domain_CatalogVersesPageResponse> {
+): Promise<domain_CatalogVersesPageResponse> {
   const {
     telegramId,
     translation,
@@ -60,7 +60,7 @@ export async function fetchCatalogVersesPage(
 }
 
 export async function lookupCatalogVerses(
-  request: internal_api_LookupCatalogVersesRequest,
-): Promise<bible_memory_db_internal_domain_CatalogVerseLookupResponse> {
+  request: api_LookupCatalogVersesRequest,
+): Promise<domain_CatalogVerseLookupResponse> {
   return CatalogService.lookupCatalogVerses(request);
 }

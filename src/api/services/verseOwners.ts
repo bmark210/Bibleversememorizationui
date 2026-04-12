@@ -1,11 +1,9 @@
-import type { bible_memory_db_internal_domain_SocialPlayerListItem } from "../models/bible_memory_db_internal_domain_SocialPlayerListItem";
+import type { domain_SocialPlayerListItem } from "../models/domain_SocialPlayerListItem";
 import { UserVersesService } from "./UserVersesService";
 
 export type VerseOwnersScope = "friends" | "players";
 
-/** Совместимо с прежним именем из несуществующего `domain_SocialPlayerListItem`. */
-export type domain_SocialPlayerListItem =
-  bible_memory_db_internal_domain_SocialPlayerListItem;
+export type { domain_SocialPlayerListItem };
 
 export async function fetchVerseOwnersPage(
   telegramId: string,
@@ -16,7 +14,7 @@ export async function fetchVerseOwnersPage(
     startWith: number;
   },
 ): Promise<{
-  items: bible_memory_db_internal_domain_SocialPlayerListItem[];
+  items: domain_SocialPlayerListItem[];
   totalCount: number;
 }> {
   const page = await UserVersesService.listVerseOwners(

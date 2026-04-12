@@ -1,4 +1,4 @@
-import type { bible_memory_db_internal_domain_UserLeaderboardResponse } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardResponse";
+import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
 import { UsersService } from "@/api/services/UsersService";
 
 /** Rows loaded when opening the full leaderboard dialog / scrolling windows. */
@@ -12,7 +12,7 @@ export async function fetchDashboardLeaderboard(params: {
   limit?: number;
   offset?: number;
   aroundCurrent?: boolean;
-}): Promise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
+}): Promise<domain_UserLeaderboardResponse> {
   return UsersService.getLeaderboard(
     params.telegramId,
     params.aroundCurrent,
