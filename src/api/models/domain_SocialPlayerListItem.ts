@@ -1,3 +1,0 @@
-import type { bible_memory_db_internal_domain_SocialPlayerListItem } from "./bible_memory_db_internal_domain_SocialPlayerListItem";
-
-export type domain_SocialPlayerListItem = bible_memory_db_internal_domain_SocialPlayerListItem;

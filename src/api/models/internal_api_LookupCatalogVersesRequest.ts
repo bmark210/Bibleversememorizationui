@@ -2,11 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type bible_memory_db_internal_domain_Feedback = {
-    createdAt?: string;
-    id?: string;
+export type internal_api_LookupCatalogVersesRequest = {
+    externalVerseIds?: Array<string>;
     telegramId?: string;
-    text?: string;
-    updatedAt?: string;
+    translation?: string;
 };
 

@@ -1,3 +1,0 @@
-import type { bible_memory_db_internal_domain_UserDashboardStats } from "./bible_memory_db_internal_domain_UserDashboardStats";
-
-export type domain_UserDashboardStats = bible_memory_db_internal_domain_UserDashboardStats;

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
+import type { bible_memory_db_internal_domain_UserDashboardStats as domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
 
 export type CurrentUserStatsSnapshot = {
   telegramId: string | null;

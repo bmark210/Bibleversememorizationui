@@ -1,5 +1,7 @@
-import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
-import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
+import type {
+  domain_FriendPlayerListItem,
+  domain_FriendPlayersPageResponse,
+} from "@/api/services/friends";
 
 export type CommunityListCacheItem = domain_FriendPlayerListItem | null;
 

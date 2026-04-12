@@ -35,11 +35,11 @@ import { compareExternalVerseIdsCanonically } from "@/shared/bible/externalVerse
 import {
   fetchCatalogVersesPage,
   lookupCatalogVerses,
-} from "@/api/services/catalogVersesPagination";
+} from "../../../api/services/catalogVersesPagination";
 import { TagsService } from "@/api/services/TagsService";
-import { addVerseToTextBox } from "@/api/services/textBoxes";
+import { addVerseToTextBox } from "../../../api/services/textBoxes";
 import type { bible_memory_db_internal_domain_VerseListItem as BackendVerse } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
-import type { domain_Tag } from "@/api/models/domain_Tag";
+import type { bible_memory_db_internal_domain_Tag as domain_Tag } from "@/api/models/bible_memory_db_internal_domain_Tag";
 import { Button } from "@/app/components/ui/button";
 import {
   Drawer,

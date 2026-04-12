@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
-import type { domain_FriendPlayersPageResponse } from "@/api/models/domain_FriendPlayersPageResponse";
+import type {
+  domain_FriendPlayerListItem,
+  domain_FriendPlayersPageResponse,
+} from "@/api/services/friends";
 import {
   clampCommunityWindowOffset,
   createCommunityItemsCache,

@@ -1,3 +1,0 @@
-import type { bible_memory_db_internal_domain_TrainingStepHTTPResponse } from "./bible_memory_db_internal_domain_TrainingStepHTTPResponse";
-
-export type domain_TrainingStepHTTPResponse = bible_memory_db_internal_domain_TrainingStepHTTPResponse;

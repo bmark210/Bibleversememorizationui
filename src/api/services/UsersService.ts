@@ -39,26 +39,26 @@ export class UsersService {
     /**
      * Get users leaderboard
      * @param telegramId Optional current user Telegram ID
+     * @param aroundCurrent Center returned window around current user rank
      * @param limit Max items
      * @param offset Pagination offset
-     * @param aroundCurrent Center returned window around current user rank
      * @returns bible_memory_db_internal_domain_UserLeaderboardResponse OK
      * @throws ApiError
      */
     public static getLeaderboard(
         telegramId?: string,
+        aroundCurrent?: boolean,
         limit: number = 25,
         offset?: number,
-        aroundCurrent?: boolean,
     ): CancelablePromise<bible_memory_db_internal_domain_UserLeaderboardResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/users/leaderboard',
             query: {
                 'telegramId': telegramId,
+                'aroundCurrent': aroundCurrent,
                 'limit': limit,
                 'offset': offset,
-                'aroundCurrent': aroundCurrent,
             },
             errors: {
                 500: `Internal Server Error`,

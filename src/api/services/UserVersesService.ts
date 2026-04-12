@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { bible_memory_db_internal_domain_AnchorTrainingSessionInput } from '../models/bible_memory_db_internal_domain_AnchorTrainingSessionInput';
 import type { bible_memory_db_internal_domain_DeleteUserVerseResult } from '../models/bible_memory_db_internal_domain_DeleteUserVerseResult';
+import type { bible_memory_db_internal_domain_FlashcardSessionInput } from '../models/bible_memory_db_internal_domain_FlashcardSessionInput';
 import type { bible_memory_db_internal_domain_SocialPlayersPageResponse } from '../models/bible_memory_db_internal_domain_SocialPlayersPageResponse';
 import type { bible_memory_db_internal_domain_TrainingStepHTTPRequest } from '../models/bible_memory_db_internal_domain_TrainingStepHTTPRequest';
 import type { bible_memory_db_internal_domain_TrainingStepHTTPResponse } from '../models/bible_memory_db_internal_domain_TrainingStepHTTPResponse';
@@ -11,6 +12,8 @@ import type { bible_memory_db_internal_domain_UserVerse } from '../models/bible_
 import type { bible_memory_db_internal_domain_UserVersesPageResponse } from '../models/bible_memory_db_internal_domain_UserVersesPageResponse';
 import type { bible_memory_db_internal_domain_VerseListItem } from '../models/bible_memory_db_internal_domain_VerseListItem';
 import type { internal_api_AnchorTrainingSessionResponse } from '../models/internal_api_AnchorTrainingSessionResponse';
+import type { internal_api_FlashcardResponse } from '../models/internal_api_FlashcardResponse';
+import type { internal_api_FlashcardSessionResponse } from '../models/internal_api_FlashcardSessionResponse';
 import type { internal_api_PatchUserVerseRequest } from '../models/internal_api_PatchUserVerseRequest';
 import type { internal_api_ReferenceTrainerResponse } from '../models/internal_api_ReferenceTrainerResponse';
 import type { internal_api_ReplaceLearningVerseRequest } from '../models/internal_api_ReplaceLearningVerseRequest';
@@ -64,6 +67,7 @@ export class UserVersesService {
      * @param order Sort direction
      * @param filter Semantic list filter
      * @param bookId Bible book number filter
+     * @param popularOnly Only verses with tags (catalog filter)
      * @param search Search in verse text or reference
      * @param tagSlugs Comma-separated tag slugs
      * @param limit Max items
@@ -73,11 +77,12 @@ export class UserVersesService {
      */
     public static listUserVerses(
         telegramId: string,
-        status?: 'MY' | 'LEARNING' | 'STOPPED',
+        status?: 'QUEUE' | 'LEARNING' | 'STOPPED',
         orderBy?: 'createdAt' | 'updatedAt' | 'bible' | 'popularity',
         order?: 'asc' | 'desc',
         filter?: 'catalog' | 'my' | 'learning' | 'review' | 'mastered' | 'stopped',
         bookId?: number,
+        popularOnly?: boolean,
         search?: string,
         tagSlugs?: string,
         limit: number = 20,
@@ -95,6 +100,7 @@ export class UserVersesService {
                 'order': order,
                 'filter': filter,
                 'bookId': bookId,
+                'popularOnly': popularOnly,
                 'search': search,
                 'tagSlugs': tagSlugs,
                 'limit': limit,
@@ -128,6 +134,61 @@ export class UserVersesService {
             errors: {
                 400: `Bad Request`,
                 500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
+     * Get verses for flashcard training
+     * Returns a random pool of all LEARNING verses for flashcard mode.
+     * @param telegramId Telegram ID
+     * @param limit Max items to return
+     * @param translation Bible translation
+     * @returns internal_api_FlashcardResponse Verse pool
+     * @throws ApiError
+     */
+    public static getFlashcard(
+        telegramId: string,
+        limit: number = 20,
+        translation?: 'NRT' | 'SYNOD' | 'RBS2' | 'BTI',
+    ): CancelablePromise<internal_api_FlashcardResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/verses/flashcard',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'limit': limit,
+                'translation': translation,
+            },
+            errors: {
+                400: `Invalid telegramId`,
+                500: `Server error`,
+            },
+        });
+    }
+    /**
+     * Save flashcard session results
+     * Processes flashcard results and awards XP for remembered cards.
+     * @param telegramId Telegram ID
+     * @param request Session results
+     * @returns internal_api_FlashcardSessionResponse XP awarded
+     * @throws ApiError
+     */
+    public static saveFlashcardSession(
+        telegramId: string,
+        request: bible_memory_db_internal_domain_FlashcardSessionInput,
+    ): CancelablePromise<internal_api_FlashcardSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/{telegramId}/verses/flashcard/session',
+            path: {
+                'telegramId': telegramId,
+            },
+            body: request,
+            errors: {
+                400: `Invalid request`,
+                500: `Server error`,
             },
         });
     }
@@ -244,7 +305,7 @@ export class UserVersesService {
         });
     }
     /**
-     * Delete verse progress
+     * Archive verse progress
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @returns bible_memory_db_internal_domain_DeleteUserVerseResult OK

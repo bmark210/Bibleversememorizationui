@@ -5,8 +5,8 @@ import { Users } from "lucide-react";
 import {
   fetchVerseOwnersPage,
   type VerseOwnersScope,
-} from "@/api/services/verseOwners";
-import type { domain_SocialPlayerListItem } from "@/api/models/domain_SocialPlayerListItem";
+  type domain_SocialPlayerListItem,
+} from "../../api/services/verseOwners";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";

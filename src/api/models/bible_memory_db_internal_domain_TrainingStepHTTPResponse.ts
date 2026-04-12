@@ -5,8 +5,8 @@
 import type { bible_memory_db_internal_domain_UserVerse } from './bible_memory_db_internal_domain_UserVerse';
 export type bible_memory_db_internal_domain_TrainingStepHTTPResponse = {
     graduatedToReview?: boolean;
-    nextTrainingModeId?: number;
     newTotalXp?: number;
+    nextTrainingModeId?: number;
     /**
      * PromotedVerseIds contains externalVerseIds auto-promoted from queue when this step freed a slot.
      */

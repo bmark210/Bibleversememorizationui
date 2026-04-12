@@ -14,7 +14,7 @@ import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Skeleton } from '@/app/components/ui/skeleton';
 import { cn } from '@/app/components/ui/utils';
-import type { domain_Tag } from '@/api/models/domain_Tag';
+import type { bible_memory_db_internal_domain_Tag as domain_Tag } from '@/api/models/bible_memory_db_internal_domain_Tag';
 import {
   DEFAULT_VERSE_LIST_SORT_BY,
   type VerseListSortBy,

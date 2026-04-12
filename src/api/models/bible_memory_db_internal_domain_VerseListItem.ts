@@ -15,6 +15,7 @@ export type bible_memory_db_internal_domain_VerseListItem = {
     difficultyLevel?: bible_memory_db_internal_domain_VerseDifficultyLevel;
     externalVerseId?: string;
     flow?: bible_memory_db_internal_domain_VerseFlow;
+    isPopular?: boolean;
     lastReviewedAt?: string;
     lastTrainingModeId?: number;
     masteryLevel?: number;

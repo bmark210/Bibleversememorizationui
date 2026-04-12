@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { domain_UserDashboardStats } from "@/api/models/domain_UserDashboardStats";
-import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import type { bible_memory_db_internal_domain_UserDashboardStats as domain_UserDashboardStats } from "@/api/models/bible_memory_db_internal_domain_UserDashboardStats";
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse as domain_UserLeaderboardResponse } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardResponse";
 import {
   fetchDashboardFriendsActivity,
   type DashboardCompactFriendsActivityResponse,
@@ -11,8 +11,8 @@ import {
   DASHBOARD_LEADERBOARD_PREVIEW_SIZE,
   LEADERBOARD_WINDOW_SIZE,
   fetchDashboardLeaderboard,
-} from "@/api/services/leaderboard";
-import { fetchUserDashboardStats } from "@/api/services/userStats";
+} from "../../../api/services/leaderboard";
+import { fetchUserDashboardStats } from "../../../api/services/userStats";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 
 type DashboardLeaderboardQuery = {

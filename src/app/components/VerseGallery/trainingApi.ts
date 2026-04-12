@@ -1,8 +1,8 @@
 import type { internal_api_PatchUserVerseRequest } from "@/api/models/internal_api_PatchUserVerseRequest";
-import type { domain_TrainingStepHTTPRequest } from "@/api/models/domain_TrainingStepHTTPRequest";
-import type { domain_TrainingStepHTTPResponse } from "@/api/models/domain_TrainingStepHTTPResponse";
-import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
-import type { domain_VerseListItem } from "@/api/models/domain_VerseListItem";
+import type { bible_memory_db_internal_domain_TrainingStepHTTPRequest as domain_TrainingStepHTTPRequest } from "@/api/models/bible_memory_db_internal_domain_TrainingStepHTTPRequest";
+import type { bible_memory_db_internal_domain_TrainingStepHTTPResponse as domain_TrainingStepHTTPResponse } from "@/api/models/bible_memory_db_internal_domain_TrainingStepHTTPResponse";
+import type { bible_memory_db_internal_domain_UserVerse as domain_UserVerse } from "@/api/models/bible_memory_db_internal_domain_UserVerse";
+import type { bible_memory_db_internal_domain_VerseListItem as domain_VerseListItem } from "@/api/models/bible_memory_db_internal_domain_VerseListItem";
 import { fetchUserVersesPage } from "@/api/services/userVersesPagination";
 import { UserVersesService } from "@/api/services/UserVersesService";
 import { getTelegramUserId } from "@/app/lib/telegramWebApp";

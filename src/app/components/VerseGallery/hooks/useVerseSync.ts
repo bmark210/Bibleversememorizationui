@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { domain_UserVerse } from "@/api/models/domain_UserVerse";
+import type { bible_memory_db_internal_domain_UserVerse as domain_UserVerse } from "@/api/models/bible_memory_db_internal_domain_UserVerse";
 import type { Verse } from "@/app/domain/verse";
 import { getVerseDisplayStatus, getVerseFlow } from "@/shared/verseRules/index";
 import {

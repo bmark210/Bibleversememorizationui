@@ -1,4 +1,4 @@
-import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
+import type { bible_memory_db_internal_domain_UserLeaderboardEntry as domain_UserLeaderboardEntry } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardEntry";
 
 export function selectCompactLeaderboardEntries(
   items: readonly domain_UserLeaderboardEntry[],

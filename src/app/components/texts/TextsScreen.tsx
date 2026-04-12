@@ -16,7 +16,7 @@ import {
   patchVerseStatus,
   removeTextFromBox,
   replaceLearningVerseInTextBox,
-} from "@/api/services/textBoxes";
+} from "../../../api/services/textBoxes";
 import {
   Avatar,
   AvatarFallback,

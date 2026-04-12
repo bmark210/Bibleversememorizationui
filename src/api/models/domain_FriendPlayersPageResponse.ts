@@ -1,3 +1,0 @@
-import type { bible_memory_db_internal_domain_FriendPlayersPageResponse } from "./bible_memory_db_internal_domain_FriendPlayersPageResponse";
-
-export type domain_FriendPlayersPageResponse = bible_memory_db_internal_domain_FriendPlayersPageResponse;

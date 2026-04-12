@@ -15,17 +15,15 @@ import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../ui/dialog";
 import { Skeleton } from "../ui/skeleton";
-import type { domain_UserLeaderboardEntry } from "@/api/models/domain_UserLeaderboardEntry";
-import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
-import type {
-  DashboardCompactFriendActivityEntry,
-  DashboardCompactFriendsActivityResponse,
-} from "@/api/services/friendsActivity";
+import type { bible_memory_db_internal_domain_UserLeaderboardEntry as domain_UserLeaderboardEntry } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardEntry";
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse as domain_UserLeaderboardResponse } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardResponse";
 import {
+  type DashboardCompactFriendActivityEntry,
+  type DashboardCompactFriendsActivityResponse,
   FRIENDS_ACTIVITY_WINDOW_SIZE,
   fetchDashboardFriendsActivity,
-} from "@/api/services/friendsActivity";
-import { LEADERBOARD_WINDOW_SIZE } from "@/api/services/leaderboard";
+} from "../../../api/services/friendsActivity";
+import { LEADERBOARD_WINDOW_SIZE } from "../../../api/services/leaderboard";
 import { formatXp } from "@/shared/social/formatXp";
 import { useCurrentUserStatsStore } from "@/app/stores/currentUserStatsStore";
 import { AppSurface } from "../ui/AppSurface";

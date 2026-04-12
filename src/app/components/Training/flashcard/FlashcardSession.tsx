@@ -12,6 +12,7 @@ import {
   fetchFlashcardVerses,
   submitFlashcardSession,
   type FlashcardResult,
+  type FlashcardVerseItem,
 } from "./services/flashcardApi";
 import {
   buildFlashcardSessionCards,
@@ -63,7 +64,9 @@ export function FlashcardSession({
           return;
         }
 
-        const sessionCards = buildFlashcardSessionCards(response.verses);
+        const sessionCards = buildFlashcardSessionCards(
+          response.verses as FlashcardVerseItem[],
+        );
 
         if (sessionCards.length === 0) {
           setErrorMessage("Не удалось загрузить тексты стихов.");

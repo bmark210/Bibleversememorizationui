@@ -61,7 +61,7 @@ export class QueueService {
     }
     /**
      * Add verse to queue
-     * Moves a verse from MY or STOPPED status into the learning queue.
+     * Moves a verse from STOPPED status into the learning queue.
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @returns string OK
@@ -86,7 +86,7 @@ export class QueueService {
     }
     /**
      * Remove verse from queue
-     * Moves a verse from QUEUE back to MY status.
+     * Moves a verse from QUEUE back to STOPPED status.
      * @param telegramId Telegram ID
      * @param externalVerseId External verse ID
      * @returns string OK

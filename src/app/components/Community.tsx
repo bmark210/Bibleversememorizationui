@@ -8,8 +8,8 @@ import {
   Users,
 } from "lucide-react";
 import { Virtuoso, type ListRange, type VirtuosoHandle } from "react-virtuoso";
-import type { domain_FriendPlayerListItem } from "@/api/models/domain_FriendPlayerListItem";
-import type { domain_UserLeaderboardResponse } from "@/api/models/domain_UserLeaderboardResponse";
+import type { domain_FriendPlayerListItem } from "@/api/services/friends";
+import type { bible_memory_db_internal_domain_UserLeaderboardResponse as domain_UserLeaderboardResponse } from "@/api/models/bible_memory_db_internal_domain_UserLeaderboardResponse";
 import {
   addFriend,
   fetchFriendsPage,
