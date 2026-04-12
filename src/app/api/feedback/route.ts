@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  FEEDBACK_ATTACHMENT_FIELD,
   FEEDBACK_EMAIL,
   FEEDBACK_FORMSUBMIT_FORM_ID,
+  FEEDBACK_MAX_ATTACHMENT_BYTES,
   FEEDBACK_SUBJECT,
   MAX_FEEDBACK_LENGTH,
 } from "@/app/lib/feedbackConfig";
@@ -20,6 +22,10 @@ const feedbackSchema = z.object({
   lastName: z.string().trim().max(120).nullish(),
   username: z.string().trim().max(120).nullish(),
 });
+
+type FeedbackInput = z.infer<typeof feedbackSchema> & {
+  attachment: File | null;
+};
 
 function normalizeOptional(value?: string | null) {
   const normalized = String(value ?? "").trim();
@@ -50,8 +56,8 @@ function buildSenderName(input: z.infer<typeof feedbackSchema>) {
   return "Пользователь Bible Memory";
 }
 
-function buildFormSubmitPayload(input: z.infer<typeof feedbackSchema>) {
-  const params = new URLSearchParams();
+function buildFormSubmitPayload(input: FeedbackInput) {
+  const params = new FormData();
   const displayName = [input.firstName, input.lastName]
     .map((value) => normalizeOptional(value))
     .filter(Boolean)
@@ -72,7 +78,128 @@ function buildFormSubmitPayload(input: z.infer<typeof feedbackSchema>) {
   params.set("_captcha", "false");
   params.set("_honey", "");
 
+  if (input.attachment) {
+    params.append(
+      FEEDBACK_ATTACHMENT_FIELD,
+      input.attachment,
+      input.attachment.name,
+    );
+  }
+
   return params;
+}
+
+function parseFormField(
+  formData: FormData,
+  fieldName: keyof z.infer<typeof feedbackSchema>,
+) {
+  const value = formData.get(fieldName);
+  return typeof value === "string" ? value : undefined;
+}
+
+function validateAttachment(attachment: File | null) {
+  if (!attachment) {
+    return null;
+  }
+
+  if (!attachment.type.startsWith("image/")) {
+    return "Можно прикрепить только одну фотографию.";
+  }
+
+  if (attachment.size > FEEDBACK_MAX_ATTACHMENT_BYTES) {
+    return "Фотография слишком большая. Максимум 10 MB.";
+  }
+
+  return null;
+}
+
+async function parseFeedbackRequest(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    let formData: FormData;
+
+    try {
+      formData = await request.formData();
+    } catch {
+      return {
+        error: NextResponse.json(
+          { message: "Не удалось прочитать форму." },
+          { status: 400 },
+        ),
+      };
+    }
+
+    const attachmentValue = formData.get(FEEDBACK_ATTACHMENT_FIELD);
+    const attachment =
+      attachmentValue instanceof File && attachmentValue.size > 0
+        ? attachmentValue
+        : null;
+
+    const attachmentError = validateAttachment(attachment);
+    if (attachmentError) {
+      return {
+        error: NextResponse.json(
+          { message: attachmentError },
+          { status: 400 },
+        ),
+      };
+    }
+
+    const parsed = feedbackSchema.safeParse({
+      message: parseFormField(formData, "message"),
+      telegramId: parseFormField(formData, "telegramId"),
+      firstName: parseFormField(formData, "firstName"),
+      lastName: parseFormField(formData, "lastName"),
+      username: parseFormField(formData, "username"),
+    });
+
+    if (!parsed.success) {
+      return {
+        error: NextResponse.json(
+          { message: "Проверьте текст сообщения и повторите попытку." },
+          { status: 400 },
+        ),
+      };
+    }
+
+    return {
+      data: {
+        ...parsed.data,
+        attachment,
+      } satisfies FeedbackInput,
+    };
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return {
+      error: NextResponse.json(
+        { message: "Некорректный JSON в запросе." },
+        { status: 400 },
+      ),
+    };
+  }
+
+  const parsed = feedbackSchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      error: NextResponse.json(
+        { message: "Проверьте текст сообщения и повторите попытку." },
+        { status: 400 },
+      ),
+    };
+  }
+
+  return {
+    data: {
+      ...parsed.data,
+      attachment: null,
+    } satisfies FeedbackInput,
+  };
 }
 
 function resolveRequestOrigin(request: Request) {
@@ -94,23 +221,9 @@ function resolveRequestOrigin(request: Request) {
 }
 
 export async function POST(request: Request) {
-  let payload: unknown;
-
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json(
-      { message: "Некорректный JSON в запросе." },
-      { status: 400 },
-    );
-  }
-
-  const parsed = feedbackSchema.safeParse(payload);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { message: "Проверьте текст сообщения и повторите попытку." },
-      { status: 400 },
-    );
+  const parsedRequest = await parseFeedbackRequest(request);
+  if (parsedRequest.error) {
+    return parsedRequest.error;
   }
 
   const controller = new AbortController();
@@ -125,11 +238,10 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
         Origin: requestOrigin,
         Referer: `${requestOrigin}/`,
       },
-      body: buildFormSubmitPayload(parsed.data).toString(),
+      body: buildFormSubmitPayload(parsedRequest.data),
       cache: "no-store",
       signal: controller.signal,
     });
