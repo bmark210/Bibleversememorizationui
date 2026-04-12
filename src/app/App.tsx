@@ -356,7 +356,7 @@ export default function App({ onInitialContentReady }: AppProps) {
           isContentReady={!isBootstrapping}
           hideChrome={activeScreen === "training" && isTrainingSessionFullscreen}
           contentMode={
-            activeScreen === "dashboard" || activeScreen === "community"
+            activeScreen === "dashboard" || activeScreen === "community" || activeScreen === "profile"
               ? "fit"
               : activeScreen === "training" || activeScreen === "verses"
                 ? "fit-strict"

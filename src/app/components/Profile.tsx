@@ -13,8 +13,10 @@ import { cn } from "./ui/utils";
 
 type Theme = "light" | "dark";
 
-const PAGE_SHELL  = "mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-3";
-const SECTION_LABEL = "text-[10.5px] font-semibold uppercase tracking-[0.16em] text-text-muted";
+// overflow-hidden (not auto) so flex-1 / flex-[N] children truly share
+// the fixed viewport height without being able to grow past it.
+const PAGE_SHELL = "mx-auto flex h-full w-full max-w-3xl flex-col gap-3 overflow-hidden";
+const SECTION_LABEL = "shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-text-muted";
 
 const FONT_OPTIONS = [
   { value: "small",       preview: 16, label: "Малый"         },
@@ -72,117 +74,118 @@ export function Profile({
   );
 
   return (
-    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, "overflow-y-auto")}>
-        {/* ── User card ─────────────────────────────────────────────── */}
-        <AppSurface className="p-4 sm:p-5">
-          {canOpenProfile ? (
-            <button
-              type="button"
-              onClick={handleOpenProfile}
-              className="flex w-full items-center gap-4 text-left"
-              aria-label="Открыть профиль"
-            >
-              {avatarEl}
-              <div className="min-w-0">
-                <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
-                <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
+
+      {/* ── User card — fixed/shrink height ───────────────────────── */}
+      <AppSurface className="shrink-0 p-4 sm:p-5">
+        {canOpenProfile ? (
+          <button
+            type="button"
+            onClick={handleOpenProfile}
+            className="flex w-full items-center gap-4 text-left"
+            aria-label="Открыть профиль"
+          >
+            {avatarEl}
+            <div className="min-w-0">
+              <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+              <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
+            </div>
+          </button>
+        ) : (
+          <div className="flex items-center gap-4">
+            {avatarEl}
+            <div className="min-w-0">
+              <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
+              <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
+            </div>
+          </div>
+        )}
+      </AppSurface>
+
+      {/* ── Settings — takes ~62% of remaining vertical space ─────── */}
+      <AppSurface className="flex flex-[3] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+        <div className={cn(SECTION_LABEL, "mb-4")}>Настройки</div>
+
+        <div className="flex flex-1 flex-col gap-3 overflow-hidden">
+
+          {/* Theme row */}
+          <div className="flex shrink-0 items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-[1.1rem]">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
+                <Moon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
               </div>
-            </button>
-          ) : (
-            <div className="flex items-center gap-4">
-              {avatarEl}
-              <div className="min-w-0">
-                <div className="truncate text-lg font-semibold text-text-primary leading-snug">{profileName}</div>
-                <div className="truncate text-sm text-text-muted mt-0.5">{usernameLabel}</div>
+              <div>
+                <div className="text-base font-medium text-text-primary leading-none">Тёмная тема</div>
+                <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">
+                  {theme === "dark" ? "Включена" : "Выключена"}
+                </div>
               </div>
             </div>
-          )}
-        </AppSurface>
+            <Switch checked={theme === "dark"} onCheckedChange={onToggleTheme} aria-label="Тёмная тема" />
+          </div>
 
-        {/* ── Settings — grows to fill available space ───────────────── */}
-        <AppSurface className="flex flex-1 flex-col px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-          <div className={cn(SECTION_LABEL, "mb-4")}>Настройки</div>
+          {/* Font size list — fills ALL remaining space evenly */}
+          <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
 
-          <div className="flex flex-1 flex-col gap-3">
-
-            {/* Theme toggle */}
-            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-elevated/60 px-4 py-[1.1rem]">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-subtle text-text-secondary">
-                  <Moon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <div className="text-base font-medium text-text-primary leading-none">Тёмная тема</div>
-                  <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">
-                    {theme === "dark" ? "Включена" : "Выключена"}
-                  </div>
-                </div>
-              </div>
-              <Switch checked={theme === "dark"} onCheckedChange={onToggleTheme} aria-label="Тёмная тема" />
+            <div className="shrink-0 border-b border-border-subtle px-4 py-[0.875rem]">
+              <div className="text-base font-medium text-text-primary leading-none">Шрифт тренировки</div>
+              <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">Размер текста стиха</div>
             </div>
 
-            {/* Font size list — fills remaining space */}
-            <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-elevated/60">
-
-              {/* Header */}
-              <div className="border-b border-border-subtle px-4 py-[0.875rem]">
-                <div className="text-base font-medium text-text-primary leading-none">Шрифт тренировки</div>
-                <div className="text-[0.8rem] text-text-muted mt-[0.3rem]">Размер текста стиха</div>
-              </div>
-
-              {/* Rows — each takes equal share of remaining height */}
-              <div className="flex flex-1 flex-col divide-y divide-border-subtle">
-                {FONT_OPTIONS.map((opt) => {
-                  const active = trainingFontSize === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setTrainingFontSize(opt.value)}
-                      aria-label={`Шрифт: ${opt.label}`}
+            {/* Each row claims equal share via flex-1 */}
+            <div className="flex flex-1 flex-col divide-y divide-border-subtle overflow-hidden">
+              {FONT_OPTIONS.map((opt) => {
+                const active = trainingFontSize === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTrainingFontSize(opt.value)}
+                    aria-label={`Шрифт: ${opt.label}`}
+                    className={cn(
+                      "flex flex-1 items-center gap-4 px-4 transition-colors",
+                      active
+                        ? "bg-status-mastered-soft/35"
+                        : "hover:bg-bg-surface/40 active:bg-bg-surface/60",
+                    )}
+                  >
+                    <span
+                      style={{ fontSize: opt.preview }}
                       className={cn(
-                        "flex flex-1 items-center gap-4 px-4 transition-colors min-h-[2.5rem]",
-                        active
-                          ? "bg-status-mastered-soft/35"
-                          : "hover:bg-bg-surface/40 active:bg-bg-surface/60",
+                        "w-10 shrink-0 text-center font-serif leading-none",
+                        active ? "text-brand-primary" : "text-text-secondary",
                       )}
                     >
-                      <span
-                        style={{ fontSize: opt.preview }}
-                        className={cn(
-                          "w-10 shrink-0 text-center font-serif leading-none",
-                          active ? "text-brand-primary" : "text-text-secondary",
-                        )}
-                      >
-                        Аа
-                      </span>
+                      Аа
+                    </span>
 
-                      <span className={cn(
-                        "flex-1 text-left text-base font-medium",
-                        active ? "text-brand-primary" : "text-text-primary",
-                      )}>
-                        {opt.label}
-                      </span>
+                    <span className={cn(
+                      "flex-1 text-left text-base font-medium",
+                      active ? "text-brand-primary" : "text-text-primary",
+                    )}>
+                      {opt.label}
+                    </span>
 
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        {active
-                          ? <Check className="h-4 w-4 text-brand-primary" strokeWidth={2.5} />
-                          : null}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                      {active
+                        ? <Check className="h-4 w-4 text-brand-primary" strokeWidth={2.5} />
+                        : null}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-
           </div>
-        </AppSurface>
 
-        {/* ── Feedback ──────────────────────────────────────────────── */}
-        <AppSurface className="flex flex-col px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
-          <div className={cn(SECTION_LABEL, "mb-4")}>Обратная связь</div>
-          <Feedback telegramId={telegramId} />
-        </AppSurface>
+        </div>
+      </AppSurface>
+
+      {/* ── Feedback — takes ~38% of remaining vertical space ─────── */}
+      <AppSurface className="flex flex-[2] flex-col overflow-hidden px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5">
+        <div className={cn(SECTION_LABEL, "mb-3")}>Обратная связь</div>
+        <Feedback telegramId={telegramId} />
+      </AppSurface>
+
     </section>
   );
 }

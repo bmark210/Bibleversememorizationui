@@ -65,16 +65,17 @@ export function Feedback({ telegramId = null }: FeedbackProps) {
   }, [telegramId, trimmed, user]);
 
   return (
-    <div className="flex flex-1 flex-col gap-2.5">
+    <div className="flex flex-1 flex-col gap-2.5 overflow-hidden">
+      {/* textarea stretches to fill all available height in the card */}
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Баг, неудобство или идея — любые мысли приветствуются…"
         maxLength={MAX_LENGTH}
-        className="flex-1 min-h-[100px] rounded-[1.25rem] border-border-subtle bg-bg-surface shadow-none resize-none"
+        className="flex-1 h-full min-h-0 rounded-[1.25rem] border-border-subtle bg-bg-surface shadow-none resize-none"
       />
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <span className={cn("text-xs", remaining < 120 ? "text-state-warning" : "text-text-muted")}>
           {remaining} симв.
         </span>
