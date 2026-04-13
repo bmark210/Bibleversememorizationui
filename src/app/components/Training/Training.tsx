@@ -10,10 +10,6 @@ import { TrainingBoxHub } from "./TrainingBoxHub";
 import { TrainingBoxPicker } from "./TrainingBoxPicker";
 import { TrainingSession } from "./session/TrainingSession";
 import { pickVersesForCoreModes } from "./coreTrainingAvailability";
-import {
-  readTrainingHubPreferences,
-  writeTrainingHubPreferences,
-} from "./trainingHubPreferences";
 import { getVerseTrainingLaunchMode } from "@/shared/verseRules/index";
 import type {
   AnchorModeGroup,
@@ -34,18 +30,6 @@ function getInitialSubsetFilter(modes: CoreTrainingMode[]) {
   return "catalog" as const;
 }
 
-function computeInitialHubSelections(): {
-  scenario: TrainingScenario;
-  coreModes: CoreTrainingMode[];
-  anchorModes: AnchorModeGroup[];
-} {
-  const prefs = readTrainingHubPreferences();
-  return {
-    scenario: prefs?.scenario ?? "core",
-    coreModes: prefs?.coreModes ?? CORE_SESSION_MODES,
-    anchorModes: prefs?.anchorModes ?? [...ALL_ANCHOR_MODE_GROUPS],
-  };
-}
 
 export function Training({
   telegramId,
@@ -57,16 +41,13 @@ export function Training({
   onVerseMutationCommitted,
   onSessionFullscreenChange,
 }: TrainingProps) {
-  const initialHub = useMemo(() => computeInitialHubSelections(), []);
-  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>(
-    initialHub.scenario,
-  );
+  const [selectedScenario, setSelectedScenario] = useState<TrainingScenario>("core");
   const [selectedModes, setSelectedModes] = useState<CoreTrainingMode[]>(
-    initialHub.coreModes,
+    CORE_SESSION_MODES,
   );
   const [selectedAnchorModes, setSelectedAnchorModes] = useState<
     AnchorModeGroup[]
-  >(initialHub.anchorModes);
+  >([...ALL_ANCHOR_MODE_GROUPS]);
   const [selectedAnchorSubScenario, setSelectedAnchorSubScenario] =
     useState<AnchorSubScenario>("interactive");
   const [view, setView] = useState<TrainingView | null>(null);
@@ -85,13 +66,6 @@ export function Training({
     [boxVerseItems],
   );
 
-  useEffect(() => {
-    writeTrainingHubPreferences({
-      scenario: selectedScenario,
-      coreModes: selectedModes,
-      anchorModes: selectedAnchorModes,
-    });
-  }, [selectedAnchorModes, selectedModes, selectedScenario]);
 
   useEffect(() => {
     if (directLaunch?.scope) {
