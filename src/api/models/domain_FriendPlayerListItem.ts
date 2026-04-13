@@ -5,9 +5,11 @@
 export type domain_FriendPlayerListItem = {
     avatarUrl?: string;
     isFriend?: boolean;
+    lastActiveAt?: string;
     name?: string;
     nickname?: string;
     telegramId?: string;
     versesCount?: number;
+    xp?: number;
 };
 

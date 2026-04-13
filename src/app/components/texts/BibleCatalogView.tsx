@@ -61,7 +61,7 @@ import {
   getAllBibleBooks,
   formatVerseReference,
 } from "@/app/types/bible";
-import type { TextBoxSummary } from "@/app/types/textBox";
+import type { TextBoxSummary, TextBoxVisibility } from "@/app/types/textBox";
 import { formatRussianCount } from "./TextCards";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ import { formatRussianCount } from "./TextCards";
 type BibleCatalogViewProps = {
   telegramId: string | null;
   boxes: TextBoxSummary[];
-  onCreateBox?: (title: string) => Promise<TextBoxSummary>;
+  onCreateBox?: (title: string, visibility: TextBoxVisibility) => Promise<TextBoxSummary>;
   onRefreshBoxes: () => Promise<unknown>;
   onVerseMutationCommitted?: () => void;
   requestedTagSlug?: string | null;
@@ -750,6 +750,8 @@ export function BibleCatalogView({
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [busyBoxId, setBusyBoxId] = useState<string | null>(null);
   const [newBoxTitle, setNewBoxTitle] = useState("");
+  const [newBoxVisibility, setNewBoxVisibility] = useState<TextBoxVisibility>("private");
+  const [isCreateBoxDrawerOpen, setIsCreateBoxDrawerOpen] = useState(false);
   const [tagDrawerTarget, setTagDrawerTarget] =
     useState<VerseTagsDrawerTarget | null>(null);
 
@@ -1018,20 +1020,22 @@ export function BibleCatalogView({
 
     setBusyBoxId(CREATE_BOX_BUSY_KEY);
     try {
-      const created = await onCreateBox(nextTitle);
+      const created = await onCreateBox(nextTitle, newBoxVisibility);
+      setIsCreateBoxDrawerOpen(false);
+      setNewBoxTitle("");
+      setNewBoxVisibility("private");
       await handleCommitSelectionToBox(created);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Не удалось создать коробку",
-        {
-          label: "Тексты",
-        },
+        { label: "Тексты" },
       );
       setBusyBoxId(null);
     }
   }, [
     handleCommitSelectionToBox,
     newBoxTitle,
+    newBoxVisibility,
     onCreateBox,
     selectedVerseIds.length,
     telegramId,
@@ -1617,53 +1621,18 @@ export function BibleCatalogView({
 
           <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain pb-2">
             {canCreateBox ? (
-              <div className="relative overflow-hidden rounded-[1.55rem] border border-border-default/60 bg-bg-elevated/95 px-4 py-4 shadow-[var(--shadow-soft)]">
-                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-brand-primary/35 to-transparent" />
-
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-semibold tracking-tight text-text-primary">
-                      Новая коробка
-                    </p>
-                    <p className="max-w-[18rem] text-xs leading-relaxed text-text-secondary">
-                      Создайте коробку и добавьте выбранные стихи одним
-                      действием.
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-brand-primary/18 bg-brand-primary/10 px-2.5 py-1 text-[11px] font-medium text-brand-primary">
-                    {selectedCountLabel}
-                  </span>
+              <button
+                type="button"
+                onClick={() => setIsCreateBoxDrawerOpen(true)}
+                className="flex w-full items-center gap-3 rounded-[1.5rem] border border-dashed border-border-default/70 bg-bg-elevated px-4 py-3.5 text-left shadow-[var(--shadow-soft)] transition-colors hover:bg-bg-surface"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-brand-primary/25 bg-brand-primary/10">
+                  <Plus className="h-4 w-4 text-brand-primary" />
                 </div>
-
-                <form
-                  className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleCreateBoxAndAdd();
-                  }}
-                >
-                  <Input
-                    value={newBoxTitle}
-                    maxLength={80}
-                    placeholder="Название коробки"
-                    className="h-11 flex-1 rounded-[1.15rem] border-border-subtle bg-bg-surface shadow-none"
-                    disabled={isMutatingBoxSelection}
-                    onChange={(event) => setNewBoxTitle(event.target.value)}
-                  />
-                  <Button
-                    type="submit"
-                    className="h-11 rounded-[1.15rem] px-5 sm:w-auto"
-                    disabled={isMutatingBoxSelection || !newBoxTitle.trim()}
-                  >
-                    {isCreatingBox ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    Создать
-                  </Button>
-                </form>
-              </div>
+                <span className="text-sm font-medium text-text-primary">
+                  Новая коробка
+                </span>
+              </button>
             ) : null}
 
             <div className="space-y-2">
@@ -1731,6 +1700,93 @@ export function BibleCatalogView({
               onClick={() => setIsAddDrawerOpen(false)}
             >
               Закрыть
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* Create Box Drawer                                                      */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <Drawer
+        open={isCreateBoxDrawerOpen}
+        onOpenChange={(open) => {
+          setIsCreateBoxDrawerOpen(open);
+          if (!open) {
+            setNewBoxTitle("");
+            setNewBoxVisibility("private");
+          }
+        }}
+      >
+        <DrawerContent className="px-4">
+          <DrawerHeader className="px-0">
+            <DrawerTitle>Новая коробка</DrawerTitle>
+          </DrawerHeader>
+
+          <div className="space-y-3 pb-2">
+            <Input
+              autoFocus
+              value={newBoxTitle}
+              maxLength={80}
+              placeholder="Название"
+              className="h-11 rounded-[1.15rem] border-border-subtle bg-bg-surface"
+              disabled={isCreatingBox}
+              onChange={(event) => setNewBoxTitle(event.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleCreateBoxAndAdd();
+              }}
+            />
+
+            <div className="rounded-[1.5rem] border border-border-default/55 bg-bg-elevated px-4 py-3 shadow-[var(--shadow-soft)]">
+              <div className="mb-3 text-sm font-medium text-text-primary">
+                Видимость
+              </div>
+              <div className="inline-flex rounded-full border border-border-subtle/80 bg-bg-subtle/70 p-1 shadow-[var(--shadow-soft)]">
+                {(
+                  [
+                    { value: "private", label: "Личная" },
+                    { value: "public", label: "Открытая" },
+                  ] as Array<{ value: TextBoxVisibility; label: string }>
+                ).map((item) => {
+                  const active = newBoxVisibility === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setNewBoxVisibility(item.value)}
+                      className={cn(
+                        "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-bg-elevated text-text-primary shadow-[var(--shadow-soft)]"
+                          : "text-text-secondary hover:text-text-primary",
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DrawerFooter className="px-0">
+            <Button
+              type="button"
+              className="rounded-[1.2rem]"
+              disabled={isCreatingBox || !newBoxTitle.trim()}
+              onClick={() => void handleCreateBoxAndAdd()}
+            >
+              {isCreatingBox ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Создать коробку
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsCreateBoxDrawerOpen(false)}
+            >
+              Отмена
             </Button>
           </DrawerFooter>
         </DrawerContent>

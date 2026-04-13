@@ -43,9 +43,14 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
   }, [refresh]);
 
   const create = useCallback(
-    async (title: string) => {
+    async (title: string, visibility: TextBoxVisibility = "private") => {
       if (!telegramId) throw new Error("telegramId required");
-      const created = await createTextBox(telegramId, title, translation);
+      const created = await createTextBox(
+        telegramId,
+        title,
+        visibility,
+        translation,
+      );
       await refresh();
       return created;
     },
@@ -66,15 +71,23 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     [refresh, telegramId, translation],
   );
 
+  const update = useCallback(
+    async (
+      boxId: string,
+      patch: { title?: string; visibility?: TextBoxVisibility },
+    ) => {
+      if (!telegramId) throw new Error("telegramId required");
+      const updated = await updateTextBox(telegramId, boxId, patch, translation);
+      await refresh();
+      return updated;
+    },
+    [refresh, telegramId, translation],
+  );
+
   const rename = useCallback(
     async (boxId: string, title: string) => {
       if (!telegramId) throw new Error("telegramId required");
-      const updated = await updateTextBox(
-        telegramId,
-        boxId,
-        { title },
-        translation,
-      );
+      const updated = await updateTextBox(telegramId, boxId, { title }, translation);
       await refresh();
       return updated;
     },
@@ -84,12 +97,7 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
   const setVisibility = useCallback(
     async (boxId: string, visibility: TextBoxVisibility) => {
       if (!telegramId) throw new Error("telegramId required");
-      const updated = await updateTextBox(
-        telegramId,
-        boxId,
-        { visibility },
-        translation,
-      );
+      const updated = await updateTextBox(telegramId, boxId, { visibility }, translation);
       await refresh();
       return updated;
     },
@@ -112,6 +120,7 @@ export function useTextBoxes(telegramId: string | null, translation?: string) {
     refresh,
     create,
     importPublic,
+    update,
     rename,
     setVisibility,
     remove,

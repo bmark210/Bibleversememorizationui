@@ -28,11 +28,12 @@ export async function fetchTextBoxes(
 export async function createTextBox(
   telegramId: string,
   title: string,
+  visibility: TextBoxVisibility = "private",
   translation?: string,
 ): Promise<TextBoxSummary> {
   return TextBoxesService.createTextBox(
     telegramId,
-    { title, visibility: "private" satisfies TextBoxVisibility },
+    { title, visibility },
     translation,
   ) as Promise<TextBoxSummary>;
 }
@@ -84,12 +85,28 @@ export async function fetchPublicTextBoxes(params: {
   ) as Promise<PublicTextBoxesPageResponse>;
 }
 
+export async function fetchFriendTextBoxes(params: {
+  telegramId: string;
+  translation?: string;
+  limit: number;
+  offset: number;
+}): Promise<PublicTextBoxesPageResponse> {
+  return TextBoxesService.listFriendTextBoxes(
+    params.telegramId,
+    params.translation,
+    params.limit,
+    params.offset,
+  ) as Promise<PublicTextBoxesPageResponse>;
+}
+
 export async function fetchPublicTextBoxDetail(
   boxId: string,
+  telegramId?: string,
   translation?: string,
 ): Promise<PublicTextBoxDetailResponse> {
   return TextBoxesService.getPublicTextBox(
     boxId,
+    telegramId,
     translation,
   ) as Promise<PublicTextBoxDetailResponse>;
 }

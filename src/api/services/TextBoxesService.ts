@@ -51,6 +51,38 @@ export class TextBoxesService {
         });
     }
     /**
+     * List boxes visible from followed users
+     * @param telegramId Telegram ID
+     * @param translation Bible translation (NRT, SYNOD, RBS2, BTI)
+     * @param limit Max items
+     * @param offset Offset
+     * @returns domain_PublicTextBoxesPageResponse OK
+     * @throws ApiError
+     */
+    public static listFriendTextBoxes(
+        telegramId: string,
+        translation?: string,
+        limit: number = 24,
+        offset?: number,
+    ): CancelablePromise<domain_PublicTextBoxesPageResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/{telegramId}/text-boxes/friends',
+            path: {
+                'telegramId': telegramId,
+            },
+            query: {
+                'translation': translation,
+                'limit': limit,
+                'offset': offset,
+            },
+            errors: {
+                400: `Bad Request`,
+                500: `Internal Server Error`,
+            },
+        });
+    }
+    /**
      * Get a public text box with its verses
      * @param boxId Box ID
      * @param translation Bible translation
@@ -59,6 +91,7 @@ export class TextBoxesService {
      */
     public static getPublicTextBox(
         boxId: string,
+        telegramId?: string,
         translation?: string,
     ): CancelablePromise<domain_PublicTextBoxDetailResponse> {
         return __request(OpenAPI, {
@@ -68,6 +101,7 @@ export class TextBoxesService {
                 'boxId': boxId,
             },
             query: {
+                'telegramId': telegramId,
                 'translation': translation,
             },
             errors: {

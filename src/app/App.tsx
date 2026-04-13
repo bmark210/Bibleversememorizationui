@@ -125,7 +125,6 @@ export default function App({ onInitialContentReady }: AppProps) {
     loadDashboardStats,
     loadDashboardLeaderboard,
     loadDashboardFriendsActivity,
-    handleLeaderboardWindowRequest,
     dashboardFetchFailedRef,
   } = useDashboardData(telegramId);
 
@@ -441,12 +440,6 @@ export default function App({ onInitialContentReady }: AppProps) {
               >
                 <Community
                   telegramId={telegramId}
-                  dashboardLeaderboard={dashboardLeaderboard}
-                  isDashboardLeaderboardLoading={isDashboardLeaderboardLoading}
-                  dashboardFriendsActivity={dashboardFriendsActivity}
-                  isDashboardFriendsActivityLoading={isDashboardFriendsActivityLoading}
-                  onLeaderboardWindowRequest={handleLeaderboardWindowRequest}
-                  onOpenTraining={handleOpenTraining}
                   onFriendsChanged={handleFriendsChanged}
                   onOpenPlayerProfile={handleOpenPlayerProfile}
                   friendsRefreshVersion={friendsRefreshVersion}
