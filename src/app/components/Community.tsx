@@ -616,7 +616,7 @@ export function Community({
   }, [activeFriendsTab, requestTabWindow]);
 
   return (
-    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING)}>
+    <section className={cn(PAGE_SHELL, PAGE_COMPACT_PADDING, '!pb-0')}>
       <AppSurface
         data-tour="profile-friends"
         className="flex h-full min-h-0 flex-1 flex-col gap-3 short-phone:h-auto"
@@ -694,7 +694,7 @@ export function Community({
           </>
         )}
       </AppSurface>
-      <div className="min-h-0 flex-1 overflow-hidden p-2 sm:p-2.5">
+      <div className="min-h-0 flex-1 overflow-hidden pt-2 px-2 sm:p-2.5">
         {activeState.isInitialLoading && activeState.items.length === 0 ? (
           <div className="grid h-full min-h-0 content-start gap-2 overflow-y-auto pr-1">
             {Array.from({ length: FRIENDS_PAGE_SIZE }).map((_, index) => (
